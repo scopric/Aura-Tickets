@@ -66,20 +66,18 @@ export function useCreateOrder() {
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
 
-      // 1. Criar o registro do pedido
+      // 1. Criar o registro do pedido na tabela 'orders'
       const { data: order, error: orderError } = await supabase
-        .from('ticket_orders')
+        .from('orders')
         .insert({
           user_id: user.id,
           event_id,
-          total_amount,
-          status: payment_method === 'pix' || payment_method === 'credit_card' ? 'completed' : 'pending', // Simulação simplificada de checkout aprovado
+          total: total_amount,
+          status: payment_method === 'pix' || payment_method === 'credit_card' ? 'paid' : 'pending',
           payment_method,
-          payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          payment_split: {
-            platform_fee: Number((total_amount * 0.1).toFixed(2)), // 10% Platform fee
-            producer_share: Number((total_amount * 0.9).toFixed(2)) // 90% Producer
-          }
+          gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
+          customer_name: user.name || user.full_name || 'Participante',
+          customer_email: user.email
         })
         .select()
         .single()
@@ -96,10 +94,13 @@ export function useCreateOrder() {
           ticketsToInsert.push({
             order_id: order.id,
             ticket_type_id: item.ticket_type_id,
+            event_id,
             user_id: user.id,
-            code,
-            status: order.status === 'completed' ? 'active' : 'cancelled', // Ativo se o pedido já estiver concluído
-            seat_info: item.seat_info || null,
+            buyer_name: user.name || user.full_name || 'Participante',
+            buyer_email: user.email,
+            qr_code: code,
+            status: order.status === 'paid' ? 'active' : 'cancelled',
+            price_paid: Number((total_amount / item.quantity).toFixed(2))
           })
         }
       }
@@ -112,7 +113,11 @@ export function useCreateOrder() {
         if (ticketsError) throw ticketsError
       }
 
-      return order
+      return {
+        ...order,
+        total_amount: Number(order.total) || 0,
+        payment_id: order.gateway_payment_id,
+      } as any
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-orders', user?.id] })
@@ -130,7 +135,7 @@ export function useUserOrders() {
       if (!user?.id) return []
 
       const { data, error } = await supabase
-        .from('ticket_orders')
+        .from('orders')
         .select(`
           *,
           events (
@@ -145,7 +150,13 @@ export function useUserOrders() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return data as any[]
+      
+      // Mapear total para total_amount e gateway_payment_id para payment_id para compatibilidade do front
+      return (data || []).map((o: any) => ({
+        ...o,
+        total_amount: Number(o.total) || 0,
+        payment_id: o.gateway_payment_id,
+      })) as DbOrder[]
     },
     enabled: !!user?.id,
   })

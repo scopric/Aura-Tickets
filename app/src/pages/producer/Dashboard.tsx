@@ -29,7 +29,7 @@ export default function ProducerDashboard() {
 
       // 2. Buscar pedidos correspondentes
       const { data: orders, error } = await supabase
-        .from('ticket_orders')
+        .from('orders')
         .select(`
           id,
           created_at,
