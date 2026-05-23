@@ -1,63 +1,117 @@
 import { useState } from 'react'
-import { Plus, X, Pencil, Trash2, Upload, Wine, UtensilsCrossed, Package, Shirt, Wrench, ToggleLeft, ToggleRight } from 'lucide-react'
-import { menuItems } from '../../data/mockData'
-import type { MenuItem } from '../../data/mockData'
+import { Plus, X, Pencil, Trash2, Upload, Wine, UtensilsCrossed, Package, Shirt, Wrench, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react'
+import { useProducerMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../../hooks/useMenuItems'
+import { toast } from 'sonner'
 
 const categories = [
   { value: 'bebida', label: 'Bebidas', icon: Wine },
   { value: 'comida', label: 'Comidas', icon: UtensilsCrossed },
   { value: 'combo', label: 'Combos', icon: Package },
-  { value: 'merchandise', label: 'Merch', icon: Shirt },
+  { value: 'merch', label: 'Merch', icon: Shirt },
   { value: 'servico', label: 'Servicos', icon: Wrench },
-]
+] as const
+
+type CategoryValue = typeof categories[number]['value']
+
+interface MenuForm {
+  name: string
+  description: string
+  price: number
+  category: CategoryValue
+  is_available: boolean
+  image_url: string
+  event_id: string
+  stock: number | null
+}
+
+const emptyForm: MenuForm = {
+  name: '', description: '', price: 0, category: 'bebida', is_available: true, image_url: '', event_id: '', stock: null,
+}
 
 export default function ProducerMenu() {
-  const [items, setItems] = useState<MenuItem[]>(menuItems)
+  const { data: items = [], isLoading } = useProducerMenuItems()
+  const createItem = useCreateMenuItem()
+  const updateItem = useUpdateMenuItem()
+  const deleteItem = useDeleteMenuItem()
+
   const [showForm, setShowForm] = useState(false)
-  const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [menuEnabled, setMenuEnabled] = useState(true)
+  const [form, setForm] = useState<MenuForm>(emptyForm)
 
-  const [form, setForm] = useState<Partial<MenuItem>>({
-    name: '', description: '', price: 0, category: 'bebida', available: true, image: '', eventId: 'noite-eletro-2025'
-  })
+  const filtered = activeCategory === 'all'
+    ? items
+    : items.filter(i => i.category === activeCategory)
 
-  const filtered = activeCategory === 'all' ? items : items.filter(i => i.category === activeCategory)
-
-  const handleSubmit = () => {
-    if (editingItem) {
-      setItems(items.map(i => i.id === editingItem.id ? { ...i, ...form } as MenuItem : i))
-    } else {
-      setItems([...items, { ...form, id: `menu-${Date.now()}`, eventId: 'noite-eletro-2025' } as MenuItem])
+  const handleSubmit = async () => {
+    try {
+      if (!form.name.trim()) {
+        toast.error('Nome do item é obrigatório')
+        return
+      }
+      if (editingId) {
+        await updateItem.mutateAsync({ id: editingId, ...form })
+        toast.success('Item atualizado!')
+      } else {
+        await createItem.mutateAsync(form)
+        toast.success('Item cadastrado!')
+      }
+      setShowForm(false)
+      setEditingId(null)
+      setForm(emptyForm)
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar item')
     }
-    setShowForm(false)
-    setEditingItem(null)
-    setForm({ name: '', description: '', price: 0, category: 'bebida', available: true, image: '', eventId: 'noite-eletro-2025' })
   }
 
-  const toggleAvailable = (id: string) => {
-    setItems(items.map(i => i.id === id ? { ...i, available: !i.available } : i))
+  const toggleAvailable = async (item: any) => {
+    try {
+      await updateItem.mutateAsync({
+        id: item.id,
+        is_available: !item.is_available,
+      })
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar disponibilidade')
+    }
   }
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(i => i.id !== id))
+  const handleDelete = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este item?')) return
+    try {
+      await deleteItem.mutateAsync(id)
+      toast.success('Item excluído!')
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao excluir item')
+    }
   }
 
-  const startEdit = (item: MenuItem) => {
-    setEditingItem(item)
-    setForm(item)
+  const startEdit = (item: any) => {
+    setEditingId(item.id)
+    setForm({
+      name: item.name,
+      description: item.description || '',
+      price: Number(item.price) || 0,
+      category: item.category as CategoryValue,
+      is_available: item.is_available,
+      image_url: item.image_url || '',
+      event_id: item.event_id || '',
+      stock: item.stock,
+    })
     setShowForm(true)
   }
 
   const stats = {
     total: items.length,
-    totalValue: items.reduce((s, i) => s + i.price, 0),
+    totalValue: items.reduce((s, i) => s + Number(i.price), 0),
     byCategory: categories.map(c => ({
       ...c,
       count: items.filter(i => i.category === c.value).length,
-      value: items.filter(i => i.category === c.value).reduce((s, i) => s + i.price, 0)
+      value: items.filter(i => i.category === c.value).reduce((s, i) => s + Number(i.price), 0),
     }))
   }
+
+  const isMutating = createItem.isPending || updateItem.isPending || deleteItem.isPending
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
@@ -78,8 +132,9 @@ export default function ProducerMenu() {
             Comandas {menuEnabled ? 'Ativas' : 'Desativadas'}
           </button>
           <button
-            onClick={() => { setShowForm(true); setEditingItem(null); setForm({ name: '', description: '', price: 0, category: 'bebida', available: true, image: '', eventId: 'noite-eletro-2025' }) }}
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
+            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm) }}
+            disabled={isMutating}
+            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
             Novo Item
@@ -122,55 +177,75 @@ export default function ProducerMenu() {
         ))}
       </div>
 
+      {/* Loading */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-plum animate-spin" />
+        </div>
+      )}
+
       {/* Items Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(item => {
-          const cat = categories.find(c => c.value === item.category)
-          return (
-            <div key={item.id} className={`p-5 rounded-2xl bg-white/60 border transition-all ${item.available ? 'border-white/60' : 'border-red-200 opacity-60'}`}>
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  item.category === 'bebida' ? 'bg-blue-100' :
-                  item.category === 'comida' ? 'bg-amber-100' :
-                  item.category === 'combo' ? 'bg-purple-100' :
-                  item.category === 'merchandise' ? 'bg-pink-100' :
-                  'bg-green-100'
-                }`}>
-                  {cat && <cat.icon className="w-5 h-5 text-espresso/70" />}
+      {!isLoading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filtered.map(item => {
+            const cat = categories.find(c => c.value === item.category)
+            return (
+              <div key={item.id} className={`p-5 rounded-2xl bg-white/60 border transition-all ${item.is_available ? 'border-white/60' : 'border-red-200 opacity-60'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                    item.category === 'bebida' ? 'bg-blue-100' :
+                    item.category === 'comida' ? 'bg-amber-100' :
+                    item.category === 'combo' ? 'bg-purple-100' :
+                    item.category === 'merch' ? 'bg-pink-100' :
+                    'bg-green-100'
+                  }`}>
+                    {cat && <cat.icon className="w-5 h-5 text-espresso/70" />}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => toggleAvailable(item)} className={`p-1.5 rounded-lg transition-colors ${item.is_available ? 'text-green-600 hover:bg-green-50' : 'text-red-400 hover:bg-red-50'}`}>
+                      {item.is_available ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors">
+                      <Pencil className="w-4 h-4" />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => toggleAvailable(item.id)} className={`p-1.5 rounded-lg transition-colors ${item.available ? 'text-green-600 hover:bg-green-50' : 'text-red-400 hover:bg-red-50'}`}>
-                    {item.available ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                  </button>
-                  <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors">
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => deleteItem(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                <h3 className="text-sm font-medium text-espresso mb-1">{item.name}</h3>
+                <p className="text-xs text-espresso/40 mb-3 line-clamp-2">{item.description}</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-serif text-xl text-plum">R$ {Number(item.price).toFixed(2)}</span>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    item.is_available ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
+                  }`}>
+                    {item.is_available ? 'Ativo' : 'Pausado'}
+                  </span>
                 </div>
               </div>
-              <h3 className="text-sm font-medium text-espresso mb-1">{item.name}</h3>
-              <p className="text-xs text-espresso/40 mb-3 line-clamp-2">{item.description}</p>
-              <div className="flex items-center justify-between">
-                <span className="font-serif text-xl text-plum">R$ {item.price}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                  item.available ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
-                }`}>
-                  {item.available ? 'Ativo' : 'Pausado'}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!isLoading && filtered.length === 0 && (
+        <div className="text-center py-20">
+          <div className="w-16 h-16 rounded-2xl bg-white/60 border border-white/60 flex items-center justify-center mx-auto mb-4">
+            <Wine className="w-8 h-8 text-espresso/20" />
+          </div>
+          <h3 className="text-sm font-medium text-espresso mb-1">Nenhum item encontrado</h3>
+          <p className="text-xs text-espresso/40">Cadastre seu primeiro item no cardápio</p>
+        </div>
+      )}
 
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
           <div className="bg-canvas rounded-3xl p-6 max-w-md w-full shadow-elevated border border-white/60">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="font-serif text-xl text-espresso">{editingItem ? 'Editar Item' : 'Novo Item'}</h2>
+              <h2 className="font-serif text-xl text-espresso">{editingId ? 'Editar Item' : 'Novo Item'}</h2>
               <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/40 transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -178,31 +253,36 @@ export default function ProducerMenu() {
             <div className="space-y-4">
               <div>
                 <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Nome</label>
-                <input value={form.name || ''} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tonica" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tonica" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
               </div>
               <div>
                 <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Descricao</label>
-                <textarea value={form.description || ''} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descricao do item" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descricao do item" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Preco (R$)</label>
-                  <input type="number" value={form.price || 0} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Categoria</label>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as MenuItem['category'] })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as CategoryValue })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Estoque (opcional)</label>
+                <input type="number" value={form.stock ?? ''} onChange={e => setForm({ ...form, stock: e.target.value ? Number(e.target.value) : null })} placeholder="Sem limite" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
               </div>
               <div className="border-2 border-dashed border-espresso/10 rounded-xl p-6 text-center hover:border-plum/30 transition-colors">
                 <Upload className="w-5 h-5 text-espresso/30 mx-auto mb-2" />
                 <p className="text-xs text-espresso/40">Arraste uma imagem ou clique para selecionar</p>
                 <p className="text-[10px] text-espresso/30 mt-1">PNG, JPG ate 2MB · 800x600px recomendado</p>
               </div>
-              <button onClick={handleSubmit} className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-                {editingItem ? 'Salvar Alteracoes' : 'Cadastrar Item'}
+              <button onClick={handleSubmit} disabled={isMutating} className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {isMutating && <Loader2 className="w-4 h-4 animate-spin" />}
+                {editingId ? 'Salvar Alteracoes' : 'Cadastrar Item'}
               </button>
             </div>
           </div>
