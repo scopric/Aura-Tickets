@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
 import { Music, Heart, Mic, Building, Guitar, Cake, GraduationCap, ArrowRight, ArrowLeft, Check, MapPin, Users, DollarSign, Ticket, Sparkles, PartyPopper, Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import { useCreateEvent } from '../../hooks/useEvents'
 import { eventProfiles } from '../../data/eventManagerData'
 import type { EventProfile } from '../../data/eventManagerData'
 
@@ -34,6 +35,7 @@ interface ExpenseItem {
 
 export default function EventPlanner() {
   const navigate = useNavigate()
+  const createEvent = useCreateEvent()
   const [step, setStep] = useState(1)
   const [data, setData] = useState({
     profile: '' as EventProfile | '',
@@ -110,9 +112,40 @@ export default function EventPlanner() {
     }
   }, [data])
 
-  const handleFinish = () => {
-    toast.success('Evento planejado com sucesso!')
-    setTimeout(() => navigate('/producer/event-manager'), 800)
+  const handleFinish = async () => {
+    try {
+      const eventData = {
+        title: data.title,
+        description: data.description,
+        date: data.date,
+        time: data.time,
+        location: data.location,
+        capacity: Number(data.capacity) || null,
+        category: data.profile ? eventProfiles[data.profile as EventProfile].label : 'Outros',
+        status: 'published' as const, // Criar publicado por padrão para aparecer na listagem
+        cover_image: '/images/hero-bg.jpg', // Placeholder de imagem premium
+      }
+
+      const ticketsData = data.batches
+        .filter(b => b.price && b.quantity)
+        .map(b => ({
+          name: b.name,
+          price: Number(b.price) || 0,
+          capacity: Number(b.quantity) || 0,
+          description: b.description || null,
+          type: 'individual' as const,
+        }))
+
+      await createEvent.mutateAsync({
+        event: eventData,
+        tickets: ticketsData
+      })
+
+      toast.success('Evento planejado e publicado com sucesso!')
+      setTimeout(() => navigate('/producer/events'), 800)
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao salvar o evento no Supabase')
+    }
   }
 
   const addBatch = () => {
@@ -496,8 +529,16 @@ export default function EventPlanner() {
                 Proximo <ArrowRight className="w-4 h-4" />
               </button>
             ) : (
-              <button onClick={handleFinish} className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-white text-sm font-medium rounded-full hover:shadow-lg transition-all">
-                <Check className="w-4 h-4" /> Criar Evento
+              <button 
+                onClick={handleFinish} 
+                disabled={createEvent.isPending}
+                className="flex items-center gap-2 px-6 py-2.5 bg-green-500 text-white text-sm font-medium rounded-full hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {createEvent.isPending ? 'Criando...' : (
+                  <>
+                    <Check className="w-4 h-4" /> Criar Evento
+                  </>
+                )}
               </button>
             )}
           </div>

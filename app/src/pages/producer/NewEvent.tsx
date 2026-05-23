@@ -1,13 +1,30 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
-import { ArrowLeft, Upload, Plus, X } from 'lucide-react'
+import { Link, useNavigate } from 'react-router'
+import { ArrowLeft, Upload, Plus, X, Check, MapPin } from 'lucide-react'
+import { useCreateEvent } from '../../hooks/useEvents'
+import { toast } from 'sonner'
 
 export default function ProducerNewEvent() {
+  const navigate = useNavigate()
+  const createEvent = useCreateEvent()
   const [step, setStep] = useState(1)
+  
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    date: '',
+    time: '',
+    location: '',
+  })
+
   const [tickets, setTickets] = useState([{ id: '1', name: '', price: '', capacity: '' }])
   const [image, setImage] = useState<string | null>(null)
   const [eventType, setEventType] = useState('Festa')
   const [customType, setCustomType] = useState('')
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
 
   const addTicket = () => {
     setTickets([...tickets, { id: Date.now().toString(), name: '', price: '', capacity: '' }])
@@ -17,12 +34,76 @@ export default function ProducerNewEvent() {
     setTickets(tickets.filter(t => t.id !== id))
   }
 
+  const updateTicket = (id: string, field: 'name' | 'price' | 'capacity', value: string) => {
+    setTickets(tickets.map(t => t.id === id ? { ...t, [field]: value } : t))
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('A imagem deve ter no máximo 5MB')
+        return
+      }
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImage(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleCreate = async () => {
+    try {
+      const category = eventType === 'Outro' ? customType || 'Outro' : eventType
+
+      const eventPayload = {
+        title: formData.title || 'Sem título',
+        description: formData.description || null,
+        date: formData.date || null,
+        time: formData.time || null,
+        location: formData.location || null,
+        category: category,
+        status: 'published' as const,
+        cover_image: '/images/hero-bg.jpg', // Usar cover de placeholder
+        capacity: tickets.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) || null
+      }
+
+      const ticketsPayload = tickets
+        .filter(t => t.name && t.price)
+        .map(t => ({
+          name: t.name,
+          price: Number(t.price) || 0,
+          capacity: t.capacity ? Number(t.capacity) : null,
+          type: 'individual' as const
+        }))
+
+      await createEvent.mutateAsync({
+        event: eventPayload,
+        tickets: ticketsPayload
+      })
+
+      toast.success('Evento criado e publicado com sucesso!')
+      setTimeout(() => navigate('/producer/events'), 800)
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao criar evento no Supabase')
+    }
+  }
+
   const steps = [
-    { num: 1, label: 'Informacoes' },
+    { num: 1, label: 'Informações' },
     { num: 2, label: 'Ingressos' },
     { num: 3, label: 'Imagem' },
-    { num: 4, label: 'Revisao' },
+    { num: 4, label: 'Revisão' },
   ]
+
+  const canNextStep1 = () => {
+    return !!formData.title && !!formData.date && !!formData.location
+  }
+
+  const canNextStep2 = () => {
+    return tickets.length > 0 && tickets.every(t => t.name && t.price && t.capacity)
+  }
 
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto">
@@ -42,7 +123,12 @@ export default function ProducerNewEvent() {
         {steps.map((s, i) => (
           <div key={s.num} className="flex items-center gap-2 flex-1">
             <button
-              onClick={() => setStep(s.num)}
+              onClick={() => {
+                if (s.num === 1) setStep(1)
+                else if (s.num === 2 && canNextStep1()) setStep(2)
+                else if (s.num === 3 && canNextStep1() && canNextStep2()) setStep(3)
+                else if (s.num === 4 && canNextStep1() && canNextStep2()) setStep(4)
+              }}
               className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
                 step === s.num ? 'bg-plum text-cream shadow-glow' :
                 step > s.num ? 'bg-plum/20 text-plum' :
@@ -61,29 +147,59 @@ export default function ProducerNewEvent() {
       {step === 1 && (
         <div className="space-y-6">
           <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Informacoes do Evento</h2>
+            <h2 className="font-serif text-xl text-espresso mb-6">Informações do Evento</h2>
             <div className="space-y-4">
               <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Titulo</label>
-                <input type="text" placeholder="Nome do evento" className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <label className="text-sm font-medium text-espresso/70 mb-2 block">Título *</label>
+                <input
+                  type="text"
+                  value={formData.title}
+                  onChange={e => handleInputChange('title', e.target.value)}
+                  placeholder="Ex: Noite Eletro 2025"
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                />
               </div>
               <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Descricao</label>
-                <textarea rows={4} placeholder="Descreva seu evento..." className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
+                <label className="text-sm font-medium text-espresso/70 mb-2 block">Descrição</label>
+                <textarea
+                  rows={4}
+                  value={formData.description}
+                  onChange={e => handleInputChange('description', e.target.value)}
+                  placeholder="Descreva seu evento..."
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none"
+                />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Data</label>
-                  <input type="date" className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Data *</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={e => handleInputChange('date', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                  />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Horario</label>
-                  <input type="time" className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Horário</label>
+                  <input
+                    type="time"
+                    value={formData.time}
+                    onChange={e => handleInputChange('time', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                  />
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Local</label>
-                <input type="text" placeholder="Endereco do evento" className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <label className="text-sm font-medium text-espresso/70 mb-2 block flex items-center gap-1">
+                  <MapPin className="w-4 h-4 text-espresso/40" /> Local *
+                </label>
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={e => handleInputChange('location', e.target.value)}
+                  placeholder="Endereço ou nome do espaço"
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                />
               </div>
               {/* Tipo de Evento */}
               <div>
@@ -92,9 +208,13 @@ export default function ProducerNewEvent() {
                   {['Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte'].map((tag) => (
                     <button
                       key={tag}
-                      onClick={() => setCustomType(tag === 'Outro' ? '' : tag)}
+                      type="button"
+                      onClick={() => {
+                        setEventType(tag)
+                        setCustomType('')
+                      }}
                       className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
-                        (eventType === tag && tag !== 'Outro')
+                        (eventType === tag)
                           ? 'bg-plum/10 text-plum border-plum/30'
                           : 'bg-white/40 border-white/60 text-espresso/60 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
                       }`}
@@ -103,6 +223,7 @@ export default function ProducerNewEvent() {
                     </button>
                   ))}
                   <button
+                    type="button"
                     onClick={() => setEventType('Outro')}
                     className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
                       eventType === 'Outro'
@@ -125,8 +246,12 @@ export default function ProducerNewEvent() {
               </div>
             </div>
           </div>
-          <button onClick={() => setStep(2)} className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-            Proximo
+          <button
+            onClick={() => setStep(2)}
+            disabled={!canNextStep1()}
+            className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Próximo
           </button>
         </div>
       )}
@@ -149,16 +274,34 @@ export default function ProducerNewEvent() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Nome</label>
-                      <input type="text" placeholder="Ex: VIP" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                      <label className="text-xs text-espresso/50 mb-1 block">Nome *</label>
+                      <input
+                        type="text"
+                        value={ticket.name}
+                        onChange={e => updateTicket(ticket.id, 'name', e.target.value)}
+                        placeholder="Ex: VIP"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                      />
                     </div>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Preco (R$)</label>
-                      <input type="number" placeholder="0,00" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                      <label className="text-xs text-espresso/50 mb-1 block">Preço (R$) *</label>
+                      <input
+                        type="number"
+                        value={ticket.price}
+                        onChange={e => updateTicket(ticket.id, 'price', e.target.value)}
+                        placeholder="0.00"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                      />
                     </div>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Capacidade</label>
-                      <input type="number" placeholder="Quantidade" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                      <label className="text-xs text-espresso/50 mb-1 block">Capacidade *</label>
+                      <input
+                        type="number"
+                        value={ticket.capacity}
+                        onChange={e => updateTicket(ticket.id, 'capacity', e.target.value)}
+                        placeholder="Quantidade"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                      />
                     </div>
                   </div>
                 </div>
@@ -173,8 +316,12 @@ export default function ProducerNewEvent() {
             <button onClick={() => setStep(1)} className="px-6 py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
               Voltar
             </button>
-            <button onClick={() => setStep(3)} className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-              Proximo
+            <button
+              onClick={() => setStep(3)}
+              disabled={!canNextStep2()}
+              className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
+            >
+              Próximo
             </button>
           </div>
         </div>
@@ -185,7 +332,7 @@ export default function ProducerNewEvent() {
         <div className="space-y-6">
           <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
             <h2 className="font-serif text-xl text-espresso mb-6">Imagem do Evento</h2>
-            <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-12 text-center hover:border-plum/30 transition-colors">
+            <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-12 text-center hover:border-plum/30 transition-colors relative">
               {image ? (
                 <div className="relative">
                   <img src={image} alt="Preview" className="w-full max-h-64 object-cover rounded-xl" />
@@ -198,11 +345,12 @@ export default function ProducerNewEvent() {
                   <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto">
                     <Upload className="w-6 h-6 text-plum" />
                   </div>
-                  <p className="text-sm text-espresso/60">Arraste uma imagem ou clique para selecionar</p>
-                  <p className="text-xs text-espresso/30">PNG, JPG ate 5MB</p>
-                  <button className="px-6 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all">
-                    Selecionar Arquivo
-                  </button>
+                  <p className="text-sm text-espresso/60">Selecione uma imagem de capa</p>
+                  <p className="text-xs text-espresso/30">PNG, JPG até 5MB</p>
+                  <label className="inline-block px-6 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all cursor-pointer">
+                    Selecionar Arquivos
+                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
+                  </label>
                 </div>
               )}
             </div>
@@ -212,7 +360,7 @@ export default function ProducerNewEvent() {
               Voltar
             </button>
             <button onClick={() => setStep(4)} className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-              Proximo
+              Próximo
             </button>
           </div>
         </div>
@@ -222,19 +370,21 @@ export default function ProducerNewEvent() {
       {step === 4 && (
         <div className="space-y-6">
           <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Revisao</h2>
+            <h2 className="font-serif text-xl text-espresso mb-6">Revisão</h2>
             <div className="space-y-4 text-sm">
               <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/50">Titulo</span>
-                <span className="text-espresso font-medium">Noite Eletro 2025</span>
+                <span className="text-espresso/50">Título</span>
+                <span className="text-espresso font-medium">{formData.title || '-'}</span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
                 <span className="text-espresso/50">Data</span>
-                <span className="text-espresso font-medium">15 de Junho, 2025</span>
+                <span className="text-espresso font-medium">
+                  {formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
+                </span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
                 <span className="text-espresso/50">Local</span>
-                <span className="text-espresso font-medium">Warehouse Central</span>
+                <span className="text-espresso font-medium">{formData.location || '-'}</span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
                 <span className="text-espresso/50">Ingressos</span>
@@ -249,8 +399,16 @@ export default function ProducerNewEvent() {
             <button onClick={() => setStep(3)} className="px-6 py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
               Voltar
             </button>
-            <button className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-              Criar Evento
+            <button
+              onClick={handleCreate}
+              disabled={createEvent.isPending}
+              className="flex items-center gap-2 px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
+            >
+              {createEvent.isPending ? 'Criando...' : (
+                <>
+                  <Check className="w-4.5 h-4.5" /> Criar Evento
+                </>
+              )}
             </button>
           </div>
         </div>

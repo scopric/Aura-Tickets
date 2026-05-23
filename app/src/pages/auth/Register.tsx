@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Eye, EyeOff, ArrowRight, User, Building, Loader2 } from 'lucide-react'
-import { useAuth, Role } from '../../contexts/AuthContext'
+import { useAuth } from '../../contexts/AuthContext'
+import type { Role } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
 
 export default function AuthRegister() {

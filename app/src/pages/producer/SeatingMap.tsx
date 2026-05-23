@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { supabase } from '../../lib/supabase'
 import {
   ArrowLeft, Save, ZoomIn, ZoomOut, RotateCcw, Grid3X3,
   Square, Circle as CircleIcon, Type, Trash2, Copy,
@@ -105,11 +106,107 @@ const toolDefaults: Record<ToolType, { w: number; h: number; cap: number; color:
 }
 
 export default function SeatingMap() {
+  const [searchParams] = useSearchParams()
+  const eventIdParam = searchParams.get('eventId')
+  const [eventId, setEventId] = useState<string | null>(eventIdParam)
+
   // Environments (multiple spaces/floors)
   const [environments, setEnvironments] = useState<Environment[]>([
     { id: 'terreo', name: 'Terreo', seats: [], sections: JSON.parse(JSON.stringify(defaultSections)) },
   ])
   const [activeEnv, setActiveEnv] = useState(0)
+
+  // Carregar o mapa de assentos do banco de dados
+  useEffect(() => {
+    const fetchMap = async () => {
+      let activeEventId = eventId;
+      
+      // Se não houver eventId na URL, buscar o primeiro evento do produtor
+      if (!activeEventId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: firstEvent } = await supabase
+            .from('events')
+            .select('id')
+            .eq('producer_id', user.id)
+            .limit(1)
+            .maybeSingle()
+            
+          if (firstEvent) {
+            activeEventId = firstEvent.id;
+            setEventId(firstEvent.id);
+          }
+        }
+      }
+
+      if (activeEventId) {
+        const { data, error } = await supabase
+          .from('seating_maps')
+          .select('*')
+          .eq('event_id', activeEventId)
+          .maybeSingle()
+
+        if (error) {
+          toast.error(`Erro ao carregar mapa: ${error.message}`)
+        } else if (data) {
+          if (data.environments && Array.isArray(data.environments)) {
+            setEnvironments(data.environments as Environment[])
+            // Ajustar o zoom/pan se salvos no config
+            if (data.config && typeof data.config === 'object') {
+              const cfg = data.config as any
+              if (cfg.zoom) setZoom(cfg.zoom)
+              if (cfg.pan) setPan(cfg.pan)
+            }
+            toast.success('Mapa de assentos carregado com sucesso!')
+          }
+        }
+      }
+    }
+    
+    fetchMap()
+  }, [])
+
+  const handleSaveMap = async () => {
+    let activeEventId = eventId;
+
+    if (!activeEventId) {
+      // Tentar carregar de novo o primeiro evento do produtor autenticado
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: firstEvent } = await supabase
+          .from('events')
+          .select('id')
+          .eq('producer_id', user.id)
+          .limit(1)
+          .maybeSingle()
+          
+        if (firstEvent) {
+          activeEventId = firstEvent.id;
+          setEventId(firstEvent.id);
+        }
+      }
+    }
+
+    if (!activeEventId) {
+      toast.error('Crie pelo menos um evento antes de salvar o mapa de assentos.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('seating_maps')
+      .upsert({
+        event_id: activeEventId,
+        name: environments[activeEnv]?.name || 'Principal',
+        config: { zoom, pan },
+        environments: environments
+      }, { onConflict: 'event_id' })
+
+    if (error) {
+      toast.error(`Erro ao salvar no banco de dados: ${error.message}`)
+    } else {
+      toast.success('Mapa de assentos salvo com sucesso no banco de dados!')
+    }
+  }
   const env = environments[activeEnv]
 
   const setSeats = (updater: SeatNode[] | ((prev: SeatNode[]) => SeatNode[])) => {
@@ -658,23 +755,23 @@ export default function SeatingMap() {
             <input value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Buscar..." className="pl-6 pr-2 py-1 bg-white/60 border border-white/60 rounded-lg text-[10px] w-28 focus:outline-none focus:border-plum/30" />
           </div>
-          <button onClick={() => setShowGrid(!showGrid)} title="Grade" className={`p-1.5 rounded-lg border transition-all ${showGrid ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><Grid3X3 className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setShowLabels(!showLabels)} title="Labels" className={`p-1.5 rounded-lg border transition-all ${showLabels ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><Type className="w-3.5 h-3.5" /></button>
-          <button onClick={() => setShowMinimap(!showMinimap)} title="Mini-mapa" className={`p-1.5 rounded-lg border transition-all ${showMinimap ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><MapPin className="w-3.5 h-3.5" /></button>
-          <button onClick={undo} disabled={(histIdx[activeEnv] || 0) <= 0} className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso disabled:opacity-30"><Undo className="w-3.5 h-3.5" /></button>
-          <button onClick={redo} disabled={(histIdx[activeEnv] || 0) >= ((history[activeEnv] || []).length - 1)} className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso disabled:opacity-30"><Redo className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setShowGrid(!showGrid)} title="Grade" aria-label="Alternar exibição da grade" className={`p-1.5 rounded-lg border transition-all ${showGrid ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><Grid3X3 className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setShowLabels(!showLabels)} title="Labels" aria-label="Alternar exibição de rótulos" className={`p-1.5 rounded-lg border transition-all ${showLabels ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><Type className="w-3.5 h-3.5" /></button>
+          <button onClick={() => setShowMinimap(!showMinimap)} title="Mini-mapa" aria-label="Alternar exibição do mini-mapa" className={`p-1.5 rounded-lg border transition-all ${showMinimap ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/60 border-white/60 text-espresso/40'}`}><MapPin className="w-3.5 h-3.5" /></button>
+          <button onClick={undo} disabled={(histIdx[activeEnv] || 0) <= 0} aria-label="Desfazer ação" title="Desfazer" className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso disabled:opacity-30"><Undo className="w-3.5 h-3.5" /></button>
+          <button onClick={redo} disabled={(histIdx[activeEnv] || 0) >= ((history[activeEnv] || []).length - 1)} aria-label="Refazer ação" title="Refazer" className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso disabled:opacity-30"><Redo className="w-3.5 h-3.5" /></button>
           <div className="flex items-center gap-1 bg-white/60 rounded-lg border border-white/60 px-1 py-0.5">
-            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} className="p-1 rounded hover:bg-white/60"><ZoomOut className="w-3.5 h-3.5 text-espresso/40" /></button>
+            <button onClick={() => setZoom(z => Math.max(0.4, z - 0.15))} aria-label="Diminuir Zoom" title="Diminuir Zoom" className="p-1 rounded hover:bg-white/60"><ZoomOut className="w-3.5 h-3.5 text-espresso/40" /></button>
             <span className="text-[10px] text-espresso/50 w-9 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.15))} className="p-1 rounded hover:bg-white/60"><ZoomIn className="w-3.5 h-3.5 text-espresso/40" /></button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} className="p-1 rounded hover:bg-white/60"><RotateCcw className="w-3.5 h-3.5 text-espresso/40" /></button>
+            <button onClick={() => setZoom(z => Math.min(2.5, z + 0.15))} aria-label="Aumentar Zoom" title="Aumentar Zoom" className="p-1 rounded hover:bg-white/60"><ZoomIn className="w-3.5 h-3.5 text-espresso/40" /></button>
+            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} aria-label="Redefinir visualização" title="Redefinir visualização" className="p-1 rounded hover:bg-white/60"><RotateCcw className="w-3.5 h-3.5 text-espresso/40" /></button>
           </div>
-          <button onClick={exportMap} className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso" title="Exportar"><Download className="w-3.5 h-3.5" /></button>
+          <button onClick={exportMap} aria-label="Exportar mapa" className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso" title="Exportar"><Download className="w-3.5 h-3.5" /></button>
           <label className="p-1.5 rounded-lg border border-white/60 bg-white/60 text-espresso/40 hover:text-espresso cursor-pointer" title="Importar">
             <Upload className="w-3.5 h-3.5" />
-            <input type="file" accept=".json" className="hidden" onChange={e => e.target.files?.[0] && importMap(e.target.files[0])} />
+            <input type="file" accept=".json" aria-label="Importar mapa em JSON" title="Importar Mapa" className="hidden" onChange={e => e.target.files?.[0] && importMap(e.target.files[0])} />
           </label>
-          <button onClick={() => { toast.success('Mapa salvo!') }} className="px-3 py-1.5 bg-plum text-cream text-[10px] rounded-full hover:shadow-glow transition-all flex items-center gap-1">
+          <button onClick={handleSaveMap} className="px-3 py-1.5 bg-plum text-cream text-[10px] rounded-full hover:shadow-glow transition-all flex items-center gap-1">
             <Save className="w-3 h-3" /> Salvar
           </button>
         </div>
@@ -691,7 +788,7 @@ export default function SeatingMap() {
               <span className="text-[8px] opacity-50">({e.seats.length})</span>
             </button>
             {environments.length > 1 && (
-              <button onClick={(ev) => { ev.stopPropagation(); removeEnvironment(i); }} className="ml-1 p-0.5 rounded hover:bg-red-100 text-espresso/30 hover:text-red-500">
+              <button onClick={(ev) => { ev.stopPropagation(); removeEnvironment(i); }} aria-label="Remover ambiente" title="Remover ambiente" className="ml-1 p-0.5 rounded hover:bg-red-100 text-espresso/30 hover:text-red-500">
                 <X className="w-2.5 h-2.5" />
               </button>
             )}
@@ -752,8 +849,8 @@ export default function SeatingMap() {
               <button onClick={() => setSnap(!snap)} className={`text-[9px] px-2 py-0.5 rounded-full border transition-all ${snap ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/40 border-white/60 text-espresso/40'}`}>{snap ? 'On' : 'Off'}</button>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] text-espresso/40">Tamanho</span>
-              <input type="range" min="10" max="50" step="5" value={gridSize} onChange={e => setGridSize(Number(e.target.value))} className="flex-1 accent-plum" />
+              <label htmlFor="grid-size-range" className="text-[9px] text-espresso/40">Tamanho</label>
+              <input id="grid-size-range" type="range" min="10" max="50" step="5" value={gridSize} onChange={e => setGridSize(Number(e.target.value))} aria-label="Tamanho da grade" title="Tamanho da grade" className="flex-1 accent-plum" />
               <span className="text-[9px] text-espresso/50 w-6 text-right">{gridSize}</span>
             </div>
           </div>
@@ -772,21 +869,21 @@ export default function SeatingMap() {
               <div className="space-y-2">
                 <div className="relative rounded-xl overflow-hidden border border-white/60">
                   <img src={bgImage} alt="Mapa" className="w-full h-20 object-cover" />
-                  <button onClick={() => setBgImage(null)} className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-sm">
+                  <button onClick={() => setBgImage(null)} aria-label="Remover imagem de fundo" title="Remover imagem de fundo" className="absolute top-1 right-1 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-sm">
                     <Trash className="w-2.5 h-2.5" />
                   </button>
                 </div>
                 <div>
-                  <label className="text-[9px] text-espresso/40">Opacidade</label>
+                  <label htmlFor="bg-opacity-range" className="text-[9px] text-espresso/40">Opacidade</label>
                   <div className="flex items-center gap-2">
-                    <input type="range" min="10" max="100" value={Math.round(bgOpacity * 100)} onChange={e => setBgOpacity(Number(e.target.value) / 100)} className="flex-1 accent-plum" />
+                    <input id="bg-opacity-range" type="range" min="10" max="100" value={Math.round(bgOpacity * 100)} onChange={e => setBgOpacity(Number(e.target.value) / 100)} aria-label="Opacidade do mapa de fundo" title="Opacidade" className="flex-1 accent-plum" />
                     <span className="text-[9px] text-espresso/50 w-8 text-right">{Math.round(bgOpacity * 100)}%</span>
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] text-espresso/40">Escala</label>
+                  <label htmlFor="bg-scale-range" className="text-[9px] text-espresso/40">Escala</label>
                   <div className="flex items-center gap-2">
-                    <input type="range" min="50" max="300" value={Math.round(bgScale * 100)} onChange={e => setBgScale(Number(e.target.value) / 100)} className="flex-1 accent-plum" />
+                    <input id="bg-scale-range" type="range" min="50" max="300" value={Math.round(bgScale * 100)} onChange={e => setBgScale(Number(e.target.value) / 100)} aria-label="Escala do mapa de fundo" title="Escala" className="flex-1 accent-plum" />
                     <span className="text-[9px] text-espresso/50 w-8 text-right">{Math.round(bgScale * 100)}%</span>
                   </div>
                 </div>
@@ -833,31 +930,33 @@ export default function SeatingMap() {
             {isSel && sel[0] && (
               <div className="space-y-2">
                 <div>
-                  <label className="text-[9px] text-espresso/40">Label</label>
-                  <input value={sel[0].label} onChange={e => updateNode(sel[0].id, { label: e.target.value })}
+                  <label htmlFor="node-label-input" className="text-[9px] text-espresso/40">Label</label>
+                  <input id="node-label-input" value={sel[0].label} onChange={e => updateNode(sel[0].id, { label: e.target.value })}
                     className="w-full px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-[10px] focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[9px] text-espresso/40">Preco</label>
-                    <input type="number" value={sel[0].price} onChange={e => updateNode(sel[0].id, { price: Number(e.target.value) })}
+                    <label htmlFor="node-price-input" className="text-[9px] text-espresso/40">Preco</label>
+                    <input id="node-price-input" type="number" value={sel[0].price} onChange={e => updateNode(sel[0].id, { price: Number(e.target.value) })}
                       className="w-full px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-[10px] focus:outline-none focus:border-plum/30" />
                   </div>
                   <div>
-                    <label className="text-[9px] text-espresso/40">Rotacao</label>
-                    <input type="number" value={sel[0].rotation} onChange={e => updateNode(sel[0].id, { rotation: Number(e.target.value) })}
+                    <label htmlFor="node-rotation-input" className="text-[9px] text-espresso/40">Rotacao</label>
+                    <input id="node-rotation-input" type="number" value={sel[0].rotation} onChange={e => updateNode(sel[0].id, { rotation: Number(e.target.value) })}
                       className="w-full px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-[10px] focus:outline-none focus:border-plum/30" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[9px] text-espresso/40">Cor</label>
-                    <input type="color" value={sel[0].color} onChange={e => updateNode(sel[0].id, { color: e.target.value })}
+                    <label htmlFor="node-color-input" className="text-[9px] text-espresso/40">Cor</label>
+                    <input id="node-color-input" type="color" value={sel[0].color} onChange={e => updateNode(sel[0].id, { color: e.target.value })}
                       className="w-full h-7 bg-white/60 border border-white/60 rounded-lg cursor-pointer" />
                   </div>
                   <div>
-                    <label className="text-[9px] text-espresso/40">Status</label>
-                    <select value={sel[0].status} onChange={e => updateNode(sel[0].id, { status: e.target.value as SeatStatus })}
+                    <label htmlFor="node-status-select" className="text-[9px] text-espresso/40">Status</label>
+                    <select id="node-status-select" value={sel[0].status} onChange={e => updateNode(sel[0].id, { status: e.target.value as SeatStatus })}
+                      aria-label="Selecionar status do assento"
+                      title="Status"
                       className="w-full px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-[10px] focus:outline-none focus:border-plum/30">
                       <option value="free">Livre</option>
                       <option value="sold">Vendido</option>
@@ -900,14 +999,14 @@ export default function SeatingMap() {
                   <button onClick={() => updateMany(selected, { rotation: 0 })} className="py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]">0 graus</button>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => align('left')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignLeft className="w-3 h-3 mx-auto" /></button>
-                  <button onClick={() => align('center')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto" /></button>
-                  <button onClick={() => align('right')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignLeft className="w-3 h-3 mx-auto rotate-180" /></button>
+                  <button onClick={() => align('left')} aria-label="Alinhar à esquerda" title="Alinhar à esquerda" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignLeft className="w-3 h-3 mx-auto" /></button>
+                  <button onClick={() => align('center')} aria-label="Alinhar ao centro horizontal" title="Alinhar ao centro horizontal" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto" /></button>
+                  <button onClick={() => align('right')} aria-label="Alinhar à direita" title="Alinhar à direita" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignLeft className="w-3 h-3 mx-auto rotate-180" /></button>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => align('top')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto -rotate-90" /></button>
-                  <button onClick={() => align('middle')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto" /></button>
-                  <button onClick={() => align('bottom')} className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto rotate-90" /></button>
+                  <button onClick={() => align('top')} aria-label="Alinhar ao topo" title="Alinhar ao topo" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto -rotate-90" /></button>
+                  <button onClick={() => align('middle')} aria-label="Alinhar ao centro vertical" title="Alinhar ao centro vertical" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto" /></button>
+                  <button onClick={() => align('bottom')} aria-label="Alinhar abaixo" title="Alinhar abaixo" className="flex-1 py-1 rounded bg-white/60 border border-white/60 text-espresso/50 text-[8px]"><AlignCenter className="w-3 h-3 mx-auto rotate-90" /></button>
                 </div>
                 <div className="flex gap-1.5 pt-1">
                   <button onClick={dupMany} className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg border border-white/60 bg-white/40 text-[9px] text-espresso/50 hover:text-espresso"><Copy className="w-3 h-3" /> Duplicar</button>
@@ -930,7 +1029,7 @@ export default function SeatingMap() {
           onClick={handleCanvasClick}
           style={{ cursor: isPan ? 'grabbing' : tool === 'select' ? 'default' : 'crosshair' }}>
 
-          <div className="absolute inset-0" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0' }}>
+          <div className="absolute inset-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` }}>
             {/* Grid */}
             {showGrid && (
               <div className="absolute pointer-events-none" style={{ width: canvasW, height: canvasH,
@@ -940,17 +1039,17 @@ export default function SeatingMap() {
 
             {/* Background Image */}
             {bgImage && (
-              <img src={bgImage} alt="Mapa" className="absolute pointer-events-none select-none"
-                style={{ left: bgOffset.x, top: bgOffset.y, width: `${bgScale * 100}%`, maxWidth: 1200,
-                  opacity: bgOpacity, zIndex: 0 }} draggable={false} />
+              <img src={bgImage} alt="Mapa" className="absolute pointer-events-none select-none max-w-[1200px] z-0"
+                style={{ left: bgOffset.x, top: bgOffset.y, width: `${bgScale * 100}%`,
+                  opacity: bgOpacity }} draggable={false} />
             )}
 
             {/* Box selection */}
             {boxSel?.active && (
-              <div className="absolute border-2 border-plum/40 bg-plum/5 pointer-events-none" style={{
+              <div className="absolute border-2 border-plum/40 bg-plum/5 pointer-events-none z-50" style={{
                 left: Math.min(boxSel.x1, boxSel.x2), top: Math.min(boxSel.y1, boxSel.y2),
                 width: Math.abs(boxSel.x2 - boxSel.x1), height: Math.abs(boxSel.y2 - boxSel.y1),
-                zIndex: 50 }} />
+              }} />
             )}
 
             {/* Elements */}
@@ -979,14 +1078,13 @@ export default function SeatingMap() {
                 <div key={s.id}
                   onMouseDown={(e) => handleElementMouseDown(e, s)}
                   onClick={(e) => handleElementClick(e, s)}
-                  className={`absolute ${s.locked ? '' : tool === 'select' ? 'hover:brightness-110' : ''} ${isS ? 'z-20' : 'z-10'}`}
+                  className={`absolute origin-center ${s.locked ? '' : tool === 'select' ? 'hover:brightness-110' : ''} ${isS ? 'z-20' : 'z-10'}`}
                   style={{
                     left: s.x - w / 2, top: s.y - h / 2, width: w, height: h,
                     cursor: tool === 'select' ? (s.locked ? 'not-allowed' : 'pointer') : 'default',
                     opacity: dim,
                     pointerEvents: tool === 'select' ? 'auto' : 'none',
                     transform: `rotate(${s.rotation}deg)`,
-                    transformOrigin: 'center center',
                   }}>
                   <div className={`w-full h-full relative ${isS ? 'ring-2 ring-plum/70 rounded-lg' : ''}`}>
                     {/* Shape rendering */}
@@ -1108,7 +1206,7 @@ export default function SeatingMap() {
                   <p><strong>4.</strong> Clique em area vazia + arraste: selecao em caixa</p>
                   <p><strong>5.</strong> Shift+arraste: mover tela &nbsp;|&nbsp; Del: remover &nbsp;|&nbsp; D: duplicar</p>
                 </div>
-                <button onClick={() => setShowHelp(false)} className="p-0.5 rounded hover:bg-white/60 text-espresso/30"><X className="w-3 h-3" /></button>
+                <button onClick={() => setShowHelp(false)} aria-label="Fechar ajuda" title="Fechar ajuda" className="p-0.5 rounded hover:bg-white/60 text-espresso/30"><X className="w-3 h-3" /></button>
               </div>
             </div>
           )}
@@ -1128,22 +1226,21 @@ export default function SeatingMap() {
               {/* Elements dots */}
               <div className="absolute inset-0">
                 {seats.map(s => (
-                  <div key={`mini-${s.id}`} className="absolute rounded-full pointer-events-none"
+                  <div key={`mini-${s.id}`} className="absolute rounded-full pointer-events-none -translate-x-1/2 -translate-y-1/2 opacity-70"
                     style={{
                       left: `${(s.x / canvasW) * 100}%`, top: `${(s.y / canvasH) * 100}%`,
                       width: s.type === 'seat' ? 3 : 5, height: s.type === 'seat' ? 3 : 5,
-                      background: s.color, transform: 'translate(-50%, -50%)', opacity: 0.7,
+                      background: s.color,
                     }} />
                 ))}
               </div>
               {/* Viewport rect */}
-              <div className="absolute border-2 border-plum/60 bg-plum/5 rounded pointer-events-none"
+              <div className="absolute border-2 border-plum/60 bg-plum/5 rounded pointer-events-none min-w-[8px] min-h-[8px]"
                 style={{
                   left: `${((-pan.x) / (canvasW * zoom)) * 100}%`,
                   top: `${((-pan.y) / (canvasH * zoom)) * 100}%`,
                   width: `${(viewW / (canvasW * zoom)) * 100}%`,
                   height: `${(viewH / (canvasH * zoom)) * 100}%`,
-                  minWidth: 8, minHeight: 8,
                 }} />
             </div>
           )}

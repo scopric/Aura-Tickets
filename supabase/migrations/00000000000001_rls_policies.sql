@@ -1,0 +1,2 @@
+-- MIGRATION OBSOLETA E INTEGRADA DIRETAMENTE NA 00000000000000_init_schema.sql
+-- Todo o schema de tabelas, índices, triggers e Row Level Security (RLS) foi consolidado na migração inicial.

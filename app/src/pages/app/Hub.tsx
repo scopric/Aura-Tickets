@@ -8,20 +8,26 @@ import {
   ShoppingCart, Minus, Plus, Image as ImageIcon
 } from 'lucide-react'
 import gsap from 'gsap'
-import { events, menuItems } from '../../data/mockData'
+import { menuItems } from '../../data/mockData'
+import { usePublicEvents } from '../../hooks/useEvents'
 import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
-  const [favorites, setFavorites] = useState<Record<string, boolean>>({ 'noite-eletro-2025': true })
+  const [favorites, setFavorites] = useState<Record<string, boolean>>({})
   const [showQR, setShowQR] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [chatMessage, setChatMessage] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  
+  const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
+
   const [chatMessages, setChatMessages] = useState([
-    { id: '1', from: 'producer', text: 'Ola! Bem-vindo ao Noite Eletro 2025. Como posso ajudar?', time: '14:30' },
-    { id: '2', from: 'user', text: 'Ola! A mesa coletiva ja foi definida?', time: '14:32' },
-    { id: '3', from: 'producer', text: 'Sim! Voce foi alocado na Mesa Aurora. Em 48h voce recebe os perfis dos colegas.', time: '14:33' },
+    { id: '1', from: 'producer', text: 'Olá! Bem-vindo ao Noite Eletro 2025. Como posso ajudar?', time: '14:30' },
+    { id: '2', from: 'user', text: 'Olá! A mesa coletiva já foi definida?', time: '14:32' },
+    { id: '3', from: 'producer', text: 'Sim! Você foi alocado na Mesa Aurora. Em 48h você recebe os perfis dos colegas.', time: '14:33' },
   ])
+  
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -30,6 +36,7 @@ export default function AppHub() {
 
   const toggleFav = (id: string) => setFavorites(prev => ({ ...prev, [id]: !prev[id] }))
 
+  // Meus ingressos (mantidos como simulação offline até o fluxo de checkout/compras estar ativo)
   const myTickets = [
     { id: 'tk-1', eventId: 'noite-eletro-2025', eventName: 'Noite Eletro 2025', date: '15 Jun 2025', time: '22:00', location: 'Warehouse Central', type: 'Mesa Coletiva', seat: 'Mesa Aurora #1', price: 160, qr: 'MC-001-2025', status: 'ativo' },
     { id: 'tk-2', eventId: 'noite-eletro-2025', eventName: 'Noite Eletro 2025', date: '15 Jun 2025', time: '22:00', location: 'Warehouse Central', type: 'Mesa Coletiva', seat: 'Mesa Aurora #2', price: 160, qr: 'MC-002-2025', status: 'ativo' },
@@ -41,7 +48,7 @@ export default function AppHub() {
     setChatMessages(prev => [...prev, { id: Date.now().toString(), from: 'user', text: chatMessage, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }])
     setChatMessage('')
     setTimeout(() => {
-      setChatMessages(prev => [...prev, { id: Date.now().toString() + 'r', from: 'producer', text: 'Obrigado pela mensagem! Nossa equipe respondera em breve.', time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }])
+      setChatMessages(prev => [...prev, { id: Date.now().toString() + 'r', from: 'producer', text: 'Obrigado pela mensagem! Nossa equipe responderá em breve.', time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }])
     }, 1500)
   }
 
@@ -54,10 +61,15 @@ export default function AppHub() {
 
   const tabs = [
     { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length },
-    { id: 'eventos' as const, label: 'Eventos', icon: Star, count: events.length },
-    { id: 'cardapio' as const, label: 'Cardapio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
+    { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
+    { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare, count: 1 },
   ]
+
+  const filteredEvents = dbEvents.filter(e => 
+    e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (e.venue_name || e.location || '').toLowerCase().includes(searchTerm.toLowerCase())
+  )
 
   return (
     <div ref={ref} className="min-h-screen bg-void text-cream pb-8">
@@ -86,7 +98,7 @@ export default function AppHub() {
             <User className="w-5 h-5 text-plum" />
           </div>
           <div>
-            <p className="text-xs text-cream/40">Ola,</p>
+            <p className="text-xs text-cream/40">Olá,</p>
             <h1 className="font-serif text-xl text-cream">Elisa Nakamura</h1>
           </div>
         </div>
@@ -132,7 +144,7 @@ export default function AppHub() {
               </div>
               <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
                 <Calendar className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-                <div className="font-serif text-xl text-cream">2</div>
+                <div className="font-serif text-xl text-cream">{dbEvents.length}</div>
                 <div className="text-[10px] text-cream/30">Eventos</div>
               </div>
             </div>
@@ -182,20 +194,30 @@ export default function AppHub() {
             </div>
 
             {/* Next events */}
-            <h2 className="text-sm font-medium text-cream/60 mb-2 mt-6">Proximos Eventos</h2>
+            <h2 className="text-sm font-medium text-cream/60 mb-2 mt-6">Próximos Eventos</h2>
             <div className="space-y-2">
-              {events.slice(0, 2).map(event => (
-                <Link to={`/event/${event.id}`} key={event.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-plum/20 transition-all">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                    <img src={event.image} alt="" className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-cream font-medium truncate">{event.title}</div>
-                    <div className="text-[10px] text-cream/30">{event.date} · {event.location}</div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-cream/20" />
-                </Link>
-              ))}
+              {isLoadingEvents ? (
+                [1, 2].map(i => (
+                  <div key={i} className="h-16 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+                ))
+              ) : dbEvents.length > 0 ? (
+                dbEvents.slice(0, 2).map(event => (
+                  <Link to={`/event/${event.id}`} key={event.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-plum/20 transition-all">
+                    <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
+                      <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-cream font-medium truncate">{event.title}</div>
+                      <div className="text-[10px] text-cream/30">
+                        {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Data a definir'} · {event.venue_name || event.location || 'Local a definir'}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-cream/20" />
+                  </Link>
+                ))
+              ) : (
+                <p className="text-xs text-cream/30 italic">Nenhum evento agendado no momento.</p>
+              )}
             </div>
           </div>
         )}
@@ -205,37 +227,61 @@ export default function AppHub() {
           <div className="space-y-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cream/20" />
-              <input placeholder="Buscar eventos..." className="w-full pl-10 pr-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-cream placeholder:text-cream/20 focus:outline-none focus:border-plum/30" />
+              <input
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                placeholder="Buscar eventos..."
+                className="w-full pl-10 pr-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-cream placeholder:text-cream/20 focus:outline-none focus:border-plum/30"
+              />
             </div>
+            
             <div className="space-y-3">
-              {events.map(event => {
-                const isFav = favorites[event.id]
-                return (
-                  <div key={event.id} className="rounded-2xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">
-                    <div className="relative h-40">
-                      <img src={event.image} alt="" className="w-full h-full object-cover" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-void via-void/20 to-transparent" />
-                      <button onClick={() => toggleFav(event.id)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
-                        <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-cream/60'}`} />
-                      </button>
-                      <div className="absolute bottom-3 left-4 right-4">
-                        <h3 className="font-serif text-lg text-cream">{event.title}</h3>
-                        <p className="text-[11px] text-cream/40">{event.date} · {event.location}</p>
-                      </div>
-                    </div>
-                    <div className="p-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {event.tags.map(tag => (
-                          <span key={tag} className="px-2 py-0.5 bg-white/[0.05] text-cream/40 text-[10px] rounded-full">{tag}</span>
-                        ))}
-                      </div>
-                      <Link to={`/event/${event.id}`} className="px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1">
-                        Ver <ChevronRight className="w-3 h-3" />
-                      </Link>
-                    </div>
+              {isLoadingEvents ? (
+                [1, 2].map(i => (
+                  <div key={i} className="h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse flex flex-col justify-end p-4 gap-2">
+                    <div className="h-6 w-3/4 bg-white/10 rounded" />
+                    <div className="h-4 w-1/2 bg-white/5 rounded" />
                   </div>
-                )
-              })}
+                ))
+              ) : filteredEvents.length > 0 ? (
+                filteredEvents.map(event => {
+                  const isFav = favorites[event.id]
+                  const formattedDate = event.date 
+                    ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : 'Data a definir'
+                  const tags = event.tags && event.tags.length > 0 ? event.tags : (event.category ? [event.category] : [])
+                  
+                  return (
+                    <div key={event.id} className="rounded-2xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">
+                      <div className="relative h-48">
+                        <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-void via-void/20 to-transparent" />
+                        <button onClick={() => toggleFav(event.id)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center">
+                          <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-cream/60'}`} />
+                        </button>
+                        <div className="absolute bottom-3 left-4 right-4">
+                          <h3 className="font-serif text-lg text-cream">{event.title}</h3>
+                          <p className="text-[11px] text-cream/40">{formattedDate} · {event.venue_name || event.location || 'Local a definir'}</p>
+                        </div>
+                      </div>
+                      <div className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {tags.map(tag => (
+                            <span key={tag} className="px-2 py-0.5 bg-white/[0.05] text-cream/40 text-[10px] rounded-full">{tag}</span>
+                          ))}
+                        </div>
+                        <Link to={`/event/${event.id}`} className="px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1">
+                          Ver Ingressos <ChevronRight className="w-3 h-3" />
+                        </Link>
+                      </div>
+                    </div>
+                  )
+                })
+              ) : (
+                <div className="text-center py-12 text-cream/30 text-sm italic">
+                  Nenhum evento encontrado.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -250,7 +296,7 @@ export default function AppHub() {
 
             {/* Categories */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {['Todos', 'Bebidas', 'Comidas', 'Combos', 'Servicos'].map((cat, i) => (
+              {['Todos', 'Bebidas', 'Comidas', 'Combos', 'Serviços'].map((cat, i) => (
                 <button key={cat} className={`px-3 py-1.5 text-[11px] font-medium rounded-full whitespace-nowrap transition-all ${i === 0 ? 'bg-plum text-cream' : 'bg-white/[0.05] text-cream/40 hover:bg-white/10'}`}>
                   {cat}
                 </button>

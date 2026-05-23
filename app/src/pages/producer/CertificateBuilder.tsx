@@ -1,5 +1,7 @@
 import { useState, useRef } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
+import { supabase } from '../../lib/supabase'
+import { useEffect } from 'react'
 import {
   ArrowLeft, Download, Eye, Upload, Type, Image, Signature,
   QrCode, Trash2, Copy, Grid3x3, Sparkles, Save, Mail, Send,
@@ -53,6 +55,10 @@ const defaultFields: CertField[] = [
 ]
 
 export default function CertificateBuilder() {
+  const [searchParams] = useSearchParams()
+  const eventIdParam = searchParams.get('eventId')
+  const [eventId, setEventId] = useState<string | null>(eventIdParam)
+
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic')
   const [fields, setFields] = useState<CertField[]>(defaultFields)
   const [selectedField, setSelectedField] = useState<string | null>(null)
@@ -67,6 +73,98 @@ export default function CertificateBuilder() {
   const [sendEmails, setSendEmails] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sigInputRef = useRef<HTMLInputElement>(null)
+
+  // Carregar modelo do banco de dados
+  useEffect(() => {
+    const fetchTemplate = async () => {
+      let activeEventId = eventId;
+      
+      // Buscar o primeiro evento do produtor se não houver parametro na URL
+      if (!activeEventId) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data: firstEvent } = await supabase
+            .from('events')
+            .select('id')
+            .eq('producer_id', user.id)
+            .limit(1)
+            .maybeSingle()
+            
+          if (firstEvent) {
+            activeEventId = firstEvent.id;
+            setEventId(firstEvent.id);
+          }
+        }
+      }
+
+      if (activeEventId) {
+        const { data, error } = await supabase
+          .from('certificates')
+          .select('*')
+          .eq('event_id', activeEventId)
+          .maybeSingle()
+
+        if (error) {
+          toast.error(`Erro ao carregar modelo: ${error.message}`)
+        } else if (data && data.template) {
+          const tpl = data.template as any
+          if (tpl.selectedTemplate) setSelectedTemplate(tpl.selectedTemplate)
+          if (tpl.fields) setFields(tpl.fields)
+          if (tpl.logoUrl) setLogoUrl(tpl.logoUrl)
+          if (tpl.sigUrl) setSigUrl(tpl.sigUrl)
+          toast.success('Modelo de certificado carregado com sucesso!')
+        }
+      }
+    }
+    
+    fetchTemplate()
+  }, [])
+
+  const handleSave = async () => {
+    let activeEventId = eventId;
+
+    if (!activeEventId) {
+      // Buscar primeiro evento
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: firstEvent } = await supabase
+          .from('events')
+          .select('id')
+          .eq('producer_id', user.id)
+          .limit(1)
+          .maybeSingle()
+          
+        if (firstEvent) {
+          activeEventId = firstEvent.id;
+          setEventId(firstEvent.id);
+        }
+      }
+    }
+
+    if (!activeEventId) {
+      toast.error('Crie pelo menos um evento antes de salvar o modelo do certificado.');
+      return;
+    }
+
+    const { error } = await supabase
+      .from('certificates')
+      .upsert({
+        event_id: activeEventId,
+        template: {
+          selectedTemplate,
+          fields,
+          logoUrl,
+          sigUrl
+        },
+        is_active: true
+      }, { onConflict: 'event_id' })
+
+    if (error) {
+      toast.error(`Erro ao salvar modelo: ${error.message}`)
+    } else {
+      toast.success('Modelo de certificado salvo com sucesso no banco de dados!')
+    }
+  }
 
   const template = templates.find(t => t.id === selectedTemplate) || templates[0]
 
@@ -120,7 +218,6 @@ export default function CertificateBuilder() {
   }
 
   const handleDownload = () => { toast.success('Certificado modelo baixado!') }
-  const handleSave = () => { toast.success('Modelo de certificado salvo!') }
   const handleSend = () => {
     if (!sendEmails.trim()) { toast.error('Digite os emails'); return }
     toast.success('Certificados enviados!')
@@ -174,17 +271,17 @@ export default function CertificateBuilder() {
             <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Image className="w-4 h-4 text-plum" /> Identidade Visual</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-espresso/50 mb-1 block">Logo do Evento</label>
-                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, 'logo')} />
+                <label htmlFor="upload-logo-input" className="text-xs text-espresso/50 mb-1 block">Logo do Evento</label>
+                <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de logo do evento" className="hidden" onChange={e => handleFileChange(e, 'logo')} />
                 <button onClick={handleLogoUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/50 hover:text-plum hover:border-plum/30 transition-all">
-                  {logoUrl ? <img src={logoUrl} className="h-8 object-contain" /> : <><Upload className="w-4 h-4" /> Upload</>}
+                  {logoUrl ? <img src={logoUrl} alt="Logo do Evento" className="h-8 object-contain" /> : <><Upload className="w-4 h-4" /> Upload</>}
                 </button>
               </div>
               <div>
-                <label className="text-xs text-espresso/50 mb-1 block">Assinatura</label>
-                <input ref={sigInputRef} type="file" accept="image/*" className="hidden" onChange={e => handleFileChange(e, 'sig')} />
+                <label htmlFor="upload-sig-input" className="text-xs text-espresso/50 mb-1 block">Assinatura</label>
+                <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de assinatura" className="hidden" onChange={e => handleFileChange(e, 'sig')} />
                 <button onClick={handleSigUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/50 hover:text-plum hover:border-plum/30 transition-all">
-                  {sigUrl ? <img src={sigUrl} className="h-8 object-contain" /> : <><Signature className="w-4 h-4" /> Upload</>}
+                  {sigUrl ? <img src={sigUrl} alt="Assinatura do Produtor" className="h-8 object-contain" /> : <><Signature className="w-4 h-4" /> Upload</>}
                 </button>
               </div>
             </div>
@@ -192,7 +289,7 @@ export default function CertificateBuilder() {
               <label className="text-xs text-espresso/50 mb-1 block">Cor de Destaque</label>
               <div className="flex gap-2">
                 {['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2'].map(c => (
-                  <button key={c} onClick={() => {}} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                  <button key={c} onClick={() => {}} title={`Cor ${c}`} aria-label={`Selecionar cor de destaque ${c}`} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
                 ))}
               </div>
             </div>
@@ -214,9 +311,9 @@ export default function CertificateBuilder() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-espresso flex items-center gap-2"><Grid3x3 className="w-4 h-4 text-plum" /> Campos ({fields.length})</h2>
               <div className="flex gap-1">
-                <button onClick={() => addField('text')} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Type className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('qrcode')} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><QrCode className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('text')} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Plus className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('text')} title="Adicionar campo de texto" aria-label="Adicionar campo de texto" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Type className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('qrcode')} title="Adicionar QR Code" aria-label="Adicionar QR Code" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><QrCode className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('text')} title="Adicionar novo campo" aria-label="Adicionar novo campo" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Plus className="w-3.5 h-3.5" /></button>
               </div>
             </div>
             <div className="space-y-1.5 max-h-48 overflow-y-auto sidebar-dark-scroll pr-1">
@@ -229,7 +326,7 @@ export default function CertificateBuilder() {
                   {f.type === 'qrcode' && <QrCode className="w-3.5 h-3.5" />}
                   {f.type === 'date' && <CalendarDays className="w-3.5 h-3.5" />}
                   <span className="flex-1 truncate">{f.label}</span>
-                  <button onClick={e => { e.stopPropagation(); removeField(f.id) }} className="p-0.5 rounded hover:bg-red-50 text-espresso/20 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                  <button onClick={e => { e.stopPropagation(); removeField(f.id) }} title="Remover campo" aria-label="Remover campo" className="p-0.5 rounded hover:bg-red-50 text-espresso/20 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                 </button>
               ))}
             </div>
@@ -249,13 +346,13 @@ export default function CertificateBuilder() {
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label className="text-xs text-espresso/50 mb-1 block">Tamanho (px)</label>
-                        <input type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })}
+                        <label htmlFor="selected-field-font-size" className="text-xs text-espresso/50 mb-1 block">Tamanho (px)</label>
+                        <input id="selected-field-font-size" type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })}
                           className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                       </div>
                       <div>
-                        <label className="text-xs text-espresso/50 mb-1 block">Cor</label>
-                        <input type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })}
+                        <label htmlFor="selected-field-color" className="text-xs text-espresso/50 mb-1 block">Cor</label>
+                        <input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })}
                           className="w-full h-9 bg-white/50 border border-white/60 rounded-lg cursor-pointer" />
                       </div>
                     </div>
@@ -263,13 +360,13 @@ export default function CertificateBuilder() {
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-xs text-espresso/50 mb-1 block">Pos X (%)</label>
-                    <input type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })}
+                    <label htmlFor="selected-field-pos-x" className="text-xs text-espresso/50 mb-1 block">Pos X (%)</label>
+                    <input id="selected-field-pos-x" type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })}
                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                   </div>
                   <div>
-                    <label className="text-xs text-espresso/50 mb-1 block">Pos Y (%)</label>
-                    <input type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })}
+                    <label htmlFor="selected-field-pos-y" className="text-xs text-espresso/50 mb-1 block">Pos Y (%)</label>
+                    <input id="selected-field-pos-y" type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })}
                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                   </div>
                 </div>
@@ -292,8 +389,8 @@ export default function CertificateBuilder() {
         <div className="lg:col-span-3">
           <div className="sticky top-6">
             <h2 className="text-sm font-medium text-espresso mb-3">Preview do Certificado</h2>
-            <div className={`relative bg-white rounded-2xl overflow-hidden shadow-lg mx-auto ${template.borderStyle}`}
-              style={{ maxWidth: 700, aspectRatio: '1.414/1', borderColor: template.accentColor }}>
+            <div className={`relative bg-white rounded-2xl overflow-hidden shadow-lg mx-auto max-w-[700px] aspect-[1.414/1] ${template.borderStyle}`}
+              style={{ borderColor: template.accentColor }}>
               {/* Background */}
               <div className="absolute inset-0" style={{ background: template.bgColor }} />
 
@@ -314,18 +411,17 @@ export default function CertificateBuilder() {
               {/* Fields */}
               {fields.map(field => (
                 <div key={field.id}
-                  className={`absolute ${selectedField === field.id ? 'ring-2 ring-plum/50' : ''} ${field.type === 'qrcode' ? 'bg-void rounded-lg flex items-center justify-center' : ''}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 text-center ${selectedField === field.id ? 'ring-2 ring-plum/50' : ''} ${field.type === 'qrcode' ? 'bg-void rounded-lg flex items-center justify-center' : ''}`}
                   style={{
-                    left: `${field.x}%`, top: `${field.y}%`,
-                    transform: 'translate(-50%, -50%)',
+                    left: `${field.x}%`,
+                    top: `${field.y}%`,
                     fontSize: `${field.fontSize}px`,
                     color: field.color,
                     width: `${field.width}%`,
-                    textAlign: 'center',
                   }}>
-                  {field.type === 'logo' && logoUrl && <img src={logoUrl} className="max-h-16 object-contain mx-auto" />}
+                  {field.type === 'logo' && logoUrl && <img src={logoUrl} alt="Logo do Evento no Certificado" className="max-h-16 object-contain mx-auto" />}
                   {field.type === 'logo' && !logoUrl && <div className="text-xs text-espresso/20">LOGO</div>}
-                  {field.type === 'signature' && sigUrl && <img src={sigUrl} className="max-h-10 object-contain mx-auto" />}
+                  {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do Produtor no Certificado" className="max-h-10 object-contain mx-auto" />}
                   {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
                   {field.type === 'qrcode' && <QrCode className="w-12 h-12 text-cream" />}
                   {field.type === 'text' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color, fontWeight: field.fontSize > 20 ? 600 : 400 }}>{resolveValue(field)}</div>}
