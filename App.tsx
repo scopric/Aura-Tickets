@@ -4,6 +4,7 @@ import { Toaster } from './components/ui/sonner'
 import FeedbackButton from './components/FeedbackButton'
 import Header from './components/Header'
 import Footer from './components/Footer'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import Home from './pages/Home'
 import EventPage from './pages/EventPage'
 import NotFound from './pages/NotFound'
@@ -201,6 +202,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Layout />
+      <SpeedInsights />
     </AuthProvider>
   )
 }
