@@ -178,6 +178,22 @@ const MOCK_EVENTS: DbEvent[] = [
   }
 ]
 
+const DEMO_USER_IDS = new Set([
+  'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4',
+  'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
+])
+
+function normalizeEventTicketTypes(event: any): DbEvent {
+  return {
+    ...event,
+    ticket_types: (event.ticket_types || []).map((t: any) => ({
+      ...t,
+      price: Number(t.price) || 0,
+      perks: Array.isArray(t.perks) ? t.perks : []
+    }))
+  } as DbEvent
+}
+
 export function useProducerEvents() {
   const { user } = useAuth()
 
@@ -186,32 +202,19 @@ export function useProducerEvents() {
     queryFn: async () => {
       if (!user?.id) return []
 
-      // Modo demo: retornar eventos mock
-      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' || 
-          user.id === 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d') {
-        return MOCK_EVENTS
-      }
-
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
+        .select(`*, ticket_types (*)`)
         .eq('producer_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      // Mapear tipos de ingressos e garantir que perks sejam array de strings
-      return (data || []).map((event: any) => ({
-        ...event,
-        ticket_types: (event.ticket_types || []).map((t: any) => ({
-          ...t,
-          price: Number(t.price) || 0,
-          perks: Array.isArray(t.perks) ? t.perks : []
-        }))
-      })) as DbEvent[]
+      const realEvents = (data || []).map(normalizeEventTicketTypes)
+      if (realEvents.length > 0) return realEvents
+
+      if (DEMO_USER_IDS.has(user.id)) return MOCK_EVENTS
+      return []
     },
     enabled: !!user?.id,
   })
@@ -225,7 +228,6 @@ export function useCreateEvent() {
     mutationFn: async ({ event, tickets }: { event: Partial<DbEvent>; tickets: Partial<DbTicketType>[] }) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
 
-      // Gerar slug único a partir do título
       const titleSlug = (event.title || 'evento')
         .toLowerCase()
         .normalize('NFD')
@@ -234,14 +236,13 @@ export function useCreateEvent() {
         .replace(/(^-|-$)+/g, '')
       const slug = `${titleSlug}-${Date.now()}`
 
-      // 1. Inserir o evento
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .insert({
           producer_id: user.id,
           title: event.title || 'Novo Evento',
           subtitle: event.subtitle || null,
-          slug: slug,
+          slug,
           description: event.description || null,
           short_description: event.short_description || null,
           cover_image: event.cover_image || '/images/hero-bg.jpg',
@@ -265,7 +266,6 @@ export function useCreateEvent() {
 
       if (eventError) throw eventError
 
-      // 2. Inserir os tipos de ingressos vinculados ao evento
       if (tickets && tickets.length > 0) {
         const ticketsToInsert = tickets.map((t, idx) => ({
           event_id: eventData.id,
@@ -313,7 +313,6 @@ export function useUpdateEvent() {
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
 
-      // 1. Atualizar o evento
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .update({
@@ -343,7 +342,6 @@ export function useUpdateEvent() {
 
       if (eventError) throw eventError
 
-      // 2. Buscar ticket_types existentes para decidir update vs insert
       const { data: existingTickets } = await supabase
         .from('ticket_types')
         .select('id')
@@ -351,7 +349,6 @@ export function useUpdateEvent() {
 
       const existingIds = new Set((existingTickets || []).map(t => t.id))
 
-      // 3. Upsert ticket_types
       const ticketsToUpsert = tickets.map((t, idx) => ({
         id: t.id && existingIds.has(t.id) ? t.id : undefined,
         event_id: eventId,
@@ -408,18 +405,11 @@ export function usePublicEvent(eventIdOrSlug: string | undefined) {
     queryFn: async () => {
       if (!eventIdOrSlug) return null
 
-      // Modo demo
-      const mockEvent = MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug)
-      if (mockEvent) return mockEvent
-
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventIdOrSlug)
-      
+
       let query = supabase
         .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
+        .select(`*, ticket_types (*)`)
 
       if (isUuid) {
         query = query.eq('id', eventIdOrSlug)
@@ -430,16 +420,10 @@ export function usePublicEvent(eventIdOrSlug: string | undefined) {
       const { data, error } = await query.maybeSingle()
 
       if (error) throw error
-      if (!data) return null
+      if (data) return normalizeEventTicketTypes(data)
 
-      return {
-        ...data,
-        ticket_types: (data.ticket_types || []).map((t: any) => ({
-          ...t,
-          price: Number(t.price) || 0,
-          perks: Array.isArray(t.perks) ? t.perks : []
-        }))
-      } as DbEvent
+      const mockEvent = MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug)
+      return mockEvent || null
     },
     enabled: !!eventIdOrSlug,
   })
@@ -449,29 +433,18 @@ export function usePublicEvents() {
   return useQuery<DbEvent[]>({
     queryKey: ['public-events'],
     queryFn: async () => {
-      // Modo demo
-      const demoEvents = MOCK_EVENTS.filter(e => e.status === 'published')
-      if (demoEvents.length > 0) return demoEvents
-
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          *,
-          ticket_types (*)
-        `)
+        .select(`*, ticket_types (*)`)
         .eq('status', 'published')
         .order('date', { ascending: true })
 
       if (error) throw error
 
-      return (data || []).map((event: any) => ({
-        ...event,
-        ticket_types: (event.ticket_types || []).map((t: any) => ({
-          ...t,
-          price: Number(t.price) || 0,
-          perks: Array.isArray(t.perks) ? t.perks : []
-        }))
-      })) as DbEvent[]
+      const realEvents = (data || []).map(normalizeEventTicketTypes)
+      if (realEvents.length > 0) return realEvents
+
+      return MOCK_EVENTS.filter(e => e.status === 'published')
     }
   })
 }
@@ -480,32 +453,21 @@ export function useAdminEvents() {
   return useQuery<(DbEvent & { profiles: { full_name: string } | null })[]>({
     queryKey: ['admin-events'],
     queryFn: async () => {
-      // Modo demo
-      if (MOCK_EVENTS.length > 0) {
-        return MOCK_EVENTS.map(e => ({
-          ...e,
-          profiles: { full_name: 'Produtor Teste' }
-        })) as (DbEvent & { profiles: { full_name: string } | null })[]
-      }
-
       const { data, error } = await supabase
         .from('events')
-        .select(`
-          *,
-          profiles (full_name),
-          ticket_types (*)
-        `)
+        .select(`*, profiles (full_name), ticket_types (*)`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      return (data || []).map((event: any) => ({
-        ...event,
-        ticket_types: (event.ticket_types || []).map((t: any) => ({
-          ...t,
-          price: Number(t.price) || 0,
-          perks: Array.isArray(t.perks) ? t.perks : []
-        }))
+      const realEvents = (data || []).map((event: any) => normalizeEventTicketTypes(event))
+      if (realEvents.length > 0) {
+        return realEvents as (DbEvent & { profiles: { full_name: string } | null })[]
+      }
+
+      return MOCK_EVENTS.map(e => ({
+        ...e,
+        profiles: { full_name: 'Produtor Teste' }
       })) as (DbEvent & { profiles: { full_name: string } | null })[]
     }
   })
@@ -521,17 +483,6 @@ export function useAdminTickets() {
   return useQuery<AdminTicketType[]>({
     queryKey: ['admin-tickets'],
     queryFn: async () => {
-      // Modo demo
-      const demoTickets = MOCK_EVENTS.flatMap(e => 
-        (e.ticket_types || []).map(t => ({
-          ...t,
-          event_title: e.title,
-          event_status: e.status,
-          producer_name: 'Produtor Teste',
-        }))
-      )
-      if (demoTickets.length > 0) return demoTickets as AdminTicketType[]
-
       const { data, error } = await supabase
         .from('ticket_types')
         .select(`
@@ -542,7 +493,7 @@ export function useAdminTickets() {
 
       if (error) throw error
 
-      return (data || []).map((t: any) => ({
+      const realTickets = (data || []).map((t: any) => ({
         ...t,
         price: Number(t.price) || 0,
         perks: Array.isArray(t.perks) ? t.perks : [],
@@ -550,9 +501,17 @@ export function useAdminTickets() {
         event_status: t.events?.status || 'unknown',
         producer_name: t.events?.profiles?.full_name || null,
       })) as AdminTicketType[]
+
+      if (realTickets.length > 0) return realTickets
+
+      return MOCK_EVENTS.flatMap(e =>
+        (e.ticket_types || []).map(t => ({
+          ...t,
+          event_title: e.title,
+          event_status: e.status,
+          producer_name: 'Produtor Teste',
+        }))
+      ) as AdminTicketType[]
     }
   })
 }
-
-
-

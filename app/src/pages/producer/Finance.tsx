@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react'
 import {
   TrendingUp, TrendingDown, DollarSign, Download, Plus, X, Edit3,
   CreditCard, QrCode, Receipt, Banknote, ArrowRightLeft, Calendar,
-  CheckCircle2, Clock, AlertTriangle, Search
+  CheckCircle2, Clock, AlertTriangle, Search, BarChart3
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useFinancialDashboard } from '../../hooks/useFinancialDashboard'
+import {
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell
+} from 'recharts'
 
 // ─── Types ───
 type PaymentMethod = 'credito' | 'debito' | 'pix' | 'boleto' | 'dinheiro' | 'transferencia'
@@ -51,6 +56,8 @@ const statusConfig: Record<PaymentStatus, { bg: string; text: string; icon: type
   atrasado: { bg: 'bg-red-50 border-red-100', text: 'text-red-500', icon: AlertTriangle, label: 'Atrasado' },
 }
 
+const CHART_COLORS = ['#7a3b69', '#c49ab8', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444']
+
 // ─── Form Modal ───
 function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | null; onSave: (formVal: any) => void; onClose: () => void; events: any[] }) {
   const [form, setForm] = useState({
@@ -75,7 +82,7 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
       toast.error('Preencha o valor e a descrição da transação')
       return
     }
-    
+
     onSave({
       id: tx?.id || null,
       event_id: form.eventId || null,
@@ -99,7 +106,6 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
         </div>
 
         <div className="space-y-4">
-          {/* Tipo */}
           <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
             <button onClick={() => setForm({ ...form, type: 'income' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'income' ? 'bg-green-500 text-white' : 'text-espresso/50'}`}>
               Receita
@@ -137,7 +143,6 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
             </div>
           </div>
 
-          {/* Forma de Pagamento */}
           <div>
             <label className="text-xs font-medium text-espresso/60 mb-2 block">Forma de Pagamento</label>
             <div className="grid grid-cols-3 gap-2">
@@ -149,7 +154,6 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
             </div>
           </div>
 
-          {/* Status */}
           <div>
             <label className="text-xs font-medium text-espresso/60 mb-2 block">Status</label>
             <div className="flex items-center gap-2">
@@ -190,6 +194,17 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 // ─── Main ───
 export default function ProducerFinance() {
   const { user } = useAuth()
+  const {
+    summary,
+    isSummaryLoading,
+    dailyRevenue,
+    isDailyLoading,
+    eventRevenue,
+    isEventRevenueLoading,
+    paymentMethods,
+    isPaymentMethodsLoading,
+  } = useFinancialDashboard()
+
   const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all')
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -198,37 +213,28 @@ export default function ProducerFinance() {
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all')
   const [filterMethod] = useState<PaymentMethod | 'all'>('all')
-
-  // Obter lista de eventos do produtor para o Dropdown do form
   const [events, setEvents] = useState<any[]>([])
 
-  // Carregar dados financeiros do Supabase
   const loadFinanceData = async () => {
     if (!user?.id) return
     setIsLoading(true)
     try {
-      // 1. Carregar eventos para vinculação
       const { data: dbEvents } = await supabase
         .from('events')
         .select('id, title')
         .eq('producer_id', user.id)
-      
+
       setEvents(dbEvents || [])
 
-      // 2. Carregar transações
       const { data: dbTxs, error } = await supabase
         .from('transactions')
-        .select(`
-          *,
-          events (title)
-        `)
+        .select(`*, events (title)`)
         .eq('producer_id', user.id)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
       if (!dbTxs || dbTxs.length === 0) {
-        // Se estiver vazio, realizamos auto-seed para exibição
         await seedInitialTransactions(user.id, dbEvents || [])
         return
       }
@@ -242,7 +248,6 @@ export default function ProducerFinance() {
     }
   }
 
-  // Mapear dados do banco para o frontend
   const mapDbTxToTransaction = (dbTx: any): Transaction => {
     let tStatus: PaymentStatus = 'pendente'
     if (dbTx.status === 'paid' || dbTx.status === 'pago') {
@@ -251,7 +256,6 @@ export default function ProducerFinance() {
       tStatus = 'atrasado'
     }
 
-    // Gerar método mock dependendo do tipo de transação
     let method: PaymentMethod = 'pix'
     if (dbTx.type === 'income') {
       method = Math.random() > 0.4 ? 'pix' : 'credito'
@@ -265,7 +269,7 @@ export default function ProducerFinance() {
       description: dbTx.description || 'Transação financeira',
       type: dbTx.type as TransactionType,
       amount: Number(dbTx.amount) || 0,
-      method: method,
+      method,
       status: tStatus,
       date: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
       dueDate: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
@@ -273,7 +277,6 @@ export default function ProducerFinance() {
     }
   }
 
-  // Auto-seed de transações de demonstração
   const seedInitialTransactions = async (producerId: string, producerEvents: any[]) => {
     try {
       const eventId = producerEvents.length > 0 ? producerEvents[0].id : null
@@ -287,19 +290,12 @@ export default function ProducerFinance() {
         { producer_id: producerId, event_id: eventId, type: 'expense', amount: 380, description: 'Comissão Aura - Processamento', status: 'paid', created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() }
       ]
 
-      const { error } = await supabase
-        .from('transactions')
-        .insert(initialTxs)
-
+      const { error } = await supabase.from('transactions').insert(initialTxs)
       if (error) throw error
 
-      // Recarregar
       const { data: finalTxs } = await supabase
         .from('transactions')
-        .select(`
-          *,
-          events (title)
-        `)
+        .select(`*, events (title)`)
         .eq('producer_id', producerId)
         .order('created_at', { ascending: false })
 
@@ -329,25 +325,21 @@ export default function ProducerFinance() {
   const pendingAmount = transactions.filter(t => t.status === 'pendente').reduce((s, t) => s + t.amount, 0)
   const overdueAmount = transactions.filter(t => t.status === 'atrasado').reduce((s, t) => s + t.amount, 0)
 
-  // Agrupado por método
   const byMethod = (Object.keys(methodIcons) as PaymentMethod[]).map(m => ({
     method: m,
     income: income.filter(t => t.method === m).reduce((s, t) => s + t.amount, 0),
     expense: expenses.filter(t => t.method === m).reduce((s, t) => s + t.amount, 0),
   })).filter(m => m.income > 0 || m.expense > 0)
 
-  // Agrupado por categoria
   const byCategory = [...new Set(expenses.map(t => t.category))].map(c => ({
     category: c,
     total: expenses.filter(t => t.category === c).reduce((s, t) => s + t.amount, 0),
   })).sort((a, b) => b.total - a.total)
 
-  // Salvar transações
   const handleSave = async (formVal: any) => {
     if (!user?.id) return
     try {
       if (formVal.id) {
-        // Update
         const { error } = await supabase
           .from('transactions')
           .update({
@@ -363,7 +355,6 @@ export default function ProducerFinance() {
         if (error) throw error
         toast.success('Transação atualizada no Supabase')
       } else {
-        // Insert
         const { error } = await supabase
           .from('transactions')
           .insert({
@@ -379,7 +370,7 @@ export default function ProducerFinance() {
         if (error) throw error
         toast.success('Transação adicionada no Supabase')
       }
-      
+
       setEditingTx(null)
       setShowForm(false)
       loadFinanceData()
@@ -395,13 +386,16 @@ export default function ProducerFinance() {
     { id: 'expense' as const, label: 'Despesas', count: expenses.length },
   ]
 
+  const formatCurrency = (v: number) =>
+    `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Financeiro</h1>
-          <p className="text-sm text-espresso/50 mt-1">Fluxo de caixa, receitas reais e conciliação bancária</p>
+          <p className="text-sm text-espresso/50 mt-1">Dashboard com dados reais do banco, fluxo de caixa e conciliação</p>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => toast.success('Relatório CSV exportado!')} className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full hover:bg-white transition-all">
@@ -413,31 +407,126 @@ export default function ProducerFinance() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[1, 2, 3, 4].map(n => (
-            <div key={n} className="p-5 rounded-2xl bg-white/40 border border-white/60 animate-pulse text-center h-[98px]" />
-          ))}
-        </div>
-      ) : (
-        /* KPI Cards */
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[
-            { label: 'Receitas', value: `R$ ${totalIncome.toLocaleString()}`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
-            { label: 'Despesas', value: `R$ ${totalExpense.toLocaleString()}`, icon: TrendingDown, color: 'text-red-500', bg: 'bg-red-50 border-red-100' },
-            { label: 'Saldo Líquido', value: `R$ ${net.toLocaleString()}`, icon: DollarSign, color: net >= 0 ? 'text-green-600' : 'text-red-500', bg: net >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100' },
-            { label: 'Contas a Pagar', value: `R$ ${(pendingAmount + overdueAmount).toLocaleString()}`, icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-          ].map(k => (
-            <div key={k.label} className={`p-5 rounded-2xl border backdrop-blur-sm ${k.bg}`}>
-              <div className="flex items-center justify-between mb-3">
-                <k.icon className={`w-5 h-5 ${k.color}`} />
-              </div>
-              <div className={`font-serif text-2xl ${k.color}`}>{k.value}</div>
-              <div className="text-xs text-espresso/40 mt-1">{k.label}</div>
+      {/* ─── Dashboard Charts (DADOS REAIS) ─── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Receita Total', value: formatCurrency(summary?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
+          { label: 'Confirmado', value: formatCurrency(summary?.confirmedRevenue || 0), icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
+          { label: 'Pendente', value: formatCurrency(summary?.pendingRevenue || 0), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
+          { label: 'Ingressos Vendidos', value: String(summary?.totalTicketsSold || 0), icon: BarChart3, color: 'text-plum', bg: 'bg-plum/5 border-plum/10' },
+        ].map(k => (
+          <div key={k.label} className={`p-5 rounded-2xl border backdrop-blur-sm ${k.bg}`}>
+            <div className="flex items-center justify-between mb-3">
+              <k.icon className={`w-5 h-5 ${k.color}`} />
             </div>
-          ))}
+            <div className={`font-serif text-2xl ${k.color}`}>{isSummaryLoading ? '—' : k.value}</div>
+            <div className="text-xs text-espresso/40 mt-1">{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Charts Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Revenue over time */}
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+          <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-plum" /> Receita nos Últimos 30 Dias
+          </h3>
+          {isDailyLoading ? (
+            <div className="h-64 bg-espresso/5 rounded-xl animate-pulse" />
+          ) : !dailyRevenue || dailyRevenue.length === 0 ? (
+            <div className="h-64 flex items-center justify-center text-sm text-espresso/30">Nenhuma venda nos últimos 30 dias</div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={dailyRevenue}>
+                  <defs>
+                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#7a3b69" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#7a3b69" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
+                  <Tooltip
+                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                  />
+                  <Area type="monotone" dataKey="revenue" stroke="#7a3b69" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </div>
-      )}
+
+        {/* Payment Methods */}
+        <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+          <h3 className="text-sm font-medium text-espresso mb-4">Formas de Pagamento</h3>
+          {isPaymentMethodsLoading ? (
+            <div className="h-48 bg-espresso/5 rounded-xl animate-pulse" />
+          ) : !paymentMethods || paymentMethods.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-sm text-espresso/30">Sem dados de pagamento</div>
+          ) : (
+            <div className="h-48">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentMethods}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={70}
+                    paddingAngle={4}
+                    dataKey="total"
+                    nameKey="method"
+                  >
+                    {paymentMethods.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+          <div className="space-y-2 mt-2">
+            {paymentMethods?.map((m, i) => (
+              <div key={m.method} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                  <span className="text-espresso/60">{m.method}</span>
+                </div>
+                <span className="font-medium text-espresso">R$ {m.total.toLocaleString('pt-BR')}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Revenue by Event */}
+      <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm mb-8">
+        <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-plum" /> Receita por Evento
+        </h3>
+        {isEventRevenueLoading ? (
+          <div className="h-48 bg-espresso/5 rounded-xl animate-pulse" />
+        ) : !eventRevenue || eventRevenue.length === 0 ? (
+          <div className="h-48 flex items-center justify-center text-sm text-espresso/30">Nenhum evento com vendas</div>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={eventRevenue} layout="vertical" margin={{ left: 20, right: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
+                <YAxis dataKey="event_title" type="category" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} width={140} />
+                <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']} />
+                <Bar dataKey="revenue" fill="#7a3b69" radius={[0, 6, 6, 0]} barSize={20} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
 
       {/* Alert for overdue */}
       {overdueAmount > 0 && (
@@ -450,74 +539,69 @@ export default function ProducerFinance() {
         </div>
       )}
 
-      {isLoading ? (
-        <div className="h-48 bg-white/40 border border-white/60 animate-pulse rounded-2xl mb-8" />
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          {/* Payment Method Chart */}
-          <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-            <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-plum" /> Por Forma de Pagamento</h3>
-            <div className="space-y-3">
-              {byMethod.map(m => {
-                const maxVal = Math.max(...byMethod.map(x => Math.max(x.income, x.expense) || 1))
-                return (
-                  <div key={m.method}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs text-espresso/60 flex items-center gap-1.5">
-                        {(() => { const I = methodIcons[m.method]; return <I className="w-3.5 h-3.5 text-espresso/30" /> })()}
-                        {methodLabels[m.method]}
-                      </span>
+      {/* Legacy payment method bars */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+          <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-plum" /> Por Forma de Pagamento (Transações)</h3>
+          <div className="space-y-3">
+            {byMethod.map(m => {
+              const maxVal = Math.max(...byMethod.map(x => Math.max(x.income, x.expense) || 1))
+              return (
+                <div key={m.method}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-espresso/60 flex items-center gap-1.5">
+                      {(() => { const I = methodIcons[m.method]; return <I className="w-3.5 h-3.5 text-espresso/30" /> })()}
+                      {methodLabels[m.method]}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
+                      {m.income > 0 && (
+                        <div className="h-full bg-green-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.income / maxVal) * 100}%` }}>
+                          <span className="text-[10px] font-medium text-green-700 whitespace-nowrap">R$ {m.income.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
-                        {m.income > 0 && (
-                          <div className="h-full bg-green-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.income / maxVal) * 100}%` }}>
-                            <span className="text-[10px] font-medium text-green-700 whitespace-nowrap">R$ {m.income.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
-                        {m.expense > 0 && (
-                          <div className="h-full bg-red-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.expense / maxVal) * 100}%` }}>
-                            <span className="text-[10px] font-medium text-red-700 whitespace-nowrap">R$ {m.expense.toLocaleString()}</span>
-                          </div>
-                        )}
-                      </div>
+                    <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
+                      {m.expense > 0 && (
+                        <div className="h-full bg-red-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.expense / maxVal) * 100}%` }}>
+                          <span className="text-[10px] font-medium text-red-700 whitespace-nowrap">R$ {m.expense.toLocaleString()}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-4 mt-4 pt-3 border-t border-espresso/5">
-              <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-green-400/60" /> Receitas</span>
-              <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-red-400/60" /> Despesas</span>
-            </div>
+                </div>
+              )
+            })}
           </div>
-
-          {/* Expense by Category */}
-          <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-            <h3 className="text-sm font-medium text-espresso mb-4">Despesas por Categoria</h3>
-            <div className="space-y-3">
-              {byCategory.map(c => {
-                const maxCat = Math.max(...byCategory.map(x => x.total) || 1)
-                return (
-                  <div key={c.category} className="flex items-center gap-3">
-                    <span className="text-xs text-espresso/60 w-24 truncate">{c.category}</span>
-                    <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
-                      <div className="h-full bg-plum/20 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(c.total / maxCat) * 100}%` }}>
-                        <span className="text-[10px] font-medium text-plum whitespace-nowrap">R$ {c.total.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-              {byCategory.length === 0 && (
-                <div className="py-12 text-center text-xs text-espresso/30">Nenhuma despesa registrada.</div>
-              )}
-            </div>
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-espresso/5">
+            <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-green-400/60" /> Receitas</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-red-400/60" /> Despesas</span>
           </div>
         </div>
-      )}
+
+        <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+          <h3 className="text-sm font-medium text-espresso mb-4">Despesas por Categoria</h3>
+          <div className="space-y-3">
+            {byCategory.map(c => {
+              const maxCat = Math.max(...byCategory.map(x => x.total) || 1)
+              return (
+                <div key={c.category} className="flex items-center gap-3">
+                  <span className="text-xs text-espresso/60 w-24 truncate">{c.category}</span>
+                  <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
+                    <div className="h-full bg-plum/20 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(c.total / maxCat) * 100}%` }}>
+                      <span className="text-[10px] font-medium text-plum whitespace-nowrap">R$ {c.total.toLocaleString()}</span>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+            {byCategory.length === 0 && (
+              <div className="py-12 text-center text-xs text-espresso/30">Nenhuma despesa registrada.</div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Tabs + Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">

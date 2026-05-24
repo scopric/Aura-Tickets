@@ -12,24 +12,12 @@ export default function ProducerDashboard() {
   const { user } = useAuth()
   const { data: events, isLoading: isEventsLoading, error: eventsError } = useProducerEvents()
 
-  // Buscar pedidos recentes dos eventos deste produtor para a atividade recente real
+  // Buscar pedidos recentes reais
   const { data: recentOrders, isLoading: isOrdersLoading } = useQuery({
     queryKey: ['producer-recent-orders', user?.id],
     queryFn: async () => {
       if (!user?.id) return []
 
-      // Modo demo: pedidos mock
-      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
-        return [
-          { id: 'ord-001', created_at: new Date().toISOString(), total: 450, user_id: 'u-001', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Ana Silva' } },
-          { id: 'ord-002', created_at: new Date(Date.now() - 3600000).toISOString(), total: 900, user_id: 'u-002', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Carlos Mendes' } },
-          { id: 'ord-003', created_at: new Date(Date.now() - 7200000).toISOString(), total: 150, user_id: 'u-003', event_id: 'evt-002', events: { title: 'Workshop de Marketing Digital' }, profiles: { full_name: 'Maria Oliveira' } },
-          { id: 'ord-004', created_at: new Date(Date.now() - 10800000).toISOString(), total: 299, user_id: 'u-004', event_id: 'evt-002', events: { title: 'Workshop de Marketing Digital' }, profiles: { full_name: 'João Pedro' } },
-          { id: 'ord-005', created_at: new Date(Date.now() - 14400000).toISOString(), total: 450, user_id: 'u-005', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Fernanda Lima' } },
-        ]
-      }
-      
-      // 1. Obter IDs dos eventos do produtor
       const { data: producerEvents } = await supabase
         .from('events')
         .select('id')
@@ -38,7 +26,6 @@ export default function ProducerDashboard() {
       if (!producerEvents || producerEvents.length === 0) return []
       const eventIds = producerEvents.map(e => e.id)
 
-      // 2. Buscar pedidos correspondentes
       const { data: orders, error } = await supabase
         .from('orders')
         .select(`
@@ -60,32 +47,42 @@ export default function ProducerDashboard() {
     enabled: !!user?.id,
   })
 
-  // Buscar o consolidado financeiro do produtor a partir da view materializada event_summary
+  // Buscar consolidado financeiro real via orders + tickets
   const { data: financeSummary, isLoading: isFinanceLoading } = useQuery({
     queryKey: ['producer-finance-summary', user?.id],
     queryFn: async () => {
       if (!user?.id) return { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
 
-      // Modo demo
-      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
-        return { tickets_sold: 1676, total_revenue: 246701, unique_buyers: 843 }
-      }
-      
-      const { data, error } = await supabase
-        .from('event_summary')
-        .select('*')
+      const { data: producerEvents } = await supabase
+        .from('events')
+        .select('id')
         .eq('producer_id', user.id)
 
-      if (error) throw error
-      
-      const totalTickets = data?.reduce((acc, curr) => acc + (Number(curr.tickets_sold) || 0), 0) || 0
-      const totalRevenue = data?.reduce((acc, curr) => acc + (Number(curr.total_revenue) || 0), 0) || 0
-      const totalBuyers = data?.reduce((acc, curr) => acc + (Number(curr.unique_buyers) || 0), 0) || 0
+      if (!producerEvents || producerEvents.length === 0) return { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
+      const eventIds = producerEvents.map(e => e.id)
+
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('total, user_id')
+        .in('event_id', eventIds)
+
+      if (ordersError) throw ordersError
+
+      const { data: tickets, error: ticketsError } = await supabase
+        .from('tickets')
+        .select('id')
+        .in('event_id', eventIds)
+
+      if (ticketsError) throw ticketsError
+
+      const totalRevenue = orders?.reduce((acc, o) => acc + (Number(o.total) || 0), 0) || 0
+      const ticketsSold = tickets?.length || 0
+      const uniqueBuyers = new Set(orders?.map(o => o.user_id) || []).size
 
       return {
-        tickets_sold: totalTickets,
+        tickets_sold: ticketsSold,
         total_revenue: totalRevenue,
-        unique_buyers: totalBuyers
+        unique_buyers: uniqueBuyers,
       }
     },
     enabled: !!user?.id,
@@ -100,22 +97,13 @@ export default function ProducerDashboard() {
     }
   }, [isEventsLoading, isFinanceLoading])
 
-  // Cálculos dinâmicos a partir dos dados do Supabase
   const activeEventsCount = events?.filter(e => e.status === 'published').length || 0
-  
-  const totalTicketsSold = financeSummary?.tickets_sold ?? (events?.reduce((total, event) => {
-    return total + (event.ticket_types?.reduce((sum, t) => sum + (t.sold || 0), 0) || 0)
-  }, 0) || 0)
-
-  const totalRevenue = financeSummary?.total_revenue ?? (events?.reduce((total, event) => {
-    return total + (event.ticket_types?.reduce((sum, t) => sum + (t.price * (t.sold || 0)), 0) || 0)
-  }, 0) || 0)
-
+  const totalTicketsSold = financeSummary?.tickets_sold ?? 0
+  const totalRevenue = financeSummary?.total_revenue ?? 0
   const totalCapacity = events?.reduce((total, event) => {
     return total + (event.ticket_types?.reduce((sum, t) => sum + (t.capacity || 0), 0) || 0)
   }, 0) || 0
-
-  const uniqueBuyers = financeSummary?.unique_buyers ?? totalTicketsSold
+  const uniqueBuyers = financeSummary?.unique_buyers ?? 0
 
   const stats = [
     { label: 'Eventos Ativos', value: activeEventsCount.toString(), icon: Calendar, change: 'Eventos no ar', color: 'plum' },
@@ -124,7 +112,6 @@ export default function ProducerDashboard() {
     { label: 'Compradores Únicos', value: uniqueBuyers.toLocaleString('pt-BR'), icon: Users, change: 'Participantes individuais', color: 'green' },
   ]
 
-  // Formatar tempo decorrido de forma elegante
   const formatTimeElapsed = (dateStr: string) => {
     try {
       const diffMs = new Date().getTime() - new Date(dateStr).getTime()
@@ -145,15 +132,24 @@ export default function ProducerDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Dashboard</h1>
-          <p className="text-sm text-espresso/50 mt-1">Visão geral dos seus eventos</p>
+          <p className="text-sm text-espresso/50 mt-1">Visão geral dos seus eventos com dados reais</p>
         </div>
-        <Link
-          to="/producer/planner"
-          className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Evento
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link
+            to="/producer/finance"
+            className="flex items-center gap-2 px-5 py-2.5 bg-plum/10 text-plum text-sm font-medium rounded-full hover:bg-plum/20 transition-all"
+          >
+            <BarChart3 className="w-4 h-4" />
+            Ver Financeiro
+          </Link>
+          <Link
+            to="/producer/planner"
+            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
+          >
+            <Plus className="w-4 h-4" />
+            Novo Evento
+          </Link>
+        </div>
       </div>
 
       {eventsError && (
@@ -200,7 +196,7 @@ export default function ProducerDashboard() {
                 Ver todos <ArrowUpRight className="w-3 h-3" />
               </Link>
             </div>
-            
+
             {isEventsLoading ? (
               <div className="space-y-3">
                 {[1, 2].map(n => (
@@ -223,7 +219,7 @@ export default function ProducerDashboard() {
                   const ticketTypes = event.ticket_types || []
                   const eventSold = ticketTypes.reduce((s, t) => s + (t.sold || 0), 0)
                   const eventRevenue = ticketTypes.reduce((s, t) => s + (t.price * (t.sold || 0)), 0)
-                  
+
                   return (
                     <Link
                       key={event.id}
@@ -255,7 +251,7 @@ export default function ProducerDashboard() {
         {/* Activity list */}
         <div className="dash-card p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
           <h2 className="font-serif text-xl text-espresso mb-6">Atividade Recente</h2>
-          
+
           {isOrdersLoading ? (
             <div className="space-y-4 animate-pulse">
               {[1, 2, 3].map(n => (
