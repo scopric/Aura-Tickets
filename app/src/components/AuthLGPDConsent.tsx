@@ -37,7 +37,7 @@ export default function AuthLGPDConsent({
           <div>
             <h3 className="text-sm font-medium text-espresso">Seus dados, suas regras</h3>
             <p className="text-[11px] text-espresso/50 mt-0.5">
-              A Aura respeita sua privacidade. Você está no controle.
+              A Evokaa respeita sua privacidade. Você está no controle.
             </p>
           </div>
         </div>
@@ -128,7 +128,7 @@ export default function AuthLGPDConsent({
                   Comunicações de marketing
                 </p>
                 <p className="text-[10px] text-espresso/40 mt-0.5">
-                  Aceito receber e-mails sobre eventos, promoções e novidades da Aura.
+                  Aceito receber e-mails sobre eventos, promoções e novidades da Evokaa.
                 </p>
               </div>
             </label>
@@ -151,7 +151,7 @@ export default function AuthLGPDConsent({
                   Personalização de experiência
                 </p>
                 <p className="text-[10px] text-espresso/40 mt-0.5">
-                  Aceito que a Aura use meus dados para recomendar eventos e melhorar minha experiência.
+                  Aceito que a Evokaa use meus dados para recomendar eventos e melhorar minha experiência.
                 </p>
               </div>
             </label>

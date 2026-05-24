@@ -102,7 +102,7 @@ export default function ContactPage() {
             Entre em contato
           </span>
           <h1 className="contact-hero-title font-serif text-6xl lg:text-7xl leading-[0.95] mb-6" style={{ color: 'var(--espresso)' }}>
-            Fale com a <em className="not-italic" style={{ color: 'var(--plum)' }}>Aura</em>
+            Fale com a <em className="not-italic" style={{ color: 'var(--plum)' }}>Evokaa</em>
           </h1>
           <p className="contact-hero-sub text-sm max-w-md mx-auto leading-[1.8] font-light" style={{ color: 'var(--espresso)', opacity: 0.45 }}>
             Tem uma ideia, duvida ou quer criar algo incrivel junto?<br />

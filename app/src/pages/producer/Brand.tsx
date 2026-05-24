@@ -11,7 +11,7 @@ interface BrandPreset {
 }
 
 const presets: BrandPreset[] = [
-  { name: 'Aura', bg: '#f7f5f0', text: '#1a0e14', accent: '#7a3b69', card: '#ffffff' },
+  { name: 'Evokaa', bg: '#f7f5f0', text: '#1a0e14', accent: '#7a3b69', card: '#ffffff' },
   { name: 'Midnight', bg: '#0a0a0a', text: '#f0f0f0', accent: '#6366f1', card: '#1a1a1a' },
   { name: 'Forest', bg: '#f0fdf4', text: '#14532d', accent: '#16a34a', card: '#ffffff' },
   { name: 'Ocean', bg: '#eff6ff', text: '#1e3a5f', accent: '#2563eb', card: '#ffffff' },

@@ -7,7 +7,7 @@ export default function AppDownload() {
       <div className="max-w-md w-full text-center">
         {/* Logo */}
         <Link to="/" className="inline-flex items-center gap-2 mb-8">
-          <img src="/images/logo-evokaa.png" alt="Aura" className="h-12 w-auto" />
+          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-12 w-auto" />
         </Link>
 
         <h1 className="font-serif text-4xl text-espresso mb-3">
@@ -22,8 +22,8 @@ export default function AppDownload() {
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-20 h-5 bg-espresso/10 rounded-b-xl" />
           <div className="p-4 pt-8 h-full flex flex-col">
             <div className="text-center mb-4">
-              <img src="/images/logo-evokaa.png" alt="Aura" className="h-6 w-auto mx-auto mb-2" />
-              <p className="text-[8px] text-cream/40">Aura Events</p>
+              <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto mx-auto mb-2" />
+              <p className="text-[8px] text-cream/40">Evokaa Events</p>
             </div>
             <div className="space-y-2 flex-1">
               <div className="p-2 rounded-xl bg-white/5 border border-white/10">

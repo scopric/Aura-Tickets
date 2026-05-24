@@ -70,7 +70,7 @@ export default function ContactSection() {
             <MessageCircle className="w-6 h-6 text-plum" />
           </div>
           <h2 className="font-serif text-4xl text-espresso mb-3">
-            Fale com a <em style={{ color: 'var(--plum)' }}>Aura</em>
+            Fale com a <em style={{ color: 'var(--plum)' }}>Evokaa</em>
           </h2>
           <p className="text-sm text-espresso/50 max-w-md mx-auto leading-relaxed">
             Tem uma ideia, duvida ou quer criar algo incrivel junto? Estamos aqui para ouvir voce.

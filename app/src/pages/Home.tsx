@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger)
 
 export default function Home() {
   useSEO({
-    title: 'Aura Tickets — Plataforma de Ingressos Sociais',
+    title: 'Evokaa Tickets — Plataforma de Ingressos Sociais',
     description: 'Descubra eventos incríveis, compre ingressos com segurança e viva experiências inesquecíveis. A plataforma completa para produtores e participantes.',
     image: '/og-image.jpg',
   })
@@ -63,13 +63,13 @@ export default function Home() {
   ]
 
   const landingFAQs = [
-    { question: 'O que e a Aura?', answer: 'Aura e uma plataforma completa para criacao e gestao de eventos. Desde o planejamento ate a venda de ingressos e check-in na porta, tudo em um so lugar. Conectamos produtores, participantes e afiliados em uma experiencia unica.' },
-    { question: 'Quanto custa usar a Aura?', answer: 'Criar uma conta e gratuita. Cobramos uma comissao sobre as vendas de ingressos (geralmente 5-10%), sem custo fixo mensal. Voce so paga quando vende.' },
+    { question: 'O que e a Evokaa?', answer: 'Evokaa e uma plataforma completa para criacao e gestao de eventos. Desde o planejamento ate a venda de ingressos e check-in na porta, tudo em um so lugar. Conectamos produtores, participantes e afiliados em uma experiencia unica.' },
+    { question: 'Quanto custa usar a Evokaa?', answer: 'Criar uma conta e gratuita. Cobramos uma comissao sobre as vendas de ingressos (geralmente 5-10%), sem custo fixo mensal. Voce so paga quando vende.' },
     { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva e um tipo de ingresso exclusivo onde 6 pessoas desconhecidas sao agrupadas por afinidade de perfil. Cada pessoa responde um questionario rapido e nosso algoritmo forma mesas equilibradas. Inclui welcome drink e finger food.' },
     { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que voce cadastre vendedores com codigos unicos, cupons de desconto exclusivos e limites de ingressos. Acompanhe tudo em tempo real no painel.' },
     { question: 'Quais formas de pagamento sao aceitas?', answer: 'Aceitamos PIX, Cartao de Credito, Cartao de Debito, Boleto, Dinheiro e Transferencia bancaria. O dinheiro cai na sua conta em ate 2 dias uteis.' },
     { question: 'Como funciona o check-in?', answer: 'Na porta do evento, voce pode usar o modo Scanner (digita o codigo do ingresso) ou o modo Lista (busca o nome do participante). Ambos funcionam offline e atualizam em tempo real.' },
-    { question: 'A Aura funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Voce tambem pode criar tipos personalizados.' },
+    { question: 'A Evokaa funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Voce tambem pode criar tipos personalizados.' },
     { question: 'Como entro em contato com o suporte?', answer: 'Use o botao de feedback no canto inferior direito de qualquer pagina. Nossa equipe responde em ate 24h. Produtores tem acesso ao FAQ completo no painel.' },
   ]
 
@@ -211,7 +211,7 @@ export default function Home() {
               <em style={{ color: 'var(--plum)' }}>algo extraordinario?</em>
             </h2>
             <p className="text-[var(--ink-faint)] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
-              Junte-se a milhares de criadores que ja transformam experiencias com a Aura.
+              Junte-se a milhares de criadores que ja transformam experiencias com a Evokaa.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link

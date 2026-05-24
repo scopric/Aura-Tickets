@@ -38,7 +38,7 @@ export default function Header() {
           <Link to="/" className="flex items-center gap-3 group">
             <img
               src="/images/logo-evokaa.png"
-              alt="Aura"
+              alt="Evokaa"
               className="h-7 w-auto transition-transform duration-300 group-hover:scale-105"
             />
             {!isScrolled && (

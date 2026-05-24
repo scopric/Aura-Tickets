@@ -10,19 +10,19 @@ const termsLines = [
   'TERMOS E CONDICOES DE USO - PLATAFORMA AURA',
   '',
   '1. ACEITACAO DOS TERMOS',
-  'Ao acessar e utilizar a plataforma Aura, voce concorda integralmente com estes Termos e Condicoes de Uso. Se nao concordar com qualquer parte destes termos, nao utilize a plataforma.',
+  'Ao acessar e utilizar a plataforma Evokaa, voce concorda integralmente com estes Termos e Condicoes de Uso. Se nao concordar com qualquer parte destes termos, nao utilize a plataforma.',
   '',
   '2. DESCRICAO DO SERVICO',
-  'A Aura e uma plataforma de gestao e comercializacao de eventos que conecta produtores, participantes e afiliados. Os servicos incluem: criacao e gestao de eventos, venda de ingressos, sistema de check-in, ferramentas de marketing, gestao financeira e relacionamento com clientes.',
+  'A Evokaa e uma plataforma de gestao e comercializacao de eventos que conecta produtores, participantes e afiliados. Os servicos incluem: criacao e gestao de eventos, venda de ingressos, sistema de check-in, ferramentas de marketing, gestao financeira e relacionamento com clientes.',
   '',
   '3. PLANOS E ASSINATURAS',
-  '3.1. A Aura oferece planos de assinatura (Starter, Plus, Pro e Enterprise) com diferentes funcionalidades e limites.',
+  '3.1. A Evokaa oferece planos de assinatura (Starter, Plus, Pro e Enterprise) com diferentes funcionalidades e limites.',
   '3.2. O pagamento e processado mensalmente ou anualmente, conforme escolha do usuario.',
   '3.3. O cancelamento pode ser realizado a qualquer momento atraves das configuracoes da conta.',
   '3.4. O nao pagamento da assinatura resultara na suspensao temporaria das funcionalidades pagas.',
   '',
   '4. TAXAS E COMISSOES',
-  '4.1. A Aura retem uma comissao de 5% sobre cada venda de ingresso realizada na plataforma.',
+  '4.1. A Evokaa retem uma comissao de 5% sobre cada venda de ingresso realizada na plataforma.',
   '4.2. Valores adicionais podem ser cobrados por servicos especificos, como transacoes via cartao de credito.',
   '4.3. O repasse dos valores ao produtor ocorre em ate 2 dias uteis apos a conclusao do evento.',
   '',
@@ -33,14 +33,14 @@ const termsLines = [
   '',
   '6. PRIVACIDADE E DADOS',
   '6.1. Os dados pessoais dos usuarios sao tratados conforme nossa Politica de Privacidade.',
-  '6.2. A Aura utiliza criptografia e medidas de seguranca para proteger os dados.',
+  '6.2. A Evokaa utiliza criptografia e medidas de seguranca para proteger os dados.',
   '',
   '7. PROPRIEDADE INTELECTUAL',
-  '7.1. A marca, logotipo e interface da Aura sao propriedade exclusiva da Aura Tecnologia Ltda.',
+  '7.1. A marca, logotipo e interface da Evokaa sao propriedade exclusiva da Evokaa Tecnologia Ltda.',
   '7.2. O produtor mantem todos os direitos sobre o conteudo de seus eventos.',
   '',
   '8. SUSPENSAO E CANCELAMENTO',
-  '8.1. A Aura reserva-se o direito de suspender contas que violem estes termos.',
+  '8.1. A Evokaa reserva-se o direito de suspender contas que violem estes termos.',
   '8.2. Em caso de cancelamento, os dados do usuario serao mantidos por 90 dias.',
   '',
   '9. DISPOSICOES GERAIS',
@@ -53,7 +53,7 @@ const termsLines = [
 
 export default function ProducerSettings() {
   const [activeTab, setActiveTab] = useState<'profile' | 'billing' | 'plan' | 'notifications' | 'terms'>('profile')
-  const [profile, setProfile] = useState({ name: 'Joao Silva', email: 'joao@email.com', phone: '(11) 98765-4321', company: 'Aura Eventos', cpf: '123.456.789-00', bio: 'Produtor de eventos ha 5 anos.' })
+  const [profile, setProfile] = useState({ name: 'Joao Silva', email: 'joao@email.com', phone: '(11) 98765-4321', company: 'Evokaa Eventos', cpf: '123.456.789-00', bio: 'Produtor de eventos ha 5 anos.' })
   const [twoFactor, setTwoFactor] = useState(false)
 
   const tabs = [
@@ -65,11 +65,11 @@ export default function ProducerSettings() {
   ]
 
   const payments = [
-    { id: 1, date: '15 Mai 2025', desc: 'Assinatura Aura Pro', amount: 149, status: 'pago', method: 'Cartao Credito' },
-    { id: 2, date: '15 Abr 2025', desc: 'Assinatura Aura Pro', amount: 149, status: 'pago', method: 'PIX' },
-    { id: 3, date: '15 Mar 2025', desc: 'Assinatura Aura Pro', amount: 149, status: 'pago', method: 'Cartao Credito' },
-    { id: 4, date: '15 Fev 2025', desc: 'Assinatura Aura Starter', amount: 49, status: 'pago', method: 'Boleto' },
-    { id: 5, date: '15 Jan 2025', desc: 'Assinatura Aura Starter', amount: 49, status: 'pago', method: 'Cartao Credito' },
+    { id: 1, date: '15 Mai 2025', desc: 'Assinatura Evokaa Pro', amount: 149, status: 'pago', method: 'Cartao Credito' },
+    { id: 2, date: '15 Abr 2025', desc: 'Assinatura Evokaa Pro', amount: 149, status: 'pago', method: 'PIX' },
+    { id: 3, date: '15 Mar 2025', desc: 'Assinatura Evokaa Pro', amount: 149, status: 'pago', method: 'Cartao Credito' },
+    { id: 4, date: '15 Fev 2025', desc: 'Assinatura Evokaa Starter', amount: 49, status: 'pago', method: 'Boleto' },
+    { id: 5, date: '15 Jan 2025', desc: 'Assinatura Evokaa Starter', amount: 49, status: 'pago', method: 'Cartao Credito' },
   ]
 
   const features = [
@@ -216,7 +216,7 @@ export default function ProducerSettings() {
                   <Crown className="w-7 h-7 text-plum" />
                 </div>
                 <div>
-                  <h3 className="font-serif text-xl text-espresso">Aura Pro</h3>
+                  <h3 className="font-serif text-xl text-espresso">Evokaa Pro</h3>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-plum/20 text-plum">Plano Atual</span>
                 </div>
               </div>

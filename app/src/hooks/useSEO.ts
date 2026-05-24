@@ -11,8 +11,8 @@ interface SEOOptions {
 
 export function useSEO(options: SEOOptions = {}) {
   const {
-    title = "Aura Tickets — Plataforma de Ingressos",
-    description = "Descubra eventos incríveis e compre ingressos com segurança na Aura Tickets.",
+    title = "Evokaa Tickets — Plataforma de Ingressos",
+    description = "Descubra eventos incríveis e compre ingressos com segurança na Evokaa Tickets.",
     image = "/og-image.jpg",
     url = typeof window !== "undefined" ? window.location.href : "",
     type = "website",

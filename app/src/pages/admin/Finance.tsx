@@ -7,7 +7,7 @@ const transactions = [
   { id: 'tx2', desc: 'Mesa Coletiva - Noite Eletro', user: 'Elisa Nakamura', amount: 160, type: 'in' as const, date: '15 Mai 2025, 13:45' },
   { id: 'tx3', desc: 'Saque Produtor - Joao Eventos', user: 'Joao Eventos', amount: 5000, type: 'out' as const, date: '14 Mai 2025, 10:00' },
   { id: 'tx4', desc: 'Ingresso Geral - Jazz Sunset', user: 'Bruno Costa', amount: 80, type: 'in' as const, date: '14 Mai 2025, 09:15' },
-  { id: 'tx5', desc: 'Taxa de Plataforma', user: 'Aura', amount: 320, type: 'fee' as const, date: '14 Mai 2025, 00:00' },
+  { id: 'tx5', desc: 'Taxa de Plataforma', user: 'Evokaa', amount: 320, type: 'fee' as const, date: '14 Mai 2025, 00:00' },
   { id: 'tx6', desc: 'Ingresso VIP - Jazz Sunset', user: 'Gabriela Torres', amount: 180, type: 'in' as const, date: '13 Mai 2025, 18:20' },
 ]
 

@@ -53,7 +53,7 @@ interface MenuGroup {
       - Fundido: "Antecipacao" + "Parcelamento" → "Config. Pagamento"
       
    4. AURA STORE + LISTA INTERESSE (de Eventos → Vendas)
-      - Aura Store e Lista de Interesse sao ferramentas de venda, nao gestao de evento
+      - Evokaa Store e Lista de Interesse sao ferramentas de venda, nao gestao de evento
       
    5. REL. POS-EVENTO (de Eventos → permanece em Eventos, pertence ao ciclo)
    
@@ -83,7 +83,7 @@ const menuGroups: MenuGroup[] = [
   {
     id: 'sales', icon: Megaphone, label: 'Vendas & Marketing', color: '#f59e0b',
     items: [
-      { to: '/producer/aura-store', icon: ShoppingBag, label: 'Aura Store' },
+      { to: '/producer/aura-store', icon: ShoppingBag, label: 'Evokaa Store' },
       { to: '/producer/lista-interesse', icon: FileText, label: 'Lista de Interesse' },
       { to: '/producer/cupons', icon: TicketPercent, label: 'Cupons' },
       { to: '/producer/afiliados', icon: Users, label: 'Afiliados' },
@@ -261,7 +261,7 @@ export default function ProducerLayout() {
         )}
         style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
-          <img src="/images/logo-evokaa.png" alt="Aura" className="h-6 w-auto" />
+          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto" />
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>

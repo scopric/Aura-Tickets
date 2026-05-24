@@ -58,11 +58,11 @@ export default function AdminLayout() {
       >
         {/* Logo */}
         <div className={cn('flex items-center gap-3 px-4 h-16 border-b border-white/10', collapsed && 'justify-center px-2')}>
-          <img src="/images/logo-evokaa.png" alt="Aura" className="h-7 w-auto flex-shrink-0" />
+          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-7 w-auto flex-shrink-0" />
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white tracking-wide">Admin</span>
-              <span className="text-[10px] text-rose-400 font-semibold uppercase tracking-wider bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-500/30">Aura</span>
+              <span className="text-[10px] text-rose-400 font-semibold uppercase tracking-wider bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-500/30">Evokaa</span>
             </div>
           )}
         </div>

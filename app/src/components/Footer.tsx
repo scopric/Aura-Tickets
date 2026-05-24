@@ -27,7 +27,7 @@ export default function Footer() {
             <Link to="/" className="flex items-center gap-2 mb-6">
               <img
                 src="/images/logo-evokaa.png"
-                alt="Aura"
+                alt="Evokaa"
                 className="h-10 w-auto"
               />
             </Link>
@@ -106,7 +106,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-cream/40">
-            &copy; 2025 Aura. Todos os direitos reservados.
+            &copy; 2025 Evokaa. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-6">
             {['Privacidade', 'Termos', 'Cookies'].map((label) => (

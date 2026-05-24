@@ -148,7 +148,7 @@ export default function OrganizerApp() {
         <h2 className="font-serif text-xl text-espresso mb-6 text-center">Como Instalar</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            { step: '01', title: 'Acesse pelo celular', desc: 'Abra a Aura no navegador do seu celular (Chrome ou Safari)' },
+            { step: '01', title: 'Acesse pelo celular', desc: 'Abra a Evokaa no navegador do seu celular (Chrome ou Safari)' },
             { step: '02', title: 'Toque no menu', desc: 'No Chrome, toque nos 3 pontos. No Safari, toque no botao de compartilhar' },
             { step: '03', title: 'Adicione a tela inicial', desc: 'Selecione "Adicionar a tela inicial" e pronto! O app esta instalado' },
           ].map(s => (

@@ -26,22 +26,22 @@ interface FeatureGate {
 }
 
 const mockUsers: User[] = [
-  { id: 'u1', name: 'Joao Silva', email: 'joao@email.com', role: 'produtor', plan: 'Aura Pro', status: 'ativo', joinedAt: '01 Mar 2025', events: 12, revenue: 156000, lastLogin: '2h atras', phone: '(11) 98765-4321', avatar: 'https://i.pravatar.cc/150?img=11', paymentMethod: 'Cartao Credito', planDueDate: '01 Jun 2025', planValue: 149, totalSpent: 2847, termsAccepted: '01 Mar 2025', features: ['tudo'] },
+  { id: 'u1', name: 'Joao Silva', email: 'joao@email.com', role: 'produtor', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '01 Mar 2025', events: 12, revenue: 156000, lastLogin: '2h atras', phone: '(11) 98765-4321', avatar: 'https://i.pravatar.cc/150?img=11', paymentMethod: 'Cartao Credito', planDueDate: '01 Jun 2025', planValue: 149, totalSpent: 2847, termsAccepted: '01 Mar 2025', features: ['tudo'] },
   { id: 'u2', name: 'Ana Costa', email: 'ana@email.com', role: 'participante', plan: 'Gratuito', status: 'ativo', joinedAt: '15 Fev 2025', events: 0, revenue: 0, lastLogin: '5h atras', phone: '(11) 91234-5678', avatar: 'https://i.pravatar.cc/150?img=5', paymentMethod: '-', planDueDate: '-', planValue: 0, totalSpent: 890, termsAccepted: '15 Fev 2025', features: ['compra', 'favoritos'] },
-  { id: 'u3', name: 'Carlos Mendes', email: 'carlos@email.com', role: 'produtor', plan: 'Aura Starter', status: 'ativo', joinedAt: '10 Abr 2025', events: 3, revenue: 23400, lastLogin: '1 dia', phone: '(11) 92345-6789', avatar: 'https://i.pravatar.cc/150?img=3', paymentMethod: 'PIX', planDueDate: '10 Mai 2025', planValue: 49, totalSpent: 147, termsAccepted: '10 Abr 2025', features: ['eventos_limitados', 'financeiro'] },
-  { id: 'u4', name: 'Maria Souza', email: 'maria@email.com', role: 'admin', plan: 'Aura Pro', status: 'ativo', joinedAt: '01 Jan 2025', events: 0, revenue: 0, lastLogin: '30min', phone: '(11) 93456-7890', avatar: 'https://i.pravatar.cc/150?img=9', paymentMethod: 'Cartao Credito', planDueDate: '01 Jan 2026', planValue: 149, totalSpent: 1788, termsAccepted: '01 Jan 2025', features: ['tudo'] },
-  { id: 'u5', name: 'Pedro Lima', email: 'pedro@email.com', role: 'participante', plan: 'Aura Plus', status: 'bloqueado', joinedAt: '20 Mar 2025', events: 0, revenue: 0, lastLogin: '15 dias', phone: '(11) 94567-8901', avatar: 'https://i.pravatar.cc/150?img=8', paymentMethod: 'Boleto', planDueDate: 'Vencido', planValue: 99, totalSpent: 297, termsAccepted: '20 Mar 2025', features: ['compra', 'mesa_coletiva', 'favoritos'] },
-  { id: 'u6', name: 'Fernanda Rocha', email: 'fernanda@email.com', role: 'produtor', plan: 'Aura Pro', status: 'ativo', joinedAt: '05 Jan 2025', events: 8, revenue: 98000, lastLogin: '3h atras', phone: '(11) 95678-9012', avatar: 'https://i.pravatar.cc/150?img=20', paymentMethod: 'PIX', planDueDate: '05 Jun 2025', planValue: 149, totalSpent: 745, termsAccepted: '05 Jan 2025', features: ['tudo'] },
+  { id: 'u3', name: 'Carlos Mendes', email: 'carlos@email.com', role: 'produtor', plan: 'Evokaa Starter', status: 'ativo', joinedAt: '10 Abr 2025', events: 3, revenue: 23400, lastLogin: '1 dia', phone: '(11) 92345-6789', avatar: 'https://i.pravatar.cc/150?img=3', paymentMethod: 'PIX', planDueDate: '10 Mai 2025', planValue: 49, totalSpent: 147, termsAccepted: '10 Abr 2025', features: ['eventos_limitados', 'financeiro'] },
+  { id: 'u4', name: 'Maria Souza', email: 'maria@email.com', role: 'admin', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '01 Jan 2025', events: 0, revenue: 0, lastLogin: '30min', phone: '(11) 93456-7890', avatar: 'https://i.pravatar.cc/150?img=9', paymentMethod: 'Cartao Credito', planDueDate: '01 Jan 2026', planValue: 149, totalSpent: 1788, termsAccepted: '01 Jan 2025', features: ['tudo'] },
+  { id: 'u5', name: 'Pedro Lima', email: 'pedro@email.com', role: 'participante', plan: 'Evokaa Plus', status: 'bloqueado', joinedAt: '20 Mar 2025', events: 0, revenue: 0, lastLogin: '15 dias', phone: '(11) 94567-8901', avatar: 'https://i.pravatar.cc/150?img=8', paymentMethod: 'Boleto', planDueDate: 'Vencido', planValue: 99, totalSpent: 297, termsAccepted: '20 Mar 2025', features: ['compra', 'mesa_coletiva', 'favoritos'] },
+  { id: 'u6', name: 'Fernanda Rocha', email: 'fernanda@email.com', role: 'produtor', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '05 Jan 2025', events: 8, revenue: 98000, lastLogin: '3h atras', phone: '(11) 95678-9012', avatar: 'https://i.pravatar.cc/150?img=20', paymentMethod: 'PIX', planDueDate: '05 Jun 2025', planValue: 149, totalSpent: 745, termsAccepted: '05 Jan 2025', features: ['tudo'] },
 ]
 
 const plans: Plan[] = [
-  { id: 'starter', name: 'Aura Starter', price: 49, period: 'mensal', color: '#8b5cf6', subscribers: 234, revenue: 11466,
+  { id: 'starter', name: 'Evokaa Starter', price: 49, period: 'mensal', color: '#8b5cf6', subscribers: 234, revenue: 11466,
     features: [{ name: '3 eventos/mes', enabled: true }, { name: '100 ingressos/evento', enabled: true }, { name: 'Financeiro basico', enabled: true }, { name: 'Caixinha', enabled: true }, { name: 'CRM', enabled: false }, { name: 'Afiliados', enabled: false }, { name: 'Cupons', enabled: false }, { name: 'Comunicacao', enabled: false }] },
-  { id: 'plus', name: 'Aura Plus', price: 99, period: 'mensal', color: '#d97706', subscribers: 189, revenue: 18711,
+  { id: 'plus', name: 'Evokaa Plus', price: 99, period: 'mensal', color: '#d97706', subscribers: 189, revenue: 18711,
     features: [{ name: '10 eventos/mes', enabled: true }, { name: '500 ingressos/evento', enabled: true }, { name: 'Financeiro completo', enabled: true }, { name: 'Caixinha + Calculadora', enabled: true }, { name: 'CRM + Afiliados', enabled: true }, { name: 'Cupons + Comunicacao', enabled: true }, { name: 'Banners + Galeria', enabled: false }, { name: 'Mesa Coletiva', enabled: false }] },
-  { id: 'pro', name: 'Aura Pro', price: 149, period: 'mensal', color: '#7a3b69', subscribers: 412, revenue: 61388,
+  { id: 'pro', name: 'Evokaa Pro', price: 149, period: 'mensal', color: '#7a3b69', subscribers: 412, revenue: 61388,
     features: [{ name: 'Eventos ilimitados', enabled: true }, { name: 'Ingressos ilimitados', enabled: true }, { name: 'Tudo do Plus', enabled: true }, { name: 'Mesa Coletiva', enabled: true }, { name: 'Banners + Galeria', enabled: true }, { name: 'Check-in App', enabled: true }, { name: 'Suporte prioritario', enabled: true }, { name: 'API access', enabled: false }] },
-  { id: 'enterprise', name: 'Aura Enterprise', price: 349, period: 'mensal', color: '#1a0e14', subscribers: 47, revenue: 16403,
+  { id: 'enterprise', name: 'Evokaa Enterprise', price: 349, period: 'mensal', color: '#1a0e14', subscribers: 47, revenue: 16403,
     features: [{ name: 'Tudo do Pro', enabled: true }, { name: 'Multiplos produtores', enabled: true }, { name: 'White label', enabled: true }, { name: 'API access', enabled: true }, { name: 'Gerente dedicado', enabled: true }, { name: 'SLA garantido', enabled: true }, { name: 'Custom integrations', enabled: true }, { name: 'Treinamento equipe', enabled: true }] },
 ]
 
@@ -108,7 +108,7 @@ export default function AdminDashboard() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Administrativo</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gestao completa da plataforma Aura</p>
+          <p className="text-sm text-espresso/50 mt-1">Gestao completa da plataforma Evokaa</p>
         </div>
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {[{ id: 'overview', label: 'Visao Geral', icon: BarChart3 }, { id: 'users', label: 'Usuarios', icon: Users }, { id: 'plans', label: 'Planos', icon: Crown }, { id: 'features', label: 'Funcionalidades', icon: Lock }].map(t => (
@@ -225,7 +225,7 @@ export default function AdminDashboard() {
                 {[
                   { icon: Users, text: 'Novo usuario registrado', sub: 'Amanda Costa - ha 5 min', color: 'text-blue-600' },
                   { icon: Calendar, text: 'Evento publicado', sub: 'Noite Eletro 2025 - ha 15 min', color: 'text-plum' },
-                  { icon: DollarSign, text: 'Pagamento de assinatura', sub: 'Aura Pro - R$ 149 - ha 30 min', color: 'text-green-600' },
+                  { icon: DollarSign, text: 'Pagamento de assinatura', sub: 'Evokaa Pro - R$ 149 - ha 30 min', color: 'text-green-600' },
                   { icon: Ticket, text: '50 ingressos vendidos', sub: 'Jazz Sunset Session - ha 1h', color: 'text-amber-600' },
                 ].map((a, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/40">

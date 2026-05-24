@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 const termsText = `TERMOS E CONDICOES DE USO - PARTICIPANTE
 
 1. ACEITACAO
-Ao utilizar a Aura, voce aceita estes termos integralmente.
+Ao utilizar a Evokaa, voce aceita estes termos integralmente.
 
 2. COMPRA DE INGRESSOS
 2.1. Todos os ingressos sao emitidos digitalmente via QR Code.

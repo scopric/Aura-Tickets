@@ -17,8 +17,8 @@ export default function EventPage() {
   const { data: event, isLoading, error } = usePublicEvent(eventId)
 
   useSEO({
-    title: event ? `${event.title} | Aura Tickets` : 'Evento | Aura Tickets',
-    description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Aura Tickets.',
+    title: event ? `${event.title} | Evokaa Tickets` : 'Evento | Evokaa Tickets',
+    description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Evokaa Tickets.',
     image: event?.image_url || event?.cover_image || '/og-image.jpg',
     type: 'event',
   })

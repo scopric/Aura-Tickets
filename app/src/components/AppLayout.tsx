@@ -45,8 +45,8 @@ export default function AppLayout() {
       >
         {/* Logo */}
         <div className="flex items-center gap-2.5 px-4 h-16 flex-shrink-0">
-          <img src="/images/logo-evokaa.png" alt="Aura" className="h-8 w-8 object-contain" />
-          {!collapsed && <span className="font-serif text-lg" style={{ color: 'var(--espresso)' }}>Aura</span>}
+          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-8 w-8 object-contain" />
+          {!collapsed && <span className="font-serif text-lg" style={{ color: 'var(--espresso)' }}>Evokaa</span>}
         </div>
 
         {/* Nav */}

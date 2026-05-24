@@ -422,7 +422,7 @@ export default function ProducerSettings() {
                   { key: 'newMessage', label: 'Nova mensagem', desc: 'Notificacao de mensagens no chat', icon: Mail },
                   { key: 'eventReminder', label: 'Lembretes de evento', desc: 'Alertas 7, 3 e 1 dia antes do evento', icon: Bell },
                   { key: 'payoutComplete', label: 'Saque concluido', desc: 'Confirmacao quando o dinheiro cair na conta', icon: CreditCard },
-                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promocoes da Aura', icon: Mail },
+                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promocoes da Evokaa', icon: Mail },
                 ].map(item => (
                   <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                     <div className="flex items-center gap-3">

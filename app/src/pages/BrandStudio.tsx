@@ -27,7 +27,7 @@ const defaultSettings: BrandSettings = {
 
 const presetThemes = [
   {
-    name: 'Aura',
+    name: 'Evokaa',
     settings: {
       primaryColor: '#7a3b69',
       secondaryColor: '#1a0e14',

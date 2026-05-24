@@ -10,7 +10,7 @@ interface TourStep {
 }
 
 const producerSteps: TourStep[] = [
-  { title: 'Bem-vindo ao Aura!', description: 'Esta e a sua central de comandos. Aqui voce gerencia todos os seus eventos, vendas e equipe em um so lugar.' },
+  { title: 'Bem-vindo ao Evokaa!', description: 'Esta e a sua central de comandos. Aqui voce gerencia todos os seus eventos, vendas e equipe em um so lugar.' },
   { title: 'Criar Evento', description: 'Comece clicando em "Nova Festa". Escolha o tipo, configure ingressos, preços e publique em minutos.' },
   { title: 'Afiliados', description: 'Cadastre vendedores que divulgarao seu evento. Cada um tem codigo unico, cupom e limite de ingressos. Acompanhe em tempo real.' },
   { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido, funciona offline e atualiza em tempo real.' },
@@ -23,7 +23,7 @@ const producerSteps: TourStep[] = [
 ]
 
 const buyerSteps: TourStep[] = [
-  { title: 'Bem-vindo ao Aura!', description: 'Aqui voce descobre os melhores eventos, compra ingressos e vive experiencias unicas.' },
+  { title: 'Bem-vindo ao Evokaa!', description: 'Aqui voce descobre os melhores eventos, compra ingressos e vive experiencias unicas.' },
   { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e localidade.' },
   { title: 'Mesa Coletiva', description: 'Nao tem grupo? A Mesa Coletiva une 6 pessoas por afinidade. Responda o questionario e deixe o resto conosco!' },
   { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague via PIX ou cartao.' },

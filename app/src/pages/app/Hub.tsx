@@ -92,7 +92,7 @@ export default function AppHub() {
       <header className="sticky top-0 z-30 bg-void/80 backdrop-blur-xl border-b border-white/[0.04]">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <img src="/images/logo-evokaa.png" alt="Aura" className="h-6 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto" />
           </Link>
           <div className="flex items-center gap-3">
             <button className="relative p-2 rounded-full bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
@@ -388,7 +388,7 @@ export default function AppHub() {
                 <Sparkles className="w-6 h-6 text-plum" />
               </div>
               <div className="flex-1">
-                <div className="text-sm font-medium text-cream">Aura Eventos</div>
+                <div className="text-sm font-medium text-cream">Evokaa Eventos</div>
                 <div className="text-[11px] text-cream/30">Noite Eletro 2025 · Produtor</div>
               </div>
               <div className="flex items-center gap-1">

@@ -26,7 +26,7 @@ const categoryLabels: Record<string, { label: string; icon: typeof Star; color: 
   service: { label: 'Servico', icon: Gift, color: '#8b5cf6' },
 }
 
-export default function AuraStore() {
+export default function EvokaaStore() {
   const [items, setItems] = useState<StoreItem[]>([
     { id: '1', name: 'Meet & Greet', description: 'Encontro exclusivo com os artistas antes do show', price: 150, stock: 20, sold: 8, category: 'experience', image: '', active: true, limitPerOrder: 2 },
     { id: '2', name: 'Camiseta Oficial', description: 'Camiseta exclusiva do evento, tamanhos P ao GG', price: 80, stock: 100, sold: 34, category: 'merch', image: '', active: true, limitPerOrder: 5 },

@@ -41,7 +41,7 @@ export default function ProducerSubscription() {
       {/* Header */}
       <div className="text-center mb-10">
         <span className="text-[10px] font-medium tracking-[0.3em] uppercase" style={{ color: 'var(--plum)' }}>Escolha seu plano</span>
-        <h1 className="font-serif text-4xl mt-3 mb-3" style={{ color: 'var(--espresso)' }}>Planos Aura</h1>
+        <h1 className="font-serif text-4xl mt-3 mb-3" style={{ color: 'var(--espresso)' }}>Planos Evokaa</h1>
         <p className="text-sm" style={{ color: 'var(--espresso)', opacity: 0.45 }}>Escalone seus eventos sem limites. Cancele quando quiser.</p>
 
         {/* Billing Toggle */}
@@ -62,7 +62,7 @@ export default function ProducerSubscription() {
             <Crown className="w-6 h-6" style={{ color: 'var(--plum)' }} />
           </div>
           <div>
-            <div className="text-sm font-medium" style={{ color: 'var(--espresso)' }}>Plano atual: <span style={{ color: 'var(--plum)' }}>Aura Pro</span></div>
+            <div className="text-sm font-medium" style={{ color: 'var(--espresso)' }}>Plano atual: <span style={{ color: 'var(--plum)' }}>Evokaa Pro</span></div>
             <div className="text-xs" style={{ color: 'var(--espresso)', opacity: 0.4 }}>Proximo vencimento: 15 Jun 2025 · R$ 149/mes</div>
           </div>
         </div>
