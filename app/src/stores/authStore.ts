@@ -96,11 +96,54 @@ export const useAuthStore = create<AuthState>()(
       signOut: async () => {
         set({ isLoading: true })
         await supabase.auth.signOut()
+        localStorage.removeItem('aura-auth')
+        // Limpa todas as chaves do Supabase Auth no localStorage e sessionStorage
+        Object.keys(localStorage).forEach((key) => {
+          if (key.startsWith('sb-')) {
+            localStorage.removeItem(key)
+          }
+        })
+        Object.keys(sessionStorage).forEach((key) => {
+          if (key.startsWith('sb-')) {
+            sessionStorage.removeItem(key)
+          }
+        })
         set({ user: null, session: null, isAuthenticated: false, isLoading: false })
       },
 
       fetchProfile: async () => {
         set({ isLoading: true })
+        const session = get().session
+
+        // Modo demo: mock sessions
+        if (session?.access_token?.startsWith('mock-token-')) {
+          const role = session.access_token === 'mock-token-admin' ? 'admin' : 
+                       session.access_token === 'mock-token-producer' ? 'producer' : 'user'
+          const name = role === 'admin' ? 'Admin Teste' : role === 'producer' ? 'Produtor Teste' : 'Usuario Teste'
+          const id = role === 'admin' ? 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' : 
+                     role === 'producer' ? 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' : 
+                     'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'
+          const email = role === 'admin' ? 'admin@aura.teste' : role === 'producer' ? 'produtor@aura.teste' : 'user@aura.teste'
+
+          const mappedUser: User = {
+            id,
+            email,
+            full_name: name,
+            avatar_url: null,
+            role,
+            producer_profile: role === 'producer' ? {
+              company_name: name,
+              cnpj: '',
+              stripe_account_id: null,
+              woovi_account_id: null,
+              commission_rate: 10,
+              is_verified: true
+            } : null
+          }
+          set({ user: mappedUser, isAuthenticated: true, isLoading: false })
+          return
+        }
+
         const { data: { user: authUser } } = await supabase.auth.getUser()
         
         if (!authUser) {

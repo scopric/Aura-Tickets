@@ -6,7 +6,7 @@ import {
   Music, UtensilsCrossed, Ticket, MapPin, Heart, Tag,
   Smartphone, Trash2, AlertTriangle, Star
 } from 'lucide-react'
-import { useNavigate } from 'react-router'
+import { useNavigate } from 'react-router-dom'
 
 type Section = 'perfil' | 'seguranca' | 'pagamento' | 'notificacoes' | 'privacidade'
 

@@ -83,6 +83,25 @@ export default function AdminDashboard() {
     }
   }
 
+  // Auxiliares de estilização dinâmica para evitar inline styles
+  const getPlanKey = (planNameOrId: string): string => {
+    const normalized = planNameOrId.toLowerCase();
+    if (normalized.includes('starter')) return 'starter';
+    if (normalized.includes('plus')) return 'plus';
+    if (normalized.includes('pro')) return 'pro';
+    if (normalized.includes('enterprise')) return 'enterprise';
+    return 'starter';
+  };
+
+  // Validador seguro de acessos dinâmicos por chave para evitar riscos de bracket notation (Prototype Pollution)
+  const hasPlanAccess = (fg: FeatureGate, planId: string): boolean => {
+    const validPlanIds = ['starter', 'plus', 'pro', 'enterprise'];
+    if (validPlanIds.includes(planId)) {
+      return !!fg.plans[planId];
+    }
+    return false;
+  };
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
       {/* Header */}
@@ -141,7 +160,7 @@ export default function AdminDashboard() {
               <div className="h-48 flex items-end gap-2">
                 {[25, 40, 35, 55, 45, 70, 60, 80, 65, 85, 75, 95].map((h, i) => (
                   <div key={i} className="flex-1 flex flex-col items-center gap-1 group">
-                    <div className="w-full rounded-t-xl transition-all duration-300 group-hover:opacity-80" style={{ height: `${h * 1.8}px`, background: 'linear-gradient(to top, var(--plum), rgba(122,59,105,0.3))' }} />
+                    <div className="w-full rounded-t-xl transition-all duration-300 group-hover:opacity-80 bg-bar-gradient" style={{ height: `${h * 1.8}px` }} />
                   </div>
                 ))}
               </div>
@@ -156,21 +175,24 @@ export default function AdminDashboard() {
             <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
               <h2 className="font-serif text-xl text-espresso mb-5">Distribuicao de Planos</h2>
               <div className="space-y-4">
-                {plans.map(p => (
-                  <div key={p.id}>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs text-espresso/60 flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                        {p.name}
-                      </span>
-                      <span className="text-xs font-medium" style={{ color: p.color }}>{p.subscribers}</span>
+                {plans.map(p => {
+                  const pk = getPlanKey(p.id);
+                  return (
+                    <div key={p.id}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-espresso/60 flex items-center gap-2">
+                          <div className={`w-2.5 h-2.5 rounded-full bg-plan-${pk}`} />
+                          {p.name}
+                        </span>
+                        <span className={`text-xs font-medium text-plan-${pk}`}>{p.subscribers}</span>
+                      </div>
+                      <div className="w-full h-2 bg-canvas rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all bg-plan-${pk}`} style={{ width: `${(p.subscribers / 600) * 100}%` }} />
+                      </div>
+                      <div className="text-[10px] text-espresso/25 mt-0.5">R$ {p.revenue.toLocaleString()}/mes</div>
                     </div>
-                    <div className="w-full h-2 bg-canvas rounded-full overflow-hidden">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${(p.subscribers / 600) * 100}%`, backgroundColor: p.color }} />
-                    </div>
-                    <div className="text-[10px] text-espresso/25 mt-0.5">R$ {p.revenue.toLocaleString()}/mes</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -182,7 +204,7 @@ export default function AdminDashboard() {
               <div className="space-y-3">
                 {mockUsers.filter(u => u.role === 'produtor').sort((a, b) => b.revenue - a.revenue).slice(0, 4).map((p, i) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/40 hover:bg-white/60 transition-all cursor-pointer" onClick={() => { setSelectedUser(p); setTab('users') }}>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium" style={{ background: 'var(--plum-10)', color: 'var(--plum)' }}>{i + 1}</div>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-plum-10-text-plum">{i + 1}</div>
                     <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium text-espresso">{p.name}</div>
@@ -207,7 +229,7 @@ export default function AdminDashboard() {
                   { icon: Ticket, text: '50 ingressos vendidos', sub: 'Jazz Sunset Session - ha 1h', color: 'text-amber-600' },
                 ].map((a, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/40">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--cream)' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-cream-color">
                       <a.icon className={`w-4 h-4 ${a.color}`} />
                     </div>
                     <div>
@@ -262,7 +284,7 @@ export default function AdminDashboard() {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden lg:table-cell">
-                      <span className="px-2 py-0.5 text-[10px] font-medium rounded-full border" style={{ background: `${plans.find(p => p.name === u.plan)?.color}10`, color: plans.find(p => p.name === u.plan)?.color, borderColor: `${plans.find(p => p.name === u.plan)?.color}20` }}>{u.plan}</span>
+                      <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border bg-plan-${getPlanKey(u.plan)}-10 text-plan-${getPlanKey(u.plan)} border-plan-${getPlanKey(u.plan)}-20`}>{u.plan}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <span className={`text-xs ${u.planDueDate === 'Vencido' ? 'text-red-500' : 'text-espresso/40'}`}>{u.planDueDate}</span>
@@ -276,7 +298,7 @@ export default function AdminDashboard() {
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedUser(u)} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setSelectedUser(u)} aria-label={`Visualizar detalhes do usuario ${u.name}`} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                     </td>
                   </tr>
                 ))}
@@ -290,33 +312,36 @@ export default function AdminDashboard() {
       {tab === 'plans' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {plans.map(p => (
-              <div key={p.id} className="p-6 rounded-3xl border backdrop-blur-sm transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer" style={{ background: 'rgba(255,255,255,0.55)', borderColor: 'rgba(255,255,255,0.6)', borderTop: `3px solid ${p.color}` }} >
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `${p.color}15` }}>
-                    <Crown className="w-5 h-5" style={{ color: p.color }} />
-                  </div>
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: `${p.color}10`, color: p.color }}>{p.subscribers} assinantes</span>
-                </div>
-                <h3 className="font-serif text-lg text-espresso mb-1">{p.name}</h3>
-                <div className="flex items-baseline gap-1 mb-4">
-                  <span className="font-serif text-3xl" style={{ color: p.color }}>R$ {p.price}</span>
-                  <span className="text-xs text-espresso/30">/mes</span>
-                </div>
-                <div className="space-y-2">
-                  {p.features.slice(0, 5).map(f => (
-                    <div key={f.name} className="flex items-center gap-2 text-xs text-espresso/50">
-                      {f.enabled ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <XCircle className="w-3 h-3 text-espresso/15" />}
-                      {f.name}
+            {plans.map(p => {
+              const pk = getPlanKey(p.id);
+              return (
+                <div key={p.id} className={`p-6 rounded-3xl border border-white/60 bg-white/55 backdrop-blur-sm transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer border-t-plan-${pk}`} >
+                  <div className="flex items-center justify-between mb-4">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-plan-${pk}-15`}>
+                      <Crown className={`w-5 h-5 text-plan-${pk}`} />
                     </div>
-                  ))}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full bg-plan-${pk}-10 text-plan-${pk}`}>{p.subscribers} assinantes</span>
+                  </div>
+                  <h3 className="font-serif text-lg text-espresso mb-1">{p.name}</h3>
+                  <div className="flex items-baseline gap-1 mb-4">
+                    <span className={`font-serif text-3xl text-plan-${pk}`}>R$ {p.price}</span>
+                    <span className="text-xs text-espresso/30">/mes</span>
+                  </div>
+                  <div className="space-y-2">
+                    {p.features.slice(0, 5).map(f => (
+                      <div key={f.name} className="flex items-center gap-2 text-xs text-espresso/50">
+                        {f.enabled ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <XCircle className="w-3 h-3 text-espresso/15" />}
+                        {f.name}
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-espresso/5">
+                    <div className="text-xs text-espresso/40">Receita mensal</div>
+                    <div className="text-sm font-medium text-espresso">R$ {p.revenue.toLocaleString()}</div>
+                  </div>
                 </div>
-                <div className="mt-4 pt-4" style={{ borderTop: '1px solid rgba(26,14,20,0.05)' }}>
-                  <div className="text-xs text-espresso/40">Receita mensal</div>
-                  <div className="text-sm font-medium text-espresso">R$ {p.revenue.toLocaleString()}</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Plan Comparison Table */}
@@ -327,7 +352,7 @@ export default function AdminDashboard() {
                 <thead>
                   <tr className="border-b border-espresso/5">
                     <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Funcionalidade</th>
-                    {plans.map(p => <th key={p.id} className="text-center px-4 py-3 text-xs font-medium" style={{ color: p.color }}>{p.name}</th>)}
+                    {plans.map(p => <th key={p.id} className={`text-center px-4 py-3 text-xs font-medium text-plan-${getPlanKey(p.id)}`}>{p.name}</th>)}
                   </tr>
                 </thead>
                 <tbody>
@@ -339,7 +364,7 @@ export default function AdminDashboard() {
                       </td>
                       {plans.map(p => (
                         <td key={p.id} className="text-center px-4 py-3">
-                          {fg.plans[p.id] ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-espresso/15 mx-auto" />}
+                          {hasPlanAccess(fg, p.id) ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-espresso/15 mx-auto" />}
                         </td>
                       ))}
                     </tr>
@@ -392,7 +417,7 @@ export default function AdminDashboard() {
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
                         {plans.map(p => (
-                          <span key={p.id} className={`w-2 h-2 rounded-full ${fg.plans[p.id] ? '' : 'opacity-20'}`} style={{ backgroundColor: p.color }} title={p.name} />
+                          <span key={p.id} className={`w-2 h-2 rounded-full bg-plan-${getPlanKey(p.id)} ${hasPlanAccess(fg, p.id) ? '' : 'opacity-20'}`} title={p.name} />
                         ))}
                       </div>
                     </td>

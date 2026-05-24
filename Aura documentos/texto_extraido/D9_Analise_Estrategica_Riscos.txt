@@ -1,0 +1,339 @@
+D9
+D9 — Analise Estrategica,
+Riscos e Mitigacoes
+Avaliacao objetiva do ecossistema Aura
+Pontos fortes, riscos criticos e plano de acao
+Gateway de pagamento a definir
+Projeto Aura — Plataforma de Gestao de Eventos
+Documento 9 de 10 — Specdrive Tecnico
+1. Pontos Fortes (Diferenciais Reais)
+2
+1. Pontos Fortes (Diferenciais Reais)
+1.1 Documentacao e Planejamento
+E raro encontrar um projeto com um specdrive completo antes de escrever uma linha de
+backend. Com 124 paginas tecnicas distribuidas em 8 documentos, o Aura tem o escopo de
+incerteza drasticamente reduzido. Cada tabela, cada RLS policy, cada Edge Function e cada
+fluxo de negocio ja foram mapeados. Isso elimina o retrabalho e permite estimativas de
+tempo realistas.
+1.2 Proposta de Valor Clara
+O Aura ataca a Sympla em duas frestas reais do mercado:
+Split de Pagamentos: O produtor recebe o dinheiro diretamente na conta dele. A
+Sympla centraliza tudo e repassa depois. Para produtores com fluxo de caixa apertado,
+isso e diferencial decisivo.
+White Label: O produtor pode ter sua propria marca, dominio e identidade visual. A
+Sympla e uma plataforma cinza com logo dela em tudo. Para casas de show que querem
+construir marca propria, isso e essencial.
+1.3 Arquitetura Moderna
+A escolha da stack (React 19, Tailwind, Supabase, Vercel) permite um custo fixo inicial
+baixissimo (~US$ 46/mes) e escala serverless. Nao ha servidor para gerenciar, nao ha banco
+para fazer backup manualmente. O foco fica no produto, nao na infraestrutura.
+1.4 Maturidade do Frontend
+Com 66 paginas ja implementadas e 82 componentes, o frontend corta o tempo de
+lancamento pela metade. O construtor de mapas de assentos com Canvas HTML5 e um
+diferencial tecnico complexo que ja esta funcional. O Certificate Builder com 12 templates e
+outro ponto forte.
+2. Riscos Criticos e Mitigacoes
+3
+Tabela 1 Scorecard de Maturidade por Area
+Area
+Status
+Esforco Restante
+Risco
+UI/UX e Componentes
+85% pronto
+Tema white label + responsividade
+Baixo
+Seating Map (Canvas)
+95% pronto
+Persistencia no Supabase
+Baixo
+Certificate Builder
+90% pronto
+Geracao PDF server-side
+Baixo
+Checkout (visual)
+70% pronto
+Integracao gateway + estados
+Medio
+Painel do Produtor
+60% pronto
+Dados reais + graficos
+Medio
+Check-in / QR Code
+50% pronto
+Camera + validacao real
+Medio
+POS Cashless
+0% pronto
+App separado + hardware
+Alto 
+FASE 3
+2. Riscos Criticos e Mitigacoes
+2.1 Risco A: A Integracao do Backend (A "Ilusao do 95% Pronto")
+RISCO: O frontend tem 66 paginas operando com dados mockados. Substituir mocks
+por integracoes reais envolve refatorar logica de estados, tratamento de erros, loading
+states, paginacao real e conciliacao de dados assincronos. O esforco de integracao sera
+substancialmente maior do que a implementacao visual.
+2. Riscos Criticos e Mitigacoes
+4
+MITIGACAO:
+1. Abordagem por dominio: Nao integre as 66 paginas de uma vez. Comece pelo
+fluxo critico: Evento > Ingresso > Checkout > Meus Ingressos. Isso sao ~15 paginas.
+2. Contrato de API primeiro: Defina os tipos TypeScript e as interfaces de API antes
+de tocar no frontend. O arquivo src/types/database.ts  ja comeca isso.
+3. Feature flags: Use flags para habilitar paginas integradas gradualmente. Paginas
+nao integradas continuam funcionando com mock.
+4. Esperar bugs: Reserve 30% do tempo de integracao para resolver re-
+renderizacoes, race conditions e estados inconsistentes. Isso e normal.
+ESTIMATIVA REALISTA: A integracao do backend no frontend deve levar entre 6 e 10
+semanas de trabalho focado, considerando 2 desenvolvedores. Nao e uma tarde de
+trabalho. Planeje iteracoes semanais com deploys parciais.
+2.2 Risco B: O POS Cashless (O Calcanhar de Aquiles)
+RISCO: Software de ticketing falhar e ruim. Software de POS falhar durante um
+evento (no bar) e catastrofe. Adiciona camadas de: internet intermitente em casas de
+show, bateria de dispositivos, bartenders terceirizados com alta rotatividade,
+hardware fisico (compra, manutencao, envio via courier) e prevencao de fraudes.
+2. Riscos Criticos e Mitigacoes
+5
+MITIGACAO:
+1. Adiar para Fase 3: Nao construa o POS agora. Foque 100% em ser a melhor
+plataforma de ticketing online. O POS e um produto separado que exige logistica
+fisica.
+2. Offline-first obrigatorio: Quando for construir, o POS deve funcionar offline e
+sincronizar quando a internet voltar. Use IndexedDB + background sync.
+3. Teste em ambiente controlado: Antes de qualquer evento real, faca um "evento
+teste" interno. Convide 50 pessoas, simule um bar, teste falhas.
+4. Comunicacao redundante: Tenha 2 provedores de internet (4G de operadoras
+diferentes) nos eventos. Contrate um tecnico de TI local por evento.
+RECOMENDACAO ESTRATEGICA: Remova o POS Cashless do roadmap ate o Aura ter
+50+ eventos online rodando sem problemas. O modelo SaaS do ticketing ja gera
+receita recorrente. O POS e expansion revenue, nao core.
+2.3 Risco C: Dependencia do Gateway de Pagamento
+RISCO: Pagamentos de eventos tem alto indice de chargeback (fraudes de cartao). Se a
+taxa de chargeback de um produtor parceiro for muito alta, a conta principal da Aura
+pode ser bloqueada pelo gateway. O modelo de split diminui o risco direto, mas a
+conta da plataforma e a porta de entrada.
+2. Riscos Criticos e Mitigacoes
+6
+MITIGACAO:
+1. Nao definir gateway agora: O gateway sera escolhido quando o backend estiver
+pronto, com base nas condicoes comerciais e de risco na epoca.
+2. KYC rigoroso: Todo produtor deve passar por verificacao de identidade e
+comprovante de residencia antes de poder criar eventos pagos. Nao aceite CPF de
+terceiro.
+3. Limites progressivos: Produtores novos tem limite de R$ 5.000 em vendas no
+primeiro mes. Apos conciliacao limpa, o limite sobe.
+4. Monitoramento de chargeback: Dashboard que alerta quando um produtor
+atinge 0,5% de chargeback. Bloqueio automatico a 1%.
+5. Multi-gateway: Tenha 2 gateways configurados. Se um bloquear, o failover e
+instantaneo.
+6. Seguro: Contrate um seguro para eventos de alto valor (acima de R$ 100.000 em
+vendas).
+2.4 Risco D: Seguranca do Supabase (RLS e Edge Functions)
+RISCO: Um erro em uma policy do RLS pode expor dados de todos os clientes. Edge
+Functions que lidam com dinheiro (webhooks de pagamento) precisam de validacao
+rigorosa. Agentes de IA podem falhar em seguranca contextual.
+2. Riscos Criticos e Mitigacoes
+7
+MITIGACAO:
+1. Auditoria manual obrigatoria: Toda policy RLS e toda Edge Function deve ser
+revisada por um humano antes de ir para producao. Nao aceite codigo de IA sem
+revisao de seguranca.
+2. Testes automatizados de RLS: Escreva testes que simulam um usuario malicioso
+tentando acessar dados de outro usuario. Todos devem falhar (expected deny).
+3. Principio do menor privilegio: As Edge Functions devem usar a service_role_key
+apenas quando necessario. Nunca exponha essa chave no frontend.
+4. Validacao de webhooks: Todo webhook de pagamento deve validar a assinatura
+(signature) antes de processar. Rejeite qualquer payload sem assinatura valida.
+5. Logs de auditoria: A tabela audit_logs  deve registrar toda operacao financeira:
+quem fez, quando, quanto, para quem.
+2.5 Risco E: Concorrencia e Preco
+RISCO: O Aura propoe taxas de 5-7% contra 10% da Sympla. Mas em B2B (produtores
+de eventos), confiabilidade e mais importante que preco. O produtor prefere pagar
+10% e ter certeza de que o QR Code vai funcionar na porta do que pagar 5% e ter
+problema.
+MITIGACAO:
+1. Concorrer em valor, nao em preco: O diferencial e o split (dinheiro na conta do
+produtor) e o white label (marca propria). O preco e consequencia.
+2. Transparencia operacional: Status page publico, uptime 99,9% garantido, suporte
+por WhatsApp. Faca o produtor sentir que tem um parceiro, nao um software.
+3. Eventos pilotos: Ofereca os primeiros 3 eventos sem taxa de plataforma
+(cobrando so a do gateway). Deixe o produtor experimentar sem risco.
+4. Case studies: Documente cada evento bem-sucedido. Quando um produtor ver
+que outro ja usou com sucesso, a barreira cai.
+3. Modelo de Negocio Revisado
+8
+3. Modelo de Negocio Revisado
+3.1 Fluxo de Receita (Sem Gateway Definido)
+Como o gateway ainda nao foi definido, o modelo de receita deve ser flexivel. Os
+componentes de receita sao:
+Tabela 2 Componentes de Receita do Aura
+Fonte
+Modelo
+Valor Estimado
+Dependencia
+Taxa por transacao
+% sobre cada venda de
+ingresso
+5-7%
+Gateway contratado
+Plano White Label
+Mensalidade + setup
+R
+999/mes
+Sistema de temas
+pronto
+Setup de evento
+Taxa unica por evento
+criado
+R
+ 149
+Nenhuma
+Funcionalidades
+premium
+Upsell dentro da
+plataforma
+Variavel
+Funcionalidades
+prontas
+POS Cashless
+Aluguel de equipamento
++ %
+R$ 500/evento +
+2%
+Fase 3
+199 −R
+49 −R
+4. Plano de Acao Prioritario
+9
+3.2 Projecao Conservadora (12 meses)
+Tabela 3 Projecao de Receita - Cenario Conservador
+Mes
+Eventos
+GMV (R$)
+Receita Aura (R$)
+1-3
+5 eventos pilotos
+50.000
+0 (gratis)
+4-6
+15 eventos
+300.000
+15.000 (5%)
+7-9
+40 eventos
+1.200.000
+60.000 (5%)
+10-12
+80 eventos
+4.000.000
+200.000 (5%)
+Total 12 meses
+140 eventos
+R$ 5.550.000
+R$ 275.000
+Nota: Esta projecao e conservadora e assume que os primeiros 3 meses serao
+gratuitos para atrair produtores. A receita real depende diretamente da velocidade de
+integracao do backend e da qualidade do suporte aos primeiros clientes.
+4. Plano de Acao Prioritario
+4.1 Fase 1: Fundacao (Semanas 1-8)
+Tabela 4 Plano Semanal - Fase 1
+Semana
+Entrega
+Prioridade
+1-2
+Supabase schema + RLS policies + Triggers
+CRITICA
+3-4
+Auth (login/registro/perfil) integrado
+CRITICA
+5-6
+Listagem de eventos + detalhe do evento
+CRITICA
+7-8
+Carrinho + checkout visual + tipos de ingresso
+CRITICA
+4. Plano de Acao Prioritario
+10
+4.2 Fase 2: Monetizacao (Semanas 9-16)
+Tabela 5 Plano Semanal - Fase 2
+Semana
+Entrega
+Prioridade
+9-10
+Definir e contratar gateway de pagamento
+CRITICA
+11-12
+Integracao checkout + webhooks + conciliacao
+CRITICA
+13-14
+Painel do produtor + relatorios financeiros
+ALTA
+15-16
+Check-in com QR code + app do ingresso
+ALTA
+4.3 Fase 3: Escalada (Semanas 17-24) 
+FUTURO
+Tabela 6 Plano - Fase 3 (Nao iniciar antes de 50+ eventos online)
+Semana
+Entrega
+Prioridade
+17-20
+White label completo (temas, subdominios, CNAME)
+MEDIA
+21-22
+API publica para integracoes
+MEDIA
+23-24
+POS Cashless (avaliar necessidade de mercado)
+BAIXA
+5. Veredito
+11
+5. Veredito
+Fundamento Fortissimo, Execucao e o Desafio
+O projeto Aura tem um fundamento tecnico e estrategico fortissimo. O specdrive de
+124 paginas demonstra um nivel de maturidade raro em projetos nessa fase. O
+frontend de 66 paginas e um ativo valioso que corta meses de desenvolvimento.
+Os diferenciais reais — split de pagamentos e white label — sao exatamente as
+frestas que a Sympla ignora. Se bem executados, tem potencial genuino para
+incomodar gigantes.
+Os 3 pontos criticos para o sucesso:
+1. Seguranca em primeiro lugar: Todo RLS policy, toda Edge Function, todo
+webhook deve passar por revisao humana de seguranca. Um erro aqui nao e um
+bug — e uma falencia.
+2. Integracao realista: Nao subestime o esforco de substituir mocks por APIs reais.
+Sao 6-10 semanas de trabalho focado. Planeje iteracoes semanais.
+3. Adie o POS: O Cashless/Hardware e um produto separado que exige logistica
+fisica. Foque 100% em ser a melhor plataforma de ticketing online primeiro.
+Dominar o online salva o fluxo de caixa inicial.
+Chance de Product-Market Fit: ALTA — se a integracao do Supabase for feita com
+excelencia, se o gateway for escolhido com criterio de seguranca, e se o POS for
+adiado ate o momento certo.
+6. Decisoes Pendentes (Pos-Backend)
+12
+6. Decisoes Pendentes (Pos-Backend)
+Tabela 7 Decisoes que serao tomadas apos o backend estar funcional
+Decisao
+Por que esperar
+Quando decidir
+Gateway de
+pagamento
+Condicoes comerciais mudam; necessidade de
+multi-gateway so sera clara com volume
+Fase 2, Semana
+9
+POS Cashless
+Precisa validar demanda real dos produtores
+primeiro
+Fase 3, apos 50+
+eventos
+Infraestrutura de
+email
+Volume de emails so sera claro com uso real
+Fase 2, Semana
+11
+Plano de precos
+definitivo
+Baseado em feedback dos primeiros produtores
+Fase 2, Semana
+12

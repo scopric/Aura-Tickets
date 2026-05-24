@@ -1,0 +1,296 @@
+D O C U M E N T O  D 3  —  S P E C D R I V E  A U R A
+Analise Estrategica
+Sintese dos relatorios, decisoes estrategicas,
+e direcionamento de produto
+Aura Platform • Maio 2025
+1. Sintese dos Relatorios Anteriores
+2
+1. Sintese dos Relatorios Anteriores
+Este documento consolida as analises dos dois relatorios anteriores — Plano Estrategico (D0) e
+Relatorio Completo (D1/D2) — em direcoes estrategicas acionaveis.
+1.1 Conclusoes do Plano Estrategico (D0)
+Principais Conclusoes
+Mercado brasileiro de eventos: R$ 250 bilhoes/ano
+Sympla domina com 10%+2,5% de taxa — oportunidade de precos menores
+Nutickets prova que ticketing + cashless funciona (aumento de 30% no gasto)
+Ninguem no Brasil oferece white label completo + POS cashless + split
+A Aura pode cobrar 5-7% (vs 10% Sympla) e ainda ser mais lucrativa com SaaS + split
+Projecao: R$ 8,88M/ano em 12 meses com investimento de R$ 200-300K
+1.2 Conclusoes do Inventario (D1)
+Principais Conclusoes
+Frontend tem 66 paginas e 82+ componentes — visualmente completo
+6 funcionalidades 100% funcionais sem backend (Seating Map, Certificados, UI, Rotas, Auth
+mock, Layouts)
+60 paginas usam mock — precisam de backend
+Aura ja supera Sympla em 15+ funcionalidades (CRM, calculadoras, afiliados, seating map,
+matchmaking)
+O frontend esta pronto para consumir APIs — basta criar o backend
+1.3 Conclusoes do Gap Analysis (D2)
+Principais Conclusoes
+30 tabelas necessarias no Supabase (14 P0, 11 P1, 5 P2)
+10 Edge Functions necessarias (6 P0, 4 P1)
+9 integracoes externas (Stripe, Woovi, Resend, etc.)
+4 semanas para lancamento P0 (1 dev full-time)
+2. Decisoes Estrategicas
+3
+2. Decisoes Estrategicas
+2.1 Posicionamento de Mercado
+Decisao: "O ecossistema mais completo para empresas de festas"
+A Aura nao compete com a Sympla como "plataforma de ingressos". A Aura compete como
+ecossistema completo de gestao e venda de entretenimento. O publico-alvo nao e o produtor casual —
+e a empresa de festas (casa noturna, produtora, promoter) que precisa de tudo em um so lugar.
+Mensagem principal: "Na Sympla voce vende ingressos. Na Aura voce gerencia seu negocio inteiro."
+2.2 Modelo de Precos
+Tabela 1 Decisao: Estrutura de Precos Aura
+Componente
+Valor Aura
+Sympla
+Vantagem
+Taxa de servico
+5-7%
+10%
+30-50% mais barato
+Taxa Pix (Woovi)
+0,99%
+2-2,5%
+60% mais barato
+Taxa cartao (Stripe)
+2,9%
+2-2,5%
+Competitivo
+Plano Pro
+R$ 149/mes
+Nao existe
+Unico
+Plano Business
+R$ 399/mes
+Nao existe
+Unico
+Plano Enterprise
+R$ 999/mes
+Nao existe
+Unico
+White Label
+R$ 999/mes
+Nao existe
+Unico no Brasil
+POS Cashless
+2% sobre vendas
+Nao existe
+Unico no Brasil
+2.3 Arquitetura de Pagamentos
+Decisao: Multi-gateway com Split Automatico
+Pix: Woovi (0,99% + split nativo) — principal metodo no Brasil (45%+)
+Cartao nacional: Stripe Connect (2,9% + split nativo)
+Cartao internacional: Stripe Connect (moedas estrangeiras)
+Boleto: Stripe ou PagSeguro
+Split: Dinheiro dividido no momento da transacao via Stripe Connect / Woovi
+2.4 Stack Tecnologico Final
+Tabela 2 Stack Tecnologico Definido
+Camada
+Tecnologia
+Justificativa
+2. Decisoes Estrategicas
+4
+Frontend
+React 19 + Vite + Tailwind + shadcn/ui
+Ja implementado, nao muda
+Backend
+Supabase (Postgres + Auth + Storage + Realtime)
+BaaS completo, RLS, Edge Functions
+Hosting
+Vercel
+Deploy automatico do Git, CDN global
+Dominio
+Hostinger
+Precos competitivos, DNS facil
+IDE/AI
+Antigravity (Google)
+Assistente de codigo
+Pagamentos
+Stripe Connect + Woovi
+Split automatico, melhores taxas
+Email
+Resend (inicial)
+3K e-mails/dia gratis, facil migracao
+SMS
+Twilio (futuro)
+Para notificacoes criticas
+Analytics
+Google Analytics 4
+Gratis, completo
+CI/CD
+GitHub Actions + Vercel
+Deploy automatico a cada push
+2.5 Roadmap de 12 Meses
+Tabela 3 Roadmap Consolidado
+Fase
+Periodo
+Objetivo
+Investimento
+Fase 1:
+Fundacao
+Meses 1-
+3
+Supabase + Auth + Stripe + Woovi + 14 tabelas P0. Lugar Marcado e
+Certificados ja funcionam. Plano SaaS ativo.
+R$ 25-40K
+Fase 2:
+Crescimento
+Meses 4-
+6
+11 tabelas P1. White label basico. Marketplace de produtos. App POS
+para bar. CRM completo.
+R$ 40-60K
+Fase 3: Escala
+Meses 7-
+12
+Cashless completo. Maquinas de cartao. Rede social. App nativo. API
+publica.
+R$ 80-120K
+TOTAL
+12 meses
+Ecossistema 100% funcional
+R$ 145-
+220K
+3. Diferenciais Competitivos da Aura
+5
+3. Diferenciais Competitivos da Aura
+3.1 Diferenciais Ja Existentes (Frontend)
+Tabela 4 Diferenciais Unicos da Aura
+Diferencial
+Descricao
+Ninguem tem
+Mesa Coletiva com
+Matchmaking
+Algoritmo monta mesas baseado em afinidade de perfil
+Sim — unico no mundo
+Seating Map Visual (Canvas)
+Editor drag-and-drop com resize handles, multi-selecao,
+presets realistas
+Sim — Sympla nao tem
+Construtor de Certificados
+12 templates, drag-and-drop, cores, logo, assinatura
+Sim — nenhum
+concorrente
+Calculadora Financeira
+Projecao de receita, custos, ponto de equilibrio, ROI
+Sim — nenhum
+concorrente
+Banners para Redes Sociais
+Gerador de banners para Instagram, Facebook, Stories
+Sim — nenhum
+concorrente
+Aura Academy
+Cursos e tutoriais para produtores
+Sim — nenhum
+concorrente
+40+ modulos
+Mais funcionalidades que qualquer concorrente brasileiro
+Sim — mais completo
+3.2 Diferenciais a Construir (Backend)
+Tabela 5 Diferenciais Futuros
+Diferencial
+Impacto
+Prazo
+Split de Pagamento Automatico
+Produtor recebe D+1, Aura ganha sem risco
+Mes 1
+White Label Completo
+Empresas grandes pagam R$ 999+/mes
+Mes 3
+POS Cashless
++30% no gasto do participante
+Mes 6
+Taxas Menores que Sympla
+5-7% vs 10% = vantagem competitiva imediata
+Mes 1
+3.3 Vantagem de Mercado Sustentavel
+O que a Aura tem que a Sympla nunca tera:
+1. Controle do dinheiro: Com split, a Aura controla o fluxo de pagamento. A Sympla e so um
+"passthrough". A Aura e um gateway financeiro.
+2. POS no evento: A Sympla desaparece no dia do evento. A Aura continua operando (bar, comandas,
+cashless).
+3. White label: A Sympla NUNCA vai oferecer white label porque o negocio deles depende da marca
+Sympla ser visivel.
+3. Diferenciais Competitivos da Aura
+6
+4. Ecossistema: A Aura pode oferecer produtos fisicos, cursos, maquinas de cartao. A Sympla so
+vende ingressos.
+4. Riscos e Mitigacoes
+7
+4. Riscos e Mitigacoes
+Tabela 6 Analise de Riscos
+Risco
+Probabilidade
+Impacto
+Mitigacao
+Stripe/Woovi recusarem conta
+Baixa
+Alto
+Ter PagSeguro e Mercado Pago como backup
+Sympla reagir com precos
+menores
+Media
+Medio
+Diferencial nao e so preco — e ecossistema completo
+Atraso no desenvolvimento
+Alta
+Alto
+Lancar por fases (P0 primeiro), MVP rapido
+Concorrente estrangeiro entrar no
+BR
+Baixa
+Medio
+Primeiro a lancar cashless no Brasil = vantagem
+Regulamentacao Pix mudar
+Baixa
+Medio
+Woovi gerencia compliance
+Produtores nao migrarem da
+Sympla
+Media
+Alto
+Onboarding facilitado, importacao de eventos, precos
+menores
+5. KPIs e Metricas de Sucesso
+8
+5. KPIs e Metricas de Sucesso
+Tabela 7 KPIs por Fase
+KPI
+Mes 3
+Mes 6
+Mes 12
+Produtores ativos
+50
+200
+500
+Eventos criados/mes
+30
+100
+300
+GMV mensal
+R$ 200K
+R$ 1M
+R$ 3M
+Taxa de conversao
+2%
+3,5%
+5%
+MRR (Receita Recorrente)
+R$ 7K
+R$ 50K
+R$ 120K
+NPS dos produtores
+40
+50
+60
+Churn mensal
+<10%
+<7%
+<5%
+Eventos com POS
+0
+20
+100
+Fim do Documento D3 — Analise Estrategica • Aura Platform • Maio 2025

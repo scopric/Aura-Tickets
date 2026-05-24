@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Mail, Users, TrendingUp, Bell, Send, Clock,
   CheckCircle2, MailOpen, Trash2

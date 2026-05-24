@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { Calendar, Users, DollarSign, Ticket, TrendingUp, ArrowUpRight, Plus, Palette, BarChart3, AlertTriangle } from 'lucide-react'
 import gsap from 'gsap'
 import { useProducerEvents } from '../../hooks/useEvents'
@@ -17,6 +17,17 @@ export default function ProducerDashboard() {
     queryKey: ['producer-recent-orders', user?.id],
     queryFn: async () => {
       if (!user?.id) return []
+
+      // Modo demo: pedidos mock
+      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
+        return [
+          { id: 'ord-001', created_at: new Date().toISOString(), total: 450, user_id: 'u-001', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Ana Silva' } },
+          { id: 'ord-002', created_at: new Date(Date.now() - 3600000).toISOString(), total: 900, user_id: 'u-002', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Carlos Mendes' } },
+          { id: 'ord-003', created_at: new Date(Date.now() - 7200000).toISOString(), total: 150, user_id: 'u-003', event_id: 'evt-002', events: { title: 'Workshop de Marketing Digital' }, profiles: { full_name: 'Maria Oliveira' } },
+          { id: 'ord-004', created_at: new Date(Date.now() - 10800000).toISOString(), total: 299, user_id: 'u-004', event_id: 'evt-002', events: { title: 'Workshop de Marketing Digital' }, profiles: { full_name: 'João Pedro' } },
+          { id: 'ord-005', created_at: new Date(Date.now() - 14400000).toISOString(), total: 450, user_id: 'u-005', event_id: 'evt-001', events: { title: 'Festival de Verão 2025' }, profiles: { full_name: 'Fernanda Lima' } },
+        ]
+      }
       
       // 1. Obter IDs dos eventos do produtor
       const { data: producerEvents } = await supabase
@@ -54,6 +65,11 @@ export default function ProducerDashboard() {
     queryKey: ['producer-finance-summary', user?.id],
     queryFn: async () => {
       if (!user?.id) return { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
+
+      // Modo demo
+      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
+        return { tickets_sold: 1676, total_revenue: 246701, unique_buyers: 843 }
+      }
       
       const { data, error } = await supabase
         .from('event_summary')

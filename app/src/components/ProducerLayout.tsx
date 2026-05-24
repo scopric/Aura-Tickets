@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, Calendar, Users, Wallet,
@@ -241,7 +241,7 @@ export default function ProducerLayout() {
   const handleLogout = () => {
     toast.info('Voce saiu da sua conta')
     logout()
-    navigate('/')
+    // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
 
   return (
@@ -326,19 +326,19 @@ export default function ProducerLayout() {
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
                 <img
-                  src={user.avatar}
-                  alt=""
+                  src={user.avatar || '/images/logo-aura.png'}
+                  alt="Avatar do usuario"
                   className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-white/80 font-medium truncate">{user.name}</div>
+                  <div className="text-[11px] text-white/80 font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
                   <div className="text-[9px] text-white/20 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
               <img
-                src={user.avatar}
-                alt=""
+                src={user.avatar || '/images/logo-aura.png'}
+                alt="Avatar do usuario"
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
               />
             )}

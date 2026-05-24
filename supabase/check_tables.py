@@ -15,14 +15,9 @@ try:
     with urllib.request.urlopen(req) as response:
         body = response.read().decode("utf-8")
         data = json.loads(body)
-        paths = data.get("paths", {})
-        print("Funções RPC expostas no Supabase:")
-        rpcs = []
-        for path in sorted(paths.keys()):
-            if path.startswith("/rpc/"):
-                rpcs.append(path)
-                print(f"- {path}")
-        if not rpcs:
-            print("Nenhuma função RPC exposta encontrada.")
+        definitions = data.get("definitions", {})
+        print("Tabelas e Views expostas no Supabase:")
+        for table_name in sorted(definitions.keys()):
+            print(f"- {table_name}")
 except Exception as e:
-    print(f"Erro ao obter rpcs: {e}")
+    print(f"Erro ao obter schema: {e}")

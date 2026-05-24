@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation, useNavigate } from 'react-router'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { toast } from 'sonner'
 import {
@@ -45,7 +45,7 @@ export default function AdminLayout() {
   const handleLogout = () => {
     toast.info('Voce saiu da sua conta')
     logout()
-    navigate('/')
+    // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
 
   return (
@@ -92,14 +92,14 @@ export default function AdminLayout() {
           <div className={cn('px-3 py-3 border-t border-white/10', collapsed && 'flex justify-center')}>
             {!collapsed ? (
               <div className="flex items-center gap-3">
-                <img src={user.avatar} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
+                <img src={user.avatar || '/images/logo-aura.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-white font-medium truncate">{user.name}</div>
+                  <div className="text-xs text-white font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
                   <div className="text-[10px] text-white/30 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
-              <img src={user.avatar} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
+              <img src={user.avatar || '/images/logo-aura.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
             )}
           </div>
         )}

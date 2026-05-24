@@ -1,7 +1,8 @@
-import { useParams, Link, useNavigate } from 'react-router'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useRef, useEffect, useState } from 'react'
 import { MapPin, Calendar, Clock, Check, ChevronDown, ChevronUp, ShoppingCart, Heart, Share2, ArrowLeft, Users } from 'lucide-react'
 import gsap from 'gsap'
+import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePublicEvent } from '../hooks/useEvents'
 import { interestedUsers, tableStatus } from '../data/mockData'
@@ -15,6 +16,13 @@ export default function EventPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
   const { data: event, isLoading, error } = usePublicEvent(eventId)
+
+  useSEO({
+    title: event ? `${event.title} | Aura Tickets` : 'Evento | Aura Tickets',
+    description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Aura Tickets.',
+    image: event?.image_url || event?.cover_image || '/og-image.jpg',
+    type: 'event',
+  })
   
   const heroRef = useRef<HTMLDivElement>(null)
   const detailsRef = useRef<HTMLDivElement>(null)
@@ -395,12 +403,12 @@ export default function EventPage() {
                       className="social-item flex items-center gap-3 p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-white/80 transition-all"
                     >
                       <img
-                        src={user.avatar}
-                        alt={user.name}
+                        src={user.avatar || '/images/logo-aura.png'}
+                        alt={user.name || 'Usuario'}
                         className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
                       />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-espresso truncate">{user.name}</p>
+                        <p className="text-sm font-medium text-espresso truncate">{user.name || 'Usuario'}</p>
                         <p className="text-xs text-espresso/50">{user.action}</p>
                       </div>
                       <span className="text-xs text-espresso/30">{user.time}</span>

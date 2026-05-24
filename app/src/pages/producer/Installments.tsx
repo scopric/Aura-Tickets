@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowLeft, CreditCard, ToggleLeft, ToggleRight,
   DollarSign, Info, CheckCircle2, Users, TrendingUp

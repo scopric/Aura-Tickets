@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Eye, Copy, Calendar, AlertTriangle } from 'lucide-react'
 import { useProducerEvents, useDeleteEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
@@ -208,9 +208,9 @@ export default function ProducerEvents() {
                           <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Ver">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Editar">
+                          <Link to={`/producer/events/${event.id}/edit`} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Editar">
                             <Pencil className="w-4 h-4" />
-                          </button>
+                          </Link>
                           <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Duplicar">
                             <Copy className="w-4 h-4" />
                           </button>

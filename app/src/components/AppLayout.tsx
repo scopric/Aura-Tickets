@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Outlet, Link, useLocation } from 'react-router'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Heart, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User
@@ -73,7 +73,7 @@ export default function AppLayout() {
         {/* User */}
         <div className="px-2.5 py-3 flex-shrink-0">
           <div className={`flex items-center gap-2.5 p-2 rounded-xl ${collapsed ? 'justify-center' : ''}`} style={{ background: 'rgba(122,59,105,0.05)' }}>
-            <img src={user?.avatar || '/images/avatar-default.jpg'} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-plum/20 flex-shrink-0" />
+            <img src={user?.avatar || '/images/avatar-default.jpg'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-plum/20 flex-shrink-0" />
             {!collapsed && (
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-medium text-espresso truncate">{user?.name}</div>
@@ -81,7 +81,7 @@ export default function AppLayout() {
               </div>
             )}
           </div>
-          <button onClick={logout} className={`flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-xs text-espresso/30 hover:text-red-500 hover:bg-red-50 transition-all ${collapsed ? 'justify-center w-full' : ''}`}>
+          <button onClick={() => { logout() }} className={`flex items-center gap-2 px-3 py-2 mt-1 rounded-xl text-xs text-espresso/30 hover:text-red-500 hover:bg-red-50 transition-all ${collapsed ? 'justify-center w-full' : ''}`}>
             <LogOut className="w-4 h-4" />
             {!collapsed && <span>Sair</span>}
           </button>
@@ -106,7 +106,7 @@ export default function AppLayout() {
               <Bell className="w-4 h-4 text-espresso/50" />
               {unreadCount > 0 && <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" />}
             </button>
-            <img src={user?.avatar || '/images/avatar-default.jpg'} alt="" className="w-8 h-8 rounded-full object-cover ring-2 ring-plum/20" />
+            <img src={user?.avatar || '/images/avatar-default.jpg'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-plum/20" />
           </div>
         </header>
 

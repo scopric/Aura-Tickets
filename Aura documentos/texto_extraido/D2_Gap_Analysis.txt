@@ -1,0 +1,722 @@
+D O C U M E N T O  D 2  —  S P E C D R I V E  A U R A
+Gap Analysis
+Tudo que falta fazer em cima do que ja existe
+66 paginas frontend + 40+ modulos = o que falta?
+Aura Platform • Documentacao Tecnica • Maio 2025
+1. Introducao ao Gap Analysis
+2
+1. Introducao ao Gap Analysis
+O frontend da Aura tem 66 paginas e 82+ componentes implementados visualmente. Porem, 90%
+operam com dados mock (fakes). Este documento identifica, pagina por pagina e funcionalidade por
+funcionalidade, exatamente o que falta ser feito para tirar a plataforma do mock e coloca-la em
+producao.
+Resumo dos Gaps Identificados
+Backend: 0 APIs — todas as 66 paginas precisam de endpoints
+Banco de Dados: 0 tabelas — necessario criar 25+ tabelas no Supabase
+Autenticacao: Mock hardcoded — necessario Supabase Auth
+Pagamentos: Mock — necessario integrar Stripe + Woovi
+Upload de Arquivos: Nao implementado — necessario Supabase Storage
+Notificacoes: Nao implementado — e-mail + push
+POS Cashless: Nao existe — necessario criar do zero
+White Label: Nao existe — necessario criar do zero
+Split de Pagamentos: Nao existe — necessario Stripe Connect
+2. Gaps por Modulo — Detalhamento Completo
+3
+2. Gaps por Modulo — Detalhamento Completo
+2.1 Modulo Publico (6 paginas)
+Tabela 1 Gaps — Modulo Publico
+Pagina
+O que falta
+Prioridade
+Esforco
+Home
+API de eventos em destaque, API de categorias, carrossel funcional com dados
+reais
+P0
+1 dia
+EventPage
+API de detalhes do evento, API de ingressos disponiveis, API de galeria, API de
+FAQ, integracao com mapa (Google Maps)
+P0
+2 dias
+Contato
+API para envio de mensagem (Supabase Edge Function + e-mail)
+P2
+4
+horas
+BrandStudio
+API de configuracao de marca, upload de logo (Storage), preview dinamico
+P1
+1 dia
+Dashboard
+Publico
+API de metricas publicas (contadores agregados)
+P3
+4
+horas
+404
+Nada — ja esta completo
+-
+-
+2.2 Autenticacao (2 paginas)
+Tabela 2 Gaps — Autenticacao
+Pagina
+O que falta
+Prioridade
+Esforco
+Login
+Integracao com Supabase Auth (signInWithPassword), OAuth (Google), recuperacao de
+senha, sessao persistente
+P0
+1 dia
+Registro
+Integracao com Supabase Auth (signUp), validacao de e-mail, perfil inicial, termos de
+uso LGPD
+P0
+1 dia
+2.3 Checkout (3 paginas)
+Tabela 3 Gaps — Checkout
+Pagina
+O que falta
+Prioridade
+Esforco
+Carrinho
+State management do carrinho (Context/Zustand), API de ingressos disponiveis,
+validacao de cupom
+P0
+2 dias
+Pagamento
+Integracao Stripe (cartao), integracao Woovi (Pix), formulario de dados pessoais,
+validacao de CPF, parcelamento
+P0
+3 dias
+Sucesso
+API de confirmacao de compra, geracao de QR Code, envio de e-mail, atualizacao de
+estoque
+P0
+2 dias
+2. Gaps por Modulo — Detalhamento Completo
+4
+2.4 Produtor — Dashboard e Eventos (5 paginas)
+Tabela 4 Gaps — Dashboard e Eventos
+Pagina
+O que falta
+Prioridade
+Esforco
+Dashboard
+API de KPIs (vendas, receita, ingressos), API de graficos (vendas por dia), API de
+eventos recentes. Necessario view materializada para agregar dados
+P0
+2 dias
+Eventos
+CRUD completo de eventos (API list, create, update, delete, duplicate, archive).
+Filtros e paginacao
+P0
+2 dias
+Novo Evento
+API create event, upload de imagem (Storage), validacao de dados, slug
+automatico
+P0
+1 dia
+Gerenciador
+API de resumo do evento, navegacao entre modulos
+P1
+4
+horas
+Pasta do
+Evento
+API de documentos (Storage), CRUD de arquivos, organizacao por pasta
+P1
+1 dia
+2.5 Produtor — Ingressos (6 paginas)
+Tabela 5 Gaps — Ingressos
+Pagina
+O que falta
+Prioridade
+Esforco
+Config. Ingressos
+CRUD de tipos de ingresso, controle de lote, precos dinamicos, limites de
+quantidade
+P0
+2 dias
+Lugar Marcado
+API save/load mapa (JSON no banco), associacao de assentos a ingressos,
+reserva de lugares. Frontend ja esta completo — so precisa de API
+P1
+1 dia
+Check-in
+API de validacao de QR Code (scan), API de lista de participantes, API de
+estatisticas em tempo real
+P0
+2 dias
+Calculadora de
+Mesas
+API de simulacao (calcular no frontend, salvar resultado no backend)
+P2
+4
+horas
+Calculadora
+Financeira
+API de simulacao financeira (frontend calcula, salva no backend)
+P2
+4
+horas
+Parcelamento
+Configuracao de parcelamento (Stripe suporta ate 12x), API de configuracao
+P1
+4
+horas
+2.6 Produtor — Planejamento (4 paginas)
+Tabela 6 Gaps — Planejamento
+Pagina
+O que falta
+Prioridade
+Esforco
+Planejador
+CRUD de tarefas, API de cronograma, atribuicao a membros, notificacoes de prazo
+P1
+2 dias
+Timeline
+API de marcos do evento, CRUD de marcos, visualizacao dinamica
+P1
+1 dia
+2. Gaps por Modulo — Detalhamento Completo
+5
+Tarefas
+CRUD de tarefas, filtros, ordenacao, notificacoes de atraso
+P1
+1 dia
+Menu
+CRUD de itens do cardapio, categorias, precos, upload de fotos
+P2
+1 dia
+2.7 Produtor — Certificados (2 paginas)
+Tabela 7 Gaps — Certificados
+Pagina
+O que falta
+Prioridade
+Esforco
+Lista de
+Certificados
+API de certificados emitidos, associacao a evento/participante, exportacao em
+massa
+P2
+1 dia
+Construtor
+API save/load template, associacao de variaveis (nome, evento, data), geracao
+em massa. Frontend ja esta completo
+P2
+1 dia
+2.8 Produtor — Marketing (8 paginas)
+Tabela 8 Gaps — Marketing
+Pagina
+O que falta
+Prioridade
+Esforco
+Marketing
+Digital
+API de campanhas, metricas de alcance, integracao com Google Analytics/Meta
+Pixel
+P2
+2 dias
+Banners
+Gerador de banners (HTML Canvas → PNG), templates, API de save/export.
+Frontend parcial
+P2
+2 dias
+Galeria
+API de upload de fotos/videos (Storage), organizacao por album, visibilidade
+publica/privada
+P1
+1 dia
+Comunicacao
+API de envio de e-mail (Edge Function + SendGrid/Resend), API de SMS
+(Twilio), segmentacao, templates
+P1
+2 dias
+Lista de
+Interesse
+API de leads, exportacao CSV, conversao para compradores
+P2
+4
+horas
+FAQ
+CRUD de perguntas e respostas, ordenacao, categorias
+P2
+4
+horas
+Brand Studio
+API de configuracao visual, preview dinamico, aplicacao em todas as paginas
+do evento
+P1
+1 dia
+Afiliados
+API de links de afiliado, tracking de conversoes, calculo de comissao,
+pagamento
+P1
+2 dias
+Cupons
+CRUD de cupons, validacao de codigo, controle de uso, associacao a ingressos
+P0
+1 dia
+2.9 Produtor — Financeiro (7 paginas)
+Tabela 9 Gaps — Financeiro
+Pagina
+O que falta
+Prioridade
+Esforco
+2. Gaps por Modulo — Detalhamento Completo
+6
+Financeiro
+API de receitas/despesas, categorizacao, graficos de fluxo de caixa. View
+materializada para agregacao
+P0
+2 dias
+Carteira
+API de saldo, API de saque (transferencia bancaria via Stripe/PagSeguro), historico
+de transacoes, extrato
+P0
+2 dias
+Antecipacao
+API de solicitacao de antecipacao, calculo de taxa, aprovacao automatica/manual,
+transferencia
+P1
+1 dia
+Bordere
+API de geracao de relatorio pos-evento: receita bruta, taxas Aura, despesas, lucro.
+PDF automatico
+P1
+1 dia
+Relatorio Pos-
+Evento
+API de analise: publico, satisfacao, comparativo, exportacao PDF
+P1
+1 dia
+Assinatura
+API de gestao de plano (Stripe Billing), faturas, troca de plano, cancelamento
+P0
+2 dias
+Caixinha
+API de meta financeira, acompanhamento, reserva automatica de % das vendas
+P2
+4
+horas
+2.10 Produtor — Equipe (3 paginas)
+Tabela 10 Gaps — Equipe
+Pagina
+O que falta
+Prioridade
+Esforco
+CRM
+API de participantes, perfil, historico de compras, tags, notas, segmentacao.
+Necessario tabela de customers com dados enriquecidos
+P0
+2 dias
+Gestao de
+Equipe
+API de convites, permissoes (RBAC), roles (admin/editor/viewer), remocao
+P1
+1 dia
+Parceiros
+CRUD de parceiros/sponsors, upload de logo, tipo de parceria
+P2
+4
+horas
+2.11 Admin (9 paginas)
+Tabela 11 Gaps — Administrativo
+Pagina
+O que falta
+Prioridade
+Esforco
+Dashboard
+Admin
+API de metricas globais: usuarios, eventos, receita, crescimento. View
+materializada para agregacoes
+P1
+1 dia
+Usuarios
+API de lista de usuarios, filtros, acoes (bloquear, promover), paginacao
+P1
+4
+horas
+Produtores
+API de produtores, aprovacao, KYC (documentos), status
+P1
+4
+horas
+Eventos
+API de todos os eventos, moderacao, destacar, remover
+P1
+4
+horas
+Ingressos
+API de todos os ingressos vendidos, status, reembolso
+P1
+4
+horas
+2. Gaps por Modulo — Detalhamento Completo
+7
+Financeiro
+API de receitas da plataforma: taxas, planos, transacoes
+P0
+1 dia
+Analytics
+API de MAU, DAU, conversao, churn, LTV, CAC
+P2
+1 dia
+Configuracoes
+API de parametros da plataforma: taxas, planos, textos legais
+P1
+4 horas
+Feedback
+API de feedback: notas, comentarios, analise de sentimento
+P3
+4 horas
+2.12 App Mobile (6 paginas)
+Tabela 12 Gaps — App Mobile
+Pagina
+O que falta
+Prioridade
+Esforco
+Hub
+API de eventos recomendados, API de meus eventos, notificacoes em tempo
+real (Supabase Realtime)
+P1
+2 dias
+Meus
+Ingressos
+API de ingressos do usuario, QR Code dinamico (gerado do ID do ingresso),
+status em tempo real
+P0
+1 dia
+Notificacoes
+Supabase Realtime para push, API de preferencias, in-app notifications
+P2
+2 dias
+Perfil
+API de perfil do usuario, update de dados, historico de compras
+P0
+4
+horas
+Configuracoes
+API de preferencias, API de exclusao de conta (LGPD)
+P1
+4
+horas
+Download
+Links para App Store / Play Store (quando app nativo for lancado)
+P3
+1 hora
+3. Gaps de Infraestrutura
+8
+3. Gaps de Infraestrutura
+3.1 Banco de Dados (Supabase)
+Tabela 13 Tabelas Necessarias no Supabase
+Tabela
+Descricao
+Prioridade
+Complexidade
+users
+Perfis de usuario (estende auth.users): nome, telefone, CPF, foto,
+role, stripe_customer_id
+P0
+Baixa
+events
+Eventos: titulo, descricao, data/hora, local, endereco, imagem,
+status, slug, produtor_id, config
+P0
+Media
+event_images
+Galeria de imagens do evento: event_id, url, ordem, visibilidade
+P1
+Baixa
+ticket_types
+Tipos de ingresso: event_id, nome, descricao, preco,
+quantidade_total, quantidade_vendida, validade, perks
+P0
+Media
+tickets
+Ingressos vendidos: ticket_type_id, user_id, event_id, codigo_qr,
+status, preco_pago, data_compra
+P0
+Media
+ticket_transfers
+Transferencias de ingresso: ticket_id, from_user, to_user, data,
+status
+P1
+Baixa
+orders
+Pedidos de compra: user_id, event_id, valor_total, status
+(pendente/pago/cancelado), metodo_pagamento, gateway
+P0
+Media
+order_items
+Itens do pedido: order_id, ticket_type_id, quantidade, preco_unitario
+P0
+Baixa
+coupons
+Cupons de desconto: codigo, tipo (percentual/fix), valor, validade,
+limite_uso, usos_atual, event_id
+P0
+Baixa
+payments
+Registro de pagamentos: order_id, gateway (stripe/woovi),
+gateway_payment_id, status, valor, taxa_aura, taxa_gateway
+P0
+Media
+seating_maps
+Mapas de assentos: event_id, nome, config_json (posicoes, labels,
+tipos), ambiente_id
+P1
+Media
+seating_reservations
+Reservas de assentos: seating_map_id, ticket_id, posicao_x,
+posicao_y, status
+P1
+Baixa
+check_ins
+Registro de entrada: ticket_id, event_id, hora_entrada, metodo
+(qr_scan/manual), operador_id
+P0
+Baixa
+customers
+CRM — dados enriquecidos de participantes: user_id, event_id,
+tags, notas, satisfacao, compras_total
+P0
+Media
+crm_activities
+Atividades do CRM: customer_id, tipo (nota/ligacao/email),
+descricao, data, autor_id
+P2
+Baixa
+tasks
+Tarefas do evento: event_id, titulo, descricao, responsavel_id, prazo,
+status, prioridade
+P1
+Baixa
+timeline_events
+Marcos da timeline: event_id, titulo, data, tipo, descricao
+P1
+Baixa
+menu_items
+Itens do cardapio: event_id, nome, categoria, preco, descricao,
+imagem
+P2
+Baixa
+3. Gaps de Infraestrutura
+9
+certificates
+Certificados: event_id, user_id, template_id, dados_json, emitido_em, pdf_url
+P2
+Baixa
+certificate_templates
+Templates de certificado: produtor_id, nome, config_json (cores, logo, assinatura,
+campos)
+P2
+Baixa
+affiliates
+Afiliados: user_id, event_id, codigo_referral, comissao_percentual,
+link_personalizado
+P1
+Media
+affiliate_conversions
+Conversoes de afiliados: affiliate_id, order_id, comissao, status (pendente/pago)
+P1
+Baixa
+communications
+Comunicacoes enviadas: event_id, tipo (email/sms/push), segmento, conteudo,
+data_envio, aberturas
+P1
+Media
+interest_list
+Lista de interesse: event_id, email, nome, telefone, data_cadastro, convertido
+P2
+Baixa
+faq_items
+FAQ: event_id, pergunta, resposta, categoria, ordem
+P2
+Baixa
+event_branding
+Configuracao de marca: event_id, cor_primaria, cor_secundaria, logo_url, fonte,
+capa_url
+P1
+Baixa
+producer_balances
+Saldos dos produtores: produtor_id, saldo_disponivel, saldo_retido, total_recebido
+P0
+Baixa
+withdrawals
+Saques: produtor_id, valor, status, metodo (pix/transferencia), data_solicitacao,
+data_conclusao
+P0
+Baixa
+platform_settings
+Configuracoes da plataforma: chave, valor (taxas, planos, textos legais)
+P1
+Baixa
+notifications
+Notificacoes: user_id, tipo, titulo, mensagem, lida, data
+P1
+Baixa
+Total: 30 tabelas necessarias
+Prioridade P0: 14 tabelas (essenciais para lancamento)
+Prioridade P1: 11 tabelas (importantes para MVP completo)
+Prioridade P2: 5 tabelas (features avancadas)
+3.2 Supabase Auth
+Tabela 14 Configuracao de Autenticacao
+Configuracao
+Status
+Descricao
+Email/Password auth
+Pendente
+Auth nativo do Supabase. Habilitar confirmacao de e-mail
+OAuth Google
+Pendente
+Login com Google. Configurar Client ID no Google Cloud Console
+OAuth Facebook
+Pendente
+Login com Facebook (opcional)
+Row Level Security (RLS)
+Pendente
+Politicas de seguranca em TODAS as tabelas
+Triggers (updated_at)
+Pendente
+Trigger automatico para atualizar updated_at
+Funcao novo usuario
+Pendente
+Trigger para criar perfil em "users" apos signup
+3. Gaps de Infraestrutura
+10
+3.3 Supabase Storage
+Tabela 15 Buckets de Storage Necessarios
+Bucket
+Uso
+Politica
+event-images
+Imagens de capa e galeria dos eventos
+Public-read, authenticated-write
+producer-logos
+Logos dos produtores (white label)
+Public-read, owner-write
+certificate-images
+Logos e assinaturas de certificados
+Authenticated-read, owner-write
+banner-templates
+Templates de banners para redes sociais
+Public-read, admin-write
+event-documents
+Documentos da pasta do evento (PDFs, contratos)
+Authenticated-read, owner-write
+avatars
+Fotos de perfil dos usuarios
+Public-read, owner-write
+3.4 Supabase Edge Functions
+Tabela 16 Edge Functions Necessarias
+Function
+Descricao
+Prioridade
+stripe-create-payment
+Cria intent de pagamento no Stripe
+P0
+stripe-webhook
+Recebe webhooks do Stripe (confirmacao, falha, reembolso)
+P0
+woovi-create-pix
+Gera cobranca Pix via Woovi API
+P0
+woovi-webhook
+Recebe webhooks da Woovi (pagamento confirmado)
+P0
+send-email
+Envia e-mails transacionais (SendGrid/Resend)
+P0
+generate-certificate
+Gera PDF de certificado a partir de template + dados
+P2
+check-in-validate
+Valida QR Code e registra entrada
+P0
+withdrawal-process
+Processa solicitacao de saque
+P1
+affiliate-track
+Registra conversao de afiliado
+P1
+communication-send
+Envia comunicacao em massa (e-mail/SMS)
+P1
+3.5 Integracoes Externas
+Tabela 17 Integracoes Necessarias
+Servico
+Para que
+Prioridade
+Custo Estimado
+Stripe Connect
+Processamento de cartao + split de pagamentos
+P0
+2,9% + R$0,30/transacao
+Woovi
+Pix com split automatico
+P0
+0,99%/transacao
+Resend / SendGrid
+E-mails transacionais
+P0
+R$ 0 (Resend: 3K/dia gratis)
+3. Gaps de Infraestrutura
+11
+Supabase
+Banco Postgres + Auth + Storage + Realtime
+P0
+US$ 25-75/mes
+Vercel
+Hosting do frontend
+P0
+US$ 20/mes (Pro)
+Hostinger
+Dominio + DNS
+P0
+R$ 15-50/ano
+Twilio
+SMS (opcional)
+P2
+US$ 0,0075/SMS
+Google Analytics 4
+Analytics de comportamento
+P1
+Gratis
+Meta Pixel
+Tracking de conversao Facebook/Instagram
+P2
+Gratis
+4. Resumo e Priorizacao
+12
+4. Resumo e Priorizacao
+4.1 Prioridade P0 (Lancamento — Semanas 1-4)
+14 tabelas + 4 Edge Functions + 3 integracoes
+1. Criar tabelas users, events, ticket_types, tickets, orders, order_items, coupons, payments,
+check_ins, customers, producer_balances, withdrawals, notifications, platform_settings
+2. Configurar Supabase Auth (e-mail + Google OAuth)
+3. RLS em todas as tabelas
+4. Storage buckets (event-images, avatars, producer-logos)
+5. Edge Functions: stripe-create-payment, stripe-webhook, woovi-create-pix, woovi-webhook,
+send-email, check-in-validate
+6. Integrar Stripe Connect e Woovi
+7. Conectar frontend as APIs Supabase
+Esforco estimado: 4 semanas (1 desenvolvedor full-time)
+4.2 Prioridade P1 (MVP Completo — Semanas 5-8)
+11 tabelas + 3 Edge Functions + features
+1. Tabelas: event_images, seating_maps, seating_reservations, tasks, timeline_events, communications,
+interest_list, event_branding, affiliates, affiliate_conversions, certificate_templates
+2. Edge Functions: generate-certificate, withdrawal-process, affiliate-track, communication-send
+3. Features: galeria, CRM completo, planejador, certificados, afiliados, comunicacao, white label basico
+Esforco estimado: 4 semanas
+4.3 Prioridade P2 (Features Avancadas — Semanas 9-16)
+5 tabelas + features avancadas
+1. Tabelas: menu_items, faq_items, crm_activities, ticket_transfers
+2. POS Cashless (sistema completo de bar)
+3. Marketplace de produtos
+4. Rede social (feed + stories)
+5. Maquinas de cartao
+Esforco estimado: 8 semanas
+Fim do Documento D2 — Gap Analysis • Aura Platform • Maio 2025

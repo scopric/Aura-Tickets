@@ -58,6 +58,126 @@ export interface DbEvent {
   ticket_types?: DbTicketType[]
 }
 
+const MOCK_EVENTS: DbEvent[] = [
+  {
+    id: 'evt-001',
+    producer_id: 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4',
+    title: 'Festival de Verão 2025',
+    subtitle: 'O maior festival de música ao ar livre',
+    slug: 'festival-de-verao-2025',
+    description: 'Um evento incrível com as melhores bandas nacionais e internacionais.',
+    short_description: 'Festival de música ao ar livre',
+    cover_image: '/images/hero-bg.jpg',
+    image_url: '/images/hero-bg.jpg',
+    gallery: [],
+    category: 'Música',
+    tags: ['festival', 'música', 'verão'],
+    venue_name: 'Parque Ibirapuera',
+    venue_address: 'Av. Pedro Álvares Cabral, s/n',
+    venue_city: 'São Paulo',
+    venue_state: 'SP',
+    venue_zip: '04094-050',
+    venue_lat: -23.5874,
+    venue_lng: -46.6576,
+    date: '2025-12-15',
+    time: '18:00',
+    start_date: '2025-12-15T18:00:00',
+    end_date: '2025-12-16T04:00:00',
+    status: 'published',
+    visibility: 'public',
+    password: null,
+    capacity: 5000,
+    branding: {},
+    settings: {},
+    meta_title: null,
+    meta_description: null,
+    created_at: '2025-01-01T00:00:00',
+    updated_at: '2025-01-01T00:00:00',
+    ticket_types: [
+      { id: 'tt-001', event_id: 'evt-001', name: 'Ingresso Geral', description: 'Acesso completo ao festival', price: 150, capacity: 3000, sold: 1245, type: 'individual', perks: ['Acesso à área geral'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+      { id: 'tt-002', event_id: 'evt-001', name: 'VIP', description: 'Área VIP com open bar', price: 450, capacity: 500, sold: 389, type: 'vip', perks: ['Open bar', 'Área exclusiva', 'Banheiro VIP'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+      { id: 'tt-003', event_id: 'evt-001', name: 'Mesa Coletiva', description: 'Mesa para 6 pessoas', price: 1200, capacity: 50, sold: 42, type: 'mesa', perks: ['Mesa reservada', 'Garçom dedicado', ' welcome drink'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+    ]
+  },
+  {
+    id: 'evt-002',
+    producer_id: 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4',
+    title: 'Workshop de Marketing Digital',
+    subtitle: 'Aprenda as estratégias que funcionam',
+    slug: 'workshop-marketing-digital',
+    description: 'Workshop prático com cases reais de growth hacking.',
+    short_description: 'Workshop de marketing',
+    cover_image: '/images/hero-bg.jpg',
+    image_url: '/images/hero-bg.jpg',
+    gallery: [],
+    category: 'Negócios',
+    tags: ['marketing', 'workshop', 'negócios'],
+    venue_name: 'WeWork Faria Lima',
+    venue_address: 'Rua Faria Lima, 1000',
+    venue_city: 'São Paulo',
+    venue_state: 'SP',
+    venue_zip: '04538-132',
+    venue_lat: -23.5836,
+    venue_lng: -46.6818,
+    date: '2025-11-20',
+    time: '14:00',
+    start_date: '2025-11-20T14:00:00',
+    end_date: '2025-11-20T18:00:00',
+    status: 'published',
+    visibility: 'public',
+    password: null,
+    capacity: 200,
+    branding: {},
+    settings: {},
+    meta_title: null,
+    meta_description: null,
+    created_at: '2025-02-01T00:00:00',
+    updated_at: '2025-02-01T00:00:00',
+    ticket_types: [
+      { id: 'tt-004', event_id: 'evt-002', name: 'Presencial', description: 'Acesso ao workshop presencial', price: 299, capacity: 150, sold: 87, type: 'individual', perks: ['Material didático', 'Coffee break'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+      { id: 'tt-005', event_id: 'evt-002', name: 'Online', description: 'Transmissão ao vivo', price: 149, capacity: 500, sold: 234, type: 'individual', perks: ['Acesso à gravação'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+    ]
+  },
+  {
+    id: 'evt-003',
+    producer_id: 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4',
+    title: 'Noite de Networking',
+    subtitle: 'Conecte-se com profissionais da área',
+    slug: 'noite-de-networking',
+    description: 'Um evento exclusivo para networking e troca de experiências.',
+    short_description: 'Networking empresarial',
+    cover_image: '/images/hero-bg.jpg',
+    image_url: '/images/hero-bg.jpg',
+    gallery: [],
+    category: 'Networking',
+    tags: ['networking', 'negócios', 'conexões'],
+    venue_name: 'Casa das Rosas',
+    venue_address: 'Av. Paulista, 37',
+    venue_city: 'São Paulo',
+    venue_state: 'SP',
+    venue_zip: '01311-902',
+    venue_lat: -23.5707,
+    venue_lng: -46.6446,
+    date: '2026-01-10',
+    time: '19:00',
+    start_date: '2026-01-10T19:00:00',
+    end_date: '2026-01-10T23:00:00',
+    status: 'draft',
+    visibility: 'public',
+    password: null,
+    capacity: 100,
+    branding: {},
+    settings: {},
+    meta_title: null,
+    meta_description: null,
+    created_at: '2025-03-01T00:00:00',
+    updated_at: '2025-03-01T00:00:00',
+    ticket_types: [
+      { id: 'tt-006', event_id: 'evt-003', name: 'Entrada Geral', description: 'Acesso à noite de networking', price: 50, capacity: 100, sold: 0, type: 'individual', perks: ['Welcome drink', 'Badge personalizado'], is_active: true, lot_number: 1, sale_start: null, sale_end: null, created_at: '', updated_at: '' },
+    ]
+  }
+]
+
 export function useProducerEvents() {
   const { user } = useAuth()
 
@@ -65,6 +185,12 @@ export function useProducerEvents() {
     queryKey: ['producer-events', user?.id],
     queryFn: async () => {
       if (!user?.id) return []
+
+      // Modo demo: retornar eventos mock
+      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' || 
+          user.id === 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d') {
+        return MOCK_EVENTS
+      }
 
       const { data, error } = await supabase
         .from('events')
@@ -171,6 +297,92 @@ export function useCreateEvent() {
   })
 }
 
+export function useUpdateEvent() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      eventId,
+      event,
+      tickets,
+    }: {
+      eventId: string
+      event: Partial<DbEvent>
+      tickets: Partial<DbTicketType>[]
+    }) => {
+      if (!user?.id) throw new Error('Usuário não autenticado')
+
+      // 1. Atualizar o evento
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .update({
+          title: event.title,
+          subtitle: event.subtitle || null,
+          description: event.description || null,
+          short_description: event.short_description || null,
+          cover_image: event.cover_image || '/images/hero-bg.jpg',
+          image_url: event.image_url || '/images/hero-bg.jpg',
+          category: event.category || 'Outros',
+          tags: event.tags || [],
+          venue_name: event.venue_name || event.location || null,
+          venue_address: event.venue_address || null,
+          date: event.date || null,
+          time: event.time || null,
+          start_date: event.start_date || new Date().toISOString(),
+          end_date: event.end_date || null,
+          status: event.status || 'draft',
+          visibility: event.visibility || 'public',
+          capacity: event.capacity || null,
+          branding: event.branding || {},
+          settings: event.settings || {},
+        })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+      if (eventError) throw eventError
+
+      // 2. Buscar ticket_types existentes para decidir update vs insert
+      const { data: existingTickets } = await supabase
+        .from('ticket_types')
+        .select('id')
+        .eq('event_id', eventId)
+
+      const existingIds = new Set((existingTickets || []).map(t => t.id))
+
+      // 3. Upsert ticket_types
+      const ticketsToUpsert = tickets.map((t, idx) => ({
+        id: t.id && existingIds.has(t.id) ? t.id : undefined,
+        event_id: eventId,
+        name: t.name || `Ingresso ${idx + 1}`,
+        description: t.description || null,
+        price: Number(t.price) || 0,
+        capacity: t.capacity ? Number(t.capacity) : null,
+        quantity_total: t.capacity ? Number(t.capacity) : 0,
+        type: t.type || 'individual',
+        perks: t.perks || [],
+        is_active: true,
+        lot_number: 1,
+      }))
+
+      if (ticketsToUpsert.length > 0) {
+        const { error: ticketsError } = await supabase
+          .from('ticket_types')
+          .upsert(ticketsToUpsert, { onConflict: 'id' })
+
+        if (ticketsError) throw ticketsError
+      }
+
+      return eventData
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['producer-events', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['public-event', variables.eventId] })
+    },
+  })
+}
+
 export function useDeleteEvent() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -195,6 +407,10 @@ export function usePublicEvent(eventIdOrSlug: string | undefined) {
     queryKey: ['public-event', eventIdOrSlug],
     queryFn: async () => {
       if (!eventIdOrSlug) return null
+
+      // Modo demo
+      const mockEvent = MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug)
+      if (mockEvent) return mockEvent
 
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventIdOrSlug)
       
@@ -233,6 +449,10 @@ export function usePublicEvents() {
   return useQuery<DbEvent[]>({
     queryKey: ['public-events'],
     queryFn: async () => {
+      // Modo demo
+      const demoEvents = MOCK_EVENTS.filter(e => e.status === 'published')
+      if (demoEvents.length > 0) return demoEvents
+
       const { data, error } = await supabase
         .from('events')
         .select(`
@@ -255,5 +475,84 @@ export function usePublicEvents() {
     }
   })
 }
+
+export function useAdminEvents() {
+  return useQuery<(DbEvent & { profiles: { full_name: string } | null })[]>({
+    queryKey: ['admin-events'],
+    queryFn: async () => {
+      // Modo demo
+      if (MOCK_EVENTS.length > 0) {
+        return MOCK_EVENTS.map(e => ({
+          ...e,
+          profiles: { full_name: 'Produtor Teste' }
+        })) as (DbEvent & { profiles: { full_name: string } | null })[]
+      }
+
+      const { data, error } = await supabase
+        .from('events')
+        .select(`
+          *,
+          profiles (full_name),
+          ticket_types (*)
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      return (data || []).map((event: any) => ({
+        ...event,
+        ticket_types: (event.ticket_types || []).map((t: any) => ({
+          ...t,
+          price: Number(t.price) || 0,
+          perks: Array.isArray(t.perks) ? t.perks : []
+        }))
+      })) as (DbEvent & { profiles: { full_name: string } | null })[]
+    }
+  })
+}
+
+export interface AdminTicketType extends DbTicketType {
+  event_title: string
+  event_status: string
+  producer_name: string | null
+}
+
+export function useAdminTickets() {
+  return useQuery<AdminTicketType[]>({
+    queryKey: ['admin-tickets'],
+    queryFn: async () => {
+      // Modo demo
+      const demoTickets = MOCK_EVENTS.flatMap(e => 
+        (e.ticket_types || []).map(t => ({
+          ...t,
+          event_title: e.title,
+          event_status: e.status,
+          producer_name: 'Produtor Teste',
+        }))
+      )
+      if (demoTickets.length > 0) return demoTickets as AdminTicketType[]
+
+      const { data, error } = await supabase
+        .from('ticket_types')
+        .select(`
+          *,
+          events (title, status, producer_id, profiles:producer_id (full_name))
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      return (data || []).map((t: any) => ({
+        ...t,
+        price: Number(t.price) || 0,
+        perks: Array.isArray(t.perks) ? t.perks : [],
+        event_title: t.events?.title || 'Evento desconhecido',
+        event_status: t.events?.status || 'unknown',
+        producer_name: t.events?.profiles?.full_name || null,
+      })) as AdminTicketType[]
+    }
+  })
+}
+
 
 

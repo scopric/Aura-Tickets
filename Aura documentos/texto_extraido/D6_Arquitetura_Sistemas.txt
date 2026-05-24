@@ -1,0 +1,354 @@
+D O C U M E N T O  D 6  —  S P E C D R I V E  A U R A
+Arquitetura de
+Sistemas
+Todos os sistemas necessarios para a Aura
+funcionar em producao
+Aura Platform • Maio 2025
+1. Visao Geral da Arquitetura
+2
+1. Visao Geral da Arquitetura
+                    +------------------+
+                    |     Usuario      |
+                    +--------+---------+
+                             |
+                    +--------v---------+
+                    |    Hostinger     |
+                    |  (DNS + Domínio) |
+                    +--------+---------+
+                             |
+                    +--------v---------+
+                    |     Vercel       |     +------------------+
+                    |   (CDN Global)   |<--->|  Antigravity     |
+                    |  React SPA       |     |  (Google AI IDE) |
+                    +--------+---------+     +------------------+
+                             |
+              +--------------+--------------+
+              |                             |
+    +---------v---------+         +---------v---------+
+    |     Supabase      |         |     Stripe        |
+    |  (API + Database) |<------>|  Connect          |
+    |  Auth / Storage   |         |  (Cartao + Split) |
+    |  Realtime / Edge  |         +-------------------+
+    +---------+---------+         +-------------------+
+              |                   |      Woovi        |
+    +---------v---------+         |  (Pix + Split)    |
+    |     Supabase      |         +-------------------+
+    |    Storage        |
+    |  (Imagens/PDFs)   |
+    +-------------------+
+    Sistemas Auxiliares:
+    +------------------+  +------------------+  +------------------+
+    |    Resend        |  |   Google Analytics|  |    GitHub        |
+    |   (E-mail)       |  |       (GA4)       |  |  (Repo + CI/CD)  |
+    +------------------+  +------------------+  +------------------+
+2. Sistemas Definidos pelo Cliente
+3
+2. Sistemas Definidos pelo Cliente
+Tabela 1 Sistemas Ja Decididos
+Sistema
+Funcao
+Custo Mensal
+Configuracao
+Supabase
+Banco de dados PostgreSQL, Auth, Storage,
+Realtime, Edge Functions
+US$ 25-75
+Regiao sa-east-1 (Sao Paulo).
+Projeto "aura-platform"
+Vercel
+Hosting do frontend React. CDN global,
+deploy automatico, preview por PR
+US$ 20 (Pro)
+Framework: Vite. Node 20. Build:
+npm run build
+Hostinger
+Registro de dominio + DNS. aura.events +
+subdominios white label
+R$ 15-50/ano
+Nameservers apontando para
+Vercel DNS
+Antigravity
+(Google)
+IDE com IA assistida. Coding com agentes
+de IA
+Gratis (beta)
+Projeto conectado ao GitHub
+GitHub
+Repositorio de codigo + GitHub Actions
+(CI/CD)
+Gratis (public) ou
+US$ 4/user
+Repo: aura-platform. Actions:
+build + deploy
+3. Sistemas Adicionais Necessarios
+4
+3. Sistemas Adicionais Necessarios
+3.1 Pagamentos (Obrigatorio)
+Tabela 2 Gateway de Pagamentos
+Gateway
+Funcao
+Taxa
+Integracao
+Stripe Connect
+Processamento de cartao de credito/debito. Split de
+pagamentos. Contas Connect para produtores.
+2,9% +
+R$0,30
+Edge Function + npm
+@stripe/stripe-js
+Woovi
+Pix com split automatico. Webhook para confirmacao. QR
+Code dinamico.
+0,99%
+Edge Function (REST API)
+PagSeguro
+(backup)
+Backup para cartao se Stripe falhar. Boleto. Maquininhas.
+3,19%
+API REST (se necessario)
+Recomendacao: Stripe + Woovi
+Stripe Connect para cartoes (split nativo, international) + Woovi para Pix (0,99%, split automatico,
+webhook). PagSeguro como fallback opcional.
+3.2 E-mail Transacional (Obrigatorio)
+Tabela 3 Servico de E-mail
+Servico
+Funcao
+Custo
+Limites
+Resend
+(recomendado)
+E-mails transacionais: confirmacao de compra,
+ingresso, lembrete. 3.000 e-mails/dia gratis.
+Gratis (ate
+3K/dia)
+3.000 e-mails/dia gratis.
+Depois: US$ 0,0001/email
+SendGrid
+Alternativa com mais features: templates,
+analytics, A/B testing.
+100 e-mails/dia
+gratis
+100/dia gratis. Plano: US$
+19,95/mes
+Amazon SES
+Opcao low-cost para escala massiva.
+US$ 0,10 por
+1.000 e-mails
+Ilimitado
+3.3 Analytics (Recomendado)
+Tabela 4 Analytics e Tracking
+Servico
+Funcao
+Custo
+Google Analytics 4
+Comportamento de usuarios, funnel de conversao, eventos personalizados
+Gratis
+Google Tag Manager
+Gerenciamento de tags (Pixel, Analytics, etc.) sem mudar codigo
+Gratis
+Meta Pixel
+Tracking de conversao para anuncios Facebook/Instagram
+Gratis
+3.4 Imagem/Processamento (Recomendado)
+Tabela 5 Processamento de Imagem
+3. Sistemas Adicionais Necessarios
+5
+Servico
+Funcao
+Custo
+Supabase Storage (nativo)
+Ja incluso no Supabase. Upload, CDN, transformacao de imagem
+Incluso
+Cloudinary (opcional)
+Se necessario: resize automatico, compressao, CDN otimizado
+25GB gratis/mes
+3.5 Monitoramento (Recomendado)
+Tabela 6 Monitoramento e Alertas
+Servico
+Funcao
+Custo
+Vercel Analytics
+Web Vitals, performance, Core Web Vitals
+Incluso no Pro
+Sentry
+Error tracking: captura erros de JavaScript no frontend
+5K erros/mes gratis
+UptimeRobot
+Monitoramento de uptime (ping a cada 5 min)
+Gratis (50 monitores)
+3.6 Comunicacao (Futuro)
+Tabela 7 Comunicacao com Cliente
+Servico
+Funcao
+Custo
+Twilio
+SMS para notificacoes criticas (check-in, lembrete)
+US$ 0,0075/SMS
+Crisp ou Intercom
+Chat de suporte embutido no site
+Crisp: gratis ate 2 agentes
+OneSignal
+Push notifications web (para navegadores)
+Gratis ate 10K subscribers
+4. Matriz de Custos Mensais
+6
+4. Matriz de Custos Mensais
+Tabela 8 Custo Total de Infraestrutura (Mes 1-3)
+Sistema
+Custo Mensal
+Obrigatorio?
+Supabase Pro
+US$ 25
+Sim
+Vercel Pro
+US$ 20
+Sim
+Hostinger (pro-rata)
+R$ 4 (~US$ 0,80)
+Sim
+Stripe Connect
+Gratis (paga por transacao)
+Sim
+Woovi
+Gratis (paga por transacao)
+Sim
+Resend
+Gratis (ate 3K/dia)
+Sim
+Google Analytics
+Gratis
+Recomendado
+GitHub
+Gratis (repo publico)
+Sim
+Sentry
+Gratis (5K erros)
+Recomendado
+TOTAL
+~US$ 46 (~R$ 230)
+Tabela 9 Custo Total (Escala — Mes 12)
+Sistema
+Custo Mensal
+Supabase (escala conforme uso)
+US$ 75-150
+Vercel Pro
+US$ 20
+Hostinger
+R$ 4
+Stripe (taxas sobre transacoes)
+~US$ 3.000
+Woovi (taxas sobre Pix)
+~US$ 500
+Resend (acima de 3K/dia)
+US$ 0-50
+Twilio (SMS)
+US$ 0-100
+TOTAL FIXO
+~US$ 100-350
+TOTAL VARIAVEL
+~US$ 3.500-5.000
+Conclusao: Infraestrutura acessivel
+O custo fixo de infraestrutura e apenas US$ 46/mes (~R$ 230) para comecar. O custo variavel (taxas
+de processamento) e proporcional as vendas — quanto mais vende, mais paga, mas tambem mais
+ganha.
+5. CI/CD — Pipeline de Deploy
+7
+5. CI/CD — Pipeline de Deploy
+# .github/workflows/deploy.yml
+name: Deploy to Vercel
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run test --if-present
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: vercel/action-deploy@v1
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+5.1 Ambientes
+Tabela 10 Ambientes de Deploy
+Ambiente
+URL
+Branch
+Banco
+Producao
+https://aura.events
+main
+Supabase Producao
+Preview (PR)
+https://<branch>-aura.vercel.app
+qualquer
+Supabase Staging
+Local
+http://localhost:5173
+local
+Supabase Local (CLI)
+6. Checklist de Setup Inicial
+8
+6. Checklist de Setup Inicial
+Tabela 11 Passo a Passo para Colocar em Producao
+Passo
+Sistema
+Tempo Est.
+1. Criar projeto no Supabase (regiao sa-east-1)
+Supabase
+10 min
+2. Executar migrations (30 tabelas + triggers + RLS)
+Supabase SQL Editor
+30 min
+3. Configurar Auth (e-mail + Google OAuth)
+Supabase Auth
+30 min
+4. Criar Storage buckets com policies
+Supabase Storage
+20 min
+5. Deploy Edge Functions (8 functions)
+Supabase CLI
+30 min
+6. Criar conta Stripe Connect + configurar webhook
+Stripe Dashboard
+30 min
+7. Criar conta Woovi + configurar webhook
+Woovi Dashboard
+20 min
+8. Criar conta Resend + verificar dominio
+Resend Dashboard
+15 min
+9. Configurar Vercel (env vars, build, domain)
+Vercel Dashboard
+20 min
+10. Configurar Hostinger DNS apontando para Vercel
+Hostinger
+15 min
+11. Configurar GitHub Actions (CI/CD)
+GitHub
+20 min
+12. Deploy inicial + testes
+Todos
+1 hora
+TOTAL
+~5,5 horas
+Em menos de 1 dia de trabalho, a infraestrutura inteira esta pronta
+Com todos os sistemas configurados, o desenvolvedor pode focar 100% no codigo da aplicacao. A
+infraestrutura e "serverless" — nao precisa gerenciar servidores, bancos, ou deploys manuais.
+Fim do Documento D6 — Arquitetura de Sistemas • Aura Platform • Maio 2025

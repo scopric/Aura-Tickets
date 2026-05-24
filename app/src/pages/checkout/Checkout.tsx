@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usePublicEvent } from '../../hooks/useEvents'

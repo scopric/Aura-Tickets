@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { Palette, Type, Image, Layout, Sparkles, Eye, RotateCcw, Check } from 'lucide-react'
 import gsap from 'gsap'
 

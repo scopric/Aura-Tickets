@@ -1,4 +1,4 @@
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { Smartphone, Apple, ArrowRight, QrCode, Bell, MapPin, CreditCard } from 'lucide-react'
 
 export default function AppDownload() {

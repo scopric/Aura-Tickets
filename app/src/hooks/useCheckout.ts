@@ -126,6 +126,11 @@ export function useCreateOrder() {
   })
 }
 
+const MOCK_ORDERS: DbOrder[] = [
+  { id: 'ord-001', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', event_id: 'evt-001', total_amount: 450, status: 'completed', payment_method: 'credit_card', payment_id: 'PAY-001', payment_split: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), events: { title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
+  { id: 'ord-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', event_id: 'evt-002', total_amount: 299, status: 'completed', payment_method: 'pix', payment_id: 'PAY-002', payment_split: null, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date(Date.now() - 86400000).toISOString(), events: { title: 'Workshop de Marketing Digital', cover_image: '/images/hero-bg.jpg', date: '2025-11-20', time: '14:00', venue_name: 'WeWork Faria Lima' } },
+]
+
 export function useUserOrders() {
   const { user } = useAuth()
 
@@ -133,6 +138,11 @@ export function useUserOrders() {
     queryKey: ['user-orders', user?.id],
     queryFn: async () => {
       if (!user?.id) return []
+
+      // Modo demo
+      if (user.id === 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d') {
+        return MOCK_ORDERS
+      }
 
       const { data, error } = await supabase
         .from('orders')
@@ -162,6 +172,12 @@ export function useUserOrders() {
   })
 }
 
+const MOCK_TICKETS: DbTicket[] = [
+  { id: 'tk-001', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
+  { id: 'tk-002', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-002', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
+  { id: 'tk-003', order_id: 'ord-002', ticket_type_id: 'tt-004', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-WSP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date(Date.now() - 86400000).toISOString(), ticket_types: { name: 'Presencial', price: 299, type: 'individual' }, events: { id: 'evt-002', title: 'Workshop de Marketing Digital', cover_image: '/images/hero-bg.jpg', date: '2025-11-20', time: '14:00', venue_name: 'WeWork Faria Lima' } },
+]
+
 export function useUserTickets() {
   const { user } = useAuth()
 
@@ -169,6 +185,11 @@ export function useUserTickets() {
     queryKey: ['user-tickets', user?.id],
     queryFn: async () => {
       if (!user?.id) return []
+
+      // Modo demo
+      if (user.id === 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d') {
+        return MOCK_TICKETS
+      }
 
       // Buscar ingressos do usuário e trazer dados do tipo de ingresso (ticket_types)
       // E também do evento relacionado através do ticket_types

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useEffect } from 'react'
 import {
@@ -318,8 +318,8 @@ export default function CertificateBuilder() {
             </div>
             <div className="space-y-1.5 max-h-48 overflow-y-auto sidebar-dark-scroll pr-1">
               {fields.map(f => (
-                <button key={f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all text-left ${selectedField === f.id ? 'bg-plum/10 text-plum' : 'text-espresso/50 hover:bg-white/40'}`}>
+                <div key={f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${selectedField === f.id ? 'bg-plum/10 text-plum' : 'text-espresso/50 hover:bg-white/40'}`}>
                   {f.type === 'text' && <Type className="w-3.5 h-3.5" />}
                   {f.type === 'logo' && <Image className="w-3.5 h-3.5" />}
                   {f.type === 'signature' && <Signature className="w-3.5 h-3.5" />}
@@ -327,7 +327,7 @@ export default function CertificateBuilder() {
                   {f.type === 'date' && <CalendarDays className="w-3.5 h-3.5" />}
                   <span className="flex-1 truncate">{f.label}</span>
                   <button onClick={e => { e.stopPropagation(); removeField(f.id) }} title="Remover campo" aria-label="Remover campo" className="p-0.5 rounded hover:bg-red-50 text-espresso/20 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                </button>
+                </div>
               ))}
             </div>
           </div>

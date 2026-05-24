@@ -55,6 +55,37 @@ export default function AdminSettingsPage() {
     toast.success('Configuracoes salvas!')
   }
 
+  // Validadores seguros de chaves para evitar riscos de bracket notation (Prototype Pollution)
+  const getGeneralValue = (key: string): boolean => {
+    const allowedKeys: (keyof typeof general)[] = ['maintenance', 'registrationOpen', 'producerApproval'];
+    if (allowedKeys.includes(key as keyof typeof general)) {
+      return !!general[key as keyof typeof general];
+    }
+    return false;
+  };
+
+  const updateGeneralValue = (key: string, value: boolean) => {
+    const allowedKeys: (keyof typeof general)[] = ['maintenance', 'registrationOpen', 'producerApproval'];
+    if (allowedKeys.includes(key as keyof typeof general)) {
+      setGeneral(prev => ({ ...prev, [key]: value }));
+    }
+  };
+
+  const getModerationValue = (key: string): boolean => {
+    const allowedKeys: (keyof typeof moderation)[] = ['autoFlag', 'requireApproval'];
+    if (allowedKeys.includes(key as keyof typeof moderation)) {
+      return !!moderation[key as keyof typeof moderation];
+    }
+    return false;
+  };
+
+  const updateModerationValue = (key: string, value: boolean) => {
+    const allowedKeys: (keyof typeof moderation)[] = ['autoFlag', 'requireApproval'];
+    if (allowedKeys.includes(key as keyof typeof moderation)) {
+      setModeration(prev => ({ ...prev, [key]: value }));
+    }
+  };
+
   const sidebarItems: { id: Section; label: string; icon: typeof Settings }[] = [
     { id: 'geral', label: 'Geral', icon: Globe },
     { id: 'email', label: 'E-mail', icon: Mail },
@@ -92,22 +123,22 @@ export default function AdminSettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Nome da Plataforma</label>
-                  <input value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="platformName" className="text-xs text-espresso/40 mb-1 block">Nome da Plataforma</label>
+                  <input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Tagline</label>
-                  <input value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="tagline" className="text-xs text-espresso/40 mb-1 block">Tagline</label>
+                  <input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Timezone</label>
-                  <select value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                  <label htmlFor="timezone" className="text-xs text-espresso/40 mb-1 block">Timezone</label>
+                  <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option>America/Sao_Paulo</option><option>America/Recife</option><option>America/Manaus</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Moeda</label>
-                  <select value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                  <label htmlFor="currency" className="text-xs text-espresso/40 mb-1 block">Moeda</label>
+                  <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
                   </select>
                 </div>
@@ -119,19 +150,22 @@ export default function AdminSettingsPage() {
                   { key: 'maintenance', label: 'Modo manutencao', desc: 'Mostra pagina de manutencao para todos' },
                   { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuarios se cadastrarem' },
                   { key: 'producerApproval', label: 'Aprovacao de produtores', desc: 'Produtores precisam ser aprovados manualmente' },
-                ].map(item => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                    <div>
-                      <div className="text-sm text-espresso">{item.label}</div>
-                      <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                ].map(item => {
+                  const isChecked = getGeneralValue(item.key);
+                  return (
+                    <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
+                      <div>
+                        <div className="text-sm text-espresso">{item.label}</div>
+                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                      </div>
+                      <label htmlFor={`general-${item.key}`} className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id={`general-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateGeneralValue(item.key, e.target.checked)} className="sr-only peer" />
+                        <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
+                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={general[item.key as keyof typeof general] as boolean} onChange={e => setGeneral({ ...general, [item.key]: e.target.checked })} className="sr-only peer" />
-                      <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </label>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="flex justify-end">
@@ -149,28 +183,28 @@ export default function AdminSettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">SMTP Host</label>
-                  <input value={emailConfig.smtpHost} onChange={e => setEmailConfig({ ...emailConfig, smtpHost: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="smtpHost" className="text-xs text-espresso/40 mb-1 block">SMTP Host</label>
+                  <input id="smtpHost" placeholder="smtp.example.com" value={emailConfig.smtpHost} onChange={e => setEmailConfig({ ...emailConfig, smtpHost: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Porta</label>
-                  <input value={emailConfig.smtpPort} onChange={e => setEmailConfig({ ...emailConfig, smtpPort: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="smtpPort" className="text-xs text-espresso/40 mb-1 block">Porta</label>
+                  <input id="smtpPort" placeholder="587" value={emailConfig.smtpPort} onChange={e => setEmailConfig({ ...emailConfig, smtpPort: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Usuario</label>
-                  <input value={emailConfig.smtpUser} onChange={e => setEmailConfig({ ...emailConfig, smtpUser: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="smtpUser" className="text-xs text-espresso/40 mb-1 block">Usuario</label>
+                  <input id="smtpUser" placeholder="Usuario SMTP" value={emailConfig.smtpUser} onChange={e => setEmailConfig({ ...emailConfig, smtpUser: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Lock className="w-3 h-3" />Senha</label>
-                  <input type="password" value="********" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="smtpPassword" className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Lock className="w-3 h-3" />Senha</label>
+                  <input id="smtpPassword" placeholder="Senha SMTP" type="password" value="********" readOnly className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Nome do Remetente</label>
-                  <input value={emailConfig.fromName} onChange={e => setEmailConfig({ ...emailConfig, fromName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="fromName" className="text-xs text-espresso/40 mb-1 block">Nome do Remetente</label>
+                  <input id="fromName" placeholder="Nome do Remetente" value={emailConfig.fromName} onChange={e => setEmailConfig({ ...emailConfig, fromName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">E-mail do Remetente</label>
-                  <input value={emailConfig.fromEmail} onChange={e => setEmailConfig({ ...emailConfig, fromEmail: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <label htmlFor="fromEmail" className="text-xs text-espresso/40 mb-1 block">E-mail do Remetente</label>
+                  <input id="fromEmail" placeholder="remetente@email.com" value={emailConfig.fromEmail} onChange={e => setEmailConfig({ ...emailConfig, fromEmail: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
               </div>
 
@@ -188,7 +222,7 @@ export default function AdminSettingsPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] rounded-full border border-green-100">{t.status}</span>
-                        <button className="p-1.5 rounded-lg hover:bg-white text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                        <button aria-label={`Visualizar template ${t.name}`} className="p-1.5 rounded-lg hover:bg-white text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                   ))}
@@ -209,8 +243,8 @@ export default function AdminSettingsPage() {
               <h2 className="text-lg font-medium text-espresso">Moderacao</h2>
 
               <div>
-                <label className="text-xs text-espresso/40 mb-1 block">Palavras Proibidas</label>
-                <textarea value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
+                <label htmlFor="bannedWords" className="text-xs text-espresso/40 mb-1 block">Palavras Proibidas</label>
+                <textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
                 <p className="text-[10px] text-espresso/30 mt-1">Separadas por virgula</p>
               </div>
 
@@ -218,26 +252,29 @@ export default function AdminSettingsPage() {
                 {[
                   { key: 'autoFlag', label: 'Flag automatico', desc: 'Marcar conteudo com palavras proibidas automaticamente' },
                   { key: 'requireApproval', label: 'Aprovacao manual', desc: 'Reviews e comentarios precisam de aprovacao' },
-                ].map(item => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                    <div>
-                      <div className="text-sm text-espresso">{item.label}</div>
-                      <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                ].map(item => {
+                  const isChecked = getModerationValue(item.key);
+                  return (
+                    <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
+                      <div>
+                        <div className="text-sm text-espresso">{item.label}</div>
+                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                      </div>
+                      <label htmlFor={`moderation-${item.key}`} className="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id={`moderation-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateModerationValue(item.key, e.target.checked)} className="sr-only peer" />
+                        <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
+                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={moderation[item.key as keyof typeof moderation] as boolean} onChange={e => setModeration({ ...moderation, [item.key]: e.target.checked })} className="sr-only peer" />
-                      <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </label>
-                  </div>
-                ))}
+                  );
+                })}
 
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
-                    <div className="text-sm text-espresso">Limite de denuncias</div>
+                    <label htmlFor="reportThreshold" className="text-sm text-espresso">Limite de denuncias</label>
                     <div className="text-[10px] text-espresso/30">Bloquear automaticamente apos X denuncias</div>
                   </div>
-                  <input type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-16 px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-sm text-espresso text-center focus:outline-none focus:border-plum/30" />
+                  <input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-16 px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-sm text-espresso text-center focus:outline-none focus:border-plum/30" />
                 </div>
               </div>
 
@@ -275,14 +312,14 @@ export default function AdminSettingsPage() {
                   <p className="text-xs text-espresso/30 mb-4">Agendar backups periodicos</p>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 rounded-lg bg-white/40">
-                      <span className="text-xs text-espresso">Frequencia</span>
-                      <select className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
+                      <label htmlFor="backupFrequency" className="text-xs text-espresso">Frequencia</label>
+                      <select id="backupFrequency" aria-label="Frequencia do backup" className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
                         <option>Diario</option><option>Semanal</option><option>Mensal</option>
                       </select>
                     </div>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-white/40">
-                      <span className="text-xs text-espresso">Horario</span>
-                      <input type="time" defaultValue="03:00" className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none" />
+                      <label htmlFor="backupTime" className="text-xs text-espresso">Horario</label>
+                      <input id="backupTime" type="time" defaultValue="03:00" className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none" aria-label="Horario do backup" />
                     </div>
                     <button onClick={() => toast.success('Backup agendado!')} className="w-full py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center justify-center gap-1">
                       <RefreshCw className="w-3 h-3" /> Agendar Backup
@@ -353,8 +390,8 @@ export default function AdminSettingsPage() {
                       <div className="text-sm text-espresso">{item.label}</div>
                       <div className="text-[10px] text-espresso/30">{item.desc}</div>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" defaultChecked={i < 2} className="sr-only peer" />
+                    <label htmlFor={`security-toggle-${i}`} className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id={`security-toggle-${i}`} defaultChecked={i < 2} aria-label={item.label} className="sr-only peer" />
                       <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
                       <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
                     </label>

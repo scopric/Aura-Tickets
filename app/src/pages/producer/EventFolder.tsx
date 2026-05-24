@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router'
+import { useParams, Link } from 'react-router-dom'
 import { ArrowLeft, DollarSign, CheckCircle2, Clock, Calendar, TrendingUp, TrendingDown, Wallet, Briefcase, Phone, Star, Plus, X, Trash2, Save, Edit3, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'

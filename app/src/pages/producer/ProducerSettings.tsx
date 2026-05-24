@@ -1,29 +1,35 @@
-import { useState } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   User, Lock, CreditCard, Bell, Briefcase, Users, Link2, Save,
   Eye, EyeOff, Instagram, Globe, Copy,
-  Shield, Smartphone, Mail, Trash2, AlertTriangle
+  Shield, Smartphone, Mail, Trash2, AlertTriangle, Loader2
 } from 'lucide-react'
+import { useProducerSettings } from '../../hooks/useProducerSettings'
+import { supabase } from '../../lib/supabase'
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe' | 'integracoes'
 
 export default function ProducerSettings() {
-  const { user } = useAuth()
+  const {
+    data,
+    isLoading,
+    saveProfile,
+    isSavingProfile,
+    saveProducerProfile,
+    isSavingProducerProfile,
+    inviteTeamMember,
+    removeTeamMember,
+    updateTeamRole,
+    isTeamActionPending,
+  } = useProducerSettings()
+
   const [section, setSection] = useState<Section>('perfil')
 
+  // Estados locais editáveis
   const [profile, setProfile] = useState({
-    name: user?.name || 'Joao Produtor',
-    email: user?.email || 'joao@email.com',
-    phone: '(11) 98765-4321',
-    bio: 'Produtor de eventos ha 8 anos. Especialista em festas eletronicas e experiencias imersivas.',
-    company: 'Aura Eventos',
-    website: 'www.auraeventos.com',
-    instagram: '@auraeventos',
-    tiktok: '',
-    linkedin: '',
-    avatar: user?.avatar || 'https://i.pravatar.cc/150?img=11',
+    name: '', email: '', phone: '', bio: '', company: '',
+    website: '', instagram: '', tiktok: '', linkedin: '', avatar: ''
   })
 
   const [password, setPassword] = useState({ current: '', new: '', confirm: '' })
@@ -31,65 +37,170 @@ export default function ProducerSettings() {
   const [twoFA, setTwoFA] = useState(false)
 
   const [payment, setPayment] = useState({
-    bankName: 'Itau',
-    accountType: 'corrente',
-    agency: '1234',
-    account: '56789-0',
-    holder: 'Joao Silva',
-    pixKey: 'joao@email.com',
+    bankName: 'Itau', accountType: 'corrente', agency: '', account: '', holder: '', pixKey: ''
   })
 
   const [notifications, setNotifications] = useState({
-    newSale: true,
-    newMessage: true,
-    eventReminder: true,
-    payoutComplete: true,
-    marketingEmails: false,
-    pushEnabled: true,
-    smsEnabled: false,
+    newSale: true, newMessage: true, eventReminder: true, payoutComplete: true,
+    marketingEmails: false, pushEnabled: true, smsEnabled: false,
   })
 
-  const [team, setTeam] = useState([
-    { id: '1', name: 'Maria Oliveira', email: 'maria@aura.com', role: 'Admin', status: 'active' },
-    { id: '2', name: 'Pedro Costa', email: 'pedro@aura.com', role: 'Editor', status: 'active' },
-    { id: '3', name: 'Ana Santos', email: 'ana@aura.com', role: 'Visualizador', status: 'pending' },
-  ])
+  const [team, setTeam] = useState<Array<{ id: string; name: string; email: string; role: string; status: 'active' | 'pending' }>>([])
   const [inviteEmail, setInviteEmail] = useState('')
 
-  const [integrations] = useState({
-    apiKey: 'ak_live_7f8a9b2c3d4e5f6g7h8i9j0k1l2m3n4o',
-    webhook: 'https://api.aura.events/webhook/producer-123',
-  })
+  const [integrations, setIntegrations] = useState({ apiKey: '', webhook: '' })
 
-  const handleSave = () => {
-    toast.success('Alteracoes salvas!')
+  // Sincronizar estado local com dados do Supabase
+  useEffect(() => {
+    if (data) {
+      setProfile({
+        name: data.profile.full_name || '',
+        email: data.profile.email || '',
+        phone: data.profile.phone || '',
+        bio: data.profile.bio || '',
+        company: data.producer_profile?.company_name || '',
+        website: data.profile.website || '',
+        instagram: data.profile.instagram || '',
+        tiktok: data.profile.tiktok || '',
+        linkedin: data.profile.linkedin || '',
+        avatar: data.profile.avatar_url || 'https://i.pravatar.cc/150?img=11',
+      })
+      const ba = data.producer_profile?.bank_account || {}
+      setPayment({
+        bankName: ba.bankName || 'Itau',
+        accountType: ba.accountType || 'corrente',
+        agency: ba.agency || '',
+        account: ba.account || '',
+        holder: ba.holder || '',
+        pixKey: data.producer_profile?.pix_key || '',
+      })
+      const ns = data.producer_profile?.notification_settings || {}
+      setNotifications({
+        newSale: ns.newSale ?? true,
+        newMessage: ns.newMessage ?? true,
+        eventReminder: ns.eventReminder ?? true,
+        payoutComplete: ns.payoutComplete ?? true,
+        marketingEmails: ns.marketingEmails ?? false,
+        pushEnabled: ns.pushEnabled ?? true,
+        smsEnabled: ns.smsEnabled ?? false,
+      })
+      setTeam(data.team)
+      setIntegrations({
+        apiKey: data.producer_profile?.api_key || '',
+        webhook: data.producer_profile?.webhook_url || '',
+      })
+    }
+  }, [data])
+
+  const isSaving = isSavingProfile || isSavingProducerProfile
+
+  const handleSaveProfile = async () => {
+    try {
+      await saveProfile({
+        full_name: profile.name,
+        phone: profile.phone,
+        bio: profile.bio,
+        website: profile.website,
+        instagram: profile.instagram,
+        tiktok: profile.tiktok,
+        linkedin: profile.linkedin,
+      })
+      toast.success('Perfil salvo com sucesso!')
+    } catch {
+      toast.error('Erro ao salvar perfil')
+    }
   }
 
-  const handlePassword = () => {
+  const handleSaveCompany = async () => {
+    try {
+      await saveProducerProfile({ company_name: profile.company })
+      toast.success('Empresa atualizada!')
+    } catch {
+      toast.error('Erro ao salvar empresa')
+    }
+  }
+
+  const handleSavePayment = async () => {
+    try {
+      await saveProducerProfile({
+        bank_account: {
+          bankName: payment.bankName,
+          accountType: payment.accountType,
+          agency: payment.agency,
+          account: payment.account,
+          holder: payment.holder,
+        },
+        pix_key: payment.pixKey,
+      })
+      toast.success('Dados bancários salvos!')
+    } catch {
+      toast.error('Erro ao salvar dados bancários')
+    }
+  }
+
+  const handleSaveNotifications = async () => {
+    try {
+      await saveProducerProfile({
+        notification_settings: notifications,
+      })
+      toast.success('Preferências de notificação salvas!')
+    } catch {
+      toast.error('Erro ao salvar notificações')
+    }
+  }
+
+  const handlePassword = async () => {
     if (!password.current || !password.new || !password.confirm) {
       toast.error('Preencha todos os campos')
       return
     }
     if (password.new !== password.confirm) {
-      toast.error('Senhas nao conferem')
+      toast.error('Senhas não conferem')
       return
     }
-    if (password.new.length < 8) {
-      toast.error('Minimo 8 caracteres')
+    if (password.new.length < 6) {
+      toast.error('Mínimo 6 caracteres')
       return
     }
-    setPassword({ current: '', new: '', confirm: '' })
-    toast.success('Senha alterada!')
+    try {
+      const { error } = await supabase.auth.updateUser({ password: password.new })
+      if (error) throw error
+      setPassword({ current: '', new: '', confirm: '' })
+      toast.success('Senha alterada!')
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar senha')
+    }
   }
 
-  const handleInvite = () => {
+  const handleInvite = async () => {
     if (!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
-      toast.error('E-mail invalido')
+      toast.error('E-mail inválido')
       return
     }
-    setTeam([...team, { id: Date.now().toString(), name: inviteEmail.split('@')[0], email: inviteEmail, role: 'Visualizador', status: 'pending' }])
-    setInviteEmail('')
-    toast.success('Convite enviado!')
+    try {
+      await inviteTeamMember({ email: inviteEmail, role: 'Visualizador' })
+      setInviteEmail('')
+    } catch {
+      // erro já tratado no hook
+    }
+  }
+
+  const handleRemoveMember = async (id: string) => {
+    try {
+      await removeTeamMember(id)
+      setTeam(prev => prev.filter(t => t.id !== id))
+    } catch {
+      // erro já tratado no hook
+    }
+  }
+
+  const handleRoleChange = async (id: string, role: string) => {
+    try {
+      await updateTeamRole({ memberId: id, role })
+      setTeam(prev => prev.map(t => t.id === id ? { ...t, role } : t))
+    } catch {
+      toast.error('Erro ao alterar função')
+    }
   }
 
   const handleCopy = (text: string) => {
@@ -105,6 +216,14 @@ export default function ProducerSettings() {
     { id: 'equipe', label: 'Equipe', icon: Users },
     { id: 'integracoes', label: 'Integracoes', icon: Link2 },
   ]
+
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-10 max-w-6xl flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 text-plum animate-spin" />
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl">
@@ -136,7 +255,7 @@ export default function ProducerSettings() {
               <div className="flex items-center gap-4">
                 <img src={profile.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-canvas" />
                 <div>
-                  <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">Alterar foto</button>
+                  <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={() => toast.info('Upload de avatar sera implementado com Storage')}>Alterar foto</button>
                   <p className="text-[10px] text-espresso/30 mt-1">JPG, PNG. Max 2MB</p>
                 </div>
               </div>
@@ -148,7 +267,7 @@ export default function ProducerSettings() {
                 </div>
                 <div>
                   <label className="text-xs text-espresso/40 mb-1 block">E-mail</label>
-                  <input value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 border border-white/60 rounded-xl text-sm text-espresso/50 focus:outline-none cursor-not-allowed" />
                 </div>
                 <div>
                   <label className="text-xs text-espresso/40 mb-1 block">Telefone</label>
@@ -183,9 +302,12 @@ export default function ProducerSettings() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  <Save className="w-4 h-4" />Salvar Alteracoes
+              <div className="flex justify-end gap-3">
+                <button onClick={handleSaveCompany} disabled={isSaving} className="px-6 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-white transition-all flex items-center gap-2">
+                  <Save className="w-4 h-4" />Salvar Empresa
+                </button>
+                <button onClick={handleSaveProfile} disabled={isSaving} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
+                  {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar Perfil
                 </button>
               </div>
             </div>
@@ -240,7 +362,7 @@ export default function ProducerSettings() {
                       <div className="text-sm text-espresso">Excluir conta</div>
                       <div className="text-[10px] text-espresso/30">Esta acao nao pode ser desfeita</div>
                     </div>
-                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all">Excluir</button>
+                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={() => toast.info('Funcao de exclusao sera implementada com confirmacao por email')}>Excluir</button>
                   </div>
                 </div>
               </div>
@@ -282,8 +404,8 @@ export default function ProducerSettings() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  <Save className="w-4 h-4" />Salvar
+                <button onClick={handleSavePayment} disabled={isSavingProducerProfile} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
+                  {isSavingProducerProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar
                 </button>
               </div>
             </div>
@@ -340,8 +462,8 @@ export default function ProducerSettings() {
               </div>
 
               <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  <Save className="w-4 h-4" />Salvar
+                <button onClick={handleSaveNotifications} disabled={isSavingProducerProfile} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
+                  {isSavingProducerProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar
                 </button>
               </div>
             </div>
@@ -356,7 +478,9 @@ export default function ProducerSettings() {
                 <label className="text-xs text-espresso/40 block">Convidar membro</label>
                 <div className="flex gap-2">
                   <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-                  <button onClick={handleInvite} className="px-4 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Convidar</button>
+                  <button onClick={handleInvite} disabled={isTeamActionPending} className="px-4 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
+                    {isTeamActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Convidar'}
+                  </button>
                 </div>
               </div>
 
@@ -370,17 +494,20 @@ export default function ProducerSettings() {
                       <div className="text-sm text-espresso font-medium">{member.name}</div>
                       <div className="text-[10px] text-espresso/30">{member.email}</div>
                     </div>
-                    <select value={member.role} onChange={e => setTeam(team.map(t => t.id === member.id ? { ...t, role: e.target.value } : t))} className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
+                    <select value={member.role} onChange={e => handleRoleChange(member.id, e.target.value)} className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
                       <option>Admin</option><option>Editor</option><option>Visualizador</option>
                     </select>
                     <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                       {member.status === 'active' ? 'Ativo' : 'Pendente'}
                     </span>
-                    <button onClick={() => { setTeam(team.filter(t => t.id !== member.id)); toast.success('Membro removido') }} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors">
+                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
+                {team.length === 0 && (
+                  <div className="py-8 text-center text-xs text-espresso/30">Nenhum membro na equipe ainda.</div>
+                )}
               </div>
             </div>
           )}

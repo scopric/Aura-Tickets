@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Users, DollarSign, Star, TrendingUp,
   MapPin, Send, ThumbsUp, ThumbsDown, MessageSquare,

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Upload, Plus, X, Check, MapPin } from 'lucide-react'
 import { useCreateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'

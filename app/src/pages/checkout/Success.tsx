@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, Download, Ticket, Mail, Calendar, Users, Sparkles, Loader2, QrCode, Clipboard } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'

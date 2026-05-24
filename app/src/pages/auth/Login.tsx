@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
@@ -27,19 +27,30 @@ export default function AuthLogin() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+    // Log removido para producao
     setError('')
-    if (!email.trim() || !password.trim()) {
+    const cleanEmail = email.trim()
+    const cleanPassword = password.trim()
+    if (!cleanEmail || !cleanPassword) {
       setError('Preencha e-mail e senha')
       return
     }
     
     setIsSubmitting(true)
-    const success = await login(email, password)
-    
-    if (success) {
-      toast.success(`Bem-vindo de volta!`)
-      // The useEffect above will handle the redirect once the profile is loaded into context
-    } else {
+    try {
+      // Log removido para producao
+      const success = await login(cleanEmail, cleanPassword)
+      // Log removido para producao
+      if (success) {
+        toast.success(`Bem-vindo de volta!`)
+        // The useEffect above will handle the redirect once the profile is loaded into context
+      } else {
+        setError('E-mail ou senha incorretos')
+      }
+    } catch (err: any) {
+      console.error('[Login] Erro capturado:', err)
+      setError(err?.message || err?.error_description || 'E-mail ou senha incorretos')
+    } finally {
       setIsSubmitting(false)
     }
   }
@@ -111,6 +122,7 @@ export default function AuthLogin() {
             <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
             <input
               type="email"
+              autoComplete="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="seu@email.com"
@@ -123,6 +135,7 @@ export default function AuthLogin() {
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 placeholder="Sua senha"
@@ -145,7 +158,7 @@ export default function AuthLogin() {
               <input type="checkbox" className="accent-plum" disabled={isSubmitting} />
               Lembrar-me
             </label>
-            <button type="button" className="text-xs text-plum hover:underline">Esqueci a senha</button>
+            <Link to="/auth/forgot" className="text-xs text-plum hover:underline">Esqueci a senha</Link>
           </div>
 
           <button
@@ -158,15 +171,15 @@ export default function AuthLogin() {
             } disabled:opacity-70 disabled:cursor-not-allowed`}
           >
             {isSubmitting ? (
-              <>
+              <span className="flex items-center justify-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                Acessando...
-              </>
+                <span>Acessando...</span>
+              </span>
             ) : (
-              <>
-                Entrar como {currentRole.label}
+              <span className="flex items-center justify-center gap-2">
+                <span>Entrar como {currentRole.label}</span>
                 <ArrowRight className="w-4 h-4" />
-              </>
+              </span>
             )}
           </button>
 

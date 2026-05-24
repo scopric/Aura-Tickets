@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Play } from 'lucide-react'
 import gsap from 'gsap'
 

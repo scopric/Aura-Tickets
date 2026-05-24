@@ -4,23 +4,48 @@ import {
   CheckCircle2, Globe
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '../lib/supabase'
 
 export default function ContactSection() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name || !form.email || !form.message) {
       toast.error('Preencha nome, email e mensagem')
       return
     }
-    setSent(true)
-    toast.success('Mensagem enviada! Responderemos em ate 24h.')
-    setTimeout(() => {
-      setSent(false)
-      setForm({ name: '', email: '', subject: '', message: '' })
-    }, 3000)
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('Por favor, insira um e-mail valido.')
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('contact_messages').insert({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        subject: form.subject.trim() || 'Contato via site',
+        message: form.message.trim(),
+        page: window.location.pathname,
+      })
+
+      if (error) {
+        console.error('[Contact]', error)
+        toast.error('Erro ao enviar. Tente novamente.')
+        return
+      }
+
+      setSent(true)
+      toast.success('Mensagem enviada! Responderemos em ate 24h.')
+      setTimeout(() => {
+        setSent(false)
+        setForm({ name: '', email: '', subject: '', message: '' })
+      }, 3000)
+    } catch (err) {
+      console.error('[Contact]', err)
+      toast.error('Erro ao enviar. Tente novamente.')
+    }
   }
 
   const contactInfo = [

@@ -1,7 +1,8 @@
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
+import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import VideoHero from '../components/VideoHero'
 import FAQSection from '../components/FAQSection'
@@ -11,6 +12,12 @@ import PricingSection from '../components/PricingSection'
 gsap.registerPlugin(ScrollTrigger)
 
 export default function Home() {
+  useSEO({
+    title: 'Aura Tickets — Plataforma de Ingressos Sociais',
+    description: 'Descubra eventos incríveis, compre ingressos com segurança e viva experiências inesquecíveis. A plataforma completa para produtores e participantes.',
+    image: '/og-image.jpg',
+  })
+
   const featuresRef = useRef<HTMLDivElement>(null)
   const statsRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)

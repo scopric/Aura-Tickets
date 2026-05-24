@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowLeft, BookOpen, Play, Clock, Award, Users, Star,
   Lock, CheckCircle2, Search, TrendingUp, Zap

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate } from 'react-router-dom'
 import { Music, Heart, Mic, Building, Guitar, Cake, GraduationCap, ArrowRight, ArrowLeft, Check, MapPin, Users, DollarSign, Ticket, Sparkles, PartyPopper, Plus, Trash2, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateEvent } from '../../hooks/useEvents'

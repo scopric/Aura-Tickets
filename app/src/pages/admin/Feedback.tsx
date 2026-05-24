@@ -5,7 +5,7 @@ import {
   Clock, X
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { feedbackMock } from '../../components/FeedbackButton'
+import { feedbackMock } from '../../data/feedbackMock'
 
 type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
 type FeedbackRole = 'cliente' | 'produtor' | 'admin'
@@ -63,7 +63,7 @@ export default function AdminFeedback() {
 
   const updateStatus = (id: string, status: FeedbackStatus) => {
     setItems(items.map(i => i.id === id ? { ...i, status } : i))
-    toast.success(`Status atualizado: ${statusConfig[status].label}`)
+    toast.success(`Status atualizado: ${getStatusConfig(status).label}`)
     if (selected?.id === id) setSelected({ ...selected, status })
   }
 
@@ -72,6 +72,23 @@ export default function AdminFeedback() {
     setSelected(null)
     toast.success('Removido')
   }
+
+  // Validadores estritos de acesso a objetos de configuração para evitar bracket notation dinâmica (Prototype Pollution)
+  const getStatusConfig = (status: FeedbackStatus) => {
+    const validStatus: FeedbackStatus[] = ['novo', 'lido', 'respondido', 'resolvido'];
+    if (validStatus.includes(status)) {
+      return statusConfig[status];
+    }
+    return statusConfig['novo'];
+  };
+
+  const getTypeConfig = (type: FeedbackType) => {
+    const validTypes: FeedbackType[] = ['melhoria', 'bug', 'duvida', 'sugestao', 'elogio'];
+    if (validTypes.includes(type)) {
+      return typeConfig[type];
+    }
+    return typeConfig['sugestao'];
+  };
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
@@ -150,15 +167,15 @@ export default function AdminFeedback() {
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar feedback..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
         </div>
         <div className="flex items-center gap-2">
-          <select value={filterType} onChange={e => setFilterType(e.target.value as FeedbackType | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
+          <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value as FeedbackType | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
             <option value="all">Todos tipos</option>
             {Object.entries(typeConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as FeedbackStatus | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
+          <select value={filterStatus} aria-label="Filtrar por status" onChange={e => setFilterStatus(e.target.value as FeedbackStatus | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
             <option value="all">Todos status</option>
             {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterRole} onChange={e => setFilterRole(e.target.value as FeedbackRole | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
+          <select value={filterRole} aria-label="Filtrar por origem" onChange={e => setFilterRole(e.target.value as FeedbackRole | 'all')} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
             <option value="all">Todas origens</option>
             <option value="cliente">Clientes</option>
             <option value="produtor">Produtores</option>
@@ -183,8 +200,8 @@ export default function AdminFeedback() {
             </thead>
             <tbody>
               {filtered.map(item => {
-                const tc = typeConfig[item.type]
-                const sc = statusConfig[item.status]
+                const tc = getTypeConfig(item.type)
+                const sc = getStatusConfig(item.status)
                 const TIcon = tc.icon
                 return (
                   <tr key={item.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
@@ -215,8 +232,8 @@ export default function AdminFeedback() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1 justify-end">
-                        <button onClick={() => setSelected(item)} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => deleteItem(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setSelected(item)} aria-label={`Visualizar feedback de ${item.name}`} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => deleteItem(item.id)} aria-label={`Excluir feedback de ${item.name}`} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -234,18 +251,24 @@ export default function AdminFeedback() {
           <div className="relative w-full max-w-md bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl">
             <div className="p-6">
               <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${typeConfig[selected.type].bg}`}>
-                    {(() => { const I = typeConfig[selected.type].icon; return <I className={`w-5 h-5 ${typeConfig[selected.type].color}`} /> })()}
-                  </div>
-                  <div>
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${typeConfig[selected.type].bg} ${typeConfig[selected.type].color}`}>
-                      {typeConfig[selected.type].label}
-                    </span>
-                    <p className="text-[10px] text-espresso/30 mt-0.5">{selected.createdAt}</p>
-                  </div>
-                </div>
-                <button onClick={() => setSelected(null)} className="p-2 rounded-full bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
+                {(() => {
+                  const tc = getTypeConfig(selected.type);
+                  const I = tc.icon;
+                  return (
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tc.bg}`}>
+                        <I className={`w-5 h-5 ${tc.color}`} />
+                      </div>
+                      <div>
+                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${tc.bg} ${tc.color}`}>
+                          {tc.label}
+                        </span>
+                        <p className="text-[10px] text-espresso/30 mt-0.5">{selected.createdAt}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <button onClick={() => setSelected(null)} aria-label="Fechar modal" className="p-2 rounded-full bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
               </div>
 
               <div className="mb-6">

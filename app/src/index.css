@@ -184,6 +184,50 @@
   .table-premium tbody td {
     @apply py-3 px-4;
   }
+
+  /* Plan-specific styling to avoid inline styles */
+  .text-plan-starter { color: #8b5cf6; }
+  .bg-plan-starter { background-color: #8b5cf6; }
+  .bg-plan-starter-10 { background-color: rgba(139, 92, 246, 0.10); }
+  .bg-plan-starter-15 { background-color: rgba(139, 92, 246, 0.15); }
+  .border-plan-starter-20 { border-color: rgba(139, 92, 246, 0.20); }
+  .border-t-plan-starter { border-top: 3px solid #8b5cf6; }
+
+  .text-plan-plus { color: #d97706; }
+  .bg-plan-plus { background-color: #d97706; }
+  .bg-plan-plus-10 { background-color: rgba(217, 119, 6, 0.10); }
+  .bg-plan-plus-15 { background-color: rgba(217, 119, 6, 0.15); }
+  .border-plan-plus-20 { border-color: rgba(217, 119, 6, 0.20); }
+  .border-t-plan-plus { border-top: 3px solid #d97706; }
+
+  .text-plan-pro { color: #7a3b69; }
+  .bg-plan-pro { background-color: #7a3b69; }
+  .bg-plan-pro-10 { background-color: rgba(122, 59, 105, 0.10); }
+  .bg-plan-pro-15 { background-color: rgba(122, 59, 105, 0.15); }
+  .border-plan-pro-20 { border-color: rgba(122, 59, 105, 0.20); }
+  .border-t-plan-pro { border-top: 3px solid #7a3b69; }
+
+  .text-plan-enterprise { color: #1a0e14; }
+  .bg-plan-enterprise { background-color: #1a0e14; }
+  .bg-plan-enterprise-10 { background-color: rgba(26, 14, 20, 0.10); }
+  .bg-plan-enterprise-15 { background-color: rgba(26, 14, 20, 0.15); }
+  .border-plan-enterprise-20 { border-color: rgba(26, 14, 20, 0.20); }
+  .border-t-plan-enterprise { border-top: 3px solid #1a0e14; }
+
+  /* Gradient bars for charts */
+  .bg-bar-gradient {
+    background: linear-gradient(to top, var(--plum), rgba(122, 59, 105, 0.3));
+  }
+
+  /* Badge / icon containers */
+  .bg-plum-10-text-plum {
+    background-color: var(--plum-muted);
+    color: var(--plum);
+  }
+
+  .bg-cream-color {
+    background-color: var(--cream);
+  }
 }
 
 @layer utilities {

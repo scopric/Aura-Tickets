@@ -1,4 +1,4 @@
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowLeft, CreditCard, Lock, Shield, Loader2 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useCreateOrder } from '../../hooks/useCheckout'

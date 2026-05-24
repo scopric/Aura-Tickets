@@ -1,5 +1,5 @@
 import { useRef, useEffect } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { Plus, Calendar, Users, Ticket, TrendingUp, ArrowUpRight } from 'lucide-react'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'

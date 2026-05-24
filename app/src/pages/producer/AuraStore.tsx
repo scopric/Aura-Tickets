@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Plus, ShoppingBag, Package, Shirt, Wine, Star,
   Edit3, Trash2, ToggleLeft, ToggleRight, DollarSign, Hash, Gift

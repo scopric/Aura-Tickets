@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import gsap from 'gsap'
+import { supabase } from '../lib/supabase'
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
@@ -29,11 +30,43 @@ export default function ContactPage() {
     return () => ctx.revert()
   }, [])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.email || !form.message) { toast.error('Preencha nome, email e mensagem'); return }
-    setSent(true)
-    toast.success('Mensagem enviada com sucesso!')
+    if (!form.name || !form.email || !form.message) {
+      toast.error('Preencha nome, email e mensagem')
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+      toast.error('Por favor, insira um e-mail valido.')
+      return
+    }
+
+    try {
+      const { error } = await supabase.from('contact_messages').insert({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: form.phone.trim() || null,
+        subject: form.subject.trim() || 'Contato via pagina',
+        message: form.message.trim(),
+        page: window.location.pathname,
+      })
+
+      if (error) {
+        console.error('[Contact]', error)
+        toast.error('Erro ao enviar. Tente novamente.')
+        return
+      }
+
+      setSent(true)
+      toast.success('Mensagem enviada com sucesso!')
+      setTimeout(() => {
+        setSent(false)
+        setForm({ name: '', email: '', phone: '', subject: '', message: '' })
+      }, 3000)
+    } catch (err) {
+      console.error('[Contact]', err)
+      toast.error('Erro ao enviar. Tente novamente.')
+    }
   }
 
   const departments = [

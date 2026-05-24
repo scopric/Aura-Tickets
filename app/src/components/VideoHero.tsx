@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
-import { Link } from 'react-router'
+import { Link } from 'react-router-dom'
 import { ArrowRight, Play } from 'lucide-react'
 import gsap from 'gsap'
 
@@ -225,7 +225,7 @@ export default function VideoHero() {
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-32">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           {/* Text Content */}
-          <div className="lg:col-span-7 text-left">
+          <div className="lg:col-span-12 text-left">
             {/* Badge */}
             <div className="vh-badge inline-flex items-center gap-2 px-5 py-2.5 bg-cream/10 border border-cream/20 rounded-full mb-8 backdrop-blur-sm">
               <span className="w-2 h-2 rounded-full bg-plum animate-pulse" />
@@ -290,63 +290,6 @@ export default function VideoHero() {
             </div>
           </div>
 
-          {/* 3D Floating Ticket */}
-          <div className="lg:col-span-5 hidden lg:flex items-center justify-center perspective-2000">
-            <div className="vh-ticket-3d relative preserve-3d" style={{ transformStyle: 'preserve-3d' }}>
-              {/* Ticket container with 3D animation */}
-              <div 
-                className="relative"
-                style={{
-                  animation: 'ticketFloat 6s ease-in-out infinite, ticketTilt 8s ease-in-out infinite',
-                  transformStyle: 'preserve-3d',
-                }}
-              >
-                {/* Glow behind ticket */}
-                <div 
-                  className="absolute -inset-8 rounded-3xl opacity-40 blur-2xl"
-                  style={{
-                    background: 'radial-gradient(ellipse at center, rgba(122, 59, 105, 0.5) 0%, transparent 70%)',
-                    animation: 'ticketGlow 4s ease-in-out infinite',
-                  }}
-                />
-                
-                {/* Ticket image */}
-                <img
-                  src="/images/ticket-vip.png"
-                  alt="Ingresso VIP Noite Eletro 2025"
-                  className="relative w-[280px] h-auto drop-shadow-2xl"
-                  style={{
-                    filter: 'drop-shadow(0 25px 50px rgba(0,0,0,0.5)) drop-shadow(0 0 30px rgba(122, 59, 105, 0.3))',
-                  }}
-                />
-
-                {/* Reflection/shine effect */}
-                <div 
-                  className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none"
-                  style={{
-                    background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0.08) 55%, transparent 60%)',
-                    backgroundSize: '200% 200%',
-                    animation: 'ticketShine 5s ease-in-out infinite',
-                    mixBlendMode: 'overlay',
-                  }}
-                />
-              </div>
-
-              {/* Floating particles around ticket */}
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="absolute w-1.5 h-1.5 rounded-full bg-plum/50"
-                  style={{
-                    left: `${20 + i * 15}%`,
-                    top: `${10 + (i % 3) * 30}%`,
-                    animation: `ticketParticle ${3 + i * 0.7}s ease-in-out infinite`,
-                    animationDelay: `${i * 0.4}s`,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -361,30 +304,8 @@ export default function VideoHero() {
         </div>
       </div>
 
-      {/* Ticket 3D Animation Keyframes - injected via style tag */}
+      {/* Scroll indicator animation */}
       <style>{`
-        @keyframes ticketFloat {
-          0%, 100% { transform: translateY(0px) rotateX(5deg) rotateY(-8deg); }
-          50% { transform: translateY(-20px) rotateX(8deg) rotateY(-5deg); }
-        }
-        @keyframes ticketTilt {
-          0%, 100% { transform: translateY(0px) rotateX(5deg) rotateY(-8deg) rotateZ(0deg); }
-          25% { transform: translateY(-10px) rotateX(8deg) rotateY(-12deg) rotateZ(1deg); }
-          50% { transform: translateY(-20px) rotateX(5deg) rotateY(-5deg) rotateZ(0deg); }
-          75% { transform: translateY(-10px) rotateX(3deg) rotateY(-8deg) rotateZ(-1deg); }
-        }
-        @keyframes ticketGlow {
-          0%, 100% { opacity: 0.3; transform: scale(1); }
-          50% { opacity: 0.6; transform: scale(1.1); }
-        }
-        @keyframes ticketShine {
-          0% { background-position: 200% 0; }
-          100% { background-position: -200% 0; }
-        }
-        @keyframes ticketParticle {
-          0%, 100% { transform: translateY(0) scale(1); opacity: 0.5; }
-          50% { transform: translateY(-30px) scale(1.5); opacity: 1; }
-        }
         @keyframes scrollDot {
           0% { transform: translateY(-20px); opacity: 0; }
           50% { opacity: 1; }

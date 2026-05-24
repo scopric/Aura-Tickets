@@ -1,0 +1,493 @@
+D O C U M E N T O  D 4  —  S P E C D R I V E  A U R A
+Frontend Melhorias
+O que precisa ser melhorado, adicionado
+e corrigido no frontend existente
+Aura Platform • Maio 2025
+1. Introducao
+2
+1. Introducao
+O frontend da Aura esta visualmente 95% completo, mas existem melhorias criticas que precisam ser
+feitas antes do lancamento. Este documento lista tudo que precisa ser melhorado no frontend — desde
+pequenos ajustes UX ate grandes features ausentes.
+Principais Problemas Identificados
+1. Carrossel de eventos na Home nao funciona — dados estaticos, sem scroll automatico
+2. 90% das paginas usam mock — necessario conectar a APIs Supabase
+3. Sem responsividade mobile em varias paginas do produtor
+4. Sem skeleton loading — tela fica em branco enquanto carrega
+5. Sem tratamento de erro — APIs falham = tela quebra
+6. Sem infinite scroll — listas grandes carregam tudo de uma vez
+7. Sem PWA — nao funciona offline, nao tem install prompt
+8. Sem SEO — meta tags, Open Graph, structured data
+9. Sem analytics — nao rastreia comportamento do usuario
+10. Semdark mode — so tema claro disponivel
+2. Melhorias por Categoria
+3
+2. Melhorias por Categoria
+2.1 UX/UI — Experiencia do Usuario
+Tabela 1 Melhorias de UX/UI
+Melhoria
+Onde
+Prioridade
+Descricao
+Carrossel
+funcional
+Home
+P0
+Scroll automatico, touch/swipe, indicadores, responsivo. Usar Embla
+Carousel (ja instalado)
+Skeleton loading
+Todas as
+paginas
+P0
+Shimmer effect enquanto dados carregam. Usar componente
+Skeleton do shadcn
+Empty states
+Todas as listas
+P1
+Ilustracao + mensagem quando nao ha dados (ex: "Nenhum evento
+criado ainda")
+Error boundaries
+Todas as
+paginas
+P0
+Componente ErrorBoundary para nao quebrar a app quando uma
+pagina falha
+Toast
+notifications
+Acoes CRUD
+P1
+Sonner ja instalado — usar em todas as acoes (sucesso, erro,
+warning)
+Confirm dialogs
+Delete, cancel
+P1
+Modal de confirmacao antes de acoes destrutivas. Usar AlertDialog do
+shadcn
+Breadcrumbs
+Produtor,
+Admin
+P2
+Navegacao hierarquica: Home > Eventos > Meu Evento > Ingressos
+Search global
+Header
+P1
+Busca rapida por eventos, participantes, ingressos. Command + K
+Keyboard
+shortcuts
+Global
+P2
+Atalhos: / para busca, ? para help, ESC para fechar modais
+Tooltips
+Icones, acoes
+P2
+Explicar o que cada botao faz no hover. Tooltip do shadcn
+Onboarding
+Primeiro login
+P1
+Tour guiado passo a passo (OnboardingTour ja existe — terminar)
+Dark mode
+Global
+P2
+Toggle claro/escuro. Tailwind suporta dark: variant
+2.2 Performance
+Tabela 2 Melhorias de Performance
+Melhoria
+Onde
+Prioridade
+Descricao
+Lazy loading de
+paginas
+Router
+P0
+React.lazy() + Suspense para cada rota. Reduz bundle inicial
+Code splitting
+Modulos
+grandes
+P0
+Split por modulo (producer, admin, checkout). Vite faz
+automatico
+Image optimization
+Galeria, eventos
+P0
+Lazy load imagens, WebP format, placeholder blur, sizing
+correto
+2. Melhorias por Categoria
+4
+Infinite scroll
+Listas (eventos, ingressos)
+P1
+Carregar mais itens ao rolar, em vez de paginacao tradicional
+Virtual scrolling
+Listas grandes (CRM)
+P2
+Renderizar so itens visiveis. Para listas com 1000+ registros
+Service Worker
+Global
+P2
+Cache de assets para carregamento instantaneo em revisitas
+Precarregamento
+Router
+P2
+Prefetch rotas provaveis (ex: hover no link = preload)
+2.3 Acessibilidade (A11y)
+Tabela 3 Melhorias de Acessibilidade
+Melhoria
+Onde
+Prioridade
+Descricao
+ARIA labels
+Todos os
+componentes
+P1
+aria-label, aria-describedby, role em todos elementos
+interativos
+Navegacao por
+teclado
+Forms, modais
+P1
+Tab order logico, focus trapping em modais, Enter para
+submit
+Contraste de cores
+Global
+P1
+WCAG AA: contraste minimo 4.5:1 para texto
+Screen reader
+support
+Tabelas, forms
+P2
+th scope, captions, live regions para notificacoes
+Reduced motion
+Animacoes
+P2
+Respeitar prefers-reduced-motion
+Focus visible
+Global
+P1
+Anel de foco visivel em todos elementos interativos
+2.4 SEO e Marketing
+Tabela 4 Melhorias de SEO
+Melhoria
+Onde
+Prioridade
+Descricao
+Meta tags dinamicas
+Cada pagina
+P0
+React Helmet Async: title, description, keywords por pagina
+Open Graph
+Eventos
+P0
+og:title, og:description, og:image para compartilhamento social
+Twitter Cards
+Eventos
+P1
+twitter:card, twitter:title, twitter:image
+Structured data
+Eventos
+P1
+JSON-LD: Event schema (Google rich snippets)
+Sitemap
+Global
+P1
+Geracao automatica de sitemap.xml com todas as rotas publicas
+Robots.txt
+Global
+P1
+Permitir paginas publicas, bloquear /producer, /admin, /app
+Canonical URLs
+Eventos
+P2
+Evitar conteudo duplicado (evento com/sem slug)
+SSR ou SSG
+Eventos publicos
+P2
+Considerar Next.js para SSR de paginas de evento (SEO)
+2.5 Features Novas no Frontend
+Tabela 5 Features que Ainda Nao Existem no Frontend
+Feature
+Descricao
+Prioridade
+Complexidade
+2. Melhorias por Categoria
+5
+Real-time
+notifications
+Notificacoes em tempo real usando Supabase Realtime. Badge no header,
+dropdown de notificacoes
+P1
+Media
+Chat de suporte
+Widget de chat flutuante para suporte ao produtor (pode ser Crisp ou Intercom)
+P2
+Baixa
+Multi-idioma (i18n)
+Suporte a PT, EN, ES. React i18next
+P2
+Alta
+Exportacao de dados
+Botao "Exportar CSV/PDF" em todas as tabelas e relatorios
+P1
+Baixa
+Print-friendly CSS
+Estilos otimizados para impressao de relatorios, certificados, bordere
+P2
+Baixa
+Drag-and-drop
+upload
+Upload de imagens por arrastar e soltar (galeria, logo, certificado)
+P1
+Baixa
+Clipboard copy
+Copiar link do evento, codigo do cupom, QR Code com um clique
+P1
+Baixa
+Share buttons
+Compartilhar evento no WhatsApp, Facebook, Twitter, copiar link
+P1
+Baixa
+Countdown timer
+Contagem regressiva para inicio do evento (pagina do evento)
+P2
+Baixa
+Embed do evento
+Codigo iframe para embed em sites de terceiros
+P2
+Media
+Widget de vendas
+Script JS para botao "Comprar Ingresso" em qualquer site
+P2
+Alta
+Calendario integrado
+Botao "Adicionar ao Google Calendar" no checkout
+P2
+Baixa
+Avaliacoes/Review
+Estrelas e comentarios pos-evento
+P2
+Media
+Indicador de
+urgencia
+"X ingressos restantes!", "Termina em Y horas!" na pagina do evento
+P1
+Baixa
+Visualizacao de
+mapa
+Integracao Google Maps na pagina do evento
+P1
+Baixa
+3. Correcoes Necessarias
+6
+3. Correcoes Necessarias
+3.1 Bugs Conhecidos
+Tabela 6 Bugs e Correcoes
+Bug
+Onde
+Severidade
+Solucao
+Lugar Marcado lento
+SeatingMap.tsx
+Alto
+Implementar virtualizacao para mapas com 500+
+elementos. Usar canvas ou React.memo
+Header nao
+responsive
+Header.tsx
+Medio
+Menu hamburger em mobile, drawer com navegacao
+Sidebar nao colapsa
+ProducerLayout
+Medio
+Botao para recolher sidebar, ganhar espaco em telas
+pequenas
+Sem loading states
+Todas as paginas
+Alto
+Adicionar Suspense + Skeleton em toda navegacao
+Formularios sem
+validacao
+Novo Evento,
+Checkout
+Alto
+Zod + React Hook Form para validacao completa
+Imagens sem
+tratamento
+Eventos, Galeria
+Medio
+Upload com compressao, multi-formato (WebP), lazy
+loading
+Sem tratamento de
+erro de API
+Todas as paginas
+Alto
+Try/catch em todas chamadas, mensagem amigavel, retry
+automatico
+AuthContext nao
+persiste
+AuthContext.tsx
+Alto
+Integrar com Supabase Auth (localStorage/session)
+4. Estrutura de Estado Recomendada
+7
+4. Estrutura de Estado Recomendada
+Atualmente o estado e gerenciado via React Context (AuthContext apenas). Para escalar, recomenda-
+se:
+4.1 Zustand para Estado Global
+Por que Zustand e nao Redux?
+Menos boilerplate: Zustand = 5 linhas de setup. Redux = 50+
+Menor bundle: Zustand ~1KB. Redux ~7KB
+TypeScript nativo: Tipagem automatica sem configuracao
+Middleware: persist (localStorage), devtools (Redux DevTools)
+4.2 Stores Recomendadas
+Tabela 7 Estrutura de Stores Zustand
+Store
+Estado
+Persist
+useAuthStore
+user, session, isLoading, isAdmin, isProducer
+Sim (session)
+useCartStore
+items, total, coupon, eventId
+Sim (localStorage)
+useEventStore
+events, selectedEvent, isLoading, filters
+Nao
+notifications, unreadCount, isOpen
+Nao
+useUIStore
+sidebarOpen, theme, language, onboardingComplete
+Sim (localStorage)
+4.3 React Query (TanStack Query)
+Para gerenciamento de dados do servidor, usar TanStack Query v5:
+Cache automatico: Dados cacheados por tempo configuravel
+Stale-while-revalidate: Mostra dados antigos enquanto busca novos
+Background refetch: Atualiza dados automaticamente
+Optimistic updates: Atualiza UI antes da confirmacao do servidor
+Retry automatico: Tenta novamente em falhas de rede
+Devtools: Inspector de cache e queries
+5. Dependencias Adicionais Recomendadas
+8
+5. Dependencias Adicionais Recomendadas
+Tabela 8 Pacotes NPM a Instalar
+Pacote
+Versao
+Para que
+Tamanho
+@supabase/supabase-js
+latest
+Cliente Supabase
+~30KB
+@tanstack/react-query
+v5
+Gerenciamento de dados do servidor
+~15KB
+zustand
+latest
+Estado global
+~1KB
+zod
+latest
+Validacao de schemas
+~10KB
+@hookform/resolvers
+latest
+Integracao Zod + React Hook Form
+~2KB
+react-helmet-async
+latest
+Meta tags dinamicas (SEO)
+~5KB
+react-dropzone
+latest
+Upload drag-and-drop
+~10KB
+qrcode.react
+latest
+Geracao de QR Code
+~5KB
+date-fns
+latest
+Manipulacao de datas (ja instalado?)
+~20KB
+@stripe/stripe-js
+latest
+Checkout Stripe
+~15KB
+resend
+latest
+Envio de e-mails (Edge Function)
+Server-side
+Bundle total adicional: ~113KB (gzipped: ~35KB) — aceitavel
+6. Checklist de Lancamento Frontend
+9
+6. Checklist de Lancamento Frontend
+Tabela 9 Checklist Completo para Lancamento
+Item
+Status
+Responsavel
+CRITICO (Bloqueia lancamento)
+Integrar Supabase Auth (login/registro/sessao)
+Pendente
+Backend + Frontend
+RLS em todas as tabelas
+Pendente
+Backend
+CRUD de eventos funcional
+Pendente
+Backend + Frontend
+CRUD de ingressos funcional
+Pendente
+Backend + Frontend
+Checkout com Stripe + Woovi
+Pendente
+Backend + Frontend
+Skeleton loading em todas as paginas
+Pendente
+Frontend
+Error boundaries
+Pendente
+Frontend
+Validacao de formularios (Zod)
+Pendente
+Frontend
+Carrossel funcional na Home
+Pendente
+Frontend
+IMPORTANTE (Semana 5-8)
+Zustand stores implementados
+Pendente
+Frontend
+TanStack Query para todas as APIs
+Pendente
+Frontend
+SEO: meta tags, Open Graph
+Pendente
+Frontend
+Responsive mobile completo
+Pendente
+Frontend
+Toast notifications em todas acoes
+Pendente
+Frontend
+Confirm dialogs em acoes destrutivas
+Pendente
+Frontend
+Search global (Command+K)
+Pendente
+Frontend
+DESEJAVEL (Semana 9-12)
+Dark mode
+Pendente
+Frontend
+PWA (manifest, service worker)
+Pendente
+Frontend
+Multi-idioma (i18n)
+Pendente
+Frontend
+Analytics (GA4)
+Pendente
+Frontend
+Chat de suporte
+Pendente
+Integracao
+Fim do Documento D4 — Frontend Melhorias • Aura Platform • Maio 2025
