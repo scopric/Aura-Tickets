@@ -5,7 +5,6 @@ import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePublicEvent } from '../hooks/useEvents'
-import { interestedUsers, tableStatus } from '../data/mockData'
 import CollectiveTableCard from '../components/CollectiveTableCard'
 import PreOrder from '../components/PreOrder'
 import { toast } from 'sonner'
@@ -391,66 +390,71 @@ export default function EventPage() {
                 Quem Está <span className="italic text-plum">Por Dentro</span>
               </h2>
               
-              {/* Interested Users */}
+              {/* Social Proof / Interest */}
               <div className="detail-item mb-8">
                 <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
                   Atividade Recente
                 </h4>
                 <div className="space-y-3">
-                  {interestedUsers.map((user) => (
+                  {[
+                    { id: '1', name: 'Ana C.', action: 'Comprou ingresso VIP', time: '2 min atrás', avatar: 'A' },
+                    { id: '2', name: 'Pedro L.', action: 'Interessado no evento', time: '5 min atrás', avatar: 'P' },
+                    { id: '3', name: 'Maria S.', action: 'Comprou Mesa Coletiva', time: '12 min atrás', avatar: 'M' },
+                  ].map((u) => (
                     <div
-                      key={user.id}
+                      key={u.id}
                       className="social-item flex items-center gap-3 p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-white/80 transition-all"
                     >
-                      <img
-                        src={user.avatar || '/images/logo-aura.png'}
-                        alt={user.name || 'Usuario'}
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-espresso truncate">{user.name || 'Usuario'}</p>
-                        <p className="text-xs text-espresso/50">{user.action}</p>
+                      <div className="w-10 h-10 rounded-full bg-plum/10 flex items-center justify-center ring-2 ring-white">
+                        <span className="text-sm font-medium text-plum">{u.avatar}</span>
                       </div>
-                      <span className="text-xs text-espresso/30">{user.time}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-espresso truncate">{u.name}</p>
+                        <p className="text-xs text-espresso/50">{u.action}</p>
+                      </div>
+                      <span className="text-xs text-espresso/30">{u.time}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Table Status */}
+              {/* Ticket Sales Status */}
               <div className="detail-item">
                 <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
-                  Status das Mesas
+                  Disponibilidade
                 </h4>
                 <div className="space-y-3">
-                  {tableStatus.map((table) => (
+                  {ticketTypes.map((tt: any) => (
                     <div
-                      key={table.id}
+                      key={tt.id}
                       className="p-4 rounded-xl bg-white/50 border border-white/60"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-espresso">{table.name}</span>
+                        <span className="text-sm font-medium text-espresso">{tt.name}</span>
                         <span className={`text-xs px-2 py-1 rounded-full ${
-                          table.status === 'full'
+                          (tt.sold || 0) >= (tt.capacity || 100)
                             ? 'bg-red-100 text-red-600'
-                            : table.status === 'filling'
+                            : (tt.sold || 0) > (tt.capacity || 100) * 0.8
                             ? 'bg-amber-100 text-amber-600'
                             : 'bg-green-100 text-green-600'
                         }`}>
-                          {table.status === 'full' ? 'Lotada' : table.status === 'filling' ? 'Quase lotada' : 'Disponível'}
+                          {(tt.sold || 0) >= (tt.capacity || 100) ? 'Esgotado' : (tt.sold || 0) > (tt.capacity || 100) * 0.8 ? 'Quase esgotado' : 'Disponível'}
                         </span>
                       </div>
                       <div className="w-full h-2 bg-espresso/5 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-green-400 rounded-full transition-all duration-1000"
-                          style={{ width: `${(table.filled / table.capacity) * 100}%` }}
+                          className="h-full bg-plum rounded-full transition-all duration-1000"
+                          style={{ width: `${Math.min(((tt.sold || 0) / (tt.capacity || 1)) * 100, 100)}%` }}
                         />
                       </div>
                       <p className="text-xs text-espresso/40 mt-2">
-                        {table.filled} de {table.capacity} lugares preenchidos
+                        {tt.sold || 0} de {tt.capacity || 100} vendidos
                       </p>
                     </div>
                   ))}
+                  {ticketTypes.length === 0 && (
+                    <p className="text-sm text-espresso/40 italic">Nenhum ingresso disponível no momento.</p>
+                  )}
                 </div>
               </div>
             </div>

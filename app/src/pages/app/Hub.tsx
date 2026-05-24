@@ -10,6 +10,9 @@ import {
 import gsap from 'gsap'
 import { menuItems } from '../../data/mockData'
 import { usePublicEvents } from '../../hooks/useEvents'
+import { useUserTickets } from '../../hooks/useCheckout'
+import { useAuth } from '../../hooks/useAuth'
+import TicketQRCode from '../../components/TicketQRCode'
 import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
@@ -21,6 +24,8 @@ export default function AppHub() {
   const [searchTerm, setSearchTerm] = useState('')
   
   const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
+  const { data: userTickets = [], isLoading: isLoadingTickets } = useUserTickets()
+  const { user } = useAuth()
 
   const [chatMessages, setChatMessages] = useState([
     { id: '1', from: 'producer', text: 'Olá! Bem-vindo ao Noite Eletro 2025. Como posso ajudar?', time: '14:30' },
@@ -36,12 +41,22 @@ export default function AppHub() {
 
   const toggleFav = (id: string) => setFavorites(prev => ({ ...prev, [id]: !prev[id] }))
 
-  // Meus ingressos (mantidos como simulação offline até o fluxo de checkout/compras estar ativo)
-  const myTickets = [
-    { id: 'tk-1', eventId: 'noite-eletro-2025', eventName: 'Noite Eletro 2025', date: '15 Jun 2025', time: '22:00', location: 'Warehouse Central', type: 'Mesa Coletiva', seat: 'Mesa Aurora #1', price: 160, qr: 'MC-001-2025', status: 'ativo' },
-    { id: 'tk-2', eventId: 'noite-eletro-2025', eventName: 'Noite Eletro 2025', date: '15 Jun 2025', time: '22:00', location: 'Warehouse Central', type: 'Mesa Coletiva', seat: 'Mesa Aurora #2', price: 160, qr: 'MC-002-2025', status: 'ativo' },
-    { id: 'tk-3', eventId: 'jazz-sunset', eventName: 'Jazz Sunset Session', date: '22 Jun 2025', time: '17:00', location: 'Rooftop Skyline', type: 'Ingresso VIP', seat: 'Mesa 3, Lugar 2', price: 180, qr: 'VIP-003-2025', status: 'ativo' },
-  ]
+  // Meus ingressos vindos do banco de dados via useUserTickets
+  const myTickets = userTickets.map(t => ({
+    id: t.id,
+    eventId: t.events?.id || t.event_id || '',
+    eventName: t.events?.title || 'Evento',
+    date: t.events?.date
+      ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+      : 'Data a definir',
+    time: t.events?.time || '--:--',
+    location: t.events?.venue_name || 'Local a definir',
+    type: t.ticket_types?.name || 'Ingresso',
+    seat: t.seat_info || '-',
+    price: t.ticket_types?.price || 0,
+    qr: t.qr_code || t.code || '',
+    status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'ativo',
+  }))
 
   const handleSendChat = () => {
     if (!chatMessage.trim()) return
@@ -99,7 +114,7 @@ export default function AppHub() {
           </div>
           <div>
             <p className="text-xs text-cream/40">Olá,</p>
-            <h1 className="font-serif text-xl text-cream">Elisa Nakamura</h1>
+            <h1 className="font-serif text-xl text-cream">{user?.full_name || user?.name || 'Participante'}</h1>
           </div>
         </div>
       </div>
@@ -134,7 +149,7 @@ export default function AppHub() {
             <div className="grid grid-cols-3 gap-3">
               <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
                 <Ticket className="w-4 h-4 text-plum mx-auto mb-1" />
-                <div className="font-serif text-xl text-cream">{myTickets.length}</div>
+                <div className="font-serif text-xl text-cream">{isLoadingTickets ? '...' : myTickets.length}</div>
                 <div className="text-[10px] text-cream/30">Ingressos</div>
               </div>
               <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
@@ -151,47 +166,61 @@ export default function AppHub() {
 
             {/* Tickets */}
             <h2 className="text-sm font-medium text-cream/60 mb-2">Meus Ingressos</h2>
-            <div className="space-y-3">
-              {myTickets.map(ticket => (
-                <div key={ticket.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center">
-                        <Ticket className="w-5 h-5 text-plum" />
+            {isLoadingTickets ? (
+              <div className="space-y-3">
+                {[1, 2].map(i => (
+                  <div key={i} className="h-32 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
+                ))}
+              </div>
+            ) : myTickets.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
+                <Ticket className="w-8 h-8 text-cream/20 mx-auto mb-3" />
+                <p className="text-sm text-cream/40">Você ainda não tem ingressos.</p>
+                <p className="text-[11px] text-cream/25 mt-1">Explore eventos e faça sua primeira compra!</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myTickets.map(ticket => (
+                  <div key={ticket.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center">
+                          <Ticket className="w-5 h-5 text-plum" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium text-cream">{ticket.eventName}</div>
+                          <div className="text-[10px] text-cream/30">{ticket.type}</div>
+                        </div>
                       </div>
-                      <div>
-                        <div className="text-sm font-medium text-cream">{ticket.eventName}</div>
-                        <div className="text-[10px] text-cream/30">{ticket.type}</div>
-                      </div>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === 'ativo' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                        {ticket.status === 'ativo' ? 'Ativo' : 'Usado'}
+                      </span>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === 'ativo' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                      {ticket.status === 'ativo' ? 'Ativo' : 'Usado'}
-                    </span>
+                    <div className="flex items-center gap-4 text-[11px] text-cream/30 mb-3">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{ticket.date}</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ticket.time}</span>
+                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ticket.location}</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-3 flex items-center gap-2">
+                      <MapPin className="w-3.5 h-3.5 text-plum flex-shrink-0" />
+                      <span className="text-xs text-cream/50">{ticket.seat}</span>
+                    </div>
+                    {/* Actions */}
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => setShowQR(ticket.qr)} className="flex-1 py-2.5 bg-plum text-cream text-xs font-medium rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5">
+                        <QrCode className="w-3.5 h-3.5" /> Ver QR Code
+                      </button>
+                      <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
+                        <Share2 className="w-4 h-4" />
+                      </button>
+                      <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-4 text-[11px] text-cream/30 mb-3">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{ticket.date}</span>
-                    <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{ticket.time}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ticket.location}</span>
-                  </div>
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-3 flex items-center gap-2">
-                    <MapPin className="w-3.5 h-3.5 text-plum flex-shrink-0" />
-                    <span className="text-xs text-cream/50">{ticket.seat}</span>
-                  </div>
-                  {/* Actions */}
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => setShowQR(ticket.qr)} className="flex-1 py-2.5 bg-plum text-cream text-xs font-medium rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5">
-                      <QrCode className="w-3.5 h-3.5" /> Ver QR Code
-                    </button>
-                    <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
-                      <Share2 className="w-4 h-4" />
-                    </button>
-                    <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
-                      <Download className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Next events */}
             <h2 className="text-sm font-medium text-cream/60 mb-2 mt-6">Próximos Eventos</h2>
@@ -415,10 +444,8 @@ export default function AppHub() {
           <div className="bg-void border border-white/10 rounded-3xl p-8 max-w-xs w-full text-center shadow-elevated" onClick={e => e.stopPropagation()}>
             <h3 className="font-serif text-xl text-cream mb-2">Ingresso</h3>
             <p className="text-xs text-cream/40 mb-6">Apresente na entrada do evento</p>
-            <div className="w-48 h-48 mx-auto bg-cream rounded-2xl p-4 mb-4">
-              <div className="w-full h-full border-2 border-dashed border-espresso/20 rounded-xl flex items-center justify-center">
-                <QrCode className="w-24 h-24 text-espresso" />
-              </div>
+            <div className="w-48 h-48 mx-auto mb-4">
+              <TicketQRCode code={showQR} size={192} className="rounded-2xl" />
             </div>
             <p className="text-xs text-cream/30 font-mono">{showQR}</p>
             <button onClick={() => setShowQR(null)} className="mt-6 w-full py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">Fechar</button>

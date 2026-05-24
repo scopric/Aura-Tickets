@@ -1,15 +1,28 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2 } from 'lucide-react'
+import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2, LogIn } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { usePublicEvent } from '../../hooks/useEvents'
+import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 
 export default function Checkout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { eventId, cart: initialCart } = (location.state || {}) as { eventId?: string; cart?: Record<string, number> }
+  const { eventId: stateEventId, cart: stateCart } = (location.state || {}) as { eventId?: string; cart?: Record<string, number> }
+
+  // Recuperar carrinho pendente do sessionStorage (quando volta do login)
+  const pendingCheckout = (() => {
+    try {
+      const raw = sessionStorage.getItem('aura_pending_checkout')
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  })()
+
+  const eventId = stateEventId || pendingCheckout?.eventId
+  const initialCart = stateCart || pendingCheckout?.cart || {}
 
   const { data: event, isLoading, error } = usePublicEvent(eventId)
+  const { isAuthenticated } = useAuth()
   const [cart, setCart] = useState<Record<string, number>>(initialCart || {})
 
   useEffect(() => {
@@ -47,6 +60,18 @@ export default function Checkout() {
   const handleContinuePayment = () => {
     if (items.length === 0) {
       toast.error('Selecione pelo menos um ingresso para continuar.')
+      return
+    }
+    if (!isAuthenticated) {
+      // Salvar carrinho no sessionStorage para recuperar após login
+      sessionStorage.setItem('aura_pending_checkout', JSON.stringify({
+        eventId,
+        cart,
+        totalAmount: grandTotal,
+        itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
+      }))
+      toast.info('Faça login para continuar sua compra.')
+      navigate('/auth/login', { state: { from: '/checkout' } })
       return
     }
     navigate('/checkout/payment', {
@@ -195,8 +220,17 @@ export default function Checkout() {
                 disabled={items.length === 0}
                 className="mt-6 w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
               >
-                <CreditCard className="w-4 h-4" />
-                Continuar para Pagamento
+                {isAuthenticated ? (
+                  <>
+                    <CreditCard className="w-4 h-4" />
+                    Continuar para Pagamento
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-4 h-4" />
+                    Entrar e Continuar
+                  </>
+                )}
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
@@ -8,7 +8,11 @@ type UserRole = 'user' | 'producer' | 'admin'
 
 export default function AuthLogin() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { login, isAuthenticated, role: currentRoleContext } = useAuth()
+
+  // Verificar se veio do checkout com carrinho pendente
+  const fromCheckout = location.state?.from === '/checkout'
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -19,6 +23,12 @@ export default function AuthLogin() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && currentRoleContext) {
+      // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
+      const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
+      if (pendingCheckout && currentRoleContext === 'user') {
+        navigate('/checkout')
+        return
+      }
       if (currentRoleContext === 'admin') navigate('/admin/dashboard')
       else if (currentRoleContext === 'producer') navigate('/producer/dashboard')
       else navigate('/app/hub')
@@ -43,6 +53,12 @@ export default function AuthLogin() {
       // Log removido para producao
       if (success) {
         toast.success(`Bem-vindo de volta!`)
+        // Se veio do checkout, redirecionar para lá após login bem-sucedido
+        const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
+        if (fromCheckout && pendingCheckout) {
+          navigate('/checkout')
+          return
+        }
         // The useEffect above will handle the redirect once the profile is loaded into context
       } else {
         setError('E-mail ou senha incorretos')

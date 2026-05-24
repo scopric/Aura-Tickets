@@ -9,11 +9,26 @@ import { supabase } from '@/lib/supabase'
 export default function CheckoutPayment() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { eventId, cart, totalAmount, itemsSummary } = (location.state || {}) as {
+
+  // Recuperar do location.state ou do sessionStorage (quando volta do login)
+  const locationState = (location.state || {}) as {
     eventId?: string
     cart?: Record<string, number>
     totalAmount?: number
     itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number }[]
+  }
+  const pendingCheckout = (() => {
+    try {
+      const raw = sessionStorage.getItem('aura_pending_checkout')
+      return raw ? JSON.parse(raw) : null
+    } catch { return null }
+  })()
+
+  const { eventId, cart, totalAmount, itemsSummary } = {
+    eventId: locationState.eventId || pendingCheckout?.eventId,
+    cart: locationState.cart || pendingCheckout?.cart,
+    totalAmount: locationState.totalAmount || pendingCheckout?.totalAmount,
+    itemsSummary: locationState.itemsSummary || pendingCheckout?.itemsSummary,
   }
 
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card')
@@ -78,6 +93,7 @@ export default function CheckoutPayment() {
 
             // Simula sucesso ou chama o processamento
             toast.success('Pagamento com cartão processado com sucesso!')
+            sessionStorage.removeItem('aura_pending_checkout')
             navigate('/checkout/success', {
               state: {
                 orderId: order.id,
@@ -122,6 +138,7 @@ export default function CheckoutPayment() {
                 (payload: any) => {
                   if (payload.new.status === 'paid') {
                     toast.success('Pagamento via Pix confirmado!')
+                    sessionStorage.removeItem('aura_pending_checkout')
                     supabase.removeChannel(orderChannel)
                     navigate('/checkout/success', {
                       state: {

@@ -5,6 +5,7 @@ import gsap from 'gsap'
 import YourTable from '../../components/YourTable'
 import { useOrderTickets } from '../../hooks/useCheckout'
 import { toast } from 'sonner'
+import TicketQRCode from '../../components/TicketQRCode'
 
 export default function CheckoutSuccess() {
   const ref = useRef<HTMLDivElement>(null)
@@ -88,7 +89,11 @@ export default function CheckoutSuccess() {
                 <div className="success-card bg-white/80 border border-white/60 backdrop-blur-sm rounded-3xl p-6 text-center space-y-4 shadow-sm">
                   <h3 className="font-serif text-lg text-espresso">Pague com Pix</h3>
                   <div className="w-40 h-40 mx-auto bg-white border border-espresso/10 p-2 rounded-2xl flex items-center justify-center shadow-inner">
-                    <QrCode className="w-32 h-32 text-espresso" />
+                    {orderId ? (
+                      <TicketQRCode code={`AURA-${orderId.substring(0, 8).toUpperCase()}`} size={144} className="rounded-xl" />
+                    ) : (
+                      <QrCode className="w-32 h-32 text-espresso" />
+                    )}
                   </div>
                   <button
                     onClick={copyPixCode}
@@ -101,8 +106,41 @@ export default function CheckoutSuccess() {
                 </div>
               )}
 
-              {/* Ticket Card */}
-              {event && (
+              {/* Ticket Cards */}
+              {tickets.length > 0 ? (
+                <div className="space-y-4">
+                  {tickets.map((t, i) => (
+                    <div key={t.id} className="success-card bg-void text-cream rounded-3xl p-6 text-left shadow-elevated">
+                      <div className="flex items-center gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
+                          <img src={t.events?.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium">{t.events?.title || event?.title || 'Evento'}</div>
+                          <div className="text-xs text-cream/40">{t.ticket_types?.name || 'Ingresso'}</div>
+                        </div>
+                      </div>
+
+                      {/* QR Code per ticket */}
+                      <div className="flex items-center gap-4 mb-4 p-3 rounded-xl bg-white/5 border border-white/10">
+                        <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="rounded-lg flex-shrink-0" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] text-cream/30">Código do Ingresso</div>
+                          <div className="text-xs font-mono text-cream/70 truncate">{t.qr_code || t.code}</div>
+                          <div className="text-[10px] text-cream/30 mt-1">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
+                        </div>
+                      </div>
+
+                      {totalAmount && (
+                        <div className="flex items-center gap-2 text-xs text-cream/40">
+                          <span className="text-plum font-semibold">Valor:</span>
+                          <span>R$ {(t.ticket_types?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : event && (
                 <div className="success-card bg-void text-cream rounded-3xl p-6 text-left shadow-elevated">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
