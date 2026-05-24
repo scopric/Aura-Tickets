@@ -53,13 +53,13 @@ const ProducerTimeline = lazy(() => import('./pages/producer/Timeline'))
 const ProducerSettings = lazy(() => import('./pages/producer/ProducerSettings'))
 const TeamManager = lazy(() => import('./pages/producer/TeamManager'))
 const EventTicketConfig = lazy(() => import('./pages/producer/EventTicketConfig'))
-const AuraStore = lazy(() => import('./pages/producer/AuraStore'))
+const EvokaaStore = lazy(() => import('./pages/producer/EvokaaStore'))
 const EventBordero = lazy(() => import('./pages/producer/EventBordero'))
 const InterestList = lazy(() => import('./pages/producer/InterestList'))
 const Certificates = lazy(() => import('./pages/producer/Certificates'))
 const CertificateBuilder = lazy(() => import('./pages/producer/CertificateBuilder'))
 const Marketing = lazy(() => import('./pages/producer/Marketing'))
-const AuraAcademy = lazy(() => import('./pages/producer/AuraAcademy'))
+const EvokaaAcademy = lazy(() => import('./pages/producer/EvokaaAcademy'))
 const SeatingMap = lazy(() => import('./pages/producer/SeatingMap'))
 const OrganizerApp = lazy(() => import('./pages/producer/OrganizerApp'))
 const AdvancePayment = lazy(() => import('./pages/producer/AdvancePayment'))
@@ -165,13 +165,13 @@ function Layout() {
               <Route path="/producer/assinatura" element={<ProducerSubscription />} />
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<EventTicketConfig />} />
-              <Route path="/producer/aura-store" element={<AuraStore />} />
+              <Route path="/producer/aura-store" element={<EvokaaStore />} />
               <Route path="/producer/bordero" element={<EventBordero />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
               <Route path="/producer/marketing" element={<Marketing />} />
-              <Route path="/producer/academy" element={<AuraAcademy />} />
+              <Route path="/producer/academy" element={<EvokaaAcademy />} />
               <Route path="/producer/lugar-marcado" element={<SeatingMap />} />
               <Route path="/producer/app" element={<OrganizerApp />} />
               <Route path="/producer/antecipacao" element={<AdvancePayment />} />

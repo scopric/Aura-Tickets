@@ -108,7 +108,7 @@ export default function AuraAcademy() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Aura Academy</h1>
+          <h1 className="font-serif text-3xl text-espresso">Evokaa Academy</h1>
           <p className="text-sm text-espresso/50 mt-1">Cursos gratuitos para se tornar um produtor de eventos de sucesso</p>
         </div>
       </div>

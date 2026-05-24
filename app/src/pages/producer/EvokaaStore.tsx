@@ -84,7 +84,7 @@ export default function AuraStore() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Aura Store</h1>
+          <h1 className="font-serif text-3xl text-espresso">Evokaa Store</h1>
           <p className="text-sm text-espresso/50 mt-1">Venda produtos, experiencias e servicos no seu evento</p>
         </div>
         <button onClick={addItem} className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">

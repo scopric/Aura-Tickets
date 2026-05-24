@@ -37,7 +37,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <img
-              src="/images/logo-aura.png"
+              src="/images/logo-evokaa.png"
               alt="Aura"
               className="h-7 w-auto transition-transform duration-300 group-hover:scale-105"
             />

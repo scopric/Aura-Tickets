@@ -85,7 +85,7 @@ export default function AuthLogin() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src="/images/logo-aura.png" alt="Aura" className="h-10 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Aura" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Bem-vindo de volta</h1>
           <p className="text-sm text-espresso/50 mt-1">Escolha seu perfil e entre</p>

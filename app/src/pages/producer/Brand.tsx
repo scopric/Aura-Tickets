@@ -105,7 +105,7 @@ export default function ProducerBrand() {
                 <button onClick={() => setLogo(null)} className="absolute top-2 right-2 p-1 rounded-full bg-void/60 text-cream text-xs">x</button>
               </div>
             ) : (
-              <button onClick={() => setLogo('/images/logo-aura.png')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
+              <button onClick={() => setLogo('/images/logo-evokaa.png')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
                 <Upload className="w-6 h-6 mx-auto mb-2 text-espresso/20" />
                 <p className="text-xs text-espresso/40">Clique para carregar logo</p>
               </button>
