@@ -8,12 +8,12 @@
   "theme_color": "#7a3b69",
   "icons": [
     {
-      "src": "/images/logo-aura.png",
+      "src": "/images/logo-evokaa.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/images/logo-aura.png",
+      "src": "/images/logo-evokaa.png",
       "sizes": "512x512",
       "type": "image/png"
     }
