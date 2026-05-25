@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger)
 
 export default function Home() {
   useSEO({
-    title: 'Evokaa Tickets — Plataforma de Ingressos Sociais',
+    title: 'Evokaa — Plataforma Completa de Eventos',
     description: 'Descubra eventos incríveis, compre ingressos com segurança e viva experiências inesquecíveis. A plataforma completa para produtores e participantes.',
     image: '/images/logo-evokaa.png',
   })
