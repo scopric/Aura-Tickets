@@ -16,19 +16,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setSession = useAuthStore((state) => state.setSession)
   const setUser = useAuthStore((state) => state.setUser)
   const setLoading = useAuthStore((state) => state.setLoading)
+  const storedSession = useAuthStore((state) => state.session)
 
   useEffect(() => {
-    // Sincroniza sessão ativa inicial do Supabase
+    // Sincroniza sessÃ£o ativa inicial do Supabase
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setSession(session)
         fetchProfile()
+      } else if (storedSession?.access_token && !storedSession.access_token.startsWith('mock-token-')) {
+        // Se o Supabase nÃ£o tem sessÃ£o mas o Zustand tem (ex: apÃ³s reload da pÃ¡gina),
+        // restaura a sessÃ£o no Supabase client
+        supabase.auth.setSession({
+          access_token: storedSession.access_token,
+          refresh_token: storedSession.refresh_token,
+        }).then(() => fetchProfile()).catch(() => setLoading(false))
       } else {
         setLoading(false)
       }
     })
 
-    // Escuta mudanças de auth para sincronização automática em tempo real
+    // Escuta mudanÃ§as de auth para sincronizaÃ§Ã£o automÃ¡tica em tempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
         setSession(session)
@@ -41,7 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchProfile, setSession, setUser, setLoading])
+  }, [fetchProfile, setSession, setUser, setLoading, storedSession])
 
   return <>{children}</>
 }

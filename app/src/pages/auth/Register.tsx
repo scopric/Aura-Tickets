@@ -28,12 +28,12 @@ export default function AuthRegister() {
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!name.trim()) e.name = 'Nome obrigatório'
-    if (!lastName.trim()) e.lastName = 'Sobrenome obrigatório'
-    if (!email.trim()) e.email = 'E-mail obrigatório'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail inválido'
-    if (!password) e.password = 'Senha obrigatória'
-    else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
+    if (!name.trim()) e.name = 'Nome obrigatÃ³rio'
+    if (!lastName.trim()) e.lastName = 'Sobrenome obrigatÃ³rio'
+    if (!email.trim()) e.email = 'E-mail obrigatÃ³rio'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail invÃ¡lido'
+    if (!password) e.password = 'Senha obrigatÃ³ria'
+    else if (password.length < 6) e.password = 'MÃ­nimo 6 caracteres'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -41,7 +41,7 @@ export default function AuthRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) {
-      toast.error('Corrija os erros no formulário')
+      toast.error('Corrija os erros no formulÃ¡rio')
       return
     }
     
@@ -51,10 +51,14 @@ export default function AuthRegister() {
     
     if (success) {
       toast.success('Conta criada com sucesso!')
-      // Redirect handled by useEffect when session is updated
-    } else {
-      setIsSubmitting(false)
+      // Aguarda um momento para o auth state atualizar, senÃ£o redireciona para login
+      setTimeout(() => {
+        if (!isAuthenticated) {
+          navigate('/auth/login')
+        }
+      }, 1500)
     }
+    setIsSubmitting(false)
   }
 
   return (
@@ -132,7 +136,7 @@ export default function AuthRegister() {
                 value={password}
                 disabled={isSubmitting}
                 onChange={e => { setPassword(e.target.value); if (errors.password) setErrors(p => { const n = { ...p }; delete n.password; return n }) }}
-                placeholder="Mínimo 6 caracteres"
+                placeholder="MÃ­nimo 6 caracteres"
                 className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
               />
               <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors">
@@ -161,7 +165,7 @@ export default function AuthRegister() {
         </form>
 
         <p className="text-center text-xs text-espresso/40 mt-6">
-          Já tem conta? <Link to="/auth/login" className="text-plum hover:underline">Entrar</Link>
+          JÃ¡ tem conta? <Link to="/auth/login" className="text-plum hover:underline">Entrar</Link>
         </p>
       </div>
     </div>
