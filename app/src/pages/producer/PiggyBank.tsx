@@ -33,7 +33,7 @@ const mockBoxes: PiggyBox[] = [
 ]
 
 export default function ProducerPiggyBank() {
-  const [boxes, setBoxes] = useState<PiggyBox[]>(mockBoxes)
+  const [boxes, setBoxes] = useState<PiggyBox[]>(import.meta.env.DEV ? mockBoxes : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ eventName: '', name: '', target: '', category: 'marketing', note: '' })
   const [depositBox, setDepositBox] = useState<string | null>(null)

@@ -53,7 +53,7 @@ interface MenuGroup {
       - Fundido: "Antecipacao" + "Parcelamento" → "Config. Pagamento"
       
    4. AURA STORE + LISTA INTERESSE (de Eventos → Vendas)
-      - Aura Store e Lista de Interesse sao ferramentas de venda, nao gestao de evento
+      - Evokaa Store e Lista de Interesse sao ferramentas de venda, nao gestao de evento
       
    5. REL. POS-EVENTO (de Eventos → permanece em Eventos, pertence ao ciclo)
    
@@ -66,7 +66,7 @@ interface MenuGroup {
 
 const menuGroups: MenuGroup[] = [
   {
-    id: 'events', icon: Calendar, label: 'Eventos', color: '#c49ab8',
+    id: 'events', icon: Calendar, label: 'Eventos', color: '#60a5fa',
     items: [
       { to: '/producer/events', icon: Calendar, label: 'Meus Eventos' },
       { to: '/producer/planner', icon: Sparkles, label: 'Criar Evento' },
@@ -83,7 +83,7 @@ const menuGroups: MenuGroup[] = [
   {
     id: 'sales', icon: Megaphone, label: 'Vendas & Marketing', color: '#f59e0b',
     items: [
-      { to: '/producer/aura-store', icon: ShoppingBag, label: 'Aura Store' },
+      { to: '/producer/evokaa-store', icon: ShoppingBag, label: 'Evokaa Store' },
       { to: '/producer/lista-interesse', icon: FileText, label: 'Lista de Interesse' },
       { to: '/producer/cupons', icon: TicketPercent, label: 'Cupons' },
       { to: '/producer/afiliados', icon: Users, label: 'Afiliados' },
@@ -147,9 +147,9 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
             'flex items-center justify-center w-full rounded-lg transition-all py-2.5 mx-1',
             hasActiveChild
               ? 'text-white'
-              : 'text-white/35 hover:text-white/75 hover:bg-white/[0.04]'
+              : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
           )}
-          style={hasActiveChild ? { background: 'rgba(122,59,105,0.2)' } : {}}
+          style={hasActiveChild ? { background: 'rgba(59,130,246,0.2)' } : {}}
           title={group.label}
         >
           <group.icon
@@ -165,7 +165,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
             <Link key={item.to} to={item.to}
               className={cn(
                 'flex items-center gap-2 px-3 py-2 text-[11px] transition-all',
-                isActivePath(item.to) ? 'text-white bg-white/[0.06]' : 'text-white/40 hover:text-white/70 hover:bg-white/[0.04]'
+                isActivePath(item.to) ? 'text-white bg-white/[0.06]' : 'text-white/50 hover:text-white/85 hover:bg-white/[0.04]'
               )}>
               <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
               {item.label}
@@ -184,9 +184,9 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
           'flex items-center gap-3 w-full rounded-lg transition-all duration-200 px-3 py-2',
           hasActiveChild
             ? 'text-white'
-            : 'text-white/35 hover:text-white/75 hover:bg-white/[0.04]'
+            : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
         )}
-        style={hasActiveChild ? { background: 'rgba(122,59,105,0.15)' } : {}}
+        style={hasActiveChild ? { background: 'rgba(59,130,246,0.15)' } : {}}
       >
         <group.icon
           className="w-[17px] h-[17px] flex-shrink-0"
@@ -208,9 +208,9 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
                 'flex items-center gap-2.5 rounded-md transition-all duration-150 px-2.5 py-1.5',
                 isActivePath(item.to)
                   ? 'text-white'
-                  : 'text-white/25 hover:text-white/60 hover:bg-white/[0.03]'
+                  : 'text-white/50 hover:text-white/85 hover:bg-white/[0.03]'
               )}
-              style={isActivePath(item.to) ? { background: 'rgba(122,59,105,0.12)' } : {}}
+              style={isActivePath(item.to) ? { background: 'rgba(59,130,246,0.12)' } : {}}
             >
               <item.icon
                 className="w-3.5 h-3.5 flex-shrink-0"
@@ -261,13 +261,13 @@ export default function ProducerLayout() {
         )}
         style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
-          <img src="/images/logo-aura.png" alt="Aura" className="h-6 w-auto" />
+          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto" />
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>
               <span
                 className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(122,59,105,0.25)', color: '#c49ab8', border: '1px solid rgba(122,59,105,0.3)' }}
+                style={{ background: 'rgba(59,130,246,0.25)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
               >
                 Prod
               </span>
@@ -285,9 +285,9 @@ export default function ProducerLayout() {
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2',
               isActivePath('/producer/dashboard')
                 ? 'text-white'
-                : 'text-white/35 hover:text-white/75 hover:bg-white/[0.04]'
+                : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
             )}
-            style={isActivePath('/producer/dashboard') ? { background: 'rgba(122,59,105,0.2)' } : {}}
+            style={isActivePath('/producer/dashboard') ? { background: 'rgba(59,130,246,0.2)' } : {}}
             title={collapsed ? 'Dashboard' : undefined}
           >
             <LayoutDashboard
@@ -326,7 +326,7 @@ export default function ProducerLayout() {
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
                 <img
-                  src={user.avatar || '/images/logo-aura.png'}
+                  src={user.avatar || '/images/logo-evokaa.png'}
                   alt="Avatar do usuario"
                   className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
                 />
@@ -337,7 +337,7 @@ export default function ProducerLayout() {
               </div>
             ) : (
               <img
-                src={user.avatar || '/images/logo-aura.png'}
+                src={user.avatar || '/images/logo-evokaa.png'}
                 alt="Avatar do usuario"
                 className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
               />
@@ -364,7 +364,7 @@ export default function ProducerLayout() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-[70px] w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 z-50"
-          style={{ background: 'var(--plum)', color: 'var(--cream)', boxShadow: '0 2px 8px rgba(122,59,105,0.4)' }}
+          style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', boxShadow: '0 2px 8px rgba(59,130,246,0.4)' }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>

@@ -1,4 +1,4 @@
-# Aura Tickets — Testes Automatizados
+# Evokaa Tickets — Testes Automatizados
 
 Este documento descreve como executar os testes unitários e E2E do projeto.
 

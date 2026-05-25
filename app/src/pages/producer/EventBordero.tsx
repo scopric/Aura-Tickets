@@ -127,7 +127,7 @@ export default function EventBordero() {
               <span className="text-sm font-medium text-green-600">+ R$ {borderoMock.grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-white/60">
-              <span className="text-sm text-espresso/60">Taxa de servico Aura ({borderoMock.serviceFee / borderoMock.grossRevenue * 100}%)</span>
+              <span className="text-sm text-espresso/60">Taxa de servico Evokaa ({borderoMock.serviceFee / borderoMock.grossRevenue * 100}%)</span>
               <span className="text-sm font-medium text-red-500">- R$ {borderoMock.serviceFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-white/60">

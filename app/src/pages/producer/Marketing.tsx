@@ -36,10 +36,10 @@ export default function Marketing() {
   const [googleAds, setGoogleAds] = useState<PixelConfig>({ enabled: false, id: '' })
 
   const [utmLinks, setUtmLinks] = useState<UTMLink[]>([
-    { id: '1', name: 'Campanha Instagram', url: 'https://aura.events/e/noite-eletro', source: 'instagram', medium: 'social', campaign: 'lancamento-jun', clicks: 342, createdAt: '2025-06-01' },
-    { id: '2', name: 'Email Marketing', url: 'https://aura.events/e/noite-eletro', source: 'newsletter', medium: 'email', campaign: 'lancamento-jun', clicks: 189, createdAt: '2025-06-02' },
-    { id: '3', name: 'Google Ads', url: 'https://aura.events/e/noite-eletro', source: 'google', medium: 'cpc', campaign: 'keywords-jun', clicks: 567, createdAt: '2025-06-03' },
-    { id: '4', name: 'WhatsApp Grupo', url: 'https://aura.events/e/noite-eletro', source: 'whatsapp', medium: 'social', campaign: 'viral-jun', clicks: 891, createdAt: '2025-06-04' },
+    { id: '1', name: 'Campanha Instagram', url: 'https://evokaa.events/e/noite-eletro', source: 'instagram', medium: 'social', campaign: 'lancamento-jun', clicks: 342, createdAt: '2025-06-01' },
+    { id: '2', name: 'Email Marketing', url: 'https://evokaa.events/e/noite-eletro', source: 'newsletter', medium: 'email', campaign: 'lancamento-jun', clicks: 189, createdAt: '2025-06-02' },
+    { id: '3', name: 'Google Ads', url: 'https://evokaa.events/e/noite-eletro', source: 'google', medium: 'cpc', campaign: 'keywords-jun', clicks: 567, createdAt: '2025-06-03' },
+    { id: '4', name: 'WhatsApp Grupo', url: 'https://evokaa.events/e/noite-eletro', source: 'whatsapp', medium: 'social', campaign: 'viral-jun', clicks: 891, createdAt: '2025-06-04' },
   ])
 
   const [showUTMForm, setShowUTMForm] = useState(false)
@@ -49,7 +49,7 @@ export default function Marketing() {
   const [utmCampaign, setUtmCampaign] = useState('')
 
   const [waMessage, setWaMessage] = useState('Oii! Vai ter um evento INCRÍVEL e quero te chamar! 🎉 Confira: ')
-  const [waLink, setWaLink] = useState('https://aura.events/e/noite-eletro')
+  const [waLink, setWaLink] = useState('https://evokaa.events/e/noite-eletro')
   const [waGenerated, setWaGenerated] = useState('')
 
   const [waTemplates] = useState<WhatsAppTemplate[]>([
@@ -295,14 +295,14 @@ export default function Marketing() {
                   <div className="absolute bottom-2 left-2 w-6 h-6 border-2 border-white rounded" />
                   <QrCode className="w-8 h-8 text-cream/50" />
                 </div>
-                <p className="text-[10px] text-center text-espresso/30 mt-2">aura.events/e/{qrEvent}</p>
+                <p className="text-[10px] text-center text-espresso/30 mt-2">evokaa.events/e/{qrEvent}</p>
               </div>
             </div>
             <div className="flex gap-2">
               <button onClick={() => toast.success('QR Code baixado!')} className="flex-1 py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
                 <Download className="w-3.5 h-3.5" /> Baixar PNG
               </button>
-              <button onClick={() => copyLink(`https://aura.events/e/${qrEvent}`)} className="px-4 py-2.5 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">
+              <button onClick={() => copyLink(`https://evokaa.events/e/${qrEvent}`)} className="px-4 py-2.5 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">
                 <Copy className="w-3.5 h-3.5" />
               </button>
             </div>

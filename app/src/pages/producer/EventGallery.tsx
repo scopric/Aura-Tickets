@@ -27,7 +27,7 @@ const mockPhotos: GalleryPhoto[] = [
 ]
 
 export default function ProducerEventGallery() {
-  const [photos, setPhotos] = useState<GalleryPhoto[]>(mockPhotos)
+  const [photos, setPhotos] = useState<GalleryPhoto[]>(import.meta.env.DEV ? mockPhotos : [])
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [selectedPhoto, setSelectedPhoto] = useState<GalleryPhoto | null>(null)
   const [showUpload, setShowUpload] = useState(false)

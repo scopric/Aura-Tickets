@@ -27,9 +27,10 @@ export default function AdminUsers() {
     return () => ctx.revert()
   }, [])
 
-  const totalActive = mockUsers.filter(u => u.status === 'active').length
-  const totalInactive = mockUsers.filter(u => u.status === 'inactive').length
-  const totalBanned = mockUsers.filter(u => u.status === 'banned').length
+  const users = import.meta.env.DEV ? mockUsers : []
+  const totalActive = users.filter(u => u.status === 'active').length
+  const totalInactive = users.filter(u => u.status === 'inactive').length
+  const totalBanned = users.filter(u => u.status === 'banned').length
 
   return (
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
@@ -79,7 +80,7 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
-              {mockUsers.map(u => (
+              {users.map(u => (
                 <tr key={u.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">

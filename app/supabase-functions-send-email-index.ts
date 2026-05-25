@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { to, subject, html, from = "Aura <noreply@aura.events>" } = await req.json();
+    const { to, subject, html, from = "Evokaa <noreply@aura.events>" } = await req.json();
 
     if (!to || !subject || !html) {
       return new Response(JSON.stringify({ error: "Missing required fields: to, subject, html" }), {

@@ -6,6 +6,7 @@ import FeedbackButton from './components/FeedbackButton'
 import Header from './components/Header'
 import Footer from './components/Footer'
 import PageLoading from './components/PageLoading'
+import CookieBanner from './components/CookieBanner'
 
 // Layouts (pequenos, carregados estaticamente)
 import ProducerLayout from './components/ProducerLayout'
@@ -18,6 +19,8 @@ const EventPage = lazy(() => import('./pages/EventPage'))
 const NotFound = lazy(() => import('./pages/NotFound'))
 const BrandStudio = lazy(() => import('./pages/BrandStudio'))
 const ContactPage = lazy(() => import('./pages/Contact'))
+const TermsPage = lazy(() => import('./pages/Terms'))
+const PrivacyPage = lazy(() => import('./pages/Privacy'))
 const AuthLogin = lazy(() => import('./pages/auth/Login'))
 const AuthRegister = lazy(() => import('./pages/auth/Register'))
 const AuthForgot = lazy(() => import('./pages/auth/ForgotPassword'))
@@ -53,13 +56,13 @@ const ProducerTimeline = lazy(() => import('./pages/producer/Timeline'))
 const ProducerSettings = lazy(() => import('./pages/producer/ProducerSettings'))
 const TeamManager = lazy(() => import('./pages/producer/TeamManager'))
 const EventTicketConfig = lazy(() => import('./pages/producer/EventTicketConfig'))
-const AuraStore = lazy(() => import('./pages/producer/AuraStore'))
+const EvokaaStore = lazy(() => import('./pages/producer/EvokaaStore'))
 const EventBordero = lazy(() => import('./pages/producer/EventBordero'))
 const InterestList = lazy(() => import('./pages/producer/InterestList'))
 const Certificates = lazy(() => import('./pages/producer/Certificates'))
 const CertificateBuilder = lazy(() => import('./pages/producer/CertificateBuilder'))
 const Marketing = lazy(() => import('./pages/producer/Marketing'))
-const AuraAcademy = lazy(() => import('./pages/producer/AuraAcademy'))
+const EvokaaAcademy = lazy(() => import('./pages/producer/EvokaaAcademy'))
 const SeatingMap = lazy(() => import('./pages/producer/SeatingMap'))
 const OrganizerApp = lazy(() => import('./pages/producer/OrganizerApp'))
 const AdvancePayment = lazy(() => import('./pages/producer/AdvancePayment'))
@@ -80,6 +83,10 @@ const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
 // App pages (lazy loaded)
 const AppHub = lazy(() => import('./pages/app/Hub'))
 const AppTickets = lazy(() => import('./pages/app/Tickets'))
+const AppEvents = lazy(() => import('./pages/app/Events'))
+const AppOrders = lazy(() => import('./pages/app/Orders'))
+const AppFavorites = lazy(() => import('./pages/app/Favorites'))
+const AppChat = lazy(() => import('./pages/app/Chat'))
 const AppNotifications = lazy(() => import('./pages/app/Notifications'))
 const AppProfile = lazy(() => import('./pages/app/Profile'))
 const AppSettings = lazy(() => import('./pages/app/Settings'))
@@ -128,6 +135,8 @@ function Layout() {
             <Route path="/event/:eventId" element={<EventPage />} />
             <Route path="/app/download" element={<AppDownload />} />
             <Route path="/contato" element={<ContactPage />} />
+            <Route path="/termos" element={<TermsPage />} />
+            <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/auth/login" element={<AuthLogin />} />
             <Route path="/auth/register" element={<AuthRegister />} />
             <Route path="/auth/forgot" element={<AuthForgot />} />
@@ -165,13 +174,13 @@ function Layout() {
               <Route path="/producer/assinatura" element={<ProducerSubscription />} />
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<EventTicketConfig />} />
-              <Route path="/producer/aura-store" element={<AuraStore />} />
+              <Route path="/producer/evokaa-store" element={<EvokaaStore />} />
               <Route path="/producer/bordero" element={<EventBordero />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
               <Route path="/producer/marketing" element={<Marketing />} />
-              <Route path="/producer/academy" element={<AuraAcademy />} />
+              <Route path="/producer/academy" element={<EvokaaAcademy />} />
               <Route path="/producer/lugar-marcado" element={<SeatingMap />} />
               <Route path="/producer/app" element={<OrganizerApp />} />
               <Route path="/producer/antecipacao" element={<AdvancePayment />} />
@@ -197,6 +206,10 @@ function Layout() {
             <Route element={<ProtectedRoute allowedRoles={['user']}><AppLayout /></ProtectedRoute>}>
               <Route path="/app/hub" element={<AppHub />} />
               <Route path="/app/tickets" element={<AppTickets />} />
+              <Route path="/app/events" element={<AppEvents />} />
+              <Route path="/app/orders" element={<AppOrders />} />
+              <Route path="/app/favorites" element={<AppFavorites />} />
+              <Route path="/app/chat" element={<AppChat />} />
               <Route path="/app/notifications" element={<AppNotifications />} />
               <Route path="/app/profile" element={<AppProfile />} />
               <Route path="/app/settings" element={<AppSettings />} />
@@ -215,6 +228,7 @@ function Layout() {
       {!hideLayout && <Footer />}
       <Toaster />
       <FeedbackButton />
+      <CookieBanner />
     </div>
   )
 }

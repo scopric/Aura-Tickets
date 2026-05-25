@@ -26,7 +26,7 @@ const categoryLabels: Record<string, { label: string; icon: typeof Star; color: 
   service: { label: 'Servico', icon: Gift, color: '#8b5cf6' },
 }
 
-export default function AuraStore() {
+export default function EvokaaStore() {
   const [items, setItems] = useState<StoreItem[]>([
     { id: '1', name: 'Meet & Greet', description: 'Encontro exclusivo com os artistas antes do show', price: 150, stock: 20, sold: 8, category: 'experience', image: '', active: true, limitPerOrder: 2 },
     { id: '2', name: 'Camiseta Oficial', description: 'Camiseta exclusiva do evento, tamanhos P ao GG', price: 80, stock: 100, sold: 34, category: 'merch', image: '', active: true, limitPerOrder: 5 },
@@ -84,7 +84,7 @@ export default function AuraStore() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Aura Store</h1>
+          <h1 className="font-serif text-3xl text-espresso">Evokaa Store</h1>
           <p className="text-sm text-espresso/50 mt-1">Venda produtos, experiencias e servicos no seu evento</p>
         </div>
         <button onClick={addItem} className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">

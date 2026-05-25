@@ -1,4 +1,4 @@
-# Aura Tickets — Deploy Final + Setup Supabase
+# Evokaa Tickets — Deploy Final + Setup Supabase
 
 ## ✅ O que foi implementado nesta rodada
 
@@ -25,13 +25,13 @@
 ## 🚀 DEPLOY AGORA
 
 ### Opção A: Duplo clique (mais fácil)
-1. Vá na pasta `Aura Tickets\app`
+1. Vá na pasta `Evokaa Tickets\app`
 2. Dê **duplo clique** em `DEPLOY-VERCEL.bat`
 3. Aguarde o build e deploy
 
 ### Opção B: PowerShell (se o .bat falhar)
 ```powershell
-cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Aura Tickets\app"
+cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets\app"
 npm run build
 npx vercel --prod
 ```

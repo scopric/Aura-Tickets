@@ -284,7 +284,7 @@ export default function ProducerFinance() {
         { producer_id: producerId, event_id: eventId, type: 'income', amount: 960, description: 'Venda ingressos VIP', status: 'paid', created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString() },
         { producer_id: producerId, event_id: eventId, type: 'expense', amount: 3500, description: 'Aluguel do espaço', status: 'paid', created_at: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString() },
         { producer_id: producerId, event_id: eventId, type: 'expense', amount: 1200, description: 'Equipamento de som', status: 'pending', created_at: new Date().toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'expense', amount: 380, description: 'Comissão Aura - Processamento', status: 'paid', created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() }
+        { producer_id: producerId, event_id: eventId, type: 'expense', amount: 380, description: 'Comissão Evokaa - Processamento', status: 'paid', created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() }
       ]
 
       const { error } = await supabase

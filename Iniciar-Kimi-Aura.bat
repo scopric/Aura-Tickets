@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ==========================================
-echo    Aura Tickets - Iniciando Kimi CLI
+echo    Evokaa Tickets - Iniciando Kimi CLI
 echo ==========================================
 echo.
 
@@ -33,7 +33,7 @@ echo.
 start powershell -NoExit -Command "
     chcp 65001;
     Write-Host '==========================================' -ForegroundColor Cyan;
-    Write-Host '   Aura Tickets - Agente Kimi CLI' -ForegroundColor Cyan;
+    Write-Host '   Evokaa Tickets - Agente Kimi CLI' -ForegroundColor Cyan;
     Write-Host '==========================================' -ForegroundColor Cyan;
     Write-Host '';
     Write-Host 'Diretório: %PROJECT_ROOT%' -ForegroundColor Green;

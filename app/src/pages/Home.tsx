@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import VideoHero from '../components/VideoHero'
+import ModernHero from '../components/ModernHero'
 import FAQSection from '../components/FAQSection'
 import ContactSection from '../components/ContactSection'
 import PricingSection from '../components/PricingSection'
@@ -13,7 +13,7 @@ gsap.registerPlugin(ScrollTrigger)
 
 export default function Home() {
   useSEO({
-    title: 'Aura Tickets — Plataforma de Ingressos Sociais',
+    title: 'Evokaa Tickets — Plataforma de Ingressos Sociais',
     description: 'Descubra eventos incríveis, compre ingressos com segurança e viva experiências inesquecíveis. A plataforma completa para produtores e participantes.',
     image: '/og-image.jpg',
   })
@@ -21,6 +21,7 @@ export default function Home() {
   const featuresRef = useRef<HTMLDivElement>(null)
   const statsRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
+  const howItWorksRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const ctx = gsap.context(() => {
@@ -36,6 +37,12 @@ export default function Home() {
           scrollTrigger: { trigger: statsRef.current, start: 'top 85%' }
         }
       )
+      gsap.fromTo('.hiw-step',
+        { y: 30, opacity: 0 },
+        { y: 0, opacity: 1, duration: 0.7, stagger: 0.15, ease: 'power3.out',
+          scrollTrigger: { trigger: howItWorksRef.current, start: 'top 75%' }
+        }
+      )
       gsap.fromTo('.cta-block',
         { y: 30, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out',
@@ -47,50 +54,47 @@ export default function Home() {
   }, [])
 
   const features = [
-    { icon: Zap, title: 'Crie em Minutos', desc: 'Configure seu evento com poucos cliques. Interface intuitiva e rapida.', accent: 'var(--plum)' },
-    { icon: Ticket, title: 'Gestao de Ingressos', desc: 'Multiplos tipos, lotes, controle de capacidade em tempo real.', accent: '#22c55e' },
-    { icon: Palette, title: 'Brand Studio', desc: 'Personalize cores, fontes e estilos que combinam com sua marca.', accent: '#3b82f6' },
-    { icon: Users, title: 'Comprovacao Social', desc: 'Mostre quem confirmou presenca. Crie urgencia natural.', accent: '#f59e0b' },
-    { icon: BarChart3, title: 'Analytics Real-Time', desc: 'Acompanhe vendas, engajamento e metricas em dashboard elegante.', accent: '#8b5cf6' },
-    { icon: Shield, title: 'Seguranca Total', desc: 'Pagamentos seguros, validacao de ingressos e protecao contra fraudes.', accent: '#ef4444' },
+    { icon: Zap, title: 'Crie em Minutos', desc: 'Configure seu evento com poucos cliques. Interface intuitiva e rápida.', accent: '#3b82f6' },
+    { icon: Ticket, title: 'Gestão de Ingressos', desc: 'Múltiplos tipos, lotes, controle de capacidade em tempo real.', accent: '#06b6d4' },
+    { icon: Palette, title: 'Brand Studio', desc: 'Personalize cores, fontes e estilos que combinam com sua marca.', accent: '#8b5cf6' },
+    { icon: Users, title: 'Comprovação Social', desc: 'Mostre quem confirmou presença. Crie urgência natural.', accent: '#f59e0b' },
+    { icon: BarChart3, title: 'Analytics Real-Time', desc: 'Acompanhe vendas, engajamento e métricas em dashboard elegante.', accent: '#6366f1' },
+    { icon: Shield, title: 'Segurança Total', desc: 'Pagamentos seguros, validação de ingressos e proteção contra fraudes.', accent: '#ef4444' },
   ]
 
   const stats = [
     { value: '10K+', label: 'Eventos' },
     { value: '500K+', label: 'Ingressos' },
-    { value: '98%', label: 'Satisfacao' },
-    { value: '50+', label: 'Paises' },
+    { value: '98%', label: 'Satisfação' },
+    { value: '50+', label: 'Países' },
   ]
 
   const landingFAQs = [
-    { question: 'O que e a Aura?', answer: 'Aura e uma plataforma completa para criacao e gestao de eventos. Desde o planejamento ate a venda de ingressos e check-in na porta, tudo em um so lugar. Conectamos produtores, participantes e afiliados em uma experiencia unica.' },
-    { question: 'Quanto custa usar a Aura?', answer: 'Criar uma conta e gratuita. Cobramos uma comissao sobre as vendas de ingressos (geralmente 5-10%), sem custo fixo mensal. Voce so paga quando vende.' },
-    { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva e um tipo de ingresso exclusivo onde 6 pessoas desconhecidas sao agrupadas por afinidade de perfil. Cada pessoa responde um questionario rapido e nosso algoritmo forma mesas equilibradas. Inclui welcome drink e finger food.' },
-    { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que voce cadastre vendedores com codigos unicos, cupons de desconto exclusivos e limites de ingressos. Acompanhe tudo em tempo real no painel.' },
-    { question: 'Quais formas de pagamento sao aceitas?', answer: 'Aceitamos PIX, Cartao de Credito, Cartao de Debito, Boleto, Dinheiro e Transferencia bancaria. O dinheiro cai na sua conta em ate 2 dias uteis.' },
-    { question: 'Como funciona o check-in?', answer: 'Na porta do evento, voce pode usar o modo Scanner (digita o codigo do ingresso) ou o modo Lista (busca o nome do participante). Ambos funcionam offline e atualizam em tempo real.' },
-    { question: 'A Aura funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Voce tambem pode criar tipos personalizados.' },
-    { question: 'Como entro em contato com o suporte?', answer: 'Use o botao de feedback no canto inferior direito de qualquer pagina. Nossa equipe responde em ate 24h. Produtores tem acesso ao FAQ completo no painel.' },
+    { question: 'O que é a Evokaa?', answer: 'Evokaa é uma plataforma completa para criação e gestão de eventos. Desde o planejamento até a venda de ingressos e check-in na porta, tudo em um só lugar. Conectamos produtores, participantes e afiliados em uma experiência única.' },
+    { question: 'Quanto custa usar a Evokaa?', answer: 'Criar uma conta é gratuita. Cobramos uma comissão sobre as vendas de ingressos (geralmente 5-10%), sem custo fixo mensal. Você só paga quando vende.' },
+    { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva é um tipo de ingresso exclusivo onde 6 pessoas desconhecidas são agrupadas por afinidade de perfil. Cada pessoa responde um questionário rápido e nosso algoritmo forma mesas equilibradas. Inclui welcome drink e finger food.' },
+    { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que você cadastre vendedores com códigos únicos, cupons de desconto exclusivos e limites de ingressos. Acompanhe tudo em tempo real no painel.' },
+    { question: 'Quais formas de pagamento são aceitas?', answer: 'Aceitamos PIX, Cartão de Crédito, Cartão de Débito, Boleto, Dinheiro e Transferência bancária. O dinheiro cai na sua conta em até 2 dias úteis.' },
+    { question: 'Como funciona o check-in?', answer: 'Na porta do evento, você pode usar o modo Scanner (digita o código do ingresso) ou o modo Lista (busca o nome do participante). Ambos funcionam offline e atualizam em tempo real.' },
+    { question: 'A Evokaa funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Você também pode criar tipos personalizados.' },
+    { question: 'Como entro em contato com o suporte?', answer: 'Use o botão de feedback no canto inferior direito de qualquer página. Nossa equipe responde em até 24h. Produtores têm acesso ao FAQ completo no painel.' },
   ]
 
   return (
     <div>
-      <VideoHero />
+      <ModernHero />
 
       {/* Stats - minimal divider style */}
-      <section ref={statsRef} className="py-20">
+      <section ref={statsRef} className="py-20 bg-slate-50">
         <div className="max-w-5xl mx-auto px-6">
           <div className="divider mb-16" />
-          <div className="grid grid-cols-4 gap-8 lg:gap-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-16">
             {stats.map((stat) => (
               <div key={stat.label} className="stat-num text-center">
-                <div 
-                  className="font-serif text-4xl lg:text-5xl tracking-tight"
-                  style={{ color: 'var(--plum)' }}
-                >
+                <div className="font-bold text-4xl lg:text-5xl tracking-tight text-gradient">
                   {stat.value}
                 </div>
-                <div className="text-[11px] text-[var(--ink-faint)] uppercase tracking-[0.15em] mt-2">
+                <div className="text-[11px] text-slate-400 uppercase tracking-[0.15em] mt-2">
                   {stat.label}
                 </div>
               </div>
@@ -101,14 +105,14 @@ export default function Home() {
       </section>
 
       {/* Features - cleaner grid */}
-      <section ref={featuresRef} className="pb-28">
+      <section ref={featuresRef} className="py-28 bg-slate-50">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-20">
-            <h2 className="text-[var(--espresso)]">
-              Tudo que voce <em style={{ color: 'var(--plum)' }}>precisa</em>
+            <h2 className="text-slate-900">
+              Tudo que você <em className="text-gradient not-italic">precisa</em>
             </h2>
-            <p className="text-[var(--ink-faint)] text-sm mt-4 max-w-md mx-auto leading-relaxed">
-              Ferramentas poderosas para criar experiencias memoraveis, do inicio ao fim.
+            <p className="text-slate-400 text-sm mt-4 max-w-md mx-auto leading-relaxed">
+              Ferramentas poderosas para criar experiências memoráveis, do início ao fim.
             </p>
           </div>
 
@@ -116,21 +120,16 @@ export default function Home() {
             {features.map((f) => (
               <div
                 key={f.title}
-                className="feature-item group p-6 rounded-2xl transition-all duration-300 hover:-translate-y-0.5"
-                style={{
-                  background: 'rgba(255,255,255,0.4)',
-                  border: '1px solid rgba(255,255,255,0.5)',
-                  boxShadow: '0 1px 2px rgba(26,14,20,0.03)',
-                }}
+                className="feature-item group p-6 rounded-2xl transition-all duration-300 hover:-translate-y-1 bg-white border border-slate-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5"
               >
                 <div 
-                  className="w-10 h-10 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-105"
-                  style={{ background: `${f.accent}10` }}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-105"
+                  style={{ background: `${f.accent}12` }}
                 >
-                  <f.icon className="w-4.5 h-4.5" style={{ color: f.accent }} />
+                  <f.icon className="w-5 h-5" style={{ color: f.accent }} />
                 </div>
-                <h4 className="text-[var(--espresso)] mb-2">{f.title}</h4>
-                <p className="text-[13px] text-[var(--ink-faint)] leading-relaxed">
+                <h4 className="text-slate-900 mb-2 text-[15px] font-semibold">{f.title}</h4>
+                <p className="text-[13px] text-slate-400 leading-relaxed">
                   {f.desc}
                 </p>
               </div>
@@ -141,43 +140,40 @@ export default function Home() {
 
       {/* How it works - dark section */}
       <section 
-        className="py-28 relative overflow-hidden"
-        style={{ background: 'var(--void)' }}
+        ref={howItWorksRef}
+        className="py-28 relative overflow-hidden bg-slate-950"
       >
         <div className="absolute inset-0 opacity-[0.03]"
           style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)', backgroundSize: '40px 40px' }}
         />
         <div className="relative max-w-5xl mx-auto px-6">
           <div className="text-center mb-20">
-            <h2 className="text-[var(--cream)]">
-              Como <em style={{ color: '#c49ab8' }}>Funciona</em>
+            <h2 className="text-white">
+              Como <em className="text-gradient not-italic">Funciona</em>
             </h2>
             <p className="text-white/30 text-sm mt-4 max-w-sm mx-auto">
-              Tres passos simples para transformar sua visao em realidade.
+              Três passos simples para transformar sua visão em realidade.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
             {[
-              { num: '01', title: 'Crie', desc: 'Escolha o tipo de evento, defina data, local e lotes de ingresso. Nossa calculadora mostra seus numeros em tempo real.' },
-              { num: '02', title: 'Gerencie', desc: 'Controle orcamento, fornecedores, equipe e cronograma em uma unica pasta. Tudo centralizado.' },
+              { num: '01', title: 'Crie', desc: 'Escolha o tipo de evento, defina data, local e lotes de ingresso. Nossa calculadora mostra seus números em tempo real.' },
+              { num: '02', title: 'Gerencie', desc: 'Controle orçamento, fornecedores, equipe e cronograma em uma única pasta. Tudo centralizado.' },
               { num: '03', title: 'Venda', desc: 'Publique, venda ingressos e acompanhe tudo em tempo real. Check-in na porta com QR code.' },
             ].map((step, i) => (
-              <div key={step.num} className="relative">
-                <div 
-                  className="font-serif text-7xl mb-5 select-none"
-                  style={{ color: 'rgba(122,59,105,0.2)' }}
-                >
+              <div key={step.num} className="hiw-step relative">
+                <div className="font-bold text-7xl mb-5 select-none text-gradient opacity-20">
                   {step.num}
                 </div>
-                <h3 className="text-[var(--cream)] text-lg font-semibold mb-3" style={{ fontFamily: 'Inter, sans-serif' }}>
+                <h3 className="text-white text-lg font-semibold mb-3">
                   {step.title}
                 </h3>
                 <p className="text-white/30 text-[13px] leading-relaxed">
                   {step.desc}
                 </p>
                 {i < 2 && (
-                  <div className="hidden md:block absolute top-8 -right-8 w-16 divider" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.08), transparent)' }} />
+                  <div className="hidden md:block absolute top-8 -right-8 w-16 h-px bg-gradient-to-r from-white/10 to-transparent" />
                 )}
               </div>
             ))}
@@ -189,11 +185,11 @@ export default function Home() {
       <PricingSection />
 
       {/* FAQ */}
-      <section className="py-28">
+      <section className="py-28 bg-slate-50">
         <div className="max-w-4xl mx-auto px-6">
           <FAQSection
             title="Perguntas Frequentes"
-            subtitle="Tudo que voce precisa saber antes de comecar"
+            subtitle="Tudo que você precisa saber antes de começar"
             items={landingFAQs}
           />
         </div>
@@ -203,15 +199,15 @@ export default function Home() {
       <ContactSection />
 
       {/* CTA */}
-      <section ref={ctaRef} className="py-28">
+      <section ref={ctaRef} className="py-28 bg-slate-50">
         <div className="max-w-2xl mx-auto px-6 text-center">
           <div className="cta-block">
-            <h2 className="text-[var(--espresso)] leading-tight mb-6">
+            <h2 className="text-slate-900 leading-tight mb-6">
               Pronto para criar<br />
-              <em style={{ color: 'var(--plum)' }}>algo extraordinario?</em>
+              <em className="text-gradient not-italic">algo extraordinário?</em>
             </h2>
-            <p className="text-[var(--ink-faint)] text-sm mb-10 max-w-sm mx-auto leading-relaxed">
-              Junte-se a milhares de criadores que ja transformam experiencias com a Aura.
+            <p className="text-slate-400 text-sm mb-10 max-w-sm mx-auto leading-relaxed">
+              Junte-se a milhares de criadores que já transformam experiências com a Evokaa.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link

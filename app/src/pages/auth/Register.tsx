@@ -4,6 +4,7 @@ import { Eye, EyeOff, ArrowRight, User, Building, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Role } from '../../contexts/AuthContext'
 import { toast } from 'sonner'
+import AuthLGPDConsent from '../../components/AuthLGPDConsent'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
@@ -16,6 +17,12 @@ export default function AuthRegister() {
   const [password, setPassword] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [consent, setConsent] = useState({
+    acceptedTerms: false,
+    acceptedPrivacy: false,
+    marketingConsent: false,
+    dataSharingConsent: false,
+  })
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -34,6 +41,8 @@ export default function AuthRegister() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail inválido'
     if (!password) e.password = 'Senha obrigatória'
     else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
+    if (!consent.acceptedTerms) e.terms = 'Você deve aceitar os Termos de Uso'
+    if (!consent.acceptedPrivacy) e.privacy = 'Você deve aceitar a Política de Privacidade'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -62,7 +71,7 @@ export default function AuthRegister() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src="/images/logo-aura.png" alt="Aura" className="h-10 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Criar conta</h1>
           <p className="text-sm text-espresso/50 mt-1">Comece a criar eventos ou participar</p>
@@ -142,9 +151,23 @@ export default function AuthRegister() {
             {errors.password && <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>}
           </div>
 
+          <AuthLGPDConsent
+            acceptedTerms={consent.acceptedTerms}
+            acceptedPrivacy={consent.acceptedPrivacy}
+            marketingConsent={consent.marketingConsent}
+            dataSharingConsent={consent.dataSharingConsent}
+            onChange={setConsent}
+          />
+
+          {(errors.terms || errors.privacy) && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              {errors.terms || errors.privacy}
+            </div>
+          )}
+
           <button 
             type="submit" 
-            disabled={isSubmitting}
+            disabled={isSubmitting || !consent.acceptedTerms || !consent.acceptedPrivacy}
             className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (

@@ -5,7 +5,6 @@ import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePublicEvent } from '../hooks/useEvents'
-import { interestedUsers, tableStatus } from '../data/mockData'
 import CollectiveTableCard from '../components/CollectiveTableCard'
 import PreOrder from '../components/PreOrder'
 import { toast } from 'sonner'
@@ -18,8 +17,8 @@ export default function EventPage() {
   const { data: event, isLoading, error } = usePublicEvent(eventId)
 
   useSEO({
-    title: event ? `${event.title} | Aura Tickets` : 'Evento | Aura Tickets',
-    description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Aura Tickets.',
+    title: event ? `${event.title} | Evokaa Tickets` : 'Evento | Evokaa Tickets',
+    description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Evokaa Tickets.',
     image: event?.image_url || event?.cover_image || '/og-image.jpg',
     type: 'event',
   })
@@ -133,7 +132,7 @@ export default function EventPage() {
     }
   }
 
-  // Se estiver carregando, exibe skeleton premium Aura
+  // Se estiver carregando, exibe skeleton premium Evokaa
   if (isLoading) {
     return (
       <div className="bg-canvas min-h-screen flex flex-col">
@@ -391,31 +390,17 @@ export default function EventPage() {
                 Quem Está <span className="italic text-plum">Por Dentro</span>
               </h2>
               
-              {/* Interested Users */}
-              <div className="detail-item mb-8">
-                <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
-                  Atividade Recente
-                </h4>
-                <div className="space-y-3">
-                  {interestedUsers.map((user) => (
-                    <div
-                      key={user.id}
-                      className="social-item flex items-center gap-3 p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-white/80 transition-all"
-                    >
-                      <img
-                        src={user.avatar || '/images/logo-aura.png'}
-                        alt={user.name || 'Usuario'}
-                        className="w-10 h-10 rounded-full object-cover ring-2 ring-white"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-espresso truncate">{user.name || 'Usuario'}</p>
-                        <p className="text-xs text-espresso/50">{user.action}</p>
-                      </div>
-                      <span className="text-xs text-espresso/30">{user.time}</span>
-                    </div>
-                  ))}
+              {/* Interested Users — desativado em producao ate backend de atividade social */}
+              {import.meta.env.DEV && (
+                <div className="detail-item mb-8">
+                  <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
+                    Atividade Recente
+                  </h4>
+                  <div className="space-y-3">
+                    {[]}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Table Status */}
               <div className="detail-item">
@@ -423,7 +408,7 @@ export default function EventPage() {
                   Status das Mesas
                 </h4>
                 <div className="space-y-3">
-                  {tableStatus.map((table) => (
+                  {(event?.tables || []).map((table: any) => (
                     <div
                       key={table.id}
                       className="p-4 rounded-xl bg-white/50 border border-white/60"

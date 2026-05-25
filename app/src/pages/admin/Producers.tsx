@@ -26,9 +26,10 @@ export default function AdminProducers() {
     return () => ctx.revert()
   }, [])
 
-  const approved = mockProducers.filter(p => p.status === 'approved')
-  const pending = mockProducers.filter(p => p.status === 'pending')
-  const totalRevenue = mockProducers.reduce((s, p) => s + p.revenue, 0)
+  const producers = import.meta.env.DEV ? mockProducers : []
+  const approved = producers.filter(p => p.status === 'approved')
+  const pending = producers.filter(p => p.status === 'pending')
+  const totalRevenue = producers.reduce((s, p) => s + p.revenue, 0)
 
   return (
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
@@ -39,7 +40,7 @@ export default function AdminProducers() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total', value: mockProducers.length.toString(), icon: Shield },
+          { label: 'Total', value: producers.length.toString(), icon: Shield },
           { label: 'Aprovados', value: approved.length.toString(), icon: CheckCircle },
           { label: 'Pendentes', value: pending.length.toString(), icon: Clock },
           { label: 'Receita Total', value: `R$ ${(totalRevenue / 1000).toFixed(0)}K`, icon: Star },
@@ -91,7 +92,7 @@ export default function AdminProducers() {
               </tr>
             </thead>
             <tbody>
-              {mockProducers.map(p => {
+              {producers.map(p => {
                 const sc = statusConfig[p.status]
                 return (
                   <tr key={p.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">

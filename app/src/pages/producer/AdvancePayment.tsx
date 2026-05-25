@@ -14,17 +14,17 @@ interface AdvanceOption {
   icon: typeof DollarSign
 }
 
-const advanceOptions: AdvanceOption[] = [
+const advanceOptions: AdvanceOption[] = import.meta.env.DEV ? [
   { id: '7', label: '7 dias', days: 7, fee: 3.5, icon: Clock },
   { id: '15', label: '15 dias', days: 15, fee: 2.9, icon: Calendar },
   { id: '30', label: '30 dias', days: 30, fee: 1.9, icon: TrendingUp },
-]
+] : []
 
-const eventSales = [
+const eventSales = import.meta.env.DEV ? [
   { event: 'Noite Eletro 2025', sold: 468, revenue: 79920, available: 53200 },
   { event: 'Jazz Sunset Session', sold: 188, revenue: 18240, available: 12160 },
   { event: 'Feira de Arte', sold: 823, revenue: 47910, available: 33537 },
-]
+] : []
 
 export default function AdvancePayment() {
   const [selectedEvent, setSelectedEvent] = useState(0)

@@ -41,7 +41,7 @@ const categoryColors: Record<string, string> = {
 }
 
 export default function ProducerPartners() {
-  const [partners, setPartners] = useState<Partner[]>(mockPartners)
+  const [partners, setPartners] = useState<Partner[]>(import.meta.env.DEV ? mockPartners : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ type: 'patrocinador' as Partner['type'], name: '', contact: '', email: '', phone: '', category: '', value: '', eventName: '', notes: '', deliverables: '' })
   const [activeTab, setActiveTab] = useState<'all' | 'patrocinador' | 'fornecedor'>('all')

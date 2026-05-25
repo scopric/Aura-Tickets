@@ -29,7 +29,7 @@ const mockCoupons: Coupon[] = [
 ]
 
 export default function ProducerCoupons() {
-  const [coupons, setCoupons] = useState<Coupon[]>(mockCoupons)
+  const [coupons, setCoupons] = useState<Coupon[]>(import.meta.env.DEV ? mockCoupons : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ code: '', type: 'percent' as Coupon['type'], value: '', minPurchase: '', maxUses: '', eventName: '', startDate: '', endDate: '', description: '' })
   const [copied, setCopied] = useState<string | null>(null)

@@ -33,7 +33,7 @@ BEGIN
 -- ============================================================
 INSERT INTO public.events (id, producer_id, title, slug, description, short_description, image_url, category, tags, venue_name, venue_address, venue_city, venue_state, start_date, end_date, status, visibility, meta_title, meta_description)
 VALUES
-  (v_event1_id, v_producer_id, 'Festival de Verão 2025', 'festival-de-verao-2025', 'O maior festival de verão da região!', 'Música, comida e diversão para toda a família.', 'https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?w=800', 'Música', ARRAY['festival', 'verão', 'música'], 'Praia Central', 'Av. Beira Mar, 1000', 'Santos', 'SP', '2025-12-20 14:00:00+00', '2025-12-22 23:00:00+00', 'published', 'public', 'Festival de Verão 2025 | Aura Tickets', 'O maior festival de verão da região! Garanta seu ingresso.'),
+  (v_event1_id, v_producer_id, 'Festival de Verão 2025', 'festival-de-verao-2025', 'O maior festival de verão da região!', 'Música, comida e diversão para toda a família.', 'https://images.unsplash.com/photo-1533174072545-e8d4aa97edf9?w=800', 'Música', ARRAY['festival', 'verão', 'música'], 'Praia Central', 'Av. Beira Mar, 1000', 'Santos', 'SP', '2025-12-20 14:00:00+00', '2025-12-22 23:00:00+00', 'published', 'public', 'Festival de Verão 2025 | Evokaa Tickets', 'O maior festival de verão da região! Garanta seu ingresso.'),
   (v_event2_id, v_producer_id, 'Conferência Tech Brasil', 'conferencia-tech-brasil', 'A maior conferência de tecnologia do Brasil.', 'Palestras, workshops e networking.', 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800', 'Tecnologia', ARRAY['tech', 'conferência', 'inovação'], 'Centro de Convenções', 'Rua da Tecnologia, 500', 'São Paulo', 'SP', '2025-11-15 09:00:00+00', '2025-11-17 18:00:00+00', 'published', 'public', 'Conferência Tech Brasil 2025', 'A maior conferência de tecnologia do Brasil.'),
   (v_event3_id, v_producer_id, 'Show de Rock Independente', 'show-rock-independente', 'Uma noite de rock autêntico e independente.', 'As melhores bandas independentes da cena local.', 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800', 'Música', ARRAY['rock', 'independente', 'show'], 'Casa de Shows Aurora', 'Rua do Rock, 42', 'Curitiba', 'PR', '2025-10-30 20:00:00+00', '2025-10-31 02:00:00+00', 'draft', 'public', 'Show de Rock Independente', 'Uma noite de rock autêntico e independente.');
 
@@ -121,7 +121,7 @@ VALUES
 -- ============================================================
 INSERT INTO public.certificate_templates (producer_id, name, config)
 VALUES
-  (v_producer_id, 'Padrão Aura', '{"background": "#1a1a2e", "textColor": "#ffffff", "logoPosition": "top-center"}'),
+  (v_producer_id, 'Padrão Evokaa', '{"background": "#1a1a2e", "textColor": "#ffffff", "logoPosition": "top-center"}'),
   (v_producer_id, 'Moderno Tech', '{"background": "#0f0f0f", "textColor": "#00ff88", "logoPosition": "bottom-right"}');
 
 -- ============================================================

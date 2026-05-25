@@ -17,7 +17,7 @@ export default function EventFolder() {
   const [eventInfo, setEventInfo] = useState({ title: '', date: '', time: '', location: '', capacity: 0 })
 
   useEffect(() => {
-    const found = managedEvents.find(e => e.id === eventId)
+    const found = import.meta.env.DEV ? managedEvents.find(e => e.id === eventId) : undefined
     if (found) {
       setEvent({ ...found })
       setEventInfo({ title: found.title, date: found.date, time: found.time, location: found.location, capacity: found.capacity })

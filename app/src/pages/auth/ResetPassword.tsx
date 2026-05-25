@@ -103,7 +103,7 @@ export default function ResetPassword() {
       <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
         <div className="w-full max-w-sm text-center">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src="/images/logo-aura.png" alt="Aura" className="h-10 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
             <h1 className="font-serif text-xl text-espresso mb-2">Link inválido ou expirado</h1>
@@ -127,7 +127,7 @@ export default function ResetPassword() {
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src="/images/logo-aura.png" alt="Aura" className="h-10 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Nova senha</h1>
           <p className="text-sm text-espresso/50 mt-1">

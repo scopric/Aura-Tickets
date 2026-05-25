@@ -2,21 +2,21 @@ import { useRef, useEffect } from 'react'
 import { Users, Calendar, DollarSign, TrendingUp, Activity, PieChart } from 'lucide-react'
 import gsap from 'gsap'
 
-const monthlyData = [
+const monthlyData = import.meta.env.DEV ? [
   { month: 'Jan', users: 120, events: 5, revenue: 18000 },
   { month: 'Fev', users: 180, events: 8, revenue: 28000 },
   { month: 'Mar', users: 250, events: 12, revenue: 42000 },
   { month: 'Abr', users: 320, events: 15, revenue: 55000 },
   { month: 'Mai', users: 410, events: 18, revenue: 72000 },
-]
+] : []
 
-const categoryData = [
+const categoryData = import.meta.env.DEV ? [
   { category: 'Musica', percentage: 45, color: '#7a3b69' },
   { category: 'Arte', percentage: 20, color: '#3b82f6' },
   { category: 'Gastronomia', percentage: 15, color: '#22c55e' },
   { category: 'Tecnologia', percentage: 12, color: '#f59e0b' },
   { category: 'Outros', percentage: 8, color: '#94a3b8' },
-]
+] : []
 
 export default function AdminAnalytics() {
   const ref = useRef<HTMLDivElement>(null)

@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { MessageSquarePlus, X, Send, Star, Bug, Lightbulb, HelpCircle, ThumbsUp, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '../lib/supabase'
-
-type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
+import { useFeedback } from '../hooks/useFeedback'
+import type { FeedbackType } from '../hooks/useFeedback'
 
 type FeedbackTypeConfig = {
   icon: typeof Star
@@ -24,7 +23,7 @@ export default function FeedbackButton() {
   const [type, setType] = useState<FeedbackType>('melhoria')
   const [message, setMessage] = useState('')
   const [rating, setRating] = useState(0)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { mutateAsync: sendFeedback, isPending: isSubmitting } = useFeedback()
   const [sent, setSent] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,23 +33,12 @@ export default function FeedbackButton() {
       return
     }
 
-    setIsSubmitting(true)
-
     try {
-      const { error } = await supabase.from('feedback').insert({
+      await sendFeedback({
         type,
         message: message.trim(),
         rating,
-        page: window.location.pathname,
-        user_agent: navigator.userAgent,
       })
-
-      if (error) {
-        console.error('[Feedback]', error)
-        toast.error('Erro ao enviar feedback. Tente novamente.')
-        setIsSubmitting(false)
-        return
-      }
 
       setSent(true)
       toast.success('Feedback enviado! Obrigado.')
@@ -64,8 +52,6 @@ export default function FeedbackButton() {
     } catch (err) {
       console.error('[Feedback]', err)
       toast.error('Erro ao enviar feedback.')
-    } finally {
-      setIsSubmitting(false)
     }
   }
 
@@ -93,7 +79,7 @@ export default function FeedbackButton() {
               <h3 className="font-medium text-sm text-espresso">Envie seu feedback</h3>
 
               <div className="flex gap-1">
-                {(Object.keys(typeConfig) as FeedbackType[]).map((t) => {
+                {(Object.keys(typeConfig) as FrontendFeedbackType[]).map((t) => {
                   const { icon: Icon, label, color } = typeConfig[t]
                   return (
                     <button

@@ -78,7 +78,7 @@ export default function AuthPasswordStrength({ password, confirmPassword }: Pass
 
       {isValid && (
         <p className="text-[11px] text-plum font-medium flex items-center gap-1.5 pt-1">
-          <span>🔒</span> Senha nível Aura — sua conta está blindada
+          <span>🔒</span> Senha nível Evokaa — sua conta está blindada
         </p>
       )}
     </div>

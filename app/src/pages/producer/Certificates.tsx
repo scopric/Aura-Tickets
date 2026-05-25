@@ -28,7 +28,7 @@ const mockCertificates: Certificate[] = [
 ]
 
 export default function Certificates() {
-  const [certs, setCerts] = useState(mockCertificates)
+  const [certs, setCerts] = useState(import.meta.env.DEV ? mockCertificates : [])
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
 

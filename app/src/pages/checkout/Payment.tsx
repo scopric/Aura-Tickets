@@ -68,7 +68,7 @@ export default function CheckoutPayment() {
               method: 'credit_card',
               amount: totalAmount,
               customerEmail: order.customer_email || 'comprador@cliente.com',
-              customerName: order.customer_name || 'Comprador Aura',
+              customerName: order.customer_name || 'Comprador Evokaa',
               customerCpf: order.customer_cpf || '',
             })
 

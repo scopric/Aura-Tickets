@@ -63,7 +63,7 @@ const typeColors: Record<string, string> = {
 }
 
 export default function ProducerTimeline() {
-  const [items, setItems] = useState<TimelineItem[]>(mockTimeline)
+  const [items, setItems] = useState<TimelineItem[]>(import.meta.env.DEV ? mockTimeline : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ time: '', title: '', description: '', type: 'show' as TimelineItem['type'], responsible: '', duration: '', location: '' })
   const [activeEvent, setActiveEvent] = useState('Noite Eletro 2025')

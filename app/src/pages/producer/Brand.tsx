@@ -11,7 +11,7 @@ interface BrandPreset {
 }
 
 const presets: BrandPreset[] = [
-  { name: 'Aura', bg: '#f7f5f0', text: '#1a0e14', accent: '#7a3b69', card: '#ffffff' },
+  { name: 'Evokaa', bg: '#f7f5f0', text: '#1a0e14', accent: '#7a3b69', card: '#ffffff' },
   { name: 'Midnight', bg: '#0a0a0a', text: '#f0f0f0', accent: '#6366f1', card: '#1a1a1a' },
   { name: 'Forest', bg: '#f0fdf4', text: '#14532d', accent: '#16a34a', card: '#ffffff' },
   { name: 'Ocean', bg: '#eff6ff', text: '#1e3a5f', accent: '#2563eb', card: '#ffffff' },
@@ -105,7 +105,7 @@ export default function ProducerBrand() {
                 <button onClick={() => setLogo(null)} className="absolute top-2 right-2 p-1 rounded-full bg-void/60 text-cream text-xs">x</button>
               </div>
             ) : (
-              <button onClick={() => setLogo('/images/logo-aura.png')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
+              <button onClick={() => setLogo('/images/logo-evokaa.png')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
                 <Upload className="w-6 h-6 mx-auto mb-2 text-espresso/20" />
                 <p className="text-xs text-espresso/40">Clique para carregar logo</p>
               </button>
@@ -163,7 +163,7 @@ export default function ProducerBrand() {
             <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center">
               <QrCode className="w-16 h-16 text-espresso/20" />
             </div>
-            <button onClick={() => copyLink('https://aura.events/noite-eletro-2025')} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/50 hover:text-plum transition-colors flex items-center justify-center gap-2">
+            <button onClick={() => copyLink('https://evokaa.events/noite-eletro-2025')} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/50 hover:text-plum transition-colors flex items-center justify-center gap-2">
               <Copy className="w-3.5 h-3.5" /> Copiar Link
             </button>
           </div>

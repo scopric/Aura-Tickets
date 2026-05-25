@@ -12,7 +12,7 @@ const options: AcquisitionOption[] = [
   { id: 'instagram', label: 'Instagram', icon: Instagram, description: 'Vi nos stories ou feed' },
   { id: 'google', label: 'Google', icon: Search, description: 'Pesquisei e encontrei' },
   { id: 'friend', label: 'Indicação', icon: Users, description: 'Um amigo me indicou' },
-  { id: 'event', label: 'Evento', icon: Music, description: 'Fui em um evento que usava Aura' },
+  { id: 'event', label: 'Evento', icon: Music, description: 'Fui em um evento que usava Evokaa' },
   { id: 'other', label: 'Outro', icon: HelpCircle, description: 'Outra forma' },
 ]
 

@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Aura Tickets - Deploy
+title Evokaa Tickets - Deploy
 
 :: Este batch chama o PowerShell para executar o deploy
 :: Necessário porque o cmd não lida bem com espaços no caminho

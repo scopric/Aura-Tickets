@@ -23,9 +23,9 @@ interface Course {
   locked: boolean
 }
 
-const courses: Course[] = [
+const courses: Course[] = import.meta.env.DEV ? [
   {
-    id: '1', title: 'Como Criar seu Primeiro Evento', description: 'Do zero ao primeiro ingresso vendido. Aprenda a criar, configurar e publicar um evento completo na Aura.',
+    id: '1', title: 'Como Criar seu Primeiro Evento', description: 'Do zero ao primeiro ingresso vendido. Aprenda a criar, configurar e publicar um evento completo na Evokaa.',
     instructor: 'Mariana Costa', duration: '2h 30min', lessons: 12, level: 'iniciante', category: 'Producao',
     students: 2340, rating: 4.9, completed: true, progress: 100, thumbnail: '', locked: false,
   },
@@ -64,7 +64,7 @@ const courses: Course[] = [
     instructor: 'Ricardo Souza', duration: '2h 00min', lessons: 11, level: 'avancado', category: 'Analytics',
     students: 640, rating: 4.7, completed: false, progress: 0, thumbnail: '', locked: true,
   },
-]
+] : []
 
 const levelColors: Record<string, string> = {
   iniciante: '#22c55e',
@@ -78,7 +78,7 @@ const levelLabels: Record<string, string> = {
   avancado: 'Avancado',
 }
 
-export default function AuraAcademy() {
+export default function EvokaaAcademy() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [myCourses, setMyCourses] = useState(courses)
@@ -108,7 +108,7 @@ export default function AuraAcademy() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Aura Academy</h1>
+          <h1 className="font-serif text-3xl text-espresso">Evokaa Academy</h1>
           <p className="text-sm text-espresso/50 mt-1">Cursos gratuitos para se tornar um produtor de eventos de sucesso</p>
         </div>
       </div>

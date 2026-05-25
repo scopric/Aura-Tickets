@@ -1,6 +1,6 @@
 @echo off
 chcp 65001 >nul
-title Aura Tickets - Deploy
+title Evokaa Tickets - Deploy
 
 set "PS1=%~dp0DEPLOY-VERCEL.ps1"
 

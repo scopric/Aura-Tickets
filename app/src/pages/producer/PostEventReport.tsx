@@ -14,7 +14,7 @@ interface NPSResponse {
   name: string
 }
 
-const npsData: NPSResponse[] = [
+const npsData: NPSResponse[] = import.meta.env.DEV ? [
   { score: 10, comment: 'Evento incrivel! Organizacao perfeita, ja quero o proximo!', date: '2025-06-16', name: 'Ana B.' },
   { score: 9, comment: 'Muito bom, so fila do bar que estava grande.', date: '2025-06-16', name: 'Pedro C.' },
   { score: 10, comment: 'A experiencia VIP valeu cada centavo. Parabens!', date: '2025-06-15', name: 'Mariana S.' },
@@ -23,9 +23,9 @@ const npsData: NPSResponse[] = [
   { score: 10, comment: 'Melhor festa do ano! Com certeza volto.', date: '2025-06-15', name: 'Carlos E.' },
   { score: 6, comment: 'Espaco muito lotado, dificil se mover.', date: '2025-06-14', name: 'Fernanda O.' },
   { score: 9, comment: 'Adorei a Mesa Coletiva, conheci gente demais!', date: '2025-06-14', name: 'Ricardo S.' },
-]
+] : []
 
-const hourlyAttendance = [
+const hourlyAttendance = import.meta.env.DEV ? [
   { hour: '18h', count: 45 },
   { hour: '19h', count: 120 },
   { hour: '20h', count: 280 },
@@ -35,15 +35,15 @@ const hourlyAttendance = [
   { hour: '00h', count: 650 },
   { hour: '01h', count: 320 },
   { hour: '02h', count: 120 },
-]
+] : []
 
-const zoneData = [
+const zoneData = import.meta.env.DEV ? [
   { zone: 'Palco Principal', visitors: 920, avgTime: '2h30', satisfaction: 9.2 },
   { zone: 'Bar/Bebidas', visitors: 780, avgTime: '25min', satisfaction: 7.5 },
   { zone: 'Area VIP', visitors: 180, avgTime: '3h10', satisfaction: 9.8 },
   { zone: 'Area Externa', visitors: 340, avgTime: '45min', satisfaction: 8.1 },
   { zone: 'Banheiros', visitors: 650, avgTime: '8min', satisfaction: 6.2 },
-]
+] : []
 
 export default function PostEventReport() {
   const [showNPS, setShowNPS] = useState(true)

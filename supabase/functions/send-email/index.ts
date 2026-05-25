@@ -73,7 +73,7 @@ serve(async (req) => {
           </div>
           <p style="font-size: 16px; color: #1e293b; line-height: 1.5;">Seus ingressos estão anexados e prontos para uso no seu painel "Meus Ingressos".</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
-          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">Aura Platform — A engrenagem dos seus eventos.</p>
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">Evokaa Platform — A engrenagem dos seus eventos.</p>
         </div>
       `
     } else if (emailType === 'ticket_delivery') {
@@ -104,7 +104,7 @@ serve(async (req) => {
           </div>
           <p style="font-size: 14px; color: #475569; text-align: center; line-height: 1.5;">Apresente estes códigos na entrada do evento para validação.</p>
           <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
-          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">Aura Platform — A engrenagem dos seus eventos.</p>
+          <p style="font-size: 12px; color: #94a3b8; text-align: center; margin: 0;">Evokaa Platform — A engrenagem dos seus eventos.</p>
         </div>
       `
     }
@@ -116,7 +116,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Aura Tickets <ingressos@aura.events>',
+        from: 'Evokaa Tickets <ingressos@evokaa.events>',
         to: [recipientEmail],
         subject: subject,
         html: htmlContent,

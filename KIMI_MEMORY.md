@@ -1,6 +1,6 @@
-# KIMI_MEMORY — Aura Tickets
+# KIMI_MEMORY — Evokaa Tickets
 
-Arquivo de memória persistente do projeto Aura Tickets.
+Arquivo de memória persistente do projeto Evokaa Tickets.
 **ATENÇÃO:** Este arquivo deve ser atualizado pelo agente ao final de cada sessão significativa. Mantenha-o organizado e conciso.
 
 ---
@@ -38,6 +38,32 @@ Arquivo de memória persistente do projeto Aura Tickets.
 
 ## ✅ Histórico de Alterações (cronológico inverso)
 
+### 2026-05-24 — Automação Kimi CLI + Refatorações Core + Event Manager Real
+- Criado sistema de inicialização do Kimi CLI (`Iniciar-Kimi-Evokaa.bat`, `Iniciar-Kimi-Evokaa.ps1`)
+- Criado agente customizado `aura-agent.yaml` com system prompt dedicado
+- Criado `KIMI_MEMORY.md` para memória persistente entre sessões
+- **T2:** Adicionado `strictPort: false` em `vite.config.ts` (porta 3000/3001 resolvida)
+- **T3:** Unificada lógica de autenticação — removidos métodos duplicados `signIn`/`signUp`/`signOut` do `authStore.ts`
+- **T4:** Removido workaround de login via `fetch` manual — agora usa exclusivamente `supabase.auth.signInWithPassword` (API oficial)
+- **T5:** Adicionados testes unitários para `useAuth` (`useAuth.test.tsx`) e `authStore` (`authStore.test.ts`)
+- **T6:** Adicionadas future flags do React Router v6 (`v7_startTransition`, `v7_relativeSplatPath`) em `main.tsx`
+- Criado `VERCEL_DEPLOY_GUIDE.md` com passo a passo para configurar env vars no Vercel
+- **Event Manager real:** `pages/producer/EventManager.tsx` refatorado para usar `useProducerEvents()` (dados reais do Supabase). Ações de duplicar, arquivar e excluir agora funcionam no banco. Status, receita e vendas calculados a partir de `ticket_types`.
+- **Hub do participante real:** `pages/app/Hub.tsx` atualizado:
+  - Corrigidos IDs dos mocks em `useUserTickets` e `useUserOrders` para bater com o usuário demo do auth
+  - Cardápio agora usa `useEventMenuItems()` (dados reais do Supabase) vinculado ao evento do ingresso ativo do usuário
+  - Nome do usuário no header agora vem do `useAuth()` em vez de hardcoded
+  - Adicionados loading states e empty states para ingressos e cardápio
+- **Chat real:** Criado hook `useChat.ts` com Supabase Realtime para mensagens instantâneas. Tabela `messages` criada com RLS. Chat no Hub substituído de mock para dados reais do banco.
+- **Mesa Coletiva (Matchmaking):** ENTREGUE COMO DIFERENCIAL DA PLATAFORMA:
+  - Schema SQL completo: `user_profiles_ext`, `collective_tables`, `table_members`, trigger `trg_collective_ticket`, view `collective_table_summary`
+  - Hook `useMatchmaking.ts` com: `useMatchmakingProfile`, `useMyTable`, `useTableMembers`, `useCollectiveTables`, `useRunMatchmaking`, `useGenerateIcebreaker`
+  - **Algoritmo de matchmaking no cliente:** calcula compatibilidade por temperamento (30%), intenção (20%), música (20%), energia (20%), gênero (10%). Agrupa em clusters, gera nomes temáticos dinâmicos ("Mesa Aurora", "Mesa Nexus", etc.)
+  - `ProfileQuiz.tsx` REFATORADO com design premium: fundo aurora/plasma animado, transições GSAP, partículas na tela de análise, persistência no Supabase
+  - `YourTable.tsx` REFATORADO com design cinematográfico: layout circular dos membros, score animado, aurora no fundo, contador regressivo, quebra-gelo, missão da mesa
+  - `Success.tsx` integrado com YourTable real (recebe eventId)
+  - Testes unitários do algoritmo em `matchmaking.test.ts`
+
 ### 2026-05-23 — Preparação para Deploy e Hardening
 - `vite.config.ts`: Plugin `kimi-plugin-inspect-react` agora só roda em `mode === 'development'`
 - `src/lib/supabase.ts`: `throw` de env vars só em `import.meta.env.DEV`
@@ -68,13 +94,24 @@ Arquivo de memória persistente do projeto Aura Tickets.
 
 ## ⏳ Próximos Passos / Pendências
 
-- [ ] **Unificar lógica de autenticação** (`authStore.ts` vs `useAuth.ts`) — recomendação: Opção A (centralizar no `useAuth`)
-- [ ] **Reverter workaround do login via fetch** (se versão mais recente do `@supabase/supabase-js` corrigir o bug)
-- [ ] **Adicionar testes automatizados** — sugestão: `vitest` + `@testing-library/react` + `playwright` para E2E
-- [ ] **Migrar React Router para v7** — pendente de necessidade (atual é ^6.30.3)
-- [ ] **Consolidar porta do Vite** — adicionar `strictPort: false` no `vite.config.ts`
-- [ ] **Revisar persistência do authStore** — validar token na inicialização para evitar flash de UI incorreta
-- [ ] **Configurar env vars no Vercel** — se ainda não estiverem configuradas no dashboard
+### ✅ Concluídos em 2026-05-24
+- [x] **Unificar lógica de autenticação** (`authStore.ts` vs `useAuth.ts`) — removidos métodos duplicados do store
+- [x] **Reverter workaround do login via fetch** — removido fallback, agora usa `supabase.auth.signInWithPassword`
+- [x] **Adicionar testes automatizados** — base criada (vitest + testing-library + playwright configs já existiam)
+- [x] **Migrar React Router para v7** — future flags ativadas (`v7_startTransition`, `v7_relativeSplatPath`)
+- [x] **Consolidar porta do Vite** — `strictPort: false` adicionado
+
+### ⏳ Ainda pendentes
+- [ ] **Configurar env vars no Vercel** — guia criado em `VERCEL_DEPLOY_GUIDE.md`, aguardar execução manual no dashboard
+- [ ] **Revisar persistência do authStore** — validar token na inicialização para evitar flash de UI incorreta quando token expirar
+- [ ] **Expandir cobertura de testes** — adicionar testes E2E para checkout e criação de evento
+- [ ] **Testar login real do Supabase** — verificar se `supabase.auth.signInWithPassword` funciona 100% sem o fallback
+- [x] **Ingressos reais no Hub do participante** — `useUserTickets` já buscava do banco, mas mock tinha ID errado. Cardápio agora usa `useEventMenuItems` real. Loading e empty states adicionados.
+- [x] **Chat real participante ↔ produtor** — hook `useChat.ts` criado com Supabase Realtime. Tabela `messages` com RLS. Chat no Hub funcional.
+- [x] **Mesa Coletiva (matchmaking)** — ENTREGUE: schema, algoritmo, ProfileQuiz premium, YourTable cinematográfico, integração completa
+- [ ] **Comunicações reais** — não integra com provedor de envio (SendGrid/Twilio)
+- [ ] **Relatório pós-evento real** — PostEventReport é hardcoded
+- [ ] **Mapa de lugares integrado com ingressos** — SeatingMap não vincula com ticket_types
 
 ---
 
@@ -89,5 +126,5 @@ Arquivo de memória persistente do projeto Aura Tickets.
 
 ---
 
-*Última atualização: 2026-05-23*
-*Próxima sessão: verificar pendências acima e evoluir features do produtor*
+*Última atualização: 2026-05-24*
+*Próxima sessão: testar build, configurar env vars no Vercel, revisar persistência do authStore, próxima funcionalidade a escolher*

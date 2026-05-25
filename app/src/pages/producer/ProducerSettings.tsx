@@ -422,7 +422,7 @@ export default function ProducerSettings() {
                   { key: 'newMessage', label: 'Nova mensagem', desc: 'Notificacao de mensagens no chat', icon: Mail },
                   { key: 'eventReminder', label: 'Lembretes de evento', desc: 'Alertas 7, 3 e 1 dia antes do evento', icon: Bell },
                   { key: 'payoutComplete', label: 'Saque concluido', desc: 'Confirmacao quando o dinheiro cair na conta', icon: CreditCard },
-                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promocoes da Aura', icon: Mail },
+                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promocoes da Evokaa', icon: Mail },
                 ].map(item => (
                   <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                     <div className="flex items-center gap-3">
@@ -542,9 +542,9 @@ export default function ProducerSettings() {
                   <h3 className="text-sm font-medium text-espresso mb-3">Widget de Vendas</h3>
                   <p className="text-xs text-espresso/30 mb-3">Incorpore o botao de compra no seu site</p>
                   <div className="p-3 bg-canvas rounded-xl font-mono text-[10px] text-espresso/40 break-all">
-                    {`<script src="https://aura.events/widget.js" data-producer="123"></script>`}
+                    {`<script src="https://evokaa.events/widget.js" data-producer="123"></script>`}
                   </div>
-                  <button onClick={() => handleCopy(`<script src="https://aura.events/widget.js" data-producer="123"></script>`)} className="mt-2 px-4 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso hover:bg-white transition-all flex items-center gap-1">
+                  <button onClick={() => handleCopy(`<script src="https://evokaa.events/widget.js" data-producer="123"></script>`)} className="mt-2 px-4 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso hover:bg-white transition-all flex items-center gap-1">
                     <Copy className="w-3 h-3" /> Copiar codigo
                   </button>
                 </div>

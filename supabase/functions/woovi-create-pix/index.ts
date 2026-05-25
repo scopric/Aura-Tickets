@@ -37,7 +37,7 @@ serve(async (req) => {
       body: JSON.stringify({
         correlationID: orderId,
         value: valueInCents,
-        comment: `Ingressos Aura - Pedido ${orderId}`,
+        comment: `Ingressos Evokaa - Pedido ${orderId}`,
         customer: {
           name: customerName,
           email: customerEmail,

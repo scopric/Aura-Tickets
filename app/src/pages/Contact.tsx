@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import gsap from 'gsap'
-import { supabase } from '../lib/supabase'
+import { useContact } from '../hooks/useContact'
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', subject: '', message: '' })
@@ -30,6 +30,8 @@ export default function ContactPage() {
     return () => ctx.revert()
   }, [])
 
+  const { mutateAsync: sendContact } = useContact()
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name || !form.email || !form.message) {
@@ -42,20 +44,13 @@ export default function ContactPage() {
     }
 
     try {
-      const { error } = await supabase.from('contact_messages').insert({
+      await sendContact({
         name: form.name.trim(),
         email: form.email.trim(),
-        phone: form.phone.trim() || null,
+        phone: form.phone.trim() || undefined,
         subject: form.subject.trim() || 'Contato via pagina',
         message: form.message.trim(),
-        page: window.location.pathname,
       })
-
-      if (error) {
-        console.error('[Contact]', error)
-        toast.error('Erro ao enviar. Tente novamente.')
-        return
-      }
 
       setSent(true)
       toast.success('Mensagem enviada com sucesso!')
@@ -70,14 +65,14 @@ export default function ContactPage() {
   }
 
   const departments = [
-    { icon: Headphones, title: 'Suporte Tecnico', desc: 'Problemas com a plataforma, pagamentos ou acesso.', email: 'suporte@aura.events', time: '2h', color: 'from-violet-500/10 to-violet-500/5', accent: '#7c3aed' },
-    { icon: Zap, title: 'Vendas & Eventos', desc: 'Quero criar um evento ou tenho duvidas sobre precos.', email: 'vendas@aura.events', time: '4h', color: 'from-amber-500/10 to-amber-500/5', accent: '#d97706' },
-    { icon: Shield, title: 'Parcerias', desc: 'Propostas comerciais, patrocinios e midia.', email: 'parcerias@aura.events', time: '24h', color: 'from-emerald-500/10 to-emerald-500/5', accent: '#059669' },
-    { icon: MessageSquarePlus, title: 'Feedback', desc: 'Sugestoes, melhorias ou reportar bugs.', email: 'feedback@aura.events', time: '24h', color: 'from-rose-500/10 to-rose-500/5', accent: '#e11d48' },
+    { icon: Headphones, title: 'Suporte Tecnico', desc: 'Problemas com a plataforma, pagamentos ou acesso.', email: 'suporte@evokaa.events', time: '2h', color: 'from-violet-500/10 to-violet-500/5', accent: '#7c3aed' },
+    { icon: Zap, title: 'Vendas & Eventos', desc: 'Quero criar um evento ou tenho duvidas sobre precos.', email: 'vendas@evokaa.events', time: '4h', color: 'from-amber-500/10 to-amber-500/5', accent: '#d97706' },
+    { icon: Shield, title: 'Parcerias', desc: 'Propostas comerciais, patrocinios e midia.', email: 'parcerias@evokaa.events', time: '24h', color: 'from-emerald-500/10 to-emerald-500/5', accent: '#059669' },
+    { icon: MessageSquarePlus, title: 'Feedback', desc: 'Sugestoes, melhorias ou reportar bugs.', email: 'feedback@evokaa.events', time: '24h', color: 'from-rose-500/10 to-rose-500/5', accent: '#e11d48' },
   ]
 
   const contactDetails = [
-    { icon: Mail, label: 'Email', value: 'contato@aura.events', sub: 'Respondemos em ate 24h' },
+    { icon: Mail, label: 'Email', value: 'contato@evokaa.events', sub: 'Respondemos em ate 24h' },
     { icon: Phone, label: 'Telefone', value: '(11) 4000-2025', sub: 'Seg a Sex, 9h as 18h' },
     { icon: MapPin, label: 'Endereco', value: 'Rua Augusta, 1500', sub: 'Consolacao, Sao Paulo/SP' },
     { icon: Clock, label: 'Horario', value: 'Seg a Sex: 9h-18h', sub: 'Sab: 10h-14h' },
@@ -102,7 +97,7 @@ export default function ContactPage() {
             Entre em contato
           </span>
           <h1 className="contact-hero-title font-serif text-6xl lg:text-7xl leading-[0.95] mb-6" style={{ color: 'var(--espresso)' }}>
-            Fale com a <em className="not-italic" style={{ color: 'var(--plum)' }}>Aura</em>
+            Fale com a <em className="not-italic" style={{ color: 'var(--plum)' }}>Evokaa</em>
           </h1>
           <p className="contact-hero-sub text-sm max-w-md mx-auto leading-[1.8] font-light" style={{ color: 'var(--espresso)', opacity: 0.45 }}>
             Tem uma ideia, duvida ou quer criar algo incrivel junto?<br />
@@ -180,9 +175,9 @@ export default function ContactPage() {
                 <div className="text-[10px] font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--espresso)', opacity: 0.3 }}>Redes Sociais</div>
                 <div className="flex flex-wrap gap-2">
                   {[
-                    { icon: Instagram, label: '@aura.events' },
+                    { icon: Instagram, label: '@evokaa.events' },
                     { icon: MessageCircle, label: 'WhatsApp' },
-                    { icon: Globe, label: 'aura.events' },
+                    { icon: Globe, label: 'evokaa.events' },
                   ].map((s) => (
                     <button key={s.label} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs transition-all duration-300 hover:bg-plum/10" style={{ background: 'rgba(247,245,240,0.8)', color: 'var(--espresso)', opacity: 0.6 }}>
                       <s.icon className="w-3.5 h-3.5" /> {s.label}

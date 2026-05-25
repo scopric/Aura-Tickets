@@ -184,7 +184,7 @@ export default function CheckoutSuccess() {
           <div className="lg:col-span-3">
             {hasCollectiveTable ? (
               showTable ? (
-                <YourTable />
+                event && <YourTable eventId={event.id} />
               ) : (
                 <div className="success-card bg-void text-cream rounded-3xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[400px] shadow-elevated">
                   <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">
@@ -228,13 +228,13 @@ export default function CheckoutSuccess() {
                 </div>
                 <h3 className="font-serif text-2xl text-espresso mb-2">Ingressos Emitidos com Sucesso!</h3>
                 <p className="text-sm text-espresso/60 mb-6 max-w-sm">
-                  Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Aura ou no aplicativo do Participante.
+                  Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Evokaa ou no aplicativo do Participante.
                 </p>
                 <Link
                   to="/app/hub"
                   className="px-6 py-2.5 bg-plum text-cream text-xs font-semibold rounded-full hover:shadow-glow transition-all"
                 >
-                  Ir para o Hub Aura
+                  Ir para o Hub Evokaa
                 </Link>
               </div>
             )}

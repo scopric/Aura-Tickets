@@ -27,7 +27,7 @@ const mockInterested: Interested[] = [
 ]
 
 export default function InterestList() {
-  const [list, setList] = useState(mockInterested)
+  const [list, setList] = useState(import.meta.env.DEV ? mockInterested : [])
   const [filter, setFilter] = useState<'all' | 'notified' | 'pending'>('all')
   const [showNotifyModal, setShowNotifyModal] = useState(false)
   const [notifyMessage, setNotifyMessage] = useState('As vendas ja comecaram! Garanta seu ingresso antes que acabe.')

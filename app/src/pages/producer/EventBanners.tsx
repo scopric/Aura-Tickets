@@ -28,7 +28,7 @@ const positionLabels: Record<string, string> = {
 }
 
 export default function ProducerEventBanners() {
-  const [banners, setBanners] = useState<Banner[]>(mockBanners)
+  const [banners, setBanners] = useState<Banner[]>(import.meta.env.DEV ? mockBanners : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ eventName: '', name: '', position: 'hero' as Banner['position'] })
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -63,7 +63,7 @@ export default function ProducerEventBanners() {
   }
 
   const copyLink = (id: string) => {
-    navigator.clipboard.writeText(`https://aura.events/b/${id}`)
+    navigator.clipboard.writeText(`https://evokaa.events/b/${id}`)
     toast.success('Link copiado!')
   }
 

@@ -1,5 +1,5 @@
 # ============================================================
-# Aura Tickets - Deploy para Vercel
+# Evokaa Tickets - Deploy para Vercel
 # Script unico: instala dependencias, commit, push e deploy
 # ============================================================
 
@@ -11,7 +11,7 @@ $commitMessage = "feat(Fases 1-4): password recovery, producer settings persiste
 
 # --- VALIDACAO ---
 Write-Host "`n========================================" -ForegroundColor Cyan
-Write-Host "   AURA TICKETS - DEPLOY PARA VERCEL" -ForegroundColor Cyan
+Write-Host "   EVOKAA TICKETS - DEPLOY PARA VERCEL" -ForegroundColor Cyan
 Write-Host "========================================`n" -ForegroundColor Cyan
 
 if (-not (Test-Path $projectPath)) {

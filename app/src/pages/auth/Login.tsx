@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2 } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 
 type UserRole = 'user' | 'producer' | 'admin'
@@ -24,6 +25,21 @@ export default function AuthLogin() {
       else navigate('/app/hub')
     }
   }, [isAuthenticated, currentRoleContext, navigate])
+
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/app/hub`,
+        },
+      })
+      if (error) throw error
+    } catch (err: any) {
+      console.error('[Google Login]', err)
+      toast.error('Erro ao iniciar login com Google')
+    }
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,7 +85,7 @@ export default function AuthLogin() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <img src="/images/logo-aura.png" alt="Aura" className="h-10 w-auto" />
+            <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Bem-vindo de volta</h1>
           <p className="text-sm text-espresso/50 mt-1">Escolha seu perfil e entre</p>
@@ -192,7 +208,7 @@ export default function AuthLogin() {
             </div>
           </div>
 
-          <button type="button" disabled={isSubmitting} className="w-full py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50">
+          <button type="button" onClick={handleGoogleLogin} disabled={isSubmitting} className="w-full py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50">
             Entrar com Google
           </button>
         </form>

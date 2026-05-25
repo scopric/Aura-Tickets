@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Bell, FileText, Shield, Trash2, AlertTriangle, Check, Download, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '../../hooks/useAuth'
 
 const termsText = `TERMOS E CONDICOES DE USO - PARTICIPANTE
 
 1. ACEITACAO
-Ao utilizar a Aura, voce aceita estes termos integralmente.
+Ao utilizar a Evokaa, voce aceita estes termos integralmente.
 
 2. COMPRA DE INGRESSOS
 2.1. Todos os ingressos sao emitidos digitalmente via QR Code.
@@ -40,11 +41,13 @@ export default function ParticipantSettings() {
   const [showDelete, setShowDelete] = useState(false)
   const [showTerms, setShowTerms] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
+  const { logout } = useAuth()
 
   const handleDelete = () => {
     if (deleteConfirm !== 'CANCELAR') { toast.error('Digite CANCELAR para confirmar'); return }
     toast.success('Conta cancelada. Sentiremos sua falta!')
     setShowDelete(false)
+    logout()
   }
 
   return (
@@ -133,7 +136,7 @@ export default function ParticipantSettings() {
         </div>
       )}
 
-      <button onClick={() => toast.success('Sessao encerrada')} className="mt-6 w-full py-3 bg-canvas text-espresso/30 text-sm rounded-full hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2">
+      <button onClick={() => { logout(); toast.success('Sessao encerrada') }} className="mt-6 w-full py-3 bg-canvas text-espresso/30 text-sm rounded-full hover:text-red-500 hover:bg-red-50 transition-all flex items-center justify-center gap-2">
         <LogOut className="w-4 h-4" /> Encerrar Sessao
       </button>
     </div>

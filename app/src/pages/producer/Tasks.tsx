@@ -59,7 +59,7 @@ const priorityColors = {
 }
 
 export default function ProducerTasks() {
-  const [tasks, setTasks] = useState<Task[]>(mockTasks)
+  const [tasks, setTasks] = useState<Task[]>(import.meta.env.DEV ? mockTasks : [])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ title: '', description: '', category: 'Pre-evento', priority: 'media' as Task['priority'], dueDate: '', assignee: '', eventName: '', tags: [] as string[] })
   const [filterCategory, setFilterCategory] = useState('Todos')

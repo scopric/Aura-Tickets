@@ -39,15 +39,11 @@ interface Affiliate {
   conversionRate: number
 }
 
-const generateHistory = (): AffiliateSale[] => [
-  { date: '10 Mai', tickets: 3, value: 450 },
-  { date: '11 Mai', tickets: 5, value: 750 },
-  { date: '12 Mai', tickets: 2, value: 300 },
-  { date: '13 Mai', tickets: 8, value: 1200 },
-  { date: '14 Mai', tickets: 12, value: 1800 },
-  { date: '15 Mai', tickets: 7, value: 1050 },
-  { date: '16 Mai', tickets: 15, value: 2250 },
-]
+const generateHistory = (): AffiliateSale[] => {
+  // Histórico diário viria de uma tabela de vendas por afiliado
+  // Retorna vazio até implementação do backend de analytics
+  return []
+}
 
 const levelConfig = {
   bronze: { icon: Medal, color: 'text-amber-700', bg: 'bg-amber-100', label: 'Bronze', next: 25 },
@@ -96,7 +92,7 @@ export default function ProducerAffiliates() {
       id: dbAff.id,
       name: profile.full_name || dbAff.email?.split('@')[0] || 'Vendedor',
       email: dbAff.email || profile.email || '',
-      phone: '(11) 98765-4321',
+      phone: profile.phone || '',
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`,
       code,
       couponCode,
@@ -104,21 +100,21 @@ export default function ProducerAffiliates() {
       status: statusVal,
       totalSales: totalValue,
       ticketsSold: tickets,
-      ticketLimit: 200,
+      ticketLimit: dbAff.ticket_limit || 0,
       commission: commission,
       commissionRate: rate,
-      commissionPaid: commission * 0.6,
+      commissionPaid: dbAff.commission_paid || 0,
       lastSale: tickets > 0 ? 'Há 2h' : '-',
       level: level,
       eventName: dbAff.events?.title || 'Geral',
-      pixKey: 'pix@afiliado.com',
+      pixKey: dbAff.pix_key || '',
       joinedAt: new Date(dbAff.created_at).toLocaleDateString('pt-BR'),
       salesHistory: generateHistory().map(h => ({
         ...h,
         tickets: Math.max(1, Math.floor(tickets / 7)),
         value: Math.max(50, Math.floor(totalValue / 7))
       })),
-      conversionRate: tickets > 0 ? 8.5 : 0
+      conversionRate: dbAff.conversion_rate || 0
     }
   }
 
@@ -144,8 +140,11 @@ export default function ProducerAffiliates() {
       if (error) throw error
 
       if (!data || data.length === 0) {
-        // Auto-seed se o produtor não tem nenhum afiliado ainda
-        await seedInitialAffiliates(user.id)
+        // Auto-seed apenas em desenvolvimento para demonstração
+        if (import.meta.env.DEV) {
+          await seedInitialAffiliates(user.id)
+        }
+        setIsLoading(false)
         return
       }
 
@@ -277,7 +276,7 @@ export default function ProducerAffiliates() {
   }
 
   const copyCode = (code: string, id: string) => {
-    navigator.clipboard.writeText(`https://aura.events/?ref=${code}`)
+    navigator.clipboard.writeText(`https://evokaa.events/?ref=${code}`)
     setCopied(id)
     setTimeout(() => setCopied(null), 1500)
     toast.success('Link de afiliado copiado!')
