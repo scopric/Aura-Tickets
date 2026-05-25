@@ -34,6 +34,10 @@ interface AuthState {
   fetchProfile: () => Promise<void>
 }
 
+function isMockSession(session: any): boolean {
+  return session?.access_token?.startsWith('mock-token-')
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -43,7 +47,16 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
 
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-      setSession: (session) => set({ session }),
+      setSession: (session) => {
+        set({ session })
+        // Sincroniza sessÃ£o REAL com o cliente Supabase para que as queries autenticadas funcionem
+        if (session?.access_token && session?.refresh_token && !isMockSession(session)) {
+          supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }).catch(() => {})
+        }
+      },
       setLoading: (isLoading) => set({ isLoading }),
 
       signIn: async (email, password) => {
@@ -116,7 +129,7 @@ export const useAuthStore = create<AuthState>()(
         const session = get().session
 
         // Modo demo: mock sessions
-        if (session?.access_token?.startsWith('mock-token-')) {
+        if (isMockSession(session)) {
           const role = session.access_token === 'mock-token-admin' ? 'admin' : 
                        session.access_token === 'mock-token-producer' ? 'producer' : 'user'
           const name = role === 'admin' ? 'Admin Teste' : role === 'producer' ? 'Produtor Teste' : 'Usuario Teste'
@@ -144,6 +157,14 @@ export const useAuthStore = create<AuthState>()(
           return
         }
 
+        // SessÃ£o real: garante que o Supabase client tenha a sessÃ£o antes de buscar
+        if (session?.access_token && session?.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          }).catch(() => {})
+        }
+
         const { data: { user: authUser } } = await supabase.auth.getUser()
         
         if (!authUser) {
@@ -157,9 +178,18 @@ export const useAuthStore = create<AuthState>()(
           .eq('id', authUser.id)
           .single()
 
+        // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
+        // Isso evita que o user fique null e as queries fiquem em loading infinito
         if (error || !profile) {
-          console.error('Erro ao carregar perfil:', error)
-          set({ isLoading: false })
+          console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', error?.message)
+          const mappedUser: User = {
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: authUser.user_metadata?.full_name || null,
+            avatar_url: authUser.user_metadata?.avatar_url || null,
+            role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
+          }
+          set({ user: mappedUser, isAuthenticated: true, isLoading: false })
           return
         }
 
