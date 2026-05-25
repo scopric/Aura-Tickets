@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from './useAuth'
 
 export interface ProducerSettingsData {
   profile: {

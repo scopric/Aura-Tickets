@@ -1,41 +1,70 @@
 @echo off
 chcp 65001 >nul
-title Aura Tickets - Deploy
-
-:: Este batch chama o PowerShell para executar o deploy
-:: Necessário porque o cmd não lida bem com espaços no caminho
-
-echo ============================================
-echo   AURA TICKETS — DEPLOY AUTOMATICO
-echo ============================================
+echo ==========================================
+echo   AURA TICKETS — Deploy para Vercel
+echo ==========================================
 echo.
 
-:: Detectar pasta deste arquivo
-set "SCRIPT_DIR=%~dp0"
-set "PS1_FILE=%SCRIPT_DIR%DEPLOY-AURA.ps1"
+set PROJECT_DIR=%~dp0
+set NODE_MODULES=%PROJECT_DIR%node_modules
 
-echo Detectado: %PS1_FILE%
-echo.
+cd /d "%PROJECT_DIR%"
 
-:: Verificar se o arquivo existe
-if not exist "%PS1_FILE%" (
-    echo ERRO: Arquivo DEPLOY-AURA.ps1 nao encontrado!
-    echo Verifique se esta na mesma pasta.
-    pause
-    exit /b 1
+REM Verificar se Node.js esta instalado
+node --version >nul 2>&1
+if errorlevel 1 (
+  echo [ERRO] Node.js nao encontrado. Instale o Node.js v20+ primeiro.
+  pause
+  exit /b 1
 )
 
-:: Chamar PowerShell com permissao para executar scripts
-echo Abrindo PowerShell...
+echo [1/4] Node.js detectado:
+node --version
 echo.
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& '%PS1_FILE%'"
-
-if %errorlevel% neq 0 (
-    echo.
-    echo ============================================
-    echo   ERRO no deploy
-    echo ============================================
+REM Verificar se node_modules existe
+if not exist "%NODE_MODULES%" (
+  echo [2/4] node_modules nao encontrado. Instalando dependencias...
+  call npm install
+  if errorlevel 1 (
+    echo [ERRO] Falha ao instalar dependencias.
     pause
     exit /b 1
+  )
+) else (
+  echo [2/4] node_modules encontrado. Pulando install.
 )
+echo.
+
+REM Build
+echo [3/4] Executando build...
+call npm run build
+if errorlevel 1 (
+  echo.
+  echo [ERRO] Build falhou! Corrija os erros acima e tente novamente.
+  pause
+  exit /b 1
+)
+echo.
+echo [OK] Build concluido com sucesso!
+echo.
+
+REM Deploy
+echo [4/4] Iniciando deploy na Vercel...
+echo.
+echo Se for a primeira vez, o CLI vai pedir para vincular um projeto.
+echo Escolha "N" para criar um novo projeto.
+echo.
+npx vercel --prod
+if errorlevel 1 (
+  echo.
+  echo [ERRO] Deploy falhou.
+  pause
+  exit /b 1
+)
+
+echo.
+echo ==========================================
+echo   Deploy concluido!
+echo ==========================================
+pause

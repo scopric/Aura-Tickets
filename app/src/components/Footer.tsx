@@ -1,17 +1,47 @@
 import { Link } from 'react-router-dom'
 import { ArrowUpRight } from 'lucide-react'
 import { useState } from 'react'
+import { toast } from 'sonner'
+import { supabase } from '../lib/supabase'
 
 export default function Footer() {
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubscribe = (e: React.FormEvent) => {
+  const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (email.trim()) {
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      toast.error('Por favor, insira um e-mail válido.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const { error } = await supabase
+        .from('newsletter_subscribers')
+        .insert({ email: email.trim() })
+
+      if (error) {
+        if (error.message?.includes('duplicate') || error.code === '23505') {
+          toast.info('Este e-mail já está inscrito na newsletter.')
+        } else {
+          toast.error('Erro ao inscrever. Tente novamente.')
+          console.error('[Newsletter]', error)
+        }
+        setLoading(false)
+        return
+      }
+
       setSubscribed(true)
       setEmail('')
-      setTimeout(() => setSubscribed(false), 3000)
+      toast.success('Inscrito com sucesso!')
+      setTimeout(() => setSubscribed(false), 4000)
+    } catch (err) {
+      console.error('[Newsletter]', err)
+      toast.error('Erro ao inscrever. Tente novamente.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -45,9 +75,9 @@ export default function Footer() {
               </h4>
               <ul className="space-y-3">
                 {[
-                  { label: 'Dashboard', href: '/dashboard' },
-                  { label: 'Eventos', href: '/event/noite-eletro-2025' },
-                  { label: 'Brand Studio', href: '/brand-studio' },
+                  { label: 'Dashboard', href: '/producer/dashboard' },
+                  { label: 'Eventos', href: '/producer/events' },
+                  { label: 'Brand Studio', href: '/producer/brand' },
                 ].map((link) => (
                   <li key={link.label}>
                     <Link
@@ -95,9 +125,10 @@ export default function Footer() {
               />
               <button
                 type="submit"
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors"
+                disabled={loading}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {subscribed ? 'Enviado!' : 'Assinar'}
+                {loading ? '...' : subscribed ? 'Enviado!' : 'Assinar'}
               </button>
             </form>
           </div>

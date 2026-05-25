@@ -1,9 +1,7 @@
 import { useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
-import { useAuth as useNewAuth } from '../hooks/useAuth'
-
-export type Role = 'user' | 'producer' | 'admin'
+import type { Role } from '../types/auth'
 
 export interface UserProfile {
   id: string
@@ -48,6 +46,4 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
-export function useAuth() {
-  return useNewAuth()
-}
+

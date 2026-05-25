@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import {
   User, Lock, CreditCard, Bell, Shield, Save, Eye, EyeOff,

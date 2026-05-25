@@ -324,4 +324,97 @@
 
 ---
 
+---
+
+## 13. Atualização de Status — Análise Real do Código (Maio 2026)
+
+> **Data:** 25 de maio de 2026  
+> **Base:** Análise manual de 210+ arquivos, 72 páginas .tsx, 9 migrações SQL, 6 Edge Functions  
+> **Arquivos complementares:** `KIMI_MEMORY.md`, `INVENTARIO_MOCK_VS_REAL.md`
+
+### 13.1 Correções de Status (Documento Original vs Realidade)
+
+| Dimensão | Status no Doc | % no Doc | **Avaliação Real** | % Real |
+|----------|--------------|----------|-------------------|--------|
+| Frontend (UI/UX) | Concluído | 95% | ✅ Próximo da realidade | 95% |
+| Design System | Concluído | 98% | ✅ Correto | 98% |
+| Roteamento & Navegação | Concluído | 100% | ✅ Correto | 100% |
+| Mapa de Assentos (Canvas) | Concluído | 90% | ⚠️ Canvas existe, precisa validação funcional | 85% |
+| Construtor de Certificados | Concluído | 100% | ⚠️ Templates existem, emissão real precisa validação | 90% |
+| Autenticação & Autorização | Funcional (híbrido) | 75% | ✅ Correto | 75% |
+| Integração Supabase | Parcialmente integrado | 70% | ✅ **Subestimado** — muito mais integrado | 80% |
+| Pagamentos | Arquitetura pronta | 40% | ✅ Correto | 40% |
+| Edge Functions | Implementadas | 85% | ✅ Correto | 85% |
+| CI/CD & Deploy | Concluído | 90% | ⚠️ Build OK, mas **domínio não configurado** | 70% |
+| Testes Automatizados | Não iniciado | 0% | ❌ **ERRADO** — Existem 8 arquivos de teste | 15% |
+| SEO & PWA | Concluído | 95% | ⚠️ `og-image.jpg` não existe | 90% |
+| Documentação Técnica | Concluído | 90% | ✅ Correto | 90% |
+
+**Média ponderada real:** ~75% (vs 78% no documento original)
+
+### 13.2 Inventário Real de Páginas (72 total)
+
+| Área | Quantidade | 🟢 REAL | 🟡 HYBRID | 🔴 MOCK | ⚪ PLACEHOLDER |
+|------|-----------|---------|-----------|--------|---------------|
+| Producer | 42 | 27 (64%) | 0 | 13 (31%) | 2 (5%) |
+| App/Participante | 7 | 0 | 5 (71%) | 1 (14%) | 1 (14%) |
+| Admin | 10 | 0 | 10 (100%) | 0 | 0 |
+| Auth | 4 | 4 (100%) | 0 | 0 | 0 |
+| Checkout | 3 | 2 (67%) | 0 | 1 (33%) | 0 |
+| Públicas | 6 | 3 (50%) | 0 | 1 (17%) | 2 (33%) |
+| **TOTAL** | **72** | **36 (50%)** | **15 (21%)** | **16 (22%)** | **5 (7%)** |
+
+### 13.3 Problemas Descobertos que Não Constavam no Documento Original
+
+#### 🔴 Críticos
+1. **Domínio `www.evokaa.com.br` não está respondendo** — não está configurado no Vercel ou DNS não aponta
+2. **Variáveis de ambiente não no Vercel** — `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` só existem em `.env.local`
+3. **9 arquivos de migration SQL conflitantes** — schemas divergentes para `producer_tasks`, `partners`, `feedback`, `certificates`, `coupons`, `communications`
+4. **RLS conflitante** — init_schema (público) vs 05_full (privado) para `profiles`
+5. **`database.ts` omite ~25 tabelas** — tipagem TypeScript desatualizada
+6. **`handle_new_user()` em 05_full cria `producer_profiles` para TODO usuário**
+
+#### 🟡 Importantes
+7. Links quebrados na landing page (`/dashboard`, `/brand-studio`)
+8. Header/Footer duplicados em `/contato`
+9. `og-image.jpg` não existe (meta tag quebrada)
+10. `AnimatedHero.tsx` é código morto
+11. Newsletter no Footer é mock (não usa `newsletter_subscribers`)
+12. `404.html` ainda diz "Aura Eventos"
+
+### 13.4 O que NÃO está no Documento Original
+
+- **36% das páginas do producer são MOCK** — o documento original dá a impressão de que tudo está funcional
+- **Testes existem** (8 arquivos) — o documento diz "0% não iniciado"
+- **Backend tem inconsistências graves** — 9 migrações conflitantes não são mencionadas
+- **Deploy não está 100%** — domínio e env vars pendentes
+
+### 13.5 Novo Roadmap Priorizado (sem gateway de pagamento)
+
+#### P0 — Deploy & Correções Imediatas
+- Configurar domínio e env vars no Vercel
+- Corrigir links quebrados na landing page
+- Remover Header/Footer duplicados de `/contato`
+- Adicionar `og-image.jpg`
+
+#### P1 — Mock → Real
+- Wallet.tsx → conectar à `transactions`
+- Brand.tsx → salvar no Supabase
+- EventFolder.tsx → integrar com tabelas reais
+- UserSettings.tsx → persistir no Supabase
+- Footer Newsletter → conectar à `newsletter_subscribers`
+
+#### P2 — Consolidação Backend
+- Unificar migrations SQL
+- Atualizar `database.ts`
+- Corrigir RLS de `profiles`
+- Revisar `handle_new_user()`
+
+#### P3 — Polimento
+- Remover código morto
+- Atualizar marca residual "Aura" → "Evokaa"
+
+---
+
 *Documento gerado a partir da análise ao vivo de 14 especificações técnicas e do código-fonte real do repositório. Última atualização: 2026-05-24.*
+*Atualização de status: 2026-05-25 — Análise thorough de 210+ arquivos.*

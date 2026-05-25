@@ -15,7 +15,7 @@ import {
 import OnboardingTour from '../components/OnboardingTour'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 import { toast } from 'sonner'
 
 function cn(...inputs: ClassValue[]) {

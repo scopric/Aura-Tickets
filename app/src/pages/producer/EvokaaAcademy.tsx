@@ -1,70 +1,15 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft, BookOpen, Play, Clock, Award, Users, Star,
-  Lock, CheckCircle2, Search, TrendingUp, Zap
+  Lock, CheckCircle2, Search, TrendingUp, Zap, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface Course {
-  id: string
-  title: string
-  description: string
-  instructor: string
-  duration: string
-  lessons: number
-  level: 'iniciante' | 'intermediario' | 'avancado'
-  category: string
-  students: number
-  rating: number
-  completed: boolean
-  progress: number
-  thumbnail: string
-  locked: boolean
-}
-
-const courses: Course[] = [
-  {
-    id: '1', title: 'Como Criar seu Primeiro Evento', description: 'Do zero ao primeiro ingresso vendido. Aprenda a criar, configurar e publicar um evento completo na Evokaa.',
-    instructor: 'Mariana Costa', duration: '2h 30min', lessons: 12, level: 'iniciante', category: 'Producao',
-    students: 2340, rating: 4.9, completed: true, progress: 100, thumbnail: '', locked: false,
-  },
-  {
-    id: '2', title: 'Marketing de Eventos que Vende', description: 'Estrategias praticas para vender mais ingressos usando redes sociais, email marketing e parcerias.',
-    instructor: 'Pedro Lima', duration: '3h 15min', lessons: 18, level: 'intermediario', category: 'Marketing',
-    students: 1890, rating: 4.8, completed: false, progress: 65, thumbnail: '', locked: false,
-  },
-  {
-    id: '3', title: 'Precificacao Inteligente', description: 'Como definir o preco ideal do ingresso. Analise de custos, concorrencia e elasticidade de demanda.',
-    instructor: 'Ana Beatriz', duration: '1h 45min', lessons: 8, level: 'intermediario', category: 'Financeiro',
-    students: 1560, rating: 4.7, completed: false, progress: 30, thumbnail: '', locked: false,
-  },
-  {
-    id: '4', title: 'Gestao de Fornecedores', description: 'Encontre, negocie e gerencie fornecedores para seu evento. Contratos, briefings e controle de qualidade.',
-    instructor: 'Carlos Mendes', duration: '2h 00min', lessons: 10, level: 'intermediario', category: 'Producao',
-    students: 980, rating: 4.6, completed: false, progress: 0, thumbnail: '', locked: false,
-  },
-  {
-    id: '5', title: 'Check-in e Operacao na Porta', description: 'Tudo sobre credenciamento, controle de acesso, filas e experiencia do participante na entrada.',
-    instructor: 'Julia Ramos', duration: '1h 30min', lessons: 7, level: 'iniciante', category: 'Operacao',
-    students: 1200, rating: 4.8, completed: false, progress: 0, thumbnail: '', locked: false,
-  },
-  {
-    id: '6', title: 'Afiliados e Promoters', description: 'Monte uma rede de vendedores, configure comissoes e acompanhe resultados em tempo real.',
-    instructor: 'Lucas Oliveira', duration: '2h 45min', lessons: 14, level: 'avancado', category: 'Vendas',
-    students: 750, rating: 4.9, completed: false, progress: 0, thumbnail: '', locked: true,
-  },
-  {
-    id: '7', title: 'Prevenção de Assedio em Eventos', description: 'Protocolos, treinamento de equipe e criacao de ambientes seguros para todos os participantes.',
-    instructor: 'Fernanda Silva', duration: '1h 15min', lessons: 6, level: 'iniciante', category: 'Seguranca',
-    students: 2100, rating: 4.9, completed: false, progress: 0, thumbnail: '', locked: false,
-  },
-  {
-    id: '8', title: 'Analytics e Tomada de Decisao', description: 'Leia dados, identifique tendencias e tome decisoes baseadas em numeros para seu evento.',
-    instructor: 'Ricardo Souza', duration: '2h 00min', lessons: 11, level: 'avancado', category: 'Analytics',
-    students: 640, rating: 4.7, completed: false, progress: 0, thumbnail: '', locked: true,
-  },
-]
+import {
+  useAcademyCourses,
+  useMyCourseProgress,
+  useEnrollCourse,
+} from '../../hooks/useProducerTools'
 
 const levelColors: Record<string, string> = {
   iniciante: '#22c55e',
@@ -79,25 +24,54 @@ const levelLabels: Record<string, string> = {
 }
 
 export default function EvokaaAcademy() {
+  const { data: courses = [], isLoading: coursesLoading } = useAcademyCourses()
+  const { data: progress = [], isLoading: progressLoading } = useMyCourseProgress()
+  const enroll = useEnrollCourse()
+
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [myCourses, setMyCourses] = useState(courses)
 
-  const categories = ['all', ...new Set(courses.map(c => c.category))]
+  const categories = useMemo(() => ['all', ...new Set(courses.map(c => c.category).filter(Boolean))], [courses])
 
-  const filtered = myCourses.filter(c => {
-    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) || c.description.toLowerCase().includes(search.toLowerCase())
+  const mergedCourses = useMemo(() => {
+    return courses.map(course => {
+      const p = progress.find(pr => pr.course_id === course.id)
+      return {
+        ...course,
+        userProgress: p?.progress ?? 0,
+        userCompleted: p?.completed ?? false,
+        enrolled: !!p,
+      }
+    })
+  }, [courses, progress])
+
+  const filtered = mergedCourses.filter(c => {
+    const matchesSearch = c.title.toLowerCase().includes(search.toLowerCase()) || (c.description || '').toLowerCase().includes(search.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || c.category === categoryFilter
     return matchesSearch && matchesCategory
   })
 
-  const completedCount = myCourses.filter(c => c.completed).length
-  const totalStudents = myCourses.reduce((s, c) => s + c.students, 0)
-  const inProgress = myCourses.filter(c => c.progress > 0 && !c.completed).length
+  const completedCount = mergedCourses.filter(c => c.userCompleted).length
+  const inProgress = mergedCourses.filter(c => c.userProgress > 0 && !c.userCompleted).length
 
-  const handleEnroll = (id: string) => {
-    setMyCourses(myCourses.map(c => c.id === id ? { ...c, locked: false, progress: c.progress || 5 } : c))
-    toast.success('Matricula realizada!')
+  const handleEnroll = async (courseId: string) => {
+    try {
+      await enroll.mutateAsync(courseId)
+      toast.success('Matricula realizada!')
+    } catch {
+      toast.error('Erro ao realizar matricula')
+    }
+  }
+
+  const isLoading = coursesLoading || progressLoading
+
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-10 max-w-6xl mx-auto flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
+        <p className="text-espresso/60 text-sm">Carregando cursos...</p>
+      </div>
+    )
   }
 
   return (
@@ -116,10 +90,10 @@ export default function EvokaaAcademy() {
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Cursos', value: myCourses.length.toString(), icon: BookOpen },
+          { label: 'Cursos', value: courses.length.toString(), icon: BookOpen },
           { label: 'Completados', value: completedCount.toString(), icon: CheckCircle2 },
           { label: 'Em Progresso', value: inProgress.toString(), icon: TrendingUp },
-          { label: 'Alunos', value: `${(totalStudents / 1000).toFixed(1)}K`, icon: Users },
+          { label: 'Alunos', value: `${(courses.reduce((s, c) => s + (c.students || 0), 0) / 1000).toFixed(1)}K`, icon: Users },
         ].map(k => (
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 text-plum mb-3" />
@@ -151,7 +125,6 @@ export default function EvokaaAcademy() {
         {filtered.map(course => (
           <div key={course.id} className={`p-5 rounded-2xl border transition-all hover:-translate-y-0.5 hover:shadow-lg ${course.locked ? 'bg-white/30 border-white/40 opacity-70' : 'bg-white/60 border-white/60'}`}>
             <div className="flex items-start gap-4">
-              {/* Thumbnail placeholder */}
               <div className="w-20 h-20 rounded-xl bg-plum/10 flex-shrink-0 flex items-center justify-center">
                 <Play className={`w-8 h-8 ${course.locked ? 'text-espresso/20' : 'text-plum'}`} />
               </div>
@@ -167,38 +140,38 @@ export default function EvokaaAcademy() {
                   <span className="text-[10px] text-espresso/30 flex items-center gap-0.5"><Star className="w-3 h-3 text-amber-400" />{course.rating}</span>
                 </div>
                 <div className="flex items-center gap-3 text-[10px] text-espresso/30 mb-2">
-                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{course.students.toLocaleString()}</span>
+                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{(course.students || 0).toLocaleString()}</span>
                   <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{course.duration}</span>
                   <span className="flex items-center gap-1"><BookOpen className="w-3 h-3" />{course.lessons} aulas</span>
                 </div>
                 {/* Progress */}
-                {!course.locked && course.progress > 0 && (
+                {course.enrolled && course.userProgress > 0 && (
                   <div className="mb-2">
                     <div className="flex justify-between text-[10px] mb-0.5">
-                      <span className="text-espresso/30">{course.completed ? 'Concluido' : 'Progresso'}</span>
-                      <span className="text-plum">{course.progress}%</span>
+                      <span className="text-espresso/30">{course.userCompleted ? 'Concluido' : 'Progresso'}</span>
+                      <span className="text-plum">{course.userProgress}%</span>
                     </div>
                     <div className="w-full h-1.5 bg-canvas rounded-full overflow-hidden">
-                      <div className="h-full bg-plum rounded-full transition-all" style={{ width: `${course.progress}%` }} />
+                      <div className="h-full bg-plum rounded-full transition-all" style={{ width: `${course.userProgress}%` }} />
                     </div>
                   </div>
                 )}
                 <div className="flex items-center gap-2">
                   {course.locked ? (
-                    <button onClick={() => handleEnroll(course.id)} className="px-4 py-1.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center gap-1">
-                      <Zap className="w-3 h-3" /> Desbloquear
+                    <button onClick={() => handleEnroll(course.id)} disabled={enroll.isPending} className="px-4 py-1.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center gap-1 disabled:opacity-50">
+                      {enroll.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Zap className="w-3 h-3" /> Desbloquear</>}
                     </button>
-                  ) : course.completed ? (
+                  ) : course.userCompleted ? (
                     <span className="px-3 py-1.5 bg-green-50 text-green-600 text-xs rounded-full flex items-center gap-1">
                       <Award className="w-3 h-3" /> Concluido
                     </span>
-                  ) : course.progress > 0 ? (
+                  ) : course.enrolled ? (
                     <button className="px-4 py-1.5 bg-plum/10 text-plum text-xs rounded-full hover:bg-plum hover:text-cream transition-all flex items-center gap-1">
                       <Play className="w-3 h-3" /> Continuar
                     </button>
                   ) : (
-                    <button className="px-4 py-1.5 bg-plum/10 text-plum text-xs rounded-full hover:bg-plum hover:text-cream transition-all flex items-center gap-1">
-                      <Play className="w-3 h-3" /> Iniciar
+                    <button onClick={() => handleEnroll(course.id)} disabled={enroll.isPending} className="px-4 py-1.5 bg-plum/10 text-plum text-xs rounded-full hover:bg-plum hover:text-cream transition-all flex items-center gap-1 disabled:opacity-50">
+                      {enroll.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Play className="w-3 h-3" /> Iniciar</>}
                     </button>
                   )}
                   <span className="text-[10px] text-espresso/20">por {course.instructor}</span>

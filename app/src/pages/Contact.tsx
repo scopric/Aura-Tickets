@@ -6,8 +6,6 @@ import {
   User, AtSign, FileText, AlignLeft
 } from 'lucide-react'
 import { toast } from 'sonner'
-import Header from '../components/Header'
-import Footer from '../components/Footer'
 import gsap from 'gsap'
 import { supabase } from '../lib/supabase'
 
@@ -88,8 +86,6 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--cream)' }}>
-      <Header />
-
       {/* ===== HERO ===== */}
       <section ref={heroRef} className="pt-32 pb-20 relative overflow-hidden">
         {/* Decorative */}
@@ -395,7 +391,6 @@ export default function ContactPage() {
         </div>
       </section>
 
-      <Footer />
     </div>
   )
 }

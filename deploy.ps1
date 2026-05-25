@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 # --- CONFIGURACOES ---
 $projectPath = "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Aura Tickets\app"
-$commitMessage = "feat(Fases 1-4): password recovery, producer settings persistence, event editing, testing setup"
+$commitMessage = "deploy: landing page fixes, env vars, domain config"
 
 # --- VALIDACAO ---
 Write-Host "`n========================================" -ForegroundColor Cyan
@@ -23,6 +23,29 @@ if (-not (Test-Path $projectPath)) {
 
 Set-Location $projectPath
 Write-Host "Diretorio do projeto: $projectPath" -ForegroundColor Green
+
+# Verificar env vars locais
+$envLocal = Join-Path $projectPath ".env.local"
+$hasEnvVars = $false
+if (Test-Path $envLocal) {
+    $envContent = Get-Content $envLocal -Raw
+    $hasUrl = $envContent -match 'VITE_SUPABASE_URL'
+    $hasKey = $envContent -match 'VITE_SUPABASE_ANON_KEY'
+    $hasEnvVars = $hasUrl -and $hasKey
+}
+
+Write-Host "`n----------------------------------------" -ForegroundColor DarkGray
+if ($hasEnvVars) {
+    Write-Host "[INFO] Variaveis de ambiente encontradas em .env.local" -ForegroundColor Green
+} else {
+    Write-Host "[AVISO] .env.local nao encontrado ou incompleto!" -ForegroundColor Red
+}
+Write-Host "[AVISO] Lembre-se de configurar as env vars no painel Vercel:" -ForegroundColor Yellow
+Write-Host "  VITE_SUPABASE_URL" -ForegroundColor White
+Write-Host "  VITE_SUPABASE_ANON_KEY" -ForegroundColor White
+Write-Host "[AVISO] Domínio customizado (www.evokaa.com.br) deve ser" -ForegroundColor Yellow
+Write-Host "        configurado em: Vercel Dashboard > aura-platform > Settings > Domains" -ForegroundColor Yellow
+Write-Host "----------------------------------------`n" -ForegroundColor DarkGray
 
 # Verificar se e um repositorio git
 $gitDir = Join-Path (Split-Path $projectPath -Parent) ".git"
@@ -115,10 +138,14 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "   DEPLOY CONCLUIDO COM SUCESSO!" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "`nLembre-se de verificar no painel Vercel:" -ForegroundColor Cyan
-Write-Host "  - VITE_SUPABASE_URL" -ForegroundColor White
-Write-Host "  - VITE_SUPABASE_ANON_KEY" -ForegroundColor White
-Write-Host "`nPara rodar os testes localmente:" -ForegroundColor Cyan
-Write-Host "  npm run test        (testes unitarios)" -ForegroundColor White
-Write-Host "  npm run test:e2e    (testes E2E)" -ForegroundColor White
+Write-Host "`n[IMPORTANTE] Verifique se estao configurados no Vercel:" -ForegroundColor Yellow
+Write-Host "  1. Settings > Environment Variables:" -ForegroundColor Cyan
+Write-Host "     VITE_SUPABASE_URL" -ForegroundColor White
+Write-Host "     VITE_SUPABASE_ANON_KEY" -ForegroundColor White
+Write-Host "  2. Settings > Domains:" -ForegroundColor Cyan
+Write-Host "     www.evokaa.com.br" -ForegroundColor White
+Write-Host "  3. DNS no registrador:" -ForegroundColor Cyan
+Write-Host "     CNAME www -> cname.vercel-dns.com" -ForegroundColor White
+Write-Host "`nPara verificar se funcionou:" -ForegroundColor Cyan
+Write-Host "  https://www.evokaa.com.br/" -ForegroundColor White
 Write-Host "========================================`n" -ForegroundColor Green

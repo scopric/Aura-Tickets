@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Calendar, Heart, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User
 } from 'lucide-react'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 
 const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Inicio' },

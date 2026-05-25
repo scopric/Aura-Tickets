@@ -15,7 +15,7 @@ export default function Home() {
   useSEO({
     title: 'Evokaa Tickets — Plataforma de Ingressos Sociais',
     description: 'Descubra eventos incríveis, compre ingressos com segurança e viva experiências inesquecíveis. A plataforma completa para produtores e participantes.',
-    image: '/og-image.jpg',
+    image: '/images/logo-evokaa.png',
   })
 
   const featuresRef = useRef<HTMLDivElement>(null)

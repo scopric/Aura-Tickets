@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2 } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 
 type UserRole = 'user' | 'producer' | 'admin'

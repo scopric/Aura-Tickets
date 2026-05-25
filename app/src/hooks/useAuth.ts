@@ -262,4 +262,4 @@ export function useAuth() {
   }
 }
 export type { User, ProducerProfile } from '../stores/authStore'
-export type { Role } from '../contexts/AuthContext'
+export type { Role } from '../types/auth'

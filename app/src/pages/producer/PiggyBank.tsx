@@ -1,19 +1,16 @@
 import { useState } from 'react'
 import {
   PiggyBank as PiggyIcon, Plus, X, Target, TrendingUp, Trash2,
-  CheckCircle2
+  CheckCircle2, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface PiggyBox {
-  id: string
-  eventName: string
-  name: string
-  target: number
-  saved: number
-  category: string
-  note: string
-}
+import {
+  useBudgetBoxes,
+  useCreateBudgetBox,
+  useUpdateBudgetBox,
+  useDeleteBudgetBox,
+  useCreatePiggyTransaction,
+} from '../../hooks/useProducerTools'
 
 const categories = [
   { id: 'marketing', label: 'Marketing', color: '#8b5cf6' },
@@ -24,72 +21,78 @@ const categories = [
   { id: 'lucro', label: 'Lucro/Liquidacao', color: '#22c55e' },
 ]
 
-const mockBoxes: PiggyBox[] = [
-  { id: 'p1', eventName: 'Noite Eletro 2025', name: 'Marketing Digital', target: 2000, saved: 1350, category: 'marketing', note: 'Patrocinio pago, resta veiculacao' },
-  { id: 'p2', eventName: 'Noite Eletro 2025', name: 'Equipamento de Som', target: 3500, saved: 3500, category: 'equipamento', note: 'Pago integral' },
-  { id: 'p3', eventName: 'Noite Eletro 2025', name: 'Decoracao e Luz', target: 1500, saved: 800, category: 'decoracao', note: 'Falta pagar metade da iluminacao' },
-  { id: 'p4', eventName: 'Jazz Sunset', name: 'Reserva Emergencial', target: 1000, saved: 400, category: 'emergencia', note: 'Imprevistos de ultima hora' },
-  { id: 'p5', eventName: 'Noite Eletro 2025', name: 'Minha Parte', target: 5000, saved: 2100, category: 'lucro', note: 'Lucro liquido pessoal' },
-]
-
 export default function ProducerPiggyBank() {
-  const [boxes, setBoxes] = useState<PiggyBox[]>(mockBoxes)
+  const { data: boxes = [], isLoading } = useBudgetBoxes()
+  const createBox = useCreateBudgetBox()
+  const deleteBox = useDeleteBudgetBox()
+  const createTransaction = useCreatePiggyTransaction()
+
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ eventName: '', name: '', target: '', category: 'marketing', note: '' })
+  const [form, setForm] = useState({ eventName: '', name: '', target: '', category: 'marketing', notes: '' })
   const [depositBox, setDepositBox] = useState<string | null>(null)
   const [depositAmount, setDepositAmount] = useState('')
 
-  const totalTarget = boxes.reduce((s, b) => s + b.target, 0)
-  const totalSaved = boxes.reduce((s, b) => s + b.saved, 0)
+  const totalTarget = boxes.reduce((s, b) => s + (b.target || 0), 0)
+  const totalSaved = boxes.reduce((s, b) => s + (b.saved || 0), 0)
   const progress = totalTarget > 0 ? (totalSaved / totalTarget) * 100 : 0
-  const completed = boxes.filter(b => b.saved >= b.target).length
-  const nearGoal = boxes.filter(b => b.saved >= b.target * 0.8 && b.saved < b.target).length
+  const completed = boxes.filter(b => (b.saved || 0) >= (b.target || 0)).length
+  const nearGoal = boxes.filter(b => {
+    const pct = (b.target || 0) > 0 ? (b.saved || 0) / (b.target || 0) : 0
+    return pct >= 0.8 && pct < 1
+  }).length
 
-  const addBox = () => {
+  const addBox = async () => {
     if (!form.name || !form.target) { toast.error('Preencha nome e meta'); return }
-    const newBox: PiggyBox = {
-      id: `p${Date.now()}`,
-      eventName: form.eventName || 'Evento Geral',
-      name: form.name,
-      target: Number(form.target),
-      saved: 0,
-      category: form.category,
-      note: form.note,
+    try {
+      await createBox.mutateAsync({
+        event_name: form.eventName || null,
+        name: form.name,
+        target: Number(form.target),
+        saved: 0,
+        category: form.category,
+        notes: form.notes || null,
+      })
+      setForm({ eventName: '', name: '', target: '', category: 'marketing', notes: '' })
+      setShowForm(false)
+      toast.success('Caixinha criada!')
+    } catch {
+      toast.error('Erro ao criar caixinha')
     }
-    setBoxes([...boxes, newBox])
-    setForm({ eventName: '', name: '', target: '', category: 'marketing', note: '' })
-    setShowForm(false)
-    toast.success('Caixinha criada!')
   }
 
-  const deposit = (boxId: string) => {
+  const handleTransaction = async (boxId: string, type: 'deposit' | 'withdraw') => {
     const amount = Number(depositAmount)
     if (!amount || amount <= 0) { toast.error('Valor invalido'); return }
-    setBoxes(boxes.map(b => b.id === boxId ? { ...b, saved: b.saved + amount } : b))
-    setDepositBox(null)
-    setDepositAmount('')
-    toast.success(`Depositado R$ ${amount.toFixed(2)}!`)
+    try {
+      await createTransaction.mutateAsync({ box_id: boxId, type, amount })
+      setDepositBox(null)
+      setDepositAmount('')
+      toast.success(type === 'deposit' ? `Depositado R$ ${amount.toFixed(2)}!` : `Sacado R$ ${amount.toFixed(2)}!`)
+    } catch {
+      toast.error('Erro na transacao')
+    }
   }
 
-  const withdraw = (boxId: string) => {
-    const amount = Number(depositAmount)
-    const box = boxes.find(b => b.id === boxId)
-    if (!amount || amount <= 0 || !box) { toast.error('Valor invalido'); return }
-    if (amount > box.saved) { toast.error('Saldo insuficiente'); return }
-    setBoxes(boxes.map(b => b.id === boxId ? { ...b, saved: b.saved - amount } : b))
-    setDepositBox(null)
-    setDepositAmount('')
-    toast.success(`Sacado R$ ${amount.toFixed(2)}!`)
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBox.mutateAsync(id)
+      toast.success('Caixinha removida')
+    } catch {
+      toast.error('Erro ao remover caixinha')
+    }
   }
 
-  const deleteBox = (id: string) => {
-    setBoxes(boxes.filter(b => b.id !== id))
-    toast.success('Caixinha removida')
+  if (isLoading) {
+    return (
+      <div className="p-6 lg:p-10 max-w-6xl mx-auto flex flex-col items-center justify-center py-20">
+        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
+        <p className="text-espresso/60 text-sm">Carregando caixinhas...</p>
+      </div>
+    )
   }
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Caixinha</h1>
@@ -103,8 +106,8 @@ export default function ProducerPiggyBank() {
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Meta Total', value: `R$ ${totalTarget.toLocaleString()}`, icon: Target, color: 'text-plum' },
-          { label: 'Guardado', value: `R$ ${totalSaved.toLocaleString()}`, icon: PiggyIcon, color: 'text-green-600' },
+          { label: 'Meta Total', value: `R$ ${totalTarget.toLocaleString('pt-BR')}`, icon: Target, color: 'text-plum' },
+          { label: 'Guardado', value: `R$ ${totalSaved.toLocaleString('pt-BR')}`, icon: PiggyIcon, color: 'text-green-600' },
           { label: 'Progresso', value: `${progress.toFixed(0)}%`, icon: TrendingUp, color: 'text-blue-600' },
           { label: 'Completas', value: `${completed}/${boxes.length}`, icon: CheckCircle2, color: 'text-amber-600' },
         ].map(k => (
@@ -138,8 +141,8 @@ export default function ProducerPiggyBank() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {boxes.map(box => {
           const cat = categories.find(c => c.id === box.category)
-          const pct = Math.min((box.saved / box.target) * 100, 100)
-          const isDone = box.saved >= box.target
+          const pct = (box.target || 0) > 0 ? Math.min(((box.saved || 0) / (box.target || 0)) * 100, 100) : 0
+          const isDone = (box.saved || 0) >= (box.target || 0)
           const isNear = pct >= 80 && !isDone
           return (
             <div key={box.id} className={`p-5 rounded-2xl border backdrop-blur-sm transition-all hover:shadow-md ${isDone ? 'bg-green-50/60 border-green-200/60' : 'bg-white/60 border-white/60'}`}>
@@ -150,19 +153,19 @@ export default function ProducerPiggyBank() {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-espresso">{box.name}</h3>
-                    <p className="text-[10px] text-espresso/30">{box.eventName}</p>
+                    <p className="text-[10px] text-espresso/30">{box.event_name || 'Evento'}</p>
                   </div>
                 </div>
-                <button onClick={() => deleteBox(box.id)} className="p-1 rounded hover:bg-red-50 text-espresso/15 hover:text-red-400 transition-colors">
+                <button onClick={() => handleDelete(box.id)} className="p-1 rounded hover:bg-red-50 text-espresso/15 hover:text-red-400 transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
 
-              <p className="text-[11px] text-espresso/40 mb-3">{box.note}</p>
+              <p className="text-[11px] text-espresso/40 mb-3">{box.notes}</p>
 
               <div className="flex items-center justify-between text-xs mb-2">
-                <span className="text-espresso/50">R$ {box.saved.toLocaleString()}</span>
-                <span className="text-espresso/30">R$ {box.target.toLocaleString()}</span>
+                <span className="text-espresso/50">R$ {(box.saved || 0).toLocaleString('pt-BR')}</span>
+                <span className="text-espresso/30">R$ {(box.target || 0).toLocaleString('pt-BR')}</span>
               </div>
               <div className="w-full h-2.5 bg-canvas rounded-full overflow-hidden mb-4">
                 <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: isDone ? '#22c55e' : isNear ? '#f59e0b' : cat?.color }} />
@@ -172,8 +175,8 @@ export default function ProducerPiggyBank() {
                 <div className="space-y-2">
                   <input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="Valor (R$)" className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
                   <div className="flex items-center gap-2">
-                    <button onClick={() => deposit(box.id)} className="flex-1 py-1.5 bg-green-500 text-white text-[11px] font-medium rounded-lg hover:bg-green-600 transition-colors">Depositar</button>
-                    <button onClick={() => withdraw(box.id)} className="flex-1 py-1.5 bg-red-400 text-white text-[11px] font-medium rounded-lg hover:bg-red-500 transition-colors">Sacar</button>
+                    <button onClick={() => handleTransaction(box.id, 'deposit')} className="flex-1 py-1.5 bg-green-500 text-white text-[11px] font-medium rounded-lg hover:bg-green-600 transition-colors">Depositar</button>
+                    <button onClick={() => handleTransaction(box.id, 'withdraw')} className="flex-1 py-1.5 bg-red-400 text-white text-[11px] font-medium rounded-lg hover:bg-red-500 transition-colors">Sacar</button>
                     <button onClick={() => { setDepositBox(null); setDepositAmount('') }} className="px-2 py-1.5 bg-canvas text-espresso/30 text-[11px] rounded-lg hover:text-espresso/60 transition-colors">X</button>
                   </div>
                 </div>
@@ -186,6 +189,14 @@ export default function ProducerPiggyBank() {
           )
         })}
       </div>
+
+      {boxes.length === 0 && (
+        <div className="text-center py-16">
+          <PiggyIcon className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
+          <p className="text-sm text-espresso/30">Nenhuma caixinha encontrada.</p>
+          <p className="text-xs text-espresso/20 mt-1">Crie sua primeira caixinha de orcamento.</p>
+        </div>
+      )}
 
       {/* Form Modal */}
       {showForm && (
@@ -210,11 +221,13 @@ export default function ProducerPiggyBank() {
                   ))}
                 </div>
               </div>
-              <textarea value={form.note} onChange={e => setForm({ ...form, note: e.target.value })} placeholder="Anotacao (opcional)" rows={2} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
+              <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} placeholder="Anotacao (opcional)" rows={2} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
             </div>
             <div className="flex items-center justify-end gap-3 mt-5">
               <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/50 hover:text-espresso transition-colors">Cancelar</button>
-              <button onClick={addBox} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Criar</button>
+              <button onClick={addBox} disabled={createBox.isPending} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
+                {createBox.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Criar'}
+              </button>
             </div>
           </div>
         </div>

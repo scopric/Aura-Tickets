@@ -13,7 +13,7 @@ const producerFAQs = [
   { question: 'Como enviar comunicacoes em massa?', answer: 'No menu "Comunicacao", voce cria campanhas de Email, SMS ou Push. Use os templates prontos ou crie do zero. Agende o envio e acompanhe as metricas (abertura, cliques).' },
   { question: 'Posso exportar relatorios financeiros?', answer: 'Sim! Na tela "Financeiro", clique em "Exportar" para baixar um CSV com todas as transacoes, formas de pagamento e status.' },
   { question: 'Como funciona o cronograma do evento?', answer: 'A "Timeline" mostra a linha do tempo completa do evento, do soundcheck ao encerramento. Cada item tem horario, responsavel e local. Clique no circulo para marcar como concluido.' },
-] : []
+]
 
 const affiliateFAQs = [
   { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o link https://aura.events/?ref=SEUCODIGO com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
@@ -23,7 +23,7 @@ const affiliateFAQs = [
   { question: 'Existe limite de vendas?', answer: 'Sim, o produtor define um limite de ingressos por afiliado. Voce pode ver seu limite e quantos ja vendeu no painel. Quando atingir o limite, avise o produtor para liberar mais.' },
   { question: 'Como subo de nivel?', answer: 'Voce sobe de nivel (Bronze → Prata → Ouro → Platina) vendendo mais ingressos. Cada nivel tem metas: Bronze (0), Prata (25), Ouro (75), Platina (150). Afiliados de nivel mais alto podem ter beneficios exclusivos.' },
   { question: 'Onde vejo meu desempenho?', answer: 'No painel de afiliado voce ve: ingressos vendidos, valor total em vendas, comissao acumulada, taxa de conversao e grafico de vendas por dia.' },
-] : []
+]
 
 export default function ProducerFAQ() {
   const [tab, setTab] = useState<'producer' | 'affiliate'>('producer')
