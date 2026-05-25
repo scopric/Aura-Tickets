@@ -224,9 +224,29 @@ export function useAuth() {
 
   const logout = async () => {
     try {
+      // Tentar signOut do Supabase (pode falhar se for sessao demo ou expirada)
       await signOutMutation.mutateAsync()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao realizar logout')
+      // Se falhar (ex: sessao demo, sessao expirada), fazer logout manual
+      console.warn('[Logout] SignOut do Supabase falhou, fazendo logout manual:', error?.message)
+    } finally {
+      // SEMPRE limpar estado local, mesmo se o signOut do Supabase falhar
+      localStorage.removeItem('aura-auth')
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('sb-')) {
+          localStorage.removeItem(key)
+        }
+      })
+      Object.keys(sessionStorage).forEach((key) => {
+        if (key.startsWith('sb-')) {
+          sessionStorage.removeItem(key)
+        }
+      })
+      sessionStorage.removeItem('aura_pending_checkout')
+      useAuthStore.getState().setUser(null)
+      useAuthStore.getState().setSession(null)
+      queryClient.clear()
+      window.location.href = '/'
     }
   }
 
