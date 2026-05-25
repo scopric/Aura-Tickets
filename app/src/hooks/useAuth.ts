@@ -14,7 +14,7 @@ export interface ExtendedUser {
   avatar?: string
 }
 
-// Flag para forçar modo demo mesmo com Supabase configurado
+// Flag para forÃ§ar modo demo mesmo com Supabase configurado
 const FORCE_DEMO = false
 
 function isDemoUser(email: string, password: string) {
@@ -101,6 +101,15 @@ export function useAuth() {
         console.error('[Auth API Error]', resp.status, data)
         throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
       }
+
+      // Sincroniza a sessÃ£o do fallback com o cliente Supabase para queries autenticadas
+      if (data.access_token && data.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        })
+      }
+
       return {
         user: data.user,
         session: {
@@ -131,7 +140,7 @@ export function useAuth() {
 
   const signUpMutation = useMutation({
     mutationFn: async ({ email, password, userData }: any) => {
-      // Se forçar demo, cadastra localmente
+      // Se forÃ§ar demo, cadastra localmente
       if (FORCE_DEMO) {
         const role = userData?.role || 'user'
         const mockUser = {
@@ -149,9 +158,9 @@ export function useAuth() {
         options: { data: userData },
       })
       if (error) {
-        // Se for erro de usuário já existe, pode ser que estamos em modo limitado
+        // Se for erro de usuÃ¡rio jÃ¡ existe, pode ser que estamos em modo limitado
         if (error.message.includes('already registered') || error.message.includes('User already registered')) {
-          throw new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.')
+          throw new Error('Este e-mail jÃ¡ estÃ¡ cadastrado. FaÃ§a login ou use outro e-mail.')
         }
         throw error
       }
@@ -167,11 +176,15 @@ export function useAuth() {
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      try {
+        const { error } = await supabase.auth.signOut()
+        if (error) throw error
+      } catch {
+        // Silenciar erro se nÃ£o hÃ¡ sessÃ£o ativa (demo/expirada)
+      }
     },
     onSuccess: () => {
-      // Limpa TODAS as chaves de sessão — inclui localStorage do Zustand e do Supabase
+      // Limpa TODAS as chaves de sessÃ£o â€” inclui localStorage do Zustand e do Supabase
       localStorage.removeItem('aura-auth')
       // Limpa todas as chaves do Supabase Auth no localStorage (sb-<ref>-auth-token etc.)
       Object.keys(localStorage).forEach((key) => {
@@ -179,7 +192,7 @@ export function useAuth() {
           localStorage.removeItem(key)
         }
       })
-      // Limpa sessionStorage também (algumas configs do Supabase podem usar)
+      // Limpa sessionStorage tambÃ©m (algumas configs do Supabase podem usar)
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('sb-')) {
           sessionStorage.removeItem(key)
@@ -188,7 +201,7 @@ export function useAuth() {
       useAuthStore.getState().setUser(null)
       useAuthStore.getState().setSession(null)
       queryClient.clear()
-      // Força reload completo para garantir que nenhum estado persistido ressuscite
+      // ForÃ§a reload completo para garantir que nenhum estado persistido ressuscite
       window.location.href = '/'
     },
   })
@@ -209,7 +222,7 @@ export function useAuth() {
       const userData = { full_name: name, role }
       const data = await signUpMutation.mutateAsync({ email, password, userData })
       
-      // Após signup, se o trigger não criou o profile com role, atualizamos
+      // ApÃ³s signup, se o trigger nÃ£o criou o profile com role, atualizamos
       if (data.user && !data.user.user_metadata?.role) {
         await supabase.from('users').update({ role, full_name: name }).eq('id', data.user.id).catch(() => {})
       }
