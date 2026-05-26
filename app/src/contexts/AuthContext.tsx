@@ -28,25 +28,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[DEBUG AuthContext] Sessao encontrada em getSession. Buscando perfil...')
           setSession(session)
           fetchProfile()
-        } else if (storedSession?.access_token && !storedSession.access_token.startsWith('mock-token-')) {
-          console.log('[DEBUG AuthContext] Sem sessao ativa, mas storedSession encontrada. Restaurando...', storedSession)
-          // Se o Supabase nÃ£o tem sessÃ£o mas o Zustand tem (ex: apÃ³s reload da página),
-          // restaura a sessÃ£o no Supabase client
-          supabase.auth.setSession({
-            access_token: storedSession.access_token,
-            refresh_token: storedSession.refresh_token,
-          })
-            .then(() => {
-              console.log('[DEBUG AuthContext] setSession resolvido. Buscando perfil...')
-              fetchProfile()
-            })
-            .catch((err) => {
-              console.error('[DEBUG AuthContext] Erro ao restaurar sessÃ£o:', err)
-              setLoading(false)
-            })
         } else {
-          console.log('[DEBUG AuthContext] Sem sessao ativa e sem storedSession no Zustand. Finalizando loading.')
-          setLoading(false)
+          const activeSession = useAuthStore.getState().session
+          if (activeSession?.access_token && !activeSession.access_token.startsWith('mock-token-')) {
+            console.log('[DEBUG AuthContext] Sem sessao ativa, mas activeSession encontrada. Restaurando...', activeSession)
+            // Se o Supabase nÃ£o tem sessÃ£o mas o Zustand tem (ex: apÃ³s reload da página),
+            // restaura a sessÃ£o no Supabase client
+            supabase.auth.setSession({
+              access_token: activeSession.access_token,
+              refresh_token: activeSession.refresh_token,
+            })
+              .then(() => {
+                console.log('[DEBUG AuthContext] setSession resolvido. Buscando perfil...')
+                fetchProfile()
+              })
+              .catch((err) => {
+                console.error('[DEBUG AuthContext] Erro ao restaurar sessÃ£o:', err)
+                setLoading(false)
+              })
+          } else {
+            console.log('[DEBUG AuthContext] Sem sessao ativa e sem activeSession no Zustand. Finalizando loading.')
+            setLoading(false)
+          }
         }
       })
       .catch((err) => {
@@ -85,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [fetchProfile, setSession, setUser, setLoading, storedSession])
+  }, [fetchProfile, setSession, setUser, setLoading])
 
   return <>{children}</>
 }
