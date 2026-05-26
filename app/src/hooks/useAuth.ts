@@ -96,11 +96,18 @@ export function useAuth() {
         // Se jÃ¡ Ã© erro de credenciais, propaga sem tentar fallback
         if (e.message === 'E-mail ou senha incorretos.') throw e
         console.warn('[Supabase Auth Exception]', e.message || e)
+        // Se o timeout do signInWithPassword disparou, nÃ£o tenta fallback â€” propaga erro
+        if (e.message === 'Timeout no login com Supabase') {
+          throw new Error('ServiÃ§o de autenticaÃ§Ã£o indisponÃ­vel. Tente novamente em alguns segundos.')
+        }
       }
 
       // 3. Fallback: login via REST API raw fetch (usa mesma URL/key do supabase.ts)
       const url = `${supabaseUrl}/auth/v1/token?grant_type=password`
+      const controller = new AbortController()
+      const fetchTimeout = setTimeout(() => controller.abort(), 8000)
       const resp = await fetch(url, {
+        signal: controller.signal,
         method: 'POST',
         headers: {
           'apikey': supabaseKey,
@@ -109,6 +116,7 @@ export function useAuth() {
         },
         body: JSON.stringify({ email, password }),
       })
+      clearTimeout(fetchTimeout)
       const data = await resp.json()
       if (!resp.ok) {
         console.error('[Auth API Error]', resp.status, data)
