@@ -14,7 +14,7 @@ export interface ExtendedUser {
   avatar?: string
 }
 
-// Flag para forÃ§ar modo demo mesmo com Supabase configurado
+// Flag para forçar modo demo mesmo com Supabase configurado
 const FORCE_DEMO = false
 
 function isDemoUser(email: string, password: string) {
@@ -49,10 +49,6 @@ export function useAuth() {
 
   const signInMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      // Limpa tokens antigos do Supabase antes de tentar login — evita que o client trave tentando refreshar
-      Object.keys(localStorage).forEach((key) => { if (key.startsWith('sb-')) localStorage.removeItem(key) })
-      Object.keys(sessionStorage).forEach((key) => { if (key.startsWith('sb-')) sessionStorage.removeItem(key) })
-
       // 1. Modo demo
       const demo = isDemoUser(email, password)
       if (demo || FORCE_DEMO) {
@@ -66,58 +62,55 @@ export function useAuth() {
         }
       }
 
-      // 2. Login via REST API (mais rÃ¡pido e confiÃ¡vel que o JS client para login direto)
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rwaezeqyuhxrssntcxdv.supabase.co'
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_d6yhWhXNJnKHbALR-rdD2w_utpG-Kip'
-      const url = `${supabaseUrl}/auth/v1/token?grant_type=password`
-      const controller = new AbortController()
-      const fetchTimeout = setTimeout(() => controller.abort(), 10000)
-
+      // 2. Tentar login real via Supabase JS client
       try {
-        const resp = await fetch(url, {
-          signal: controller.signal,
-          method: 'POST',
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password }),
-        })
-        clearTimeout(fetchTimeout)
-        const data = await resp.json()
-
-        if (!resp.ok) {
-          console.error('[Auth API Error]', resp.status, data)
-          if (data.message === 'Invalid login credentials' || data.error_description?.includes('Invalid login')) {
-            throw new Error('E-mail ou senha incorretos.')
-          }
-          throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
-        }
-
-        // Sincroniza a sessÃ£o com o cliente Supabase para queries autenticadas
-        if (data.access_token && data.refresh_token) {
-          await supabase.auth.setSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          })
-        }
-
-        return {
-          user: data.user,
-          session: {
-            access_token: data.access_token,
-            token_type: data.token_type,
-            expires_in: data.expires_in,
-            expires_at: data.expires_at,
-            refresh_token: data.refresh_token,
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (!error && data.session) {
+          return {
             user: data.user,
-          },
+            session: {
+              access_token: data.session.access_token,
+              token_type: data.session.token_type,
+              expires_in: data.session.expires_in,
+              expires_at: data.session.expires_at,
+              refresh_token: data.session.refresh_token,
+              user: data.user,
+            },
+          }
         }
-      } catch (e: any) {
-        if (e.message === 'E-mail ou senha incorretos.') throw e
-        if (e.name === 'AbortError') throw new Error('ServiÃ§o de autenticaÃ§Ã£o demorou muito. Tente novamente.')
-        throw e
+        if (error && error.message !== 'Invalid login credentials') {
+          console.warn('[Supabase Auth Error]', error.message)
+        }
+      } catch (e) {
+        console.warn('[Supabase Auth Exception]', e)
+      }
+
+      // 3. Fallback: login via REST API raw fetch
+      const url = `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await resp.json()
+      if (!resp.ok) {
+        console.error('[Auth API Error]', resp.status, data)
+        throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
+      }
+      return {
+        user: data.user,
+        session: {
+          access_token: data.access_token,
+          token_type: data.token_type,
+          expires_in: data.expires_in,
+          expires_at: data.expires_at,
+          refresh_token: data.refresh_token,
+          user: data.user,
+        },
       }
     },
     onSuccess: async (data) => {
@@ -138,7 +131,7 @@ export function useAuth() {
 
   const signUpMutation = useMutation({
     mutationFn: async ({ email, password, userData }: any) => {
-      // Se forÃ§ar demo, cadastra localmente
+      // Se forçar demo, cadastra localmente
       if (FORCE_DEMO) {
         const role = userData?.role || 'user'
         const mockUser = {
@@ -156,9 +149,9 @@ export function useAuth() {
         options: { data: userData },
       })
       if (error) {
-        // Se for erro de usuÃ¡rio jÃ¡ existe, pode ser que estamos em modo limitado
+        // Se for erro de usuário já existe, pode ser que estamos em modo limitado
         if (error.message.includes('already registered') || error.message.includes('User already registered')) {
-          throw new Error('Este e-mail jÃ¡ estÃ¡ cadastrado. FaÃ§a login ou use outro e-mail.')
+          throw new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.')
         }
         throw error
       }
@@ -174,15 +167,11 @@ export function useAuth() {
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
-      try {
-        const { error } = await supabase.auth.signOut()
-        if (error) throw error
-      } catch {
-        // Silenciar erro se nÃ£o hÃ¡ sessÃ£o ativa (demo/expirada)
-      }
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
     },
     onSuccess: () => {
-      // Limpa TODAS as chaves de sessÃ£o â€” inclui localStorage do Zustand e do Supabase
+      // Limpa TODAS as chaves de sessão — inclui localStorage do Zustand e do Supabase
       localStorage.removeItem('aura-auth')
       // Limpa todas as chaves do Supabase Auth no localStorage (sb-<ref>-auth-token etc.)
       Object.keys(localStorage).forEach((key) => {
@@ -190,7 +179,7 @@ export function useAuth() {
           localStorage.removeItem(key)
         }
       })
-      // Limpa sessionStorage tambÃ©m (algumas configs do Supabase podem usar)
+      // Limpa sessionStorage também (algumas configs do Supabase podem usar)
       Object.keys(sessionStorage).forEach((key) => {
         if (key.startsWith('sb-')) {
           sessionStorage.removeItem(key)
@@ -199,7 +188,7 @@ export function useAuth() {
       useAuthStore.getState().setUser(null)
       useAuthStore.getState().setSession(null)
       queryClient.clear()
-      // ForÃ§a reload completo para garantir que nenhum estado persistido ressuscite
+      // Força reload completo para garantir que nenhum estado persistido ressuscite
       window.location.href = '/'
     },
   })
@@ -220,7 +209,7 @@ export function useAuth() {
       const userData = { full_name: name, role }
       const data = await signUpMutation.mutateAsync({ email, password, userData })
       
-      // ApÃ³s signup, se o trigger nÃ£o criou o profile com role, atualizamos
+      // Após signup, se o trigger não criou o profile com role, atualizamos
       if (data.user && !data.user.user_metadata?.role) {
         await supabase.from('users').update({ role, full_name: name }).eq('id', data.user.id).catch(() => {})
       }
@@ -273,4 +262,4 @@ export function useAuth() {
   }
 }
 export type { User, ProducerProfile } from '../stores/authStore'
-export type { Role } from '../types/auth'
+export type { Role } from '../contexts/AuthContext'
