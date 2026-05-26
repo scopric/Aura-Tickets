@@ -58,7 +58,11 @@ export default function AdminLayout() {
       >
         {/* Logo */}
         <div className={cn('flex items-center gap-3 px-4 h-16 border-b border-white/10', collapsed && 'justify-center px-2')}>
-          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-7 w-auto flex-shrink-0" />
+          <img
+            src="/images/logo-evokaa.png"
+            alt="Evokaa"
+            className={cn("w-auto flex-shrink-0 transition-all", collapsed ? "h-7" : "h-11")}
+          />
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white tracking-wide">Admin</span>

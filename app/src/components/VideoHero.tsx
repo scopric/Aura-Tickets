@@ -18,7 +18,7 @@ export default function VideoHero() {
   const particlesRef = useRef<Particle[]>([])
   const rafRef = useRef<number>(0)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [videoLoaded, setVideoLoaded] = useState(false)
+  const [videoLoaded, setVideoLoaded] = useState(true)
 
   // Initialize particles
   const initParticles = useCallback((width: number, height: number) => {

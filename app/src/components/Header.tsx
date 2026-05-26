@@ -39,13 +39,8 @@ export default function Header() {
             <img
               src="/images/logo-evokaa.png"
               alt="Evokaa"
-              className="h-7 w-auto transition-transform duration-300 group-hover:scale-105"
+              className="h-12 lg:h-14 w-auto transition-transform duration-300 group-hover:scale-105"
             />
-            {!isScrolled && (
-              <span className="text-[10px] font-medium text-[var(--ink-faint)] tracking-widest uppercase hidden sm:block">
-                Plataforma
-              </span>
-            )}
           </Link>
 
           {/* Desktop Navigation */}
@@ -62,12 +57,14 @@ export default function Header() {
                 className={cn(
                   'relative px-4 py-2 text-[13px] font-medium transition-colors duration-300 rounded-full',
                   isActive(link.href)
-                    ? 'text-[var(--plum)]'
-                    : 'text-[var(--ink-light)] hover:text-[var(--espresso)]'
+                    ? (isScrolled ? 'text-[var(--plum)]' : 'text-white')
+                    : (isScrolled
+                        ? 'text-[var(--ink-light)] hover:text-[var(--espresso)]'
+                        : 'text-white/60 hover:text-white')
                 )}
               >
                 {isActive(link.href) && (
-                  <span className="absolute inset-0 bg-[var(--plum)]/[0.07] rounded-full" />
+                  <span className={cn('absolute inset-0 rounded-full', isScrolled ? 'bg-[var(--plum)]/[0.07]' : 'bg-white/10')} />
                 )}
                 <span className="relative">{link.label}</span>
               </Link>
@@ -78,7 +75,10 @@ export default function Header() {
           <div className="hidden md:flex items-center gap-2">
             <Link
               to="/auth/login"
-              className="btn-ghost text-[13px] py-2.5 px-5"
+              className={cn(
+                'btn-ghost text-[13px] py-2.5 px-5 transition-colors',
+                isScrolled ? 'text-[var(--ink-light)]' : 'text-white/80 hover:text-white'
+              )}
             >
               Entrar
             </Link>
@@ -94,7 +94,7 @@ export default function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            className="md:hidden p-2 text-[var(--espresso)]"
+            className={cn('md:hidden p-2 transition-colors', isScrolled ? 'text-[var(--espresso)]' : 'text-white')}
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>

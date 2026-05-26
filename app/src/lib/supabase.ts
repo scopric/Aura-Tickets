@@ -5,10 +5,7 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  if (import.meta.env.DEV) {
-    throw new Error('As variáveis de ambiente do Supabase não estão definidas. Verifique o seu arquivo .env.local')
-  }
-  console.warn('[Supabase] Variáveis de ambiente não definidas. Auth e DB estarão indisponíveis.')
+  console.warn('[Supabase] Variáveis de ambiente do Supabase não definidas. Auth e DB estarão indisponíveis localmente. Verifique o seu arquivo .env.local')
 }
 
 export const supabase = createClient<Database>(

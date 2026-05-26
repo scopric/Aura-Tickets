@@ -58,7 +58,7 @@ export default function Footer() {
               <img
                 src="/images/logo-evokaa.png"
                 alt="Evokaa"
-                className="h-10 w-auto"
+                className="h-18 w-auto"
               />
             </Link>
             <p className="text-cream/60 text-sm leading-relaxed max-w-sm">

@@ -164,17 +164,6 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
-          // SessÃ£o real: garante que o Supabase client tenha a sessÃ£o antes de buscar
-          if (session?.access_token && session?.refresh_token) {
-            console.log('[DEBUG AuthStore] Sincronizando sessao no Supabase client...')
-            await supabase.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token,
-            }).catch((err) => {
-              console.error('[DEBUG AuthStore] Erro ao sincronizar setSession:', err)
-            })
-          }
-
           console.log('[DEBUG AuthStore] Chamando supabase.auth.getUser()...')
           const { data: { user: authUser }, error: authUserError } = await supabase.auth.getUser()
           console.log('[DEBUG AuthStore] Retorno getUser:', { authUser, authUserError })

@@ -261,7 +261,11 @@ export default function ProducerLayout() {
         )}
         style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
-          <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto" />
+          <img
+            src="/images/logo-evokaa.png"
+            alt="Evokaa"
+            className={cn("w-auto transition-all", collapsed ? "h-7" : "h-11")}
+          />
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>

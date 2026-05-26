@@ -62,6 +62,19 @@ export function useAuth() {
         }
       }
 
+      // Validação das credenciais do Supabase
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const hasValidEnv = supabaseUrl && 
+                          supabaseAnonKey && 
+                          !supabaseUrl.includes('SUA_URL_AQUI') && 
+                          !supabaseUrl.includes('placeholder') && 
+                          supabaseUrl !== 'undefined'
+
+      if (!hasValidEnv) {
+        throw new Error('Serviço de autenticação (Supabase) não configurado. Para testar localmente, utilize uma conta de demonstração (ex: produtor@aura.teste / senha123) ou configure o arquivo .env.local com credenciais válidas do Supabase.')
+      }
+
       // 2. Tentar login real via Supabase JS client
       try {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
@@ -140,6 +153,19 @@ export function useAuth() {
           user_metadata: { full_name: userData?.full_name, role }
         }
         return { user: mockUser, session: createMockSession(mockUser) }
+      }
+
+      // Validação das credenciais do Supabase
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+      const hasValidEnv = supabaseUrl && 
+                          supabaseAnonKey && 
+                          !supabaseUrl.includes('SUA_URL_AQUI') && 
+                          !supabaseUrl.includes('placeholder') && 
+                          supabaseUrl !== 'undefined'
+
+      if (!hasValidEnv) {
+        throw new Error('Serviço de cadastro (Supabase) não configurado. Para testar o cadastro, configure o arquivo .env.local com credenciais válidas do Supabase.')
       }
 
       // Tentar cadastro real
