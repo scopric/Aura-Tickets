@@ -62,9 +62,16 @@ export function useAuth() {
         }
       }
 
-      // 2. Tentar login real via Supabase JS client
+      // 2. Tentar login real via Supabase JS client com timeout
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rwaezeqyuhxrssntcxdv.supabase.co'
+      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_d6yhWhXNJnKHbALR-rdD2w_utpG-Kip'
+
       try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        const signInPromise = supabase.auth.signInWithPassword({ email, password })
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout no login com Supabase')), 8000)
+        )
+        const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any
         if (!error && data.session) {
           return {
             user: data.user,
@@ -78,20 +85,26 @@ export function useAuth() {
             },
           }
         }
-        if (error && error.message !== 'Invalid login credentials') {
+        if (error) {
           console.warn('[Supabase Auth Error]', error.message)
+          // Se credenciais invÃ¡lidas, nÃ£o tenta fallback â€” propaga erro imediatamente
+          if (error.message === 'Invalid login credentials') {
+            throw new Error('E-mail ou senha incorretos.')
+          }
         }
-      } catch (e) {
-        console.warn('[Supabase Auth Exception]', e)
+      } catch (e: any) {
+        // Se jÃ¡ Ã© erro de credenciais, propaga sem tentar fallback
+        if (e.message === 'E-mail ou senha incorretos.') throw e
+        console.warn('[Supabase Auth Exception]', e.message || e)
       }
 
-      // 3. Fallback: login via REST API raw fetch
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`
+      // 3. Fallback: login via REST API raw fetch (usa mesma URL/key do supabase.ts)
+      const url = `${supabaseUrl}/auth/v1/token?grant_type=password`
       const resp = await fetch(url, {
         method: 'POST',
         headers: {
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${supabaseKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
