@@ -123,93 +123,114 @@ export const useAuthStore = create<AuthState>()(
         })
         set({ user: null, session: null, isAuthenticated: false, isLoading: false })
       },
-
       fetchProfile: async () => {
         set({ isLoading: true })
-        const session = get().session
+        console.log('[DEBUG AuthStore] Iniciando fetchProfile...')
+        try {
+          const session = get().session
+          console.log('[DEBUG AuthStore] Sessao atual no store:', session)
 
-        // Modo demo: mock sessions
-        if (isMockSession(session)) {
-          const role = session.access_token === 'mock-token-admin' ? 'admin' : 
-                       session.access_token === 'mock-token-producer' ? 'producer' : 'user'
-          const name = role === 'admin' ? 'Admin Teste' : role === 'producer' ? 'Produtor Teste' : 'Usuario Teste'
-          const id = role === 'admin' ? 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' : 
-                     role === 'producer' ? 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' : 
-                     'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d'
-          const email = role === 'admin' ? 'admin@aura.teste' : role === 'producer' ? 'produtor@aura.teste' : 'user@aura.teste'
+          // Modo demo: mock sessions
+          if (isMockSession(session)) {
+            console.log('[DEBUG AuthStore] Sessao identificada como MOCK')
+            const token = session.access_token || '';
+            const isProducer = token.endsWith('producer') || token.includes('d3f6ab7a');
+            const isAdmin = token.endsWith('admin') || token.includes('a1b2c3d4');
+            const role = isAdmin ? 'admin' : isProducer ? 'producer' : 'user';
+            
+            const name = role === 'admin' ? 'Admin Teste' : role === 'producer' ? 'Produtor Teste' : 'Usuario Teste'
+            const id = role === 'admin' ? 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' : 
+                       role === 'producer' ? 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' : 
+                       'b2c3d4e5-f6a7-8901-bcde-f23456789012'
+            const email = role === 'admin' ? 'admin@aura.teste' : role === 'producer' ? 'produtor@aura.teste' : 'user@aura.teste'
+
+            const mappedUser: User = {
+              id,
+              email,
+              full_name: name,
+              avatar_url: null,
+              role,
+              producer_profile: role === 'producer' ? {
+                company_name: name,
+                cnpj: '',
+                stripe_account_id: null,
+                woovi_account_id: null,
+                commission_rate: 10,
+                is_verified: true
+              } : null
+            }
+            console.log('[DEBUG AuthStore] Mapeado usuario MOCK:', mappedUser)
+            set({ user: mappedUser, isAuthenticated: true, isLoading: false })
+            return
+          }
+
+          // SessÃ£o real: garante que o Supabase client tenha a sessÃ£o antes de buscar
+          if (session?.access_token && session?.refresh_token) {
+            console.log('[DEBUG AuthStore] Sincronizando sessao no Supabase client...')
+            await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token,
+            }).catch((err) => {
+              console.error('[DEBUG AuthStore] Erro ao sincronizar setSession:', err)
+            })
+          }
+
+          console.log('[DEBUG AuthStore] Chamando supabase.auth.getUser()...')
+          const { data: { user: authUser }, error: authUserError } = await supabase.auth.getUser()
+          console.log('[DEBUG AuthStore] Retorno getUser:', { authUser, authUserError })
+          
+          if (authUserError || !authUser) {
+            console.warn('[DEBUG AuthStore] Usuario nao autenticado ou erro:', authUserError)
+            set({ user: null, session: null, isAuthenticated: false, isLoading: false })
+            return
+          }
+
+          console.log('[DEBUG AuthStore] Buscando profile na tabela para UUID:', authUser.id)
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', authUser.id)
+            .single()
+          console.log('[DEBUG AuthStore] Retorno tabela profiles:', { profile, error })
+
+          // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
+          // Isso evita que o user fique null e as queries fiquem in loading infinito
+          if (error || !profile) {
+            console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', error?.message)
+            const mappedUser: User = {
+              id: authUser.id,
+              email: authUser.email || '',
+              full_name: authUser.user_metadata?.full_name || null,
+              avatar_url: authUser.user_metadata?.avatar_url || null,
+              role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
+            }
+            console.log('[DEBUG AuthStore] mappedUser provisorio (sem profile):', mappedUser)
+            set({ user: mappedUser, isAuthenticated: true, isLoading: false })
+            return
+          }
 
           const mappedUser: User = {
-            id,
-            email,
-            full_name: name,
-            avatar_url: null,
-            role,
-            producer_profile: role === 'producer' ? {
-              company_name: name,
+            id: authUser.id,
+            email: authUser.email || '',
+            full_name: profile.full_name,
+            avatar_url: profile.avatar_url,
+            role: profile.role as 'admin' | 'producer' | 'user',
+            producer_profile: profile.role === 'producer' ? {
+              company_name: profile.full_name || 'Minha Empresa',
               cnpj: '',
               stripe_account_id: null,
               woovi_account_id: null,
               commission_rate: 10,
-              is_verified: true
+              is_verified: profile.is_verified || false
             } : null
           }
+          console.log('[DEBUG AuthStore] mappedUser completo (com profile):', mappedUser)
+
           set({ user: mappedUser, isAuthenticated: true, isLoading: false })
-          return
-        }
-
-        // SessÃ£o real: garante que o Supabase client tenha a sessÃ£o antes de buscar
-        if (session?.access_token && session?.refresh_token) {
-          await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }).catch(() => {})
-        }
-
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        
-        if (!authUser) {
+        } catch (err) {
+          console.error('[AuthStore] Erro ao buscar perfil (fetchProfile):', err)
           set({ user: null, session: null, isAuthenticated: false, isLoading: false })
-          return
         }
-
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authUser.id)
-          .single()
-
-        // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
-        // Isso evita que o user fique null e as queries fiquem em loading infinito
-        if (error || !profile) {
-          console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', error?.message)
-          const mappedUser: User = {
-            id: authUser.id,
-            email: authUser.email || '',
-            full_name: authUser.user_metadata?.full_name || null,
-            avatar_url: authUser.user_metadata?.avatar_url || null,
-            role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
-          }
-          set({ user: mappedUser, isAuthenticated: true, isLoading: false })
-          return
-        }
-
-        const mappedUser: User = {
-          id: authUser.id,
-          email: authUser.email || '',
-          full_name: profile.full_name,
-          avatar_url: profile.avatar_url,
-          role: profile.role as 'admin' | 'producer' | 'user',
-          producer_profile: profile.role === 'producer' ? {
-            company_name: profile.full_name || 'Minha Empresa',
-            cnpj: '',
-            stripe_account_id: null,
-            woovi_account_id: null,
-            commission_rate: 10,
-            is_verified: profile.is_verified || false
-          } : null
-        }
-
-        set({ user: mappedUser, isAuthenticated: true, isLoading: false })
       },
     }),
     {

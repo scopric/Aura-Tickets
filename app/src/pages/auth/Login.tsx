@@ -22,7 +22,9 @@ export default function AuthLogin() {
 
   // Redirect if already authenticated
   useEffect(() => {
+    console.log('[DEBUG Login] useEffect check:', { isAuthenticated, currentRoleContext })
     if (isAuthenticated && currentRoleContext) {
+      console.log('[DEBUG Login] Redirecionando usuario logado. Role:', currentRoleContext)
       // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
       if (pendingCheckout && currentRoleContext === 'user') {
@@ -48,9 +50,9 @@ export default function AuthLogin() {
     
     setIsSubmitting(true)
     try {
-      // Log removido para producao
+      console.log('[DEBUG Login] Chamando login() para:', cleanEmail)
       const success = await login(cleanEmail, cleanPassword)
-      // Log removido para producao
+      console.log('[DEBUG Login] Retorno do login():', success)
       if (success) {
         toast.success(`Bem-vindo de volta!`)
         // Se veio do checkout, redirecionar para lá após login bem-sucedido

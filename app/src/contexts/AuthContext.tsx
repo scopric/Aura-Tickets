@@ -19,31 +19,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const storedSession = useAuthStore((state) => state.session)
 
   useEffect(() => {
+    console.log('[DEBUG AuthContext] Iniciando useEffect de sincronizacao de auth')
     // Sincroniza sessÃ£o ativa inicial do Supabase
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
-        setSession(session)
-        fetchProfile()
-      } else if (storedSession?.access_token && !storedSession.access_token.startsWith('mock-token-')) {
-        // Se o Supabase nÃ£o tem sessÃ£o mas o Zustand tem (ex: apÃ³s reload da pÃ¡gina),
-        // restaura a sessÃ£o no Supabase client
-        supabase.auth.setSession({
-          access_token: storedSession.access_token,
-          refresh_token: storedSession.refresh_token,
-        }).then(() => fetchProfile()).catch(() => setLoading(false))
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        console.log('[DEBUG AuthContext] getSession finalizado. Sessao ativa:', session)
+        if (session) {
+          console.log('[DEBUG AuthContext] Sessao encontrada em getSession. Buscando perfil...')
+          setSession(session)
+          fetchProfile()
+        } else if (storedSession?.access_token && !storedSession.access_token.startsWith('mock-token-')) {
+          console.log('[DEBUG AuthContext] Sem sessao ativa, mas storedSession encontrada. Restaurando...', storedSession)
+          // Se o Supabase nÃ£o tem sessÃ£o mas o Zustand tem (ex: apÃ³s reload da página),
+          // restaura a sessÃ£o no Supabase client
+          supabase.auth.setSession({
+            access_token: storedSession.access_token,
+            refresh_token: storedSession.refresh_token,
+          })
+            .then(() => {
+              console.log('[DEBUG AuthContext] setSession resolvido. Buscando perfil...')
+              fetchProfile()
+            })
+            .catch((err) => {
+              console.error('[DEBUG AuthContext] Erro ao restaurar sessÃ£o:', err)
+              setLoading(false)
+            })
+        } else {
+          console.log('[DEBUG AuthContext] Sem sessao ativa e sem storedSession no Zustand. Finalizando loading.')
+          setLoading(false)
+        }
+      })
+      .catch((err) => {
+        console.error('[DEBUG AuthContext] Erro ao obter sessÃ£o inicial:', err)
         setLoading(false)
-      }
-    })
+      })
 
     // Escuta mudanÃ§as de auth para sincronizaÃ§Ã£o automÃ¡tica em tempo real
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        setSession(session)
-        await fetchProfile()
-      } else {
-        setSession(null)
-        setUser(null)
+    console.log('[DEBUG AuthContext] Registrando onAuthStateChange...')
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[DEBUG AuthContext] onAuthStateChange disparado. Evento:', event, 'Sessao:', session)
+      try {
+        if (session) {
+          console.log('[DEBUG AuthContext] Sessao valida no onAuthStateChange. Buscando perfil...')
+          setSession(session)
+          await fetchProfile()
+        } else {
+          // Se a sessao atual salva no Zustand for mock, nao devemos limpar a autenticacao
+          // O Supabase real sempre disparara INITIAL_SESSION com session: null se nao houver login real
+          const currentSession = useAuthStore.getState().session
+          if (currentSession?.access_token && currentSession.access_token.startsWith('mock-token-')) {
+            console.log('[DEBUG AuthContext] Sessao nula no onAuthStateChange recebida, mas a sessao atual no Zustand eh MOCK. Ignorando limpeza.')
+            setLoading(false)
+            return
+          }
+
+          console.log('[DEBUG AuthContext] Sessao nula no onAuthStateChange. Limpando auth...')
+          setSession(null)
+          setUser(null)
+          setLoading(false)
+        }
+      } catch (err) {
+        console.error('[DEBUG AuthContext] Erro no onAuthStateChange:', err)
         setLoading(false)
       }
     })
