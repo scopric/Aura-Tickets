@@ -49,6 +49,10 @@ export function useAuth() {
 
   const signInMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
+      // Limpa tokens antigos do Supabase antes de tentar login — evita que o client trave tentando refreshar
+      Object.keys(localStorage).forEach((key) => { if (key.startsWith('sb-')) localStorage.removeItem(key) })
+      Object.keys(sessionStorage).forEach((key) => { if (key.startsWith('sb-')) sessionStorage.removeItem(key) })
+
       // 1. Modo demo
       const demo = isDemoUser(email, password)
       if (demo || FORCE_DEMO) {
@@ -62,85 +66,58 @@ export function useAuth() {
         }
       }
 
-      // 2. Tentar login real via Supabase JS client com timeout
+      // 2. Login via REST API (mais rÃ¡pido e confiÃ¡vel que o JS client para login direto)
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://rwaezeqyuhxrssntcxdv.supabase.co'
       const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_d6yhWhXNJnKHbALR-rdD2w_utpG-Kip'
-
-      try {
-        const signInPromise = supabase.auth.signInWithPassword({ email, password })
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Timeout no login com Supabase')), 8000)
-        )
-        const { data, error } = await Promise.race([signInPromise, timeoutPromise]) as any
-        if (!error && data.session) {
-          return {
-            user: data.user,
-            session: {
-              access_token: data.session.access_token,
-              token_type: data.session.token_type,
-              expires_in: data.session.expires_in,
-              expires_at: data.session.expires_at,
-              refresh_token: data.session.refresh_token,
-              user: data.user,
-            },
-          }
-        }
-        if (error) {
-          console.warn('[Supabase Auth Error]', error.message)
-          // Se credenciais invÃ¡lidas, nÃ£o tenta fallback â€” propaga erro imediatamente
-          if (error.message === 'Invalid login credentials') {
-            throw new Error('E-mail ou senha incorretos.')
-          }
-        }
-      } catch (e: any) {
-        // Se jÃ¡ Ã© erro de credenciais, propaga sem tentar fallback
-        if (e.message === 'E-mail ou senha incorretos.') throw e
-        console.warn('[Supabase Auth Exception]', e.message || e)
-        // Se o timeout do signInWithPassword disparou, nÃ£o tenta fallback â€” propaga erro
-        if (e.message === 'Timeout no login com Supabase') {
-          throw new Error('ServiÃ§o de autenticaÃ§Ã£o indisponÃ­vel. Tente novamente em alguns segundos.')
-        }
-      }
-
-      // 3. Fallback: login via REST API raw fetch (usa mesma URL/key do supabase.ts)
       const url = `${supabaseUrl}/auth/v1/token?grant_type=password`
       const controller = new AbortController()
-      const fetchTimeout = setTimeout(() => controller.abort(), 8000)
-      const resp = await fetch(url, {
-        signal: controller.signal,
-        method: 'POST',
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-      clearTimeout(fetchTimeout)
-      const data = await resp.json()
-      if (!resp.ok) {
-        console.error('[Auth API Error]', resp.status, data)
-        throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
-      }
+      const fetchTimeout = setTimeout(() => controller.abort(), 10000)
 
-      // Sincroniza a sessÃ£o do fallback com o cliente Supabase para queries autenticadas
-      if (data.access_token && data.refresh_token) {
-        await supabase.auth.setSession({
-          access_token: data.access_token,
-          refresh_token: data.refresh_token,
+      try {
+        const resp = await fetch(url, {
+          signal: controller.signal,
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ email, password }),
         })
-      }
+        clearTimeout(fetchTimeout)
+        const data = await resp.json()
 
-      return {
-        user: data.user,
-        session: {
-          access_token: data.access_token,
-          token_type: data.token_type,
-          expires_in: data.expires_in,
-          expires_at: data.expires_at,
-          refresh_token: data.refresh_token,
+        if (!resp.ok) {
+          console.error('[Auth API Error]', resp.status, data)
+          if (data.message === 'Invalid login credentials' || data.error_description?.includes('Invalid login')) {
+            throw new Error('E-mail ou senha incorretos.')
+          }
+          throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
+        }
+
+        // Sincroniza a sessÃ£o com o cliente Supabase para queries autenticadas
+        if (data.access_token && data.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          })
+        }
+
+        return {
           user: data.user,
-        },
+          session: {
+            access_token: data.access_token,
+            token_type: data.token_type,
+            expires_in: data.expires_in,
+            expires_at: data.expires_at,
+            refresh_token: data.refresh_token,
+            user: data.user,
+          },
+        }
+      } catch (e: any) {
+        if (e.message === 'E-mail ou senha incorretos.') throw e
+        if (e.name === 'AbortError') throw new Error('ServiÃ§o de autenticaÃ§Ã£o demorou muito. Tente novamente.')
+        throw e
       }
     },
     onSuccess: async (data) => {
