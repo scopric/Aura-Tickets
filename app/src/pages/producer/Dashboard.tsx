@@ -116,8 +116,8 @@ export default function ProducerDashboard() {
   const stats = [
     { label: 'Eventos Ativos', value: activeEventsCount.toString(), icon: Calendar, change: 'Eventos no ar', color: 'plum' },
     { label: 'Total de Vendas', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, change: 'Receita acumulada', color: 'green' },
-    { label: 'Ingressos Vendidos', value: totalTicketsSold.toLocaleString('pt-BR'), icon: Ticket, change: `${totalCapacity > 0 ? Math.round((totalTicketsSold / totalCapacity) * 100) : 0}% ocupaÃ§Ã£o mÃ©dia`, color: 'plum' },
-    { label: 'Compradores Ãšnicos', value: uniqueBuyers.toLocaleString('pt-BR'), icon: Users, change: 'Participantes individuais', color: 'green' },
+    { label: 'Ingressos Vendidos', value: totalTicketsSold.toLocaleString('pt-BR'), icon: Ticket, change: `${totalCapacity > 0 ? Math.round((totalTicketsSold / totalCapacity) * 100) : 0}% ocupação média`, color: 'plum' },
+    { label: 'Compradores Únicos', value: uniqueBuyers.toLocaleString('pt-BR'), icon: Users, change: 'Participantes individuais', color: 'green' },
   ]
 
   const formatTimeElapsed = (dateStr: string) => {
@@ -125,9 +125,9 @@ export default function ProducerDashboard() {
       const diffMs = new Date().getTime() - new Date(dateStr).getTime()
       const diffMins = Math.floor(diffMs / 60000)
       if (diffMins < 1) return 'Agora mesmo'
-      if (diffMins < 60) return `HÃ¡ ${diffMins} minutos`
+      if (diffMins < 60) return `Há ${diffMins} minutos`
       const diffHours = Math.floor(diffMins / 60)
-      if (diffHours < 24) return `HÃ¡ ${diffHours} horas`
+      if (diffHours < 24) return `Há ${diffHours} horas`
       return new Date(dateStr).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
     } catch {
       return ''
@@ -143,7 +143,7 @@ export default function ProducerDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Dashboard</h1>
-          <p className="text-sm text-espresso/50 mt-1">VisÃ£o geral dos seus eventos com dados reais</p>
+          <p className="text-sm text-espresso/50 mt-1">Visão geral dos seus eventos com dados reais</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -216,7 +216,7 @@ export default function ProducerDashboard() {
               </div>
             ) : !events || events.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-espresso/50 mb-4">VocÃª ainda nÃ£o tem eventos cadastrados.</p>
+                <p className="text-sm text-espresso/50 mb-4">Você ainda não tem eventos cadastrados.</p>
                 <Link
                   to="/producer/planner"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all"
@@ -243,7 +243,7 @@ export default function ProducerDashboard() {
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-espresso group-hover:text-plum transition-colors truncate">{event.title}</h3>
                         <p className="text-xs text-espresso/40 truncate">
-                          {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Sem data'} Â· {event.venue_name || 'Sem local'}
+                          {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Sem data'} · {event.venue_name || 'Sem local'}
                         </p>
                       </div>
                       <div className="text-right">
@@ -302,7 +302,7 @@ export default function ProducerDashboard() {
 
       {/* Quick Actions */}
       <div className="dash-card mt-6 p-6 rounded-2xl bg-void text-cream">
-        <h2 className="font-serif text-xl mb-4">AÃ§Ãµes RÃ¡pidas</h2>
+        <h2 className="font-serif text-xl mb-4">Ações Rápidas</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Planejar Evento', to: '/producer/planner', icon: Plus },
