@@ -27,6 +27,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           console.log('[DEBUG AuthContext] Sessao encontrada em getSession. Buscando perfil...')
           setSession(session)
+          
+          const currentUser = useAuthStore.getState().user
+          if (currentUser && currentUser.id === session.user.id) {
+            console.log('[DEBUG AuthContext] Perfil ja presente em getSession. Bypass no fetchProfile.')
+            setLoading(false)
+            return
+          }
           fetchProfile()
         } else {
           const activeSession = useAuthStore.getState().session
@@ -65,6 +72,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session) {
           console.log('[DEBUG AuthContext] Sessao valida no onAuthStateChange. Buscando perfil...')
           setSession(session)
+          
+          const currentUser = useAuthStore.getState().user
+          if (currentUser && currentUser.id === session.user.id) {
+            console.log('[DEBUG AuthContext] Perfil ja ativo no store no evento', event, '. Bypass no fetchProfile.')
+            setLoading(false)
+            return
+          }
           await fetchProfile()
         } else {
           // Se a sessao atual salva no Zustand for mock, nao devemos limpar a autenticacao

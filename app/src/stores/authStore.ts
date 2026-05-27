@@ -185,7 +185,7 @@ export const useAuthStore = create<AuthState>()(
                 const timeoutError = new Error('Timeout ao obter usuario do Supabase')
                 const result = await Promise.race([
                   getUserPromise,
-                  new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 15000))
+                  new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 4000))
                 ]) as any
                 
                 authUser = result?.data?.user || null
@@ -217,7 +217,7 @@ export const useAuthStore = create<AuthState>()(
               const timeoutError = new Error('Timeout ao buscar perfil na tabela profiles')
               const result = await Promise.race([
                 getProfilePromise,
-                new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 15000))
+                new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 4000))
               ]) as any
               
               profile = result?.data || null
