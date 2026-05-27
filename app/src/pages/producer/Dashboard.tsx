@@ -26,31 +26,35 @@ export default function ProducerDashboard() {
     queryFn: async () => {
       if (!user?.id) return []
 
-      const { data: producerEvents } = await supabase
-        .from('events')
-        .select('id')
-        .eq('producer_id', user.id)
+      const fetchPromise = async () => {
+        const { data: producerEvents } = await supabase
+          .from('events')
+          .select('id')
+          .eq('producer_id', user.id)
 
-      if (!producerEvents || producerEvents.length === 0) return []
-      const eventIds = producerEvents.map(e => e.id)
+        if (!producerEvents || producerEvents.length === 0) return []
+        const eventIds = producerEvents.map(e => e.id)
 
-      const { data: orders, error } = await supabase
-        .from('orders')
-        .select(`
-          id,
-          created_at,
-          total,
-          user_id,
-          event_id,
-          events (title),
-          profiles (full_name)
-        `)
-        .in('event_id', eventIds)
-        .order('created_at', { ascending: false })
-        .limit(5)
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select(`
+            id,
+            created_at,
+            total,
+            user_id,
+            event_id,
+            events (title),
+            profiles (full_name)
+          `)
+          .in('event_id', eventIds)
+          .order('created_at', { ascending: false })
+          .limit(5)
 
-      if (error) throw error
-      return orders || []
+        if (error) throw error
+        return orders || []
+      }
+
+      return withTimeout(fetchPromise(), 6000, [])
     },
     enabled: !!user?.id,
   })
@@ -59,39 +63,44 @@ export default function ProducerDashboard() {
   const { data: financeSummary, isLoading: isFinanceLoading, error: financeError } = useQuery({
     queryKey: ['producer-finance-summary', user?.id],
     queryFn: async () => {
-      if (!user?.id) return { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
+      const fallbackVal = { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
+      if (!user?.id) return fallbackVal
 
-      const { data: producerEvents } = await supabase
-        .from('events')
-        .select('id')
-        .eq('producer_id', user.id)
+      const fetchPromise = async () => {
+        const { data: producerEvents } = await supabase
+          .from('events')
+          .select('id')
+          .eq('producer_id', user.id)
 
-      if (!producerEvents || producerEvents.length === 0) return { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
-      const eventIds = producerEvents.map(e => e.id)
+        if (!producerEvents || producerEvents.length === 0) return fallbackVal
+        const eventIds = producerEvents.map(e => e.id)
 
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('total, user_id')
-        .in('event_id', eventIds)
+        const { data: orders, error: ordersError } = await supabase
+          .from('orders')
+          .select('total, user_id')
+          .in('event_id', eventIds)
 
-      if (ordersError) throw ordersError
+        if (ordersError) throw ordersError
 
-      const { data: tickets, error: ticketsError } = await supabase
-        .from('tickets')
-        .select('id')
-        .in('event_id', eventIds)
+        const { data: tickets, error: ticketsError } = await supabase
+          .from('tickets')
+          .select('id')
+          .in('event_id', eventIds)
 
-      if (ticketsError) throw ticketsError
+        if (ticketsError) throw ticketsError
 
-      const totalRevenue = orders?.reduce((acc, o) => acc + (Number(o.total) || 0), 0) || 0
-      const ticketsSold = tickets?.length || 0
-      const uniqueBuyers = new Set(orders?.map(o => o.user_id) || []).size
+        const totalRevenue = orders?.reduce((acc, o) => acc + (Number(o.total) || 0), 0) || 0
+        const ticketsSold = tickets?.length || 0
+        const uniqueBuyers = new Set(orders?.map(o => o.user_id) || []).size
 
-      return {
-        tickets_sold: ticketsSold,
-        total_revenue: totalRevenue,
-        unique_buyers: uniqueBuyers,
+        return {
+          tickets_sold: ticketsSold,
+          total_revenue: totalRevenue,
+          unique_buyers: uniqueBuyers,
+        }
       }
+
+      return withTimeout(fetchPromise(), 6000, fallbackVal)
     },
     enabled: !!user?.id,
   })

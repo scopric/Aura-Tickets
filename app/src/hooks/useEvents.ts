@@ -202,19 +202,36 @@ export function useProducerEvents() {
     queryFn: async () => {
       if (!user?.id) return []
 
-      const { data, error } = await supabase
-        .from('events')
-        .select(`*, ticket_types (*)`)
-        .eq('producer_id', user.id)
-        .order('created_at', { ascending: false })
+      try {
+        const fetchPromise = (async () => {
+          const { data, error } = await supabase
+            .from('events')
+            .select(`*, ticket_types (*)`)
+            .eq('producer_id', user.id)
+            .order('created_at', { ascending: false })
 
-      if (error) throw error
+          if (error) throw error
 
-      const realEvents = (data || []).map(normalizeEventTicketTypes)
-      if (realEvents.length > 0) return realEvents
+          const realEvents = (data || []).map(normalizeEventTicketTypes)
+          if (realEvents.length > 0) return realEvents
 
-      if (DEMO_USER_IDS.has(user.id)) return MOCK_EVENTS
-      return []
+          if (DEMO_USER_IDS.has(user.id)) return MOCK_EVENTS
+          return []
+        })()
+
+        return await Promise.race([
+          fetchPromise,
+          new Promise<DbEvent[]>((resolve) => 
+            setTimeout(() => {
+              console.warn('[useProducerEvents] Timeout ao buscar eventos, usando fallback local.');
+              resolve(DEMO_USER_IDS.has(user.id) ? MOCK_EVENTS : [])
+            }, 6000)
+          )
+        ])
+      } catch (err) {
+        console.error('[useProducerEvents] Erro:', err)
+        return DEMO_USER_IDS.has(user?.id || '') ? MOCK_EVENTS : []
+      }
     },
     enabled: !!user?.id,
   })
