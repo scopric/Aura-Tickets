@@ -4,6 +4,8 @@ import { Eye, EyeOff, ArrowRight, User, Building, Loader2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type { Role } from '../../types/auth'
 import { toast } from 'sonner'
+import AuthLGPDConsent from '../../components/AuthLGPDConsent'
+import AuthAcquisitionSelector from '../../components/AuthAcquisitionSelector'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
@@ -17,6 +19,14 @@ export default function AuthRegister() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
+  // Estados de privacidade e aquisição (LGPD)
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false)
+  const [marketingConsent, setMarketingConsent] = useState(false)
+  const [dataSharingConsent, setDataSharingConsent] = useState(false)
+  const [howDidYouHear, setHowDidYouHear] = useState('')
+  const [referralEmail, setReferralEmail] = useState('')
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && currentRoleContext) {
@@ -28,12 +38,12 @@ export default function AuthRegister() {
 
   const validate = () => {
     const e: Record<string, string> = {}
-    if (!name.trim()) e.name = 'Nome obrigatÃ³rio'
-    if (!lastName.trim()) e.lastName = 'Sobrenome obrigatÃ³rio'
-    if (!email.trim()) e.email = 'E-mail obrigatÃ³rio'
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail invÃ¡lido'
-    if (!password) e.password = 'Senha obrigatÃ³ria'
-    else if (password.length < 6) e.password = 'MÃ­nimo 6 caracteres'
+    if (!name.trim()) e.name = 'Nome obrigatório'
+    if (!lastName.trim()) e.lastName = 'Sobrenome obrigatório'
+    if (!email.trim()) e.email = 'E-mail obrigatório'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail inválido'
+    if (!password) e.password = 'Senha obrigatória'
+    else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -41,17 +51,28 @@ export default function AuthRegister() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validate()) {
-      toast.error('Corrija os erros no formulÃ¡rio')
+      toast.error('Corrija os erros no formulário')
+      return
+    }
+
+    if (!acceptedTerms || !acceptedPrivacy) {
+      toast.error('Você precisa aceitar os Termos de Uso e a Política de Privacidade.')
       return
     }
     
     setIsSubmitting(true)
     const fullName = `${name.trim()} ${lastName.trim()}`
-    const success = await register(fullName, email, password, type)
+    const success = await register(fullName, email, password, type, {
+      acceptedTerms,
+      acceptedPrivacy,
+      marketingConsent,
+      dataSharingConsent,
+      howDidYouHear,
+      referralEmail
+    })
     
     if (success) {
       toast.success('Conta criada com sucesso!')
-      // Aguarda um momento para o auth state atualizar, senÃ£o redireciona para login
       setTimeout(() => {
         if (!isAuthenticated) {
           navigate('/auth/login')
@@ -136,7 +157,7 @@ export default function AuthRegister() {
                 value={password}
                 disabled={isSubmitting}
                 onChange={e => { setPassword(e.target.value); if (errors.password) setErrors(p => { const n = { ...p }; delete n.password; return n }) }}
-                placeholder="MÃ­nimo 6 caracteres"
+                placeholder="Mínimo 6 caracteres"
                 className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
               />
               <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors">
@@ -146,26 +167,53 @@ export default function AuthRegister() {
             {errors.password && <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>}
           </div>
 
+          {/* Componente de Canal de Aquisição */}
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-espresso/60 block">Como nos conheceu?</label>
+            <AuthAcquisitionSelector
+              value={howDidYouHear}
+              referralEmail={referralEmail}
+              onChange={(value, email) => {
+                setHowDidYouHear(value)
+                if (email) setReferralEmail(email)
+              }}
+            />
+          </div>
+
+          {/* Componente de Consentimento LGPD */}
+          <AuthLGPDConsent
+            acceptedTerms={acceptedTerms}
+            acceptedPrivacy={acceptedPrivacy}
+            marketingConsent={marketingConsent}
+            dataSharingConsent={dataSharingConsent}
+            onChange={(values) => {
+              setAcceptedTerms(values.acceptedTerms)
+              setAcceptedPrivacy(values.acceptedPrivacy)
+              setMarketingConsent(values.marketingConsent)
+              setDataSharingConsent(values.dataSharingConsent)
+            }}
+          />
+
           <button 
             type="submit" 
             disabled={isSubmitting}
             className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (
-              <>
+              <span className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 Criando...
-              </>
+              </span>
             ) : (
-              <>
+              <span className="flex items-center gap-2">
                 Criar Conta <ArrowRight className="w-4 h-4" />
-              </>
+              </span>
             )}
           </button>
         </form>
 
         <p className="text-center text-xs text-espresso/40 mt-6">
-          JÃ¡ tem conta? <Link to="/auth/login" className="text-plum hover:underline">Entrar</Link>
+          Já tem conta? <Link to="/auth/login" className="text-plum hover:underline">Entrar</Link>
         </p>
       </div>
     </div>
