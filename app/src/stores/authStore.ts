@@ -164,9 +164,30 @@ export const useAuthStore = create<AuthState>()(
             return
           }
 
-          console.log('[DEBUG AuthStore] Chamando supabase.auth.getUser()...')
-          const { data: { user: authUser }, error: authUserError } = await supabase.auth.getUser()
-          console.log('[DEBUG AuthStore] Retorno getUser:', { authUser, authUserError })
+          let authUser: any = session?.user || null
+          let authUserError: any = null
+
+          if (authUser) {
+            console.log('[DEBUG AuthStore] Usando usuario obtido diretamente da sessao:', authUser.id)
+          } else {
+            console.log('[DEBUG AuthStore] User nao encontrado na sessao. Chamando supabase.auth.getUser()...')
+            try {
+              // Executa getUser com timeout de 7 segundos para evitar travar a aplicacao se a API estiver lenta/indisponivel
+              const getUserPromise = supabase.auth.getUser()
+              const timeoutError = new Error('Timeout ao obter usuario do Supabase')
+              const result = await Promise.race([
+                getUserPromise,
+                new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 7000))
+              ]) as any
+              
+              authUser = result?.data?.user || null
+              authUserError = result?.error || null
+              console.log('[DEBUG AuthStore] Retorno getUser:', { authUser, authUserError })
+            } catch (timeoutErr: any) {
+              console.warn('[DEBUG AuthStore] supabase.auth.getUser falhou ou estourou o timeout:', timeoutErr?.message || timeoutErr)
+              authUserError = timeoutErr
+            }
+          }
           
           if (authUserError || !authUser) {
             console.warn('[DEBUG AuthStore] Usuario nao autenticado ou erro:', authUserError)
@@ -175,12 +196,29 @@ export const useAuthStore = create<AuthState>()(
           }
 
           console.log('[DEBUG AuthStore] Buscando profile na tabela para UUID:', authUser.id)
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single()
-          console.log('[DEBUG AuthStore] Retorno tabela profiles:', { profile, error })
+          let profile: any = null
+          let profileError: any = null
+          try {
+            // Busca o perfil com um timeout de 7 segundos para evitar travamento
+            const getProfilePromise = supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authUser.id)
+              .single()
+            
+            const timeoutError = new Error('Timeout ao buscar perfil na tabela profiles')
+            const result = await Promise.race([
+              getProfilePromise,
+              new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 7000))
+            ]) as any
+            
+            profile = result?.data || null
+            profileError = result?.error || null
+          } catch (profileTimeoutErr: any) {
+            console.warn('[DEBUG AuthStore] Busca na tabela profiles falhou ou estourou o timeout:', profileTimeoutErr?.message || profileTimeoutErr)
+            profileError = profileTimeoutErr
+          }
+          console.log('[DEBUG AuthStore] Retorno tabela profiles:', { profile, error: profileError })
 
           // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
           // Isso evita que o user fique null e as queries fiquem in loading infinito
