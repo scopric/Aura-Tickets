@@ -177,7 +177,7 @@ export const useAuthStore = create<AuthState>()(
               const timeoutError = new Error('Timeout ao obter usuario do Supabase')
               const result = await Promise.race([
                 getUserPromise,
-                new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 7000))
+                new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 15000))
               ]) as any
               
               authUser = result?.data?.user || null
@@ -209,7 +209,7 @@ export const useAuthStore = create<AuthState>()(
             const timeoutError = new Error('Timeout ao buscar perfil na tabela profiles')
             const result = await Promise.race([
               getProfilePromise,
-              new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 7000))
+              new Promise<never>((_, reject) => setTimeout(() => reject(timeoutError), 15000))
             ]) as any
             
             profile = result?.data || null
@@ -222,8 +222,8 @@ export const useAuthStore = create<AuthState>()(
 
           // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
           // Isso evita que o user fique null e as queries fiquem in loading infinito
-          if (error || !profile) {
-            console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', error?.message)
+          if (profileError || !profile) {
+            console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', profileError?.message || profileError)
             const mappedUser: User = {
               id: authUser.id,
               email: authUser.email || '',
