@@ -102,6 +102,7 @@ export default function ProducerEditEvent() {
         venue_name: formData.location || null,
         category: category,
         status: existingEvent?.status || 'published',
+        approval_status: 'pending' as const,
         cover_image: image || '/images/hero-bg.jpg',
         image_url: image || '/images/hero-bg.jpg',
         capacity: tickets.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) || null
@@ -123,7 +124,7 @@ export default function ProducerEditEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success('Evento atualizado com sucesso!')
+      toast.success('Evento atualizado e enviado para aprovação!')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar evento')
@@ -174,7 +175,15 @@ export default function ProducerEditEvent() {
           <p className="text-sm text-espresso/50 mt-1">Atualize as informações do seu evento</p>
         </div>
       </div>
-
+ 
+      {/* Mensagem de rejeição */}
+      {existingEvent?.approval_status === 'rejected' && (
+        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-xs leading-relaxed">
+          <span className="font-bold uppercase tracking-wider block mb-1">Motivo da Rejeição:</span>
+          {existingEvent.rejection_reason || 'Nenhuma justificativa fornecida.'}
+        </div>
+      )}
+ 
       {/* Steps */}
       <div className="flex items-center gap-2 mb-10">
         {steps.map((s, i) => (
@@ -448,8 +457,8 @@ export default function ProducerEditEvent() {
                 <span className="text-espresso font-medium">{tickets.length} tipo(s)</span>
               </div>
             </div>
-            <div className="mt-6 p-4 bg-green-50 rounded-xl border border-green-100">
-              <p className="text-sm text-green-700">Revise as alterações e clique em "Salvar Alterações".</p>
+            <div className="mt-6 p-4 bg-amber-50/50 rounded-xl border border-amber-500/20 text-amber-700">
+              <p className="text-sm">Ao salvar as alterações, o evento será enviado para reavaliação administrativa e ficará visível ao público após aprovação.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">

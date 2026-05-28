@@ -8,6 +8,8 @@ import VideoHero from '../components/VideoHero'
 import FAQSection from '../components/FAQSection'
 import ContactSection from '../components/ContactSection'
 import PricingSection from '../components/PricingSection'
+import EventCarousel from '../components/EventCarousel'
+
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -76,6 +78,28 @@ export default function Home() {
   return (
     <div>
       <VideoHero />
+
+      {/* Destaques (Carrossel) */}
+      <section className="py-16 md:py-24 max-w-5xl mx-auto px-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-4 mb-8">
+          <div>
+            <h2 className="text-[var(--espresso)]">
+              Eventos em <em style={{ color: 'var(--plum)' }}>Destaque</em>
+            </h2>
+            <p className="text-[var(--ink-faint)] text-sm mt-2 max-w-md">
+              Fique por dentro das experiências mais exclusivas e procuradas na nossa plataforma.
+            </p>
+          </div>
+          <Link
+            to="/events"
+            className="text-xs font-bold text-plum hover:text-plum/80 flex items-center gap-1 group transition-all"
+          >
+            Buscar Todos os Eventos 
+            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        </div>
+        <EventCarousel />
+      </section>
 
       {/* Stats - minimal divider style */}
       <section ref={statsRef} className="py-20">

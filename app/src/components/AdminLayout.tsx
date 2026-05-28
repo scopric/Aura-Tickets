@@ -14,6 +14,7 @@ import {
   BarChart3,
   Ticket,
   MessageSquarePlus,
+  Mail,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -25,14 +26,16 @@ function cn(...inputs: ClassValue[]) {
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/users', icon: Users, label: 'Usuarios' },
-  { to: '/admin/producers', icon: Shield, label: 'Produtores' },
-  { to: '/admin/events', icon: Calendar, label: 'Eventos' },
-  { to: '/admin/finance', icon: DollarSign, label: 'Financeiro' },
-  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
-  { to: '/admin/tickets', icon: Ticket, label: 'Ingressos' },
-  { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback' },
-  { to: '/admin/settings', icon: Settings, label: 'Configuracoes' },
+  { to: '/admin/users', icon: Users, label: 'Usuarios', permission: 'manage_users' },
+  { to: '/admin/producers', icon: Shield, label: 'Produtores', permission: 'manage_users' },
+  { to: '/admin/events', icon: Calendar, label: 'Eventos', permission: 'manage_events' },
+  { to: '/admin/finance', icon: DollarSign, label: 'Financeiro', permission: 'manage_finance' },
+  { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', permission: 'view_analytics' },
+  { to: '/admin/tickets', icon: Ticket, label: 'Ingressos', permission: 'manage_tickets' },
+  { to: '/admin/newsletter', icon: Mail, label: 'Newsletter', permission: 'manage_newsletter' },
+  { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
+  { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
+  { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
 
 export default function AdminLayout() {
@@ -47,6 +50,14 @@ export default function AdminLayout() {
     logout()
     // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
+
+  const filteredNavItems = navItems.filter((item) => {
+    if (!item.permission) return true
+    return (
+      user?.admin_permissions?.includes(item.permission) ||
+      user?.admin_permissions?.includes('super_admin')
+    )
+  })
 
   return (
     <div className="flex min-h-screen bg-canvas pt-16">
@@ -71,8 +82,8 @@ export default function AdminLayout() {
           )}
         </div>
 
-        <nav className="flex-1 py-4 px-2 space-y-1">
-          {navItems.map((item) => (
+        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] sidebar-dark-scroll">
+          {filteredNavItems.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -109,16 +120,6 @@ export default function AdminLayout() {
         )}
 
         <div className="p-2 border-t border-white/10 space-y-1">
-          <Link
-            to="/admin/settings"
-            className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/50 hover:text-white/90 hover:bg-white/[0.06] transition-all w-full font-medium',
-              collapsed && 'justify-center'
-            )}
-          >
-            <Settings className="w-[18px] h-[18px] flex-shrink-0" />
-            {!collapsed && <span>Config</span>}
-          </Link>
           <button
             onClick={handleLogout}
             className={cn(

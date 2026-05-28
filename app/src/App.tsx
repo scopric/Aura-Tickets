@@ -77,6 +77,9 @@ const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'))
 const AdminTickets = lazy(() => import('./pages/admin/Tickets'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'))
 const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
+const AdminNewsletter = lazy(() => import('./pages/admin/Newsletter'))
+const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
+const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
 // App pages (lazy loaded)
 const AppHub = lazy(() => import('./pages/app/Hub'))
@@ -92,8 +95,16 @@ const CheckoutSuccess = lazy(() => import('./pages/checkout/Success'))
 
 type AllowedRole = 'user' | 'producer' | 'admin'
 
-function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode; allowedRoles: AllowedRole[] }) {
-  const { isAuthenticated, role } = useAuth()
+function ProtectedRoute({ 
+  children, 
+  allowedRoles,
+  requiredPermission
+}: { 
+  children: React.ReactNode; 
+  allowedRoles: AllowedRole[];
+  requiredPermission?: string;
+}) {
+  const { isAuthenticated, role, user } = useAuth()
   const location = useLocation()
 
   if (!isAuthenticated) {
@@ -104,6 +115,16 @@ function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode;
     if (role === 'admin') return <Navigate to="/admin/dashboard" replace />
     if (role === 'producer') return <Navigate to="/producer/dashboard" replace />
     return <Navigate to="/app/hub" replace />
+  }
+
+  // RBAC de Equipe Administrativa
+  if (role === 'admin' && requiredPermission) {
+    const hasPermission = user?.admin_permissions?.includes(requiredPermission) || 
+                          user?.admin_permissions?.includes('super_admin');
+    if (!hasPermission) {
+      console.warn(`[ProtectedRoute] Acesso negado para a permissao: ${requiredPermission}`);
+      return <Navigate to="/admin/dashboard" replace />
+    }
   }
 
   return <>{children}</>
@@ -126,6 +147,7 @@ function Layout() {
           <Routes>
             {/* Public */}
             <Route path="/" element={<Home />} />
+            <Route path="/events" element={<EventsBrowse />} />
             <Route path="/event/:eventId" element={<EventPage />} />
             <Route path="/app/download" element={<AppDownload />} />
             <Route path="/contato" element={<ContactPage />} />
@@ -184,14 +206,16 @@ function Layout() {
             <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/producers" element={<AdminProducers />} />
-              <Route path="/admin/events" element={<AdminEvents />} />
-              <Route path="/admin/finance" element={<AdminFinance />} />
-              <Route path="/admin/analytics" element={<AdminAnalytics />} />
-              <Route path="/admin/tickets" element={<AdminTickets />} />
-              <Route path="/admin/settings" element={<AdminSettingsPage />} />
-              <Route path="/admin/feedback" element={<AdminFeedback />} />
+              <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminUsers /></ProtectedRoute>} />
+              <Route path="/admin/producers" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminProducers /></ProtectedRoute>} />
+              <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_events"><AdminEvents /></ProtectedRoute>} />
+              <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_finance"><AdminFinance /></ProtectedRoute>} />
+              <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
+              <Route path="/admin/tickets" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_tickets"><AdminTickets /></ProtectedRoute>} />
+              <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminSettingsPage /></ProtectedRoute>} />
+              <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
+              <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
+              <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
             </Route>
 
             {/* Participant - protected with AppLayout */}

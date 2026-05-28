@@ -8,6 +8,7 @@ export interface User {
   full_name: string | null
   avatar_url: string | null
   role: 'admin' | 'producer' | 'user'
+  admin_permissions?: string[]
   producer_profile?: ProducerProfile | null
 }
 
@@ -158,6 +159,9 @@ export const useAuthStore = create<AuthState>()(
                 full_name: name,
                 avatar_url: null,
                 role,
+                admin_permissions: role === 'admin' 
+                  ? ['manage_users', 'manage_events', 'manage_finance', 'manage_tickets', 'manage_feedback', 'manage_settings', 'manage_newsletter', 'view_dashboard', 'view_analytics'] 
+                  : [],
                 producer_profile: role === 'producer' ? {
                   company_name: name,
                   cnpj: '',
@@ -238,6 +242,7 @@ export const useAuthStore = create<AuthState>()(
                 full_name: authUser.user_metadata?.full_name || null,
                 avatar_url: authUser.user_metadata?.avatar_url || null,
                 role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
+                admin_permissions: authUser.user_metadata?.admin_permissions || [],
               }
               console.log('[DEBUG AuthStore] mappedUser provisorio (sem profile):', mappedUser)
               set({ user: mappedUser, isAuthenticated: true, isLoading: false })
@@ -250,6 +255,7 @@ export const useAuthStore = create<AuthState>()(
               full_name: profile.full_name,
               avatar_url: profile.avatar_url,
               role: profile.role as 'admin' | 'producer' | 'user',
+              admin_permissions: profile.admin_permissions || [],
               producer_profile: profile.role === 'producer' ? {
                 company_name: profile.full_name || 'Minha Empresa',
                 cnpj: '',

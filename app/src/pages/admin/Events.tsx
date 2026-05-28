@@ -1,7 +1,8 @@
-import { useRef, useEffect } from 'react'
-import { Calendar, DollarSign, Clock, CheckCircle, ArrowUpRight, Loader2 } from 'lucide-react'
+import { useRef, useEffect, useState } from 'react'
+import { Calendar, DollarSign, Clock, CheckCircle, ArrowUpRight, Loader2, Check, X, Star, Eye } from 'lucide-react'
 import gsap from 'gsap'
-import { useAdminEvents } from '../../hooks/useEvents'
+import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel } from '../../hooks/useEvents'
+import { toast } from 'sonner'
 
 const statusCfg: Record<string, { label: string, cls: string }> = {
   published: { label: 'Publicado', cls: 'bg-green-50 text-green-600 border-green-100' },
@@ -10,9 +11,18 @@ const statusCfg: Record<string, { label: string, cls: string }> = {
   ended: { label: 'Finalizado', cls: 'bg-gray-50 text-gray-500 border-gray-100' },
 }
 
+const approvalStatusCfg: Record<string, { label: string; cls: string }> = {
+  approved: { label: 'Aprovado', cls: 'bg-green-100 text-green-700 border-green-200' },
+  pending: { label: 'Pendente', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
+  rejected: { label: 'Rejeitado', cls: 'bg-red-100 text-red-700 border-red-200' },
+}
+
 export default function AdminEvents() {
   const ref = useRef<HTMLDivElement>(null)
   const { data: allEvents = [], isLoading } = useAdminEvents()
+  const approveMutation = useApproveEvent()
+  const toggleFeaturedMutation = useToggleFeaturedCarousel()
+  const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
 
   useEffect(() => {
     if (!isLoading) {
@@ -21,35 +31,93 @@ export default function AdminEvents() {
       }, ref)
       return () => ctx.revert()
     }
-  }, [isLoading])
+  }, [isLoading, activeTab]) // animar ao mudar de aba também
 
-  const approved = allEvents.filter(e => e.status === 'published')
-  const pending = allEvents.filter(e => e.status === 'draft')
+  const handleApprove = async (eventId: string) => {
+    try {
+      await approveMutation.mutateAsync({ eventId, status: 'approved' })
+      toast.success('Evento aprovado com sucesso!')
+    } catch (err: any) {
+      toast.error('Erro ao aprovar evento: ' + err.message)
+    }
+  }
+
+  const handleReject = async (eventId: string) => {
+    const reason = window.prompt('Informe o motivo da rejeição do evento:')
+    if (reason === null) return // clicou em cancelar
+    if (!reason.trim()) {
+      toast.error('É necessário informar um motivo para rejeitar o evento.')
+      return
+    }
+
+    try {
+      await approveMutation.mutateAsync({ eventId, status: 'rejected', rejectionReason: reason })
+      toast.success('Evento rejeitado com sucesso.')
+    } catch (err: any) {
+      toast.error('Erro ao rejeitar evento: ' + err.message)
+    }
+  }
+
+  const handleToggleFeatured = async (eventId: string, currentFeatured: boolean) => {
+    try {
+      await toggleFeaturedMutation.mutateAsync({ eventId, featured: !currentFeatured })
+      toast.success(!currentFeatured ? 'Adicionado aos destaques do carrossel.' : 'Removido dos destaques.')
+    } catch (err: any) {
+      toast.error('Erro ao atualizar destaque: ' + err.message)
+    }
+  }
+
+  const approved = allEvents.filter(e => e.status === 'published' && e.approval_status === 'approved')
+  const pending = allEvents.filter(e => e.approval_status === 'pending' || !e.approval_status)
+  
   const totalRevenue = approved.reduce((s, e) => {
     const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
     return s + eventRevenue
   }, 0)
 
+  const filteredEvents = allEvents.filter(e => {
+    const appStatus = e.approval_status || 'pending'
+    if (activeTab === 'all') return true
+    return appStatus === activeTab
+  })
+
   return (
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Eventos</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie todos os eventos da plataforma</p>
+        <p className="text-sm text-espresso/50 mt-1">Gerencie e modere todos os eventos da plataforma</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Total', value: allEvents.length.toString(), icon: Calendar },
-          { label: 'Ativos', value: approved.length.toString(), icon: CheckCircle },
+          { label: 'Aprovados', value: approved.length.toString(), icon: CheckCircle },
           { label: 'Pendentes', value: pending.length.toString(), icon: Clock },
-          { label: 'Receita', value: `R$ ${(totalRevenue / 1000).toFixed(0)}K`, icon: DollarSign },
+          { label: 'Receita', value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`, icon: DollarSign },
         ].map(k => (
           <div key={k.label} className="evt-card p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 text-plum mb-3" />
             <div className="font-serif text-2xl text-espresso">{k.value}</div>
             <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
+        ))}
+      </div>
+
+      {/* Abas de filtro */}
+      <div className="flex gap-2 mb-6 border-b border-espresso/10 pb-px">
+        {(['all', 'pending', 'approved', 'rejected'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-xs font-semibold capitalize border-b-2 transition-all ${
+              activeTab === tab 
+                ? 'border-plum text-plum font-bold' 
+                : 'border-transparent text-espresso/50 hover:text-espresso'
+            }`}
+          >
+            {tab === 'all' ? 'Todos' : tab === 'pending' ? 'Pendentes' : tab === 'approved' ? 'Aprovados' : 'Rejeitados'}
+          </button>
         ))}
       </div>
 
@@ -70,22 +138,25 @@ export default function AdminEvents() {
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Evento</th>
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Data</th>
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Produtor</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Publicação</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Moderação</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Destaque</th>
                   <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Receita</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {allEvents.length === 0 ? (
+                {filteredEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-espresso/30 italic">
-                      Nenhum evento cadastrado.
+                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-espresso/30 italic">
+                      Nenhum evento nesta categoria.
                     </td>
                   </tr>
                 ) : (
-                  allEvents.map(e => {
+                  filteredEvents.map(e => {
                     const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
-                    const status = statusCfg[e.status] || { label: e.status, cls: 'bg-slate-50 text-slate-500 border-slate-100' }
+                    const pubStatus = statusCfg[e.status] || { label: e.status, cls: 'bg-slate-50 text-slate-500 border-slate-100' }
+                    const appStatus = approvalStatusCfg[e.approval_status || 'pending']
                     const formattedDate = e.date
                       ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
                       : 'Data a definir'
@@ -110,17 +181,62 @@ export default function AdminEvents() {
                           <div className="text-xs text-espresso/50">{e.profiles?.full_name || '—'}</div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${status.cls}`}>{status.label}</span>
+                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${appStatus.cls}`}>{appStatus.label}</span>
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleToggleFeatured(e.id, !!e.featured_carousel)}
+                            disabled={e.approval_status !== 'approved'}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              e.approval_status !== 'approved'
+                                ? 'opacity-30 cursor-not-allowed'
+                                : e.featured_carousel
+                                ? 'text-amber-500 hover:bg-amber-500/10'
+                                : 'text-espresso/20 hover:text-amber-500 hover:bg-amber-500/10'
+                            }`}
+                            title={e.featured_carousel ? "Remover do carrossel" : "Destacar no carrossel"}
+                          >
+                            <Star className="w-4 h-4 fill-current" />
+                          </button>
                         </td>
                         <td className="px-4 py-3 text-right hidden lg:table-cell">
                           <div className="text-sm font-serif text-espresso">
                             {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <button className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors">
-                            <ArrowUpRight className="w-3.5 h-3.5" />
-                          </button>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {e.approval_status === 'pending' && (
+                              <>
+                                <button
+                                  onClick={() => handleApprove(e.id)}
+                                  className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors"
+                                  title="Aprovar"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleReject(e.id)}
+                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors"
+                                  title="Rejeitar"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            <a
+                              href={`/event/${e.id}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg hover:bg-canvas text-espresso/30 hover:text-espresso/60 transition-colors"
+                              title="Visualizar"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
                         </td>
                       </tr>
                     )

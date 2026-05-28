@@ -55,6 +55,11 @@ export interface DbEvent {
   created_at: string
   updated_at: string
   location?: string | null
+  approval_status?: 'pending' | 'approved' | 'rejected'
+  approved_at?: string | null
+  approved_by?: string | null
+  rejection_reason?: string | null
+  featured_carousel?: boolean
   ticket_types?: DbTicketType[]
 }
 
@@ -450,10 +455,13 @@ export function usePublicEvents() {
   return useQuery<DbEvent[]>({
     queryKey: ['public-events'],
     queryFn: async () => {
+      const todayStr = new Date().toISOString().split('T')[0]
       const { data, error } = await supabase
         .from('events')
         .select(`*, ticket_types (*)`)
         .eq('status', 'published')
+        .eq('approval_status', 'approved')
+        .gte('date', todayStr)
         .order('date', { ascending: true })
 
       if (error) throw error
@@ -461,7 +469,7 @@ export function usePublicEvents() {
       const realEvents = (data || []).map(normalizeEventTicketTypes)
       if (realEvents.length > 0) return realEvents
 
-      return MOCK_EVENTS.filter(e => e.status === 'published')
+      return MOCK_EVENTS.filter(e => e.status === 'published' && e.date && e.date >= todayStr)
     }
   })
 }
@@ -529,6 +537,131 @@ export function useAdminTickets() {
           producer_name: 'Produtor Teste',
         }))
       ) as AdminTicketType[]
+    }
+  })
+}
+
+export function useFeaturedEvents() {
+  return useQuery<DbEvent[]>({
+    queryKey: ['featured-events'],
+    queryFn: async () => {
+      try {
+        const todayStr = new Date().toISOString().split('T')[0]
+        
+        // Buscamos primeiro os eventos que são destaque manual e que estão ativos e futuros
+        const { data: featuredData, error: featuredError } = await supabase
+          .from('events')
+          .select(`*, ticket_types (*)`)
+          .eq('status', 'published')
+          .eq('approval_status', 'approved')
+          .eq('featured_carousel', true)
+          .gte('date', todayStr)
+          .order('date', { ascending: true })
+
+        if (featuredError) throw featuredError
+
+        const featuredReal = (featuredData || []).map(normalizeEventTicketTypes)
+
+        // Se já tivermos 10 ou mais, retorna os 10 primeiros
+        if (featuredReal.length >= 10) {
+          return featuredReal.slice(0, 10)
+        }
+
+        // Se faltar para chegar em 10, preenchemos com eventos ordenados por proximidade
+        const limitRemaining = 10 - featuredReal.length
+        const excludeIds = featuredReal.map(e => e.id)
+        
+        let query = supabase
+          .from('events')
+          .select(`*, ticket_types (*)`)
+          .eq('status', 'published')
+          .eq('approval_status', 'approved')
+          .gte('date', todayStr)
+
+        if (excludeIds.length > 0) {
+          query = query.not('id', 'in', `(${excludeIds.join(',')})`)
+        }
+
+        const { data: fallbackData, error: fallbackError } = await query
+          .order('date', { ascending: true })
+          .limit(limitRemaining)
+
+        if (fallbackError) throw fallbackError
+
+        const fallbackReal = (fallbackData || []).map(normalizeEventTicketTypes)
+        
+        // Ordenamos os fallbacks pela soma de ticket_types.sold (vendidos) de forma decrescente para priorizar maior demanda
+        fallbackReal.sort((a, b) => {
+          const soldA = (a.ticket_types || []).reduce((sum, t) => sum + (t.sold || 0), 0)
+          const soldB = (b.ticket_types || []).reduce((sum, t) => sum + (t.sold || 0), 0)
+          return soldB - soldA
+        })
+
+        const combined = [...featuredReal, ...fallbackReal]
+        
+        if (combined.length > 0) return combined
+
+        // Se o banco estiver vazio, cai nos mocks do MOCK_EVENTS
+        return MOCK_EVENTS
+          .filter(e => e.status === 'published' && e.date && e.date >= todayStr)
+          .slice(0, 10)
+      } catch (err) {
+        console.error('[useFeaturedEvents] Erro:', err)
+        const todayStr = new Date().toISOString().split('T')[0]
+        return MOCK_EVENTS.filter(e => e.status === 'published' && e.date && e.date >= todayStr).slice(0, 10)
+      }
+    }
+  })
+}
+
+export function useApproveEvent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ eventId, status, rejectionReason }: { eventId: string; status: 'approved' | 'rejected'; rejectionReason?: string }) => {
+      const { data: session } = await supabase.auth.getSession()
+      const adminId = session.session?.user.id
+
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          approval_status: status,
+          approved_at: status === 'approved' ? new Date().toISOString() : null,
+          approved_by: status === 'approved' ? adminId : null,
+          rejection_reason: status === 'rejected' ? rejectionReason || null : null
+        })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['public-events'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-events'] })
+    }
+  })
+}
+
+export function useToggleFeaturedCarousel() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ eventId, featured }: { eventId: string; featured: boolean }) => {
+      const { data, error } = await supabase
+        .from('events')
+        .update({ featured_carousel: featured })
+        .eq('id', eventId)
+        .select()
+        .single()
+
+      if (error) throw error
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
+      queryClient.invalidateQueries({ queryKey: ['public-events'] })
+      queryClient.invalidateQueries({ queryKey: ['featured-events'] })
     }
   })
 }

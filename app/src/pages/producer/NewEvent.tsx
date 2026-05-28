@@ -83,7 +83,7 @@ export default function ProducerNewEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success('Evento criado e publicado com sucesso!')
+      toast.success('Evento criado! Aguardando moderação administrativa.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar evento no Supabase')
@@ -391,8 +391,8 @@ export default function ProducerNewEvent() {
                 <span className="text-espresso font-medium">{tickets.length} tipo(s)</span>
               </div>
             </div>
-            <div className="mt-6 p-4 bg-green-50 rounded-xl border border-green-100">
-              <p className="text-sm text-green-700">Tudo pronto! Clique em "Criar Evento" para publicar.</p>
+            <div className="mt-6 p-4 bg-amber-50/50 rounded-xl border border-amber-500/20 text-amber-700">
+              <p className="text-sm">Tudo pronto! Seu evento será enviado para moderação e ficará visível ao público após aprovação do administrador.</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
