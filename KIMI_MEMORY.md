@@ -161,6 +161,12 @@ Arquivo de memória persistente do projeto Aura Tickets (marca Evokaa).
 
 ## ✅ Histórico de Alterações (cronológico inverso)
 
+### 2026-05-29 — Integração de Login Social (Google, Apple e Microsoft)
+- **Login Social Completo:** Implementados botões e handlers reais para login social com Google, Apple e Microsoft (Azure) no componente [Login.tsx](file:///c:/Users/scopa/OneDrive/Documentos/Gemini/Antigravity/Aura%20Tickets/app/src/pages/auth/Login.tsx), conectados diretamente ao `supabase.auth.signInWithOAuth`.
+- **UI Responsiva e Premium:** Organizado o layout dos provedores sociais em formato de pilha vertical (`space-y-2.5`) para compatibilidade perfeita em celulares (375px), tablets (768px) e desktops (1366px+).
+- **Servidor de Desenvolvimento:** Iniciado o Vite local na porta `3001` (devido à porta 3000 ocupada).
+- **Validação de Build:** Validada a compilação do projeto com sucesso por meio do comando `npm run build` na pasta `app/`.
+
 ### 2026-05-25 — Correções Críticas P0 (Deploy + Frontend)
 - `Footer.tsx`: Links quebrados corrigidos (`/dashboard` → `/producer/dashboard`, `/brand-studio` → `/producer/brand`, eventos → `/producer/events`)
 - `Footer.tsx`: Newsletter conectada à tabela `newsletter_subscribers` com validação de e-mail e duplicados
