@@ -110,7 +110,7 @@ export default function AdminLayout() {
                 <img src={user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
-                  <div className="text-[10px] text-white/30 truncate">{user.email}</div>
+                  <div className="text-[10px] text-white/45 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
@@ -120,10 +120,11 @@ export default function AdminLayout() {
         )}
 
         <div className="p-2 border-t border-white/10 space-y-1">
+
           <button
             onClick={handleLogout}
             className={cn(
-              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/50 hover:text-red-400 hover:bg-red-500/[0.08] transition-all w-full font-medium',
+              'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] text-white/40 hover:text-red-400 hover:bg-red-500/[0.08] transition-all w-full font-medium',
               collapsed && 'justify-center'
             )}
           >
@@ -134,7 +135,7 @@ export default function AdminLayout() {
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-rose-500 text-cream flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-50"
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-50"
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>

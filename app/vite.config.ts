@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => {
     plugins: [mode === 'development' && inspectAttr(), react()].filter(Boolean),
     server: {
       port: 3000,
+      strictPort: false,
     },
     resolve: {
       alias: {

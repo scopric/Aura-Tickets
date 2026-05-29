@@ -26,6 +26,7 @@ serve(async (req) => {
   }
 
   try {
+    const payload = await req.json();
     let { orderId, emailType, to, subject, html, from } = payload;
 
     if (!from) {

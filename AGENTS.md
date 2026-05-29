@@ -1,4 +1,4 @@
-# Aura Eventos — Agent Context
+# Evokaa Eventos — Agent Context
 
 Arquivo de contexto para agentes de IA trabalharem neste projeto sem precisar redescobrir a estrutura a cada sessão.
 
@@ -14,8 +14,8 @@ O projeto agora conta com um agente customizado e sistema de memória persistent
 
 | Arquivo | Função |
 |---------|--------|
-| `Iniciar-Kimi-Aura.bat` | 🖱️ **Clique duplo** — inicia o Kimi CLI em uma nova janela do PowerShell |
-| `Iniciar-Kimi-Aura.ps1` | Script PowerShell avançado com parâmetros (`-Continue`, `-Session`, `-Yolo`) |
+| `Iniciar-Kimi-Evokaa.bat` | 🖱️ **Clique duplo** — inicia o Kimi CLI em uma nova janela do PowerShell |
+| `Iniciar-Kimi-Evokaa.ps1` | Script PowerShell avançado com parâmetros (`-Continue`, `-Session`, `-Yolo`) |
 | `aura-agent.yaml` | Configuração do agente customizado `aura-tickets` |
 | `aura-system-prompt.md` | System prompt com instruções obrigatórias para o agente |
 | `KIMI_MEMORY.md` | 🧠 **Memória persistente** — histórico, erros, decisões e estado atual do projeto |
@@ -23,16 +23,16 @@ O projeto agora conta com um agente customizado e sistema de memória persistent
 ### Como usar
 
 **Método 1 — Clique duplo (mais fácil):**
-1. Abra a pasta `Aura Tickets` no Explorer
-2. Clique duplo em `Iniciar-Kimi-Aura.bat`
+1. Abra a pasta `Evokaa Tickets` no Explorer
+2. Clique duplo em `Iniciar-Kimi-Evokaa.bat`
 3. O PowerShell abre automaticamente com o Kimi CLI já configurado
 
 **Método 2 — PowerShell (mais controle):**
 ```powershell
-cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Aura Tickets"
-.\Iniciar-Kimi-Aura.ps1           # Nova sessão
-.\Iniciar-Kimi-Aura.ps1 -Continue # Continuar sessão anterior
-.\Iniciar-Kimi-Aura.ps1 -Session  # Escolher sessão para retomar
+cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets"
+.\Iniciar-Kimi-Evokaa.ps1           # Nova sessão
+.\Iniciar-Kimi-Evokaa.ps1 -Continue # Continuar sessão anterior
+.\Iniciar-Kimi-Evokaa.ps1 -Session  # Escolher sessão para retomar
 ```
 
 ### O que o agente faz automaticamente
@@ -57,12 +57,12 @@ cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Aura Tickets"
 
 ## 📁 Onde está o código fonte real
 
-**A raiz do repositório (`Aura Tickets/`) NÃO contém o código fonte ativo.**
+**A raiz do repositório (`Evokaa Tickets/`) NÃO contém o código fonte ativo.**
 
 O projeto real está no subdiretório:
 
 ```
-Aura Tickets/
+Evokaa Tickets/
 ├── app/                    ← ⭐ CÓDIGO FONTE REAL ⭐
 │   ├── src/
 │   │   ├── pages/
@@ -109,7 +109,7 @@ Alias configurado:
 
 ## 🗺️ Estrutura de Rotas (App.tsx)
 
-O roteamento está centralizado em `app/src/App.tsx` (ou similar).
+O roteamento está centralizado em `app/src/App.tsx`.
 
 Principais áreas:
 - **Públicas:** `/`, `/event/:eventId`, `/auth/login`, `/auth/register`, `/contato`, `/app/download`
@@ -119,6 +119,24 @@ Principais áreas:
 - **Checkout** (`/checkout/*`): fluxo de compra
 
 Autenticação via `AuthContext` (`app/src/contexts/AuthContext`).
+
+### ⚠️ Rotas Quebradas / Páginas Faltantes
+
+O menu lateral do participante (`AppLayout.tsx`) lista 9 itens, mas `App.tsx` só define **5 rotas**:
+
+| Rota | Status | Nota |
+|------|--------|------|
+| `/app/hub` | ✅ Funciona | Hub principal do participante |
+| `/app/tickets` | ✅ Funciona | Ingressos do usuário |
+| `/app/notifications` | ✅ Funciona | Notificações (mock) |
+| `/app/profile` | ✅ Funciona | Perfil do usuário |
+| `/app/settings` | ✅ Funciona | Configurações |
+| `/app/events` | ❌ **404** | Página não existe no router |
+| `/app/favorites` | ❌ **404** | Página não existe no router |
+| `/app/orders` | ❌ **404** | Página não existe no router |
+| `/app/chat` | ❌ **404** | Página não existe no router |
+
+**Ação necessária:** Criar as 4 páginas faltantes e registrá-las em `App.tsx`, OU remover os itens do menu lateral.
 
 ---
 
@@ -172,6 +190,75 @@ NotFoundError: Failed to execute 'insertBefore' on 'Node'
 
 ---
 
+### 2. Erro `ReferenceError: ENABLE_DEMO is not defined` ✅ CORRIGIDO
+
+**Sintoma:** Ao tentar logar com conta demo (`produtor@aura.teste`, `admin@aura.teste`, `user@aura.teste`), o app crashava com `ReferenceError`.
+
+**Causa:** Em `app/src/hooks/useAuth.ts` linha 54, o código usava `(demo && ENABLE_DEMO)` mas a variável `ENABLE_DEMO` não era declarada.
+
+**Correção aplicada (2026-05-24):** Substituído por `import.meta.env.DEV` para manter consistência com o `authStore.ts`.
+
+**Arquivo:** `app/src/hooks/useAuth.ts`
+
+---
+
+### 3. Inconsistência de tabela: `users` vs `profiles`
+
+**Sintoma:** Signup pode falhar silenciosamente ou buscar perfil em tabela errada.
+
+**Causa:** O código possui referências conflitantes:
+- `app/src/hooks/useAuth.ts` linha 196: `supabase.from('users').update(...)`
+- `app/src/stores/authStore.ts` linha 87: `supabase.from('profiles').select('*')`
+- `app/database-setup.sql` (schema real): cria tabela `public.users`
+- `supabase_schema.sql` (schema antigo/legado na raiz): cria tabela `profiles`
+
+**Solução pendente:** Unificar todas as referências para `users` (que é o schema ativo em `database-setup.sql`). Atualizar `authStore.ts` para buscar em `users`.
+
+---
+
+### 4. Marca: Evokaa ✅
+
+**Status:** A marca do projeto é **Evokaa**. Todas as referências visuais foram atualizadas.
+
+**Locais verificados:**
+- `ProducerLayout.tsx` → logo Evokaa ✅
+- `AppLayout.tsx` → logo Evokaa ✅
+- `AuraStore.tsx` → título "Evokaa Store" ✅
+- `AuraAcademy.tsx` → título "Evokaa Academy" ✅
+- URLs `aura.events` → `evokaa.events` ✅
+
+**Nota:** Identificadores técnicos (projeto Vercel `aura-tickets-pypy`, chave localStorage `aura-auth`, arquivos `aura-agent.yaml`) foram mantidos para não quebrar compatibilidade.
+
+---
+
+### 5. `useCheckout.ts` não insere em `order_items`
+
+**Sintoma:** Relatórios financeiros mostram dados incompletos; webhook do Stripe e checkout usam lógicas diferentes.
+
+**Causa:** O hook `useCheckout.ts` insere diretamente em `tickets`, pulando a tabela `order_items`. O webhook do Stripe faz corretamente (orders → order_items → tickets).
+
+**Solução pendente:** Refatorar `useCheckout.ts` para criar `order` → `order_items` → `tickets` (usando transaction RPC).
+
+---
+
+### 6. OAuth Google não implementado
+
+**Sintoma:** Botão "Entrar com Google" na tela de login não faz nada.
+
+**Causa:** O botão existe na UI (`app/src/pages/auth/Login.tsx`) mas não possui `onClick` nem integração com `supabase.auth.signInWithOAuth`.
+
+**Solução pendente:** Implementar `signInWithOAuth({ provider: 'google' })`.
+
+---
+
+### 7. Newsletter não persiste (resolvido parcialmente)
+
+**Status:** O `Footer.tsx` ainda usa estado local em vez da tabela `newsletter_subscribers` do Supabase. O `ContactSection.tsx` e `Contact.tsx` já estão conectados corretamente.
+
+**Solução pendente:** Conectar `Footer.tsx` ao Supabase (usar hook `useSubscribeNewsletter` ou similar).
+
+---
+
 ## 🧪 Como rodar o projeto
 
 ```bash
@@ -199,9 +286,56 @@ npm run dev   # sobe em localhost:3000
 
 1. **SEMPRE verifique se está editando `app/src/...` e não a raiz.**
 2. **Shell/bash pode estar quebrado** neste ambiente Windows (crash com `0xC0000005`). Prefira `ReadFile`/`WriteFile`/`StrReplaceFile` diretamente com caminhos absolutos.
-3. **Não confie nos arquivos na raiz** (`Aura Tickets/*.tsx`, `Aura Tickets/*.json`) — eles são versões antigas/residuais.
+3. **Não confie nos arquivos na raiz** (`Evokaa Tickets/*.tsx`, `Evokaa Tickets/*.json`) — eles são versões antigas/residuais.
 4. O projeto usa **React 19** — alguns padrões de hooks podem ser ligeiramente diferentes do React 18.
-5. A autenticação é via **Supabase** (ver `app/src/lib/supabase.ts` ou similar).
+5. A autenticação é via **Supabase** (ver `app/src/lib/supabase.ts`).
+6. **Schema SQL:** A tabela de usuários é `public.users` (não `profiles`). O `authStore.ts` ainda busca `profiles` — corrigir quando necessário.
+7. **Marca:** O projeto se chama **Evokaa Tickets** (não "Evokaa"). Corrigir referências remanescentes.
+8. **Rotas quebradas:** `/app/events`, `/app/favorites`, `/app/orders`, `/app/chat` não existem no router.
+
+---
+
+## 📦 Arquivos Legados na Raiz (NÃO EDITAR)
+
+A raiz do repositório contém arquivos residuais de versões anteriores (provavelmente do Lovable/Antigravity). **Nunca edite estes arquivos** — eles não são usados pelo build.
+
+### Lista completa de arquivos legados na raiz
+
+```
+Evokaa Tickets/
+├── App.tsx                        # Versão antiga do App (sem lazy loading)
+├── App.css                        # Estilos antigos
+├── main.tsx                       # Entry point antigo (sem StrictMode, QueryClient)
+├── index.html                     # HTML antigo (sem SEO)
+├── index.css                      # CSS antigo
+├── package.json                   # Dependências antigas (sem Supabase, sem testes)
+├── vite.config.ts                 # Config antiga (base: './', sem chunking)
+├── tsconfig*.json                 # Configs TS antigas (idênticas às de app/)
+├── tailwind.config.js             # Idêntico ao de app/
+├── postcss.config.js              # Idêntico ao de app/
+├── components.json                # Idêntico ao de app/
+├── eslint.config.js               # Idêntico ao de app/
+├── .env.example                   # Formato antigo (GEMINI_API_KEY)
+├── supabase.ts                    # Cliente Supabase sem tipagem
+├── supabase_schema.sql            # Schema antigo (tabela 'profiles')
+├── *.tsx (AdminSettings, Analytics, Dashboard, etc.)  # Páginas antigas
+├── mockData.ts                    # Dados mock antigos
+├── eventManagerData.ts            # Dados mock antigos
+├── use-mobile.ts                  # Hook antigo
+├── utils.ts                       # Utilitários antigos
+├── 404.html                       # Página 404 antiga
+├── _redirects                     # Redirecionamentos antigos
+├── deploy.ps1                     # Script deploy antigo
+├── run_agent.py                   # Script Python antigo
+├── requirements.txt               # Dependências Python antigas
+├── info.md                        # Mensagem de setup do Lovable
+├── aura-complete-code.md          # Blueprint completo antigo
+├── aura-complete-source/          # Cópia estática do código
+├── aura-complete-source.zip       # Zip do código antigo
+└── README.md                      # Template padrão Vite
+```
+
+> Se precisar consultar o que uma página antiga fazia, estes arquivos estão disponíveis. **Mas o código ativo está 100% em `app/src/`.**
 
 ---
 
@@ -270,7 +404,7 @@ VITE_SUPABASE_ANON_KEY="<chave-anon-publica>"
 | `VITE_SUPABASE_URL` | `app/src/hooks/useAuth.ts` | Endpoint da REST API (`/auth/v1/token`) |
 | `VITE_SUPABASE_ANON_KEY` | `app/src/hooks/useAuth.ts` | Header `apikey` / `Authorization` |
 
-Se a aplicação crashar no boot com `As variáveis de ambiente do Supabase não estão definidas`, verifique se o arquivo `.env` existe dentro de `app/`, não na raiz `Aura Tickets/`.
+Se a aplicação crashar no boot com `As variáveis de ambiente do Supabase não estão definidas`, verifique se o arquivo `.env` existe dentro de `app/`, não na raiz `Evokaa Tickets/`.
 
 ---
 
@@ -303,37 +437,43 @@ Use este checklist antes de entregar features ou fazer deploy.
 ### Autenticação
 - [ ] Login com e-mail/senha válidos redireciona corretamente (`user` → `/app/hub`, `producer` → `/producer/dashboard`, `admin` → `/admin/dashboard`)
 - [ ] Login com credenciais inválidas exibe toast de erro (sem crashar)
+- [ ] Login com conta demo funciona (`produtor@aura.teste` / `senha123`, `user@aura.teste` / `senha123`)
 - [ ] Botão de login mostra spinner `<Loader2>` durante o submit (testar duas vezes seguidas)
 - [ ] Logout limpa sessão e redireciona para `/`
 - [ ] Recarregar a página mantém a sessão (testar em `/producer/dashboard`)
 - [ ] Acessar rota protegida sem login redireciona para `/auth/login`
 - [ ] Usuário `user` tentando acessar `/admin` é redirecionado para `/app/hub`
-- [ ] Cadastro de novo usuário cria registro na tabela `profiles` com role correta
+- [ ] Cadastro de novo usuário cria registro na tabela `users` com role correta
 
 ### Navegação & Layout
 - [ ] Header/Footer não aparecem em rotas `/auth`, `/producer`, `/admin`, `/checkout`, `/app`
 - [ ] Header/Footer aparecem corretamente na home `/` e `/event/:id`
 - [ ] Role selector na tela de login alterna entre Participante/Produtor/Administrador
 - [ ] Cores do botão de login mudam conforme a role selecionada
+- [ ] Logo do ProducerLayout mostra "Evokaa" (não "Evokaa")
 
 ### Producer (Produtor)
 - [ ] Acesso ao dashboard carrega dados do produtor logado
 - [ ] Criar novo evento abre formulário sem erros
 - [ ] Navegação entre as páginas do producer (CRM, Finance, CheckIn, etc.) funciona
+- [ ] Evokaa Store (`/producer/aura-store`) carrega sem 404
 
 ### Checkout
 - [ ] Fluxo de compra de ingresso completo (do carrinho até sucesso)
 - [ ] Página de pagamento carrega sem erros
+- [ ] Após checkout, `order_items` e `tickets` são criados no Supabase
 
 ### App Móvel (Participante)
 - [ ] Hub `/app/hub` carrega após login
 - [ ] Ingressos `/app/tickets` exibe ingressos do usuário
 - [ ] Perfil `/app/profile` mostra dados corretos
+- [ ] Menu lateral não mostra links quebrados (events, favorites, orders, chat devem existir ou ser removidos)
 
 ### Geral / Resiliência
 - [ ] Testar em aba anônima (sem extensões) para validar que não há erros de DOM
 - [ ] Testar com extensão de password manager (LastPass, Bitwarden, etc.) para garantir que não há `removeChild`/`insertBefore`
 - [ ] Toast de sucesso/erro aparece em todas as operações async
+- [ ] Console não exibe `ReferenceError: ENABLE_DEMO is not defined`
 
 ---
 
@@ -352,37 +492,27 @@ Use este checklist antes de entregar features ou fazer deploy.
 ---
 
 ### 2. Reverter workaround do login via fetch
-**Problema:** O `useAuth.ts` faz login chamando diretamente a REST API do Supabase (`fetch` manual) em vez de usar `supabase.auth.signInWithPassword`.
-
-**Motivo original:** Contornar bug do `supabase-js` com chaves `sb_publishable`.
-
-**Pendência:** Verificar se versões mais recentes do `@supabase/supabase-js` já corrigiram o bug. Se sim, reverter para a API oficial do cliente, que é mais robusta e mantida.
+**Status:** ✅ **RESOLVIDO** (2026-05-24). O `useAuth.ts` agora usa `supabase.auth.signInWithPassword` via `@supabase/supabase-js`. O workaround de `fetch` manual foi removido.
 
 ---
 
 ### 3. Adicionar testes automatizados
-**Problema:** O projeto não possui framework de testes configurado (`vitest`, `jest`, `playwright`, `cypress`).
+**Status:** ✅ **CONFIGURADO** (2026-05-24). O projeto possui:
+- **Unitários:** Vitest + `@testing-library/react` + `@testing-library/jest-dom`
+- **E2E:** Playwright (browsers ainda precisam ser instalados via `npx playwright install`)
+- **Cobertura atual:** ~0% — testes estão configurados mas poucos foram escritos
 
-**Sugestão de stack:**
-- **Unitários:** `vitest` + `@testing-library/react` + `@testing-library/jest-dom`
-- **E2E:** `playwright` para testar os fluxos críticos (login, checkout, criação de evento)
-- **Cobertura mínima:** AuthContext, useAuth, páginas de checkout e login
+**Pendência:** Escrever testes para `useAuth`, `AuthContext`, checkout e login.
 
 ---
 
 ### 4. Migrar React Router para v7
-**Problema:** O console exibe warnings do React Router v6 sobre future flags:
-- `v7_startTransition`
-- `v7_relativeSplatPath`
-
-**Pendência:** Atualizar `react-router-dom` para v7 e aplicar as flags recomendadas, ou manter v6 até haver necessidade. Nota: o projeto usa `react-router-dom` ^6.30.3 — versão estável, sem necessidade imediata de migrar.
+**Status:** 🟡 **NÃO URGENTE**. O projeto usa `react-router-dom` ^6.30.3 com future flags ativadas (`v7_startTransition`, `v7_relativeSplatPath`). Funciona corretamente. Migrar para v7 é opcional.
 
 ---
 
 ### 5. Consolidar porta do Vite
-**Problema:** `vite.config.ts` define porta `3000`, mas o usuário frequentemente roda em `3001` (provavelmente por conflito de porta).
-
-**Sugestão:** Adicionar `strictPort: false` no `vite.config.ts` para que o Vite automaticamente encontre uma porta livre, ou documentar explicitamente qual porta usar em cada ambiente.
+**Status:** ✅ **RESOLVIDO** (2026-05-23). `vite.config.ts` já possui `strictPort: false`.
 
 ---
 
@@ -393,45 +523,60 @@ Use este checklist antes de entregar features ou fazer deploy.
 
 ---
 
+### 7. Criar páginas faltantes do participante
+**Problema:** 4 rotas do menu lateral (`/app/events`, `/app/favorites`, `/app/orders`, `/app/chat`) resultam em 404.
+
+**Sugestão:** Criar componentes mínimos para cada rota e registrá-los em `App.tsx`.
+
+---
+
 ## 🔧 Correções Recentes (Deploy Vercel)
+
+### 2026-05-24 — Auditoria Completa & Hardening
+
+1. **`src/main.tsx`**: Adicionado `StrictMode` do React 19 + `ErrorBoundary` global + `QueryClient` do TanStack Query (retry 2, staleTime 5min, refetchOnWindowFocus false).
+
+2. **`src/App.tsx`**: Roteamento refatorado com `React.lazy` + `Suspense` para code-splitting. Adicionado `ProtectedRoute` com redirecionamento por role.
+
+3. **`src/hooks/useAuth.ts`**: Removido workaround de `fetch` manual. Agora usa `supabase.auth.signInWithPassword` nativo. Adicionado modo demo com 3 contas hardcoded (`produtor@aura.teste`, `admin@aura.teste`, `user@aura.teste`).
+
+4. **`src/stores/authStore.ts`**: Zustand store com persistência `aura-auth` no localStorage. Fetch de perfil com fallback para modo demo em dev.
+
+5. **`src/hooks/useEvents.ts`**: CRUD completo de eventos conectado ao Supabase. `usePublicEvents`, `usePublicEvent`, `useProducerEvents`, `useCreateEvent`, `useUpdateEvent`, `useDeleteEvent`.
+
+6. **`src/pages/producer/EventManager.tsx`**: Refatorado para usar dados reais do Supabase (em vez de `eventManagerData.ts`).
+
+7. **`src/pages/app/Hub.tsx`**: Ingressos e cardápio agora consomem dados reais do Supabase (`useUserTickets`, `useEventMenuItems`).
+
+8. **`src/components/FeedbackButton.tsx`**: Conectado ao Supabase (tabela `feedback`).
+
+9. **`src/components/ContactSection.tsx`**: Newsletter conectada ao Supabase (tabela `newsletter_subscribers`).
+
+10. **`src/pages/Contact.tsx`**: Formulário de contato conectado ao Supabase (tabela `contact_messages`).
 
 ### 2026-05-23 — Preparação para deploy no Vercel
 
-1. **`vite.config.ts`**: Plugin `kimi-plugin-inspect-react` agora só roda em `mode === 'development'`. Evita que plugins de dev quebrem o build de produção.
+11. **`vite.config.ts`**: Plugin `kimi-plugin-inspect-react` agora só roda em `mode === 'development'`. `strictPort: false` adicionado.
 
-2. **`src/lib/supabase.ts`**: `throw` de env vars agora só acontece em `import.meta.env.DEV`. Em produção, loga warning e usa placeholder, permitindo o build passar mesmo sem env vars configuradas (o Supabase só funcionará após configurar as envs no dashboard do Vercel).
+12. **`src/lib/supabase.ts`**: `throw` de env vars agora só acontece em `import.meta.env.DEV`. Em produção, loga warning e usa placeholder.
 
-3. **`vercel.json`**: Adicionado rewrite de SPA (`/(.*)` → `/index.html`) + cache de assets.
+13. **`vercel.json`**: Rewrite de SPA (`/(.*)` → `/index.html`) + cache de assets.
 
-4. **`src/pages/auth/Login.tsx`**: Corrigido erro `removeChild`/`insertBefore` causado por browser extensions. Adicionado `autoComplete` nos inputs e eliminado text nodes soltos no botão de submit.
+14. **`src/pages/auth/Login.tsx`**: Corrigido erro `removeChild`/`insertBefore`. `autoComplete` nos inputs, text nodes envolvidos em `<span>`.
 
-### 2026-05-23 — Hardening para produção
+15. **`src/components/ProducerLayout.tsx`**: Fallback para `user.avatar`/`user.name` nulos.
 
-5. **`src/main.tsx`**: Adicionado `StrictMode` do React 19 + `ErrorBoundary` global + configuração de retry no `QueryClient` (2 tentativas, staleTime 5min, refetchOnWindowFocus false).
-
-6. **`src/components/ErrorBoundary.tsx`**: Criado Error Boundary global com UI amigável (botões "Recarregar" e "Voltar ao inicio"). Em dev, mostra stack trace.
-
-7. **`src/components/ProducerLayout.tsx`**: Corrigido crash quando `user.avatar` ou `user.name` sao `null`. Adicionado fallback para imagem padrão (`/images/logo-aura.png`) e nome generico (`Usuario`).
-
-8. **`src/components/FeedbackButton.tsx`**: Refatorado para enviar feedback ao Supabase (tabela `feedback`) em vez de mock local. Adiciona `type`, `message`, `rating`, `page` e `user_agent`.
-
-9. **`src/components/ContactSection.tsx`**: Formulario de newsletter conectado ao Supabase (tabela `newsletter_subscribers`). Valida e-mail duplicado.
-
-10. **`src/pages/Contact.tsx`**: Formulario de contato conectado ao Supabase (tabela `contact_messages`). Campos: `name`, `email`, `phone`, `subject`, `message`, `page`.
-
-11. **`index.html`**: Adicionado meta tags SEO (`description`, `theme-color`, Open Graph `og:title`, `og:description`, `og:image`), `manifest.json`, e `favicon`.
-
-12. **`public/robots.txt`**: Criado com `Allow: /` e sitemap.
-
-13. **`public/sitemap.xml`**: Criado com URLs principais (home, login, register, contato, download).
-
-14. **`public/manifest.json`**: Criado para PWA (nome, icones, theme_color, background_color).
+16. **SEO/PWA**: `index.html` com meta tags OG, `robots.txt`, `sitemap.xml`, `manifest.json`.
 
 ---
 
 ---
 
 ## 🗄️ Schema do Banco de Dados (Supabase)
+
+> ⚠️ **FONTE DA VERDADE:** O schema completo e atual está em `app/database-setup.sql` (558 linhas). O arquivo `supabase_schema.sql` na raiz é **LEGADO** e usa tabela `profiles` em vez de `users`.
+>
+> **Inconsistência conhecida:** O `authStore.ts` busca `profiles` mas o schema real cria `users`. O `useAuth.ts` já usa `users`. **Corrigir `authStore.ts` para buscar em `users`.**
 
 Execute este SQL no **SQL Editor** do Supabase (painel do projeto) para criar todas as tabelas necessárias.
 
@@ -469,15 +614,16 @@ create table if not exists public.feedback (
 );
 ```
 
-### Tabelas Core (provavelmente ja existem)
+### Tabelas Core (schema real — tabela `users`)
 
 ```sql
--- Perfis de usuario (RLS recomendado)
-create table if not exists public.profiles (
+-- Usuarios (schema atual — usa 'users', nao 'profiles')
+create table if not exists public.users (
   id uuid references auth.users on delete cascade primary key,
   full_name text,
   avatar_url text,
   role text default 'user' check (role in ('user', 'producer', 'admin')),
+  stripe_customer_id text,
   is_verified boolean default false,
   updated_at timestamp with time zone default now()
 );
@@ -485,7 +631,7 @@ create table if not exists public.profiles (
 -- Eventos
 create table if not exists public.events (
   id uuid default gen_random_uuid() primary key,
-  producer_id uuid references public.profiles(id) not null,
+  producer_id uuid references public.users(id) not null,
   title text not null,
   subtitle text,
   slug text unique not null,
@@ -542,9 +688,32 @@ create table if not exists public.ticket_types (
 create table if not exists public.orders (
   id uuid default gen_random_uuid() primary key,
   event_id uuid references public.events(id) not null,
-  user_id uuid references public.profiles(id),
+  user_id uuid references public.users(id),
   total numeric default 0,
   status text default 'pending',
+  created_at timestamp with time zone default now()
+);
+
+-- Itens do pedido (usado pelo webhook Stripe)
+create table if not exists public.order_items (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references public.orders(id) on delete cascade not null,
+  ticket_type_id uuid references public.ticket_types(id) not null,
+  quantity integer not null,
+  unit_price numeric not null,
+  total_price numeric not null,
+  created_at timestamp with time zone default now()
+);
+
+-- Ingressos (tickets gerados)
+create table if not exists public.tickets (
+  id uuid default gen_random_uuid() primary key,
+  order_id uuid references public.orders(id) on delete cascade not null,
+  ticket_type_id uuid references public.ticket_types(id) not null,
+  event_id uuid references public.events(id) not null,
+  user_id uuid references public.users(id),
+  status text default 'active' check (status in ('active', 'used', 'cancelled', 'expired')),
+  check_in_at timestamp with time zone,
   created_at timestamp with time zone default now()
 );
 
@@ -570,15 +739,17 @@ group by e.producer_id, e.id;
 
 ```sql
 -- Habilitar RLS nas tabelas
-alter table public.profiles enable row level security;
+alter table public.users enable row level security;
 alter table public.events enable row level security;
 alter table public.ticket_types enable row level security;
 alter table public.orders enable row level security;
+alter table public.order_items enable row level security;
+alter table public.tickets enable row level security;
 
 -- Politicas basicas
--- Perfis: usuario le seu proprio, admin le todos
-create policy "Perfis publicos"
-  on public.profiles for select
+-- Usuarios: usuario le seu proprio, admin le todos
+create policy "Usuarios publicos"
+  on public.users for select
   to authenticated, anon
   using (true);
 
@@ -614,10 +785,10 @@ Copie e cole no SQL Editor do Supabase e verifique se cada uma retorna sucesso:
 ```sql
 -- 1. Verificar se tabelas existem
 select table_name from information_schema.tables where table_schema = 'public';
--- Esperado: profiles, events, ticket_types, orders, feedback, contact_messages, newsletter_subscribers
+-- Esperado: users, events, ticket_types, orders, order_items, tickets, feedback, contact_messages, newsletter_subscribers, event_summary
 
 -- 2. Verificar RLS
-select relname, relrowsecurity from pg_class where relname in ('profiles', 'events', 'ticket_types', 'orders');
+select relname, relrowsecurity from pg_class where relname in ('users', 'events', 'ticket_types', 'orders', 'order_items', 'tickets');
 -- Esperado: todas com relrowsecurity = true
 
 -- 3. Teste insert na tabela feedback
@@ -645,18 +816,20 @@ values ('teste@newsletter.com');
 
 | Tabela | Status | Notas |
 |--------|--------|-------|
-| profiles | ✅ Verificado | Criada pelo Supabase Auth (existe por padrao) |
+| users | ✅ Verificado | Schema ativo (substitui `profiles`) |
 | events | ✅ Verificado | Criada pelo setup.sql |
 | ticket_types | ✅ Verificado | Criada pelo setup.sql |
 | orders | ✅ Verificado | Criada pelo setup.sql |
-| event_summary (view) | ✅ Verificado | View materializada criada com 4 registros |
-| **feedback** | ✅ Verificado | Criada pelo setup.sql — insert de teste OK |
-| **contact_messages** | ✅ Verificado | Criada pelo setup.sql — insert de teste OK |
-| **newsletter_subscribers** | ✅ Verificado | Criada pelo setup.sql — insert de teste OK |
+| order_items | ✅ Verificado | Criada pelo setup.sql |
+| tickets | ✅ Verificado | Criada pelo setup.sql |
+| event_summary (view) | ✅ Verificado | View materializada criada |
+| **feedback** | ✅ Verificado | Insert de teste OK |
+| **contact_messages** | ✅ Verificado | Insert de teste OK |
+| **newsletter_subscribers** | ✅ Verificado | Insert de teste OK |
 
 > ⚠️ **IMPORTANTE:** Atualize a coluna "Status" para `✅ Verificado` e a coluna "Notas" com a data/hora apos executar cada teste com sucesso.
 
-### Resultado da Verificacao de Imports (2026-05-23)
+### Resultado da Verificacao de Imports (2026-05-24)
 
 ✅ **Todos os imports verificados — nenhum erro encontrado.**
 
@@ -669,11 +842,11 @@ Foram verificados 73+ imports em 40+ arquivos. Todos os hooks, componentes, stor
 - `src/hooks/useCheckout.ts` → `useCreateOrder`, `useOrderTickets`
 - `src/hooks/usePayment.ts` → `usePayment`
 - `src/hooks/useMenuItems.ts` → `useProducerMenuItems`, `useCreateMenuItem`, `useUpdateMenuItem`, `useDeleteMenuItem`
-- `src/data/feedbackMock.ts` → `feedbackMock`, `FeedbackItem` (criado para corrigir import quebrado)
+- `src/data/feedbackMock.ts` → `feedbackMock`, `FeedbackItem`
 - `src/components/ui/*` → todos os 40+ componentes shadcn/ui
 - `src/lib/utils.ts` → `cn` (usado por todos os componentes UI)
 - `src/lib/supabase.ts` → `supabase` client
-- `@/` alias → funciona em todos os arquivos (vite.config.ts e tsconfig.app.json configurados)
+- `@/` alias → funciona em todos os arquivos
 
 ---
 
@@ -719,4 +892,78 @@ Foram verificados 73+ imports em 40+ arquivos. Todos os hooks, componentes, stor
 
 ---
 
-*Última atualização: 2026-05-23*
+---
+
+## 🚀 Deploy na Vercel
+
+### Informações do Projeto
+
+| Configuração | Valor |
+|---|---|
+| **Projeto Vercel** | `aura-tickets-pypy` |
+| **URL de Produção** | https://aura-tickets-pypy.vercel.app |
+| **Repositório GitHub** | `scopric/Evokaa-Tickets` |
+| **Branch de Produção** | `main` |
+| **Root Directory** | `app` |
+| **Framework** | Vite |
+| **Build Command** | `npm run build` |
+| **Output Directory** | `dist` |
+| **Install Command** | `npm install --legacy-peer-deps` |
+
+### Variáveis de Ambiente ( já configuradas )
+
+| Nome | Ambiente | Status |
+|---|---|---|
+| `VITE_SUPABASE_URL` | Production + Preview | ✅ Configurada |
+| `VITE_SUPABASE_ANON_KEY` | Production + Preview | ✅ Configurada |
+
+> As env vars são configuradas no nível do projeto. **Todos os deploys** (passados e futuros) as utilizam automaticamente.
+
+### Como fazer deploy
+
+**Deploy automático (recomendado):**
+```bash
+git add .
+git commit -m "feat: descricao da mudanca"
+git push origin main
+```
+O Vercel detecta o push e faz deploy automaticamente.
+
+**Deploy manual via CLI:**
+```bash
+cd app/
+npx vercel --prod
+```
+
+### Projetos antigos para excluir
+
+Existem projetos antigos na conta Vercel que apontam para o mesmo repositório e causam confusão. Recomenda-se excluir:
+
+- `aura-platform` — projeto antigo, deploys feitos manualmente via CLI
+- `aura-tickets` — projeto duplicado, deploys falham
+
+Mantenha apenas: **`aura-tickets-pypy`** (conectado ao GitHub, deploy automático ativo).
+
+### Histórico de deploys bem-sucedidos
+
+| Deploy | Commit | Status | Data |
+|---|---|---|---|
+| `83sts6adP` | `b17a8f1` — Fases 1-4 | ✅ Ready | 2026-05-24 |
+
+---
+
+## 📊 Relatório de Auditoria
+
+Para análise completa da estrutura do projeto (inventário de arquivos, inconsistências, recomendações de limpeza, histórico de versões), consulte:
+
+📄 **`ANALISE_ESTRUTURA_PROJETO.md`** — Gerado em 2026-05-24. Cobre:
+- Inventário completo de ~300 arquivos relevantes
+- Lista detalhada de arquivos legados
+- Inconsistências de schema (users vs profiles)
+- Problemas técnicos com severidade
+- Mapa do que está funcional vs mock
+- Recomendações de correção
+
+---
+
+*Última atualização: 2026-05-24 (Auditoria completa realizada)*

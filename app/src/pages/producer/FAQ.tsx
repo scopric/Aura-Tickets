@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Users, Building } from 'lucide-react'
 import FAQSection from '../../components/FAQSection'
 
-const producerFAQs = [
+const producerFAQs = import.meta.env.DEV ? [
   { question: 'Como criar um novo evento?', answer: 'Acesse o menu "Nova Festa" no painel lateral. Preencha as informacoes basicas como nome, data, local e capacidade. Em seguida, configure os tipos de ingresso, precos e a aparencia visual do evento. Depois e so publicar!' },
   { question: 'Como funciona o sistema de afiliados?', answer: 'No menu "Afiliados", voce pode cadastrar vendedores que divulgarao seu evento. Cada afiliado recebe um codigo unico e pode ter um cupom exclusivo. Voce define a comissao (ex: 10%), o limite de ingressos e acompanha as vendas em tempo real. O pagamento e feito via PIX.' },
   { question: 'Posso limitar a quantidade de ingressos por afiliado?', answer: 'Sim! Ao cadastrar ou editar um afiliado, voce define o "Limite de Ingressos". Quando o afiliado atinge o limite, ele nao consegue mais vender. Voce pode aumentar o limite a qualquer momento.' },
@@ -15,8 +15,8 @@ const producerFAQs = [
   { question: 'Como funciona o cronograma do evento?', answer: 'A "Timeline" mostra a linha do tempo completa do evento, do soundcheck ao encerramento. Cada item tem horario, responsavel e local. Clique no circulo para marcar como concluido.' },
 ]
 
-const affiliateFAQs = [
-  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o link https://aura.events/?ref=SEUCODIGO com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
+const affiliateFAQs = import.meta.env.DEV ? [
+  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o link https://evokaa.events/?ref=SEUCODIGO com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
   { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00.' },
   { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX para a chave cadastrada. Voce pode acompanhar o valor pendente e o ja pago no seu perfil de afiliado.' },
   { question: 'O que e o meu cupom exclusivo?', answer: 'O produtor pode criar um cupom de desconto exclusivo para voce (ex: CARLOSVIP 15% OFF). Isso ajuda a vender mais porque o comprador tambem ganha desconto!' },

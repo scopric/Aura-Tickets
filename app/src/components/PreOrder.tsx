@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Wine, UtensilsCrossed, Package, Shirt, Wrench, Plus, Minus, ShoppingCart, Clock, Check } from 'lucide-react'
-import { menuItems } from '../data/mockData'
+import { useEventMenuItems } from '../hooks/useMenuItems'
 
 const categoryIcons: Record<string, typeof Wine> = {
   bebida: Wine,
@@ -14,7 +14,7 @@ const categoryLabels: Record<string, string> = {
   bebida: 'Bebidas',
   comida: 'Comidas',
   combo: 'Combos',
-  merchandise: 'Merch',
+  merch: 'Merch',
   servico: 'Servicos',
 }
 
@@ -22,7 +22,7 @@ const categoryColors: Record<string, string> = {
   bebida: 'bg-blue-100 text-blue-700',
   comida: 'bg-amber-100 text-amber-700',
   combo: 'bg-purple-100 text-purple-700',
-  merchandise: 'bg-pink-100 text-pink-700',
+  merch: 'bg-pink-100 text-pink-700',
   servico: 'bg-green-100 text-green-700',
 }
 
@@ -37,7 +37,8 @@ export default function PreOrder({ eventId }: Props) {
   const [pickupTime, setPickupTime] = useState('')
   const [confirmed, setConfirmed] = useState(false)
 
-  const items = menuItems.filter(i => i.eventId === eventId && i.available)
+  const { data: dbItems = [], isLoading } = useEventMenuItems(eventId)
+  const items = dbItems.filter(i => i.is_available)
   const filtered = activeCategory === 'all' ? items : items.filter(i => i.category === activeCategory)
 
   const addToCart = (itemId: string) => {

@@ -90,7 +90,7 @@ const plans: Plan[] = [
   },
   {
     id: 'pro', name: 'Pro', tagline: 'Sem limites',
-    monthlyPrice: 199, color: '#7a3b69', bg: 'bg-plum/5', border: 'border-plum/15',
+    monthlyPrice: 199, color: '#7a3b69', bg: 'bg-blue-500/5', border: 'border-blue-500/15',
     fee: 4, feeMin: 0,
     features: [
       { name: 'Eventos ilimitados', included: true },
@@ -113,7 +113,7 @@ const plans: Plan[] = [
   },
   {
     id: 'enterprise', name: 'Enterprise', tagline: 'Para empresas',
-    monthlyPrice: 499, color: '#1a0e14', bg: 'bg-espresso/5', border: 'border-espresso/10',
+    monthlyPrice: 499, color: '#1a0e14', bg: 'bg-slate-900/5', border: 'border-slate-900/10',
     fee: 2.5, feeMin: 0,
     features: [
       { name: 'Tudo do Pro', included: true },
@@ -142,25 +142,25 @@ export default function PricingSection() {
   return (
     <section className="py-28 relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-0 w-[500px] h-[500px] bg-plum/[0.03] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-plum/[0.02] rounded-full blur-3xl" />
+        <div className="absolute top-20 left-0 w-[500px] h-[500px] bg-blue-500/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/[0.02] rounded-full blur-3xl" />
       </div>
       <div className="max-w-7xl mx-auto px-6 relative">
         <div className="text-center mb-14">
-          <span className="text-[10px] font-medium tracking-[0.35em] uppercase" style={{ color: 'var(--plum)' }}>Planos</span>
-          <h2 className="font-serif text-4xl mt-4 mb-3" style={{ color: 'var(--espresso)' }}>
-            Comece <em style={{ color: 'var(--plum)' }}>gratis</em>, escalone depois
+          <span className="text-[10px] font-medium tracking-[0.35em] uppercase" className="text-blue-500">Planos</span>
+          <h2 className=" text-4xl mt-4 mb-3" className="text-slate-900">
+            Comece <em className="text-blue-500">gratis</em>, escalone depois
           </h2>
-          <p className="text-sm max-w-lg mx-auto leading-relaxed" style={{ color: 'var(--espresso)', opacity: 0.45 }}>
+          <p className="text-sm max-w-lg mx-auto leading-relaxed" className="text-slate-500">
             Crie eventos sem pagar nada. So pague quando vender. Quanto mais voce cresce, menos paga por ingresso.
           </p>
 
           <div className="flex items-center justify-center gap-3 mt-6">
-            <span className={`text-sm ${period === 'mensal' ? 'text-espresso font-medium' : 'text-espresso/30'}`}>Mensal</span>
-            <button onClick={() => setPeriod(period === 'mensal' ? 'anual' : 'mensal')} className="w-14 h-7 rounded-full p-0.5 transition-colors" style={{ background: period === 'anual' ? 'var(--plum)' : 'var(--espresso-15)' }}>
-              <div className={`w-6 h-6 rounded-full bg-cream shadow-sm transition-transform ${period === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
+            <span className={`text-sm ${period === 'mensal' ? 'text-espresso font-medium' : 'text-slate-400'}`}>Mensal</span>
+            <button onClick={() => setPeriod(period === 'mensal' ? 'anual' : 'mensal')} className="w-14 h-7 rounded-full p-0.5 transition-colors" style={{ background: period === 'anual' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'rgba(15,23,42,0.15)' }}>
+              <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${period === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
-            <span className={`text-sm ${period === 'anual' ? 'text-espresso font-medium' : 'text-espresso/30'}`}>Anual</span>
+            <span className={`text-sm ${period === 'anual' ? 'text-espresso font-medium' : 'text-slate-400'}`}>Anual</span>
             {period === 'anual' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">-20%</span>}
           </div>
         </div>
@@ -174,8 +174,8 @@ export default function PricingSection() {
             { icon: Zap, text: 'Cancele quando quiser' },
           ].map(item => (
             <div key={item.text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/40 border border-white/60">
-              <item.icon className="w-4 h-4" style={{ color: 'var(--plum)' }} />
-              <span className="text-xs text-espresso/60">{item.text}</span>
+              <item.icon className="w-4 h-4" className="text-blue-500" />
+              <span className="text-xs text-slate-500">{item.text}</span>
             </div>
           ))}
         </div>
@@ -185,22 +185,22 @@ export default function PricingSection() {
             const price = period === 'anual' ? Math.round(p.monthlyPrice * 0.8) : p.monthlyPrice
             const Icon = p.id === 'free' ? Gift : p.id === 'starter' ? Zap : p.id === 'plus' ? Star : p.id === 'pro' ? Crown : Shield
             return (
-              <div key={p.id} className={`relative p-5 rounded-3xl border backdrop-blur-sm transition-all hover:shadow-xl hover:-translate-y-1 ${p.bg} ${p.border} ${p.popular ? 'ring-2 ring-plum/30 scale-[1.02] lg:scale-[1.03]' : ''} ${p.free ? 'ring-2 ring-green-400/30' : ''}`}>
-                {p.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-cream" style={{ background: 'var(--plum)' }}>Mais Popular</span>}
-                {p.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-cream bg-green-500">Gratis</span>}
+              <div key={p.id} className={`relative p-5 rounded-3xl border backdrop-blur-sm transition-all hover:shadow-xl hover:-translate-y-1 ${p.bg} ${p.border} ${p.popular ? 'ring-2 ring-blue-500/30 scale-[1.02] lg:scale-[1.03]' : ''} ${p.free ? 'ring-2 ring-green-400/30' : ''}`}>
+                {p.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-white" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}>Mais Popular</span>}
+                {p.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-white bg-green-500">Gratis</span>}
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${p.color}15` }}>
                   <Icon className="w-5 h-5" style={{ color: p.color }} />
                 </div>
-                <h3 className="font-serif text-lg mb-0.5" style={{ color: 'var(--espresso)' }}>{p.name}</h3>
-                <p className="text-xs mb-3" style={{ color: 'var(--espresso)', opacity: 0.35 }}>{p.tagline}</p>
+                <h3 className=" text-lg mb-0.5" className="text-slate-900">{p.name}</h3>
+                <p className="text-xs mb-3" className="text-slate-400">{p.tagline}</p>
 
                 <div className="flex items-baseline gap-1 mb-2">
                   {p.free ? (
-                    <span className="font-serif text-3xl text-green-600">Gratis</span>
+                    <span className=" text-3xl text-green-600">Gratis</span>
                   ) : (
                     <>
-                      <span className="font-serif text-3xl" style={{ color: p.color }}>R$ {price}</span>
-                      <span className="text-xs" style={{ color: 'var(--espresso)', opacity: 0.35 }}>/mes</span>
+                      <span className=" text-3xl" style={{ color: p.color }}>R$ {price}</span>
+                      <span className="text-xs" className="text-slate-400">/mes</span>
                     </>
                   )}
                 </div>
@@ -208,18 +208,18 @@ export default function PricingSection() {
                 {/* Tax info */}
                 <div className="mb-4 p-2.5 rounded-xl bg-white/40">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-espresso/40">Taxa por ingresso</span>
+                    <span className="text-[10px] text-slate-400">Taxa por ingresso</span>
                     <span className="text-xs font-medium" style={{ color: p.color }}>{p.fee}%</span>
                   </div>
                   {p.feeMin > 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-espresso/40">Valor minimo</span>
-                      <span className="text-[10px] text-espresso/50">R$ {p.feeMin}</span>
+                      <span className="text-[10px] text-slate-400">Valor minimo</span>
+                      <span className="text-[10px] text-slate-400">R$ {p.feeMin}</span>
                     </div>
                   )}
                   {p.feeMin === 0 && (
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-espresso/40">Valor minimo</span>
+                      <span className="text-[10px] text-slate-400">Valor minimo</span>
                       <span className="text-[10px] text-green-600 font-medium">Isento</span>
                     </div>
                   )}
@@ -227,13 +227,13 @@ export default function PricingSection() {
 
                 <div className="space-y-2 mb-5">
                   {p.features.map(f => (
-                    <div key={f.name} className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--espresso)', opacity: f.included ? 0.55 : 0.15 }}>
+                    <div key={f.name} className="flex items-center gap-2 text-[11px]" className={f.included ? 'text-slate-500' : 'text-slate-300'}>
                       {f.included ? <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> : <X className="w-3.5 h-3.5 flex-shrink-0" />}
                       {f.name}
                     </div>
                   ))}
                 </div>
-                <button className={`w-full py-2.5 rounded-full text-xs font-medium transition-all ${p.popular ? 'text-cream hover:shadow-glow' : p.free ? 'text-cream hover:shadow-lg' : 'border hover:bg-plum/5'}`} style={p.popular ? { background: 'var(--plum)' } : p.free ? { background: '#22c55e' } : { borderColor: 'var(--plum-30)', color: 'var(--plum)' }}>
+                <button className={`w-full py-2.5 rounded-full text-xs font-medium transition-all ${p.popular ? 'text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]' : p.free ? 'text-white hover:shadow-lg' : 'border hover:bg-blue-50'}`} style={p.popular ? { background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' } : p.free ? { background: '#22c55e' } : { borderColor: 'rgba(59,130,246,0.3)', color: '#3b82f6' }}>
                   {p.free ? 'Criar Evento Gratis' : 'Comecar'}
                 </button>
               </div>
@@ -245,7 +245,7 @@ export default function PricingSection() {
         <div className="mt-8 p-4 rounded-2xl bg-white/40 border border-white/60 flex items-center gap-3">
           <Calculator className="w-5 h-5 text-plum flex-shrink-0" />
           <div>
-            <p className="text-xs text-espresso/60">
+            <p className="text-xs text-slate-500">
               <strong>Exemplo:</strong> Um ingresso de R$ 100 — no plano <strong>Gratuito</strong> voce paga R$ 12 de taxa. 
               No plano <strong>Pro</strong>, voce paga R$ 4 + R$ 199/mes. A partir de 20 ingressos/mes, o Pro sai mais barato.
             </p>
@@ -261,9 +261,9 @@ export default function PricingSection() {
             { icon: Zap, title: 'Ativacao imediata', desc: 'Comece em minutos' },
           ].map(t => (
             <div key={t.title} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
-              <t.icon className="w-5 h-5 mx-auto mb-2" style={{ color: 'var(--plum)' }} />
-              <div className="text-xs font-medium" style={{ color: 'var(--espresso)' }}>{t.title}</div>
-              <div className="text-[10px]" style={{ color: 'var(--espresso)', opacity: 0.35 }}>{t.desc}</div>
+              <t.icon className="w-5 h-5 mx-auto mb-2" className="text-blue-500" />
+              <div className="text-xs font-medium" className="text-slate-900">{t.title}</div>
+              <div className="text-[10px]" className="text-slate-400">{t.desc}</div>
             </div>
           ))}
         </div>

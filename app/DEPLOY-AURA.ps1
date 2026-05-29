@@ -8,7 +8,7 @@
 # ============================================
 
 $ErrorActionPreference = "Stop"
-$Host.UI.RawUI.WindowTitle = "Aura Tickets - Deploy"
+$Host.UI.RawUI.WindowTitle = "Evokaa Tickets - Deploy"
 
 function Write-Header($text) {
     Write-Host "`n========================================" -ForegroundColor Cyan

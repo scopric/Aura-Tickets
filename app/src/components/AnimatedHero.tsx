@@ -268,7 +268,7 @@ export default function AnimatedHero() {
         {/* CTAs */}
         <div className="hero-cta-group flex flex-col sm:flex-row items-center justify-center gap-4">
           <Link
-            to="/dashboard"
+            to="/producer/dashboard"
             className="group relative px-8 py-4 bg-plum text-cream font-medium rounded-full transition-all duration-500 hover:shadow-glow hover:scale-105 overflow-hidden"
           >
             <span className="relative z-10 flex items-center gap-2">
@@ -278,7 +278,7 @@ export default function AnimatedHero() {
             <div className="absolute inset-0 bg-gradient-to-r from-plum to-plum/80 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           </Link>
           <Link
-            to="/event/noite-eletro-2025"
+            to="/event/festival-de-verao-2025"
             className="group flex items-center gap-3 px-8 py-4 border border-espresso/15 text-espresso font-medium rounded-full transition-all duration-300 hover:bg-espresso/5 hover:border-espresso/25"
           >
             <span className="w-8 h-8 rounded-full bg-plum/10 flex items-center justify-center transition-all group-hover:bg-plum group-hover:scale-110">

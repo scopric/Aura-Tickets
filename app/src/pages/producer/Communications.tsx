@@ -47,24 +47,24 @@ export default function ProducerCommunications() {
       frontStatus = 'rascunho'
     }
 
-    // Mock realista de métricas para o layout baseado nas taxas históricas
+    // Métricas — em produção viriam de tabela de analytics ou provedor de envio
     let mockOpen = 0
     let mockClick = 0
-    let mockSent = 1 // Padrão unitário
+    let mockSent = 0
 
     if (dbComm.status === 'sent') {
       if (dbComm.type === 'email') {
-        mockOpen = Math.floor(Math.random() * 30) + 40 // 40-70%
-        mockClick = Math.floor(Math.random() * 15) + 10 // 10-25%
-        mockSent = Math.floor(Math.random() * 800) + 150
+        mockOpen = 0
+        mockClick = 0
+        mockSent = 0
       } else if (dbComm.type === 'sms') {
-        mockOpen = Math.floor(Math.random() * 10) + 85 // 85-95%
-        mockClick = Math.floor(Math.random() * 20) + 20 // 20-40%
-        mockSent = Math.floor(Math.random() * 100) + 20
+        mockOpen = 0
+        mockClick = 0
+        mockSent = 0
       } else {
-        mockOpen = Math.floor(Math.random() * 20) + 20 // 20-40%
-        mockClick = Math.floor(Math.random() * 10) + 5 // 5-15%
-        mockSent = Math.floor(Math.random() * 400) + 100
+        mockOpen = 0
+        mockClick = 0
+        mockSent = 0
       }
     }
 
@@ -100,8 +100,11 @@ export default function ProducerCommunications() {
       if (error) throw error
 
       if (!dbComms || dbComms.length === 0) {
-        // Realizar auto-seed de campanhas para produtores novos
-        await seedInitialCampaigns(user.id)
+        // Auto-seed apenas em desenvolvimento para demonstração
+        if (import.meta.env.DEV) {
+          await seedInitialCampaigns(user.id)
+        }
+        setIsLoading(false)
         return
       }
 

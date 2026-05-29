@@ -1,18 +1,19 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Ticket, Heart, MessageSquare, QrCode, Clock, MapPin, Calendar,
   ChevronRight, Star, Share2, Download, Wine, UtensilsCrossed,
   Package, Send, User, Bell, Search, Sparkles,
-  ShoppingCart, Minus, Plus, Image as ImageIcon
+  ShoppingCart, Minus, Plus, Image as ImageIcon, Loader2
 } from 'lucide-react'
 import gsap from 'gsap'
-import { menuItems } from '../../data/mockData'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { useUserTickets } from '../../hooks/useCheckout'
 import { useAuth } from '../../hooks/useAuth'
 import TicketQRCode from '../../components/TicketQRCode'
+import { useEventMenuItems } from '../../hooks/useMenuItems'
+import { useChat } from '../../hooks/useChat'
 import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
@@ -22,60 +23,77 @@ export default function AppHub() {
   const [cart, setCart] = useState<Record<string, number>>({})
   const [chatMessage, setChatMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
+  const [menuCategory, setMenuCategory] = useState<string>('Todos')
   
-  const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
-  const { data: userTickets = [], isLoading: isLoadingTickets } = useUserTickets()
   const { user } = useAuth()
+  const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
+  const { data: dbTickets = [], isLoading: isLoadingTickets } = useUserTickets()
 
-  const [chatMessages, setChatMessages] = useState([
-    { id: '1', from: 'producer', text: 'Olá! Bem-vindo ao Noite Eletro 2025. Como posso ajudar?', time: '14:30' },
-    { id: '2', from: 'user', text: 'Olá! A mesa coletiva já foi definida?', time: '14:32' },
-    { id: '3', from: 'producer', text: 'Sim! Você foi alocado na Mesa Aurora. Em 48h você recebe os perfis dos colegas.', time: '14:33' },
-  ])
-  
+  // Evento ativo para o cardápio e chat (primeiro evento dos ingressos do usuário)
+  const activeEventId = useMemo(() => {
+    const activeTicket = dbTickets.find(t => t.status === 'active')
+    return activeTicket?.events?.id || null
+  }, [dbTickets])
+
+  const activeEventName = useMemo(() => {
+    const activeTicket = dbTickets.find(t => t.status === 'active')
+    return activeTicket?.events?.title || 'Evento'
+  }, [dbTickets])
+
+  const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
+  const { messages: chatMessages, isLoading: isLoadingChat, sendMessage, markAsRead } = useChat(activeEventId)
+
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     gsap.fromTo('.hub-tab-content', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' })
   }, [activeTab])
 
+  // Marcar mensagens como lidas quando abrir a aba de chat
+  useEffect(() => {
+    if (activeTab === 'chat' && activeEventId) {
+      markAsRead.mutate()
+    }
+  }, [activeTab, activeEventId])
+
   const toggleFav = (id: string) => setFavorites(prev => ({ ...prev, [id]: !prev[id] }))
 
-  // Meus ingressos vindos do banco de dados via useUserTickets
-  const myTickets = userTickets.map(t => ({
-    id: t.id,
-    eventId: t.events?.id || t.event_id || '',
-    eventName: t.events?.title || 'Evento',
-    date: t.events?.date
+  // Mapear tickets do DB para o formato do layout
+  const myTickets = (dbTickets || []).map(t => {
+    const eventDate = t.events?.date
       ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
-      : 'Data a definir',
-    time: t.events?.time || '--:--',
-    location: t.events?.venue_name || 'Local a definir',
-    type: t.ticket_types?.name || 'Ingresso',
-    seat: t.seat_info || '-',
-    price: t.ticket_types?.price || 0,
-    qr: t.qr_code || t.code || '',
-    status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'ativo',
-  }))
+      : 'Data a definir'
+    return {
+      id: t.id,
+      eventId: t.events?.id || t.event_id || '',
+      eventName: t.events?.title || 'Evento',
+      date: eventDate,
+      time: t.events?.time || '--:--',
+      location: t.events?.venue_name || 'Local a definir',
+      type: t.ticket_types?.name || 'Ingresso',
+      seat: t.seat_info || 'Livre',
+      price: t.ticket_types?.price || 0,
+      qr: t.code || t.qr_code || '',
+      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'ativo',
+    }
+  })
 
   const handleSendChat = () => {
     if (!chatMessage.trim()) return
-    setChatMessages(prev => [...prev, { id: Date.now().toString(), from: 'user', text: chatMessage, time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }])
-    setChatMessage('')
-    setTimeout(() => {
-      setChatMessages(prev => [...prev, { id: Date.now().toString() + 'r', from: 'producer', text: 'Obrigado pela mensagem! Nossa equipe responderá em breve.', time: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }])
-    }, 1500)
+    sendMessage.mutate(chatMessage, {
+      onSuccess: () => setChatMessage(''),
+      onError: (err: any) => toast.error(err.message || 'Erro ao enviar mensagem'),
+    })
   }
 
-  const eventMenu = menuItems.filter(m => m.available)
   const cartTotal = Object.entries(cart).reduce((s, [id, qty]) => {
-    const item = eventMenu.find(m => m.id === id)
+    const item = dbMenuItems.find(m => m.id === id)
     return s + (item ? item.price * qty : 0)
   }, 0)
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
   const tabs = [
-    { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length },
+    { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length > 0 ? myTickets.length : undefined },
     { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
     { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare, count: 1 },
@@ -114,7 +132,11 @@ export default function AppHub() {
           </div>
           <div>
             <p className="text-xs text-cream/40">Olá,</p>
+<<<<<<< HEAD
             <h1 className="font-serif text-xl text-cream">{user?.full_name || user?.name || 'Participante'}</h1>
+=======
+            <h1 className="font-serif text-xl text-cream">{user?.name || user?.full_name || 'Participante'}</h1>
+>>>>>>> 3177880
           </div>
         </div>
       </div>
@@ -167,6 +189,7 @@ export default function AppHub() {
             {/* Tickets */}
             <h2 className="text-sm font-medium text-cream/60 mb-2">Meus Ingressos</h2>
             {isLoadingTickets ? (
+<<<<<<< HEAD
               <div className="space-y-3">
                 {[1, 2].map(i => (
                   <div key={i} className="h-32 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
@@ -177,6 +200,19 @@ export default function AppHub() {
                 <Ticket className="w-8 h-8 text-cream/20 mx-auto mb-3" />
                 <p className="text-sm text-cream/40">Você ainda não tem ingressos.</p>
                 <p className="text-[11px] text-cream/25 mt-1">Explore eventos e faça sua primeira compra!</p>
+=======
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-plum animate-spin" />
+              </div>
+            ) : myTickets.length === 0 ? (
+              <div className="text-center py-12">
+                <Ticket className="w-12 h-12 text-cream/10 mx-auto mb-4" />
+                <p className="text-cream/30 text-sm mb-2">Você ainda não tem ingressos</p>
+                <p className="text-cream/20 text-xs mb-4">Explore os eventos e garanta seu lugar</p>
+                <button onClick={() => setActiveTab('eventos')} className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">
+                  Explorar Eventos
+                </button>
+>>>>>>> 3177880
               </div>
             ) : (
               <div className="space-y-3">
@@ -318,51 +354,82 @@ export default function AppHub() {
         {/* === CARDAPIO === */}
         {activeTab === 'cardapio' && (
           <div className="space-y-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20">
-              <h3 className="text-sm font-medium text-cream mb-1">Noite Eletro 2025</h3>
-              <p className="text-[11px] text-cream/40">Compre antecipado e retire no evento</p>
-            </div>
+            {activeEventId ? (
+              <>
+                <div className="p-4 rounded-2xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20">
+                  <h3 className="text-sm font-medium text-cream mb-1">
+                    {dbTickets.find(t => t.events?.id === activeEventId)?.events?.title || 'Evento'}
+                  </h3>
+                  <p className="text-[11px] text-cream/40">Compre antecipado e retire no evento</p>
+                </div>
 
-            {/* Categories */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {['Todos', 'Bebidas', 'Comidas', 'Combos', 'Serviços'].map((cat, i) => (
-                <button key={cat} className={`px-3 py-1.5 text-[11px] font-medium rounded-full whitespace-nowrap transition-all ${i === 0 ? 'bg-plum text-cream' : 'bg-white/[0.05] text-cream/40 hover:bg-white/10'}`}>
-                  {cat}
-                </button>
-              ))}
-            </div>
+                {/* Categories */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {['Todos', 'bebida', 'comida', 'combo', 'servico'].map((cat) => (
+                    <button 
+                      key={cat} 
+                      onClick={() => setMenuCategory(cat)}
+                      className={`px-3 py-1.5 text-[11px] font-medium rounded-full whitespace-nowrap transition-all ${menuCategory === cat ? 'bg-plum text-cream' : 'bg-white/[0.05] text-cream/40 hover:bg-white/10'}`}
+                    >
+                      {cat === 'Todos' ? 'Todos' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                    </button>
+                  ))}
+                </div>
 
-            {/* Menu items */}
-            <div className="space-y-2">
-              {eventMenu.map(item => {
-                const qty = cart[item.id] || 0
-                const icons: Record<string, typeof Wine> = { bebida: Wine, comida: UtensilsCrossed, combo: Package, merchandise: Package, servico: Sparkles }
-                const Icon = icons[item.category] || Package
-                return (
-                  <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <div className="w-10 h-10 rounded-lg bg-plum/10 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-4 h-4 text-plum" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-cream font-medium">{item.name}</div>
-                      <div className="text-[10px] text-cream/30 truncate">{item.description}</div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <div className="text-sm text-cream font-medium">R$ {item.price}</div>
-                      {qty > 0 ? (
-                        <div className="flex items-center gap-2 mt-1">
-                          <button onClick={() => { const n = { ...cart }; if (n[item.id] > 1) n[item.id]--; else delete n[item.id]; setCart(n) }} className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><Minus className="w-3 h-3" /></button>
-                          <span className="text-xs w-4 text-center">{qty}</span>
-                          <button onClick={() => setCart({ ...cart, [item.id]: (cart[item.id] || 0) + 1 })} className="w-6 h-6 rounded-full bg-plum flex items-center justify-center"><Plus className="w-3 h-3" /></button>
-                        </div>
-                      ) : (
-                        <button onClick={() => { setCart({ ...cart, [item.id]: 1 }); toast.success(`${item.name} adicionado!`) }} className="mt-1 px-3 py-1 bg-plum/20 text-plum text-[10px] rounded-full hover:bg-plum hover:text-cream transition-all">Adicionar</button>
-                      )}
-                    </div>
+                {/* Menu items */}
+                {isLoadingMenu ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 text-plum animate-spin" />
                   </div>
-                )
-              })}
-            </div>
+                ) : dbMenuItems.length === 0 ? (
+                  <div className="text-center py-12 text-cream/30 text-sm">
+                    Cardápio não disponível para este evento.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {dbMenuItems
+                      .filter(item => menuCategory === 'Todos' || item.category === menuCategory)
+                      .map(item => {
+                        const qty = cart[item.id] || 0
+                        const icons: Record<string, typeof Wine> = { bebida: Wine, comida: UtensilsCrossed, combo: Package, merchandise: Package, servico: Sparkles }
+                        const Icon = icons[item.category] || Package
+                        return (
+                          <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                            <div className="w-10 h-10 rounded-lg bg-plum/10 flex items-center justify-center flex-shrink-0">
+                              <Icon className="w-4 h-4 text-plum" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm text-cream font-medium">{item.name}</div>
+                              <div className="text-[10px] text-cream/30 truncate">{item.description}</div>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <div className="text-sm text-cream font-medium">R$ {item.price}</div>
+                              {qty > 0 ? (
+                                <div className="flex items-center gap-2 mt-1">
+                                  <button onClick={() => { const n = { ...cart }; if (n[item.id] > 1) n[item.id]--; else delete n[item.id]; setCart(n) }} className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center"><Minus className="w-3 h-3" /></button>
+                                  <span className="text-xs w-4 text-center">{qty}</span>
+                                  <button onClick={() => setCart({ ...cart, [item.id]: (cart[item.id] || 0) + 1 })} className="w-6 h-6 rounded-full bg-plum flex items-center justify-center"><Plus className="w-3 h-3" /></button>
+                                </div>
+                              ) : (
+                                <button onClick={() => { setCart({ ...cart, [item.id]: 1 }); toast.success(`${item.name} adicionado!`) }} className="mt-1 px-3 py-1 bg-plum/20 text-plum text-[10px] rounded-full hover:bg-plum hover:text-cream transition-all">Adicionar</button>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-16">
+                <ShoppingCart className="w-12 h-12 text-cream/10 mx-auto mb-4" />
+                <p className="text-cream/30 text-sm mb-2">Você não tem ingressos ativos</p>
+                <p className="text-cream/20 text-xs">Compre um ingresso para ver o cardápio do evento</p>
+                <button onClick={() => setActiveTab('eventos')} className="mt-4 px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">
+                  Ver Eventos
+                </button>
+              </div>
+            )}
 
             {/* Cart summary */}
             {cartCount > 0 && (
@@ -382,36 +449,60 @@ export default function AppHub() {
         {/* === CHAT === */}
         {activeTab === 'chat' && (
           <div className="space-y-4">
-            {/* Producer info */}
-            <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-plum/20 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-plum" />
+            {!activeEventId ? (
+              <div className="text-center py-16">
+                <MessageSquare className="w-12 h-12 text-cream/10 mx-auto mb-4" />
+                <p className="text-cream/30 text-sm mb-2">Chat disponível para eventos ativos</p>
+                <p className="text-cream/20 text-xs">Adquira um ingresso para conversar com o produtor</p>
               </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-cream">Evokaa Eventos</div>
-                <div className="text-[11px] text-cream/30">Noite Eletro 2025 · Produtor</div>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-[10px] text-green-400">Online</span>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="space-y-3 pb-4">
-              {chatMessages.map(msg => (
-                <div key={msg.id} className={`flex ${msg.from === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[80%] p-3 rounded-2xl ${
-                    msg.from === 'user'
-                      ? 'bg-plum text-cream rounded-br-md'
-                      : 'bg-white/[0.06] text-cream/80 rounded-bl-md border border-white/[0.06]'
-                  }`}>
-                    <p className="text-[13px] leading-relaxed">{msg.text}</p>
-                    <span className={`text-[9px] mt-1 block ${msg.from === 'user' ? 'text-cream/50' : 'text-cream/25'}`}>{msg.time}</span>
+            ) : (
+              <>
+                {/* Producer info */}
+                <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-full bg-plum/20 flex items-center justify-center">
+                    <Sparkles className="w-6 h-6 text-plum" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-cream">Produtor</div>
+                    <div className="text-[11px] text-cream/30">{activeEventName} · Evento</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-[10px] text-green-400">Online</span>
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Messages */}
+                {isLoadingChat ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 text-plum animate-spin" />
+                  </div>
+                ) : chatMessages.length === 0 ? (
+                  <div className="text-center py-12">
+                    <MessageSquare className="w-10 h-10 text-cream/10 mx-auto mb-3" />
+                    <p className="text-cream/30 text-sm">Nenhuma mensagem ainda</p>
+                    <p className="text-cream/20 text-xs mt-1">Envie a primeira mensagem para o produtor!</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 pb-4">
+                    {chatMessages.map(msg => (
+                      <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[80%] p-3 rounded-2xl ${
+                          msg.sender_id === user?.id
+                            ? 'bg-plum text-cream rounded-br-md'
+                            : 'bg-white/[0.06] text-cream/80 rounded-bl-md border border-white/[0.06]'
+                        }`}>
+                          <p className="text-[13px] leading-relaxed">{msg.content}</p>
+                          <span className={`text-[9px] mt-1 block ${msg.sender_id === user?.id ? 'text-cream/50' : 'text-cream/25'}`}>
+                            {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
             {/* Input */}
             <div className="sticky bottom-0 bg-void pt-2 pb-4">
@@ -423,11 +514,16 @@ export default function AppHub() {
                   value={chatMessage}
                   onChange={e => setChatMessage(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-                  placeholder="Escreva uma mensagem..."
-                  className="flex-1 px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-cream placeholder:text-cream/20 focus:outline-none focus:border-plum/30"
+                  placeholder={activeEventId ? "Escreva uma mensagem..." : "Adquira um ingresso para chat"}
+                  disabled={!activeEventId || sendMessage.isPending}
+                  className="flex-1 px-4 py-2.5 bg-white/[0.05] border border-white/[0.08] rounded-xl text-sm text-cream placeholder:text-cream/20 focus:outline-none focus:border-plum/30 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <button onClick={handleSendChat} className="p-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all">
-                  <Send className="w-4 h-4" />
+                <button 
+                  onClick={handleSendChat} 
+                  disabled={!activeEventId || sendMessage.isPending || !chatMessage.trim()}
+                  className="p-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {sendMessage.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
             </div>

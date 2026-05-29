@@ -40,7 +40,7 @@ const statusConfig: Record<FeedbackStatus, { label: string; color: string; bg: s
 }
 
 export default function AdminFeedback() {
-  const [items, setItems] = useState<FeedbackItem[]>(feedbackMock)
+  const [items, setItems] = useState<FeedbackItem[]>(import.meta.env.DEV ? feedbackMock : [])
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<FeedbackType | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus | 'all'>('all')

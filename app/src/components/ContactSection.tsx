@@ -4,11 +4,13 @@ import {
   CheckCircle2, Globe
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { supabase } from '../lib/supabase'
+import { useContact } from '../hooks/useContact'
 
 export default function ContactSection() {
   const [form, setForm] = useState({ name: '', email: '', subject: '', message: '' })
   const [sent, setSent] = useState(false)
+
+  const { mutateAsync: sendContact } = useContact()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,19 +24,12 @@ export default function ContactSection() {
     }
 
     try {
-      const { error } = await supabase.from('contact_messages').insert({
+      await sendContact({
         name: form.name.trim(),
         email: form.email.trim(),
         subject: form.subject.trim() || 'Contato via site',
         message: form.message.trim(),
-        page: window.location.pathname,
       })
-
-      if (error) {
-        console.error('[Contact]', error)
-        toast.error('Erro ao enviar. Tente novamente.')
-        return
-      }
 
       setSent(true)
       toast.success('Mensagem enviada! Responderemos em ate 24h.')
@@ -49,7 +44,7 @@ export default function ContactSection() {
   }
 
   const contactInfo = [
-    { icon: Mail, label: 'Email', value: 'contato@aura.events', href: 'mailto:contato@aura.events' },
+    { icon: Mail, label: 'Email', value: 'contato@evokaa.events', href: 'mailto:contato@evokaa.events' },
     { icon: Phone, label: 'Telefone', value: '(11) 4000-2025', href: 'tel:+551140002025' },
     { icon: MapPin, label: 'Endereco', value: 'Rua Augusta, 1500 — Consolacao, Sao Paulo/SP', href: '#' },
     { icon: Clock, label: 'Atendimento', value: 'Seg a Sex: 9h as 18h | Sab: 10h as 14h', href: '#' },
@@ -59,20 +54,20 @@ export default function ContactSection() {
     <section className="py-28 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-plum/[0.03] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-plum/[0.02] rounded-full blur-3xl" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-500/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-blue-500/[0.02] rounded-full blur-3xl" />
       </div>
 
       <div className="max-w-6xl mx-auto px-6 relative">
         {/* Header */}
         <div className="text-center mb-16">
-          <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-            <MessageCircle className="w-6 h-6 text-plum" />
+          <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
+            <MessageCircle className="w-6 h-6 text-blue-500" />
           </div>
-          <h2 className="font-serif text-4xl text-espresso mb-3">
-            Fale com a <em style={{ color: 'var(--plum)' }}>Evokaa</em>
+          <h2 className=" text-4xl text-slate-900 mb-3">
+            Fale com a <em className="text-gradient">Evokaa</em>
           </h2>
-          <p className="text-sm text-espresso/50 max-w-md mx-auto leading-relaxed">
+          <p className="text-sm text-slate-900/50 max-w-md mx-auto leading-relaxed">
             Tem uma ideia, duvida ou quer criar algo incrivel junto? Estamos aqui para ouvir voce.
           </p>
         </div>
@@ -86,14 +81,14 @@ export default function ContactSection() {
                 <a
                   key={item.label}
                   href={item.href}
-                  className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm hover:bg-white/80 hover:border-plum/20 transition-all group"
+                  className="flex items-start gap-4 p-4 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm hover:bg-white/80 hover:border-blue-200 transition-all group"
                 >
-                  <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center flex-shrink-0 group-hover:bg-plum/20 transition-colors">
-                    <item.icon className="w-4 h-4 text-plum" />
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-plum/20 transition-colors">
+                    <item.icon className="w-4 h-4 text-blue-500" />
                   </div>
                   <div>
-                    <div className="text-[10px] font-medium text-espresso/30 uppercase tracking-wider">{item.label}</div>
-                    <div className="text-sm text-espresso mt-0.5">{item.value}</div>
+                    <div className="text-[10px] font-medium text-slate-900/30 uppercase tracking-wider">{item.label}</div>
+                    <div className="text-sm text-slate-900 mt-0.5">{item.value}</div>
                   </div>
                 </a>
               ))}
@@ -101,7 +96,7 @@ export default function ContactSection() {
 
             {/* Social */}
             <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-              <div className="text-[10px] font-medium text-espresso/30 uppercase tracking-wider mb-3">Redes Sociais</div>
+              <div className="text-[10px] font-medium text-slate-900/30 uppercase tracking-wider mb-3">Redes Sociais</div>
               <div className="flex items-center gap-3">
                 {[
                   { icon: Instagram, label: 'Instagram', href: '#' },
@@ -111,7 +106,7 @@ export default function ContactSection() {
                   <a
                     key={social.label}
                     href={social.href}
-                    className="w-10 h-10 rounded-xl bg-canvas flex items-center justify-center text-espresso/30 hover:bg-plum/10 hover:text-plum transition-all"
+                    className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-900/30 hover:bg-blue-500/10 hover:text-blue-500 transition-all"
                     title={social.label}
                   >
                     <social.icon className="w-4 h-4" />
@@ -138,40 +133,40 @@ export default function ContactSection() {
                   <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                     <CheckCircle2 className="w-8 h-8 text-green-600" />
                   </div>
-                  <h3 className="font-serif text-xl text-espresso mb-2">Mensagem enviada!</h3>
-                  <p className="text-sm text-espresso/50">Obrigado pelo contato. Nossa equipe vai responder em ate 24h.</p>
+                  <h3 className=" text-xl text-slate-900 mb-2">Mensagem enviada!</h3>
+                  <p className="text-sm text-slate-900/50">Obrigado pelo contato. Nossa equipe vai responder em ate 24h.</p>
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-[10px] font-medium text-espresso/40 uppercase tracking-wider mb-1.5 block">Nome *</label>
+                      <label className="text-[10px] font-medium text-slate-900/40 uppercase tracking-wider mb-1.5 block">Nome *</label>
                       <input
                         type="text"
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
                         placeholder="Seu nome"
-                        className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors"
+                        className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-slate-900 placeholder:text-slate-900/30 focus:outline-none focus:border-blue-300 transition-colors"
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-medium text-espresso/40 uppercase tracking-wider mb-1.5 block">Email *</label>
+                      <label className="text-[10px] font-medium text-slate-900/40 uppercase tracking-wider mb-1.5 block">Email *</label>
                       <input
                         type="email"
                         value={form.email}
                         onChange={e => setForm({ ...form, email: e.target.value })}
                         placeholder="seu@email.com"
-                        className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors"
+                        className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-slate-900 placeholder:text-slate-900/30 focus:outline-none focus:border-blue-300 transition-colors"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-medium text-espresso/40 uppercase tracking-wider mb-1.5 block">Assunto</label>
+                    <label className="text-[10px] font-medium text-slate-900/40 uppercase tracking-wider mb-1.5 block">Assunto</label>
                     <select
                       value={form.subject}
                       onChange={e => setForm({ ...form, subject: e.target.value })}
-                      className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/60 focus:outline-none focus:border-plum/30 transition-colors"
+                      className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-slate-900/60 focus:outline-none focus:border-blue-300 transition-colors"
                     >
                       <option value="">Selecione um assunto...</option>
                       <option value="evento">Quero criar um evento</option>
@@ -183,24 +178,24 @@ export default function ContactSection() {
                   </div>
 
                   <div>
-                    <label className="text-[10px] font-medium text-espresso/40 uppercase tracking-wider mb-1.5 block">Mensagem *</label>
+                    <label className="text-[10px] font-medium text-slate-900/40 uppercase tracking-wider mb-1.5 block">Mensagem *</label>
                     <textarea
                       value={form.message}
                       onChange={e => setForm({ ...form, message: e.target.value })}
                       placeholder="Conte-nos como podemos ajudar..."
                       rows={5}
-                      className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors resize-none"
+                      className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-slate-900 placeholder:text-slate-900/30 focus:outline-none focus:border-blue-300 transition-colors resize-none"
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full py-3.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2"
+                    className="w-full py-3.5 text-white text-sm font-medium rounded-full hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all flex items-center justify-center gap-2" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
                   >
                     <Send className="w-4 h-4" /> Enviar Mensagem
                   </button>
 
-                  <p className="text-[10px] text-espresso/20 text-center">
+                  <p className="text-[10px] text-slate-900/20 text-center">
                     Ao enviar, voce concorda com nossa politica de privacidade.
                   </p>
                 </form>

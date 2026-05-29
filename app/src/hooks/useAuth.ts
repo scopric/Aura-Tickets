@@ -49,9 +49,9 @@ export function useAuth() {
 
   const signInMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
-      // 1. Modo demo
+      // 1. Modo demo (apenas em desenvolvimento)
       const demo = isDemoUser(email, password)
-      if (demo || FORCE_DEMO) {
+      if ((demo && import.meta.env.DEV) || FORCE_DEMO) {
         if (demo) {
           const mockUser = {
             id: demo.id,
@@ -75,53 +75,23 @@ export function useAuth() {
         throw new Error('Serviço de autenticação (Supabase) não configurado. Para testar localmente, utilize uma conta de demonstração (ex: produtor@aura.teste / senha123) ou configure o arquivo .env.local com credenciais válidas do Supabase.')
       }
 
-      // 2. Tentar login real via Supabase JS client
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (!error && data.session) {
-          return {
-            user: data.user,
-            session: {
-              access_token: data.session.access_token,
-              token_type: data.session.token_type,
-              expires_in: data.session.expires_in,
-              expires_at: data.session.expires_at,
-              refresh_token: data.session.refresh_token,
-              user: data.user,
-            },
-          }
-        }
-        if (error && error.message !== 'Invalid login credentials') {
-          console.warn('[Supabase Auth Error]', error.message)
-        }
-      } catch (e) {
-        console.warn('[Supabase Auth Exception]', e)
+      // 2. Login real via Supabase JS client (API oficial)
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        throw new Error(error.message || 'Erro ao realizar login')
+      }
+      if (!data.session) {
+        throw new Error('Sessão não retornada pelo servidor')
       }
 
-      // 3. Fallback: login via REST API raw fetch
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/auth/v1/token?grant_type=password`
-      const resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      })
-      const data = await resp.json()
-      if (!resp.ok) {
-        console.error('[Auth API Error]', resp.status, data)
-        throw new Error(data.message || data.error_description || `Erro ${resp.status}`)
-      }
       return {
         user: data.user,
         session: {
-          access_token: data.access_token,
-          token_type: data.token_type,
-          expires_in: data.expires_in,
-          expires_at: data.expires_at,
-          refresh_token: data.refresh_token,
+          access_token: data.session.access_token,
+          token_type: data.session.token_type,
+          expires_in: data.session.expires_in,
+          expires_at: data.session.expires_at,
+          refresh_token: data.session.refresh_token,
           user: data.user,
         },
       }
@@ -175,7 +145,6 @@ export function useAuth() {
         options: { data: userData },
       })
       if (error) {
-        // Se for erro de usuário já existe, pode ser que estamos em modo limitado
         if (error.message.includes('already registered') || error.message.includes('User already registered')) {
           throw new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.')
         }
@@ -193,31 +162,43 @@ export function useAuth() {
 
   const signOutMutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.auth.signOut()
-      if (error) throw error
+      try {
+        const { error } = await supabase.auth.signOut()
+        if (error) console.warn('[Logout] Supabase signOut error:', error.message)
+      } catch (e) {
+        console.warn('[Logout] Supabase signOut exception:', e)
+      }
     },
     onSuccess: () => {
-      // Limpa TODAS as chaves de sessão — inclui localStorage do Zustand e do Supabase
-      localStorage.removeItem('aura-auth')
-      // Limpa todas as chaves do Supabase Auth no localStorage (sb-<ref>-auth-token etc.)
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('sb-')) {
-          localStorage.removeItem(key)
-        }
-      })
-      // Limpa sessionStorage também (algumas configs do Supabase podem usar)
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('sb-')) {
-          sessionStorage.removeItem(key)
-        }
-      })
-      useAuthStore.getState().setUser(null)
-      useAuthStore.getState().setSession(null)
-      queryClient.clear()
-      // Força reload completo para garantir que nenhum estado persistido ressuscite
-      window.location.href = '/'
+      clearAllAuthData()
+    },
+    onError: () => {
+      // Mesmo se falhar, garante limpeza total
+      clearAllAuthData()
     },
   })
+
+  function clearAllAuthData() {
+    // Limpa TODAS as chaves de sessão — inclui localStorage do Zustand e do Supabase
+    localStorage.removeItem('aura-auth')
+    // Limpa todas as chaves do Supabase Auth no localStorage (sb-<ref>-auth-token etc.)
+    Object.keys(localStorage).forEach((key) => {
+      if (key.startsWith('sb-')) {
+        localStorage.removeItem(key)
+      }
+    })
+    // Limpa sessionStorage também
+    Object.keys(sessionStorage).forEach((key) => {
+      if (key.startsWith('sb-')) {
+        sessionStorage.removeItem(key)
+      }
+    })
+    useAuthStore.getState().setUser(null)
+    useAuthStore.getState().setSession(null)
+    queryClient.clear()
+    // Força reload completo para garantir que nenhum estado persistido ressuscite
+    window.location.replace('/')
+  }
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -249,6 +230,7 @@ export function useAuth() {
   }
 
   const logout = async () => {
+    // Logout defensivo: sempre limpa tudo, mesmo se o Supabase falhar
     try {
       // Tentar signOut do Supabase (pode falhar se for sessao demo ou expirada)
       await signOutMutation.mutateAsync()
@@ -256,23 +238,7 @@ export function useAuth() {
       // Se falhar (ex: sessao demo, sessao expirada), fazer logout manual
       console.warn('[Logout] SignOut do Supabase falhou, fazendo logout manual:', error?.message)
     } finally {
-      // SEMPRE limpar estado local, mesmo se o signOut do Supabase falhar
-      localStorage.removeItem('aura-auth')
-      Object.keys(localStorage).forEach((key) => {
-        if (key.startsWith('sb-')) {
-          localStorage.removeItem(key)
-        }
-      })
-      Object.keys(sessionStorage).forEach((key) => {
-        if (key.startsWith('sb-')) {
-          sessionStorage.removeItem(key)
-        }
-      })
-      sessionStorage.removeItem('aura_pending_checkout')
-      useAuthStore.getState().setUser(null)
-      useAuthStore.getState().setSession(null)
-      queryClient.clear()
-      window.location.href = '/'
+      clearAllAuthData()
     }
   }
 

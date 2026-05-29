@@ -117,6 +117,8 @@ export default function AuthLogin() {
     }
   }, [isAuthenticated, currentRoleContext, navigate])
 
+
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     // Log removido para producao

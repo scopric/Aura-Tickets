@@ -88,7 +88,7 @@ export function useProducerSettings() {
             pix_key: '',
             notification_settings: {},
             api_key: `ak_live_${Math.random().toString(36).substring(2, 18)}`,
-            webhook_url: `https://api.aura.events/webhook/producer-${user.id.substring(0, 8)}`,
+            webhook_url: `https://api.evokaa.events/webhook/producer-${user.id.substring(0, 8)}`,
           })
           .select()
           .single()

@@ -163,7 +163,7 @@ export default function ProducerBrand() {
             <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center">
               <QrCode className="w-16 h-16 text-espresso/20" />
             </div>
-            <button onClick={() => copyLink('https://aura.events/noite-eletro-2025')} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/50 hover:text-plum transition-colors flex items-center justify-center gap-2">
+            <button onClick={() => copyLink('https://evokaa.events/noite-eletro-2025')} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/50 hover:text-plum transition-colors flex items-center justify-center gap-2">
               <Copy className="w-3.5 h-3.5" /> Copiar Link
             </button>
           </div>

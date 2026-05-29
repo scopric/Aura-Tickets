@@ -1,4 +1,4 @@
-# Aura Tickets — Deploy Final (PowerShell)
+# Evokaa Tickets — Deploy Final (PowerShell)
 # Execute clicando com botão direito → "Executar com PowerShell"
 # Ou abra PowerShell e rode: .\DEPLOY-FINAL.ps1
 

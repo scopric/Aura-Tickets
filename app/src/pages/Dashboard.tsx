@@ -106,7 +106,7 @@ export default function Dashboard() {
                 ))}
               </div>
               <Link
-                to="/event/noite-eletro-2025"
+                to="/event/festival-de-verao-2025"
                 className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
               >
                 <Plus className="w-4 h-4" />

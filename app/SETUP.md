@@ -1,4 +1,4 @@
-# Aura Platform — Setup do Backend (Sem Pagamentos)
+# Evokaa Platform — Setup do Backend (Sem Pagamentos)
 
 ## ✅ O que foi implementado
 
@@ -68,7 +68,7 @@
 
 1. Instale a CLI do Supabase (se ainda não tiver):
 ```powershell
-cd "OneDrive\Documentos\Gemini\Antigravity\Aura Tickets\app"
+cd "OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets\app"
 npx supabase login
 ```
 
@@ -104,7 +104,7 @@ npx supabase secrets set RESEND_API_KEY=sua_chave_aqui --project-ref rwaezeqyuhx
 
 Execute o script de deploy:
 ```powershell
-cd "OneDrive\Documentos\Gemini\Antigravity\Aura Tickets\app"
+cd "OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets\app"
 npm run build
 npx vercel --prod
 ```

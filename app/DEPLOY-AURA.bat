@@ -1,8 +1,13 @@
 @echo off
 chcp 65001 >nul
-echo ==========================================
-echo   AURA TICKETS — Deploy para Vercel
-echo ==========================================
+title Evokaa Tickets - Deploy
+
+:: Este batch chama o PowerShell para executar o deploy
+:: Necessário porque o cmd não lida bem com espaços no caminho
+
+echo ============================================
+echo   AURA TICKETS — DEPLOY AUTOMATICO
+echo ============================================
 echo.
 
 set PROJECT_DIR=%~dp0

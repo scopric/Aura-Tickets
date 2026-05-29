@@ -1,7 +1,7 @@
 #requires -Version 5.1
 <#
 .SYNOPSIS
-    Inicializa o Kimi CLI com o contexto completo do projeto Aura Tickets.
+    Inicializa o Kimi CLI com o contexto completo do projeto Evokaa Tickets.
 
 .DESCRIPTION
     Este script configura e inicia o Kimi Code CLI com:
@@ -16,7 +16,7 @@
     .\Iniciar-Kimi-Aura.ps1 -Session     # Escolhe sessão para retomar
 
 .NOTES
-    Autor: Sistema Aura
+    Autor: Sistema Evokaa
     Versão: 1.0
 #>
 
@@ -38,7 +38,7 @@ $MemoryFile  = "$ProjectRoot\KIMI_MEMORY.md"
 # CABEÇALHO
 # ==========================================
 Write-Host "==========================================" -ForegroundColor Cyan
-Write-Host "   Aura Tickets - Iniciando Kimi CLI" -ForegroundColor Cyan
+Write-Host "   Evokaa Tickets - Iniciando Kimi CLI" -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host ""
 

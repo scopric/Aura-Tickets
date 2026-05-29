@@ -1,5 +1,5 @@
 -- ============================================================
--- Migration: Schema Completo Aura Tickets (30 tabelas)
+-- Migration: Schema Completo Evokaa Tickets (30 tabelas)
 -- Baseado no Documento D5 — Supabase Specdrive
 -- Adaptado para compatibilidade com tabelas existentes
 -- ============================================================
@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS public.seating_maps (
 CREATE INDEX IF NOT EXISTS idx_seating_maps_event ON seating_maps(event_id);
 
 -- ============================================================
--- Migration: Schema Completo Aura Tickets (30 tabelas)
+-- Migration: Schema Completo Evokaa Tickets (30 tabelas)
 -- Baseado no Documento D5 — Supabase Specdrive
 -- Adaptado para compatibilidade com tabelas existentes
 -- ============================================================
@@ -1171,7 +1171,7 @@ VALUES
   ('processing_fee_fixed', '{"value": 0.50}', 'Taxa fixa de processamento por transação'),
   ('minimum_withdrawal', '{"value": 50.00}', 'Valor mínimo para saque'),
   ('withdrawal_processing_days', '{"value": 2}', 'Dias para processar saque'),
-  ('platform_name', '{"value": "Aura Tickets"}', 'Nome da plataforma'),
+  ('platform_name', '{"value": "Evokaa Tickets"}', 'Nome da plataforma'),
   ('support_email', '{"value": "suporte@aura.events"}', 'Email de suporte')
 ON CONFLICT (key) DO NOTHING;
 

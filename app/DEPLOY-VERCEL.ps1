@@ -1,5 +1,5 @@
 #Requires -Version 5.1
-# Aura Tickets - Deploy Vercel
+# Evokaa Tickets - Deploy Vercel
 
 $ErrorActionPreference = "Stop"
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path

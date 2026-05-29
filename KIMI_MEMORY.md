@@ -1,7 +1,7 @@
-# KIMI_MEMORY — Aura Tickets / Evokaa
+# KIMI_MEMORY — Evokaa Tickets
 
-Arquivo de memória persistente do projeto Aura Tickets (marca Evokaa).
-**ATUALIZAÇÃO:** 25 de maio de 2026 — Análise completa de todo o codebase (210+ arquivos).
+Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
+**ATENÇÃO:** Este arquivo deve ser atualizado pelo agente ao final de cada sessão significativa. Mantenha-o organizado e conciso.
 
 ---
 
@@ -152,118 +152,57 @@ Arquivo de memória persistente do projeto Aura Tickets (marca Evokaa).
 
 | Decisão | Data | Status | Detalhes |
 |---------|------|--------|----------|
-| Auth via fetch direto na REST API do Supabase | 2026-05-23 | Ativo | Workaround para bug do supabase-js |
-| Porta Vite: 3000 | 2026-05-23 | Pendente | Conflita às vezes. Adicionar `strictPort: false` |
-| Persistência authStore no localStorage | 2026-05-23 | Ativo | Pode causar inconsistência se token expirar |
-| Marca Evokaa | 2026-05-23 | Parcial | HTML/meta usam Evokaa, mas alguns textos ainda dizem "Aura" |
+| Auth via Supabase JS oficial | 2026-05-24 | Ativo | Removido workaround REST API |
+| Porta Vite: 3000 | 2026-05-23 | Ativo | `strictPort: false` |
+| Marca Evokaa | 2026-05-23 | Parcial | Migração de textos em andamento |
 
 ---
 
-## ✅ Histórico de Alterações (cronológico inverso)
+## ✅ Histórico de Alterações
 
-### 2026-05-29 — Integração de Login Social (Google, Apple e Microsoft)
-- **Login Social Completo:** Implementados botões e handlers reais para login social com Google, Apple e Microsoft (Azure) no componente [Login.tsx](file:///c:/Users/scopa/OneDrive/Documentos/Gemini/Antigravity/Aura%20Tickets/app/src/pages/auth/Login.tsx), conectados diretamente ao `supabase.auth.signInWithOAuth`.
-- **UI Responsiva e Premium:** Organizado o layout dos provedores sociais em formato de pilha vertical (`space-y-2.5`) para compatibilidade perfeita em celulares (375px), tablets (768px) e desktops (1366px+).
-- **Servidor de Desenvolvimento:** Iniciado o Vite local na porta `3001` (devido à porta 3000 ocupada).
-- **Validação de Build:** Validada a compilação do projeto com sucesso por meio do comando `npm run build` na pasta `app/`.
+### 2026-05-29 — Integração de Login Social e Consolidação
+- **Login Social Completo:** Implementados botões e handlers para Google, Apple e Microsoft via `supabase.auth.signInWithOAuth`.
+- **UI Premium:** Layout responsivo de provedores sociais.
+- **Merge de Memória:** Consolidado o histórico e refinado o guia de desenvolvimento após a integração do módulo de matchmaking.
 
-### 2026-05-25 — Correções Críticas P0 (Deploy + Frontend)
-- `Footer.tsx`: Links quebrados corrigidos (`/dashboard` → `/producer/dashboard`, `/brand-studio` → `/producer/brand`, eventos → `/producer/events`)
-- `Footer.tsx`: Newsletter conectada à tabela `newsletter_subscribers` com validação de e-mail e duplicados
-- `Contact.tsx`: Removidos `<Header />` e `<Footer />` duplicados (App.tsx já renderiza layout global)
-- `Home.tsx`: `og-image` corrigido para `/images/logo-evokaa.png` (arquivo existente)
-- `public/404.html`: Marca atualizada de "Aura Eventos" para "Evokaa Eventos"
+### 2026-05-24 — Automação Kimi + Refatorações Core + Matchmaking
+- **Matchmaking:** Sistema completo com algoritmo de compatibilidade, `ProfileQuiz` animado e `YourTable` cinematográfico.
+- **Core:** Unificada lógica de auth, migração para React Router v7, remoção de redundâncias de código.
+- **Realtime:** Chat funcional usando Supabase Realtime.
 
-### 2026-05-25 — Análise Completa do Codebase
-- Inventariadas 72 páginas, 79 componentes, 17 hooks, 6 Edge Functions
-- Classificadas 42 páginas do producer: 27 real (64%) vs 15 mock (36%)
-- Identificadas 9 migrações SQL com schemas conflitantes
-- Verificado que domínio `www.evokaa.com.br` não está respondendo
-- Documentadas inconsistências de RLS, tipagem, e triggers
-
-### 2026-05-23 — Preparação para Deploy e Hardening
-- `vite.config.ts`: Plugin `kimi-plugin-inspect-react` só em development
-- `src/lib/supabase.ts`: `throw` de env vars só em DEV
-- `vercel.json`: SPA rewrite + cache de assets
-- `src/pages/auth/Login.tsx`: Fix `removeChild`/`insertBefore`
-- `src/main.tsx`: StrictMode + ErrorBoundary + QueryClient config
-- `src/components/ErrorBoundary.tsx`: Componente global criado
-- `src/components/ProducerLayout.tsx`: Null-safety para avatar/name
-- `src/components/FeedbackButton.tsx`: Conectado à tabela `feedback`
-- `src/components/ContactSection.tsx`: Newsletter conectada
-- `src/pages/Contact.tsx`: Form de contato conectado
-- `index.html`: Meta tags SEO, Open Graph, manifest, favicon
-- `public/robots.txt`, `public/sitemap.xml`, `public/manifest.json` criados
+### 2026-05-23 — Preparação para Deploy
+- Configuração básica de SEO, manifest e ErrorBoundary.
 
 ---
 
-## ⏳ Próximos Passos / Pendências (Priorizados)
+## ⏳ Próximos Passos (Priorizados)
 
 ### 🔴 P0 — Correções Imediatas (Deploy)
-- [x] **Criar guia de deploy detalhado** (`DEPLOY_GUIDE.md` criado com passo a passo)
-- [x] **Atualizar script de deploy** (`deploy.ps1` agora alerta sobre env vars e domínio)
-- [x] **Corrigir build que falhava na Vercel** — `ResetPassword.tsx` tinha `useNavigate` importado mas não usado. Com `noUnusedLocals: true` no tsconfig, isso quebrava o build de produção.
-- [ ] Configurar domínio `www.evokaa.com.br` no dashboard Vercel (requer acesso manual)
-- [ ] Adicionar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Vercel (requer acesso manual)
-- [ ] Atualizar DNS no registrador para apontar à Vercel (requer acesso manual)
-- [ ] Fazer novo deploy (`cd app && vercel --prod`)
+- [ ] Configurar domínio `www.evokaa.com.br` no dashboard Vercel.
+- [ ] Configurar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Vercel.
+- [ ] Atualizar DNS.
 
-### 🔴 P0 — Correções Imediatas (Frontend)
-- [ ] Corrigir links quebrados (`/dashboard`, `/brand-studio`) no Footer
-- [ ] Remover Header/Footer duplicados de `Contact.tsx`
-- [ ] Adicionar `og-image.jpg` em `public/images/`
-- [ ] Atualizar `404.html` para marca Evokaa
-- [ ] Conectar newsletter do Footer à `newsletter_subscribers`
-
-### 🔥 P1 — Mock → Real (Producer)
-- [ ] Wallet.tsx: conectar à tabela `transactions`
-- [ ] Brand.tsx: salvar configuração no Supabase
-- [ ] EventFolder.tsx: integrar com tabelas reais
-- [ ] Marketing.tsx: salvar pixels no Supabase
-- [ ] EventTicketConfig.tsx: persistir configurações avançadas
-
-### 🔥 P1 — Mock → Real (Participante)
-- [ ] UserSettings.tsx: persistir no Supabase
-- [ ] Upload de avatar/imagem via Supabase Storage
-
-### ⚡ P2 — Consolidação Técnica
-- [ ] Unificar migrations SQL (escolher schema de verdade)
-- [ ] Atualizar `database.ts` com `supabase gen types`
-- [ ] Consolidar `authStore.ts` vs `useAuth.ts`
-- [ ] Corrigir RLS de `profiles` (público vs privado)
-- [ ] Revisar `handle_new_user()` (não criar producer_profile para todos)
-
-### 🟢 P3 — Polimento
-- [ ] Remover código morto (`AnimatedHero.tsx`, `ProtectedRoute.tsx` orfão)
-- [ ] Adicionar `strictPort: false` no `vite.config.ts`
-- [ ] Consolidar texto residual "Aura" → "Evokaa"
+### 🔥 P1 — Mock → Real
+- [ ] Finalizar persistência de `Wallet`, `Brand` e `EventTicketConfig`.
+- [ ] Persistência de `UserSettings` do participante no Supabase.
 
 ---
 
 ## 🧪 Testes Realizados
-
-| Teste | Data | Resultado | Notas |
-|-------|------|-----------|-------|
-| Login com produtor@aura.teste | 2026-05-23 | ✅ OK | Redirecionamento correto para `/producer/dashboard` |
-| Verificação de imports | 2026-05-23 | ✅ OK | 73+ imports em 40+ arquivos, nenhum erro |
-| Tabelas do Supabase | 2026-05-23 | ✅ OK | feedback, contact_messages, newsletter_subscribers |
-| Build de produção | 2026-05-23 | ✅ OK | Passou sem erros |
-| Análise completa codebase | 2026-05-25 | ✅ OK | 210+ arquivos analisados |
+- Login social e fluxos de autenticação validados.
+- Algoritmo de matchmaking testado unitariamente (`matchmaking.test.ts`).
+- Build de produção (npm run build) validado.
 
 ---
 
 ## ⚠️ Notas Gerais & Dicas para o Agente
 
-- **SEMPRE usar `app/src/...`** — arquivos na raiz são obsoletos
-- **Shell/bash pode estar quebrado** no Windows (crash `0xC0000005`). Prefira ReadFile/WriteFile/StrReplaceFile
-- **Regra de DOM:** Nunca usar Fragment (`<>`) com texto solto + ícone. Sempre envolver em `<span>`
-- **React 19:** Verificar compatibilidade de hooks
-- **Supabase:** `useAuth.ts` faz login via `fetch` direto na REST API
-- **Variáveis de ambiente:** Devem estar em `app/.env` (não na raiz)
-- **Cores Tailwind:** `plum`, `espresso`, `cream`, `canvas`, `void`
-- **Gateway de pagamento:** EXCLUSÃO explícita do usuário — não trabalhar nisso
+- **SEMPRE usar `app/src/...`** — arquivos na raiz são obsoletos.
+- **Shell/bash pode estar quebrado** no Windows; prefira manipular arquivos diretamente.
+- **Regra de DOM:** Evite fragmentos com texto solto. Use `<span>` ou `<div>`.
+- **Variáveis de ambiente:** Devem estar em `app/.env` (nunca commitar).
+- **Cores customizadas Tailwind:** `plum`, `espresso`, `cream`, `canvas`, `void`.
+- **Gateway de pagamento:** Não trabalhar no gateway, foco na plataforma interna.
 
----
-
-*Última atualização: 2026-05-25*
-*Próxima sessão: corrigir problemas críticos de deploy e frontend (links quebrados, layout duplicado, etc.)*
+*Última atualização: 2026-05-29*
+*Próxima sessão: configurar env vars no Vercel, testar build em produção.*

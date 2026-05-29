@@ -98,7 +98,7 @@ const defaultBudgetItems: EventBudget[] = [
   { id: 'b3', category: 'DJ', item: 'DJ residente', estimated: 2000, actual: 2000, paid: 0, status: 'pending', vendor: 'DJ Thiago' },
   { id: 'b4', category: 'Seguranca', item: 'Equipe de seguranca', estimated: 1500, actual: 1500, paid: 0, status: 'pending', vendor: 'Alpha Security' },
   { id: 'b5', category: 'Open Bar', item: 'Bebidas e bartenders', estimated: 4000, actual: 3800, paid: 1900, status: 'pending', vendor: 'Drink Masters' },
-  { id: 'b6', category: 'Marketing', item: 'Divulgacao', estimated: 1000, actual: 800, paid: 800, status: 'paid', vendor: 'Aura Ads' },
+  { id: 'b6', category: 'Marketing', item: 'Divulgacao', estimated: 1000, actual: 800, paid: 800, status: 'paid', vendor: 'Evokaa Ads' },
   { id: 'b7', category: 'Decoracao', item: 'Tematica neon', estimated: 2000, actual: 0, paid: 0, status: 'pending' },
   { id: 'b8', category: 'Misc', item: 'Imprevistos', estimated: 1000, actual: 0, paid: 0, status: 'pending' },
 ]

@@ -44,6 +44,8 @@ export default function AuthRegister() {
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'E-mail inválido'
     if (!password) e.password = 'Senha obrigatória'
     else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
+    if (!acceptedTerms) e.terms = 'Você deve aceitar os Termos de Uso'
+    if (!acceptedPrivacy) e.privacy = 'Você deve aceitar a Política de Privacidade'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -194,9 +196,14 @@ export default function AuthRegister() {
             }}
           />
 
+          {(errors.terms || errors.privacy) && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              {errors.terms || errors.privacy}
+            </div>
+          )}
           <button 
             type="submit" 
-            disabled={isSubmitting}
+            disabled={isSubmitting || !acceptedTerms || !acceptedPrivacy}
             className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSubmitting ? (

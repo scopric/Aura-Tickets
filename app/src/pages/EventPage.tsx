@@ -132,7 +132,7 @@ export default function EventPage() {
     }
   }
 
-  // Se estiver carregando, exibe skeleton premium Aura
+  // Se estiver carregando, exibe skeleton premium Evokaa
   if (isLoading) {
     return (
       <div className="bg-canvas min-h-screen flex flex-col">
@@ -390,33 +390,17 @@ export default function EventPage() {
                 Quem Está <span className="italic text-plum">Por Dentro</span>
               </h2>
               
-              {/* Social Proof / Interest */}
-              <div className="detail-item mb-8">
-                <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
-                  Atividade Recente
-                </h4>
-                <div className="space-y-3">
-                  {[
-                    { id: '1', name: 'Ana C.', action: 'Comprou ingresso VIP', time: '2 min atrás', avatar: 'A' },
-                    { id: '2', name: 'Pedro L.', action: 'Interessado no evento', time: '5 min atrás', avatar: 'P' },
-                    { id: '3', name: 'Maria S.', action: 'Comprou Mesa Coletiva', time: '12 min atrás', avatar: 'M' },
-                  ].map((u) => (
-                    <div
-                      key={u.id}
-                      className="social-item flex items-center gap-3 p-3 rounded-xl bg-white/50 border border-white/60 hover:bg-white/80 transition-all"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-plum/10 flex items-center justify-center ring-2 ring-white">
-                        <span className="text-sm font-medium text-plum">{u.avatar}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-espresso truncate">{u.name}</p>
-                        <p className="text-xs text-espresso/50">{u.action}</p>
-                      </div>
-                      <span className="text-xs text-espresso/30">{u.time}</span>
-                    </div>
-                  ))}
+              {/* Interested Users — desativado em producao ate backend de atividade social */}
+              {import.meta.env.DEV && (
+                <div className="detail-item mb-8">
+                  <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
+                    Atividade Recente
+                  </h4>
+                  <div className="space-y-3">
+                    {[]}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Ticket Sales Status */}
               <div className="detail-item">

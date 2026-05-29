@@ -117,8 +117,10 @@ export default function ProducerCRM() {
       if (error) throw error
 
       if (!dbLeads || dbLeads.length === 0) {
-        // Realizar auto-seed se o produtor não tiver leads ainda
-        await seedInitialLeads(user.id)
+        // Auto-seed apenas em desenvolvimento para demonstração
+        if (import.meta.env.DEV) {
+          await seedInitialLeads(user.id)
+        }
         return
       }
 

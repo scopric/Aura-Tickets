@@ -29,9 +29,6 @@ interface AuthState {
   setUser: (user: User | null) => void
   setSession: (session: any) => void
   setLoading: (loading: boolean) => void
-  signIn: (email: string, password: string) => Promise<{ error: any }>
-  signUp: (email: string, password: string, userData: any) => Promise<{ error: any }>
-  signOut: () => Promise<void>
   fetchProfile: () => Promise<void>
 }
 
@@ -62,70 +59,7 @@ export const useAuthStore = create<AuthState>()(
       },
       setLoading: (isLoading) => set({ isLoading }),
 
-      signIn: async (email, password) => {
-        set({ isLoading: true })
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-        
-        if (error) {
-          set({ isLoading: false })
-          return { error }
-        }
 
-        if (data.session) {
-          set({ session: data.session })
-          await get().fetchProfile()
-        } else {
-          set({ isLoading: false })
-        }
-
-        return { error: null }
-      },
-
-      signUp: async (email, password, userData) => {
-        set({ isLoading: true })
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: userData,
-          },
-        })
-
-        if (error) {
-          set({ isLoading: false })
-          return { error }
-        }
-
-        if (data.session) {
-          set({ session: data.session })
-          await get().fetchProfile()
-        } else {
-          set({ isLoading: false })
-        }
-
-        return { error: null }
-      },
-
-      signOut: async () => {
-        set({ isLoading: true })
-        await supabase.auth.signOut()
-        localStorage.removeItem('aura-auth')
-        // Limpa todas as chaves do Supabase Auth no localStorage e sessionStorage
-        Object.keys(localStorage).forEach((key) => {
-          if (key.startsWith('sb-')) {
-            localStorage.removeItem(key)
-          }
-        })
-        Object.keys(sessionStorage).forEach((key) => {
-          if (key.startsWith('sb-')) {
-            sessionStorage.removeItem(key)
-          }
-        })
-        set({ user: null, session: null, isAuthenticated: false, isLoading: false })
-      },
       fetchProfile: async () => {
         if (activeProfilePromise) {
           console.log('[DEBUG AuthStore] fetchProfile ja em andamento. Reaproveitando promessa ativa.')

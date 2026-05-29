@@ -11,7 +11,7 @@ export default function AdminSettingsPage() {
   const [section, setSection] = useState<Section>('geral')
 
   const [general, setGeneral] = useState({
-    platformName: 'Aura',
+    platformName: 'Evokaa',
     tagline: 'Plataforma de Experiencias',
     timezone: 'America/Sao_Paulo',
     currency: 'BRL',
@@ -25,12 +25,12 @@ export default function AdminSettingsPage() {
     smtpHost: 'smtp.sendgrid.net',
     smtpPort: '587',
     smtpUser: 'apikey',
-    fromName: 'Aura',
-    fromEmail: 'noreply@aura.events',
+    fromName: 'Evokaa',
+    fromEmail: 'noreply@evokaa.events',
   })
 
   const [templates] = useState([
-    { id: 'welcome', name: 'Boas-vindas', subject: 'Bem-vindo a Aura!', status: 'active' },
+    { id: 'welcome', name: 'Boas-vindas', subject: 'Bem-vindo a Evokaa!', status: 'active' },
     { id: 'purchase', name: 'Confirmacao de Compra', subject: 'Seu ingresso esta confirmado', status: 'active' },
     { id: 'reminder', name: 'Lembrete de Evento', subject: 'Seu evento e amanha!', status: 'active' },
     { id: 'payout', name: 'Saque Concluido', subject: 'Seu saque foi processado', status: 'active' },
@@ -44,10 +44,10 @@ export default function AdminSettingsPage() {
   })
 
   const [logs] = useState([
-    { id: 1, type: 'login', user: 'admin@aura.com', ip: '189.45.67.89', date: '2025-06-15 14:32', action: 'Login bem-sucedido' },
+    { id: 1, type: 'login', user: 'admin@evokaa.com', ip: '189.45.67.89', date: '2025-06-15 14:32', action: 'Login bem-sucedido' },
     { id: 2, type: 'error', user: 'sistema', ip: '-', date: '2025-06-15 13:15', action: 'Falha na conexao SMTP' },
     { id: 3, type: 'login', user: 'joao@eventos.com', ip: '201.78.34.12', date: '2025-06-15 12:48', action: 'Login bem-sucedido' },
-    { id: 4, type: 'action', user: 'admin@aura.com', ip: '189.45.67.89', date: '2025-06-15 11:20', action: 'Aprovou produtor #44' },
+    { id: 4, type: 'action', user: 'admin@evokaa.com', ip: '189.45.67.89', date: '2025-06-15 11:20', action: 'Aprovou produtor #44' },
     { id: 5, type: 'error', user: 'sistema', ip: '-', date: '2025-06-15 10:05', action: 'Timeout no processamento de pagamento' },
   ])
 

@@ -531,7 +531,7 @@ export default function BrandStudio() {
                   As alterações serão aplicadas à página do evento
                 </p>
                 <Link
-                  to="/event/noite-eletro-2025"
+                  to="/event/festival-de-verao-2025"
                   className="flex items-center gap-2 px-6 py-3 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
                 >
                   <Eye className="w-4 h-4" />

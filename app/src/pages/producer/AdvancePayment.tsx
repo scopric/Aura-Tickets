@@ -9,11 +9,20 @@ import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useRequestAdvance } from '../../hooks/useProducerTools'
 
-const advanceOptions = [
+interface AdvanceOption {
+  id: string
+  label: string
+  days: number
+  fee: number
+  icon: typeof DollarSign
+}
+
+const advanceOptions: AdvanceOption[] = import.meta.env.DEV ? [
   { id: '7', label: '7 dias', days: 7, fee: 3.5, icon: Clock },
   { id: '15', label: '15 dias', days: 15, fee: 2.9, icon: Calendar },
   { id: '30', label: '30 dias', days: 30, fee: 1.9, icon: TrendingUp },
-]
+] : []
+
 
 export default function AdvancePayment() {
   const { data: events = [], isLoading: eventsLoading } = useProducerEvents()

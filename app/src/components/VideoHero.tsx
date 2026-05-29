@@ -265,7 +265,7 @@ export default function VideoHero() {
                 </span>
               </Link>
               <Link
-                to="/event/noite-eletro-2025"
+                to="/event/festival-de-verao-2025"
                 className="group flex items-center gap-3 px-8 py-4 border border-cream/20 text-cream font-medium rounded-full transition-all duration-300 hover:bg-cream/10 hover:border-cream/30"
               >
                 <span className="w-8 h-8 rounded-full bg-cream/10 flex items-center justify-center transition-all group-hover:bg-plum group-hover:scale-110">

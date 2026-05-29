@@ -222,7 +222,7 @@ export default function CheckoutSuccess() {
           <div className="lg:col-span-3">
             {hasCollectiveTable ? (
               showTable ? (
-                <YourTable />
+                event && <YourTable eventId={event.id} />
               ) : (
                 <div className="success-card bg-void text-cream rounded-3xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[400px] shadow-elevated">
                   <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">

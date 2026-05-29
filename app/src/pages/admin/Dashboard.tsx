@@ -64,18 +64,19 @@ export default function AdminDashboard() {
   const [userFilter, setUserFilter] = useState('all')
 
   const totalRevenue = plans.reduce((s, p) => s + p.revenue, 0)
-  const totalUsers = mockUsers.length
-  const activeUsers = mockUsers.filter(u => u.status === 'ativo').length
-  const pendingPayments = mockUsers.filter(u => u.planDueDate === 'Vencido').length
+  const dbUsers = import.meta.env.DEV ? mockUsers : []
+  const totalUsers = dbUsers.length
+  const activeUsers = dbUsers.filter(u => u.status === 'ativo').length
+  const pendingPayments = dbUsers.filter(u => u.planDueDate === 'Vencido').length
 
-  const filteredUsers = mockUsers.filter(u => {
+  const filteredUsers = dbUsers.filter(u => {
     const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
     const matchFilter = userFilter === 'all' || u.role === userFilter || (userFilter === 'bloqueado' && u.status === 'bloqueado')
     return matchSearch && matchFilter
   })
 
   const toggleUserStatus = (id: string) => {
-    const user = mockUsers.find(u => u.id === id)
+    const user = dbUsers.find(u => u.id === id)
     if (user) {
       user.status = user.status === 'ativo' ? 'bloqueado' : 'ativo'
       toast.success(`${user.name} ${user.status === 'ativo' ? 'ativado' : 'bloqueado'}`)
@@ -202,7 +203,7 @@ export default function AdminDashboard() {
             <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
               <h2 className="font-serif text-xl text-espresso mb-4">Top Produtores</h2>
               <div className="space-y-3">
-                {mockUsers.filter(u => u.role === 'produtor').sort((a, b) => b.revenue - a.revenue).slice(0, 4).map((p, i) => (
+                {dbUsers.filter(u => u.role === 'produtor').sort((a, b) => b.revenue - a.revenue).slice(0, 4).map((p, i) => (
                   <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/40 hover:bg-white/60 transition-all cursor-pointer" onClick={() => { setSelectedUser(p); setTab('users') }}>
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-plum-10-text-plum">{i + 1}</div>
                     <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
