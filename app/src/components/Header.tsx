@@ -47,7 +47,12 @@ export default function Header() {
             <img
               src="/images/logo-evokaa.png"
               alt="Evokaa"
-              className="h-8 w-auto transition-transform duration-300 group-hover:scale-105"
+              className={cn(
+                "w-auto transition-all duration-300 group-hover:scale-105",
+                isScrolled
+                  ? "h-8"
+                  : "h-11 filter drop-shadow-[0_0_15px_rgba(29,104,196,0.45)] drop-shadow-[0_0_5px_rgba(143,51,245,0.4)] brightness-110"
+              )}
             />
             {!isScrolled && (
               <span className="text-[10px] font-medium text-white/40 tracking-widest uppercase hidden sm:block">
