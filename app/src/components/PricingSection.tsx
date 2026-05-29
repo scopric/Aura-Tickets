@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { Crown, Check, X, Sparkles, Shield, Zap, Star, Gift, TrendingUp, Calculator } from 'lucide-react'
-
-interface PlanFeature { name: string; included: boolean }
+import { Crown, Check, X, Sparkles, Shield, Zap, Star, Gift, TrendingUp, Calculator, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface Plan {
   id: string
@@ -9,261 +7,542 @@ interface Plan {
   tagline: string
   monthlyPrice: number
   color: string
-  bg: string
-  border: string
   popular?: boolean
   free?: boolean
   fee: number
   feeMin: number
-  features: PlanFeature[]
+  highlights: string[]
 }
 
-const plans: Plan[] = [
+const pricingPlans: Plan[] = [
   {
-    id: 'free', name: 'Gratuito', tagline: 'Comece sem pagar nada',
-    monthlyPrice: 0, color: '#22c55e', bg: 'bg-green-50/40', border: 'border-green-200/40',
-    free: true, fee: 12, feeMin: 3.99,
-    features: [
-      { name: '1 evento/mes', included: true },
-      { name: '50 ingressos', included: true },
-      { name: 'Venda de ingressos', included: true },
-      { name: 'Check-in basico', included: true },
-      { name: 'Relatorio basico', included: true },
-      { name: 'Suporte email', included: true },
-      { name: 'Grupos de ingressos', included: false },
-      { name: 'Meia-entrada', included: false },
-      { name: 'Formularios personalizados', included: false },
-      { name: 'Evokaa Store', included: false },
-      { name: 'Certificados', included: false },
-      { name: 'Afiliados', included: false },
-      { name: 'CRM Pipeline', included: false },
-      { name: 'Bordero avancado', included: false },
-      { name: 'Antecipacao de receita', included: false },
-      { name: 'Parcelamento sem juros', included: false },
+    id: 'free',
+    name: 'Gratuito',
+    tagline: 'Perfeito para começar sem custos fixos',
+    monthlyPrice: 0,
+    color: '#10b981', // Verde
+    free: true,
+    fee: 12,
+    feeMin: 3.99,
+    highlights: [
+      '1 evento ativo por vez',
+      'Até 50 ingressos por mês',
+      'Venda de ingressos online',
+      'Check-in básico via painel web',
+      'Suporte por e-mail (até 48h)'
     ]
   },
   {
-    id: 'starter', name: 'Starter', tagline: 'Para quem esta comecando',
-    monthlyPrice: 49, color: '#8b5cf6', bg: 'bg-violet-50/40', border: 'border-violet-200/40',
-    fee: 8, feeMin: 2.99,
-    features: [
-      { name: '5 eventos/mes', included: true },
-      { name: '200 ingressos', included: true },
-      { name: 'Venda de ingressos', included: true },
-      { name: 'Check-in completo', included: true },
-      { name: 'Relatorio completo', included: true },
-      { name: 'Grupos de ingressos', included: true },
-      { name: 'Meia-entrada', included: true },
-      { name: 'Formularios personalizados', included: true },
-      { name: 'Limite por CPF', included: true },
-      { name: 'Evokaa Store', included: true },
-      { name: 'Lista de interesse', included: true },
-      { name: 'Suporte prioritario', included: true },
-      { name: 'Certificados', included: false },
-      { name: 'Afiliados', included: false },
-      { name: 'CRM Pipeline', included: false },
-      { name: 'Antecipacao de receita', included: false },
+    id: 'starter',
+    name: 'Starter',
+    tagline: 'Ideal para produtores iniciantes',
+    monthlyPrice: 49,
+    color: '#8f33f5', // Roxo Evokaa
+    fee: 8,
+    feeMin: 2.99,
+    highlights: [
+      'Até 5 eventos ativos simultâneos',
+      'Até 200 ingressos por mês',
+      'Check-in completo via aplicativo',
+      'Formulários personalizados de inscrição',
+      'Lista de interesse e espera ativada',
+      'Suporte prioritário por e-mail (até 24h)'
     ]
   },
   {
-    id: 'plus', name: 'Plus', tagline: 'Mais alcance',
-    monthlyPrice: 99, color: '#d97706', bg: 'bg-amber-50/40', border: 'border-amber-200/40',
-    popular: true, fee: 6, feeMin: 1.99,
-    features: [
-      { name: '15 eventos/mes', included: true },
-      { name: '1.000 ingressos', included: true },
-      { name: 'Tudo do Starter', included: true },
-      { name: 'Certificados', included: true },
-      { name: 'Afiliados + Cupons', included: true },
-      { name: 'CRM Pipeline', included: true },
-      { name: 'Comunicacao integrada', included: true },
-      { name: 'Bordero avancado', included: true },
-      { name: 'Parcelamento sem juros', included: true },
-      { name: 'Marketing integrado', included: true },
-      { name: 'Mesa Coletiva', included: false },
-      { name: 'Antecipacao de receita', included: false },
-      { name: 'Lugar marcado', included: false },
-      { name: 'API Access', included: false },
-      { name: 'White label', included: false },
-      { name: 'Suporte 24/7', included: false },
+    id: 'plus',
+    name: 'Plus',
+    tagline: 'Melhor alcance e vendas ampliadas',
+    monthlyPrice: 99,
+    color: '#1d68c4', // Azul Royal Evokaa
+    popular: true,
+    fee: 6,
+    feeMin: 1.99,
+    highlights: [
+      'Até 15 eventos ativos simultâneos',
+      'Até 1.000 ingressos por mês',
+      'Sistema de Afiliados e Cupons exclusivos',
+      'CRM de vendas e CRM Pipeline',
+      'Certificados automáticos pós-evento',
+      'Parcelamento sem juros para clientes'
     ]
   },
   {
-    id: 'pro', name: 'Pro', tagline: 'Sem limites',
-    monthlyPrice: 199, color: '#7a3b69', bg: 'bg-blue-500/5', border: 'border-blue-500/15',
-    fee: 4, feeMin: 0,
-    features: [
-      { name: 'Eventos ilimitados', included: true },
-      { name: 'Ingressos ilimitados', included: true },
-      { name: 'Tudo do Plus', included: true },
-      { name: 'Mesa Coletiva', included: true },
-      { name: 'Antecipacao de receita', included: true },
-      { name: 'Lugar marcado', included: true },
-      { name: 'Check-in App', included: true },
-      { name: 'Evokaa Academy', included: true },
-      { name: 'Relatorios avancados', included: true },
-      { name: 'API Access', included: true },
-      { name: 'Multiplos produtores', included: false },
-      { name: 'White label', included: false },
-      { name: 'Gerente dedicado', included: false },
-      { name: 'SLA garantido', included: false },
-      { name: 'Custom integrations', included: false },
-      { name: 'Suporte 24/7', included: false },
+    id: 'pro',
+    name: 'Pro',
+    tagline: 'Liberdade e recursos para escalar',
+    monthlyPrice: 199,
+    color: '#4a60e3', // Azul Violeta
+    fee: 4,
+    feeMin: 0,
+    highlights: [
+      'Eventos ativos ilimitados',
+      'Ingressos emitidos ilimitados',
+      'Mesa Coletiva (Matchmaking por perfil)',
+      'Lugar Marcado interativo 3D',
+      'Antecipação de receitas de vendas',
+      'Acesso à API de integrações e Webhooks'
     ]
   },
   {
-    id: 'enterprise', name: 'Enterprise', tagline: 'Para empresas',
-    monthlyPrice: 499, color: '#1a0e14', bg: 'bg-slate-900/5', border: 'border-slate-900/10',
-    fee: 2.5, feeMin: 0,
+    id: 'enterprise',
+    name: 'Enterprise',
+    tagline: 'Solução sob medida para grandes marcas',
+    monthlyPrice: 499,
+    color: '#0c2340', // Navy profundo
+    fee: 2.5,
+    feeMin: 0,
+    highlights: [
+      'Taxas de vendas negociáveis e personalizadas',
+      'White-label de marca completo (sem logo Evokaa)',
+      'Múltiplas contas de produtores vinculadas',
+      'Contrato de SLA garantido por suporte',
+      'Onboarding VIP e Consultoria de marketing',
+      'Suporte 24/7 via WhatsApp dedicado'
+    ]
+  }
+]
+
+const comparisonCategories = [
+  {
+    name: 'Vendas e Ingressos',
     features: [
-      { name: 'Tudo do Pro', included: true },
-      { name: 'Multiplos produtores', included: true },
-      { name: 'White label', included: true },
-      { name: 'API completa', included: true },
-      { name: 'Gerente dedicado', included: true },
-      { name: 'SLA garantido', included: true },
-      { name: 'Custom integrations', included: true },
-      { name: 'Treinamento equipe', included: true },
-      { name: 'Suporte 24/7', included: true },
-      { name: 'Taxa negociavel', included: true },
-      { name: 'Onboarding VIP', included: true },
-      { name: 'Consultoria estrategica', included: true },
-      { name: 'Eventos ilimitados', included: true },
-      { name: 'Ingressos ilimitados', included: true },
-      { name: 'Prioridade maxima', included: true },
-      { name: 'Dashboard exclusivo', included: true },
+      { name: 'Venda de ingressos online', values: { free: 'Disponível', starter: 'Disponível', plus: 'Disponível', pro: 'Disponível', enterprise: 'Disponível' } },
+      { name: 'Lotes e tipos de ingressos', values: { free: '1 lote por evento', starter: 'Ilimitados', plus: 'Ilimitados', pro: 'Ilimitados', enterprise: 'Ilimitados' } },
+      { name: 'Formulários de inscrição personalizados', values: { free: false, starter: true, plus: true, pro: true, enterprise: true } },
+      { name: 'Mesa Coletiva (Matchmaking por perfil)', values: { free: false, starter: false, plus: false, pro: true, enterprise: true } },
+      { name: 'Lugar marcado interativo', values: { free: false, starter: false, plus: false, pro: true, enterprise: true } },
+      { name: 'Parcelamento sem juros para o cliente', values: { free: false, starter: false, plus: true, pro: true, enterprise: true } }
     ]
   },
+  {
+    name: 'Gestão e Operação',
+    features: [
+      { name: 'Eventos simultâneos ativos', values: { free: '1 evento', starter: '5 eventos', plus: '15 eventos', pro: 'Ilimitados', enterprise: 'Ilimitados' } },
+      { name: 'Check-in de participantes', values: { free: 'Painel Web', starter: 'App Completo', plus: 'App Completo', pro: 'App Scanner', enterprise: 'App Scanner' } },
+      { name: 'Relatórios pós-evento', values: { free: 'Básico', starter: 'Completo', plus: 'Avançado', pro: 'Avançado', enterprise: 'Customizado' } },
+      { name: 'Certificados automáticos pós-evento', values: { free: false, starter: false, plus: true, pro: true, enterprise: true } },
+      { name: 'Múltiplos usuários administradores', values: { free: false, starter: false, plus: false, pro: false, enterprise: true } }
+    ]
+  },
+  {
+    name: 'Marketing e Divulgação',
+    features: [
+      { name: 'Lista de interesse e espera', values: { free: false, starter: true, plus: true, pro: true, enterprise: true } },
+      { name: 'Afiliados + Cupons de desconto', values: { free: false, starter: false, plus: true, pro: true, enterprise: true } },
+      { name: 'Evokaa Store (Upgrades e temas)', values: { free: false, starter: true, plus: true, pro: true, enterprise: true } },
+      { name: 'Marketing integrado (E-mail/WhatsApp)', values: { free: false, starter: false, plus: true, pro: true, enterprise: true } },
+      { name: 'White-label de marca completo', values: { free: false, starter: false, plus: false, pro: false, enterprise: true } }
+    ]
+  },
+  {
+    name: 'Integrações e Suporte',
+    features: [
+      { name: 'Acesso à API e Webhooks', values: { free: false, starter: false, plus: false, pro: true, enterprise: true } },
+      { name: 'Canal de atendimento principal', values: { free: 'E-mail', starter: 'Suporte VIP (24h)', plus: 'Suporte VIP (24h)', pro: 'Suporte VIP 24/7', enterprise: 'WhatsApp & Telefone 24/7' } },
+      { name: 'Gerente de Contas dedicado', values: { free: false, starter: false, plus: false, pro: false, enterprise: true } },
+      { name: 'Onboarding e Treinamento de equipe', values: { free: false, starter: false, plus: false, pro: false, enterprise: true } }
+    ]
+  }
 ]
 
 export default function PricingSection() {
   const [period, setPeriod] = useState<'mensal' | 'anual'>('mensal')
+  const [showComparison, setShowComparison] = useState(false)
+
+  // Estados da Calculadora
+  const [ticketPrice, setTicketPrice] = useState(80)
+  const [ticketsCount, setTicketsCount] = useState(250)
+
+  // Função para calcular o custo total do plano por mês
+  const calculateCost = (plan: Plan, price: number, count: number, isAnual: boolean) => {
+    const baseMonthly = isAnual ? Math.round(plan.monthlyPrice * 0.8) : plan.monthlyPrice
+    if (count === 0) return baseMonthly
+
+    let feePerTicket = 0
+    if (price > 0) {
+      const calculatedFee = price * (plan.fee / 100)
+      feePerTicket = plan.feeMin > 0 ? Math.max(plan.feeMin, calculatedFee) : calculatedFee
+    }
+    return baseMonthly + (count * feePerTicket)
+  }
+
+  const isAnual = period === 'anual'
+
+  // Lista dos planos calculados
+  const calculatedPlans = pricingPlans.map(plan => {
+    const monthlyCost = isAnual ? Math.round(plan.monthlyPrice * 0.8) : plan.monthlyPrice
+    const totalCost = calculateCost(plan, ticketPrice, ticketsCount, isAnual)
+    return { ...plan, monthlyCost, totalCost }
+  })
+
+  // Encontra o plano economicamente mais vantajoso (menor totalCost)
+  const bestPlan = calculatedPlans.reduce((best, current) => {
+    return current.totalCost < best.totalCost ? current : best
+  }, calculatedPlans[0])
 
   return (
-    <section className="py-28 relative overflow-hidden">
+    <section className="py-24 bg-slate-50 relative overflow-hidden font-sans">
+      {/* Background Glows */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-0 w-[500px] h-[500px] bg-blue-500/[0.03] rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-blue-500/[0.02] rounded-full blur-3xl" />
+        <div className="absolute top-20 left-0 w-[500px] h-[500px] bg-[#1d68c4]/[0.03] rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#8f33f5]/[0.02] rounded-full blur-3xl" />
       </div>
-      <div className="max-w-7xl mx-auto px-6 relative">
-        <div className="text-center mb-14">
-          <span className="text-[10px] font-medium tracking-[0.35em] uppercase text-blue-500">Planos</span>
-          <h2 className="text-4xl mt-4 mb-3 text-slate-900">
-            Comece <em className="text-blue-500">gratis</em>, escalone depois
+
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        
+        {/* Header Section */}
+        <div className="text-center mb-16">
+          <span className="text-[11px] font-semibold tracking-[0.3em] uppercase text-[#1d68c4] bg-[#1d68c4]/5 px-4 py-1.5 rounded-full">
+            Planos & Tarifas
+          </span>
+          <h2 className="text-4xl sm:text-5xl font-bold mt-6 mb-4 text-slate-900 tracking-tight font-serif">
+            Preços transparentes, <span className="text-gradient">sem surpresas</span>
           </h2>
-          <p className="text-sm max-w-lg mx-auto leading-relaxed text-slate-500">
-            Crie eventos sem pagar nada. So pague quando vender. Quanto mais voce cresce, menos paga por ingresso.
+          <p className="text-base max-w-lg mx-auto leading-relaxed text-slate-500 font-light">
+            Crie seus eventos gratuitamente. Só pague taxas sobre ingressos vendidos. À medida que suas vendas sobem, suas taxas despencam.
           </p>
 
-          <div className="flex items-center justify-center gap-3 mt-6">
-            <span className={`text-sm ${period === 'mensal' ? 'text-espresso font-medium' : 'text-slate-400'}`}>Mensal</span>
-            <button onClick={() => setPeriod(period === 'mensal' ? 'anual' : 'mensal')} className="w-14 h-7 rounded-full p-0.5 transition-colors" style={{ background: period === 'anual' ? 'linear-gradient(135deg, #3b82f6, #8b5cf6)' : 'rgba(15,23,42,0.15)' }}>
-              <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${period === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
+          {/* Switcher Mensal/Anual */}
+          <div className="flex items-center justify-center gap-4 mt-10">
+            <span className={`text-sm transition-colors duration-200 ${period === 'mensal' ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+              Mensal
+            </span>
+            <button
+              onClick={() => setPeriod(period === 'mensal' ? 'anual' : 'mensal')}
+              className="w-14 h-7 rounded-full p-0.5 transition-all duration-300 relative focus:outline-none"
+              style={{
+                background: period === 'anual' ? 'linear-gradient(135deg, #1d68c4, #8f33f5)' : 'rgba(15,23,42,0.15)'
+              }}
+            >
+              <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${period === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
             </button>
-            <span className={`text-sm ${period === 'anual' ? 'text-espresso font-medium' : 'text-slate-400'}`}>Anual</span>
-            {period === 'anual' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-medium">-20%</span>}
+            <span className={`text-sm transition-colors duration-200 ${period === 'anual' ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+              Anual
+            </span>
+            {period === 'anual' && (
+              <span className="text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 font-semibold uppercase tracking-wider animate-pulse">
+                Economize 20%
+              </span>
+            )}
           </div>
         </div>
 
-        {/* How it works */}
-        <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
-          {[
-            { icon: Gift, text: 'Crie eventos gratis' },
-            { icon: Calculator, text: 'So pague quando vender' },
-            { icon: TrendingUp, text: 'Quanto mais vende, menos paga' },
-            { icon: Zap, text: 'Cancele quando quiser' },
-          ].map(item => (
-            <div key={item.text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/40 border border-white/60">
-              <item.icon className="w-4 h-4 text-blue-500" />
-              <span className="text-xs text-slate-500">{item.text}</span>
+        {/* 1. CALCULADORA DINÂMICA DE TAXAS (Inovação UX) */}
+        <div className="max-w-4xl mx-auto mb-20 bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-xl">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-[#1d68c4]/10 flex items-center justify-center">
+              <Calculator className="w-5 h-5 text-[#1d68c4]" />
             </div>
-          ))}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 font-serif">Simule sua Economia Real</h3>
+              <p className="text-xs text-slate-400">Descubra qual plano é o mais vantajoso com base no seu volume de vendas.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+            {/* Sliders */}
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Preço médio do ingresso</span>
+                  <span className="font-semibold text-slate-900">R$ {ticketPrice}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="500"
+                  step="5"
+                  value={ticketPrice}
+                  onChange={(e) => setTicketPrice(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1d68c4]"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>R$ 0 (Gratuito)</span>
+                  <span>R$ 500</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Volume de vendas (Ingressos/mês)</span>
+                  <span className="font-semibold text-slate-900">{ticketsCount} ingressos</span>
+                </div>
+                <input
+                  type="range"
+                  min="10"
+                  max="2000"
+                  step="10"
+                  value={ticketsCount}
+                  onChange={(e) => setTicketsCount(Number(e.target.value))}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1d68c4]"
+                />
+                <div className="flex justify-between text-[10px] text-slate-400">
+                  <span>10 ingressos</span>
+                  <span>2.000 ingressos</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Painel do Recomendado */}
+            <div className="bg-[#0c2340] rounded-2xl p-6 text-white relative overflow-hidden shadow-lg min-h-[170px] flex flex-col justify-between">
+              {/* Glow background */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] rounded-full blur-2xl opacity-40 pointer-events-none" />
+
+              <div className="relative z-10">
+                <span className="text-[9px] uppercase tracking-widest font-bold text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full">
+                  Plano Recomendado
+                </span>
+                <div className="flex items-baseline gap-2 mt-4">
+                  <h4 className="text-2xl font-bold font-serif">{bestPlan.name}</h4>
+                  <span className="text-xs text-white/50">Custo projetado:</span>
+                </div>
+                <div className="text-3xl font-extrabold text-white mt-1">
+                  R$ {Math.round(bestPlan.totalCost).toLocaleString('pt-BR')}/mês
+                </div>
+                <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
+                  Com base nas suas vendas estimadas, o plano <strong className="text-white">{bestPlan.name}</strong> oferece a tarifa mais eficiente, poupando custos operacionais.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          {plans.map(p => {
-            const price = period === 'anual' ? Math.round(p.monthlyPrice * 0.8) : p.monthlyPrice
+        {/* 2. GRID DE CARDS DE PLANOS (Visual Premium) */}
+        {/* Mobile: Horizontal scroll container | Desktop/Tablet: Flex grid */}
+        <div className="flex overflow-x-auto pb-8 -mx-6 px-6 sm:-mx-0 sm:px-0 sm:overflow-x-visible lg:grid lg:grid-cols-5 gap-6 snap-x snap-mandatory scroll-smooth no-scrollbar">
+          {calculatedPlans.map(p => {
             const Icon = p.id === 'free' ? Gift : p.id === 'starter' ? Zap : p.id === 'plus' ? Star : p.id === 'pro' ? Crown : Shield
-            return (
-              <div key={p.id} className={`relative p-5 rounded-3xl border backdrop-blur-sm transition-all hover:shadow-xl hover:-translate-y-1 ${p.bg} ${p.border} ${p.popular ? 'ring-2 ring-blue-500/30 scale-[1.02] lg:scale-[1.03]' : ''} ${p.free ? 'ring-2 ring-green-400/30' : ''}`}>
-                {p.popular && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-white" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}>Mais Popular</span>}
-                {p.free && <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[10px] font-medium text-white bg-green-500">Gratis</span>}
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${p.color}15` }}>
-                  <Icon className="w-5 h-5" style={{ color: p.color }} />
-                </div>
-                <h3 className="text-lg mb-0.5 text-slate-900">{p.name}</h3>
-                <p className="text-xs mb-3 text-slate-400">{p.tagline}</p>
+            const isBest = p.id === bestPlan.id
 
-                <div className="flex items-baseline gap-1 mb-2">
-                  {p.free ? (
-                    <span className="text-3xl text-green-600">Gratis</span>
-                  ) : (
-                    <>
-                      <span className="text-3xl" style={{ color: p.color }}>R$ {price}</span>
-                      <span className="text-xs text-slate-400">/mes</span>
-                    </>
+            // Renderização do Card do Plano Popular (Plus) com borda gradiente de design sênior
+            if (p.popular) {
+              return (
+                <div 
+                  key={p.id} 
+                  className="flex-shrink-0 w-[290px] sm:w-[320px] lg:w-auto snap-center relative p-[2px] rounded-3xl bg-gradient-to-br from-[#1d68c4] via-[#4a60e3] to-[#8f33f5] shadow-[0_15px_40px_rgba(29,104,196,0.18)] hover:-translate-y-1.5 transition-all duration-300"
+                >
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] z-20">
+                    Mais Popular
+                  </span>
+                  
+                  {isBest && (
+                    <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-500 shadow-md z-20">
+                      Ideal para Você
+                    </span>
                   )}
-                </div>
 
-                {/* Tax info */}
-                <div className="mb-4 p-2.5 rounded-xl bg-white/40">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-slate-400">Taxa por ingresso</span>
-                    <span className="text-xs font-medium" style={{ color: p.color }}>{p.fee}%</span>
+                  <div className="h-full bg-white rounded-[22px] p-6 flex flex-col justify-between">
+                    <div>
+                      {/* Header */}
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center bg-[#1d68c4]/10">
+                          <Icon className="w-5 h-5 text-[#1d68c4]" />
+                        </div>
+                      </div>
+
+                      <h3 className="text-xl font-bold text-slate-900 font-serif">{p.name}</h3>
+                      <p className="text-xs text-slate-400 mt-1 min-h-[32px] leading-relaxed">{p.tagline}</p>
+
+                      {/* Preço */}
+                      <div className="flex items-baseline gap-1 mt-5 mb-5">
+                        <span className="text-3xl font-extrabold text-slate-900">R$ {p.monthlyCost}</span>
+                        <span className="text-xs text-slate-400">/mês</span>
+                      </div>
+
+                      {/* Info de Taxas */}
+                      <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Taxa de venda</span>
+                          <span className="text-xs font-bold text-[#1d68c4]">{p.fee}%</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Valor mínimo</span>
+                          <span className="text-[10px] text-slate-600 font-medium">R$ {p.feeMin}</span>
+                        </div>
+                      </div>
+
+                      {/* Lista de Features Simplificada */}
+                      <div className="space-y-3 mb-6">
+                        {p.highlights.map((feat, i) => (
+                          <div key={i} className="flex items-start gap-2.5 text-[11px] text-slate-500 leading-snug">
+                            <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                            <span>{feat}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button className="w-full py-3 text-xs font-bold text-white rounded-full transition-all duration-300 hover:shadow-lg focus:outline-none" style={{ background: 'linear-gradient(135deg, #1d68c4, #8f33f5)' }}>
+                      Escolher Plano
+                    </button>
                   </div>
-                  {p.feeMin > 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400">Valor minimo</span>
-                      <span className="text-[10px] text-slate-400">R$ {p.feeMin}</span>
+                </div>
+              )
+            }
+
+            // Cards para os demais planos
+            return (
+              <div 
+                key={p.id} 
+                className={`flex-shrink-0 w-[290px] sm:w-[320px] lg:w-auto snap-center relative p-6 bg-white/70 backdrop-blur-md border border-slate-200/50 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:-translate-y-1.5 hover:shadow-xl hover:border-slate-300/80 ${p.free ? 'border-green-200/50 hover:border-green-300/80' : ''}`}
+              >
+                {p.free && (
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-500 z-20">
+                    Gratuito
+                  </span>
+                )}
+                
+                {isBest && (
+                  <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-500 shadow-md z-20">
+                    Ideal para Você
+                  </span>
+                )}
+
+                <div>
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: `${p.color}10` }}>
+                      <Icon className="w-5 h-5" style={{ color: p.color }} />
                     </div>
-                  )}
-                  {p.feeMin === 0 && (
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-slate-400">Valor minimo</span>
-                      <span className="text-[10px] text-green-600 font-medium">Isento</span>
+                  </div>
+
+                  <h3 className="text-xl font-bold text-slate-900 font-serif">{p.name}</h3>
+                  <p className="text-xs text-slate-400 mt-1 min-h-[32px] leading-relaxed">{p.tagline}</p>
+
+                  {/* Preço */}
+                  <div className="flex items-baseline gap-1 mt-5 mb-5">
+                    {p.free ? (
+                      <span className="text-3xl font-extrabold text-green-600">Grátis</span>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-extrabold text-slate-900">R$ {p.monthlyCost}</span>
+                        <span className="text-xs text-slate-400">/mês</span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Info de Taxas */}
+                  <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Taxa de venda</span>
+                      <span className="text-xs font-bold text-slate-800" style={{ color: p.color }}>{p.fee}%</span>
                     </div>
-                  )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Valor mínimo</span>
+                      {p.feeMin > 0 ? (
+                        <span className="text-[10px] text-slate-600 font-medium">R$ {p.feeMin}</span>
+                      ) : (
+                        <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider bg-green-50 px-1.5 py-0.5 rounded">Isento</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Lista de Features Simplificada */}
+                  <div className="space-y-3 mb-6">
+                    {p.highlights.map((feat, i) => (
+                      <div key={i} className="flex items-start gap-2.5 text-[11px] text-slate-500 leading-snug">
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span>{feat}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
-                <div className="space-y-2 mb-5">
-                  {p.features.map(f => (
-                    <div key={f.name} className={`flex items-center gap-2 text-[11px] ${f.included ? 'text-slate-500' : 'text-slate-300'}`}>
-                      {f.included ? <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> : <X className="w-3.5 h-3.5 flex-shrink-0" />}
-                      {f.name}
-                    </div>
-                  ))}
-                </div>
-                <button className={`w-full py-2.5 rounded-full text-xs font-medium transition-all ${p.popular ? 'text-white hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]' : p.free ? 'text-white hover:shadow-lg' : 'border hover:bg-blue-50'}`} style={p.popular ? { background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' } : p.free ? { background: '#22c55e' } : { borderColor: 'rgba(59,130,246,0.3)', color: '#3b82f6' }}>
-                  {p.free ? 'Criar Evento Gratis' : 'Comecar'}
+                <button 
+                  className={`w-full py-3 text-xs font-bold rounded-full transition-all duration-300 focus:outline-none ${p.free ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-lg' : 'border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'}`}
+                >
+                  {p.free ? 'Criar Evento Grátis' : 'Escolher Plano'}
                 </button>
               </div>
             )
           })}
         </div>
 
-        {/* Comparison Note */}
-        <div className="mt-8 p-4 rounded-2xl bg-white/40 border border-white/60 flex items-center gap-3">
-          <Calculator className="w-5 h-5 text-plum flex-shrink-0" />
-          <div>
-            <p className="text-xs text-slate-500">
-              <strong>Exemplo:</strong> Um ingresso de R$ 100 — no plano <strong>Gratuito</strong> voce paga R$ 12 de taxa. 
-              No plano <strong>Pro</strong>, voce paga R$ 4 + R$ 199/mes. A partir de 20 ingressos/mes, o Pro sai mais barato.
-            </p>
-          </div>
+        {/* Indicadores de Scroll no Mobile */}
+        <div className="flex justify-center gap-1.5 mt-4 lg:hidden">
+          {pricingPlans.map((_, idx) => (
+            <div key={idx} className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+          ))}
         </div>
 
-        {/* Trust badges */}
-        <div className="mt-8 grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* 3. TABELA COMPARATIVA DE RECURSOS (Accordion Retrátil) */}
+        <div className="mt-16 text-center">
+          <button
+            onClick={() => setShowComparison(!showComparison)}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-full border border-slate-200 hover:border-[#1d68c4] bg-white hover:bg-slate-50 font-semibold text-slate-700 hover:text-[#1d68c4] text-xs transition-all duration-300 shadow-sm"
+          >
+            <span>{showComparison ? 'Ocultar Comparação Detalhada' : 'Comparar Todos os Recursos'}</span>
+            {showComparison ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {showComparison && (
+          <div className="mt-10 max-w-5xl mx-auto overflow-hidden border border-slate-200/80 rounded-3xl bg-white shadow-xl animate-fade-in">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-900 text-white font-serif">
+                    <th className="p-4 sm:p-5 text-xs uppercase tracking-wider font-bold min-w-[200px]">Recursos & Ferramentas</th>
+                    <th className="p-4 text-center text-xs uppercase tracking-wider font-bold">Gratuito</th>
+                    <th className="p-4 text-center text-xs uppercase tracking-wider font-bold">Starter</th>
+                    <th className="p-4 text-center text-xs uppercase tracking-wider font-bold">Plus</th>
+                    <th className="p-4 text-center text-xs uppercase tracking-wider font-bold">Pro</th>
+                    <th className="p-4 text-center text-xs uppercase tracking-wider font-bold">Enterprise</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {comparisonCategories.map((category, catIdx) => (
+                    <div key={catIdx} className="contents">
+                      {/* Categoria Header */}
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={6} className="p-4 font-bold text-slate-800 text-xs uppercase tracking-wider font-serif border-y border-slate-200/50">
+                          {category.name}
+                        </td>
+                      </tr>
+                      {category.features.map((feat, featIdx) => (
+                        <tr key={featIdx} className="hover:bg-slate-50/40 transition-colors">
+                          <td className="p-4 text-slate-700 text-xs font-medium">
+                            {feat.name}
+                          </td>
+                          {['free', 'starter', 'plus', 'pro', 'enterprise'].map((pKey) => {
+                            const val = feat.values[pKey as keyof typeof feat.values]
+                            return (
+                              <td key={pKey} className="p-4 text-center text-xs text-slate-500">
+                                {typeof val === 'boolean' ? (
+                                  val ? (
+                                    <Check className="w-4 h-4 text-green-500 mx-auto" />
+                                  ) : (
+                                    <X className="w-4 h-4 text-slate-300 mx-auto" />
+                                  )
+                                ) : (
+                                  <span className="font-semibold text-slate-600">{val}</span>
+                                )}
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </div>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* 4. TRUST BADGES E SEGURANÇA */}
+        <div className="mt-20 border-t border-slate-200/60 pt-16 grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
-            { icon: Shield, title: 'Pagamento seguro', desc: 'SSL 256-bit' },
-            { icon: Sparkles, title: 'Sem compromisso', desc: 'Cancele quando quiser' },
-            { icon: Crown, title: 'Sem taxa de adesao', desc: 'So pague quando vender' },
-            { icon: Zap, title: 'Ativacao imediata', desc: 'Comece em minutos' },
-          ].map(t => (
-            <div key={t.title} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
-              <t.icon className="w-5 h-5 mx-auto mb-2 text-blue-500" />
-              <div className="text-xs font-medium text-slate-900">{t.title}</div>
-              <div className="text-[10px] text-slate-400">{t.desc}</div>
+            { icon: Shield, title: 'Transações Protegidas', desc: 'Criptografia SSL de 256 bits nas compras' },
+            { icon: Sparkles, title: 'Sem Fidelidade', desc: 'Faça upgrades ou cancele a qualquer momento' },
+            { icon: Crown, title: 'Sem Taxa de Adesão', desc: 'Só pague a mensalidade e taxas de vendas' },
+            { icon: Zap, title: 'Ativação Rápida', desc: 'Crie sua conta e comece a vender em 5 minutos' },
+          ].map((t, idx) => (
+            <div key={idx} className="p-5 rounded-2xl bg-white border border-slate-200/60 text-center hover:shadow-md transition-shadow">
+              <t.icon className="w-6 h-6 mx-auto mb-3 text-[#1d68c4]" />
+              <h4 className="text-xs font-bold text-slate-900 tracking-tight">{t.title}</h4>
+              <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">{t.desc}</p>
             </div>
           ))}
         </div>
