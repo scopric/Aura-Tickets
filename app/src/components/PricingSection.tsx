@@ -147,32 +147,33 @@ const comparisonCategories = [
 ]
 
 export default function PricingSection() {
-  const [period, setPeriod] = useState<'mensal' | 'anual'>('mensal')
+  const [period, setPeriod] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal')
   const [showComparison, setShowComparison] = useState(false)
 
   // Estados da Calculadora
   const [ticketPrice, setTicketPrice] = useState(80)
   const [ticketsCount, setTicketsCount] = useState(250)
 
-  // Função para calcular o custo total do plano por mês
-  const calculateCost = (plan: Plan, price: number, count: number, isAnual: boolean) => {
-    const baseMonthly = isAnual ? Math.round(plan.monthlyPrice * 0.8) : plan.monthlyPrice
-    if (count === 0) return baseMonthly
-
-    let feePerTicket = 0
-    if (price > 0) {
-      const calculatedFee = price * (plan.fee / 100)
-      feePerTicket = plan.feeMin > 0 ? Math.max(plan.feeMin, calculatedFee) : calculatedFee
+  const getPeriodMultiplier = (p: 'mensal' | 'trimestral' | 'semestral' | 'anual') => {
+    switch (p) {
+      case 'trimestral': return 0.95
+      case 'semestral': return 0.90
+      case 'anual': return 0.80
+      default: return 1.0
     }
-    return baseMonthly + (count * feePerTicket)
   }
 
-  const isAnual = period === 'anual'
-
-  // Lista dos planos calculados
+  // Lista dos planos calculados com base no período atual
   const calculatedPlans = pricingPlans.map(plan => {
-    const monthlyCost = isAnual ? Math.round(plan.monthlyPrice * 0.8) : plan.monthlyPrice
-    const totalCost = calculateCost(plan, ticketPrice, ticketsCount, isAnual)
+    const multiplier = getPeriodMultiplier(period)
+    const monthlyCost = Math.round(plan.monthlyPrice * multiplier)
+    
+    let feePerTicket = 0
+    if (ticketPrice > 0) {
+      const calculatedFee = ticketPrice * (plan.fee / 100)
+      feePerTicket = plan.feeMin > 0 ? Math.max(plan.feeMin, calculatedFee) : calculatedFee
+    }
+    const totalCost = monthlyCost + (ticketsCount * feePerTicket)
     return { ...plan, monthlyCost, totalCost }
   })
 
@@ -180,6 +181,34 @@ export default function PricingSection() {
   const bestPlan = calculatedPlans.reduce((best, current) => {
     return current.totalCost < best.totalCost ? current : best
   }, calculatedPlans[0])
+
+  // Cálculos decompostos para o painel recomendado
+  const grossSales = ticketsCount * ticketPrice
+  const bestMultiplier = getPeriodMultiplier(period)
+  
+  const getPlanFees = (plan: Plan) => {
+    let feePerTicket = 0
+    if (ticketPrice > 0) {
+      const calculatedFee = ticketPrice * (plan.fee / 100)
+      feePerTicket = plan.feeMin > 0 ? Math.max(plan.feeMin, calculatedFee) : calculatedFee
+    }
+    return feePerTicket * ticketsCount
+  }
+
+  const bestPlanFees = getPlanFees(bestPlan)
+  const bestPlanMonthlyCost = Math.round(bestPlan.monthlyPrice * bestMultiplier)
+  
+  // Faturamento líquido
+  const netSales = Math.max(0, grossSales - bestPlanFees)
+
+  // Economia em taxas de conveniência em relação ao plano Starter (ou Free)
+  const starterPlan = pricingPlans[1]
+  const starterMultiplier = getPeriodMultiplier(period)
+  const starterCost = Math.round(starterPlan.monthlyPrice * starterMultiplier) + getPlanFees(starterPlan)
+  const bestPlanTotalCost = bestPlanMonthlyCost + bestPlanFees
+  
+  // Economia projetada
+  const savingsAmount = Math.max(0, starterCost - bestPlanTotalCost)
 
   return (
     <section className="py-24 bg-slate-50 relative overflow-hidden font-sans">
@@ -202,34 +231,10 @@ export default function PricingSection() {
           <p className="text-base max-w-lg mx-auto leading-relaxed text-slate-500 font-light">
             Crie seus eventos gratuitamente. Só pague taxas sobre ingressos vendidos. À medida que suas vendas sobem, suas taxas despencam.
           </p>
-
-          {/* Switcher Mensal/Anual */}
-          <div className="flex items-center justify-center gap-4 mt-10">
-            <span className={`text-sm transition-colors duration-200 ${period === 'mensal' ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
-              Mensal
-            </span>
-            <button
-              onClick={() => setPeriod(period === 'mensal' ? 'anual' : 'mensal')}
-              className="w-14 h-7 rounded-full p-0.5 transition-all duration-300 relative focus:outline-none"
-              style={{
-                background: period === 'anual' ? 'linear-gradient(135deg, #1d68c4, #8f33f5)' : 'rgba(15,23,42,0.15)'
-              }}
-            >
-              <div className={`w-6 h-6 rounded-full bg-white shadow-md transition-transform duration-300 ${period === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
-            </button>
-            <span className={`text-sm transition-colors duration-200 ${period === 'anual' ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
-              Anual
-            </span>
-            {period === 'anual' && (
-              <span className="text-[10px] px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 font-semibold uppercase tracking-wider animate-pulse">
-                Economize 20%
-              </span>
-            )}
-          </div>
         </div>
 
         {/* 1. CALCULADORA DINÂMICA DE TAXAS (Inovação UX) */}
-        <div className="max-w-4xl mx-auto mb-20 bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-xl">
+        <div className="max-w-4xl mx-auto mb-12 bg-white/70 backdrop-blur-md border border-slate-200/60 rounded-3xl p-6 sm:p-8 shadow-xl">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-[#1d68c4]/10 flex items-center justify-center">
               <Calculator className="w-5 h-5 text-[#1d68c4]" />
@@ -240,9 +245,9 @@ export default function PricingSection() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-stretch">
             {/* Sliders */}
-            <div className="space-y-6">
+            <div className="space-y-6 flex flex-col justify-center">
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-500">Preço médio do ingresso</span>
@@ -284,27 +289,81 @@ export default function PricingSection() {
               </div>
             </div>
 
-            {/* Painel do Recomendado */}
-            <div className="bg-[#0c2340] rounded-2xl p-6 text-white relative overflow-hidden shadow-lg min-h-[170px] flex flex-col justify-between">
+            {/* Painel do Recomendado (UX Decomposta) */}
+            <div className="bg-[#0c2340] rounded-2xl p-6 text-white relative overflow-hidden shadow-lg flex flex-col justify-between min-h-[220px]">
               {/* Glow background */}
               <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] rounded-full blur-2xl opacity-40 pointer-events-none" />
 
-              <div className="relative z-10">
-                <span className="text-[9px] uppercase tracking-widest font-bold text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full">
-                  Plano Recomendado
-                </span>
-                <div className="flex items-baseline gap-2 mt-4">
-                  <h4 className="text-2xl font-bold font-serif">{bestPlan.name}</h4>
-                  <span className="text-xs text-white/50">Custo projetado:</span>
+              <div className="relative z-10 space-y-4">
+                <div className="flex justify-between items-center gap-2 flex-wrap">
+                  <span className="text-[9px] uppercase tracking-widest font-bold text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full">
+                    Plano Ideal Recomendado: {bestPlan.name}
+                  </span>
+                  {savingsAmount > 0 && (
+                    <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      Economia de R$ {Math.round(savingsAmount)}/mês
+                    </span>
+                  )}
                 </div>
-                <div className="text-3xl font-extrabold text-white mt-1">
-                  R$ {Math.round(bestPlan.totalCost).toLocaleString('pt-BR')}/mês
+
+                {/* Decomposição detalhada dos custos simulados */}
+                <div className="border-t border-b border-white/10 py-3.5 space-y-2 text-xs font-light text-white/80">
+                  <div className="flex justify-between">
+                    <span>Faturamento Estimado:</span>
+                    <span className="font-semibold text-white">R$ {grossSales.toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Mensalidade Fixa do Plano:</span>
+                    <span className="font-semibold text-white">R$ {bestPlanMonthlyCost}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Taxa de Vendas Acumulada ({bestPlan.fee}%):</span>
+                    <span className="font-semibold text-white">R$ {Math.round(bestPlanFees).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="flex justify-between text-white font-bold border-t border-white/10 pt-2 mt-1">
+                    <span>Repasse Líquido Estimado:</span>
+                    <span className="text-cyan-400 text-sm">R$ {Math.round(netSales).toLocaleString('pt-BR')}</span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-white/60 mt-2 leading-relaxed">
-                  Com base nas suas vendas estimadas, o plano <strong className="text-white">{bestPlan.name}</strong> oferece a tarifa mais eficiente, poupando custos operacionais.
+
+                <p className="text-[9px] text-white/40 leading-relaxed font-light">
+                  * As taxas de vendas por ingresso são descontadas diretamente de cada venda realizada e não vêm cobradas no seu boleto/fatura mensal.
                 </p>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Switcher Multi-Período (Mensal, Trimestral, Semestral, Anual) */}
+        <div className="flex justify-center mb-16">
+          <div className="bg-white/85 backdrop-blur-sm border border-slate-200/50 rounded-full p-1 flex gap-1 w-full sm:w-auto overflow-x-auto no-scrollbar shadow-sm">
+            {(['mensal', 'trimestral', 'semestral', 'anual'] as const).map((p) => {
+              const label = p.charAt(0).toUpperCase() + p.slice(1)
+              const isActive = period === p
+              const discount = p === 'trimestral' ? '5% OFF' : p === 'semestral' ? '10% OFF' : p === 'anual' ? '20% OFF' : ''
+              
+              return (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPeriod(p)}
+                  className={`flex-1 sm:flex-initial px-5 py-2 text-xs font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 whitespace-nowrap ${
+                    isActive 
+                      ? 'bg-plum text-cream shadow-md scale-[1.02]' 
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <span>{label}</span>
+                  {discount && (
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-extrabold ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-green-500/10 text-green-600'
+                    }`}>
+                      {discount}
+                    </span>
+                  )}
+                </button>
+              )
+            })}
           </div>
         </div>
 
