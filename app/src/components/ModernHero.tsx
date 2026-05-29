@@ -18,6 +18,8 @@ export default function ModernHero() {
   const particlesRef = useRef<Particle[]>([])
   const rafRef = useRef<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoLoaded, setVideoLoaded] = useState(false)
 
   // Initialize particles
   const initParticles = useCallback((width: number, height: number) => {
@@ -194,18 +196,43 @@ export default function ModernHero() {
   }, [isLoaded])
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-slate-950">
-      {/* Animated gradient background */}
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-void">
+      {/* Video Background */}
+      <div className="absolute inset-0 z-0">
+        <video
+          ref={videoRef}
+          autoPlay
+          muted
+          loop
+          playsInline
+          onLoadedData={() => setVideoLoaded(true)}
+          className={`w-full h-full object-cover transition-opacity duration-1000 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
+          style={{ transform: 'scale(1.05)' }}
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+        </video>
+        {/* Fallback gradient while video loads */}
+        {!videoLoaded && (
+          <div className="absolute inset-0 bg-gradient-to-br from-void via-void to-plum/40" />
+        )}
+      </div>
+
+      {/* Dark overlays for readability */}
+      <div className="absolute inset-0 bg-void/60 z-[1]" />
+      <div className="absolute inset-0 bg-gradient-to-r from-void/80 via-void/40 to-transparent z-[1]" />
+      <div className="absolute inset-0 bg-gradient-to-t from-void via-transparent to-void/30 z-[1]" />
+
+      {/* Animated gradient background (subtle glow on top of video) */}
       <div 
-        className="absolute inset-0 z-0"
+        className="absolute inset-0 z-[2] opacity-60 pointer-events-none"
         style={{
-          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(59,130,246,0.12), transparent), radial-gradient(ellipse 60% 50% at 80% 20%, rgba(139,92,246,0.08), transparent), radial-gradient(ellipse 50% 40% at 20% 80%, rgba(6,182,212,0.06), transparent)',
+          background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(29,104,196,0.15), transparent), radial-gradient(ellipse 60% 50% at 80% 20%, rgba(143,51,245,0.1), transparent)',
         }}
       />
       
       {/* Grid pattern overlay */}
       <div 
-        className="absolute inset-0 z-[1] opacity-[0.03]"
+        className="absolute inset-0 z-[3] opacity-[0.03]"
         style={{ 
           backgroundImage: 'linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)',
           backgroundSize: '60px 60px'
@@ -215,7 +242,7 @@ export default function ModernHero() {
       {/* Particle Canvas */}
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 z-[2] pointer-events-none"
+        className="absolute inset-0 z-[4] pointer-events-none"
       />
 
       {/* Content */}
@@ -223,7 +250,7 @@ export default function ModernHero() {
         <div className="max-w-4xl">
           {/* Badge */}
           <div className="mh-badge inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-full mb-8 backdrop-blur-sm">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-plum animate-pulse" />
             <span className="text-sm font-medium text-white/80 tracking-wide">Plataforma de Experiências</span>
           </div>
 
@@ -249,12 +276,12 @@ export default function ModernHero() {
           </p>
 
           {/* CTAs */}
-          <div className="mh-cta-group flex flex-col sm:flex-row items-start gap-4">
+          <div className="mh-cta-group flex flex-col sm:flex-row items-stretch sm:items-start gap-4">
             <Link
               to="/auth/register"
-              className="group relative px-8 py-4 text-sm font-semibold text-white rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] active:scale-[0.98] overflow-hidden"
+              className="group relative w-full sm:w-auto sm:min-w-[180px] h-12 border border-transparent text-sm font-semibold text-white rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(29,104,196,0.4)] active:scale-[0.98] overflow-hidden flex items-center justify-center"
               style={{
-                background: 'linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6)',
+                background: 'linear-gradient(135deg, #1d68c4, #4a60e3, #8f33f5)',
                 backgroundSize: '200% 200%',
               }}
             >
@@ -265,12 +292,10 @@ export default function ModernHero() {
             </Link>
             <Link
               to="/event/festival-de-verao-2025"
-              className="group flex items-center gap-3 px-8 py-4 border border-white/15 text-white font-medium rounded-full text-sm transition-all duration-300 hover:bg-white/5 hover:border-white/25"
+              className="group w-full sm:w-auto sm:min-w-[180px] h-12 border border-white/15 text-white font-semibold rounded-full text-sm transition-all duration-300 hover:bg-white/5 hover:border-white/25 active:scale-[0.98] flex items-center justify-center gap-2"
             >
-              <span className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center transition-all group-hover:bg-cyan-500/20 group-hover:scale-110">
-                <Play className="w-3 h-3 text-white ml-0.5" />
-              </span>
-              Ver Demo
+              <span>Ver Demo</span>
+              <Play className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110 fill-current" />
             </Link>
           </div>
 
@@ -295,7 +320,7 @@ export default function ModernHero() {
         <span className="text-[10px] text-white/25 uppercase tracking-[0.2em]">Rolar</span>
         <div className="w-px h-10 bg-gradient-to-b from-white/25 to-transparent relative overflow-hidden">
           <div 
-            className="absolute top-0 left-0 w-full bg-cyan-400/80" 
+            className="absolute top-0 left-0 w-full bg-plum/80" 
             style={{ height: '16px', animation: 'scrollDot 2s ease-in-out infinite' }} 
           />
         </div>
