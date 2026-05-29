@@ -109,7 +109,7 @@ export default function ProducerWallet() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sm text-espresso font-mono truncate">
-              {user?.email || 'contato@evokaa.events'}
+              {user?.email || 'contato@evokaa.com.br'}
             </div>
             <div className="text-xs text-espresso/40">Chave de e-mail</div>
           </div>

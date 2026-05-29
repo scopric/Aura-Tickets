@@ -29,7 +29,7 @@ export function useContact() {
       try {
         await supabase.functions.invoke('send-email', {
           body: {
-            to: 'contato@evokaa.events',
+            to: 'contato@evokaa.com.br',
             subject: `[Contato Site] ${data.subject || 'Nova Mensagem'} - ${data.name}`,
             html: `
               <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">

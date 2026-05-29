@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import {
   Mail, Phone, MapPin, Clock, Send, Instagram, MessageCircle,
   CheckCircle2, Globe, Headphones, Zap, Shield,
-  ChevronRight, MessageSquarePlus, ArrowUpRight, Sparkles,
+  ChevronRight, ChevronDown, MessageSquarePlus, ArrowUpRight, Sparkles,
   User, AtSign, FileText, AlignLeft
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -67,10 +67,10 @@ export default function ContactPage() {
   }
 
   const departments = [
-    { icon: Headphones, title: 'Suporte Técnico', email: 'suporte@evokaa.events', color: '#1d68c4' },
-    { icon: Zap, title: 'Vendas & Eventos', email: 'vendas@evokaa.events', color: '#8f33f5' },
-    { icon: Shield, title: 'Parcerias & Imprensa', email: 'parcerias@evokaa.events', color: '#0d9488' },
-    { icon: MessageSquarePlus, title: 'Sugestões & Bugs', email: 'feedback@evokaa.events', color: '#ea580c' },
+    { icon: Headphones, title: 'Suporte Técnico', email: 'suporte@evokaa.com.br', color: '#1d68c4' },
+    { icon: Zap, title: 'Vendas & Eventos', email: 'vendas@evokaa.com.br', color: '#8f33f5' },
+    { icon: Shield, title: 'Parcerias & Imprensa', email: 'parcerias@evokaa.com.br', color: '#0d9488' },
+    { icon: MessageSquarePlus, title: 'Sugestões & Bugs', email: 'feedback@evokaa.com.br', color: '#ea580c' },
   ]
 
   const labelClasses = (field: string) => `text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
@@ -112,8 +112,8 @@ export default function ContactPage() {
                 </div>
                 <div>
                   <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">E-mail Principal</div>
-                  <a href="mailto:contato@evokaa.events" className="text-sm font-semibold text-slate-800 hover:text-[#1d68c4] transition-colors mt-0.5 block">
-                    contato@evokaa.events
+                  <a href="mailto:contato@evokaa.com.br" className="text-sm font-semibold text-slate-800 hover:text-[#1d68c4] transition-colors mt-0.5 block">
+                    contato@evokaa.com.br
                   </a>
                 </div>
               </div>

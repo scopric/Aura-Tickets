@@ -26,7 +26,7 @@ export default function AdminSettingsPage() {
     smtpPort: '587',
     smtpUser: 'apikey',
     fromName: 'Evokaa',
-    fromEmail: 'noreply@evokaa.events',
+    fromEmail: 'noreply@evokaa.com.br',
   })
 
   const [templates] = useState([

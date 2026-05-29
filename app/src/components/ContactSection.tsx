@@ -44,7 +44,7 @@ export default function ContactSection() {
   }
 
   const contactInfo = [
-    { icon: Mail, label: 'Email', value: 'contato@evokaa.events', href: 'mailto:contato@evokaa.events' },
+    { icon: Mail, label: 'Email', value: 'contato@evokaa.com.br', href: 'mailto:contato@evokaa.com.br' },
     { icon: Phone, label: 'Telefone', value: '(11) 4000-2025', href: 'tel:+551140002025' },
     { icon: MapPin, label: 'Endereco', value: 'Rua Augusta, 1500 — Consolacao, Sao Paulo/SP', href: '#' },
     { icon: Clock, label: 'Atendimento', value: 'Seg a Sex: 9h as 18h | Sab: 10h as 14h', href: '#' },

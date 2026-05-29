@@ -89,7 +89,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">9. Contato</h2>
-            <p>Encarregado de Dados (DPO): dpo@evokaa.tickets</p>
+            <p>Encarregado de Dados (DPO): dpo@evokaa.com.br</p>
             <p>Formulário de contato: <Link to="/contato" className="text-plum hover:underline">/contato</Link></p>
           </section>
         </div>
