@@ -357,4 +357,4 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 - **Gateway de pagamento**: Não trabalhar no gateway, foco na plataforma interna.
 
 *Última atualização: 2026-05-29*
-*Próxima sessão: aprovação visual do tema, merge para a main, implantação no Vercel.*
+*Próxima sessão: configurar variáveis de ambiente no dashboard da Vercel e efetuar o deploy de produção.*
