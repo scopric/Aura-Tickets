@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield, Check, CheckCircle2, Paintbrush, Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -12,6 +12,358 @@ import EventCarousel from '../components/EventCarousel'
 
 
 gsap.registerPlugin(ScrollTrigger)
+
+// ================= WIDGETS E CARDS AUXILIARES DO BENTO GRID =================
+
+function FeatureCard({ 
+  title, 
+  desc, 
+  accent = '#1D68C4', 
+  className = '', 
+  children 
+}: { 
+  title: string
+  desc: string
+  accent?: string
+  className?: string
+  children: React.ReactNode 
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    cardRef.current.style.setProperty('--mouse-x', `${x}px`)
+    cardRef.current.style.setProperty('--mouse-y', `${y}px`)
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      className={`relative overflow-hidden rounded-3xl border border-slate-100 bg-white p-8 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(29,104,196,0.06)] group flex flex-col justify-between min-h-[350px] ${className}`}
+      style={{
+        '--mouse-x': '0px',
+        '--mouse-y': '0px',
+      } as React.CSSProperties}
+    >
+      {/* Background Spotlight Glow */}
+      <div 
+        className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0"
+        style={{
+          background: `radial-gradient(350px circle at var(--mouse-x) var(--mouse-y), ${accent}0d, transparent 85%)`
+        }}
+      />
+      {/* Border Spotlight Glow */}
+      <div 
+        className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
+        style={{
+          background: `radial-gradient(120px circle at var(--mouse-x) var(--mouse-y), ${accent}33, transparent 80%)`,
+          padding: '1px',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude'
+        }}
+      />
+      
+      {/* Conteúdo Superior: Ilustração / Widget */}
+      <div className="relative z-20 flex-1 flex items-center justify-center mb-6">
+        {children}
+      </div>
+
+      {/* Conteúdo Inferior: Título e Descrição */}
+      <div className="relative z-20 space-y-2 mt-auto">
+        <h4 className="text-slate-900 text-[15px] font-bold tracking-tight font-serif flex items-center gap-2 group-hover:text-slate-950 transition-colors">
+          {title}
+        </h4>
+        <p className="text-[13px] text-slate-400 font-light leading-relaxed">
+          {desc}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function WizardWidget() {
+  return (
+    <div className="w-full max-w-[240px] bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3 shadow-inner">
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px] font-bold">
+          <Check className="w-3 h-3 stroke-[3]" />
+        </div>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold text-slate-800 leading-none">1. Dados do Evento</div>
+          <div className="text-[8px] text-slate-400 mt-0.5">Festival de Música Eletrônica</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="w-5 h-5 rounded-full border border-blue-500 bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold relative">
+          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping absolute" />
+          <span className="w-1.5 h-1.5 bg-blue-500 rounded-full relative" />
+        </div>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold text-slate-800 leading-none">2. Configurar Ingressos</div>
+          {/* Barra de progresso animada */}
+          <div className="w-full bg-slate-200 h-1.5 rounded-full mt-1.5 overflow-hidden">
+            <div className="bg-blue-500 h-full w-[60%] rounded-full group-hover:w-full transition-all duration-1000 ease-out" />
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 opacity-40 group-hover:opacity-75 transition-opacity duration-500">
+        <div className="w-5 h-5 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px] font-bold">
+          3
+        </div>
+        <div className="flex-1">
+          <div className="text-[10px] font-bold text-slate-800 leading-none">3. Publicar na Plataforma</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function TicketWidget() {
+  return (
+    <div className="w-full max-w-[420px] flex flex-col sm:flex-row items-center gap-6 p-2">
+      {/* Ingresso Holográfico com perspectiva e rotação */}
+      <div 
+        className="w-[180px] h-[95px] relative rounded-xl bg-gradient-to-br from-[#1D68C4] via-[#8F33F5] to-[#4A60E3] p-[1px] shadow-[0_15px_35px_rgba(143,51,245,0.15)] transition-all duration-700 ease-out [transform-style:preserve-3d] group-hover:[transform:rotateX(12deg)_rotateY(-15deg)_translateZ(10px)] [perspective:800px] shrink-0"
+      >
+        <div className="w-full h-full rounded-xl bg-slate-950 p-3 flex flex-col justify-between overflow-hidden relative">
+          {/* Efeito Holográfico de brilho */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 ease-out" />
+          
+          <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+            <span className="text-[7px] font-bold text-white/50 tracking-wider uppercase">EVOKAA VIP PASS</span>
+            <Ticket className="w-3.5 h-3.5 text-white/80" />
+          </div>
+          
+          <div className="mt-2">
+            <div className="text-[9px] font-bold text-white tracking-wide uppercase leading-none">Pista Premium</div>
+            <div className="text-[7px] text-white/40 mt-0.5">Lote 02 • Entrada Prioritária</div>
+          </div>
+
+          <div className="flex items-end justify-between mt-1">
+            <span className="text-[12px] font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-purple-300">R$ 150,00</span>
+            <div className="flex gap-[1.5px] items-end h-3">
+              {[6, 8, 4, 10, 6, 8, 2, 7, 5].map((h, i) => (
+                <div key={i} className="w-[1.5px] bg-white/20" style={{ height: `${h}px` }} />
+              ))}
+            </div>
+          </div>
+
+          {/* Recortes do ticket na lateral */}
+          <div className="absolute left-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-r border-slate-100 rounded-full z-20" />
+          <div className="absolute right-[-6px] top-1/2 -translate-y-1/2 w-3 h-3 bg-white border-l border-slate-100 rounded-full z-20" />
+        </div>
+      </div>
+
+      {/* Estatísticas de Venda e Progresso */}
+      <div className="flex-1 w-full space-y-3 text-left">
+        <div className="flex justify-between items-end">
+          <div>
+            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Lote 02 (Premium)</div>
+            <div className="text-base font-bold text-slate-800 leading-none mt-1">94% Vendido</div>
+          </div>
+          <span className="text-[10px] font-semibold text-slate-400">470 / 500 un</span>
+        </div>
+        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+          <div className="bg-gradient-to-r from-[#1D68C4] to-[#8F33F5] h-full w-[94%] rounded-full group-hover:w-[100%] transition-all duration-700 ease-out" />
+        </div>
+        <p className="text-[10px] text-slate-400 font-light leading-relaxed">
+          Atualizado em tempo real. Disparo automático de novo lote configurado.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function PaletteWidget() {
+  const [activeColor, setActiveColor] = useState('#8F33F5')
+  
+  const colors = [
+    { value: '#1D68C4', label: 'Azul' },
+    { value: '#8F33F5', label: 'Roxo' },
+    { value: '#06B6D4', label: 'Ciano' },
+    { value: '#E11D48', label: 'Rosa' },
+  ]
+
+  return (
+    <div className="w-full max-w-[240px] flex flex-col items-center gap-4">
+      {/* Mini Visualizador de Card de Evento */}
+      <div className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-3.5 flex flex-col gap-2.5 relative shadow-sm">
+        <div className="w-full h-16 rounded-lg bg-slate-200/40 overflow-hidden relative flex items-center justify-center">
+          <div className="absolute inset-0 opacity-10 transition-colors duration-500" style={{ backgroundColor: activeColor }} />
+          <Paintbrush className="w-5 h-5 transition-colors duration-500" style={{ color: activeColor }} />
+        </div>
+        <div className="space-y-1">
+          <div className="text-[10px] font-bold text-slate-800">Conexão Eletrônica</div>
+          <div className="flex gap-1.5 items-center">
+            <span 
+              className="text-[8px] font-bold text-white px-2 py-0.5 rounded transition-colors duration-500"
+              style={{ backgroundColor: activeColor }}
+            >
+              Comprar Ingresso
+            </span>
+            <span className="text-[8px] text-slate-400 font-light">Customizado</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Seletor de Cores */}
+      <div className="flex gap-3 justify-center items-center">
+        {colors.map((c) => (
+          <button
+            key={c.value}
+            onClick={() => setActiveColor(c.value)}
+            className="w-4 h-4 rounded-full border border-white shadow hover:scale-110 active:scale-95 transition-all duration-300 relative flex items-center justify-center"
+            style={{ backgroundColor: c.value }}
+          >
+            {activeColor === c.value && (
+              <span className="w-1.5 h-1.5 bg-white rounded-full" />
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SocialWidget() {
+  const avatares = [
+    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&q=80',
+    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&q=80',
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=80&q=80',
+    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=80&q=80',
+  ]
+
+  return (
+    <div className="w-full max-w-[240px] flex flex-col items-center gap-5">
+      {/* Avatares Empilhados */}
+      <div className="flex -space-x-2.5 items-center">
+        {avatares.map((src, i) => (
+          <img
+            key={i}
+            src={src}
+            alt="Participante"
+            className="w-7 h-7 rounded-full border border-white object-cover shadow-sm group-hover:scale-105 transition-all duration-300"
+          />
+        ))}
+        <div className="w-7 h-7 rounded-full border border-white bg-[#8F33F5] text-white flex items-center justify-center text-[8px] font-extrabold shadow-sm">
+          +42
+        </div>
+      </div>
+
+      {/* Pop-up de Comprovação */}
+      <div className="w-full bg-[#8F33F5]/[0.01] border border-[#8F33F5]/10 rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm group-hover:bg-[#8F33F5]/5 transition-all duration-500">
+        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+          <CheckCircle2 className="w-3.5 h-3.5 fill-current" />
+        </div>
+        <div className="flex-1 text-left">
+          <div className="text-[9px] font-extrabold text-slate-800">Ana Souza comprou!</div>
+          <div className="text-[7px] text-slate-400 font-light mt-0.5">Há 4s • Ingresso VIP Pista</div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ChartWidget() {
+  return (
+    <div className="w-full max-w-[420px] flex flex-col sm:flex-row items-center gap-6 p-2">
+      {/* Painel Financeiro */}
+      <div className="space-y-1.5 text-center sm:text-left min-w-[130px] shrink-0">
+        <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">FATURAMENTO</div>
+        <h3 className="text-xl font-extrabold tracking-tight font-serif text-slate-900 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 transition-all duration-500">
+          R$ 84.192,00
+        </h3>
+        <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+          +18.4% esta semana
+        </span>
+      </div>
+
+      {/* Gráfico SVG de Linha Animada */}
+      <div className="flex-1 w-full h-20 relative flex items-end">
+        <svg viewBox="0 0 200 100" className="w-full h-full overflow-visible">
+          {/* Gradiente sob a linha */}
+          <defs>
+            <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#1D68C4" stopOpacity="0.2" />
+              <stop offset="100%" stopColor="#8F33F5" stopOpacity="0.0" />
+            </linearGradient>
+            <linearGradient id="line-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#1D68C4" />
+              <stop offset="100%" stopColor="#8F33F5" />
+            </linearGradient>
+          </defs>
+
+          {/* Curva preenchida */}
+          <path
+            d="M 0 100 Q 30 70, 60 85 T 120 40 T 170 10 T 200 15 L 200 100 Z"
+            fill="url(#chart-grad)"
+          />
+
+          {/* Linha do Gráfico */}
+          <path
+            d="M 0 100 Q 30 70, 60 85 T 120 40 T 170 10 T 200 15"
+            fill="none"
+            stroke="url(#line-grad)"
+            strokeWidth="3"
+            strokeLinecap="round"
+            className="stroke-[#1D68C4] group-hover:stroke-[#8F33F5] transition-colors duration-1000"
+          />
+
+          {/* Ponto Pulsante na extremidade */}
+          <circle
+            cx="200"
+            cy="15"
+            r="3.5"
+            fill="#8F33F5"
+            className="animate-pulse"
+          />
+          <circle
+            cx="200"
+            cy="15"
+            r="8"
+            fill="none"
+            stroke="#8F33F5"
+            strokeWidth="1"
+            className="animate-ping origin-center"
+            style={{ transformOrigin: '200px 15px' }}
+          />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function SecurityWidget() {
+  return (
+    <div className="w-full max-w-[240px] flex flex-col items-center justify-center h-[110px] relative">
+      {/* Ondas e Anéis Concêntricos de Radar */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="w-20 h-20 rounded-full border border-slate-100 flex items-center justify-center animate-[spin_12s_linear_infinite] group-hover:border-blue-200/50 transition-colors">
+          <div className="w-1.5 h-1.5 bg-blue-500 rounded-full translate-y-[-40px]" />
+        </div>
+        <div className="w-24 h-24 rounded-full border border-dashed border-slate-100 flex items-center justify-center absolute animate-[spin_20s_linear_infinite_reverse] group-hover:border-purple-200/30 transition-colors">
+          <div className="w-1.5 h-1.5 bg-purple-500 rounded-full translate-x-[48px]" />
+        </div>
+      </div>
+
+      {/* Escudo Central */}
+      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white to-slate-50 border border-slate-100 flex items-center justify-center text-slate-800 shadow relative z-10 group-hover:scale-105 transition-all duration-300">
+        <Shield className="w-5 h-5 text-[#1D68C4] group-hover:text-[#8F33F5] transition-colors duration-500 fill-current opacity-10 absolute" />
+        <Shield className="w-5 h-5 text-[#1D68C4] group-hover:text-[#8F33F5] transition-colors duration-500 relative z-10" />
+      </div>
+      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-3.5 relative z-10">
+        Criptografia Ativa
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   useSEO({
@@ -33,12 +385,28 @@ export default function Home() {
           scrollTrigger: { trigger: featuresRef.current, start: 'top 80%' }
         }
       )
-      gsap.fromTo('.stat-num',
-        { y: 20, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.6, stagger: 0.08, ease: 'power3.out',
-          scrollTrigger: { trigger: statsRef.current, start: 'top 85%' }
-        }
-      )
+
+      // GSAP Animacao de Contagem Numerica Progressiva
+      const statsElements = document.querySelectorAll('.stat-count')
+      statsElements.forEach((el) => {
+        const target = parseFloat(el.getAttribute('data-target') || '0')
+        const suffix = el.getAttribute('data-suffix') || ''
+        const obj = { val: 0 }
+        
+        gsap.to(obj, {
+          val: target,
+          duration: 1.8,
+          ease: 'power3.out',
+          scrollTrigger: {
+            trigger: statsRef.current,
+            start: 'top 85%',
+          },
+          onUpdate: () => {
+            el.textContent = Math.floor(obj.val).toLocaleString('pt-BR') + suffix
+          }
+        })
+      })
+
       gsap.fromTo('.hiw-step',
         { y: 30, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.7, stagger: 0.15, ease: 'power3.out',
@@ -55,20 +423,11 @@ export default function Home() {
     return () => ctx.revert()
   }, [])
 
-  const features = [
-    { icon: Zap, title: 'Crie em Minutos', desc: 'Configure seu evento com poucos cliques. Interface intuitiva e rápida.', accent: '#3b82f6' },
-    { icon: Ticket, title: 'Gestão de Ingressos', desc: 'Múltiplos tipos, lotes, controle de capacidade em tempo real.', accent: '#06b6d4' },
-    { icon: Palette, title: 'Brand Studio', desc: 'Personalize cores, fontes e estilos que combinam com sua marca.', accent: '#8b5cf6' },
-    { icon: Users, title: 'Comprovação Social', desc: 'Mostre quem confirmou presença. Crie urgência natural.', accent: '#f59e0b' },
-    { icon: BarChart3, title: 'Analytics Real-Time', desc: 'Acompanhe vendas, engajamento e métricas em dashboard elegante.', accent: '#6366f1' },
-    { icon: Shield, title: 'Segurança Total', desc: 'Pagamentos seguros, validação de ingressos e proteção contra fraudes.', accent: '#ef4444' },
-  ]
-
   const stats = [
-    { value: '10K+', label: 'Eventos' },
-    { value: '500K+', label: 'Ingressos' },
-    { value: '98%', label: 'Satisfação' },
-    { value: '50+', label: 'Países' },
+    { target: 10, suffix: 'K+', label: 'Eventos', trend: 'Criados no último ano' },
+    { target: 500, suffix: 'K+', label: 'Ingressos', trend: 'Vendas acumuladas' },
+    { target: 98, suffix: '%', label: 'Satisfação', trend: 'NPS de excelência' },
+    { target: 50, suffix: '+', label: 'Países', trend: 'Disponibilidade global' },
   ]
 
   const landingFAQs = [
@@ -108,56 +467,171 @@ export default function Home() {
         <EventCarousel />
       </section>
 
-      {/* Stats - minimal divider style */}
-      <section ref={statsRef} className="py-20 bg-slate-50">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="divider mb-16" />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-16">
+      {/* Stats - minimal dynamic style */}
+      <section ref={statsRef} className="py-24 relative overflow-hidden bg-slate-950 border-y border-slate-900">
+        {/* Grid pattern sutil */}
+        <div className="absolute inset-0 opacity-[0.02] pointer-events-none"
+          style={{ 
+            backgroundImage: 'radial-gradient(rgba(255,255,255,0.15) 1px, transparent 1px)',
+            backgroundSize: '24px 24px' 
+          }}
+        />
+        {/* Orbs de luz degradê */}
+        <div className="absolute top-1/2 left-1/4 -translate-y-1/2 w-80 h-80 bg-[#1D68C4]/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute top-1/3 right-1/4 w-80 h-80 bg-[#8F33F5]/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8">
             {stats.map((stat) => (
-              <div key={stat.label} className="stat-num text-center">
-                <div className="font-bold text-4xl lg:text-5xl tracking-tight text-gradient">
-                  {stat.value}
+              <div 
+                key={stat.label} 
+                className="stat-num bg-white/[0.01] border border-white/[0.05] backdrop-blur-sm rounded-2xl p-6 hover:border-white/10 hover:bg-white/[0.03] transition-all duration-500 flex flex-col justify-between h-36 group text-left"
+              >
+                <div>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-[0.15em] font-extrabold block">
+                    {stat.label}
+                  </span>
+                  {/* Número que conta via GSAP */}
+                  <div 
+                    className="font-extrabold text-4xl lg:text-5xl tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 group-hover:from-white group-hover:to-blue-200 transition-colors mt-2 font-serif"
+                  >
+                    <span 
+                      className="stat-count" 
+                      data-target={stat.target} 
+                      data-suffix={stat.suffix}
+                    >
+                      0
+                    </span>
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-400 uppercase tracking-[0.15em] mt-2">
-                  {stat.label}
+                
+                {/* Indicador de Tendência / Crescimento */}
+                <div className="flex items-center gap-1.5 border-t border-white/[0.04] pt-3 mt-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-[9px] text-slate-400 font-light tracking-wide block">
+                    {stat.trend}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
-          <div className="divider mt-16" />
         </div>
       </section>
 
-      {/* Features - cleaner grid */}
-      <section ref={featuresRef} className="py-28 bg-slate-50">
-        <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-20">
-            <h2 className="text-slate-900">
+      {/* Features - Bento Grid */}
+      <section ref={featuresRef} className="py-28 bg-white border-t border-slate-100 relative overflow-hidden">
+        {/* Orbs de fundo leves */}
+        <div className="absolute top-1/4 left-0 w-96 h-96 bg-[#1D68C4]/5 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-1/4 right-0 w-96 h-96 bg-[#8F33F5]/5 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-20 anim-fade-up">
+            <span className="text-[10px] font-extrabold tracking-[0.25em] uppercase text-[#1D68C4] bg-[#1D68C4]/5 px-3 py-1 rounded-md animate-pulse">
+              Recursos Avançados
+            </span>
+            <h2 className="text-slate-900 font-serif text-4xl sm:text-5xl font-extrabold tracking-tight mt-5 leading-tight">
               Tudo que você <em className="text-gradient not-italic">precisa</em>
             </h2>
-            <p className="text-slate-400 text-sm mt-4 max-w-md mx-auto leading-relaxed">
-              Ferramentas poderosas para criar experiências memoráveis, do início ao fim.
+            <p className="text-slate-400 text-sm mt-4 max-w-md mx-auto leading-relaxed font-light">
+              Ferramentas de altíssima fidelidade e UX projetadas para elevar o nível da produção do seu evento.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((f) => (
-              <div
-                key={f.title}
-                className="feature-item group p-6 rounded-2xl transition-all duration-300 hover:-translate-y-1 bg-white border border-slate-100 hover:border-blue-200 hover:shadow-lg hover:shadow-blue-500/5"
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+            {/* 1. Crie em Minutos - col-span-12 md:col-span-5 */}
+            <div className="feature-item md:col-span-5">
+              <FeatureCard
+                title="Crie em Minutos"
+                desc="Configure lotes, prazos e regras do seu evento em uma interface linear com progresso automatizado e sem atritos."
+                accent="#1D68C4"
               >
-                <div 
-                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-5 transition-all duration-300 group-hover:scale-105"
-                  style={{ background: `${f.accent}12` }}
-                >
-                  <f.icon className="w-5 h-5" style={{ color: f.accent }} />
+                <WizardWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 2. Gestão de Ingressos - col-span-12 md:col-span-7 */}
+            <div className="feature-item md:col-span-7">
+              <FeatureCard
+                title="Gestão de Ingressos"
+                desc="Controle total sobre vendas em tempo real. Troca de lotes inteligente, ingressos holográficos e regras financeiras robustas."
+                accent="#8F33F5"
+              >
+                <TicketWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 3. Brand Studio - col-span-12 md:col-span-4 */}
+            <div className="feature-item md:col-span-4">
+              <FeatureCard
+                title="Brand Studio"
+                desc="Aplique seu tom de marca com paletas personalizadas, links de domínio próprios e layouts exclusivos para os ingressos."
+                accent="#06B6D4"
+              >
+                <PaletteWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 4. Comprovação Social - col-span-12 md:col-span-4 */}
+            <div className="feature-item md:col-span-4">
+              <FeatureCard
+                title="Comprovação Social"
+                desc="Desperte desejo instantâneo nos compradores exibindo atualizações de vendas ao vivo e quem do círculo social já confirmou."
+                accent="#f59e0b"
+              >
+                <SocialWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 5. Segurança Total - col-span-12 md:col-span-4 */}
+            <div className="feature-item md:col-span-4">
+              <FeatureCard
+                title="Segurança Total"
+                desc="Autenticação antifraude em cada transação, proteção total de dados de acordo com a LGPD e check-in criptografado."
+                accent="#ef4444"
+              >
+                <SecurityWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 6. Analytics Real-Time - col-span-12 md:col-span-8 */}
+            <div className="feature-item md:col-span-8">
+              <FeatureCard
+                title="Analytics Real-Time"
+                desc="Monitore conversão, faturamento e cliques de campanhas em um gráfico financeiro preciso com atualização contínua."
+                accent="#6366f1"
+              >
+                <ChartWidget />
+              </FeatureCard>
+            </div>
+
+            {/* 7. Card Extra: Sua Marca Autônoma - col-span-12 md:col-span-4 */}
+            <div className="feature-item md:col-span-4">
+              <div className="relative overflow-hidden rounded-3xl border border-slate-100 bg-gradient-to-br from-[#0c2340] to-slate-950 p-8 flex flex-col justify-between min-h-[350px] group text-left">
+                <div className="absolute inset-0 opacity-[0.03]"
+                  style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)', backgroundSize: '24px 24px' }}
+                />
+                
+                <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white mb-2">
+                    <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
+                  </div>
+                  <h5 className="text-white text-base font-bold font-serif">Infraestrutura Exclusiva</h5>
+                  <p className="text-[11px] text-white/40 max-w-[180px] font-light leading-relaxed">
+                    Sua plataforma própria com taxas customizadas de produtor sênior.
+                  </p>
                 </div>
-                <h4 className="text-slate-900 mb-2 text-[15px] font-semibold">{f.title}</h4>
-                <p className="text-[13px] text-slate-400 leading-relaxed">
-                  {f.desc}
-                </p>
+
+                <div className="relative z-10 mt-auto">
+                  <Link
+                    to="/auth/register"
+                    className="w-full py-3 bg-white text-slate-950 hover:bg-slate-100 active:scale-[0.98] text-xs font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                  >
+                    <span>Criar Plataforma</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
-            ))}
+            </div>
           </div>
         </div>
       </section>
