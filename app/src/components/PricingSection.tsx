@@ -147,11 +147,11 @@ export default function PricingSection() {
       </div>
       <div className="max-w-7xl mx-auto px-6 relative">
         <div className="text-center mb-14">
-          <span className="text-[10px] font-medium tracking-[0.35em] uppercase" className="text-blue-500">Planos</span>
-          <h2 className=" text-4xl mt-4 mb-3" className="text-slate-900">
+          <span className="text-[10px] font-medium tracking-[0.35em] uppercase text-blue-500">Planos</span>
+          <h2 className="text-4xl mt-4 mb-3 text-slate-900">
             Comece <em className="text-blue-500">gratis</em>, escalone depois
           </h2>
-          <p className="text-sm max-w-lg mx-auto leading-relaxed" className="text-slate-500">
+          <p className="text-sm max-w-lg mx-auto leading-relaxed text-slate-500">
             Crie eventos sem pagar nada. So pague quando vender. Quanto mais voce cresce, menos paga por ingresso.
           </p>
 
@@ -174,7 +174,7 @@ export default function PricingSection() {
             { icon: Zap, text: 'Cancele quando quiser' },
           ].map(item => (
             <div key={item.text} className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/40 border border-white/60">
-              <item.icon className="w-4 h-4" className="text-blue-500" />
+              <item.icon className="w-4 h-4 text-blue-500" />
               <span className="text-xs text-slate-500">{item.text}</span>
             </div>
           ))}
@@ -191,16 +191,16 @@ export default function PricingSection() {
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${p.color}15` }}>
                   <Icon className="w-5 h-5" style={{ color: p.color }} />
                 </div>
-                <h3 className=" text-lg mb-0.5" className="text-slate-900">{p.name}</h3>
-                <p className="text-xs mb-3" className="text-slate-400">{p.tagline}</p>
+                <h3 className="text-lg mb-0.5 text-slate-900">{p.name}</h3>
+                <p className="text-xs mb-3 text-slate-400">{p.tagline}</p>
 
                 <div className="flex items-baseline gap-1 mb-2">
                   {p.free ? (
-                    <span className=" text-3xl text-green-600">Gratis</span>
+                    <span className="text-3xl text-green-600">Gratis</span>
                   ) : (
                     <>
-                      <span className=" text-3xl" style={{ color: p.color }}>R$ {price}</span>
-                      <span className="text-xs" className="text-slate-400">/mes</span>
+                      <span className="text-3xl" style={{ color: p.color }}>R$ {price}</span>
+                      <span className="text-xs text-slate-400">/mes</span>
                     </>
                   )}
                 </div>
@@ -227,7 +227,7 @@ export default function PricingSection() {
 
                 <div className="space-y-2 mb-5">
                   {p.features.map(f => (
-                    <div key={f.name} className="flex items-center gap-2 text-[11px]" className={f.included ? 'text-slate-500' : 'text-slate-300'}>
+                    <div key={f.name} className={`flex items-center gap-2 text-[11px] ${f.included ? 'text-slate-500' : 'text-slate-300'}`}>
                       {f.included ? <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" /> : <X className="w-3.5 h-3.5 flex-shrink-0" />}
                       {f.name}
                     </div>
@@ -261,9 +261,9 @@ export default function PricingSection() {
             { icon: Zap, title: 'Ativacao imediata', desc: 'Comece em minutos' },
           ].map(t => (
             <div key={t.title} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
-              <t.icon className="w-5 h-5 mx-auto mb-2" className="text-blue-500" />
-              <div className="text-xs font-medium" className="text-slate-900">{t.title}</div>
-              <div className="text-[10px]" className="text-slate-400">{t.desc}</div>
+              <t.icon className="w-5 h-5 mx-auto mb-2 text-blue-500" />
+              <div className="text-xs font-medium text-slate-900">{t.title}</div>
+              <div className="text-[10px] text-slate-400">{t.desc}</div>
             </div>
           ))}
         </div>

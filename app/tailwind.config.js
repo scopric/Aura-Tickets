@@ -10,11 +10,11 @@ module.exports = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        canvas: "#f7f5f0",
-        void: "#1a0e14",
-        plum: "#7a3b69",
-        espresso: "#1a0e14",
-        cream: "#f7f5f0",
+        canvas: "#f8fafc",
+        void: "#0c2340",    /* Azul marinho profundo da logo */
+        plum: "#1d68c4",    /* Azul royal da logo */
+        espresso: "#0c2340",
+        cream: "#f8fafc",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -55,8 +55,8 @@ module.exports = {
         },
       },
       fontFamily: {
-        serif: ['Instrument Serif', 'Newsreader', 'Georgia', 'serif'],
-        sans: ['Inter', 'Geist', 'system-ui', 'sans-serif'],
+        serif: ['Outfit', 'Plus Jakarta Sans', 'sans-serif'],
+        sans: ['Plus Jakarta Sans', 'Inter', 'Geist', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -67,8 +67,8 @@ module.exports = {
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-        elevated: "0px 20px 40px rgba(26, 14, 20, 0.15)",
-        glow: "0px 0px 30px rgba(122, 59, 105, 0.3)",
+        elevated: "0px 20px 40px rgba(12, 35, 64, 0.15)",   /* marinho: #0c2340 -> rgba(12, 35, 64, 0.15) */
+        glow: "0px 0px 30px rgba(29, 104, 196, 0.3)",       /* azul royal: #1d68c4 -> rgba(29, 104, 196, 0.3) */
       },
       keyframes: {
         "accordion-down": {
@@ -88,8 +88,8 @@ module.exports = {
           "50%": { transform: "translateY(-10px)" },
         },
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px rgba(122, 59, 105, 0.2)" },
-          "50%": { boxShadow: "0 0 40px rgba(122, 59, 105, 0.5)" },
+          "0%, 100%": { boxShadow: "0 0 20px rgba(29, 104, 196, 0.2)" },
+          "50%": { boxShadow: "0 0 40px rgba(29, 104, 196, 0.5)" },
         },
       },
       animation: {

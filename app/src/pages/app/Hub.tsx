@@ -132,11 +132,7 @@ export default function AppHub() {
           </div>
           <div>
             <p className="text-xs text-cream/40">Olá,</p>
-<<<<<<< HEAD
             <h1 className="font-serif text-xl text-cream">{user?.full_name || user?.name || 'Participante'}</h1>
-=======
-            <h1 className="font-serif text-xl text-cream">{user?.name || user?.full_name || 'Participante'}</h1>
->>>>>>> 3177880
           </div>
         </div>
       </div>
@@ -189,7 +185,6 @@ export default function AppHub() {
             {/* Tickets */}
             <h2 className="text-sm font-medium text-cream/60 mb-2">Meus Ingressos</h2>
             {isLoadingTickets ? (
-<<<<<<< HEAD
               <div className="space-y-3">
                 {[1, 2].map(i => (
                   <div key={i} className="h-32 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
@@ -199,20 +194,10 @@ export default function AppHub() {
               <div className="p-8 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
                 <Ticket className="w-8 h-8 text-cream/20 mx-auto mb-3" />
                 <p className="text-sm text-cream/40">Você ainda não tem ingressos.</p>
-                <p className="text-[11px] text-cream/25 mt-1">Explore eventos e faça sua primeira compra!</p>
-=======
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-6 h-6 text-plum animate-spin" />
-              </div>
-            ) : myTickets.length === 0 ? (
-              <div className="text-center py-12">
-                <Ticket className="w-12 h-12 text-cream/10 mx-auto mb-4" />
-                <p className="text-cream/30 text-sm mb-2">Você ainda não tem ingressos</p>
-                <p className="text-cream/20 text-xs mb-4">Explore os eventos e garanta seu lugar</p>
+                <p className="text-[11px] text-cream/25 mt-1 mb-4">Explore eventos e faça sua primeira compra!</p>
                 <button onClick={() => setActiveTab('eventos')} className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">
                   Explorar Eventos
                 </button>
->>>>>>> 3177880
               </div>
             ) : (
               <div className="space-y-3">

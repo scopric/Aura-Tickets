@@ -9,27 +9,27 @@ Design system moderno inspirado em Linear, Vercel, Stripe e Apple. Paleta basead
 ### Brand
 | Nome | Hex | Tailwind | Uso |
 |------|-----|----------|-----|
-| Cyan | `#06b6d4` | cyan-500 | Destaques, acentos |
-| Blue | `#3b82f6` | blue-500 | Primária, CTAs |
-| Violet | `#8b5cf6` | violet-500 | Acento secundário |
-| Indigo | `#6366f1` | indigo-500 | Gradientes |
+| Cyan / Blue | `#1d68c4` | custom-blue | Azul royal principal do ícone, botões primários |
+| Blue / Indigo | `#4a60e3` | custom-indigo | Tom azul-violeta intermediário do degradê |
+| Violet | `#8f33f5` | custom-violet | Roxo/violeta vibrante do ícone |
+| Navy (Escuro) | `#0c2340` | custom-navy | Azul-marinho profundo do texto e fundo dark |
 
 ### Gradientes
 ```css
---gradient-brand: linear-gradient(135deg, #06b6d4, #3b82f6, #8b5cf6);
---gradient-hero: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
---gradient-card: linear-gradient(180deg, rgba(6,182,212,0.05), rgba(139,92,246,0.05));
---gradient-glow: linear-gradient(135deg, rgba(6,182,212,0.3), rgba(139,92,246,0.3));
+--gradient-brand: linear-gradient(135deg, #1d68c4, #4a60e3, #8f33f5);
+--gradient-hero: linear-gradient(135deg, #0c2340 0%, #12335c 50%, #0c2340 100%);
+--gradient-card: linear-gradient(180deg, rgba(29,104,196,0.05), rgba(143,51,245,0.05));
+--gradient-glow: linear-gradient(135deg, rgba(29,104,196,0.3), rgba(143,51,245,0.3));
 ```
 
 ### Neutros
 | Nome | Hex | Tailwind |
 |------|-----|----------|
-| Dark | `#0f172a` | slate-900 |
-| Darker | `#020617` | slate-950 |
+| Dark | `#0c2340` | custom-dark |
+| Darker | `#071526` | custom-darker |
 | Light | `#f8fafc` | slate-50 |
 | Card | `#ffffff` | white |
-| Text Primary | `#0f172a` | slate-900 |
+| Text Primary | `#0c2340` | custom-text-primary |
 | Text Secondary | `#475569` | slate-600 |
 | Text Muted | `#94a3b8` | slate-400 |
 | Border | `#e2e8f0` | slate-200 |

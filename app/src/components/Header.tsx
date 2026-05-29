@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, UserPlus, LogOut, LayoutDashboard, ChevronDown } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
-import { useAuth } from '../contexts/AuthContext'
+import { useAuth } from '../hooks/useAuth'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
