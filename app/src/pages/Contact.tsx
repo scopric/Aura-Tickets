@@ -36,8 +36,8 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.email || !form.message) {
-      toast.error('Por favor, preencha os campos obrigatórios: Nome, E-mail e Mensagem.')
+    if (!form.name || !form.email || !form.phone || !form.message) {
+      toast.error('Por favor, preencha todos os campos obrigatórios: Nome, E-mail, Telefone e Mensagem.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
@@ -249,7 +249,7 @@ export default function ContactPage() {
                   {/* Phone Input */}
                   <div className="space-y-1">
                     <label htmlFor="phone" className={labelClasses('phone')}>
-                      Telefone de Contato
+                      Telefone de Contato *
                     </label>
                     <div className={inputWrapperClasses('phone')}>
                       <input
