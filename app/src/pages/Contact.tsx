@@ -18,26 +18,44 @@ export default function ContactPage() {
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.from('.contact-hero-title', { opacity: 0, y: 40, duration: 1, ease: 'power3.out' })
-      gsap.from('.contact-hero-sub', { opacity: 0, y: 30, duration: 1, delay: 0.2, ease: 'power3.out' })
-      gsap.from('.contact-hero-line', { scaleX: 0, duration: 1.2, delay: 0.4, ease: 'power3.out', transformOrigin: 'center' })
-      gsap.from('.dept-card', { opacity: 0, y: 40, stagger: 0.1, duration: 0.8, delay: 0.3, ease: 'power3.out' })
-      gsap.from('.form-panel', { opacity: 0, x: 30, duration: 0.8, delay: 0.4, ease: 'power3.out' })
-      gsap.from('.info-panel', { opacity: 0, x: -30, duration: 0.8, delay: 0.4, ease: 'power3.out' })
+      gsap.fromTo('.contact-hero-badge',
+        { scale: 0.8, opacity: 0 },
+        { scale: 1, opacity: 1, duration: 0.6, ease: 'back.out(1.7)' }
+      )
+      gsap.fromTo('.contact-hero-title',
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 0.8, delay: 0.1, ease: 'power3.out' }
+      )
+      gsap.fromTo('.contact-hero-sub',
+        { opacity: 0, y: 20 },
+        { opacity: 1, y: 0, duration: 0.8, delay: 0.2, ease: 'power3.out' }
+      )
+      gsap.fromTo('.dept-card',
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, stagger: 0.08, duration: 0.8, delay: 0.3, ease: 'power3.out' }
+      )
+      gsap.fromTo('.info-panel',
+        { opacity: 0, x: -30 },
+        { opacity: 1, x: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' }
+      )
+      gsap.fromTo('.form-panel',
+        { opacity: 0, x: 30 },
+        { opacity: 1, x: 0, duration: 0.8, delay: 0.4, ease: 'power3.out' }
+      )
     })
     return () => ctx.revert()
   }, [])
 
-  const { mutateAsync: sendContact } = useContact()
+  const { mutateAsync: sendContact, isPending } = useContact()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.name || !form.email || !form.message) {
-      toast.error('Preencha nome, email e mensagem')
+      toast.error('Por favor, preencha os campos obrigatórios: Nome, E-mail e Mensagem.')
       return
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      toast.error('Por favor, insira um e-mail valido.')
+      toast.error('Por favor, insira um e-mail válido.')
       return
     }
 
@@ -46,89 +64,130 @@ export default function ContactPage() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
-        subject: form.subject.trim() || 'Contato via pagina',
+        subject: form.subject.trim() || 'Contato Geral',
         message: form.message.trim(),
       })
 
       setSent(true)
-      toast.success('Mensagem enviada com sucesso!')
+      toast.success('Mensagem de contato enviada com sucesso!')
       setTimeout(() => {
         setSent(false)
         setForm({ name: '', email: '', phone: '', subject: '', message: '' })
-      }, 3000)
+      }, 5000)
     } catch (err) {
       console.error('[Contact]', err)
-      toast.error('Erro ao enviar. Tente novamente.')
+      toast.error('Falha ao enviar mensagem. Por favor, tente novamente.')
     }
   }
 
   const departments = [
-    { icon: Headphones, title: 'Suporte Tecnico', desc: 'Problemas com a plataforma, pagamentos ou acesso.', email: 'suporte@evokaa.events', time: '2h', color: 'from-violet-500/10 to-violet-500/5', accent: '#7c3aed' },
-    { icon: Zap, title: 'Vendas & Eventos', desc: 'Quero criar um evento ou tenho duvidas sobre precos.', email: 'vendas@evokaa.events', time: '4h', color: 'from-amber-500/10 to-amber-500/5', accent: '#d97706' },
-    { icon: Shield, title: 'Parcerias', desc: 'Propostas comerciais, patrocinios e midia.', email: 'parcerias@evokaa.events', time: '24h', color: 'from-emerald-500/10 to-emerald-500/5', accent: '#059669' },
-    { icon: MessageSquarePlus, title: 'Feedback', desc: 'Sugestoes, melhorias ou reportar bugs.', email: 'feedback@evokaa.events', time: '24h', color: 'from-rose-500/10 to-rose-500/5', accent: '#e11d48' },
+    { 
+      icon: Headphones, 
+      title: 'Suporte Técnico', 
+      desc: 'Dificuldades com pagamentos, acesso aos ingressos ou problemas na plataforma.', 
+      email: 'suporte@evokaa.events', 
+      time: 'Resposta: ~2h', 
+      color: 'from-blue-500/10 to-indigo-500/5', 
+      accent: '#1d68c4' 
+    },
+    { 
+      icon: Zap, 
+      title: 'Vendas & Eventos', 
+      desc: 'Quero criar e publicar meu primeiro evento ou tenho dúvidas comerciais sobre as taxas.', 
+      email: 'vendas@evokaa.events', 
+      time: 'Resposta: ~4h', 
+      color: 'from-purple-500/10 to-pink-500/5', 
+      accent: '#8f33f5' 
+    },
+    { 
+      icon: Shield, 
+      title: 'Parcerias & Mídia', 
+      desc: 'Propostas de integração de marcas, patrocínios exclusivos ou contato com a imprensa.', 
+      email: 'parcerias@evokaa.events', 
+      time: 'Resposta: ~1 dia', 
+      color: 'from-teal-500/10 to-emerald-500/5', 
+      accent: '#0d9488' 
+    },
+    { 
+      icon: MessageSquarePlus, 
+      title: 'Sugestões & Bugs', 
+      desc: 'Quer sugerir uma funcionalidade inovadora ou encontrou alguma inconsistência?', 
+      email: 'feedback@evokaa.events', 
+      time: 'Resposta: ~1 dia', 
+      color: 'from-orange-500/10 to-rose-500/5', 
+      accent: '#ea580c' 
+    },
   ]
 
   const contactDetails = [
-    { icon: Mail, label: 'Email', value: 'contato@evokaa.events', sub: 'Respondemos em ate 24h' },
-    { icon: Phone, label: 'Telefone', value: '(11) 4000-2025', sub: 'Seg a Sex, 9h as 18h' },
-    { icon: MapPin, label: 'Endereco', value: 'Rua Augusta, 1500', sub: 'Consolacao, Sao Paulo/SP' },
-    { icon: Clock, label: 'Horario', value: 'Seg a Sex: 9h-18h', sub: 'Sab: 10h-14h' },
+    { icon: Mail, label: 'E-mail Principal', value: 'contato@evokaa.events', sub: 'Retorno em até 24 horas úteis' },
+    { icon: Phone, label: 'Atendimento por Telefone', value: '(11) 4000-2025', sub: 'Segunda a Sexta, das 9h às 18h' },
+    { icon: MapPin, label: 'Nosso Escritório', value: 'Rua Augusta, 1500', sub: 'Consolação, São Paulo/SP' },
+    { icon: Clock, label: 'Horários de Operação', value: 'Seg a Sex: 9h-18h | Sáb: 10h-14h', sub: 'Disponibilidade de equipe física' },
   ]
 
-  const inputClasses = "w-full px-5 py-4 bg-white/40 border rounded-2xl text-sm transition-all duration-300 outline-none placeholder:font-light"
-  const inputStyle = { color: 'var(--espresso)' } as React.CSSProperties
-
+  const inputLabelClasses = "text-[10px] font-bold uppercase tracking-wider mb-2 block flex items-center gap-2 text-slate-500"
+  
   return (
-    <div className="min-h-screen" style={{ background: 'var(--cream)' }}>
-      {/* ===== HERO ===== */}
-      <section ref={heroRef} className="pt-32 pb-20 relative overflow-hidden">
-        {/* Decorative */}
-        <div className="absolute top-40 right-0 w-[600px] h-[600px] rounded-full opacity-[0.04]" style={{ background: 'radial-gradient(circle, var(--plum) 0%, transparent 70%)' }} />
-        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-[0.03]" style={{ background: 'radial-gradient(circle, var(--plum) 0%, transparent 70%)' }} />
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-slate-100 to-slate-200/60 font-sans">
+      
+      {/* ===== HERO SECTION ===== */}
+      <section ref={heroRef} className="pt-32 pb-16 relative overflow-hidden">
+        {/* Orbes flutuantes decorativos */}
+        <div className="absolute top-20 right-0 w-[500px] h-[500px] bg-gradient-to-tr from-[#1d68c4]/10 to-transparent rounded-full blur-3xl opacity-60 pointer-events-none" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-br from-[#8f33f5]/5 to-transparent rounded-full blur-3xl opacity-50 pointer-events-none" />
 
-        <div className="max-w-6xl mx-auto px-6 text-center relative">
-          <div className="contact-hero-line w-16 h-px mx-auto mb-8" style={{ background: 'var(--plum)' }} />
-          <span className="text-[10px] font-medium tracking-[0.35em] uppercase block mb-6" style={{ color: 'var(--plum)' }}>
-            Entre em contato
-          </span>
-          <h1 className="contact-hero-title font-serif text-6xl lg:text-7xl leading-[0.95] mb-6" style={{ color: 'var(--espresso)' }}>
-            Fale com a <em className="not-italic" style={{ color: 'var(--plum)' }}>Evokaa</em>
+        <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
+          <div className="contact-hero-badge inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#1d68c4]/5 rounded-full mb-6">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#1d68c4] animate-ping" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#1d68c4]">Central de Relacionamento</span>
+          </div>
+
+          <h1 className="contact-hero-title font-serif text-5xl sm:text-6xl lg:text-[80px] font-extrabold tracking-tight text-slate-900 leading-[0.95] mb-6">
+            Fale com a <span className="text-gradient">Evokaa</span>
           </h1>
-          <p className="contact-hero-sub text-sm max-w-md mx-auto leading-[1.8] font-light" style={{ color: 'var(--espresso)', opacity: 0.45 }}>
-            Tem uma ideia, duvida ou quer criar algo incrivel junto?<br />
-            Nossa equipe esta pronta para ouvir voce.
+          <p className="contact-hero-sub text-base sm:text-lg max-w-xl mx-auto leading-relaxed text-slate-500 font-light">
+            Tem alguma ideia, dúvida ou deseja criar uma experiência memorável conosco? 
+            Selecione o canal ideal e nossa equipe retornará rapidamente.
           </p>
         </div>
       </section>
 
-      {/* ===== DEPARTMENTS ===== */}
-      <section ref={cardsRef} className="pb-24">
+      {/* ===== DEPARTMENTS CARDS ===== */}
+      <section ref={cardsRef} className="pb-16 relative z-10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {departments.map((d) => (
               <div
                 key={d.title}
-                className="dept-card group relative p-6 rounded-3xl border backdrop-blur-sm overflow-hidden transition-all duration-500 hover:shadow-xl hover:-translate-y-1"
-                style={{
-                  background: 'rgba(255,255,255,0.5)',
-                  borderColor: 'rgba(255,255,255,0.6)',
-                }}
+                className="dept-card group relative p-6 rounded-[24px] border border-white/60 bg-white/65 backdrop-blur-md overflow-hidden transition-all duration-300 hover:shadow-xl hover:border-[#1d68c4]/25 hover:-translate-y-1"
               >
-                {/* Gradient bg on hover */}
-                <div className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500" style={{ background: `linear-gradient(135deg, ${d.accent}08 0%, ${d.accent}03 100%)` }} />
+                {/* Efeito de brilho de gradiente no hover */}
+                <div 
+                  className="absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" 
+                  style={{ background: `linear-gradient(135deg, ${d.accent}08 0%, ${d.accent}02 100%)` }} 
+                />
 
-                <div className="relative">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-500 group-hover:scale-110" style={{ background: `${d.accent}15` }}>
-                    <d.icon className="w-5 h-5" style={{ color: d.accent }} />
+                <div className="relative z-10 flex flex-col justify-between h-full">
+                  <div>
+                    <div 
+                      className="w-11 h-11 rounded-2xl flex items-center justify-center mb-5 transition-transform duration-300 group-hover:scale-105" 
+                      style={{ background: `${d.accent}12` }}
+                    >
+                      <d.icon className="w-5 h-5" style={{ color: d.accent }} />
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-800 tracking-tight">{d.title}</h3>
+                    <p className="text-xs text-slate-400 mt-2 leading-relaxed min-h-[64px] font-light">{d.desc}</p>
                   </div>
 
-                  <h3 className="text-sm font-medium mb-2" style={{ color: 'var(--espresso)' }}>{d.title}</h3>
-                  <p className="text-xs leading-relaxed mb-4" style={{ color: 'var(--espresso)', opacity: 0.4 }}>{d.desc}</p>
-
-                  <div className="flex items-center justify-between pt-4" style={{ borderTop: '1px solid rgba(26,14,20,0.06)' }}>
-                    <span className="text-[10px] font-medium" style={{ color: d.accent }}>{d.email}</span>
-                    <span className="text-[10px] px-2 py-1 rounded-full" style={{ background: `${d.accent}10`, color: d.accent }}>{d.time}</span>
+                  <div className="flex flex-col gap-2 pt-4 mt-4 border-t border-slate-100/60">
+                    <span className="text-[10px] font-bold text-slate-700 tracking-wide break-all">{d.email}</span>
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider" style={{ background: `${d.accent}10`, color: d.accent }}>
+                        {d.time}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -137,251 +196,266 @@ export default function ContactPage() {
         </div>
       </section>
 
-      {/* ===== FORM + INFO ===== */}
-      <section className="pb-32">
+      {/* ===== FORM + INFO GRID ===== */}
+      <section className="pb-28 relative z-10">
         <div className="max-w-6xl mx-auto px-6">
-          {/* Section header */}
-          <div className="text-center mb-14">
-            <span className="text-[10px] font-medium tracking-[0.3em] uppercase" style={{ color: 'var(--plum)' }}>Envie uma mensagem</span>
-            <h2 className="font-serif text-3xl mt-3" style={{ color: 'var(--espresso)' }}>Como podemos ajudar?</h2>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Left Info Panel */}
-            <div className="lg:col-span-4 info-panel space-y-4">
-              {contactDetails.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-start gap-4 p-5 rounded-2xl border backdrop-blur-sm transition-all duration-300 hover:bg-white/70 group"
-                  style={{ background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.6)' }}
-                >
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300 group-hover:shadow-md" style={{ background: 'var(--plum-10)' }}>
-                    <item.icon className="w-4 h-4" style={{ color: 'var(--plum)' }} />
+            
+            {/* Left Info Panel (4 Columns) */}
+            <div className="lg:col-span-5 info-panel space-y-4">
+              
+              {/* Informações detalhadas */}
+              <div className="bg-white/50 backdrop-blur-md border border-white/60 rounded-3xl p-4 space-y-3 shadow-md">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-3.5 pt-2 block">Informações de Contato</span>
+                {contactDetails.map((item) => (
+                  <div
+                    key={item.label}
+                    className="flex items-start gap-4 p-4 rounded-2xl border border-transparent hover:border-slate-200/60 hover:bg-white/90 transition-all duration-300 group"
+                  >
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-[#1d68c4]/10 transition-transform duration-300 group-hover:scale-105">
+                      <item.icon className="w-4 h-4 text-[#1d68c4]" />
+                    </div>
+                    <div>
+                      <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{item.label}</div>
+                      <div className="text-sm font-bold text-slate-800">{item.value}</div>
+                      <div className="text-[10px] text-slate-400/80 font-light mt-0.5">{item.sub}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-[10px] font-medium uppercase tracking-wider mb-1" style={{ color: 'var(--espresso)', opacity: 0.3 }}>{item.label}</div>
-                    <div className="text-sm font-medium" style={{ color: 'var(--espresso)' }}>{item.value}</div>
-                    <div className="text-[10px] mt-0.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>{item.sub}</div>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
 
-              {/* Social */}
-              <div className="p-6 rounded-2xl border backdrop-blur-sm" style={{ background: 'rgba(255,255,255,0.5)', borderColor: 'rgba(255,255,255,0.6)' }}>
-                <div className="text-[10px] font-medium uppercase tracking-wider mb-4" style={{ color: 'var(--espresso)', opacity: 0.3 }}>Redes Sociais</div>
-                <div className="flex flex-wrap gap-2">
+              {/* Redes Sociais */}
+              <div className="p-6 rounded-3xl border border-white/60 bg-white/50 backdrop-blur-md shadow-md">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-4">Comunidade & Social</div>
+                <div className="flex flex-col gap-2.5">
                   {[
-                    { icon: Instagram, label: '@evokaa.events' },
-                    { icon: MessageCircle, label: 'WhatsApp' },
-                    { icon: Globe, label: 'evokaa.events' },
+                    { icon: Instagram, label: '@evokaa.events', desc: 'Acompanhe novidades de eventos', link: '#' },
+                    { icon: Globe, label: 'evokaa.events', desc: 'Visite nossa plataforma oficial', link: '/' },
                   ].map((s) => (
-                    <button key={s.label} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs transition-all duration-300 hover:bg-plum/10" style={{ background: 'rgba(247,245,240,0.8)', color: 'var(--espresso)', opacity: 0.6 }}>
-                      <s.icon className="w-3.5 h-3.5" /> {s.label}
-                    </button>
+                    <a 
+                      key={s.label}
+                      href={s.link}
+                      className="flex items-center justify-between p-3 rounded-xl bg-white/70 hover:bg-[#1d68c4]/5 border border-transparent hover:border-[#1d68c4]/10 text-slate-700 transition-all duration-300 group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <s.icon className="w-4 h-4 text-[#1d68c4]" />
+                        <div>
+                          <div className="text-xs font-bold">{s.label}</div>
+                          <div className="text-[10px] text-slate-400 font-light mt-0.5">{s.desc}</div>
+                        </div>
+                      </div>
+                      <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#1d68c4] transition-colors" />
+                    </a>
                   ))}
                 </div>
               </div>
 
-              {/* WhatsApp CTA */}
-              <a href="#" className="flex items-center gap-4 p-5 rounded-2xl border transition-all duration-300 hover:shadow-lg group" style={{ background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#22c55e' }}>
-                  <MessageCircle className="w-6 h-6 text-white" />
+              {/* Botão WhatsApp */}
+              <a 
+                href="https://wa.me/551140002025" 
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 p-5 rounded-3xl border border-green-200 bg-green-500/10 hover:bg-green-500/20 transition-all duration-300 hover:shadow-lg group"
+              >
+                <div className="w-12 h-12 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 shadow-md group-hover:scale-105 transition-transform">
+                  <MessageCircle className="w-6 h-6 text-white fill-current" />
                 </div>
                 <div className="flex-1">
-                  <div className="text-sm font-medium" style={{ color: '#166534' }}>Atendimento via WhatsApp</div>
-                  <div className="text-xs mt-0.5" style={{ color: '#16a34a' }}>Resposta mais rapida</div>
+                  <div className="text-sm font-bold text-green-800">Canal de Suporte Rápido</div>
+                  <div className="text-xs text-green-600 font-light mt-0.5">Clique para falar no WhatsApp</div>
                 </div>
-                <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" style={{ color: '#16a34a' }} />
+                <ChevronRight className="w-4 h-4 text-green-500 transition-transform group-hover:translate-x-1" />
               </a>
             </div>
 
-            {/* Right Form Panel */}
-            <div className="lg:col-span-8 form-panel">
-              <div className="p-8 lg:p-10 rounded-3xl border backdrop-blur-sm" style={{ background: 'rgba(255,255,255,0.55)', borderColor: 'rgba(255,255,255,0.6)' }}>
-                {sent ? (
-                  <div className="py-20 text-center">
-                    <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6" style={{ background: '#dcfce7' }}>
-                      <CheckCircle2 className="w-10 h-10" style={{ color: '#16a34a' }} />
-                    </div>
-                    <h3 className="font-serif text-2xl mb-3" style={{ color: 'var(--espresso)' }}>Mensagem enviada!</h3>
-                    <p className="text-sm max-w-sm mx-auto leading-relaxed" style={{ color: 'var(--espresso)', opacity: 0.5 }}>
-                      Obrigado pelo contato. Nossa equipe vai responder em ate 24 horas uteis.
-                    </p>
-                    <button
-                      onClick={() => { setSent(false); setForm({ name: '', email: '', phone: '', subject: '', message: '' }) }}
-                      className="mt-8 px-8 py-3 rounded-full text-sm font-medium transition-all hover:shadow-glow"
-                      style={{ background: 'var(--plum)', color: 'var(--cream)' }}
-                    >
-                      Enviar outra mensagem
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {/* Name */}
-                      <div className="relative">
-                        <label className="text-[10px] font-medium uppercase tracking-wider mb-2 block flex items-center gap-1.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>
-                          <User className="w-3 h-3" /> Nome completo *
-                        </label>
-                        <input
-                          type="text"
-                          value={form.name}
-                          onChange={e => setForm({ ...form, name: e.target.value })}
-                          onFocus={() => setFocusedField('name')}
-                          onBlur={() => setFocusedField(null)}
-                          placeholder="Como devemos te chamar?"
-                          className={inputClasses}
-                          style={{
-                            ...inputStyle,
-                            borderColor: focusedField === 'name' ? 'var(--plum-30)' : 'rgba(255,255,255,0.6)',
-                            background: focusedField === 'name' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)',
-                          }}
-                        />
-                      </div>
-                      {/* Email */}
-                      <div className="relative">
-                        <label className="text-[10px] font-medium uppercase tracking-wider mb-2 block flex items-center gap-1.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>
-                          <AtSign className="w-3 h-3" /> Email *
-                        </label>
-                        <input
-                          type="email"
-                          value={form.email}
-                          onChange={e => setForm({ ...form, email: e.target.value })}
-                          onFocus={() => setFocusedField('email')}
-                          onBlur={() => setFocusedField(null)}
-                          placeholder="seu@email.com"
-                          className={inputClasses}
-                          style={{
-                            ...inputStyle,
-                            borderColor: focusedField === 'email' ? 'var(--plum-30)' : 'rgba(255,255,255,0.6)',
-                            background: focusedField === 'email' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)',
-                          }}
-                        />
-                      </div>
-                    </div>
+            {/* Right Form Panel (7 Columns) */}
+            <div className="lg:col-span-7 form-panel">
+              <div className="relative p-[1.5px] rounded-[32px] bg-gradient-to-br from-white/80 via-slate-200/50 to-white/40 shadow-2xl">
+                
+                {/* Linha de design elegante superior */}
+                <div className="absolute top-0 left-10 right-10 h-[2px] bg-gradient-to-r from-transparent via-[#1d68c4] to-[#8f33f5] opacity-80" />
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                      {/* Phone */}
+                <div className="p-8 sm:p-10 rounded-[30px] bg-white/95 backdrop-blur-xl">
+                  {sent ? (
+                    <div className="py-16 text-center animate-fade-in">
+                      <div className="w-20 h-20 rounded-full bg-green-500/10 border border-green-200 flex items-center justify-center mx-auto mb-6">
+                        <CheckCircle2 className="w-10 h-10 text-green-600" />
+                      </div>
+                      <h3 className="font-serif text-3xl font-bold text-slate-900 mb-3">Mensagem Enviada!</h3>
+                      <p className="text-sm text-slate-500 max-w-sm mx-auto leading-relaxed font-light">
+                        Agradecemos o seu contato. A equipe da <strong className="text-slate-800">Evokaa</strong> recebeu os seus dados e responderá ao seu e-mail em até 24 horas úteis.
+                      </p>
+                      <button
+                        onClick={() => { setSent(false); setForm({ name: '', email: '', phone: '', subject: '', message: '' }) }}
+                        className="mt-8 px-8 py-3 rounded-full text-xs font-bold text-white transition-all duration-300 bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] hover:shadow-lg focus:outline-none"
+                      >
+                        Enviar Nova Mensagem
+                      </button>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                      
+                      <div className="border-b border-slate-100 pb-4 mb-6">
+                        <h2 className="text-xl font-bold text-slate-900 font-serif">Envie uma Mensagem Direta</h2>
+                        <p className="text-xs text-slate-400 mt-1 font-light">Seus dados serão enviados por e-mail à nossa central de atendimento.</p>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {/* Name Input */}
+                        <div className="relative">
+                          <label className={inputLabelClasses}>
+                            <User className="w-3.5 h-3.5 text-[#1d68c4]" /> Nome completo *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              value={form.name}
+                              onChange={e => setForm({ ...form, name: e.target.value })}
+                              onFocus={() => setFocusedField('name')}
+                              onBlur={() => setFocusedField(null)}
+                              placeholder="Como devemos te chamar?"
+                              className="w-full pl-5 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 outline-none placeholder:text-slate-400/70 focus:bg-white focus:border-[#1d68c4] focus:ring-4 focus:ring-[#1d68c4]/10 text-slate-800"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Email Input */}
+                        <div className="relative">
+                          <label className={inputLabelClasses}>
+                            <AtSign className="w-3.5 h-3.5 text-[#1d68c4]" /> E-mail *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="email"
+                              value={form.email}
+                              onChange={e => setForm({ ...form, email: e.target.value })}
+                              onFocus={() => setFocusedField('email')}
+                              onBlur={() => setFocusedField(null)}
+                              placeholder="seu.email@provedor.com"
+                              className="w-full pl-5 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 outline-none placeholder:text-slate-400/70 focus:bg-white focus:border-[#1d68c4] focus:ring-4 focus:ring-[#1d68c4]/10 text-slate-800"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        {/* Phone Input */}
+                        <div className="relative">
+                          <label className={inputLabelClasses}>
+                            <Phone className="w-3.5 h-3.5 text-[#1d68c4]" /> Telefone de contato
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="tel"
+                              value={form.phone}
+                              onChange={e => setForm({ ...form, phone: e.target.value })}
+                              onFocus={() => setFocusedField('phone')}
+                              onBlur={() => setFocusedField(null)}
+                              placeholder="(11) 99999-9999"
+                              className="w-full pl-5 pr-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 outline-none placeholder:text-slate-400/70 focus:bg-white focus:border-[#1d68c4] focus:ring-4 focus:ring-[#1d68c4]/10 text-slate-800"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Subject Select */}
+                        <div className="relative">
+                          <label className={inputLabelClasses}>
+                            <FileText className="w-3.5 h-3.5 text-[#1d68c4]" /> Assunto
+                          </label>
+                          <div className="relative">
+                            <select
+                              value={form.subject}
+                              onChange={e => setForm({ ...form, subject: e.target.value })}
+                              onFocus={() => setFocusedField('subject')}
+                              onBlur={() => setFocusedField(null)}
+                              className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 outline-none focus:bg-white focus:border-[#1d68c4] focus:ring-4 focus:ring-[#1d68c4]/10 text-slate-800 cursor-pointer appearance-none"
+                            >
+                              <option value="">Selecione um assunto...</option>
+                              <option value="Quero criar um evento">Quero criar um evento</option>
+                              <option value="Quero ser parceiro/afiliado">Quero ser afiliado</option>
+                              <option value="Problemas com suporte técnico">Suporte técnico</option>
+                              <option value="Proposta comercial ou parcerias">Proposta de parceria</option>
+                              <option value="Outro assunto">Outro assunto</option>
+                            </select>
+                            <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                              <ChevronDown className="w-4 h-4" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Message Input */}
                       <div className="relative">
-                        <label className="text-[10px] font-medium uppercase tracking-wider mb-2 block flex items-center gap-1.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>
-                          <Phone className="w-3 h-3" /> Telefone
+                        <label className={inputLabelClasses}>
+                          <AlignLeft className="w-3.5 h-3.5 text-[#1d68c4]" /> Mensagem *
                         </label>
-                        <input
-                          type="tel"
-                          value={form.phone}
-                          onChange={e => setForm({ ...form, phone: e.target.value })}
-                          onFocus={() => setFocusedField('phone')}
+                        <textarea
+                          value={form.message}
+                          onChange={e => setForm({ ...form, message: e.target.value })}
+                          onFocus={() => setFocusedField('message')}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="(11) 99999-9999"
-                          className={inputClasses}
-                          style={{
-                            ...inputStyle,
-                            borderColor: focusedField === 'phone' ? 'var(--plum-30)' : 'rgba(255,255,255,0.6)',
-                            background: focusedField === 'phone' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)',
-                          }}
+                          placeholder="Digite aqui o motivo do seu contato em detalhes..."
+                          rows={5}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm transition-all duration-300 outline-none placeholder:text-slate-400/70 focus:bg-white focus:border-[#1d68c4] focus:ring-4 focus:ring-[#1d68c4]/10 text-slate-800 resize-none leading-relaxed"
                         />
                       </div>
-                      {/* Subject */}
-                      <div className="relative">
-                        <label className="text-[10px] font-medium uppercase tracking-wider mb-2 block flex items-center gap-1.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>
-                          <FileText className="w-3 h-3" /> Assunto
-                        </label>
-                        <select
-                          value={form.subject}
-                          onChange={e => setForm({ ...form, subject: e.target.value })}
-                          onFocus={() => setFocusedField('subject')}
-                          onBlur={() => setFocusedField(null)}
-                          className={inputClasses + ' cursor-pointer appearance-none'}
+
+                      {/* Submit Button */}
+                      <div className="pt-2">
+                        <button
+                          type="submit"
+                          disabled={isPending}
+                          className="w-full py-4 rounded-full text-xs font-bold text-white transition-all duration-300 hover:shadow-[0_10px_25px_rgba(29,104,196,0.25)] flex items-center justify-center gap-2 group disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-wider"
                           style={{
-                            ...inputStyle,
-                            borderColor: focusedField === 'subject' ? 'var(--plum-30)' : 'rgba(255,255,255,0.6)',
-                            background: focusedField === 'subject' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)',
-                            opacity: form.subject ? 1 : 0.5,
+                            background: 'linear-gradient(135deg, #1d68c4, #8f33f5)'
                           }}
                         >
-                          <option value="">Selecione um assunto...</option>
-                          <option value="evento">Quero criar um evento</option>
-                          <option value="afiliado">Quero ser afiliado</option>
-                          <option value="suporte">Suporte tecnico</option>
-                          <option value="parceria">Proposta de parceria</option>
-                          <option value="outro">Outro assunto</option>
-                        </select>
+                          <Send className="w-4 h-4 transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                          <span>{isPending ? 'Enviando Mensagem...' : 'Enviar Mensagem'}</span>
+                        </button>
+                        <p className="text-[10px] text-center text-slate-400 mt-4 font-light">
+                          Ao enviar, você concorda com nossos Termos de Uso e Políticas de Privacidade.
+                        </p>
                       </div>
-                    </div>
-
-                    {/* Message */}
-                    <div className="relative">
-                      <label className="text-[10px] font-medium uppercase tracking-wider mb-2 block flex items-center gap-1.5" style={{ color: 'var(--espresso)', opacity: 0.35 }}>
-                        <AlignLeft className="w-3 h-3" /> Mensagem *
-                      </label>
-                      <textarea
-                        value={form.message}
-                        onChange={e => setForm({ ...form, message: e.target.value })}
-                        onFocus={() => setFocusedField('message')}
-                        onBlur={() => setFocusedField(null)}
-                        placeholder="Conte-nos como podemos ajudar voce..."
-                        rows={6}
-                        className={inputClasses + ' resize-none leading-relaxed'}
-                        style={{
-                          ...inputStyle,
-                          borderColor: focusedField === 'message' ? 'var(--plum-30)' : 'rgba(255,255,255,0.6)',
-                          background: focusedField === 'message' ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.4)',
-                        }}
-                      />
-                    </div>
-
-                    {/* Submit */}
-                    <div className="pt-2">
-                      <button
-                        type="submit"
-                        className="w-full py-4 rounded-full text-sm font-medium transition-all duration-500 hover:shadow-glow flex items-center justify-center gap-3 group"
-                        style={{ background: 'var(--plum)', color: 'var(--cream)' }}
-                      >
-                        <Send className="w-4 h-4 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-                        Enviar Mensagem
-                        <ArrowUpRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-all group-hover:translate-x-1" />
-                      </button>
-                      <p className="text-[10px] text-center mt-4" style={{ color: 'var(--espresso)', opacity: 0.2 }}>
-                        Ao enviar, voce concorda com nossa Politica de Privacidade e Termos de Uso.
-                      </p>
-                    </div>
-                  </form>
-                )}
+                    </form>
+                  )}
+                </div>
               </div>
             </div>
+
           </div>
         </div>
       </section>
 
       {/* ===== MAP SECTION ===== */}
-      <section className="relative">
-        <div className="w-full h-72 relative overflow-hidden">
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, var(--cream) 0%, transparent 30%, transparent 70%, var(--cream) 100%)' }} />
-
-          {/* Grid pattern */}
-          <div className="absolute inset-0" style={{
-            backgroundImage: `linear-gradient(rgba(122,59,105,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(122,59,105,0.06) 1px, transparent 1px)`,
-            backgroundSize: '60px 60px'
+      <section className="relative overflow-hidden bg-slate-100 border-t border-slate-200/60 pb-12">
+        <div className="w-full h-80 relative overflow-hidden flex items-center justify-center">
+          {/* Grid pattern overlay */}
+          <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{
+            backgroundImage: `linear-gradient(rgba(29,104,196,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(29,104,196,0.3) 1px, transparent 1px)`,
+            backgroundSize: '40px 40px'
           }} />
+          
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-200/50 via-transparent to-slate-200/50 pointer-events-none" />
 
-          {/* Center pin */}
-          <div className="absolute inset-0 z-20 flex items-center justify-center">
-            <div className="text-center">
-              <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center" style={{ background: 'var(--plum)', boxShadow: '0 8px 32px rgba(122,59,105,0.3)' }}>
-                <MapPin className="w-7 h-7 text-white" />
+          {/* Pino Central Animado */}
+          <div className="relative z-10 text-center">
+            <div className="relative w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+              {/* Anel de radar pulsando */}
+              <div className="absolute inset-0 rounded-full bg-[#1d68c4]/20 animate-ping duration-1000" />
+              <div className="relative w-12 h-12 rounded-full bg-[#1d68c4] flex items-center justify-center shadow-lg shadow-[#1d68c4]/45">
+                <MapPin className="w-6 h-6 text-white" />
               </div>
-              <h3 className="font-serif text-lg" style={{ color: 'var(--espresso)' }}>Rua Augusta, 1500</h3>
-              <p className="text-xs mt-1" style={{ color: 'var(--espresso)', opacity: 0.4 }}>Consolacao, Sao Paulo/SP — Proximo ao Metro Consolacao</p>
             </div>
+            <h3 className="font-serif text-lg font-bold text-slate-800">Rua Augusta, 1500</h3>
+            <p className="text-xs text-slate-400 mt-1.5 font-light">Consolação, São Paulo/SP — Próximo ao Metrô Consolação</p>
           </div>
 
-          {/* Corner decorations */}
-          <div className="absolute top-6 left-6 z-20">
-            <Sparkles className="w-5 h-5" style={{ color: 'var(--plum)', opacity: 0.3 }} />
+          <div className="absolute top-6 left-6 opacity-30">
+            <Sparkles className="w-5 h-5 text-[#1d68c4]" />
           </div>
-          <div className="absolute bottom-6 right-6 z-20">
-            <Sparkles className="w-5 h-5" style={{ color: 'var(--plum)', opacity: 0.3 }} />
+          <div className="absolute bottom-6 right-6 opacity-30">
+            <Sparkles className="w-5 h-5 text-[#8f33f5]" />
           </div>
         </div>
       </section>
