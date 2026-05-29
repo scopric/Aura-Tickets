@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ArrowRight, User, Building, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, ArrowLeft, User, Building, Loader2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type { Role } from '../../types/auth'
 import { toast } from 'sonner'
@@ -27,6 +27,19 @@ export default function AuthRegister() {
   const [dataSharingConsent, setDataSharingConsent] = useState(false)
   const [howDidYouHear, setHowDidYouHear] = useState('')
   const [referralEmail, setReferralEmail] = useState('')
+
+  const handleBack = () => {
+    if (step === 2) {
+      setStep(1)
+    } else {
+      // Se houver histórico de navegação, volta. Senão, vai para a home.
+      if (window.history.length > 1) {
+        navigate(-1)
+      } else {
+        navigate('/')
+      }
+    }
+  }
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -100,7 +113,17 @@ export default function AuthRegister() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas flex items-center justify-center px-4 py-12">
+    <div className="min-h-screen bg-canvas flex items-center justify-center px-4 py-12 relative">
+      {/* Botão de Voltar Dinâmico no Topo Esquerdo */}
+      <button 
+        type="button"
+        onClick={handleBack}
+        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-espresso/40 hover:text-plum transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Voltar</span>
+      </button>
+
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
