@@ -51,12 +51,12 @@ const methodLabels: Record<PaymentMethod, string> = {
 }
 
 const statusConfig: Record<PaymentStatus, { bg: string; text: string; icon: typeof CheckCircle2; label: string }> = {
-  pago: { bg: 'bg-green-50 border-green-100', text: 'text-green-600', icon: CheckCircle2, label: 'Pago' },
-  pendente: { bg: 'bg-amber-50 border-amber-100', text: 'text-amber-600', icon: Clock, label: 'Pendente' },
-  atrasado: { bg: 'bg-red-50 border-red-100', text: 'text-red-500', icon: AlertTriangle, label: 'Atrasado' },
+  pago: { bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-400', icon: CheckCircle2, label: 'Pago' },
+  pendente: { bg: 'bg-amber-500/10 border-amber-500/20', text: 'text-amber-400', icon: Clock, label: 'Pendente' },
+  atrasado: { bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-400', icon: AlertTriangle, label: 'Atrasado' },
 }
 
-const CHART_COLORS = ['#7a3b69', '#c49ab8', '#22c55e', '#3b82f6', '#f59e0b', '#ef4444']
+const CHART_COLORS = ['#8f33f5', '#1d68c4', '#10b981', '#f59e0b', '#ec4899', '#ef4444']
 
 // ─── Form Modal ───
 function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | null; onSave: (formVal: any) => void; onClose: () => void; events: any[] }) {
@@ -96,28 +96,28 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-espresso/20 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg surface-elevated p-6 max-h-[90vh] overflow-y-auto text-white">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-serif text-xl text-espresso">{tx ? 'Editar' : 'Nova'} Transação</h3>
-          <button onClick={onClose} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors">
+          <h3 className="font-serif text-xl text-white">{tx ? 'Editar' : 'Nova'} Transação</h3>
+          <button onClick={onClose} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-white/[0.06] text-white/40 hover:text-white transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
-            <button onClick={() => setForm({ ...form, type: 'income' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'income' ? 'bg-green-500 text-white' : 'text-espresso/50'}`}>
+          <div className="flex items-center bg-white/[0.02] border border-white/[0.06] rounded-full p-1">
+            <button onClick={() => setForm({ ...form, type: 'income' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'income' ? 'bg-green-500 text-white' : 'text-white/50'}`}>
               Receita
             </button>
-            <button onClick={() => setForm({ ...form, type: 'expense' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'expense' ? 'bg-red-500 text-white' : 'text-espresso/50'}`}>
+            <button onClick={() => setForm({ ...form, type: 'expense' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'expense' ? 'bg-red-500 text-white' : 'text-white/50'}`}>
               Despesa
             </button>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Vincular a Evento</label>
-            <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Vincular a Evento" title="Vincular a Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+            <label className="text-xs font-medium text-white/60 mb-1.5 block">Vincular a Evento</label>
+            <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Vincular a Evento" title="Vincular a Evento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
               <option value="">Geral (Sem evento específico)</option>
               {events.map(e => (
                 <option key={e.id} value={e.id}>{e.title}</option>
@@ -126,28 +126,28 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
           </div>
 
           <div>
-            <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Descrição *</label>
-            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Ex: Aluguel do espaço" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <label className="text-xs font-medium text-white/60 mb-1.5 block">Descrição *</label>
+            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Ex: Aluguel do espaço" className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30" />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Valor (R$) *</label>
-              <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <label className="text-xs font-medium text-white/60 mb-1.5 block">Valor (R$) *</label>
+              <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Categoria</label>
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} aria-label="Selecionar Categoria" title="Selecionar Categoria" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+              <label className="text-xs font-medium text-white/60 mb-1.5 block">Categoria</label>
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} aria-label="Selecionar Categoria" title="Selecionar Categoria" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
                 {categories[form.type].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-espresso/60 mb-2 block">Forma de Pagamento</label>
+            <label className="text-xs font-medium text-white/60 mb-2 block">Forma de Pagamento</label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.entries(methodIcons) as [PaymentMethod, typeof CreditCard][]).map(([key, Icon]) => (
-                <button key={key} type="button" onClick={() => setForm({ ...form, method: key })} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all ${form.method === key ? 'bg-plum/10 border-plum/30 text-plum' : 'bg-white/40 border-white/60 text-espresso/50 hover:text-espresso/70'}`}>
+                <button key={key} type="button" onClick={() => setForm({ ...form, method: key })} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all ${form.method === key ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white/70'}`}>
                   <Icon className="w-3.5 h-3.5" /> {methodLabels[key]}
                 </button>
               ))}
@@ -155,12 +155,12 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
           </div>
 
           <div>
-            <label className="text-xs font-medium text-espresso/60 mb-2 block">Status</label>
+            <label className="text-xs font-medium text-white/60 mb-2 block">Status</label>
             <div className="flex items-center gap-2">
               {(['pago', 'pendente', 'atrasado'] as PaymentStatus[]).map(s => {
                 const cfg = statusConfig[s]
                 return (
-                  <button key={s} type="button" onClick={() => setForm({ ...form, status: s })} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border transition-all ${form.status === s ? cfg.bg + ' ' + cfg.text + ' ' + cfg.bg.replace('50', '100') : 'bg-white/40 border-white/60 text-espresso/50'}`}>
+                  <button key={s} type="button" onClick={() => setForm({ ...form, status: s })} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border transition-all ${form.status === s ? cfg.bg + ' ' + cfg.text : 'bg-white/[0.02] border-white/[0.06] text-white/50'}`}>
                     <cfg.icon className="w-3.5 h-3.5" /> {cfg.label}
                   </button>
                 )
@@ -170,19 +170,19 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Data Lançamento</label>
-              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} aria-label="Data de Lançamento" title="Data de Lançamento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <label className="text-xs font-medium text-white/60 mb-1.5 block">Data Lançamento</label>
+              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} aria-label="Data de Lançamento" title="Data de Lançamento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Vencimento</label>
-              <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} aria-label="Data de Vencimento" title="Data de Vencimento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <label className="text-xs font-medium text-white/60 mb-1.5 block">Vencimento</label>
+              <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} aria-label="Data de Vencimento" title="Data de Vencimento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
             </div>
           </div>
         </div>
 
         <div className="flex items-center justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-5 py-2.5 text-sm text-espresso/50 hover:text-espresso transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
+          <button onClick={onClose} className="px-5 py-2.5 text-sm text-white/50 hover:text-white transition-colors">Cancelar</button>
+          <button onClick={handleSubmit} className="px-6 py-2.5 bg-purple-600 text-white text-sm rounded-full hover:bg-purple-500 hover:shadow-glow transition-all">
             Salvar
           </button>
         </div>
@@ -410,17 +410,17 @@ export default function ProducerFinance() {
       {/* ─── Dashboard Charts (DADOS REAIS) ─── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
-          { label: 'Receita Total', value: formatCurrency(summary?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
-          { label: 'Confirmado', value: formatCurrency(summary?.confirmedRevenue || 0), icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
-          { label: 'Pendente', value: formatCurrency(summary?.pendingRevenue || 0), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-          { label: 'Ingressos Vendidos', value: String(summary?.totalTicketsSold || 0), icon: BarChart3, color: 'text-plum', bg: 'bg-plum/5 border-plum/10' },
+          { label: 'Receita Total', value: formatCurrency(summary?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-400', bg: 'surface border-green-500/20' },
+          { label: 'Confirmado', value: formatCurrency(summary?.confirmedRevenue || 0), icon: CheckCircle2, color: 'text-green-400', bg: 'surface border-green-500/20' },
+          { label: 'Pendente', value: formatCurrency(summary?.pendingRevenue || 0), icon: Clock, color: 'text-amber-400', bg: 'surface border-amber-500/20' },
+          { label: 'Ingressos Vendidos', value: String(summary?.totalTicketsSold || 0), icon: BarChart3, color: 'text-purple-400', bg: 'surface border-purple-500/20' },
         ].map(k => (
-          <div key={k.label} className={`p-5 rounded-2xl border backdrop-blur-sm ${k.bg}`}>
+          <div key={k.label} className={`p-5 rounded-2xl ${k.bg}`}>
             <div className="flex items-center justify-between mb-3">
               <k.icon className={`w-5 h-5 ${k.color}`} />
             </div>
             <div className={`font-serif text-2xl ${k.color}`}>{isSummaryLoading ? '—' : k.value}</div>
-            <div className="text-xs text-espresso/40 mt-1">{k.label}</div>
+            <div className="text-xs text-white/40 mt-1">{k.label}</div>
           </div>
         ))}
       </div>
@@ -428,32 +428,39 @@ export default function ProducerFinance() {
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         {/* Revenue over time */}
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-plum" /> Receita nos Últimos 30 Dias
+        <div className="lg:col-span-2 p-6 rounded-2xl surface">
+          <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-purple-400" /> Receita nos Últimos 30 Dias
           </h3>
           {isDailyLoading ? (
-            <div className="h-64 bg-espresso/5 rounded-xl animate-pulse" />
+            <div className="h-64 bg-white/[0.02] rounded-xl animate-pulse" />
           ) : !dailyRevenue || dailyRevenue.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-sm text-espresso/30">Nenhuma venda nos últimos 30 dias</div>
+            <div className="h-64 flex items-center justify-center text-sm text-white/30">Nenhuma venda nos últimos 30 dias</div>
           ) : (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={dailyRevenue}>
                   <defs>
                     <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#7a3b69" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#7a3b69" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#8f33f5" stopOpacity={0.4}/>
+                      <stop offset="95%" stopColor="#8f33f5" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
                   <Tooltip
                     formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                    contentStyle={{
+                      background: 'rgba(7, 8, 12, 0.85)',
+                      backdropFilter: 'blur(16px)',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'white',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
+                    }}
                   />
-                  <Area type="monotone" dataKey="revenue" stroke="#7a3b69" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
+                  <Area type="monotone" dataKey="revenue" stroke="#8f33f5" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -461,12 +468,12 @@ export default function ProducerFinance() {
         </div>
 
         {/* Payment Methods */}
-        <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <h3 className="text-sm font-medium text-espresso mb-4">Formas de Pagamento</h3>
+        <div className="p-6 rounded-2xl surface">
+          <h3 className="text-sm font-medium text-white mb-4">Formas de Pagamento</h3>
           {isPaymentMethodsLoading ? (
-            <div className="h-48 bg-espresso/5 rounded-xl animate-pulse" />
+            <div className="h-48 bg-white/[0.02] rounded-xl animate-pulse" />
           ) : !paymentMethods || paymentMethods.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-sm text-espresso/30">Sem dados de pagamento</div>
+            <div className="h-48 flex items-center justify-center text-sm text-white/30">Sem dados de pagamento</div>
           ) : (
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
@@ -485,7 +492,16 @@ export default function ProducerFinance() {
                       <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`} />
+                  <Tooltip
+                    formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
+                    contentStyle={{
+                      background: 'rgba(7, 8, 12, 0.85)',
+                      backdropFilter: 'blur(16px)',
+                      borderRadius: '12px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      color: 'white'
+                    }}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             </div>
@@ -495,9 +511,9 @@ export default function ProducerFinance() {
               <div key={m.method} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                  <span className="text-espresso/60">{m.method}</span>
+                  <span className="text-white/60">{m.method}</span>
                 </div>
-                <span className="font-medium text-espresso">R$ {m.total.toLocaleString('pt-BR')}</span>
+                <span className="font-medium text-white">R$ {m.total.toLocaleString('pt-BR')}</span>
               </div>
             ))}
           </div>
@@ -505,23 +521,32 @@ export default function ProducerFinance() {
       </div>
 
       {/* Revenue by Event */}
-      <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm mb-8">
-        <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-plum" /> Receita por Evento
+      <div className="p-6 rounded-2xl surface mb-8">
+        <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 text-purple-400" /> Receita por Evento
         </h3>
         {isEventRevenueLoading ? (
-          <div className="h-48 bg-espresso/5 rounded-xl animate-pulse" />
+          <div className="h-48 bg-white/[0.02] rounded-xl animate-pulse" />
         ) : !eventRevenue || eventRevenue.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-sm text-espresso/30">Nenhum evento com vendas</div>
+          <div className="h-48 flex items-center justify-center text-sm text-white/30">Nenhum evento com vendas</div>
         ) : (
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={eventRevenue} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
-                <YAxis dataKey="event_title" type="category" tick={{ fontSize: 11, fill: '#6b7280' }} axisLine={false} tickLine={false} width={140} />
-                <Tooltip formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']} />
-                <Bar dataKey="revenue" fill="#7a3b69" radius={[0, 6, 6, 0]} barSize={20} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
+                <YAxis dataKey="event_title" type="category" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.5)' }} axisLine={false} tickLine={false} width={140} />
+                <Tooltip
+                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']}
+                  contentStyle={{
+                    background: 'rgba(7, 8, 12, 0.85)',
+                    backdropFilter: 'blur(16px)',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    color: 'white'
+                  }}
+                />
+                <Bar dataKey="revenue" fill="#1d68c4" radius={[0, 6, 6, 0]} barSize={20} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -530,42 +555,42 @@ export default function ProducerFinance() {
 
       {/* Alert for overdue */}
       {overdueAmount > 0 && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0" />
+        <div className="mb-6 p-4 rounded-2xl bg-red-950/20 border border-red-500/30 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
           <div>
-            <p className="text-sm text-red-600 font-medium">Você tem despesas em atraso</p>
-            <p className="text-xs text-red-400">R$ {overdueAmount.toLocaleString()} em contas com vencimento ultrapassado.</p>
+            <p className="text-sm text-red-400 font-medium">Você tem despesas em atraso</p>
+            <p className="text-xs text-red-400/80">R$ {overdueAmount.toLocaleString()} em contas com vencimento ultrapassado.</p>
           </div>
         </div>
       )}
 
       {/* Legacy payment method bars */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-plum" /> Por Forma de Pagamento (Transações)</h3>
+        <div className="lg:col-span-2 p-6 rounded-2xl surface">
+          <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-purple-400" /> Por Forma de Pagamento (Transações)</h3>
           <div className="space-y-3">
             {byMethod.map(m => {
               const maxVal = Math.max(...byMethod.map(x => Math.max(x.income, x.expense) || 1))
               return (
                 <div key={m.method}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-espresso/60 flex items-center gap-1.5">
-                      {(() => { const I = methodIcons[m.method]; return <I className="w-3.5 h-3.5 text-espresso/30" /> })()}
+                    <span className="text-xs text-white/60 flex items-center gap-1.5">
+                      {(() => { const I = methodIcons[m.method]; return <I className="w-3.5 h-3.5 text-white/30" /> })()}
                       {methodLabels[m.method]}
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
+                    <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden flex">
                       {m.income > 0 && (
-                        <div className="h-full bg-green-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.income / maxVal) * 100}%` }}>
-                          <span className="text-[10px] font-medium text-green-700 whitespace-nowrap">R$ {m.income.toLocaleString()}</span>
+                        <div className="h-full bg-green-500/20 flex items-center px-2 transition-all" style={{ width: `${(m.income / maxVal) * 100}%` }}>
+                          <span className="text-[10px] font-medium text-green-400 whitespace-nowrap">R$ {m.income.toLocaleString()}</span>
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden flex">
+                    <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden flex">
                       {m.expense > 0 && (
-                        <div className="h-full bg-red-400/40 flex items-center px-2 transition-all" style={{ width: `${(m.expense / maxVal) * 100}%` }}>
-                          <span className="text-[10px] font-medium text-red-700 whitespace-nowrap">R$ {m.expense.toLocaleString()}</span>
+                        <div className="h-full bg-red-500/20 flex items-center px-2 transition-all" style={{ width: `${(m.expense / maxVal) * 100}%` }}>
+                          <span className="text-[10px] font-medium text-red-400 whitespace-nowrap">R$ {m.expense.toLocaleString()}</span>
                         </div>
                       )}
                     </div>
@@ -574,30 +599,30 @@ export default function ProducerFinance() {
               )
             })}
           </div>
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-espresso/5">
-            <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-green-400/60" /> Receitas</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-espresso/40"><div className="w-2 h-2 rounded-full bg-red-400/60" /> Despesas</span>
+          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/[0.06]">
+            <span className="flex items-center gap-1.5 text-[10px] text-white/40"><div className="w-2 h-2 rounded-full bg-green-400/60" /> Receitas</span>
+            <span className="flex items-center gap-1.5 text-[10px] text-white/40"><div className="w-2 h-2 rounded-full bg-red-400/60" /> Despesas</span>
           </div>
         </div>
 
-        <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <h3 className="text-sm font-medium text-espresso mb-4">Despesas por Categoria</h3>
+        <div className="p-6 rounded-2xl surface">
+          <h3 className="text-sm font-medium text-white mb-4">Despesas por Categoria</h3>
           <div className="space-y-3">
             {byCategory.map(c => {
               const maxCat = Math.max(...byCategory.map(x => x.total) || 1)
               return (
                 <div key={c.category} className="flex items-center gap-3">
-                  <span className="text-xs text-espresso/60 w-24 truncate">{c.category}</span>
-                  <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
-                    <div className="h-full bg-plum/20 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(c.total / maxCat) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-plum whitespace-nowrap">R$ {c.total.toLocaleString()}</span>
+                  <span className="text-xs text-white/60 w-24 truncate">{c.category}</span>
+                  <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden">
+                    <div className="h-full bg-purple-500/25 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(c.total / maxCat) * 100}%` }}>
+                      <span className="text-[10px] font-medium text-purple-300 whitespace-nowrap">R$ {c.total.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
               )
             })}
             {byCategory.length === 0 && (
-              <div className="py-12 text-center text-xs text-espresso/30">Nenhuma despesa registrada.</div>
+              <div className="py-12 text-center text-xs text-white/30">Nenhuma despesa registrada.</div>
             )}
           </div>
         </div>
@@ -605,19 +630,19 @@ export default function ProducerFinance() {
 
       {/* Tabs + Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-2xl w-fit">
+        <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-2xl w-fit">
           {tabs.map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/40 hover:text-espresso/70'}`}>
-              {t.label} <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${activeTab === t.id ? 'bg-cream/20' : 'bg-canvas'}`}>{t.count}</span>
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === t.id ? 'bg-purple-600 text-white shadow-glow' : 'text-white/40 hover:text-white/70'}`}>
+              {t.label} <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${activeTab === t.id ? 'bg-white/20' : 'bg-white/[0.04]'}`}>{t.count}</span>
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-espresso/20" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar transações..." className="pl-9 pr-4 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 w-48" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar transações..." className="pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30 w-48" />
           </div>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as PaymentStatus | 'all')} aria-label="Filtrar por Status" title="Filtrar por Status" className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/60 focus:outline-none">
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as PaymentStatus | 'all')} aria-label="Filtrar por Status" title="Filtrar por Status" className="px-3 py-2 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white/60 focus:outline-none focus:border-purple-500/30">
             <option value="all">Todos Status</option>
             <option value="pago">Pago</option>
             <option value="pendente">Pendente</option>
@@ -630,21 +655,21 @@ export default function ProducerFinance() {
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(n => (
-            <div key={n} className="h-14 bg-white/40 border border-white/60 rounded-2xl animate-pulse" />
+            <div key={n} className="h-14 bg-white/[0.02] border border-white/[0.06] rounded-2xl animate-pulse" />
           ))}
         </div>
       ) : (
-        <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden backdrop-blur-sm">
+        <div className="surface overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Evento / Descrição</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Categoria</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Forma Pagto</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Vencimento</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Valor</th>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Evento / Descrição</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Categoria</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Forma Pagto</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden lg:table-cell">Vencimento</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Valor</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -653,17 +678,17 @@ export default function ProducerFinance() {
                   const MethodIcon = methodIcons[tx.method]
                   const statusCfg = statusConfig[tx.status]
                   return (
-                    <tr key={tx.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                    <tr key={tx.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
                       <td className="px-4 py-3">
-                        <div className="text-sm text-espresso font-medium">{tx.event}</div>
-                        <div className="text-[10px] text-espresso/30">{tx.description}</div>
+                        <div className="text-sm text-white font-medium">{tx.event}</div>
+                        <div className="text-[10px] text-white/40">{tx.description}</div>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-canvas text-espresso/50 text-[10px] rounded-md">{tx.category}</span>
+                        <span className="px-2 py-0.5 bg-white/[0.04] text-white/50 text-[10px] rounded-md">{tx.category}</span>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="flex items-center gap-1.5 text-xs text-espresso/60">
-                          <MethodIcon className="w-3.5 h-3.5 text-espresso/30" />
+                        <span className="flex items-center gap-1.5 text-xs text-white/60">
+                          <MethodIcon className="w-3.5 h-3.5 text-white/30" />
                           {methodLabels[tx.method]}
                         </span>
                       </td>
@@ -673,16 +698,16 @@ export default function ProducerFinance() {
                         </span>
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="flex items-center gap-1 text-xs text-espresso/40">
+                        <div className="flex items-center gap-1 text-xs text-white/40">
                           <Calendar className="w-3 h-3" />
                           {tx.dueDate || '-'}
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-right text-sm font-medium font-serif ${tx.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
+                      <td className={`px-4 py-3 text-right text-sm font-medium font-serif ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
                         {tx.type === 'income' ? '+' : '-'}R$ {tx.amount.toLocaleString()}
                       </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => { setEditingTx(tx); setShowForm(true) }} aria-label="Editar transação" title="Editar Transação" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors">
+                        <button onClick={() => { setEditingTx(tx); setShowForm(true) }} aria-label="Editar transação" title="Editar Transação" className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/20 hover:text-white/60 transition-colors">
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                       </td>
@@ -691,7 +716,7 @@ export default function ProducerFinance() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm text-espresso/20">Nenhuma transação encontrada</td>
+                    <td colSpan={7} className="py-12 text-center text-sm text-white/30">Nenhuma transação encontrada</td>
                   </tr>
                 )}
               </tbody>

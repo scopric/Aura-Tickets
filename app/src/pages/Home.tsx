@@ -365,6 +365,229 @@ function SecurityWidget() {
   )
 }
 
+// widgets interativos para a seção Como Funciona
+function WidgetStep1({ isHovered }: { isHovered: boolean }) {
+  return (
+    <div className="w-12 h-12 relative flex items-center justify-center">
+      <svg 
+        className={`absolute inset-0 w-full h-full text-[#8f33f5]/25 transition-transform duration-1000 ease-out ${
+          isHovered ? 'rotate-180 scale-110' : 'rotate-0 scale-100'
+        }`}
+        viewBox="0 0 48 48"
+        fill="none"
+      >
+        <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="1" strokeDasharray="3 3" />
+        <circle cx="24" cy="24" r="15" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 2" />
+      </svg>
+      <svg
+        className={`w-6 h-6 text-[#8f33f5] relative z-10 transition-transform duration-500 ease-out ${
+          isHovered ? 'scale-115 rotate-[15deg] filter drop-shadow-[0_0_6px_rgba(143,51,245,0.4)]' : 'scale-100 rotate-0'
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="9" y1="9" x2="15" y2="9" />
+        <line x1="9" y1="13" x2="13" y2="13" />
+        <path d="M16 16v-2" strokeWidth="1" />
+        <circle cx="16" cy="12" r="1.5" strokeWidth="1" className="opacity-80" />
+      </svg>
+    </div>
+  )
+}
+
+function WidgetStep2({ isHovered }: { isHovered: boolean }) {
+  return (
+    <div className="w-12 h-12 relative flex items-center justify-center">
+      <svg 
+        className={`absolute inset-0 w-full h-full text-[#1d68c4]/30 transition-transform duration-1000 ease-out ${
+          isHovered ? 'rotate-90 scale-110' : 'rotate-0 scale-100'
+        }`}
+        viewBox="0 0 48 48"
+        fill="none"
+      >
+        <circle cx="24" cy="24" r="18" stroke="currentColor" strokeWidth="1" strokeDasharray="2 4" />
+        <line x1="6" y1="24" x2="42" y2="24" stroke="currentColor" strokeWidth="0.5" className="opacity-40" />
+        <line x1="24" y1="4" x2="24" y2="44" stroke="currentColor" strokeWidth="0.5" className="opacity-40" />
+      </svg>
+      <svg
+        className={`w-6 h-6 text-[#1d68c4] relative z-10 transition-transform duration-500 ease-out ${
+          isHovered ? 'scale-115 -translate-y-1 filter drop-shadow-[0_0_6px_rgba(29,104,196,0.4)]' : 'scale-100 translate-y-0'
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        <path d="M12 11h3m-3 4h5" strokeWidth="1" strokeDasharray="2 2" className="opacity-70" />
+        <circle cx="8" cy="13" r="1" strokeWidth="1.5" />
+      </svg>
+    </div>
+  )
+}
+
+function WidgetStep3({ isHovered }: { isHovered: boolean }) {
+  return (
+    <div className="w-12 h-12 relative flex items-center justify-center">
+      <svg 
+        className={`absolute inset-0 w-full h-full text-[#10b981]/25 transition-transform duration-1000 ease-out ${
+          isHovered ? 'scale-120 rotate-45' : 'scale-100 rotate-0'
+        }`}
+        viewBox="0 0 48 48"
+        fill="none"
+      >
+        <circle cx="24" cy="24" r="22" stroke="currentColor" strokeWidth="1" strokeDasharray="4 2" />
+        <circle cx="24" cy="24" r="16" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 3" />
+      </svg>
+      <svg
+        className={`w-6 h-6 text-[#10b981] relative z-10 transition-all duration-500 ease-out ${
+          isHovered ? 'scale-115 -translate-y-1.5 filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'scale-100 translate-y-0'
+        }`}
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 9V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v3a2 2 0 0 1 0 4v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3a2 2 0 0 1 0-4z" />
+        <line x1="13" y1="8" x2="13" y2="16" strokeDasharray="2 2" />
+        <line x1="8" y1="12" x2="10" y2="12" strokeWidth="1.2" />
+        <line x1="16" y1="12" x2="18" y2="12" strokeWidth="1.2" />
+      </svg>
+      <div className={`absolute top-0 right-1.5 w-1.5 h-1.5 bg-yellow-400 rounded-full animate-ping pointer-events-none transition-opacity duration-300 ${
+        isHovered ? 'opacity-100' : 'opacity-0'
+      }`} />
+    </div>
+  )
+}
+
+function HowItWorksCard({ 
+  num, 
+  title, 
+  desc, 
+  stepIndex
+}: { 
+  num: string
+  title: string
+  desc: string
+  stepIndex: number
+}) {
+  const [isHovered, setIsHovered] = useState(false)
+  const cardRef = useRef<HTMLDivElement>(null)
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!cardRef.current) return
+    const rect = cardRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    cardRef.current.style.setProperty('--mouse-x', `${x}px`)
+    cardRef.current.style.setProperty('--mouse-y', `${y}px`)
+  }
+
+  const renderWidget = () => {
+    switch (stepIndex) {
+      case 0: return <WidgetStep1 isHovered={isHovered} />
+      case 1: return <WidgetStep2 isHovered={isHovered} />
+      case 2: return <WidgetStep3 isHovered={isHovered} />
+      default: return null
+    }
+  }
+
+  const getBadgeColors = () => {
+    switch (stepIndex) {
+      case 0: return 'bg-[#8f33f5]/10 text-[#8f33f5] border-[#8f33f5]/20'
+      case 1: return 'bg-[#1d68c4]/10 text-[#1d68c4] border-[#1d68c4]/20'
+      case 2: return 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'
+      default: return 'bg-white/10 text-white/80 border-white/20'
+    }
+  }
+
+  const getPreviewImage = () => {
+    switch (stepIndex) {
+      case 0: return '/images/preview_create_event.png'
+      case 1: return '/images/preview_manage_event.png'
+      case 2: return '/images/preview_sell_tickets.png'
+      default: return ''
+    }
+  }
+
+  return (
+    <div
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative overflow-hidden rounded-3xl border border-white/[0.04] bg-white/[0.01] p-8 backdrop-blur-md transition-all duration-500 hover:-translate-y-1.5 hover:shadow-[0_20px_50px_rgba(29,104,196,0.03)] hover:bg-white/[0.02] hover:border-white/[0.07] group flex flex-col justify-between min-h-[450px]"
+      style={{
+        '--mouse-x': '0px',
+        '--mouse-y': '0px',
+      } as React.CSSProperties}
+    >
+      <div 
+        className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-10"
+        style={{
+          background: `radial-gradient(150px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.03), transparent 80%)`
+        }}
+      />
+      <div 
+        className="pointer-events-none absolute -inset-px rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-15"
+        style={{
+          background: `radial-gradient(80px circle at var(--mouse-x) var(--mouse-y), rgba(255, 255, 255, 0.12), transparent 80%)`,
+          padding: '1.2px',
+          WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+          WebkitMaskComposite: 'xor',
+          maskComposite: 'exclude'
+        }}
+      />
+
+      <div className="relative z-20 flex flex-col justify-between h-full space-y-6">
+        <div className="space-y-6">
+          <div className="flex justify-between items-start">
+            <span className={`px-3 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-widest border ${getBadgeColors()}`}>
+              Passo {num}
+            </span>
+            <div className="transition-transform duration-500">
+              {renderWidget()}
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <h3 className="text-white text-lg font-bold font-serif group-hover:text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 transition-all duration-300">
+              {title}
+            </h3>
+            <p className="text-white/40 text-[11.5px] font-light leading-relaxed group-hover:text-white/50 transition-colors duration-300">
+              {desc}
+            </p>
+          </div>
+        </div>
+
+        {/* Preview de captura da plataforma real */}
+        <div className="relative mt-4 overflow-hidden rounded-xl border border-white/[0.05] bg-slate-900/60 aspect-[16/10] group-hover:border-white/[0.12] transition-all duration-500 shadow-lg shadow-black/40">
+          <img
+            src={getPreviewImage()}
+            alt={title}
+            className={`w-full h-full object-cover object-top transition-all duration-700 ease-out ${
+              isHovered 
+                ? 'scale-[1.08] translate-y-0 opacity-100 filter brightness-110' 
+                : 'scale-[1.02] translate-y-1 opacity-70 filter brightness-90'
+            }`}
+          />
+          {/* Overlay de gradiente inferior para integrar o preview ao fundo escuro */}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent pointer-events-none" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   useSEO({
     title: 'Evokaa Eventos — Plataforma Completa',
@@ -641,40 +864,45 @@ export default function Home() {
         ref={howItWorksRef}
         className="py-28 relative overflow-hidden bg-slate-950"
       >
-        <div className="absolute inset-0 opacity-[0.03]"
+        <div className="absolute inset-0 opacity-[0.03] z-0"
           style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)', backgroundSize: '40px 40px' }}
         />
-        <div className="relative max-w-5xl mx-auto px-6">
+        
+        {/* Glows de fundo sutil */}
+        <div className="absolute inset-0 pointer-events-none z-0">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#8f33f5]/[0.06] rounded-full blur-[120px]" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#1d68c4]/[0.06] rounded-full blur-[120px]" />
+        </div>
+
+        <div className="relative max-w-5xl mx-auto px-6 z-10">
           <div className="text-center mb-20">
             <h2 className="text-white">
               Como <em className="text-gradient not-italic">Funciona</em>
             </h2>
-            <p className="text-white/30 text-sm mt-4 max-w-sm mx-auto">
+            <p className="text-white/30 text-sm mt-4 max-w-sm mx-auto font-light">
               Três passos simples para transformar sua visão em realidade.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 lg:gap-16">
-            {[
-              { num: '01', title: 'Crie', desc: 'Escolha o tipo de evento, defina data, local e lotes de ingresso. Nossa calculadora mostra seus números em tempo real.' },
-              { num: '02', title: 'Gerencie', desc: 'Controle orçamento, fornecedores, equipe e cronograma em uma única pasta. Tudo centralizado.' },
-              { num: '03', title: 'Venda', desc: 'Publique, venda ingressos e acompanhe tudo em tempo real. Check-in na porta com QR code.' },
-            ].map((step, i) => (
-              <div key={step.num} className="hiw-step relative">
-                <div className="font-bold text-7xl mb-5 select-none text-gradient opacity-20">
-                  {step.num}
-                </div>
-                <h3 className="text-white text-lg font-semibold mb-3">
-                  {step.title}
-                </h3>
-                <p className="text-white/30 text-[13px] leading-relaxed">
-                  {step.desc}
-                </p>
-                {i < 2 && (
-                  <div className="hidden md:block absolute top-8 -right-8 w-16 h-px bg-gradient-to-r from-white/10 to-transparent" />
-                )}
-              </div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+            <HowItWorksCard 
+              num="01" 
+              title="Crie" 
+              desc="Escolha o tipo de evento, defina data, local e lotes de ingresso. Nossa calculadora mostra seus números em tempo real." 
+              stepIndex={0} 
+            />
+            <HowItWorksCard 
+              num="02" 
+              title="Gerencie" 
+              desc="Controle orçamento, fornecedores, equipe e cronograma em uma única pasta. Tudo centralizado." 
+              stepIndex={1} 
+            />
+            <HowItWorksCard 
+              num="03" 
+              title="Venda" 
+              desc="Publique, venda ingressos e acompanhe tudo em tempo real. Check-in na porta com QR code." 
+              stepIndex={2} 
+            />
           </div>
         </div>
       </section>
@@ -683,8 +911,13 @@ export default function Home() {
       <PricingSection />
 
       {/* FAQ */}
-      <section className="py-28 bg-slate-50">
-        <div className="max-w-4xl mx-auto px-6">
+      <section className="py-28 bg-slate-50 relative overflow-hidden">
+        {/* Glows de fundo sutil */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute -top-40 -left-40 w-96 h-96 bg-[#8f33f5]/[0.02] rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-[#1d68c4]/[0.02] rounded-full blur-3xl" />
+        </div>
+        <div className="max-w-5xl mx-auto px-6 relative z-10">
           <FAQSection
             title="Perguntas Frequentes"
             subtitle="Tudo que você precisa saber antes de começar"

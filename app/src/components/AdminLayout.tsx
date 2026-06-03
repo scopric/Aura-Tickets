@@ -63,7 +63,7 @@ export default function AdminLayout() {
     <div className="flex min-h-screen bg-canvas pt-16">
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40 bg-[#1a1118] border-r border-white/10 transition-all duration-300 flex flex-col',
+          'fixed left-0 top-0 bottom-0 z-40 bg-[#07080c]/80 backdrop-blur-xl border-r border-white/[0.05] transition-all duration-300 flex flex-col',
           collapsed ? 'w-16' : 'w-60'
         )}
       >
@@ -77,7 +77,7 @@ export default function AdminLayout() {
           {!collapsed && (
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-white tracking-wide">Admin</span>
-              <span className="text-[10px] text-rose-400 font-semibold uppercase tracking-wider bg-rose-500/20 px-2 py-0.5 rounded-full border border-rose-500/30">Evokaa</span>
+              <span className="text-[10px] text-purple-400 font-semibold uppercase tracking-wider bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20">Evokaa</span>
             </div>
           )}
         </div>
@@ -91,7 +91,7 @@ export default function AdminLayout() {
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-200 font-medium',
                 collapsed ? 'justify-center' : '',
                 isActive(item.to)
-                  ? 'bg-rose-500/20 text-rose-400 shadow-[inset_0_0_0_1px_rgba(244,63,94,0.3)]'
+                  ? 'bg-purple-500/15 text-purple-300 shadow-[inset_0_0_0_1px_rgba(168,85,247,0.25)] border-l-2 border-purple-500 rounded-l-none'
                   : 'text-white/70 hover:text-white hover:bg-white/[0.06]'
               )}
               title={collapsed ? item.label : undefined}
@@ -136,6 +136,7 @@ export default function AdminLayout() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-20 w-6 h-6 rounded-full text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-50"
+          style={{ background: 'linear-gradient(135deg, #1d68c4, #8f33f5)', color: 'white', boxShadow: '0 2px 8px rgba(143,51,245,0.4)' }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>

@@ -19,7 +19,7 @@ export default function ModernHero() {
   const rafRef = useRef<number>(0)
   const [isLoaded, setIsLoaded] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [videoLoaded, setVideoLoaded] = useState(false)
+  const [videoLoaded, setVideoLoaded] = useState(true)
 
   // Initialize particles
   const initParticles = useCallback((width: number, height: number) => {
@@ -194,6 +194,19 @@ export default function ModernHero() {
       '-=0.2'
     )
   }, [isLoaded])
+
+  // Efeito resiliente de autoplay e carregamento de mídia
+  useEffect(() => {
+    const video = videoRef.current
+    if (video) {
+      if (video.readyState >= 2) {
+        setVideoLoaded(true)
+      }
+      video.play().catch((err) => {
+        console.warn("[ModernHero] Erro na reprodução resiliente do autoplay:", err)
+      })
+    }
+  }, [])
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden bg-void">

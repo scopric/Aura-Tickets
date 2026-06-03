@@ -108,12 +108,12 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-serif text-3xl text-espresso">Administrativo</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gestao completa da plataforma Evokaa</p>
+          <h1 className="font-serif text-3xl text-white">Administrativo</h1>
+          <p className="text-sm text-white/50 mt-1">Gestao completa da plataforma Evokaa</p>
         </div>
-        <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
+        <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] backdrop-blur-md rounded-full">
           {[{ id: 'overview', label: 'Visao Geral', icon: BarChart3 }, { id: 'users', label: 'Usuarios', icon: Users }, { id: 'plans', label: 'Planos', icon: Crown }, { id: 'features', label: 'Funcionalidades', icon: Lock }].map(t => (
-            <button key={t.id} onClick={() => setTab(t.id as typeof tab)} className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${tab === t.id ? 'bg-plum text-cream' : 'text-espresso/40 hover:text-espresso/70'}`}>
+            <button key={t.id} onClick={() => setTab(t.id as typeof tab)} className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${tab === t.id ? 'bg-purple-600 text-white shadow-glow' : 'text-white/40 hover:text-white/70'}`}>
               <t.icon className="w-3.5 h-3.5" /> {t.label}
             </button>
           ))}
@@ -126,19 +126,19 @@ export default function AdminDashboard() {
           {/* KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {[
-              { label: 'Usuarios', value: totalUsers.toString(), sub: `${activeUsers} ativos`, icon: Users, change: '+12%', color: 'text-blue-600' },
-              { label: 'Receita Mensal', value: `R$ ${totalRevenue.toLocaleString()}`, sub: 'Fee + Assinaturas', icon: DollarSign, change: '+23%', color: 'text-green-600' },
-              { label: 'Assinantes', value: plans.reduce((s, p) => s + p.subscribers, 0).toString(), sub: '4 planos ativos', icon: Crown, change: '+8%', color: 'text-plum' },
-              { label: 'Pagamentos Vencidos', value: pendingPayments.toString(), sub: 'Requer atencao', icon: AlertTriangle, change: '-2', color: 'text-red-500' },
+              { label: 'Usuarios', value: totalUsers.toString(), sub: `${activeUsers} ativos`, icon: Users, change: '+12%', color: 'text-blue-400' },
+              { label: 'Receita Mensal', value: `R$ ${totalRevenue.toLocaleString()}`, sub: 'Fee + Assinaturas', icon: DollarSign, change: '+23%', color: 'text-green-400' },
+              { label: 'Assinantes', value: plans.reduce((s, p) => s + p.subscribers, 0).toString(), sub: '4 planos ativos', icon: Crown, change: '+8%', color: 'text-purple-400' },
+              { label: 'Pagamentos Vencidos', value: pendingPayments.toString(), sub: 'Requer atencao', icon: AlertTriangle, change: '-2', color: 'text-red-400' },
             ].map(s => (
-              <div key={s.label} className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+              <div key={s.label} className="dash-card p-5 rounded-2xl surface">
                 <div className="flex items-center justify-between mb-3">
                   <s.icon className={`w-5 h-5 ${s.color}`} />
-                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600">{s.change}</span>
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-500/10 text-green-400">{s.change}</span>
                 </div>
                 <div className={`font-serif text-2xl ${s.color}`}>{s.value}</div>
-                <div className="text-xs text-espresso/40 mt-1">{s.label}</div>
-                <div className="text-[10px] text-espresso/25 mt-0.5">{s.sub}</div>
+                <div className="text-xs text-white/40 mt-1">{s.label}</div>
+                <div className="text-[10px] text-white/30 mt-0.5">{s.sub}</div>
               </div>
             ))}
           </div>
@@ -146,15 +146,15 @@ export default function AdminDashboard() {
           {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             {/* Revenue */}
-            <div className="lg:col-span-2 p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+            <div className="lg:col-span-2 p-6 rounded-2xl surface">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="font-serif text-xl text-espresso">Faturamento</h2>
-                  <p className="text-xs text-espresso/30 mt-0.5">Fee por transacao + Assinaturas</p>
+                  <h2 className="font-serif text-xl text-white">Faturamento</h2>
+                  <p className="text-xs text-white/30 mt-0.5">Fee por transacao + Assinaturas</p>
                 </div>
-                <div className="flex items-center gap-1 p-1 bg-canvas rounded-full">
+                <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-full">
                   {['week', 'month', 'year'].map(p => (
-                    <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1 text-[10px] font-medium rounded-full transition-all ${period === p ? 'bg-plum text-cream' : 'text-espresso/30'}`}>{p === 'week' ? '7D' : p === 'month' ? '30D' : '12M'}</button>
+                    <button key={p} onClick={() => setPeriod(p)} className={`px-3 py-1 text-[10px] font-medium rounded-full transition-all ${period === p ? 'bg-purple-600 text-white shadow-glow' : 'text-white/40'}`}>{p === 'week' ? '7D' : p === 'month' ? '30D' : '12M'}</button>
                   ))}
                 </div>
               </div>
@@ -167,30 +167,30 @@ export default function AdminDashboard() {
               </div>
               <div className="flex justify-between mt-3">
                 {['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'].map(m => (
-                  <span key={m} className="flex-1 text-center text-[10px] text-espresso/30">{m}</span>
+                  <span key={m} className="flex-1 text-center text-[10px] text-white/30">{m}</span>
                 ))}
               </div>
             </div>
 
             {/* Plans Distribution */}
-            <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-              <h2 className="font-serif text-xl text-espresso mb-5">Distribuicao de Planos</h2>
+            <div className="p-6 rounded-2xl surface">
+              <h2 className="font-serif text-xl text-white mb-5">Distribuicao de Planos</h2>
               <div className="space-y-4">
                 {plans.map(p => {
                   const pk = getPlanKey(p.id);
                   return (
                     <div key={p.id}>
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-espresso/60 flex items-center gap-2">
+                        <span className="text-xs text-white/60 flex items-center gap-2">
                           <div className={`w-2.5 h-2.5 rounded-full bg-plan-${pk}`} />
                           {p.name}
                         </span>
                         <span className={`text-xs font-medium text-plan-${pk}`}>{p.subscribers}</span>
                       </div>
-                      <div className="w-full h-2 bg-canvas rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-white/[0.04] rounded-full overflow-hidden">
                         <div className={`h-full rounded-full transition-all bg-plan-${pk}`} style={{ width: `${(p.subscribers / 600) * 100}%` }} />
                       </div>
-                      <div className="text-[10px] text-espresso/25 mt-0.5">R$ {p.revenue.toLocaleString()}/mes</div>
+                      <div className="text-[10px] text-white/25 mt-0.5">R$ {p.revenue.toLocaleString()}/mes</div>
                     </div>
                   );
                 })}
@@ -200,42 +200,42 @@ export default function AdminDashboard() {
 
           {/* Top Producers + Recent */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-              <h2 className="font-serif text-xl text-espresso mb-4">Top Produtores</h2>
+            <div className="p-6 rounded-2xl surface">
+              <h2 className="font-serif text-xl text-white mb-4">Top Produtores</h2>
               <div className="space-y-3">
                 {dbUsers.filter(u => u.role === 'produtor').sort((a, b) => b.revenue - a.revenue).slice(0, 4).map((p, i) => (
-                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/40 hover:bg-white/60 transition-all cursor-pointer" onClick={() => { setSelectedUser(p); setTab('users') }}>
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-plum-10-text-plum">{i + 1}</div>
+                  <div key={p.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] hover:bg-white/[0.04] transition-all cursor-pointer" onClick={() => { setSelectedUser(p); setTab('users') }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium bg-purple-500/10 text-purple-400">{i + 1}</div>
                     <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover" />
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-espresso">{p.name}</div>
-                      <div className="text-[10px] text-espresso/30">{p.events} eventos · {p.plan}</div>
+                      <div className="text-sm font-medium text-white">{p.name}</div>
+                      <div className="text-[10px] text-white/40">{p.events} eventos · {p.plan}</div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-medium text-espresso">R$ {(p.revenue / 1000).toFixed(0)}K</div>
-                      <div className="text-[10px] text-green-600">+{p.events * 2}%</div>
+                      <div className="text-sm font-medium text-white">R$ {(p.revenue / 1000).toFixed(0)}K</div>
+                      <div className="text-[10px] text-green-400">+{p.events * 2}%</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-              <h2 className="font-serif text-xl text-espresso mb-4">Atividade Recente</h2>
+            <div className="p-6 rounded-2xl surface">
+              <h2 className="font-serif text-xl text-white mb-4">Atividade Recente</h2>
               <div className="space-y-3">
                 {[
-                  { icon: Users, text: 'Novo usuario registrado', sub: 'Amanda Costa - ha 5 min', color: 'text-blue-600' },
-                  { icon: Calendar, text: 'Evento publicado', sub: 'Noite Eletro 2025 - ha 15 min', color: 'text-plum' },
-                  { icon: DollarSign, text: 'Pagamento de assinatura', sub: 'Evokaa Pro - R$ 149 - ha 30 min', color: 'text-green-600' },
-                  { icon: Ticket, text: '50 ingressos vendidos', sub: 'Jazz Sunset Session - ha 1h', color: 'text-amber-600' },
+                  { icon: Users, text: 'Novo usuario registrado', sub: 'Amanda Costa - ha 5 min', color: 'text-blue-400' },
+                  { icon: Calendar, text: 'Evento publicado', sub: 'Noite Eletro 2025 - ha 15 min', color: 'text-purple-400' },
+                  { icon: DollarSign, text: 'Pagamento de assinatura', sub: 'Evokaa Pro - R$ 149 - ha 30 min', color: 'text-green-400' },
+                  { icon: Ticket, text: '50 ingressos vendidos', sub: 'Jazz Sunset Session - ha 1h', color: 'text-amber-400' },
                 ].map((a, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/40">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-cream-color">
+                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-white/[0.05]">
                       <a.icon className={`w-4 h-4 ${a.color}`} />
                     </div>
                     <div>
-                      <div className="text-sm text-espresso">{a.text}</div>
-                      <div className="text-[10px] text-espresso/30">{a.sub}</div>
+                      <div className="text-sm text-white">{a.text}</div>
+                      <div className="text-[10px] text-white/40">{a.sub}</div>
                     </div>
                   </div>
                 ))}
@@ -250,37 +250,37 @@ export default function AdminDashboard() {
         <>
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
             <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome, email ou telefone..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por nome, email ou telefone..." className="w-full pl-10 pr-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30" />
             </div>
-            <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
+            <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-full">
               {[{ id: 'all', label: 'Todos' }, { id: 'produtor', label: 'Produtores' }, { id: 'participante', label: 'Participantes' }, { id: 'bloqueado', label: 'Bloqueados' }].map(f => (
-                <button key={f.id} onClick={() => setUserFilter(f.id)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${userFilter === f.id ? 'bg-plum text-cream' : 'text-espresso/40'}`}>{f.label}</button>
+                <button key={f.id} onClick={() => setUserFilter(f.id)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${userFilter === f.id ? 'bg-purple-600 text-white shadow-glow' : 'text-white/40'}`}>{f.label}</button>
               ))}
             </div>
           </div>
 
-          <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
+          <div className="surface overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Usuario</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Plano</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Vencimento</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Gasto</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Usuario</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden lg:table-cell">Plano</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden md:table-cell">Vencimento</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden md:table-cell">Gasto</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Status</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredUsers.map(u => (
-                  <tr key={u.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                  <tr key={u.id} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img src={u.avatar} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-canvas" />
+                        <img src={u.avatar} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-white/10" />
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-espresso">{u.name}</div>
-                          <div className="text-[10px] text-espresso/30">{u.email} · {u.phone}</div>
+                          <div className="text-sm font-medium text-white">{u.name}</div>
+                          <div className="text-[10px] text-white/40">{u.email} · {u.phone}</div>
                         </div>
                       </div>
                     </td>
@@ -288,18 +288,18 @@ export default function AdminDashboard() {
                       <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border bg-plan-${getPlanKey(u.plan)}-10 text-plan-${getPlanKey(u.plan)} border-plan-${getPlanKey(u.plan)}-20`}>{u.plan}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className={`text-xs ${u.planDueDate === 'Vencido' ? 'text-red-500' : 'text-espresso/40'}`}>{u.planDueDate}</span>
+                      <span className={`text-xs ${u.planDueDate === 'Vencido' ? 'text-red-400 font-medium' : 'text-white/40'}`}>{u.planDueDate}</span>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-sm font-medium text-espresso">R$ {u.totalSpent.toLocaleString()}</span>
+                      <span className="text-sm font-medium text-white">R$ {u.totalSpent.toLocaleString()}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => toggleUserStatus(u.id)} className={`px-2.5 py-1 text-[10px] font-medium rounded-full border transition-all ${u.status === 'ativo' ? 'bg-green-50 border-green-100 text-green-600' : 'bg-red-50 border-red-100 text-red-500'}`}>
+                      <button onClick={() => toggleUserStatus(u.id)} className={`px-2.5 py-1 text-[10px] font-medium rounded-full border transition-all ${u.status === 'ativo' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
                         {u.status === 'ativo' ? 'Ativo' : 'Bloqueado'}
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setSelectedUser(u)} aria-label={`Visualizar detalhes do usuario ${u.name}`} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                      <button onClick={() => setSelectedUser(u)} aria-label={`Visualizar detalhes do usuario ${u.name}`} className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/20 hover:text-white/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                     </td>
                   </tr>
                 ))}
@@ -316,29 +316,29 @@ export default function AdminDashboard() {
             {plans.map(p => {
               const pk = getPlanKey(p.id);
               return (
-                <div key={p.id} className={`p-6 rounded-3xl border border-white/60 bg-white/55 backdrop-blur-sm transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer border-t-plan-${pk}`} >
+                <div key={p.id} className={`p-6 border transition-all hover:shadow-lg hover:-translate-y-0.5 cursor-pointer border-t-plan-${pk} surface-elevated`} >
                   <div className="flex items-center justify-between mb-4">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-plan-${pk}-15`}>
                       <Crown className={`w-5 h-5 text-plan-${pk}`} />
                     </div>
                     <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full bg-plan-${pk}-10 text-plan-${pk}`}>{p.subscribers} assinantes</span>
                   </div>
-                  <h3 className="font-serif text-lg text-espresso mb-1">{p.name}</h3>
+                  <h3 className="font-serif text-lg text-white mb-1">{p.name}</h3>
                   <div className="flex items-baseline gap-1 mb-4">
                     <span className={`font-serif text-3xl text-plan-${pk}`}>R$ {p.price}</span>
-                    <span className="text-xs text-espresso/30">/mes</span>
+                    <span className="text-xs text-white/30">/mes</span>
                   </div>
                   <div className="space-y-2">
                     {p.features.slice(0, 5).map(f => (
-                      <div key={f.name} className="flex items-center gap-2 text-xs text-espresso/50">
-                        {f.enabled ? <CheckCircle2 className="w-3 h-3 text-green-500" /> : <XCircle className="w-3 h-3 text-espresso/15" />}
+                      <div key={f.name} className="flex items-center gap-2 text-xs text-white/50">
+                        {f.enabled ? <CheckCircle2 className="w-3 h-3 text-green-400" /> : <XCircle className="w-3 h-3 text-white/20" />}
                         {f.name}
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-espresso/5">
-                    <div className="text-xs text-espresso/40">Receita mensal</div>
-                    <div className="text-sm font-medium text-espresso">R$ {p.revenue.toLocaleString()}</div>
+                  <div className="mt-4 pt-4 border-t border-white/[0.06]">
+                    <div className="text-xs text-white/40">Receita mensal</div>
+                    <div className="text-sm font-medium text-white">R$ {p.revenue.toLocaleString()}</div>
                   </div>
                 </div>
               );
@@ -346,26 +346,26 @@ export default function AdminDashboard() {
           </div>
 
           {/* Plan Comparison Table */}
-          <div className="p-6 rounded-2xl bg-white/60 border border-white/60">
-            <h2 className="font-serif text-xl text-espresso mb-5">Comparativo de Funcionalidades</h2>
+          <div className="p-6 rounded-2xl surface">
+            <h2 className="font-serif text-xl text-white mb-5">Comparativo de Funcionalidades</h2>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-espresso/5">
-                    <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Funcionalidade</th>
+                  <tr className="border-b border-white/[0.06]">
+                    <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Funcionalidade</th>
                     {plans.map(p => <th key={p.id} className={`text-center px-4 py-3 text-xs font-medium text-plan-${getPlanKey(p.id)}`}>{p.name}</th>)}
                   </tr>
                 </thead>
                 <tbody>
                   {featureGates.map(fg => (
-                    <tr key={fg.id} className="border-b border-espresso/3 last:border-0">
+                    <tr key={fg.id} className="border-b border-white/[0.04] last:border-0">
                       <td className="px-4 py-3">
-                        <div className="text-sm text-espresso">{fg.name}</div>
-                        <div className="text-[10px] text-espresso/30">{fg.description}</div>
+                        <div className="text-sm text-white">{fg.name}</div>
+                        <div className="text-[10px] text-white/40">{fg.description}</div>
                       </td>
                       {plans.map(p => (
                         <td key={p.id} className="text-center px-4 py-3">
-                          {hasPlanAccess(fg, p.id) ? <CheckCircle2 className="w-4 h-4 text-green-500 mx-auto" /> : <XCircle className="w-4 h-4 text-espresso/15 mx-auto" />}
+                          {hasPlanAccess(fg, p.id) ? <CheckCircle2 className="w-4 h-4 text-green-400 mx-auto" /> : <XCircle className="w-4 h-4 text-white/20 mx-auto" />}
                         </td>
                       ))}
                     </tr>
@@ -380,40 +380,40 @@ export default function AdminDashboard() {
       {/* ===== FEATURES ===== */}
       {tab === 'features' && (
         <div className="space-y-4">
-          <div className="p-5 rounded-2xl bg-amber-50/60 border border-amber-100 mb-6">
+          <div className="p-5 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-6">
             <div className="flex items-center gap-3">
-              <Lock className="w-5 h-5 text-amber-600" />
+              <Lock className="w-5 h-5 text-amber-400" />
               <div>
-                <div className="text-sm font-medium text-amber-800">Gestao de Funcionalidades</div>
-                <div className="text-xs text-amber-600/70">Controle quais funcionalidades cada plano acessa e defina prazos de teste gratis</div>
+                <div className="text-sm font-medium text-amber-300">Gestao de Funcionalidades</div>
+                <div className="text-xs text-amber-400/80">Controle quais funcionalidades cada plano acessa e defina prazos de teste gratis</div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
+          <div className="surface overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Funcionalidade</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Descricao</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Trial (dias)</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
+                <tr className="border-b border-white/[0.06]">
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Funcionalidade</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden md:table-cell">Descricao</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Trial (dias)</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {featureGates.map(fg => (
-                  <tr key={fg.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                  <tr key={fg.id} className="border-b border-white/[0.03] last:border-0 hover:bg-white/[0.02] transition-colors">
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-espresso">{fg.name}</div>
+                      <div className="text-sm font-medium text-white">{fg.name}</div>
                       <div className="flex items-center gap-1 mt-1 md:hidden">
-                        <span className="text-[10px] text-espresso/30">{fg.description}</span>
+                        <span className="text-[10px] text-white/40">{fg.description}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-espresso/40">{fg.description}</span>
+                      <span className="text-xs text-white/45">{fg.description}</span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-xs font-medium text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">{fg.freeTrial} dias</span>
+                      <span className="text-xs font-medium text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">{fg.freeTrial} dias</span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <div className="flex items-center justify-center gap-1">
@@ -433,61 +433,61 @@ export default function AdminDashboard() {
       {/* User Detail Drawer */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelectedUser(null)} />
-          <div className="relative w-full max-w-md bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl">
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setSelectedUser(null)} />
+          <div className="relative w-full max-w-md bg-canvas border-l border-white/10 h-full overflow-y-auto shadow-2xl">
             <div className="p-6">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <img src={selectedUser.avatar} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-plum/30" />
+                  <img src={selectedUser.avatar} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-purple-500/30" />
                   <div>
-                    <h3 className="font-serif text-xl text-espresso">{selectedUser.name}</h3>
-                    <span className="text-[10px] text-espresso/30 capitalize">{selectedUser.role} · {selectedUser.plan}</span>
+                    <h3 className="font-serif text-xl text-white">{selectedUser.name}</h3>
+                    <span className="text-[10px] text-white/40 capitalize">{selectedUser.role} · {selectedUser.plan}</span>
                   </div>
                 </div>
-                <button onClick={() => setSelectedUser(null)} className="p-2 rounded-full bg-canvas text-espresso/40 hover:text-espresso transition-colors">X</button>
+                <button onClick={() => setSelectedUser(null)} className="p-2 rounded-full bg-white/[0.04] text-white/40 hover:text-white transition-colors">X</button>
               </div>
 
               {/* Contact */}
               <div className="space-y-2 mb-6">
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><Mail className="w-4 h-4 text-espresso/30" />{selectedUser.email}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><Phone className="w-4 h-4 text-espresso/30" />{selectedUser.phone}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><Clock className="w-4 h-4 text-espresso/30" />Ultimo login: {selectedUser.lastLogin}</div>
+                <div className="flex items-center gap-2 text-sm text-white/60"><Mail className="w-4 h-4 text-white/30" />{selectedUser.email}</div>
+                <div className="flex items-center gap-2 text-sm text-white/60"><Phone className="w-4 h-4 text-white/30" />{selectedUser.phone}</div>
+                <div className="flex items-center gap-2 text-sm text-white/60"><Clock className="w-4 h-4 text-white/30" />Ultimo login: {selectedUser.lastLogin}</div>
               </div>
 
               {/* Plan Info */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-plum">R$ {selectedUser.planValue}</div>
-                  <div className="text-[10px] text-espresso/30">Valor do plano/mes</div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+                  <div className="font-serif text-xl text-purple-400">R$ {selectedUser.planValue}</div>
+                  <div className="text-[10px] text-white/40">Valor do plano/mes</div>
                 </div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className={`font-serif text-xl ${selectedUser.planDueDate === 'Vencido' ? 'text-red-500' : 'text-espresso'}`}>{selectedUser.planDueDate}</div>
-                  <div className="text-[10px] text-espresso/30">Vencimento</div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+                  <div className={`font-serif text-xl ${selectedUser.planDueDate === 'Vencido' ? 'text-red-400 font-medium' : 'text-white'}`}>{selectedUser.planDueDate}</div>
+                  <div className="text-[10px] text-white/40">Vencimento</div>
                 </div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-espresso">R$ {selectedUser.totalSpent.toLocaleString()}</div>
-                  <div className="text-[10px] text-espresso/30">Total gasto</div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+                  <div className="font-serif text-xl text-white">R$ {selectedUser.totalSpent.toLocaleString()}</div>
+                  <div className="text-[10px] text-white/40">Total gasto</div>
                 </div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-espresso">{selectedUser.events}</div>
-                  <div className="text-[10px] text-espresso/30">Eventos criados</div>
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] text-center">
+                  <div className="font-serif text-xl text-white">{selectedUser.events}</div>
+                  <div className="text-[10px] text-white/40">Eventos criados</div>
                 </div>
               </div>
 
               {/* Payment */}
-              <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                <div className="text-[10px] text-espresso/30 uppercase tracking-wider mb-2">Pagamento</div>
-                <div className="flex items-center gap-2 text-sm text-espresso"><CreditCard className="w-4 h-4 text-espresso/30" />{selectedUser.paymentMethod}</div>
-                <div className="text-[10px] text-espresso/30 mt-1">Termos aceitos em: {selectedUser.termsAccepted}</div>
+              <div className="mb-6 p-4 rounded-xl bg-white/[0.02] border border-white/[0.06]">
+                <div className="text-[10px] text-white/30 uppercase tracking-wider mb-2">Pagamento</div>
+                <div className="flex items-center gap-2 text-sm text-white"><CreditCard className="w-4 h-4 text-white/30" />{selectedUser.paymentMethod}</div>
+                <div className="text-[10px] text-white/30 mt-1">Termos aceitos em: {selectedUser.termsAccepted}</div>
               </div>
 
               {/* Actions */}
               <div className="space-y-2">
-                <button onClick={() => toggleUserStatus(selectedUser.id)} className={`w-full py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${selectedUser.status === 'ativo' ? 'bg-red-50 text-red-500 hover:bg-red-100' : 'bg-green-50 text-green-600 hover:bg-green-100'}`}>
+                <button onClick={() => toggleUserStatus(selectedUser.id)} className={`w-full py-2.5 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-2 ${selectedUser.status === 'ativo' ? 'bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20' : 'bg-green-500/15 text-green-400 hover:bg-green-500/25 border border-green-500/20'}`}>
                   {selectedUser.status === 'ativo' ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
                   {selectedUser.status === 'ativo' ? 'Bloquear Usuario' : 'Desbloquear Usuario'}
                 </button>
-                <button onClick={() => { navigator.clipboard.writeText(selectedUser.email); toast.success('Email copiado!') }} className="w-full py-2.5 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(selectedUser.email); toast.success('Email copiado!') }} className="w-full py-2.5 bg-purple-600 text-white text-xs font-medium rounded-full hover:bg-purple-500 hover:shadow-glow transition-all flex items-center justify-center gap-2">
                   <Mail className="w-3.5 h-3.5" /> Enviar Email
                 </button>
               </div>

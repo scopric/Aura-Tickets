@@ -149,7 +149,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
               ? 'text-white'
               : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
           )}
-          style={hasActiveChild ? { background: 'rgba(59,130,246,0.2)' } : {}}
+          style={hasActiveChild ? { background: 'rgba(143, 51, 245, 0.15)' } : {}}
           title={group.label}
         >
           <group.icon
@@ -186,7 +186,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
             ? 'text-white'
             : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
         )}
-        style={hasActiveChild ? { background: 'rgba(59,130,246,0.15)' } : {}}
+        style={hasActiveChild ? { background: 'rgba(143, 51, 245, 0.1)' } : {}}
       >
         <group.icon
           className="w-[17px] h-[17px] flex-shrink-0"
@@ -210,11 +210,11 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
                   ? 'text-white'
                   : 'text-white/50 hover:text-white/85 hover:bg-white/[0.03]'
               )}
-              style={isActivePath(item.to) ? { background: 'rgba(59,130,246,0.12)' } : {}}
+              style={isActivePath(item.to) ? { background: 'rgba(143, 51, 245, 0.12)' } : {}}
             >
               <item.icon
                 className="w-3.5 h-3.5 flex-shrink-0"
-                style={{ color: isActivePath(item.to) ? '#c49ab8' : undefined }}
+                style={{ color: isActivePath(item.to) ? '#a78bfa' : undefined }}
               />
               <span className="text-[11.5px]">{item.label}</span>
             </Link>
@@ -252,7 +252,11 @@ export default function ProducerLayout() {
           'fixed left-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 ease-out',
           collapsed ? 'w-[68px]' : 'w-[232px]'
         )}
-        style={{ background: 'var(--void)' }}
+        style={{ 
+          background: 'rgba(7, 8, 12, 0.75)', 
+          backdropFilter: 'blur(20px)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
+        }}
       >
         {/* Logo area */}
         <div className={cn(
@@ -271,7 +275,7 @@ export default function ProducerLayout() {
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>
               <span
                 className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(59,130,246,0.25)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }}
+                style={{ background: 'rgba(143,51,245,0.15)', color: '#a78bfa', border: '1px solid rgba(143,51,245,0.25)' }}
               >
                 Prod
               </span>
@@ -291,7 +295,7 @@ export default function ProducerLayout() {
                 ? 'text-white'
                 : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
             )}
-            style={isActivePath('/producer/dashboard') ? { background: 'rgba(59,130,246,0.2)' } : {}}
+            style={isActivePath('/producer/dashboard') ? { background: 'rgba(143, 51, 245, 0.15)', borderLeft: '3px solid #8f33f5', borderRadius: '0px 8px 8px 0px' } : {}}
             title={collapsed ? 'Dashboard' : undefined}
           >
             <LayoutDashboard
@@ -300,7 +304,7 @@ export default function ProducerLayout() {
                 collapsed ? 'w-[18px] h-[18px]' : 'w-[17px] h-[17px]',
                 isActivePath('/producer/dashboard') && 'scale-110'
               )}
-              style={{ color: isActivePath('/producer/dashboard') ? '#c49ab8' : undefined }}
+              style={{ color: isActivePath('/producer/dashboard') ? '#8f33f5' : undefined }}
             />
             {!collapsed && <span className="text-[12.5px] font-medium tracking-wide">Dashboard</span>}
           </Link>
@@ -368,7 +372,7 @@ export default function ProducerLayout() {
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-[70px] w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 z-50"
-          style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', color: 'white', boxShadow: '0 2px 8px rgba(59,130,246,0.4)' }}
+          style={{ background: 'linear-gradient(135deg, #1d68c4, #8f33f5)', color: 'white', boxShadow: '0 2px 8px rgba(143,51,245,0.4)' }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>

@@ -183,15 +183,15 @@ export default function ProducerDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {isLoading ? (
           [1, 2, 3, 4].map(n => (
-            <div key={n} className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm animate-pulse h-[142px]">
-              <div className="w-10 h-10 bg-espresso/5 rounded-xl mb-3" />
-              <div className="h-6 bg-espresso/5 rounded w-24 mb-2" />
-              <div className="h-4 bg-espresso/5 rounded w-16" />
+            <div key={n} className="dash-card p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md animate-pulse h-[142px]">
+              <div className="w-10 h-10 bg-white/[0.05] rounded-xl mb-3" />
+              <div className="h-6 bg-white/[0.05] rounded w-24 mb-2" />
+              <div className="h-4 bg-white/[0.05] rounded w-16" />
             </div>
           ))
         ) : (
           stats.map((stat) => (
-            <div key={stat.label} className="dash-card p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+            <div key={stat.label} className="dash-card p-5 rounded-2xl surface">
               <div className="flex items-center justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl bg-${stat.color === 'plum' ? 'plum' : 'green-600'}/10 flex items-center justify-center`}>
                   <stat.icon className={`w-5 h-5 text-${stat.color === 'plum' ? 'plum' : 'green-600'}`} />
@@ -200,7 +200,7 @@ export default function ProducerDashboard() {
               </div>
               <div className="font-serif text-xl lg:text-2xl text-espresso break-words">{stat.value}</div>
               <div className="text-xs text-espresso/40 mt-1">{stat.label}</div>
-              <div className="text-[10px] text-green-600 mt-2">{stat.change}</div>
+              <div className="text-[10px] text-green-400 mt-2">{stat.change}</div>
             </div>
           ))
         )}
@@ -209,7 +209,7 @@ export default function ProducerDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Events list */}
         <div className="lg:col-span-2">
-          <div className="dash-card p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+          <div className="dash-card p-6 rounded-2xl surface">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-serif text-xl text-espresso">Meus Eventos Recentes</h2>
               <Link to="/producer/events" className="text-xs text-plum hover:underline flex items-center gap-1">
@@ -220,7 +220,7 @@ export default function ProducerDashboard() {
             {isEventsLoading ? (
               <div className="space-y-3">
                 {[1, 2].map(n => (
-                  <div key={n} className="h-20 bg-white/40 border border-white/40 rounded-xl animate-pulse" />
+                  <div key={n} className="h-20 bg-white/[0.02] border border-white/[0.05] rounded-xl animate-pulse" />
                 ))}
               </div>
             ) : !events || events.length === 0 ? (
@@ -244,7 +244,7 @@ export default function ProducerDashboard() {
                     <Link
                       key={event.id}
                       to={`/producer/events`}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-white/40 border border-white/40 hover:border-plum/20 hover:bg-white/60 transition-all group"
+                      className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-plum/20 hover:bg-white/[0.04] transition-all group"
                     >
                       <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
                         <img src={event.cover_image || '/images/hero-bg.jpg'} alt={event.title} className="w-full h-full object-cover" />
@@ -269,17 +269,17 @@ export default function ProducerDashboard() {
         </div>
 
         {/* Activity list */}
-        <div className="dash-card p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
+        <div className="dash-card p-6 rounded-2xl surface">
           <h2 className="font-serif text-xl text-espresso mb-6">Atividade Recente</h2>
 
           {isOrdersLoading ? (
             <div className="space-y-4 animate-pulse">
               {[1, 2, 3].map(n => (
                 <div key={n} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-espresso/5" />
+                  <div className="w-8 h-8 rounded-full bg-white/[0.05]" />
                   <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 bg-espresso/5 rounded w-32" />
-                    <div className="h-3 bg-espresso/5 rounded w-20" />
+                    <div className="h-3.5 bg-white/[0.05] rounded w-32" />
+                    <div className="h-3 bg-white/[0.05] rounded w-20" />
                   </div>
                 </div>
               ))}
@@ -292,8 +292,8 @@ export default function ProducerDashboard() {
             <div className="space-y-4">
               {recentOrders.map((order: any, i) => (
                 <div key={order.id || i} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-green-100">
-                    <DollarSign className="w-3.5 h-3.5 text-green-600" />
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-green-500/10">
+                    <DollarSign className="w-3.5 h-3.5 text-green-400" />
                   </div>
                   <div>
                     <p className="text-sm text-espresso">
@@ -310,8 +310,8 @@ export default function ProducerDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="dash-card mt-6 p-6 rounded-2xl bg-void text-cream">
-        <h2 className="font-serif text-xl mb-4">Ações Rápidas</h2>
+      <div className="dash-card mt-6 p-6 rounded-2xl surface-elevated text-cream">
+        <h2 className="font-serif text-xl mb-4 text-white">Ações Rápidas</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Planejar Evento', to: '/producer/planner', icon: Plus },
@@ -322,7 +322,7 @@ export default function ProducerDashboard() {
             <Link
               key={action.label}
               to={action.to}
-              className="flex items-center gap-3 p-4 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 hover:border-plum/30 transition-all group"
+              className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-plum/30 transition-all group"
             >
               <action.icon className="w-5 h-5 text-plum" />
               <span className="text-sm">{action.label}</span>

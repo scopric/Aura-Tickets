@@ -70,7 +70,11 @@ export default function AppLayout() {
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           collapsed ? 'w-[72px]' : 'w-[250px]'
         )}
-        style={{ background: 'var(--void)' }}
+        style={{
+          background: 'rgba(7, 8, 12, 0.75)',
+          backdropFilter: 'blur(20px)',
+          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
+        }}
       >
         {/* Logo */}
         <div
@@ -91,9 +95,9 @@ export default function AppLayout() {
               <span
                 className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
                 style={{
-                  background: 'rgba(59,130,246,0.25)',
-                  color: '#60a5fa',
-                  border: '1px solid rgba(59,130,246,0.3)',
+                  background: 'rgba(143,51,245,0.15)',
+                  color: '#a78bfa',
+                  border: '1px solid rgba(143,51,245,0.25)',
                 }}
               >
                 App
@@ -118,7 +122,7 @@ export default function AppLayout() {
                     ? 'text-white'
                     : 'text-white/60 hover:text-white/90 hover:bg-white/[0.04]'
                 )}
-                style={active ? { background: 'rgba(59,130,246,0.2)' } : {}}
+                style={active ? { background: 'rgba(143, 51, 245, 0.15)', borderLeft: '3px solid #8f33f5', borderRadius: '0px 8px 8px 0px' } : {}}
                 title={collapsed ? item.label : undefined}
               >
                 <item.icon
@@ -127,7 +131,7 @@ export default function AppLayout() {
                     collapsed ? 'w-[18px] h-[18px]' : 'w-[17px] h-[17px]',
                     active && 'scale-110'
                   )}
-                  style={{ color: active ? '#c49ab8' : undefined }}
+                  style={{ color: active ? '#8f33f5' : undefined }}
                 />
                 {!collapsed && (
                   <span className="text-[13px] font-medium tracking-wide">{item.label}</span>
@@ -154,7 +158,7 @@ export default function AppLayout() {
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
                 <img
-                  src={user.avatar || '/images/avatar-default.jpg'}
+                  src={user.avatar || '/images/logo-evokaa.png'}
                   alt="Avatar"
                   className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
                 />
@@ -167,7 +171,7 @@ export default function AppLayout() {
               </div>
             ) : (
               <img
-                src={user.avatar || '/images/avatar-default.jpg'}
+                src={user.avatar || '/images/logo-evokaa.png'}
                 alt="Avatar"
                 className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
               />
@@ -195,9 +199,9 @@ export default function AppLayout() {
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-[70px] w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 z-50 hidden lg:flex"
           style={{
-            background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
+            background: 'linear-gradient(135deg, #1d68c4, #8f33f5)',
             color: 'white',
-            boxShadow: '0 2px 8px rgba(59,130,246,0.4)',
+            boxShadow: '0 2px 8px rgba(143,51,245,0.4)',
           }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
@@ -216,27 +220,27 @@ export default function AppLayout() {
         <header
           className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b"
           style={{
-            background: 'rgba(248,250,252,0.9)',
-            backdropFilter: 'blur(16px)',
-            borderColor: 'rgba(255,255,255,0.6)',
+            background: 'rgba(7, 8, 12, 0.75)',
+            backdropFilter: 'blur(20px)',
+            borderColor: 'rgba(255, 255, 255, 0.05)',
           }}
         >
           <div className="flex items-center gap-4">
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              className="lg:hidden p-2 rounded-lg hover:bg-white/[0.04] transition-colors"
             >
-              <Menu className="w-5 h-5 text-slate-500" />
+              <Menu className="w-5 h-5 text-white/70" />
             </button>
 
             {/* Search */}
             <div className="relative w-72 max-w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
                 type="text"
                 placeholder="Buscar eventos..."
-                className="w-full pl-9 pr-4 py-2 bg-white/70 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-300 transition-all"
+                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500/30 transition-all"
               />
             </div>
           </div>
@@ -246,26 +250,26 @@ export default function AppLayout() {
             <div className="relative">
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
-                className="relative p-2.5 rounded-xl hover:bg-slate-100 transition-colors"
+                className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
               >
-                <Bell className="w-5 h-5 text-slate-900/50" />
+                <Bell className="w-5 h-5 text-white/60" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-[#07080c]" />
                 )}
               </button>
 
               {/* Notifications Dropdown */}
               {showNotifs && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-white/90 backdrop-blur-xl border border-slate-200 rounded-2xl shadow-2xl overflow-hidden z-50">
-                  <div className="p-4 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-900">Notificações</h3>
+                <div className="absolute right-0 top-full mt-2 w-96 bg-slate-950/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden z-50">
+                  <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-white">Notificações</h3>
                     <button
                       onClick={handleMarkAllRead}
                       disabled={markAllRead.isPending || unreadCount === 0}
-                      className="text-xs text-blue-500 hover:underline disabled:opacity-40 font-medium"
+                      className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 font-medium"
                     >
                       {markAllRead.isPending ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
                       ) : (
                         'Marcar como lidas'
                       )}
@@ -274,10 +278,10 @@ export default function AppLayout() {
                   <div className="max-h-72 overflow-y-auto">
                     {isNotifLoading ? (
                       <div className="p-6 text-center">
-                        <Loader2 className="w-5 h-5 text-blue-500 animate-spin mx-auto" />
+                        <Loader2 className="w-5 h-5 text-purple-500 animate-spin mx-auto" />
                       </div>
                     ) : notifications.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-slate-900/40">
+                      <div className="p-6 text-center text-sm text-white/40">
                         Nenhuma notificação
                       </div>
                     ) : (
@@ -285,15 +289,15 @@ export default function AppLayout() {
                         <div
                           key={n.id}
                           className={cn(
-                            'p-3 border-b border-slate-100 last:border-0 transition-colors',
-                            !n.is_read ? 'bg-blue-500/5' : ''
+                            'p-3 border-b border-white/[0.04] last:border-0 transition-colors',
+                            !n.is_read ? 'bg-purple-500/10' : ''
                           )}
                         >
-                          <p className="text-sm text-slate-900 font-medium">{n.title}</p>
+                          <p className="text-sm text-white/90 font-medium">{n.title}</p>
                           {n.message && (
-                            <p className="text-xs text-slate-500 mt-0.5">{n.message}</p>
+                            <p className="text-xs text-white/60 mt-0.5">{n.message}</p>
                           )}
-                          <p className="text-[11px] text-slate-400 mt-1">{formatTimeAgo(n.created_at)}</p>
+                          <p className="text-[11px] text-white/40 mt-1">{formatTimeAgo(n.created_at)}</p>
                         </div>
                       ))
                     )}
@@ -304,9 +308,9 @@ export default function AppLayout() {
 
             {/* Avatar */}
             <img
-              src={user?.avatar || '/images/avatar-default.jpg'}
+              src={user?.avatar || '/images/logo-evokaa.png'}
               alt="Avatar"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-500/20"
+              className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
             />
           </div>
         </header>
