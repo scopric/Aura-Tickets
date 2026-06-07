@@ -1,11 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2, Edit3 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../stores/authStore'
+import { trackEvent } from '../../lib/tracking'
 
 type UserRole = 'user' | 'producer' | 'admin'
+
+const roleLabels: Record<string, string> = {
+  user: 'Participante',
+  producer: 'Produtor',
+  admin: 'Administrador',
+  editor: 'Editor'
+}
 
 const GoogleIcon = () => (
   <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -44,6 +53,39 @@ export default function AuthLogin() {
   const [role, setRole] = useState<UserRole>('user')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Estados do MFA (2FA)
+  const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
+  const [mfaChallenge, setMfaChallenge] = useState<{ factorId: string; challengeId: string } | null>(null)
+  const [mfaCode, setMfaCode] = useState('')
+
+  // Intercepta se o ProtectedRoute exigir MFA direta para uma sessao aal1 ativa
+  useEffect(() => {
+    async function checkRequiredMfa() {
+      if (location.state?.mfaRequired) {
+        try {
+          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (!error && data && data.nextLevel === 'aal2' && data.currentLevel === 'aal1') {
+            const factors = await supabase.auth.mfa.listFactors()
+            const totpFactor = factors.data?.totp?.[0]
+            if (totpFactor) {
+              const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
+              if (challenge.data) {
+                setMfaChallenge({
+                  factorId: totpFactor.id,
+                  challengeId: challenge.data.id
+                })
+                setStep('mfa')
+              }
+            }
+          }
+        } catch (err) {
+          console.error('[Login MFA Check] Erro ao carregar challenge:', err)
+        }
+      }
+    }
+    checkRequiredMfa()
+  }, [location.state])
 
   const handleGoogleLogin = async () => {
     setIsSubmitting(true)
@@ -102,8 +144,8 @@ export default function AuthLogin() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    console.log('[DEBUG Login] useEffect check:', { isAuthenticated, currentRoleContext })
-    if (isAuthenticated && currentRoleContext) {
+    console.log('[DEBUG Login] useEffect check:', { isAuthenticated, currentRoleContext, step })
+    if (isAuthenticated && currentRoleContext && step === 'credentials') {
       console.log('[DEBUG Login] Redirecionando usuario logado. Role:', currentRoleContext)
       // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
@@ -112,16 +154,13 @@ export default function AuthLogin() {
         return
       }
       if (currentRoleContext === 'admin') navigate('/admin/dashboard')
-      else if (currentRoleContext === 'producer') navigate('/producer/dashboard')
+      else if (currentRoleContext === 'producer' || currentRoleContext === 'editor') navigate('/producer/dashboard')
       else navigate('/app/hub')
     }
-  }, [isAuthenticated, currentRoleContext, navigate])
-
-
+  }, [isAuthenticated, currentRoleContext, navigate, step])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    // Log removido para producao
     setError('')
     const cleanEmail = email.trim()
     const cleanPassword = password.trim()
@@ -136,6 +175,47 @@ export default function AuthLogin() {
       const success = await login(cleanEmail, cleanPassword)
       console.log('[DEBUG Login] Retorno do login():', success)
       if (success) {
+        // Verificar se a role real do banco coincide com a role selecionada no formulário de login
+        // (com a exceção de que um usuário com a role real 'editor' no banco pode logar selecionando 'producer' no formulário)
+        const loggedUser = useAuthStore.getState().user
+        const isRoleMatch = loggedUser && (
+          loggedUser.role === role || 
+          (loggedUser.role === 'editor' && role === 'producer')
+        )
+        if (loggedUser && !isRoleMatch) {
+          // Se a role selecionada for diferente da role do banco, desloga e dá erro
+          await useAuthStore.getState().setUser(null)
+          await useAuthStore.getState().setSession(null)
+          await supabase.auth.signOut().catch(() => {})
+          localStorage.removeItem('aura-auth')
+          
+          setError(`Este e-mail está cadastrado como ${roleLabels[loggedUser.role] || loggedUser.role} e não pode ser utilizado como ${roleLabels[role] || role}.`)
+          setIsSubmitting(false)
+          return
+        }
+
+        // Registrar log de login no Supabase
+        trackEvent('login', location.pathname, { email: cleanEmail })
+
+        // Checar se o usuário tem 2FA configurado
+        const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        if (!mfaError && mfaData && mfaData.nextLevel === 'aal2' && mfaData.currentLevel === 'aal1') {
+          const factors = await supabase.auth.mfa.listFactors()
+          const totpFactor = factors.data?.totp?.[0]
+          if (totpFactor) {
+            const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
+            if (challenge.data) {
+              setMfaChallenge({
+                factorId: totpFactor.id,
+                challengeId: challenge.data.id
+              })
+              setStep('mfa')
+              setIsSubmitting(false)
+              return
+            }
+          }
+        }
+
         toast.success(`Bem-vindo de volta!`)
         // Se veio do checkout, redirecionar para lá após login bem-sucedido
         const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
@@ -143,13 +223,55 @@ export default function AuthLogin() {
           navigate('/checkout')
           return
         }
-        // The useEffect above will handle the redirect once the profile is loaded into context
       } else {
         setError('E-mail ou senha incorretos')
       }
     } catch (err: any) {
       console.error('[Login] Erro capturado:', err)
       setError(err?.message || err?.error_description || 'E-mail ou senha incorretos')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleMfaVerify = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    if (!mfaCode || mfaCode.length !== 6) {
+      setError('Digite o código de 6 dígitos')
+      return
+    }
+    if (!mfaChallenge) return
+
+    setIsSubmitting(true)
+    try {
+      const verify = await supabase.auth.mfa.verify({
+        factorId: mfaChallenge.factorId,
+        challengeId: mfaChallenge.challengeId,
+        code: mfaCode.trim()
+      })
+
+      if (verify.error) {
+        throw new Error(verify.error.message || 'Código incorreto. Tente novamente.')
+      }
+
+      toast.success('Autenticação multifator bem-sucedida!')
+      
+      const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
+      if (fromCheckout && pendingCheckout) {
+        navigate('/checkout')
+        return
+      }
+
+      // Redireciona com base nas credenciais
+      const { data: sessionData } = await supabase.auth.getSession()
+      const metadataRole = sessionData.session?.user?.user_metadata?.role
+      if (metadataRole === 'admin') navigate('/admin/dashboard')
+      else if (metadataRole === 'producer' || metadataRole === 'editor') navigate('/producer/dashboard')
+      else navigate('/app/hub')
+    } catch (err: any) {
+      console.error('[MFA Verify] Erro:', err)
+      setError(err.message || 'Erro ao verificar código de 2FA')
     } finally {
       setIsSubmitting(false)
     }
@@ -217,111 +339,176 @@ export default function AuthLogin() {
         )}
 
         {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
-            <input
-              type="email"
-              autoComplete="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="seu@email.com"
-              disabled={isSubmitting}
-              className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Senha</label>
-            <div className="relative">
+        {step === 'mfa' ? (
+          <form onSubmit={handleMfaVerify} className="space-y-6">
+            <div className="p-4 rounded-2xl bg-plum/5 border border-plum/10 text-center">
+              <p className="text-sm text-espresso font-medium">
+                Esta conta está protegida por <strong>Autenticação de Dois Fatores (2FA)</strong>.
+              </p>
+              <p className="text-xs text-espresso/50 mt-1.5">
+                Insira abaixo o código de 6 dígitos gerado pelo seu aplicativo Google Authenticator ou similar.
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Código de Autenticação</label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="Sua senha"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={mfaCode}
+                onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
+                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-center text-xl font-mono tracking-[0.5em] text-espresso placeholder:text-espresso/20 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
               />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full py-3 font-medium rounded-full transition-all flex items-center justify-center gap-2 ${
+                role === 'admin' ? 'bg-rose-500 text-white hover:shadow-lg hover:shadow-rose-500/20' :
+                role === 'producer' ? 'bg-amber-500 text-white hover:shadow-lg hover:shadow-amber-500/20' :
+                role === 'editor' ? 'bg-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/20' :
+                'bg-plum text-cream hover:shadow-glow'
+              } disabled:opacity-70 disabled:cursor-not-allowed`}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Verificando...</span>
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <span>Confirmar Código</span>
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => {
+                setStep('credentials')
+                setMfaChallenge(null)
+                setMfaCode('')
+              }}
+              className="w-full py-2.5 px-4 text-espresso/50 hover:text-espresso text-xs font-medium rounded-full hover:bg-espresso/5 transition-all text-center"
+            >
+              Voltar para a tela de login
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
+              <input
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                placeholder="seu@email.com"
+                disabled={isSubmitting}
+                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Senha</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  placeholder="Sua senha"
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors"
+                  disabled={isSubmitting}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs text-espresso/50 cursor-pointer">
+                <input type="checkbox" className="accent-plum" disabled={isSubmitting} />
+                Lembrar-me
+              </label>
+              <Link to="/auth/forgot" className="text-xs text-plum hover:underline">Esqueci a senha</Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className={`w-full py-3 font-medium rounded-full transition-all flex items-center justify-center gap-2 ${
+                role === 'admin' ? 'bg-rose-500 text-white hover:shadow-lg hover:shadow-rose-500/20' :
+                role === 'producer' ? 'bg-amber-500 text-white hover:shadow-lg hover:shadow-amber-500/20' :
+                role === 'editor' ? 'bg-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/20' :
+                'bg-plum text-cream hover:shadow-glow'
+              } disabled:opacity-70 disabled:cursor-not-allowed`}
+            >
+              {isSubmitting ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Acessando...</span>
+                </span>
+              ) : (
+                <span className="flex items-center justify-center gap-2">
+                  <span>Entrar como {currentRole.label}</span>
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
+            </button>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-espresso/5" />
+              </div>
+              <div className="relative flex justify-center">
+                <span className="px-3 bg-canvas text-xs text-espresso/30">ou entrar com</span>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors"
+                onClick={handleGoogleLogin}
                 disabled={isSubmitting}
+                className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                <GoogleIcon />
+                <span>Entrar com Google</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleAppleLogin}
+                disabled={isSubmitting}
+                className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
+              >
+                <AppleIcon />
+                <span>Entrar com Apple</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleMicrosoftLogin}
+                disabled={isSubmitting}
+                className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
+              >
+                <MicrosoftIcon />
+                <span>Entrar com Microsoft</span>
               </button>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-xs text-espresso/50 cursor-pointer">
-              <input type="checkbox" className="accent-plum" disabled={isSubmitting} />
-              Lembrar-me
-            </label>
-            <Link to="/auth/forgot" className="text-xs text-plum hover:underline">Esqueci a senha</Link>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className={`w-full py-3 font-medium rounded-full transition-all flex items-center justify-center gap-2 ${
-              role === 'admin' ? 'bg-rose-500 text-white hover:shadow-lg hover:shadow-rose-500/20' :
-              role === 'producer' ? 'bg-amber-500 text-white hover:shadow-lg hover:shadow-amber-500/20' :
-              'bg-plum text-cream hover:shadow-glow'
-            } disabled:opacity-70 disabled:cursor-not-allowed`}
-          >
-            {isSubmitting ? (
-              <span className="flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Acessando...</span>
-              </span>
-            ) : (
-              <span className="flex items-center justify-center gap-2">
-                <span>Entrar como {currentRole.label}</span>
-                <ArrowRight className="w-4 h-4" />
-              </span>
-            )}
-          </button>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-espresso/5" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="px-3 bg-canvas text-xs text-espresso/30">ou entrar com</span>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
-            >
-              <GoogleIcon />
-              <span>Entrar com Google</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleAppleLogin}
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
-            >
-              <AppleIcon />
-              <span>Entrar com Apple</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleMicrosoftLogin}
-              disabled={isSubmitting}
-              className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
-            >
-              <MicrosoftIcon />
-              <span>Entrar com Microsoft</span>
-            </button>
-          </div>
-        </form>
+          </form>
+        )}
 
         <p className="text-center text-xs text-espresso/40 mt-6">
           Não tem conta?{' '}

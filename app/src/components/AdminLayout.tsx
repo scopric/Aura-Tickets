@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   LayoutDashboard,
@@ -14,11 +14,15 @@ import {
   BarChart3,
   Ticket,
   MessageSquarePlus,
+  MessageCircle,
   Mail,
+  Camera,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
+import ThemeToggle from './ThemeToggle'
+import { uploadAvatar } from '../lib/avatarUpload'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -35,6 +39,7 @@ const navItems = [
   { to: '/admin/newsletter', icon: Mail, label: 'Newsletter', permission: 'manage_newsletter' },
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
+  { to: '/admin/support', icon: MessageCircle, label: 'Chat Suporte', permission: 'manage_feedback' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
 
@@ -44,6 +49,18 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
   const isActive = (path: string) => location.pathname === path
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && user?.id) {
+      await uploadAvatar(file, user.id)
+    }
+  }
+
+  const triggerUpload = () => {
+    fileInputRef.current?.click()
+  }
 
   const handleLogout = () => {
     toast.info('Voce saiu da sua conta')
@@ -105,22 +122,33 @@ export default function AdminLayout() {
         {/* User */}
         {user && (
           <div className={cn('px-3 py-3 border-t border-white/10', collapsed && 'flex justify-center')}>
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
             {!collapsed ? (
               <div className="flex items-center gap-3">
-                <img src={user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
+                <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
+                  <img src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-xs text-white font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
                   <div className="text-[10px] text-white/45 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
-              <img src={user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10" />
+              <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
+                <img src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
             )}
           </div>
         )}
 
-        <div className="p-2 border-t border-white/10 space-y-1">
-
+        <div className="p-2 border-t border-white/10 space-y-1 flex flex-col gap-1">
+          <ThemeToggle collapsed={collapsed} className="w-full text-white/40 hover:text-white/80" />
           <button
             onClick={handleLogout}
             className={cn(

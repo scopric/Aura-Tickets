@@ -1,14 +1,145 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   Settings, Globe, Mail, Shield, Save,
-  AlertTriangle, Database, FileText, RefreshCw, Lock, Eye
+  AlertTriangle, Database, FileText, RefreshCw, Lock, Eye,
+  Camera, Loader2
 } from 'lucide-react'
+import { useAuth } from '../../hooks/useAuth'
+import { uploadAvatar } from '../../lib/avatarUpload'
+import { supabase } from '../../lib/supabase'
 
 type Section = 'geral' | 'email' | 'moderacao' | 'backup' | 'logs' | 'seguranca'
 
 export default function AdminSettingsPage() {
   const [section, setSection] = useState<Section>('geral')
+  const { user } = useAuth()
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && user?.id) {
+      await uploadAvatar(file, user.id)
+    }
+  }
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.current?.click()
+  }
+
+  // Estados do MFA (2FA) Pessoal do Administrador
+  const [twoFA, setTwoFA] = useState(false)
+  const [mfaFactors, setMfaFactors] = useState<any[]>([])
+  const [loadingMfa, setLoadingMfa] = useState(true)
+  
+  const [showMfaModal, setShowMfaModal] = useState(false)
+  const [enrollData, setEnrollData] = useState<{ id: string; qrCodeSvg: string; secret: string } | null>(null)
+  const [verifyCode, setVerifyCode] = useState('')
+  const [mfaError, setMfaError] = useState('')
+  const [isVerifyingMfa, setIsVerifyingMfa] = useState(false)
+
+  // Carrega os fatores de MFA da conta do administrador no Supabase
+  useEffect(() => {
+    async function loadFactors() {
+      try {
+        const { data: factorsRes, error } = await supabase.auth.mfa.listFactors()
+        if (!error && factorsRes) {
+          const activeFactors = factorsRes.totp || []
+          setMfaFactors(activeFactors)
+          setTwoFA(activeFactors.length > 0)
+        }
+      } catch (err) {
+        console.error('[MFA Factors Admin] Erro ao carregar:', err)
+      } finally {
+        setLoadingMfa(false)
+      }
+    }
+    loadFactors()
+  }, [])
+
+  const handleStartEnroll = async () => {
+    setMfaError('')
+    setVerifyCode('')
+    setIsVerifyingMfa(false)
+    try {
+      const { data: enrollRes, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        issuer: 'Evokaa Tickets',
+        friendlyName: user?.email || 'Evokaa Admin'
+      })
+
+      if (error) throw error
+
+      if (enrollRes) {
+        setEnrollData({
+          id: enrollRes.id,
+          qrCodeSvg: enrollRes.totp.qr_code || '',
+          secret: enrollRes.totp.secret || ''
+        })
+        setShowMfaModal(true)
+      }
+    } catch (err: any) {
+      console.error('[MFA Enroll Admin] Erro ao iniciar:', err)
+      toast.error(err.message || 'Erro ao iniciar ativação de 2FA')
+    }
+  }
+
+  const handleVerifyEnroll = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMfaError('')
+    if (!verifyCode || verifyCode.length !== 6) {
+      setMfaError('Digite o código de 6 dígitos do aplicativo')
+      return
+    }
+    if (!enrollData) return
+
+    setIsVerifyingMfa(true)
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: enrollData.id })
+      if (challenge.error) throw challenge.error
+
+      const verify = await supabase.auth.mfa.verify({
+        factorId: enrollData.id,
+        challengeId: challenge.data.id,
+        code: verifyCode.trim()
+      })
+
+      if (verify.error) throw verify.error
+
+      toast.success('Autenticação de dois fatores (2FA) ativada com sucesso!')
+      setTwoFA(true)
+      
+      const factorsRes = await supabase.auth.mfa.listFactors()
+      setMfaFactors(factorsRes.data?.totp || [])
+      setShowMfaModal(false)
+      setEnrollData(null)
+    } catch (err: any) {
+      console.error('[MFA Verify Admin] Erro:', err)
+      setMfaError(err.message || 'Código inválido. Verifique o app e tente novamente.')
+    } finally {
+      setIsVerifyingMfa(false)
+    }
+  }
+
+  const handleDisableMfa = async () => {
+    if (!window.confirm('Tem certeza que deseja desativar a autenticação em duas etapas (2FA)? Sua conta ficará menos protegida.')) {
+      return
+    }
+    
+    try {
+      for (const factor of mfaFactors) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
+        if (error) throw error
+      }
+
+      toast.success('2FA desativado com sucesso.')
+      setTwoFA(false)
+      setMfaFactors([])
+    } catch (err: any) {
+      console.error('[MFA Unenroll Admin] Erro:', err)
+      toast.error(err.message || 'Erro ao desativar o 2FA')
+    }
+  }
 
   const [general, setGeneral] = useState({
     platformName: 'Evokaa',
@@ -19,6 +150,9 @@ export default function AdminSettingsPage() {
     maintenance: false,
     registrationOpen: true,
     producerApproval: true,
+    cepProvider: 'viacep',
+    cepApiKey: '',
+    cepApiUrl: '',
   })
 
   const [emailConfig, setEmailConfig] = useState({
@@ -51,8 +185,190 @@ export default function AdminSettingsPage() {
     { id: 5, type: 'error', user: 'sistema', ip: '-', date: '2025-06-15 10:05', action: 'Timeout no processamento de pagamento' },
   ])
 
-  const handleSave = () => {
-    toast.success('Configuracoes salvas!')
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+
+  // Carrega configurações reais do banco de dados na inicialização
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const { data: dbData, error } = await supabase
+          .from('system_settings')
+          .select('key, value')
+        
+        if (error) throw error
+
+        if (dbData) {
+          dbData.forEach(item => {
+            if (item.key === 'general' && item.value) {
+              setGeneral(prev => ({ ...prev, ...item.value }))
+            } else if (item.key === 'email' && item.value) {
+              setEmailConfig(prev => ({ ...prev, ...item.value }))
+            } else if (item.key === 'moderation' && item.value) {
+              setModeration(prev => ({ ...prev, ...item.value }))
+            }
+          })
+        }
+      } catch (err) {
+        console.error('[AdminSettings] Erro ao carregar configuracoes:', err)
+      } finally {
+        setIsLoadingSettings(false)
+      }
+    }
+    loadSettings()
+  }, [])
+
+  // Grava as alterações no Supabase de verdade com base na aba (section) ativa
+  const handleSave = async () => {
+    setIsSavingSettings(true)
+    const toastId = toast.loading('Salvando configurações no banco de dados...')
+    try {
+      let key = ''
+      let payload = {}
+
+      if (section === 'geral') {
+        key = 'general'
+        payload = general
+      } else if (section === 'email') {
+        key = 'email'
+        payload = emailConfig
+      } else if (section === 'moderacao') {
+        key = 'moderation'
+        payload = moderation
+      } else {
+        toast.dismiss(toastId)
+        setIsSavingSettings(false)
+        return
+      }
+
+      const { error } = await supabase
+        .from('system_settings')
+        .upsert({ key, value: payload, updated_at: new Date().toISOString() })
+
+      if (error) throw error
+
+      toast.success('Configurações salvas com sucesso!', { id: toastId })
+    } catch (err: any) {
+      console.error('[AdminSettings] Erro ao salvar configurações:', err)
+      toast.error(err.message || 'Erro ao salvar configurações', { id: toastId })
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  // Exportação Real para CSV das Tabelas
+  const handleExport = async (type: string) => {
+    const toastId = toast.loading(`Buscando dados de ${type.toLowerCase()}...`)
+    try {
+      let csvContent = ''
+      const filename = `export_${type.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`
+
+      if (type === 'Usuarios') {
+        const { data: users, error } = await supabase
+          .from('profiles')
+          .select('full_name, email, phone, role, created_at')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const headers = ['Nome', 'Email', 'Telefone', 'Papel', 'Data de Cadastro']
+        const rows = [headers.join(',')]
+        users?.forEach(u => {
+          rows.push([
+            `"${(u.full_name || '').replace(/"/g, '""')}"`,
+            `"${(u.email || '').replace(/"/g, '""')}"`,
+            `"${(u.phone || '').replace(/"/g, '""')}"`,
+            `"${(u.role || '').replace(/"/g, '""')}"`,
+            `"${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : ''}"`
+          ].join(','))
+        })
+        csvContent = rows.join('\n')
+
+      } else if (type === 'Eventos') {
+        const { data: events, error } = await supabase
+          .from('events')
+          .select('title, description, start_date, location, status, created_at')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const headers = ['Título', 'Descrição', 'Data de Início', 'Local', 'Status', 'Criado Em']
+        const rows = [headers.join(',')]
+        events?.forEach(e => {
+          rows.push([
+            `"${(e.title || '').replace(/"/g, '""')}"`,
+            `"${(e.description || '').replace(/"/g, '""')}"`,
+            `"${e.start_date ? new Date(e.start_date).toLocaleDateString('pt-BR') : ''}"`,
+            `"${(e.location || '').replace(/"/g, '""')}"`,
+            `"${(e.status || '').replace(/"/g, '""')}"`,
+            `"${e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : ''}"`
+          ].join(','))
+        })
+        csvContent = rows.join('\n')
+
+      } else if (type === 'Transacoes') {
+        const { data: orders, error } = await supabase
+          .from('orders')
+          .select('id, user_id, total_amount, status, payment_method, created_at')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const headers = ['ID do Pedido', 'ID do Usuário', 'Valor Total', 'Status', 'Método de Pagamento', 'Data']
+        const rows = [headers.join(',')]
+        orders?.forEach(o => {
+          rows.push([
+            `"${o.id}"`,
+            `"${o.user_id || ''}"`,
+            `"${o.total_amount || 0}"`,
+            `"${(o.status || '').replace(/"/g, '""')}"`,
+            `"${(o.payment_method || '').replace(/"/g, '""')}"`,
+            `"${o.created_at ? new Date(o.created_at).toLocaleDateString('pt-BR') : ''}"`
+          ].join(','))
+        })
+        csvContent = rows.join('\n')
+
+      } else if (type === 'Logs') {
+        const { data: logsData, error } = await supabase
+          .from('user_activities')
+          .select('user_id, session_id, event_type, path, created_at')
+          .order('created_at', { ascending: false })
+
+        if (error) throw error
+
+        const headers = ['ID do Usuário', 'ID de Sessão', 'Tipo do Evento', 'Caminho/URL', 'Data/Hora']
+        const rows = [headers.join(',')]
+        logsData?.forEach(l => {
+          rows.push([
+            `"${l.user_id || 'Visitante'}"`,
+            `"${l.session_id || ''}"`,
+            `"${(l.event_type || '').replace(/"/g, '""')}"`,
+            `"${(l.path || '').replace(/"/g, '""')}"`,
+            `"${l.created_at ? new Date(l.created_at).toLocaleString('pt-BR') : ''}"`
+          ].join(','))
+        })
+        csvContent = rows.join('\n')
+      }
+
+      if (!csvContent || csvContent.split('\n').length <= 1) {
+        toast.info('Nenhum dado encontrado para exportar.', { id: toastId })
+        return
+      }
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.setAttribute('href', url)
+      link.setAttribute('download', filename)
+      link.style.visibility = 'hidden'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      toast.success('Download concluído com sucesso!', { id: toastId })
+    } catch (err: any) {
+      console.error('[AdminSettings] Erro ao exportar dados:', err)
+      toast.error(err.message || 'Erro ao exportar dados', { id: toastId })
+    }
   }
 
   // Validadores seguros de chaves para evitar riscos de bracket notation (Prototype Pollution)
@@ -119,6 +435,19 @@ export default function AdminSettingsPage() {
           {/* GERAL */}
           {section === 'geral' && (
             <div className="space-y-6">
+              {/* Perfil do Administrador */}
+              <div className="p-5 rounded-2xl bg-white/60 border border-white/60 space-y-4">
+                <h3 className="text-sm font-semibold text-espresso">Perfil do Administrador</h3>
+                <div className="flex items-center gap-4">
+                  <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                  <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'} alt="Avatar Admin" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-rose-500/10" />
+                  <div>
+                    <button onClick={triggerAvatarUpload} className="px-4 py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all">Alterar foto</button>
+                    <p className="text-[10px] text-espresso/30 mt-1">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>
+                  </div>
+                </div>
+              </div>
+
               <h2 className="text-lg font-medium text-espresso">Configuracoes Gerais</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -141,6 +470,49 @@ export default function AdminSettingsPage() {
                   <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
                   </select>
+                </div>
+              </div>
+
+              {/* APIs E INTEGRAÇÕES DE CEP */}
+              <div className="border-t border-espresso/5 pt-4 space-y-4">
+                <h3 className="text-sm font-medium text-espresso">Configuração de CEP / Código Postal</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label htmlFor="cepProvider" className="text-xs text-espresso/40 mb-1 block">Provedor de CEP</label>
+                    <select
+                      id="cepProvider"
+                      value={general.cepProvider || 'viacep'}
+                      onChange={e => setGeneral({ ...general, cepProvider: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                    >
+                      <option value="viacep">ViaCEP (Apenas Brasil - Grátis)</option>
+                      <option value="geoapify">Geoapify (Internacional - Requer Key)</option>
+                      <option value="google">Google Maps Geocoding (Requer Key)</option>
+                      <option value="nominatim">Nominatim OSM (Internacional - Grátis)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="cepApiKey" className="text-xs text-espresso/40 mb-1 block">Chave da API (API Key)</label>
+                    <input
+                      id="cepApiKey"
+                      type="password"
+                      placeholder="Sua chave secreta da API"
+                      value={general.cepApiKey || ''}
+                      onChange={e => setGeneral({ ...general, cepApiKey: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="cepApiUrl" className="text-xs text-espresso/40 mb-1 block">URL Customizada da API (Opcional)</label>
+                    <input
+                      id="cepApiUrl"
+                      type="text"
+                      placeholder="https://api.provider.com/v1"
+                      value={general.cepApiUrl || ''}
+                      onChange={e => setGeneral({ ...general, cepApiUrl: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -298,7 +670,7 @@ export default function AdminSettingsPage() {
                   <p className="text-xs text-espresso/30 mb-4">Download de todos os dados da plataforma</p>
                   <div className="space-y-2">
                     {['Usuarios', 'Eventos', 'Transacoes', 'Logs'].map(item => (
-                      <button key={item} onClick={() => toast.success(`Exportando ${item.toLowerCase()}...`)} className="w-full flex items-center justify-between p-3 rounded-lg bg-white/40 hover:bg-white/60 transition-all text-left">
+                      <button key={item} onClick={() => handleExport(item)} className="w-full flex items-center justify-between p-3 rounded-lg bg-white/40 hover:bg-white/60 transition-all text-left">
                         <span className="text-xs text-espresso">{item}</span>
                         <span className="text-[10px] text-rose-400">CSV</span>
                       </button>
@@ -399,6 +771,23 @@ export default function AdminSettingsPage() {
                 ))}
               </div>
 
+              {/* 2FA Pessoal do Admin */}
+              <div className="p-4 rounded-xl bg-white/60 border border-white/60 flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium text-espresso">Minha Autenticação de Dois Fatores (2FA)</div>
+                  <div className="text-[10px] text-espresso/30">
+                    {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
+                  </div>
+                </div>
+                <button 
+                  disabled={loadingMfa}
+                  onClick={twoFA ? handleDisableMfa : handleStartEnroll} 
+                  className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-rose-500' : 'bg-espresso/10'} disabled:opacity-55`}
+                >
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twoFA ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+
               <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100">
                 <h3 className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" />Sessoes Ativas</h3>
                 <div className="space-y-2">
@@ -423,6 +812,85 @@ export default function AdminSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Modal do 2FA */}
+      {showMfaModal && enrollData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
+            <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-rose-500" /> Configurar Autenticador (2FA)
+            </h3>
+            <p className="text-xs text-espresso/60 mb-4">
+              Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
+            </p>
+
+            {enrollData.qrCodeSvg && (
+              <div 
+                className="w-48 h-48 mx-auto my-6 bg-white p-3 rounded-xl flex items-center justify-center shadow-inner border border-espresso/10"
+                dangerouslySetInnerHTML={{ __html: enrollData.qrCodeSvg }}
+              />
+            )}
+
+            <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
+              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
+              <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-rose-600">
+                {enrollData.secret}
+              </code>
+            </div>
+
+            {mfaError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+                {mfaError}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyEnroll} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  disabled={isVerifyingMfa}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/60 border border-slate-200 dark:border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  disabled={isVerifyingMfa}
+                  onClick={() => {
+                    setShowMfaModal(false)
+                    setEnrollData(null)
+                  }}
+                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingMfa}
+                  className="px-5 py-2 bg-rose-500 text-white text-xs font-medium rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isVerifyingMfa ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verificando...</span>
+                    </>
+                  ) : (
+                    <span>Ativar 2FA</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

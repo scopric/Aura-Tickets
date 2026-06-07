@@ -64,6 +64,58 @@
     --ink-faint: #64748b;
   }
 
+  /* Tema Claro (Light Mode) */
+  .light {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222 47% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 262 83% 58%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+
+    /* Evokaa Brand Tokens no tema claro */
+    --brand-cyan: #1d68c4;
+    --brand-blue: #4a60e3;
+    --brand-violet: #8f33f5;
+    --brand-indigo: #0c2340;
+
+    /* Neutrals para Tema Claro */
+    --bg-dark: #f8fafc;
+    --bg-darker: #f1f5f9;
+    --bg-light: #f8fafc;
+    --bg-card: rgba(255, 255, 255, 0.7);
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --border-subtle: rgba(15, 23, 42, 0.08);
+
+    /* Legacy compat no tema claro */
+    --canvas: #f8fafc;
+    --canvas-deep: #ffffff;
+    --void: #ffffff;
+    --plum: #8f33f5;
+    --plum-light: #7c3aed;
+    --plum-muted: rgba(143, 51, 245, 0.05);
+    --cream: #1e293b;          /* Cream vira escuro no tema claro */
+    --espresso: #2d2522;       /* Espresso vira marrom escuro */
+    --ink: #1e293b;            /* Ink vira escuro */
+    --ink-light: #475569;
+    --ink-faint: #94a3b8;
+  }
+
   html { scroll-behavior: smooth; }
   
   body { 
@@ -305,7 +357,243 @@
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
   .perspective-1000 { perspective: 1000px; }
+
+  /* Sobrescreve as classes de fundo claro do Tailwind quando o tema for escuro (.dark) */
+  .dark .bg-white\/60 {
+    background-color: rgba(255, 255, 255, 0.015) !important;
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+  .dark .border-white\/60 {
+    border-color: rgba(255, 255, 255, 0.05) !important;
+  }
+  .dark .bg-white\/50 {
+    background-color: rgba(255, 255, 255, 0.015) !important;
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+  .dark .bg-white\/40 {
+    background-color: rgba(255, 255, 255, 0.01) !important;
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+  }
+  .dark .bg-white\/80 {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+  .dark .border-white\/80 {
+    border-color: rgba(255, 255, 255, 0.06) !important;
+  }
+  .dark .hover\:bg-white\/40:hover {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+  }
+  .dark .hover\:bg-white\/60:hover {
+    background-color: rgba(255, 255, 255, 0.04) !important;
+  }
 }
+
+/* Estilização da barra lateral no Modo Claro (Light Mode) */
+.light aside {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-right-color: rgba(15, 23, 42, 0.08) !important;
+}
+
+.light aside div, .light aside header, .light aside .border-t {
+  border-color: rgba(15, 23, 42, 0.06) !important;
+}
+
+.light aside .text-white\/60 {
+  color: #475569 !important; /* slate-600 */
+}
+
+.light aside .text-white\/80 {
+  color: #1e293b !important; /* slate-800 */
+}
+
+.light aside .text-white\/20, .light aside .text-white\/45, .light aside .text-white\/40, .light aside .text-white\/50, .light aside .text-white\/30 {
+  color: #64748b !important; /* slate-500 */
+}
+
+.light aside .text-purple-300 {
+  color: #8f33f5 !important; /* roxo de destaque */
+}
+
+.light aside .hover\:text-white\/90:hover, .light aside .hover\:text-white\/85:hover, .light aside .hover\:text-white\/80:hover {
+  color: #1e293b !important;
+}
+
+.light aside .hover\:bg-white\/\[0\.04\]:hover, .light aside .hover\:bg-white\/\[0\.03\]:hover, .light aside .hover\:bg-red-500\/\[0\.08\]:hover, .light aside .hover\:bg-red-500\/\[0\.06\]:hover {
+  background-color: rgba(143, 51, 245, 0.06) !important;
+}
+
+/* Modificar itens ativos no sidebar */
+.light aside .bg-white\/\[0\.04\], .light aside .bg-white\/\[0\.03\], .light aside .bg-purple-500\/15 {
+  background-color: rgba(143, 51, 245, 0.08) !important;
+  color: #8f33f5 !important;
+}
+
+/* Melhoria estética de elementos e contêineres no Modo Claro */
+
+/* 1. Layouts: Surface, Surface Elevated, Headers e Panels */
+.light .surface {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.08) !important;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.03), 0 1px 3px rgba(0, 0, 0, 0.01) !important;
+}
+.light .surface:hover {
+  box-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.06), 0 1px 3px rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .surface-elevated {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 12px 40px -10px rgba(15, 23, 42, 0.08), 0 4px 6px rgba(0, 0, 0, 0.02) !important;
+}
+
+.light .surface-dark {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.light header {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+}
+.light header *, .light header input {
+  color: #1e293b !important;
+}
+.light header input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 2. Tabela Premium no Modo Claro */
+.light .table-premium thead th {
+  color: #475569 !important;
+  border-bottom: 2px solid rgba(15, 23, 42, 0.08) !important;
+}
+.light .table-premium tbody tr {
+  border-bottom-color: rgba(15, 23, 42, 0.06) !important;
+}
+.light .table-premium tbody tr:hover {
+  background-color: rgba(15, 23, 42, 0.02) !important;
+}
+.light .table-premium tbody td {
+  color: #1e293b !important;
+}
+
+/* 3. Inputs, selects, dropdowns escuros estáticos hexadecimais */
+.light .bg-\[\#07080c\],
+.light .bg-\[\#040508\],
+.light .bg-\[\#0a0b10\] {
+  background-color: #ffffff !important;
+  color: #1e293b !important;
+  border-color: rgba(15, 23, 42, 0.15) !important;
+}
+
+/* 4. Sobrescritas para classes de Background Translúcido de Branco */
+.light .bg-white\/95,
+.light .bg-white\/90,
+.light .bg-white\/80,
+.light .bg-white\/60,
+.light .bg-white\/50,
+.light .bg-white\/40,
+.light .bg-white\/30,
+.light .bg-white\/20,
+.light .bg-white\/15 {
+  background-color: rgba(255, 255, 255, 0.96) !important;
+}
+
+.light .bg-white\/10,
+.light .bg-white\/5,
+.light .bg-white\/\[0\.08\],
+.light .bg-white\/\[0\.07\],
+.light .bg-white\/\[0\.06\],
+.light .bg-white\/\[0\.05\],
+.light .bg-white\/\[0\.04\],
+.light .bg-white\/\[0\.03\],
+.light .bg-white\/\[0\.02\],
+.light .bg-white\/\[0\.01\] {
+  background-color: rgba(15, 23, 42, 0.02) !important;
+}
+
+.light .hover\:bg-white\/40:hover,
+.light .hover\:bg-white\/60:hover,
+.light .hover\:bg-white\/10:hover,
+.light .hover\:bg-white\/5:hover,
+.light .hover\:bg-white\/\[0\.06\]:hover,
+.light .hover\:bg-white\/\[0\.04\]:hover {
+  background-color: rgba(15, 23, 42, 0.04) !important;
+}
+
+/* 5. Sobrescritas para classes de Borda Translúcida de Branco (Quadros e Linhas) */
+.light .border-white\/80,
+.light .border-white\/60,
+.light .border-white\/50,
+.light .border-white\/40,
+.light .border-white\/30,
+.light .border-white\/20,
+.light .border-white\/15,
+.light .border-white\/10,
+.light .border-white\/5,
+.light .border-white\/\[0\.08\],
+.light .border-white\/\[0\.06\],
+.light .border-white\/\[0\.05\],
+.light .border-white\/\[0\.04\] {
+  border-color: rgba(15, 23, 42, 0.1) !important;
+}
+
+/* 6. Sobrescritas para classes de Texto Branco e suas Opacidades */
+.light .text-white,
+.light .text-white\/90,
+.light .text-white\/80 {
+  color: #1e293b !important;
+}
+.light .text-white\/70,
+.light .text-white\/60 {
+  color: #475569 !important;
+}
+.light .text-white\/50,
+.light .text-white\/45,
+.light .text-white\/40 {
+  color: #64748b !important;
+}
+.light .text-white\/30,
+.light .text-white\/25,
+.light .text-white\/20,
+.light .text-white\/15,
+.light .text-white\/10 {
+  color: #94a3b8 !important;
+}
+
+/* Manter cor de texto branca em botões primários e elementos com backgrounds escuros intencionais no Modo Claro */
+.light .btn-primary,
+.light .btn-primary *,
+.light button.bg-plum,
+.light button.bg-plum *,
+.light button.bg-purple-600,
+.light button.bg-purple-600 *,
+.light button.bg-blue-600,
+.light button.bg-blue-600 *,
+.light button.bg-green-600,
+.light button.bg-green-600 *,
+.light button.bg-red-600,
+.light button.bg-red-600 *,
+.light a.bg-plum,
+.light a.bg-plum *,
+.light .badge,
+.light .badge * {
+  color: #ffffff !important;
+}
+
+.light .bg-canvas, .light .bg-void {
+  background-color: #f8fafc !important;
+}
+
 
 /* Scrollbar - global */
 ::-webkit-scrollbar { width: 5px; height: 5px; }

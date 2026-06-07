@@ -310,8 +310,8 @@ export default function ProducerDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="dash-card mt-6 p-6 rounded-2xl surface-elevated text-cream">
-        <h2 className="font-serif text-xl mb-4 text-white">Ações Rápidas</h2>
+      <div className="dash-card mt-6 p-6 rounded-2xl surface text-espresso">
+        <h2 className="font-serif text-xl mb-4 text-espresso">Ações Rápidas</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: 'Planejar Evento', to: '/producer/planner', icon: Plus },
@@ -322,10 +322,10 @@ export default function ProducerDashboard() {
             <Link
               key={action.label}
               to={action.to}
-              className="flex items-center gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/[0.08] hover:bg-white/[0.06] hover:border-plum/30 transition-all group"
+              className="flex items-center gap-3 p-4 rounded-xl bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-plum/30 dark:hover:border-plum/30 transition-all group"
             >
               <action.icon className="w-5 h-5 text-plum" />
-              <span className="text-sm">{action.label}</span>
+              <span className="text-sm text-espresso/80 group-hover:text-plum transition-colors">{action.label}</span>
             </Link>
           ))}
         </div>

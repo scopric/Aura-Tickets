@@ -10,11 +10,11 @@ module.exports = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
-        canvas: "#f8fafc",
-        void: "#0c2340",    /* Azul marinho profundo da logo */
-        plum: "#1d68c4",    /* Azul royal da logo */
-        espresso: "#0c2340",
-        cream: "#f8fafc",
+        canvas: "var(--canvas)",
+        void: "var(--void)",
+        plum: "var(--plum)",
+        espresso: "var(--espresso)",
+        cream: "var(--cream)",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",

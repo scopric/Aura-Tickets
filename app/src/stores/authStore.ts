@@ -7,7 +7,7 @@ export interface User {
   email: string
   full_name: string | null
   avatar_url: string | null
-  role: 'admin' | 'producer' | 'user'
+  role: 'admin' | 'producer' | 'user' | 'editor'
   admin_permissions?: string[]
   producer_profile?: ProducerProfile | null
 }
@@ -49,13 +49,6 @@ export const useAuthStore = create<AuthState>()(
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setSession: (session) => {
         set({ session })
-        // Sincroniza sessÃ£o REAL com o cliente Supabase para que as queries autenticadas funcionem
-        if (session?.access_token && session?.refresh_token && !isMockSession(session)) {
-          supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          }).catch(() => {})
-        }
       },
       setLoading: (isLoading) => set({ isLoading }),
 
@@ -166,7 +159,14 @@ export const useAuthStore = create<AuthState>()(
             }
             console.log('[DEBUG AuthStore] Retorno tabela profiles:', { profile, error: profileError })
 
-            // Se nÃ£o encontrar profile, cria um user bÃ¡sico com dados do authUser
+            if (profile && profile.is_authorized === false) {
+              console.warn('[DEBUG AuthStore] Usuario inativo ou nao autorizado pelo admin:', profile.email)
+              set({ user: null, session: null, isAuthenticated: false, isLoading: false })
+              supabase.auth.signOut().catch(() => {})
+              throw new Error('Sua conta ainda não foi autorizada por um administrador. Entre em contato com o suporte.')
+            }
+
+            // Se não encontrar profile, cria um user básico com dados do authUser
             // Isso evita que o user fique null e as queries fiquem in loading infinito
             if (profileError || !profile) {
               console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', profileError?.message || profileError)
@@ -175,7 +175,7 @@ export const useAuthStore = create<AuthState>()(
                 email: authUser.email || '',
                 full_name: authUser.user_metadata?.full_name || null,
                 avatar_url: authUser.user_metadata?.avatar_url || null,
-                role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
+                role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user' | 'editor',
                 admin_permissions: authUser.user_metadata?.admin_permissions || [],
               }
               console.log('[DEBUG AuthStore] mappedUser provisorio (sem profile):', mappedUser)
@@ -188,9 +188,9 @@ export const useAuthStore = create<AuthState>()(
               email: authUser.email || '',
               full_name: profile.full_name,
               avatar_url: profile.avatar_url,
-              role: profile.role as 'admin' | 'producer' | 'user',
+              role: profile.role as 'admin' | 'producer' | 'user' | 'editor',
               admin_permissions: profile.admin_permissions || [],
-              producer_profile: profile.role === 'producer' ? {
+              producer_profile: (profile.role === 'producer' || profile.role === 'editor') ? {
                 company_name: profile.full_name || 'Minha Empresa',
                 cnpj: '',
                 stripe_account_id: null,

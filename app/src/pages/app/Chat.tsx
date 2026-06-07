@@ -47,8 +47,8 @@ export default function AppChat() {
   if (isLoadingTickets) {
     return (
       <div className="max-w-3xl flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando conversas...</p>
+        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
+        <p className="text-white/60 text-sm">Carregando conversas...</p>
       </div>
     )
   }
@@ -56,54 +56,54 @@ export default function AppChat() {
   if (eventConversations.length === 0) {
     return (
       <div className="max-w-3xl">
-        <h1 className="font-serif text-3xl text-espresso mb-6">Chat</h1>
-        <div className="text-center py-16 bg-white/60 border border-white/60 rounded-3xl">
-          <MessageSquare className="w-12 h-12 text-espresso/10 mx-auto mb-4" />
-          <p className="text-espresso/40 text-sm mb-2">Voce ainda nao tem conversas.</p>
-          <p className="text-espresso/30 text-xs">Adquira um ingresso para conversar com os produtores.</p>
+        <h1 className="text-3xl font-bold text-white mb-6">Chat</h1>
+        <div className="text-center py-16 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-3xl">
+          <MessageSquare className="w-12 h-12 text-white/10 mx-auto mb-4" />
+          <p className="text-white/40 text-sm mb-2">Você ainda não tem conversas.</p>
+          <p className="text-white/30 text-xs">Adquira um ingresso para conversar com os produtores.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl flex flex-col h-[calc(100vh-120px)]">
-      <h1 className="font-serif text-3xl text-espresso mb-4">Chat</h1>
+    <div className="max-w-3xl flex flex-col h-[calc(100vh-140px)]">
+      <h1 className="text-3xl font-bold text-white mb-4">Chat</h1>
 
       <div className="flex gap-4 flex-1 min-h-0">
         {/* Sidebar — lista de conversas */}
-        <div className="w-64 flex-shrink-0 bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-          <div className="p-3 border-b border-espresso/5">
-            <p className="text-xs font-medium text-espresso/40 uppercase">Conversas</p>
+        <div className="w-64 flex-shrink-0 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col">
+          <div className="p-3.5 border-b border-white/[0.06]">
+            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Conversas</p>
           </div>
-          <div className="overflow-y-auto">
+          <div className="overflow-y-auto flex-1">
             {eventConversations.map((conv) => (
               <button
                 key={conv.eventId}
                 onClick={() => setSelectedEventId(conv.eventId)}
-                className={`w-full text-left p-3 border-b border-espresso/5 transition-colors ${
-                  activeEventId === conv.eventId ? 'bg-plum/10' : 'hover:bg-white/40'
+                className={`w-full text-left p-3.5 border-b border-white/[0.04] transition-colors ${
+                  activeEventId === conv.eventId ? 'bg-purple-500/10' : 'hover:bg-white/[0.02]'
                 }`}
               >
-                <p className={`text-sm font-medium truncate ${activeEventId === conv.eventId ? 'text-plum' : 'text-espresso'}`}>
+                <p className={`text-sm font-semibold truncate ${activeEventId === conv.eventId ? 'text-purple-400' : 'text-white/95'}`}>
                   {conv.eventTitle}
                 </p>
-                <p className="text-[11px] text-espresso/30 truncate">Produtor</p>
+                <p className="text-[11px] text-white/40 truncate mt-0.5">Produtor</p>
               </button>
             ))}
           </div>
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
+        <div className="flex-1 flex flex-col bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden">
           {/* Header */}
-          <div className="p-3 border-b border-espresso/5 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-plum/20 flex items-center justify-center">
-              <User className="w-4 h-4 text-plum" />
+          <div className="p-3.5 border-b border-white/[0.06] flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
+              <User className="w-4 h-4 text-purple-400" />
             </div>
             <div>
-              <p className="text-sm font-medium text-espresso">Produtor</p>
-              <p className="text-[11px] text-espresso/30">
+              <p className="text-sm font-semibold text-white/90">Produtor</p>
+              <p className="text-[11px] text-white/40">
                 {eventConversations.find((c) => c.eventId === activeEventId)?.eventTitle || 'Evento'}
               </p>
             </div>
@@ -113,12 +113,12 @@ export default function AppChat() {
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
             {isLoadingChat ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="w-6 h-6 text-plum animate-spin" />
+                <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
               </div>
             ) : chatMessages.length === 0 ? (
               <div className="text-center py-10">
-                <MessageSquare className="w-10 h-10 text-espresso/10 mx-auto mb-3" />
-                <p className="text-espresso/40 text-sm">Inicie uma conversa com o produtor.</p>
+                <MessageSquare className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                <p className="text-white/40 text-sm">Inicie uma conversa com o produtor.</p>
               </div>
             ) : (
               chatMessages.map((msg) => (
@@ -129,8 +129,8 @@ export default function AppChat() {
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                       msg.sender_id === user?.id
-                        ? 'bg-plum text-cream'
-                        : 'bg-espresso/10 text-espresso'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white/10 text-white'
                     }`}
                   >
                     <User className="w-4 h-4" />
@@ -138,14 +138,14 @@ export default function AppChat() {
                   <div
                     className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
                       msg.sender_id === user?.id
-                        ? 'bg-plum text-cream rounded-tr-sm'
-                        : 'bg-white text-espresso rounded-tl-sm'
+                        ? 'bg-purple-600 text-white rounded-tr-sm shadow-md'
+                        : 'bg-white/[0.05] border border-white/[0.08] text-white rounded-tl-sm shadow-md'
                     }`}
                   >
-                    <p>{msg.content}</p>
+                    <p className="leading-relaxed">{msg.content}</p>
                     <span
-                      className={`text-[10px] mt-1 block ${
-                        msg.sender_id === user?.id ? 'text-cream/50' : 'text-espresso/30'
+                      className={`text-[9px] mt-1.5 block ${
+                        msg.sender_id === user?.id ? 'text-white/60' : 'text-white/40'
                       }`}
                     >
                       {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -157,7 +157,7 @@ export default function AppChat() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-espresso/5">
+          <div className="p-3 border-t border-white/[0.06]">
             <div className="flex items-center gap-2">
               <input
                 value={message}
@@ -165,12 +165,12 @@ export default function AppChat() {
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
                 placeholder="Escreva uma mensagem..."
                 disabled={sendMessage.isPending}
-                className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 disabled:opacity-50"
+                className="flex-1 px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30 disabled:opacity-50"
               />
               <button
                 onClick={handleSend}
                 disabled={sendMessage.isPending || !message.trim()}
-                className="p-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-2.5 bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] hover:from-[#2573d9] hover:to-[#9d47ff] text-white rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sendMessage.isPending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />

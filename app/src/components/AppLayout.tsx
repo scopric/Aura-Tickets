@@ -1,13 +1,15 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Heart, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
-  Menu
+  Menu, Camera
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useUserNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
 import { cn } from '../lib/utils'
+import ThemeToggle from './ThemeToggle'
+import { uploadAvatar } from '../lib/avatarUpload'
 
 const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Início' },
@@ -38,6 +40,18 @@ export default function AppLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && user?.id) {
+      await uploadAvatar(file, user.id)
+    }
+  }
+
+  const triggerUpload = () => {
+    fileInputRef.current?.click()
+  }
 
   const { data: notifications = [], isLoading: isNotifLoading } = useUserNotifications()
   const markAllRead = useMarkAllNotificationsRead()
@@ -155,13 +169,19 @@ export default function AppLayout() {
             )}
             style={{ borderColor: 'rgba(255,255,255,0.06)' }}
           >
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
-                <img
-                  src={user.avatar || '/images/logo-evokaa.png'}
-                  alt="Avatar"
-                  className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
-                />
+                <div className="relative group cursor-pointer shrink-0" onClick={triggerUpload} title="Alterar foto de perfil">
+                  <img
+                    src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                    alt="Avatar"
+                    className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12px] text-white/80 font-medium truncate">
                     {user.name || user.full_name || 'Usuário'}
@@ -170,22 +190,28 @@ export default function AppLayout() {
                 </div>
               </div>
             ) : (
-              <img
-                src={user.avatar || '/images/logo-evokaa.png'}
-                alt="Avatar"
-                className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10"
-              />
+              <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
+                <img
+                  src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                  alt="Avatar"
+                  className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
             )}
           </div>
         )}
 
         {/* Logout */}
-        <div className="p-2 flex-shrink-0">
+        <div className="p-2 flex-shrink-0 flex flex-col gap-1">
+          <ThemeToggle collapsed={collapsed} className="w-full text-white/40 hover:text-white/80" />
           <button
             onClick={logout}
             className={cn(
               'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
-              collapsed ? 'justify-center px-0 py-2' : 'px-3 py-2'
+              collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
           >
@@ -233,6 +259,15 @@ export default function AppLayout() {
             >
               <Menu className="w-5 h-5 text-white/70" />
             </button>
+
+            {/* Mobile logo */}
+            <Link to="/app/hub" className="lg:hidden flex items-center gap-2">
+              <img
+                src="/images/logo-evokaa.png"
+                alt="Evokaa"
+                className="h-6 w-auto object-contain"
+              />
+            </Link>
 
             {/* Search */}
             <div className="relative w-72 max-w-full">
@@ -308,7 +343,7 @@ export default function AppLayout() {
 
             {/* Avatar */}
             <img
-              src={user?.avatar || '/images/logo-evokaa.png'}
+              src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
               alt="Avatar"
               className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
             />

@@ -8,13 +8,13 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 ## 🏛️ Estado Atual do Projeto
 
 - **Branch:** main
-- **Marca:** Evokaa (rebranding de Aura Tickets em andamento — `index.html`, manifest, SEO já usam "Evokaa")
+- **Marca:** Evokaa (rebranding de Aura Tickets concluído no frontend — `index.html`, manifest, SEO usam "Evokaa")
 - **Deploy:** Vercel (`aura-platform`, projectId: prj_azWxjoISRIyF42ftSdiHmFFyvFMV)
-- **Domínio pretendido:** `https://www.evokaa.com.br/` — ❌ **NÃO CONFIGURADO / NÃO RESPONDENDO**
+- **Domínio pretendido:** `https://www.evokaa.com.br/` — ✅ **ATIVO E FUNCIONAL**
 - **Banco de dados:** Supabase (`rwaezeqyuhxrssntcxdv.supabase.co`)
-- **Build:** Funcionando (`app/dist/` com 102 arquivos, gerado em 2026-05-23)
-- **Porta de desenvolvimento:** 3000 (Vite), às vezes 3001 se houver conflito
-- **Variáveis de ambiente:** Existem em `app/.env.local` mas **NÃO no Vercel**
+- **Build:** Funcionando e otimizado com Tema Claro/Escuro
+- **Porta de desenvolvimento:** 3000 (Vite), às vezes 3001/3002 se houver conflito
+- **Variáveis de ambiente:** Existem em `app/.env.local` e ✅ cadastradas na Vercel
 
 ---
 
@@ -140,11 +140,11 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 | `handle_new_user` cria producer_profile para todos | 🔴 Alta | Em 05_full_schema.sql — indesejado |
 
 ### Deploy
-| Problema | Severidade | Detalhe |
-|----------|-----------|---------|
-| Domínio não responde | 🔴 Crítico | `www.evokaa.com.br` não está servindo conteúdo |
-| Env vars não no Vercel | 🔴 Crítico | Apenas em `.env.local` local |
-| DNS não configurado | 🔴 Crítico | Nenhuma evidência de CNAME ou configuração |
+| Problema | Severidade | Detalhe | Status |
+|----------|-----------|---------|--------|
+| Domínio não responde | 🔴 Crítico | `www.evokaa.com.br` não está servindo conteúdo | ✅ Resolvido (Deploy Vercel ativo) |
+| Env vars não no Vercel | 🔴 Crítico | Apenas em `.env.local` local | ✅ Resolvido (Configuradas na Vercel) |
+| DNS não configurado | 🔴 Crítico | Nenhuma evidência de CNAME ou configuração | ✅ Resolvido (Apontamento CNAME pronto) |
 
 # KIMI_MEMORY — Evokaa Tickets
 
@@ -156,13 +156,13 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 ## 🏛️ Estado Atual do Projeto
 
 - **Branch:** main
-- **Marca:** Evokaa (rebranding de Aura Tickets em andamento — `index.html`, manifest, SEO já usam "Evokaa")
+- **Marca:** Evokaa (rebranding de Aura Tickets concluído no frontend — `index.html`, manifest, SEO usam "Evokaa")
 - **Deploy:** Vercel (`aura-platform`, projectId: prj_azWxjoISRIyF42ftSdiHmFFyvFMV)
-- **Domínio pretendido:** `https://www.evokaa.com.br/` — ❌ **NÃO CONFIGURADO / NÃO RESPONDENDO**
+- **Domínio pretendido:** `https://www.evokaa.com.br/` — ✅ **ATIVO E FUNCIONAL**
 - **Banco de dados:** Supabase (`rwaezeqyuhxrssntcxdv.supabase.co`)
-- **Build:** Funcionando (`app/dist/` com 102 arquivos, gerado em 2026-05-23)
-- **Porta de desenvolvimento:** 3000 (Vite), às vezes 3001 se houver conflito
-- **Variáveis de ambiente:** Existem em `app/.env.local` mas **NÃO no Vercel**
+- **Build:** Funcionando e otimizado com Tema Claro/Escuro
+- **Porta de desenvolvimento:** 3000 (Vite), às vezes 3001/3002 se houver conflito
+- **Variáveis de ambiente:** Existem em `app/.env.local` e ✅ cadastradas na Vercel
 
 ---
 
@@ -288,11 +288,11 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 | `handle_new_user` cria producer_profile para todos | 🔴 Alta | Em 05_full_schema.sql — indesejado |
 
 ### Deploy
-| Problema | Severidade | Detalhe |
-|----------|-----------|---------|
-| Domínio não responde | 🔴 Crítico | `www.evokaa.com.br` não está servindo conteúdo |
-| Env vars não no Vercel | 🔴 Crítico | Apenas em `.env.local` local |
-| DNS não configurado | 🔴 Crítico | Nenhuma evidência de CNAME ou configuração |
+| Problema | Severidade | Detalhe | Status |
+|----------|-----------|---------|--------|
+| Domínio não responde | 🔴 Crítico | `www.evokaa.com.br` não está servindo conteúdo | ✅ Resolvido (Deploy Vercel ativo) |
+| Env vars não no Vercel | 🔴 Crítico | Apenas em `.env.local` local | ✅ Resolvido (Configuradas na Vercel) |
+| DNS não configurado | 🔴 Crítico | Nenhuma evidência de CNAME ou configuração | ✅ Resolvido (Apontamento CNAME pronto) |
 
 ---
 
@@ -307,6 +307,25 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 ---
 
 ## ✅ Histórico de Alterações
+
+### 2026-06-05 (Sessão v2.4) — Correções de Responsividade Flexbox no SeatingMap e Diagnóstico Supabase
+- **Correções de Layout no SeatingMap**: Resolvido de forma robusta o estouro horizontal que cortava a barra lateral direita de propriedades do editor de mapa. Adicionados delimitadores de largura e contêineres flexbox flexíveis (`min-w-0` e `w-full max-w-full`) no layout raiz, header e rodapé de [SeatingMap.tsx](file:///c:/Users/scopa/OneDrive/Documentos/Gemini/Antigravity/Aura%20Tickets/app/src/pages/producer/SeatingMap.tsx).
+- **Diagnóstico de Banco de Dados**: Identificada a ausência da tabela `seating_maps` no Supabase ativo do projeto (`rwaezeqyuhxrssntcxdv`). Atualizados o plano de implementação e o walkthrough com as queries SQL necessárias de criação de tabela, trigger e políticas RLS de acesso público para o checkout.
+- **Deploy e Build**: Verificados os tipos com `npm run build` localmente e realizado o deploy na Vercel com alias atualizado para o domínio oficial `www.evokaa.com.br` com absoluto sucesso.
+
+### 2026-06-04 (Sessão v2.2 - v2.3) — Tema Claro/Escuro nos Painéis e Correções de Produção
+- **Correções de Produção (v2.2)**: Configuração correta das credenciais de produção do Supabase (`VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`) no painel da Vercel. Correção dos loadings infinitos e dos erros de requisição à API Supabase.
+- **Contraste de Parcelamento**: Redesenhada a página de parcelamento do produtor (`Installments.tsx`) com Bento Glassmorphism e contraste correto de textos e inputs para melhor legibilidade no modo escuro.
+- **Implementação do Tema Claro/Escuro nos Painéis (v2.3)**: Criação de um sistema global de temas via `ThemeContext.tsx` e `ThemeToggle.tsx`. O tema é persistido e aplicado nos layouts do Produtor, Admin e Participante.
+- **Isolamento de Landing Page**: A landing page pública do domínio permanece permanentemente sob o tema escuro (`dark`).
+- **Interceptador CSS Inteligente**: Criação de regras de CSS específicas no `index.css` que capturam as classes utilitárias de opacidade clara sob o escopo `.dark`, convertendo-as em vidro translúcido escuro de forma global e instantânea.
+- **Deploy de Produção Bem-Sucedido**: Deploy para a Vercel executado com êxito a partir da raiz do repositório, ativando as correções e atualizações diretamente sob o domínio oficial `www.evokaa.com.br`.
+
+### 2026-06-03 (Sessão v2.1) — Redesenho Estético e Responsividade do Participante
+- **Ajustes de Grid e Layout no Mobile**: Corrigido o visual quebrado no celular do participante. O Hub principal foi reestruturado para responsividade fluida (em abas no celular e Bento Grid de 3 colunas integradas no desktop) e os cabeçalhos locais duplicados foram removidos, integrando a logo mobile da Evokaa diretamente ao cabeçalho global do `AppLayout.tsx`.
+- **Estética Dark Bento Glassmorphism**: Migração completa das páginas internas (`Tickets.tsx`, `Profile.tsx`, `Settings.tsx`, `Events.tsx`, `Orders.tsx`, `Favorites.tsx`, `Notifications.tsx`, `Chat.tsx`) para o design escuro com vidros translúcidos, textos contrastantes e paleta com gradientes Evokaa.
+- **Correção de Sintaxe no Hub**: Corrigida a sintaxe JSX com tags incorretas no `Hub.tsx` que impediam a compilação.
+- **Validação Local e Deploy**: Sucesso na checagem estática de tipos (`npx tsc`) e compilação do build do Vite. Publicado em produção na Vercel no domínio `https://www.evokaa.com.br` com sucesso.
 
 ### 2026-05-29 (Sessão 2) — Rebranding Visual e Tipográfico Fiel ao Logotipo
 - **Ajuste de Cores do Design System**: Redefinida a paleta de cores inteira para sincronizar exatamente com a logo da Evokaa: Azul Royal (`#1D68C4`), Roxo/Violeta (`#8F33F5`), Azul-Marinho (`#0C2340`) e degradê correspondente. Atualizados em `index.css`, `tailwind.config.js` e `DESIGN-SYSTEM.md`.
@@ -328,14 +347,13 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 
 ## ⏳ Próximos Passos (Priorizados)
 
-### 🔴 P0 — Correções Imediatas (Deploy)
-- [ ] Configurar domínio `www.evokaa.com.br` no dashboard Vercel.
-- [ ] Configurar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no Vercel.
-- [ ] Atualizar DNS.
+### 🔴 P0 — Integração Real de Componentes Mocks
+- [ ] Implementar persistência dos dados de `UserSettings` do participante no Supabase.
+- [ ] Conectar as configurações de `Brand.tsx` do produtor e `Wallet.tsx` com ações de saques reais no banco de dados.
 
-### 🔥 P1 — Mock → Real
-- [ ] Finalizar persistência de `Wallet`, `Brand` e `EventTicketConfig`.
-- [ ] Persistência de `UserSettings` do participante no Supabase.
+### 🔥 P1 — Cobertura de Testes Automatizados
+- [ ] Desenvolver testes unitários para a lógica de autenticação (`useAuth`) e checkout.
+- [ ] Concluir testes E2E básicos usando o Playwright para garantir que o fluxo de checkout não quebre após alterações visuais.
 
 ---
 
@@ -356,5 +374,5 @@ Arquivo de memória persistente do projeto Evokaa Tickets (antigo Aura Tickets).
 - **Cores customizadas Tailwind**: `plum` (azul royal da logo), `void` (marinho profundo), `espresso`, `cream`, `canvas`.
 - **Gateway de pagamento**: Não trabalhar no gateway, foco na plataforma interna.
 
-*Última atualização: 2026-05-29*
-*Próxima sessão: configurar variáveis de ambiente no dashboard da Vercel e efetuar o deploy de produção.*
+*Última atualização: 2026-06-04*
+*Próxima sessão: Desenvolver integração real de componentes mockados (UserSettings, saques na Wallet, Brand presets).*

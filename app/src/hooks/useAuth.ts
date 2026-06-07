@@ -8,7 +8,7 @@ export interface ExtendedUser {
   email: string
   full_name: string | null
   avatar_url: string | null
-  role: 'admin' | 'producer' | 'user'
+  role: 'admin' | 'producer' | 'user' | 'editor'
   producer_profile?: import('../stores/authStore').ProducerProfile | null
   name?: string
   avatar?: string
@@ -104,7 +104,7 @@ export function useAuth() {
           email: data.user.email || '',
           full_name: data.user.user_metadata?.full_name || null,
           avatar_url: data.user.user_metadata?.avatar_url || null,
-          role: (data.user.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user',
+          role: (data.user.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user' | 'editor',
         })
         await fetchProfile().catch(() => {})
       }
@@ -218,7 +218,7 @@ export function useAuth() {
       
       // Após signup, se o trigger não criou o profile com role, atualizamos
       if (data.user && !data.user.user_metadata?.role) {
-        await supabase.from('users').update({ role, full_name: name }).eq('id', data.user.id).catch(() => {})
+        await supabase.from('profiles').update({ role, full_name: name }).eq('id', data.user.id).catch(() => {})
       }
       
       toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.')

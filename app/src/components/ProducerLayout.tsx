@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   LayoutDashboard, Calendar, Users, Wallet,
   ChevronLeft, ChevronRight, Settings, LogOut,
@@ -10,13 +10,15 @@ import {
   ShoppingBag, Award, FileText, Receipt, GraduationCap,
   Armchair, Smartphone, ChevronDown,
   Tag, Banknote, Zap, CreditCard, BarChart2,
-  Palette, BarChart3
+  Palette, BarChart3, Camera
 } from 'lucide-react'
 import OnboardingTour from '../components/OnboardingTour'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
 import { toast } from 'sonner'
+import ThemeToggle from './ThemeToggle'
+import { uploadAvatar } from '../lib/avatarUpload'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -232,6 +234,18 @@ export default function ProducerLayout() {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && user?.id) {
+      await uploadAvatar(file, user.id)
+    }
+  }
+
+  const triggerUpload = () => {
+    fileInputRef.current?.click()
+  }
+
   const isActivePath = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
 
   const toggleGroup = (id: string) => {
@@ -331,40 +345,52 @@ export default function ProducerLayout() {
             )}
             style={{ borderColor: 'rgba(255,255,255,0.06)' }}
           >
+            <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
-                <img
-                  src={user.avatar || '/images/logo-evokaa.png'}
-                  alt="Avatar do usuario"
-                  className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
-                />
+                <div className="relative group cursor-pointer shrink-0" onClick={triggerUpload} title="Alterar foto de perfil">
+                  <img
+                    src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                    alt="Avatar do usuario"
+                    className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-3.5 h-3.5 text-white" />
+                  </div>
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] text-white/80 font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
                   <div className="text-[9px] text-white/20 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
-              <img
-                src={user.avatar || '/images/logo-evokaa.png'}
-                alt="Avatar do usuario"
-                className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10"
-              />
+              <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
+                <img
+                  src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                  alt="Avatar do usuario"
+                  className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
+                />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-3.5 h-3.5 text-white" />
+                </div>
+              </div>
             )}
           </div>
         )}
 
         {/* Bottom */}
-        <div className="p-2 space-y-0.5 flex-shrink-0">
+        <div className="p-2 space-y-0.5 flex-shrink-0 flex flex-col gap-1">
+          <ThemeToggle collapsed={collapsed} className="w-full text-white/40 hover:text-white/80" />
           <button
             onClick={handleLogout}
             className={cn(
               'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
-              collapsed ? 'justify-center px-0 py-2' : 'px-3 py-2'
+              collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
           >
             <LogOut className="w-[17px] h-[17px] flex-shrink-0" />
-            {!collapsed && <span className="text-[12px]">Sair</span>}
+            {!collapsed && <span className="text-[12.5px] font-medium">Sair</span>}
           </button>
         </div>
 

@@ -472,7 +472,7 @@ export default function ProducerEditEvent() {
             >
               {updateEvent.isPending ? 'Salvando...' : (
                 <>
-                  <Check className="w-4.5 h-4.5" /> Salvar Alterações
+                  <Check className="w-5 h-5" /> Salvar Alterações
                 </>
               )}
             </button>

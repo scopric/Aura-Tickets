@@ -406,7 +406,7 @@ export default function ProducerNewEvent() {
             >
               {createEvent.isPending ? 'Criando...' : (
                 <>
-                  <Check className="w-4.5 h-4.5" /> Criar Evento
+                  <Check className="w-5 h-5" /> Criar Evento
                 </>
               )}
             </button>

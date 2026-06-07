@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import {
   User, Lock, CreditCard, Bell, Briefcase, Users, Link2, Save,
@@ -7,6 +7,9 @@ import {
 } from 'lucide-react'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
 import { supabase } from '../../lib/supabase'
+import { uploadAvatar } from '../../lib/avatarUpload'
+import PhoneInput from '../../components/ui/PhoneInput'
+import { formatCNPJ } from '../../lib/formatters'
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe' | 'integracoes'
 
@@ -26,15 +29,144 @@ export default function ProducerSettings() {
 
   const [section, setSection] = useState<Section>('perfil')
 
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file && data?.profile?.id) {
+      const newAvatarUrl = await uploadAvatar(file, data.profile.id)
+      if (newAvatarUrl) {
+        setProfile(prev => ({ ...prev, avatar: newAvatarUrl }))
+      }
+    }
+  }
+
+  const triggerAvatarUpload = () => {
+    avatarInputRef.current?.click()
+  }
+
   // Estados locais editáveis
   const [profile, setProfile] = useState({
-    name: '', email: '', phone: '', bio: '', company: '',
+    name: '', email: '', phone: '', bio: '', company: '', cnpj: '',
     website: '', instagram: '', tiktok: '', linkedin: '', avatar: ''
   })
 
   const [password, setPassword] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
+  
+  // Estados do MFA (2FA) Real
   const [twoFA, setTwoFA] = useState(false)
+  const [mfaFactors, setMfaFactors] = useState<any[]>([])
+  const [loadingMfa, setLoadingMfa] = useState(true)
+  
+  const [showMfaModal, setShowMfaModal] = useState(false)
+  const [enrollData, setEnrollData] = useState<{ id: string; qrCodeSvg: string; secret: string } | null>(null)
+  const [verifyCode, setVerifyCode] = useState('')
+  const [mfaError, setMfaError] = useState('')
+  const [isVerifyingMfa, setIsVerifyingMfa] = useState(false)
+
+  // Carrega os fatores de MFA da conta do usuário no Supabase
+  useEffect(() => {
+    async function loadFactors() {
+      try {
+        const { data: factorsRes, error } = await supabase.auth.mfa.listFactors()
+        if (!error && factorsRes) {
+          const activeFactors = factorsRes.totp || []
+          setMfaFactors(activeFactors)
+          setTwoFA(activeFactors.length > 0)
+        }
+      } catch (err) {
+        console.error('[MFA Factors] Erro ao carregar:', err)
+      } finally {
+        setLoadingMfa(false)
+      }
+    }
+    loadFactors()
+  }, [])
+
+  const handleStartEnroll = async () => {
+    setMfaError('')
+    setVerifyCode('')
+    setIsVerifyingMfa(false)
+    try {
+      const { data: enrollRes, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        issuer: 'Evokaa Tickets',
+        friendlyName: data?.profile?.email || 'Evokaa Account'
+      })
+
+      if (error) throw error
+
+      if (enrollRes) {
+        setEnrollData({
+          id: enrollRes.id,
+          qrCodeSvg: enrollRes.totp.qr_code || '',
+          secret: enrollRes.totp.secret || ''
+        })
+        setShowMfaModal(true)
+      }
+    } catch (err: any) {
+      console.error('[MFA Enroll] Erro ao iniciar:', err)
+      toast.error(err.message || 'Erro ao iniciar ativação de 2FA')
+    }
+  }
+
+  const handleVerifyEnroll = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setMfaError('')
+    if (!verifyCode || verifyCode.length !== 6) {
+      setMfaError('Digite o código de 6 dígitos do aplicativo')
+      return
+    }
+    if (!enrollData) return
+
+    setIsVerifyingMfa(true)
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: enrollData.id })
+      if (challenge.error) throw challenge.error
+
+      const verify = await supabase.auth.mfa.verify({
+        factorId: enrollData.id,
+        challengeId: challenge.data.id,
+        code: verifyCode.trim()
+      })
+
+      if (verify.error) throw verify.error
+
+      toast.success('Autenticação de dois fatores (2FA) ativada com sucesso!')
+      setTwoFA(true)
+      
+      const factorsRes = await supabase.auth.mfa.listFactors()
+      setMfaFactors(factorsRes.data?.totp || [])
+      setShowMfaModal(false)
+      setEnrollData(null)
+    } catch (err: any) {
+      console.error('[MFA Verify] Erro:', err)
+      setMfaError(err.message || 'Código inválido. Verifique o app e tente novamente.')
+    } finally {
+      setIsVerifyingMfa(false)
+    }
+  }
+
+  const handleDisableMfa = async () => {
+    if (!window.confirm('Tem certeza que deseja desativar a autenticação em duas etapas (2FA)? Sua conta ficará menos protegida.')) {
+      return
+    }
+    
+    try {
+      for (const factor of mfaFactors) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
+        if (error) throw error
+      }
+
+      toast.success('2FA desativado com sucesso.')
+      setTwoFA(false)
+      setMfaFactors([])
+    } catch (err: any) {
+      console.error('[MFA Unenroll] Erro:', err)
+      toast.error(err.message || 'Erro ao desativar o 2FA')
+    }
+  }
 
   const [payment, setPayment] = useState({
     bankName: 'Itau', accountType: 'corrente', agency: '', account: '', holder: '', pixKey: ''
@@ -59,6 +191,7 @@ export default function ProducerSettings() {
         phone: data.profile.phone || '',
         bio: data.profile.bio || '',
         company: data.producer_profile?.company_name || '',
+        cnpj: data.producer_profile?.cnpj ? formatCNPJ(data.producer_profile.cnpj) : '',
         website: data.profile.website || '',
         instagram: data.profile.instagram || '',
         tiktok: data.profile.tiktok || '',
@@ -113,10 +246,13 @@ export default function ProducerSettings() {
 
   const handleSaveCompany = async () => {
     try {
-      await saveProducerProfile({ company_name: profile.company })
-      toast.success('Empresa atualizada!')
+      await saveProducerProfile({
+        company_name: profile.company,
+        cnpj: profile.cnpj.replace(/\D/g, '')
+      })
+      toast.success('Dados da empresa atualizados com sucesso!')
     } catch {
-      toast.error('Erro ao salvar empresa')
+      toast.error('Erro ao salvar dados da empresa')
     }
   }
 
@@ -208,6 +344,32 @@ export default function ProducerSettings() {
     toast.success('Copiado!')
   }
 
+  const handleDeleteAccount = async () => {
+    if (!window.confirm('Tem certeza de que deseja excluir permanentemente sua conta e todos os dados associados de eventos e ingressos? Esta ação é irreversível e em total conformidade com a LGPD.')) {
+      return
+    }
+    if (!data?.profile?.id) {
+      toast.error('Usuário não autenticado')
+      return
+    }
+    const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', data.profile.id)
+
+      if (error) throw error
+
+      toast.success('Sua conta foi excluída com sucesso!', { id: toastId })
+      await supabase.auth.signOut()
+      window.location.href = '/'
+    } catch (err: any) {
+      console.error('[ProducerSettings] Erro ao excluir conta:', err)
+      toast.error(err.message || 'Erro ao processar exclusão da conta', { id: toastId })
+    }
+  }
+
   const sidebarItems: { id: Section; label: string; icon: typeof User }[] = [
     { id: 'perfil', label: 'Perfil', icon: User },
     { id: 'conta', label: 'Conta & Seguranca', icon: Lock },
@@ -253,9 +415,10 @@ export default function ProducerSettings() {
 
               {/* Avatar */}
               <div className="flex items-center gap-4">
+                <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
                 <img src={profile.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-canvas" />
                 <div>
-                  <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={() => toast.info('Upload de avatar sera implementado com Storage')}>Alterar foto</button>
+                  <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={triggerAvatarUpload}>Alterar foto</button>
                   <p className="text-[10px] text-espresso/30 mt-1">JPG, PNG. Max 2MB</p>
                 </div>
               </div>
@@ -269,13 +432,17 @@ export default function ProducerSettings() {
                   <label className="text-xs text-espresso/40 mb-1 block">E-mail</label>
                   <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 border border-white/60 rounded-xl text-sm text-espresso/50 focus:outline-none cursor-not-allowed" />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className="text-xs text-espresso/40 mb-1 block">Telefone</label>
-                  <input value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                  <PhoneInput value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Empresa</label>
+                  <label className="text-xs text-espresso/40 mb-1 block">Empresa (Razão Social)</label>
                   <input value={profile.company} onChange={e => setProfile({ ...profile, company: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                </div>
+                <div>
+                  <label className="text-xs text-espresso/40 mb-1 block">CNPJ</label>
+                  <input value={profile.cnpj} placeholder="00.000.000/0000-00" onChange={e => setProfile({ ...profile, cnpj: formatCNPJ(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs text-espresso/40 mb-1 block">Bio</label>
@@ -342,13 +509,19 @@ export default function ProducerSettings() {
               </div>
 
               <div className="border-t border-espresso/5 pt-6">
-                <h2 className="text-lg font-medium text-espresso mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-plum" />Verificacao em Duas Etapas</h2>
+                <h2 className="text-lg font-medium text-espresso mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-plum" />Verificação em Duas Etapas</h2>
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
-                    <div className="text-sm text-espresso">Autenticacao 2FA</div>
-                    <div className="text-[10px] text-espresso/30">Proteja sua conta com codigo SMS</div>
+                    <div className="text-sm text-espresso">Autenticação 2FA (Google Authenticator)</div>
+                    <div className="text-[10px] text-espresso/30">
+                      {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
+                    </div>
                   </div>
-                  <button onClick={() => setTwoFA(!twoFA)} className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-plum' : 'bg-espresso/10'}`}>
+                  <button 
+                    disabled={loadingMfa}
+                    onClick={twoFA ? handleDisableMfa : handleStartEnroll} 
+                    className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-plum' : 'bg-espresso/10'} disabled:opacity-55`}
+                  >
                     <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twoFA ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
@@ -362,7 +535,7 @@ export default function ProducerSettings() {
                       <div className="text-sm text-espresso">Excluir conta</div>
                       <div className="text-[10px] text-espresso/30">Esta acao nao pode ser desfeita</div>
                     </div>
-                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={() => toast.info('Funcao de exclusao sera implementada com confirmacao por email')}>Excluir</button>
+                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={handleDeleteAccount}>Excluir</button>
                   </div>
                 </div>
               </div>
@@ -553,6 +726,85 @@ export default function ProducerSettings() {
           )}
         </div>
       </div>
+
+      {/* Modal do 2FA */}
+      {showMfaModal && enrollData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
+            <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
+              <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
+            </h3>
+            <p className="text-xs text-espresso/60 mb-4">
+              Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
+            </p>
+
+            {enrollData.qrCodeSvg && (
+              <div 
+                className="w-48 h-48 mx-auto my-6 bg-white p-3 rounded-xl flex items-center justify-center shadow-inner border border-espresso/10"
+                dangerouslySetInnerHTML={{ __html: enrollData.qrCodeSvg }}
+              />
+            )}
+
+            <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
+              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
+              <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-plum">
+                {enrollData.secret}
+              </code>
+            </div>
+
+            {mfaError && (
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+                {mfaError}
+              </div>
+            )}
+
+            <form onSubmit={handleVerifyEnroll} className="space-y-4">
+              <div>
+                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={verifyCode}
+                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  disabled={isVerifyingMfa}
+                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/60 border border-slate-200 dark:border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                />
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2">
+                <button
+                  type="button"
+                  disabled={isVerifyingMfa}
+                  onClick={() => {
+                    setShowMfaModal(false)
+                    setEnrollData(null)
+                  }}
+                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={isVerifyingMfa}
+                  className="px-5 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isVerifyingMfa ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Verificando...</span>
+                    </>
+                  ) : (
+                    <span>Ativar 2FA</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

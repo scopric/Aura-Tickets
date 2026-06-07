@@ -5,6 +5,7 @@ import { useCreateOrder } from '../../hooks/useCheckout'
 import { usePayment } from '../../hooks/usePayment'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { formatCurrency } from '../../lib/formatters'
 
 export default function CheckoutPayment() {
   const location = useLocation()
@@ -14,6 +15,7 @@ export default function CheckoutPayment() {
   const locationState = (location.state || {}) as {
     eventId?: string
     cart?: Record<string, number>
+    selectedSeats?: Record<string, { seatId: string; label: string; price: number; ticketTypeId: string; occupantName: string }>
     totalAmount?: number
     itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number }[]
   }
@@ -24,9 +26,10 @@ export default function CheckoutPayment() {
     } catch { return null }
   })()
 
-  const { eventId, cart, totalAmount, itemsSummary } = {
+  const { eventId, cart, selectedSeats, totalAmount, itemsSummary } = {
     eventId: locationState.eventId || pendingCheckout?.eventId,
     cart: locationState.cart || pendingCheckout?.cart,
+    selectedSeats: locationState.selectedSeats || pendingCheckout?.selectedSeats,
     totalAmount: locationState.totalAmount || pendingCheckout?.totalAmount,
     itemsSummary: locationState.itemsSummary || pendingCheckout?.itemsSummary,
   }
@@ -43,6 +46,7 @@ export default function CheckoutPayment() {
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
+  const [currency, setCurrency] = useState('BRL')
 
   useEffect(() => {
     if (!eventId || !totalAmount) {
@@ -50,6 +54,71 @@ export default function CheckoutPayment() {
       navigate('/')
     }
   }, [eventId, totalAmount, navigate])
+
+  useEffect(() => {
+    async function loadSystemCurrency() {
+      try {
+        const { data, error } = await supabase
+          .from('system_settings')
+          .select('value')
+          .eq('key', 'general')
+          .maybeSingle()
+
+        if (error) throw error
+        if (data?.value?.currency) {
+          setCurrency(data.value.currency)
+        }
+      } catch (err) {
+        console.error('Erro ao carregar moeda do sistema:', err)
+      }
+    }
+    loadSystemCurrency()
+  }, [])
+
+  const updateSeatingMapStatus = async () => {
+    if (!selectedSeats || Object.keys(selectedSeats).length === 0) return
+
+    try {
+      const { data: mapData, error: mapErr } = await supabase
+        .from('seating_maps')
+        .select('*')
+        .eq('event_id', eventId)
+        .maybeSingle()
+
+      if (mapErr) throw mapErr
+
+      if (mapData) {
+        const nextEnvironments = (mapData.environments || []).map((env: any) => {
+          const nextSeats = (env.seats || []).map((s: any) => {
+            const selected = selectedSeats[s.id]
+            if (selected) {
+              return { ...s, status: 'sold', occupantName: selected.occupantName }
+            }
+            return s
+          })
+          return { ...env, seats: nextSeats }
+        })
+
+        // Salvar localmente
+        localStorage.setItem(`seating_map_${eventId}`, JSON.stringify({
+          ...mapData,
+          environments: nextEnvironments
+        }))
+
+        // Salvar no Supabase
+        const { error: updateErr } = await supabase
+          .from('seating_maps')
+          .update({ environments: nextEnvironments })
+          .eq('event_id', eventId)
+
+        if (updateErr) {
+          console.error('Erro ao atualizar status dos assentos no banco:', updateErr.message)
+        }
+      }
+    } catch (err: any) {
+      console.error('Erro na atualização de assentos comprados:', err.message)
+    }
+  }
 
   const handlePay = async () => {
     if (!eventId || !cart || !totalAmount || !itemsSummary) {
@@ -65,6 +134,37 @@ export default function CheckoutPayment() {
     }
 
     setProcessing(true)
+
+    // Validar concorrência antes de processar
+    if (selectedSeats && Object.keys(selectedSeats).length > 0) {
+      try {
+        const { data: mapData, error: mapErr } = await supabase
+          .from('seating_maps')
+          .select('*')
+          .eq('event_id', eventId)
+          .maybeSingle()
+
+        if (mapErr) throw mapErr
+        
+        if (mapData) {
+          const activeEnv = mapData.environments?.[0]
+          const seats = activeEnv?.seats || []
+          
+          for (const sId of Object.keys(selectedSeats)) {
+            const dbSeat = seats.find((s: any) => s.id === sId)
+            if (dbSeat && dbSeat.status !== 'free') {
+              toast.error(`O assento/mesa "${dbSeat.label}" acabou de ser comprado ou bloqueado por outra pessoa. Por favor, volte e escolha outro assento.`, { duration: 7000 })
+              setProcessing(false)
+              return
+            }
+          }
+        }
+      } catch (err: any) {
+        toast.error(`Falha ao validar assentos: ${err.message}`)
+        setProcessing(false)
+        return
+      }
+    }
 
     // 1. Criar o pedido (Order) no banco via Supabase
     createOrderMutation.mutate({
@@ -93,6 +193,7 @@ export default function CheckoutPayment() {
 
             // Simula sucesso ou chama o processamento
             toast.success('Pagamento com cartão processado com sucesso!')
+            await updateSeatingMapStatus()
             sessionStorage.removeItem('aura_pending_checkout')
             navigate('/checkout/success', {
               state: {
@@ -135,9 +236,10 @@ export default function CheckoutPayment() {
                   table: 'orders',
                   filter: `id=eq.${order.id}`,
                 },
-                (payload: any) => {
+                async (payload: any) => {
                   if (payload.new.status === 'paid') {
                     toast.success('Pagamento via Pix confirmado!')
+                    await updateSeatingMapStatus()
                     sessionStorage.removeItem('aura_pending_checkout')
                     supabase.removeChannel(orderChannel)
                     navigate('/checkout/success', {
@@ -332,7 +434,7 @@ export default function CheckoutPayment() {
             <div className="flex justify-between items-center mb-4">
               <span className="text-cream/50">Total a pagar</span>
               <span className="font-serif text-2xl">
-                R$ {totalAmount?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                {formatCurrency(totalAmount, currency)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-cream/30 mb-4">
