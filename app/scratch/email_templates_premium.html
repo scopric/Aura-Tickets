@@ -1,0 +1,208 @@
+<!--
+================================================================================================
+EVOKAA TICKETS - TEMPLATES DE E-MAIL PREMIUM (COPIR E COLAR NO SUPABASE AUTH)
+================================================================================================
+-->
+
+<!-- ==================== 1. CONFIRM SIGNUP (CONFIRMAÇÃO DE CADASTRO) ==================== -->
+<!-- Assunto: Confirme o seu cadastro na Evokaa -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirme seu cadastro na Evokaa</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #faf8f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #faf8f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="600px" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(12, 35, 64, 0.05);">
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 40px 40px 30px 40px;">
+              <img src="https://www.evokaa.com.br/images/logo-evokaa.png" alt="Evokaa" width="130" style="display: block; outline: none; border: none;" />
+              <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">Seja bem-vindo</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 40px 30px 40px;">
+              <h1 style="margin: 0 0 16px 0; color: #0c2340; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.3;">Olá! Que bom ter você por aqui.</h1>
+              <p style="margin: 0 0 24px 0; color: #44403c; font-size: 15px; line-height: 1.6;">Obrigado por criar sua conta na <strong>Evokaa</strong>. Falta apenas um passo para você ter acesso à engrenagem dos seus eventos ou começar a garantir seus ingressos.</p>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #8f33f5 0%, #1d68c4 100%); background-color: #8f33f5; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 14px rgba(143, 51, 245, 0.3); text-align: center;">Confirmar Cadastro</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 16px 0; color: #44403c; font-size: 14px; line-height: 1.6;">Caso o botão não funcione, você também pode copiar e colar o link abaixo no seu navegador:</p>
+              <p style="margin: 0 0 30px 0; font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="{{ .ConfirmationURL }}" style="color: #1d68c4; text-decoration: underline;">{{ .ConfirmationURL }}</a></p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+              <p style="margin: 0; color: #78716c; font-size: 13px; line-height: 1.5;">Se você não realizou este cadastro, por favor desconsidere este e-mail.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 30px 40px; color: rgba(255, 255, 255, 0.5); font-size: 12px; line-height: 1.6;">
+              <p style="margin: 0 0 8px 0;">Evokaa — Gestão Inteligente de Eventos e Ingressos</p>
+              <p style="margin: 0;">&copy; 2026 Evokaa. Todos os direitos reservados.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!-- ==================== 2. RESET PASSWORD (REDEFINIÇÃO DE SENHA) ==================== -->
+<!-- Assunto: Redefina a sua senha da Evokaa -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redefina sua senha da Evokaa</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #faf8f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #faf8f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="600px" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(12, 35, 64, 0.05);">
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 40px 40px 30px 40px;">
+              <img src="https://www.evokaa.com.br/images/logo-evokaa.png" alt="Evokaa" width="130" style="display: block; outline: none; border: none;" />
+              <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">Segurança da Conta</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 40px 30px 40px;">
+              <h1 style="margin: 0 0 16px 0; color: #0c2340; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.3;">Solicitação de redefinição de senha</h1>
+              <p style="margin: 0 0 24px 0; color: #44403c; font-size: 15px; line-height: 1.6;">Recebemos uma solicitação para alterar a senha da sua conta na <strong>Evokaa</strong>. Clique no botão abaixo para escolher uma nova senha de acesso.</p>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #8f33f5 0%, #1d68c4 100%); background-color: #8f33f5; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 14px rgba(143, 51, 245, 0.3); text-align: center;">Redefinir Senha</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 16px 0; color: #44403c; font-size: 14px; line-height: 1.6;">Caso o botão não funcione, você também pode copiar e colar o link abaixo no seu navegador:</p>
+              <p style="margin: 0 0 30px 0; font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="{{ .ConfirmationURL }}" style="color: #1d68c4; text-decoration: underline;">{{ .ConfirmationURL }}</a></p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+              <p style="margin: 0; color: #78716c; font-size: 13px; line-height: 1.5;">Se você não solicitou a redefinição de senha, nenhuma ação é necessária e você pode ignorar este e-mail com segurança.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 30px 40px; color: rgba(255, 255, 255, 0.5); font-size: 12px; line-height: 1.6;">
+              <p style="margin: 0 0 8px 0;">Evokaa — Gestão Inteligente de Eventos e Ingressos</p>
+              <p style="margin: 0;">&copy; 2026 Evokaa. Todos os direitos reservados.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!-- ==================== 3. MAGIC LINK (ACESSO RÁPIDO) ==================== -->
+<!-- Assunto: Seu link de acesso rápido - Evokaa -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acesso Rápido Evokaa</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #faf8f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #faf8f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="600px" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(12, 35, 64, 0.05);">
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 40px 40px 30px 40px;">
+              <img src="https://www.evokaa.com.br/images/logo-evokaa.png" alt="Evokaa" width="130" style="display: block; outline: none; border: none;" />
+              <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">Acesso Rápido</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 40px 30px 40px;">
+              <h1 style="margin: 0 0 16px 0; color: #0c2340; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.3;">Seu link de login rápido está pronto</h1>
+              <p style="margin: 0 0 24px 0; color: #44403c; font-size: 15px; line-height: 1.6;">Você solicitou um acesso rápido por e-mail à sua conta. Clique no botão abaixo para se autenticar instantaneamente.</p>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #8f33f5 0%, #1d68c4 100%); background-color: #8f33f5; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 14px rgba(143, 51, 245, 0.3); text-align: center;">Entrar na Plataforma</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 16px 0; color: #44403c; font-size: 14px; line-height: 1.6;">Caso o botão não funcione, você também pode copiar e colar o link abaixo no seu navegador:</p>
+              <p style="margin: 0 0 30px 0; font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="{{ .ConfirmationURL }}" style="color: #1d68c4; text-decoration: underline;">{{ .ConfirmationURL }}</a></p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+              <p style="margin: 0; color: #78716c; font-size: 13px; line-height: 1.5;">Se você não solicitou este link, pode ignorar este e-mail.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 30px 40px; color: rgba(255, 255, 255, 0.5); font-size: 12px; line-height: 1.6;">
+              <p style="margin: 0 0 8px 0;">Evokaa — Gestão Inteligente de Eventos e Ingressos</p>
+              <p style="margin: 0;">&copy; 2026 Evokaa. Todos os direitos reservados.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+
+
+<!-- ==================== 4. CHANGE EMAIL ADDRESS (ALTERAÇÃO DE E-MAIL) ==================== -->
+<!-- Assunto: Confirme a alteração do seu e-mail -->
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirme sua alteração de e-mail na Evokaa</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #faf8f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #faf8f5; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="100%" max-width="600px" border="0" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #ffffff; border-radius: 24px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 4px 20px rgba(12, 35, 64, 0.05);">
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 40px 40px 30px 40px;">
+              <img src="https://www.evokaa.com.br/images/logo-evokaa.png" alt="Evokaa" width="130" style="display: block; outline: none; border: none;" />
+              <p style="margin: 12px 0 0 0; color: rgba(255, 255, 255, 0.7); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">Atualização de Cadastro</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 40px 40px 30px 40px;">
+              <h1 style="margin: 0 0 16px 0; color: #0c2340; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; line-height: 1.3;">Confirmação de alteração de e-mail</h1>
+              <p style="margin: 0 0 24px 0; color: #44403c; font-size: 15px; line-height: 1.6;">Recebemos uma solicitação para alterar o e-mail de acesso da sua conta na <strong>Evokaa</strong>. Clique no botão abaixo para confirmar o novo endereço.</p>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 30px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #8f33f5 0%, #1d68c4 100%); background-color: #8f33f5; color: #ffffff; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 9999px; box-shadow: 0 4px 14px rgba(143, 51, 245, 0.3); text-align: center;">Confirmar Novo E-mail</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin: 0 0 16px 0; color: #44403c; font-size: 14px; line-height: 1.6;">Caso o botão não funcione, você também pode copiar e colar o link abaixo no seu navegador:</p>
+              <p style="margin: 0 0 30px 0; font-size: 12px; line-height: 1.5; word-break: break-all;"><a href="{{ .ConfirmationURL }}" style="color: #1d68c4; text-decoration: underline;">{{ .ConfirmationURL }}</a></p>
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
+              <p style="margin: 0; color: #78716c; font-size: 13px; line-height: 1.5;">Se você não solicitou essa mudança, entre em contato imediatamente com o nosso suporte.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="background-color: #0c2340; padding: 30px 40px; color: rgba(255, 255, 255, 0.5); font-size: 12px; line-height: 1.6;">
+              <p style="margin: 0 0 8px 0;">Evokaa — Gestão Inteligente de Eventos e Ingressos</p>
+              <p style="margin: 0;">&copy; 2026 Evokaa. Todos os direitos reservados.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
