@@ -22,7 +22,6 @@ async function run() {
   console.log('================================================================');
   
   // 1. Obter o Token de Acesso Pessoal (Supabase Personal Access Token)
-  // O usuário pode passar como argumento ou digitar no terminal
   let token = process.argv[2] || process.env.SUPABASE_ACCESS_TOKEN;
   if (!token) {
     console.log('\nPara rodar esta automação, você precisa gerar um Token de Acesso Pessoal do Supabase.');
