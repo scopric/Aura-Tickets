@@ -116,7 +116,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'Evokaa Tickets <ingressos@evokaa.events>',
+        from: 'Evokaa Tickets <ingressos@evokaa.com.br>',
         to: [recipientEmail],
         subject: subject,
         html: htmlContent,
