@@ -28,6 +28,8 @@ interface SubItem {
   to: string
   icon: React.ElementType
   label: string
+  /** Ferramenta ainda em construção: exibida com selo "em breve" */
+  comingSoon?: boolean
 }
 
 interface MenuGroup {
@@ -73,23 +75,23 @@ const menuGroups: MenuGroup[] = [
       { to: '/producer/events', icon: Calendar, label: 'Meus Eventos' },
       { to: '/producer/planner', icon: Sparkles, label: 'Criar Evento' },
       { to: '/producer/event-manager', icon: FolderOpen, label: 'Pasta do Evento' },
-      { to: '/producer/ingressos-avancados', icon: Receipt, label: 'Ingressos+' },
+      { to: '/producer/ingressos-avancados', icon: Receipt, label: 'Ingressos+', comingSoon: true },
       { to: '/producer/lugar-marcado', icon: Armchair, label: 'Lugar Marcado' },
       { to: '/producer/certificados', icon: Award, label: 'Certificados' },
       { to: '/producer/timeline', icon: Clock, label: 'Cronograma' },
       { to: '/producer/pos-evento', icon: BarChart2, label: 'Rel. Pos-Evento' },
-      { to: '/producer/brand', icon: Palette, label: 'Brand Studio' },
+      { to: '/producer/brand', icon: Palette, label: 'Brand Studio', comingSoon: true },
       { to: '/producer/menu', icon: Wine, label: 'Cardapio' },
     ]
   },
   {
     id: 'sales', icon: Megaphone, label: 'Vendas & Marketing', color: '#f59e0b',
     items: [
-      { to: '/producer/evokaa-store', icon: ShoppingBag, label: 'Evokaa Store' },
+      { to: '/producer/evokaa-store', icon: ShoppingBag, label: 'Evokaa Store', comingSoon: true },
       { to: '/producer/lista-interesse', icon: FileText, label: 'Lista de Interesse' },
       { to: '/producer/cupons', icon: TicketPercent, label: 'Cupons' },
       { to: '/producer/afiliados', icon: Users, label: 'Afiliados' },
-      { to: '/producer/marketing', icon: Megaphone, label: 'Marketing' },
+      { to: '/producer/marketing', icon: Megaphone, label: 'Marketing', comingSoon: true },
       { to: '/producer/crm', icon: Users, label: 'CRM Pipeline' },
       { to: '/producer/banners', icon: Images, label: 'Banners' },
     ]
@@ -101,7 +103,7 @@ const menuGroups: MenuGroup[] = [
       { to: '/producer/finance', icon: BarChart3, label: 'Financeiro' },
       { to: '/producer/bordero', icon: Award, label: 'Bordero' },
       { to: '/producer/antecipacao', icon: Zap, label: 'Antecipacao' },
-      { to: '/producer/parcelamento', icon: CreditCard, label: 'Parcelamento' },
+      { to: '/producer/parcelamento', icon: CreditCard, label: 'Parcelamento', comingSoon: true },
       { to: '/producer/calculator', icon: Calculator, label: 'Calc. de Preco' },
       { to: '/producer/tables', icon: Tag, label: 'Calc. de Mesas' },
       { to: '/producer/caixinha', icon: PiggyBank, label: 'Caixinha' },
@@ -123,7 +125,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/producer/academy', icon: GraduationCap, label: 'Academy' },
       { to: '/producer/app', icon: Smartphone, label: 'App' },
-      { to: '/producer/assinatura', icon: Crown, label: 'Assinatura' },
+      { to: '/producer/assinatura', icon: Crown, label: 'Assinatura', comingSoon: true },
       { to: '/producer/faq', icon: HelpCircle, label: 'Ajuda' },
       { to: '/producer/settings', icon: Settings, label: 'Configuracoes' },
     ]
@@ -171,6 +173,9 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
               )}>
               <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
               {item.label}
+              {item.comingSoon && (
+                <span className="ml-auto text-[8px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">em breve</span>
+              )}
             </Link>
           ))}
         </div>
@@ -219,6 +224,9 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
                 style={{ color: isActivePath(item.to) ? '#a78bfa' : undefined }}
               />
               <span className="text-[11.5px]">{item.label}</span>
+              {item.comingSoon && (
+                <span className="ml-auto text-[8px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">em breve</span>
+              )}
             </Link>
           ))}
         </div>
