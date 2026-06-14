@@ -6,6 +6,24 @@ import { Link } from 'react-router-dom'
 
 const CATEGORIES = ['Todos', 'Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte']
 
+/**
+ * Sanitiza um termo de busca antes de usá-lo em um filtro `.or()` do PostgREST.
+ *
+ * O `.or()` recebe uma string de filtro CRUA, então interpolar input do usuário
+ * diretamente permite injeção de filtros (ex.: `%,status.eq.draft,title.ilike.%`
+ * vazaria registros que os filtros de status deveriam esconder).
+ *
+ * - Remove os caracteres estruturais do PostgREST (`,` `(` `)` `.` `:` `"` `'` `\`),
+ *   que poderiam ser usados para escapar do filtro pretendido.
+ * - Escapa os curingas do LIKE (`%` e `_`) para que sejam tratados literalmente.
+ */
+function sanitizeSearchTerm(value: string): string {
+  return value
+    .replace(/[\\%_]/g, '\\$&')   // escapa curingas do LIKE (\ é o escape padrão do Postgres)
+    .replace(/[(),.:"']/g, ' ')   // neutraliza caracteres estruturais do filtro PostgREST
+    .trim()
+}
+
 export default function EventsBrowse() {
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState('Todos')
@@ -29,8 +47,9 @@ export default function EventsBrowse() {
         query = query.eq('category', category)
       }
 
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,venue_name.ilike.%${search}%`)
+      const safeSearch = sanitizeSearchTerm(search)
+      if (safeSearch) {
+        query = query.or(`title.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%,venue_name.ilike.%${safeSearch}%`)
       }
 
       const { data, error } = await query.order('date', { ascending: true })
