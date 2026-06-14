@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import { supabase } from '../../lib/supabase'
+import { useUserPreferences } from '../../hooks/useUserPreferences'
 
 type Section = 'perfil' | 'seguranca' | 'pagamento' | 'notificacoes' | 'privacidade'
 
@@ -160,11 +161,17 @@ export default function UserSettings() {
     }
   }
 
+  const { preferences: loadedPreferences, savePreferences } = useUserPreferences()
   const [preferences, setPreferences] = useState({
-    genres: ['eletronica', 'funk', 'hiphop'],
-    eventTypes: ['balada', 'festival'],
+    genres: [] as string[],
+    eventTypes: [] as string[],
     maxDistance: '50',
   })
+
+  // Sincroniza com as preferências reais quando carregam do banco
+  useEffect(() => {
+    setPreferences(loadedPreferences)
+  }, [loadedPreferences])
 
   const [cards, setCards] = useState([
     { id: 'c1', brand: 'Visa', last4: '4242', expiry: '12/26', default: true },
@@ -186,8 +193,13 @@ export default function UserSettings() {
     shareActivity: false,
   })
 
-  const handleSave = () => {
-    toast.success('Alteracoes salvas!')
+  const handleSave = async () => {
+    try {
+      await savePreferences(preferences)
+      toast.success('Alteracoes salvas!')
+    } catch {
+      toast.error('Erro ao salvar preferencias')
+    }
   }
 
   const handlePassword = () => {
