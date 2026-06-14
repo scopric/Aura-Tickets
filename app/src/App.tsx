@@ -18,6 +18,7 @@ import ProducerLayout from './components/ProducerLayout'
 import AdminLayout from './components/AdminLayout'
 import AppLayout from './components/AppLayout'
 import FeatureGuard from './components/FeatureGuard'
+import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent } from './lib/tracking'
 
 // Public pages (lazy loaded)
@@ -224,9 +225,9 @@ function Layout() {
               <Route path="/producer/events/new" element={<ProducerNewEvent />} />
               <Route path="/producer/events/:eventId/edit" element={<ProducerEditEvent />} />
               <Route path="/producer/event-manager" element={<EventManager />} />
-              <Route path="/producer/event/:eventId" element={<EventFolder />} />
+              <Route path="/producer/event/:eventId" element={<ComingSoonRoute title="A Pasta do Evento"><EventFolder /></ComingSoonRoute>} />
               <Route path="/producer/planner" element={<EventPlanner />} />
-              <Route path="/producer/brand" element={<BrandStudio />} />
+              <Route path="/producer/brand" element={<ComingSoonRoute title="O Brand Studio"><BrandStudio /></ComingSoonRoute>} />
               <Route path="/producer/crm" element={<FeatureGuard featureKey="crm"><ProducerCRM /></FeatureGuard>} />
               <Route path="/producer/finance" element={<ProducerFinance />} />
               <Route path="/producer/wallet" element={<ProducerWallet />} />
@@ -245,19 +246,19 @@ function Layout() {
               <Route path="/producer/timeline" element={<ProducerTimeline />} />
               <Route path="/producer/faq" element={<ProducerFAQ />} />
               <Route path="/producer/settings" element={<ProducerSettings />} />
-              <Route path="/producer/assinatura" element={<ProducerSubscription />} />
+              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A área de Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
               <Route path="/producer/team" element={<TeamManager />} />
-              <Route path="/producer/ingressos-avancados" element={<EventTicketConfig />} />
-              <Route path="/producer/evokaa-store" element={<EvokaaStore />} />
+              <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
+              <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
               <Route path="/producer/bordero" element={<EventBordero />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
-              <Route path="/producer/marketing" element={<Marketing />} />
+              <Route path="/producer/marketing" element={<ComingSoonRoute title="O Marketing"><Marketing /></ComingSoonRoute>} />
               <Route path="/producer/academy" element={<EvokaaAcademy />} />
               <Route path="/producer/app" element={<OrganizerApp />} />
               <Route path="/producer/antecipacao" element={<AdvancePayment />} />
-              <Route path="/producer/parcelamento" element={<Installments />} />
+              <Route path="/producer/parcelamento" element={<ComingSoonRoute title="O Parcelamento"><Installments /></ComingSoonRoute>} />
               <Route path="/producer/pos-evento" element={<PostEventReport />} />
             </Route>
 

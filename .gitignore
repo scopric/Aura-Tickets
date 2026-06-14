@@ -23,3 +23,10 @@ aura-complete-source.zip
 aura-complete-source/
 .vercel
 .env*
+
+# Binários e documentos pesados (não versionar)
+*.zip
+*.pdf
+Aura documentos/
+dist/
+build/
