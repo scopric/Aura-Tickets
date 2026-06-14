@@ -2,9 +2,9 @@ name: Deploy & CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, develop, 'claude/**' ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, develop ]
 
 jobs:
   test-and-build:
@@ -36,3 +36,11 @@ jobs:
         run: |
           cd app
           npm run build
+
+      # Suíte unitária legada em reparo: reporta resultado mas não bloqueia o pipeline.
+      # O portão real de correção é o build com typecheck (tsc -b) acima.
+      - name: Run Unit Tests (non-blocking)
+        continue-on-error: true
+        run: |
+          cd app
+          npm run test -- --run

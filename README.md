@@ -1,73 +1,79 @@
-# React + TypeScript + Vite
+# Aura Tickets / Evokaa
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Plataforma de venda e gestão de ingressos para eventos (ticketeira), com painéis para
+**produtores**, **administradores** e **participantes**. Inclui criação e publicação de
+eventos, checkout, check-in por QR Code, CRM, cardápio digital, mesas coletivas
+(matchmaking), certificados e mais.
 
-Currently, two official plugins are available:
+> ⚠️ O **gateway de pagamento está em modo mock** por enquanto (aguardando CNPJ). O fluxo
+> de checkout cria pedidos reais, mas a cobrança não é processada em produção.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Stack
 
-## React Compiler
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind + shadcn/ui (Radix)
+- **Estado/Dados:** Zustand + TanStack Query
+- **Backend:** Supabase (Postgres + Auth + Storage + Edge Functions em Deno)
+- **Deploy:** Vercel (SPA), root directory = `app/`
+- **Testes:** Vitest (unit) + Playwright (e2e)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Estrutura do repositório
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+app/                  ← A aplicação (é a raiz do projeto no Vercel)
+  src/
+    pages/            ← Rotas (public, auth, app, producer, admin, checkout)
+    components/       ← UI e layouts
+    hooks/            ← Hooks de dados (padrão TanStack Query + Supabase)
+    lib/              ← supabase client, helpers
+    types/            ← database.ts (tipos do schema)
+    test/             ← Vitest + Playwright
+supabase/
+  migrations/         ← Migrations SQL (schema + RLS)
+  functions/          ← Edge Functions (stripe, woovi/pix, check-in, e-mail…)
+docs/archive/         ← Documentação histórica de planejamento/análise
+AGENTS.md             ← Convenções para agentes de IA neste repo
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Como rodar localmente
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Pré-requisitos: **Node.js 20+**.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+cd app
+npm install
+cp .env.example .env.local   # preencha as variáveis abaixo
+npm run dev                  # http://localhost:3000
 ```
+
+### Variáveis de ambiente (`app/.env.local`)
+
+```
+VITE_SUPABASE_URL=https://<seu-projeto>.supabase.co
+VITE_SUPABASE_ANON_KEY=<sua-chave-anon>
+```
+
+> Variáveis expostas ao client **devem** começar com `VITE_`. A chave `anon` é pública por
+> design (protegida por RLS no banco). **Nunca** exponha a `service_role` no frontend.
+
+## Scripts (em `app/`)
+
+| Comando | Ação |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento (Vite) |
+| `npm run build` | Typecheck (`tsc -b`) + build de produção |
+| `npm run lint` | ESLint |
+| `npm run test` | Testes unitários (Vitest) |
+| `npm run test:e2e` | Testes e2e (Playwright) |
+
+## Banco de dados (Supabase)
+
+O schema vive em `supabase/migrations/`. Aplique as migrations no seu projeto Supabase
+(via Supabase CLI ou colando no SQL Editor, em ordem). Os tipos TypeScript do banco ficam
+em `app/src/types/database.ts` e devem ser mantidos em sincronia com o schema.
+
+## Deploy (Vercel)
+
+- **Root Directory:** `app`
+- **Framework Preset:** Vite · **Build:** `npm run build` · **Output:** `dist`
+- Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nas Environment Variables.
+- `app/vercel.json` já contém os rewrites de SPA. Detalhes em `app/DEPLOY.md`.
