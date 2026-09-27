@@ -50,6 +50,13 @@ Deno.serve(async (req) => {
   if (ativos && ativos.length) {
     return json(409, { error: 'Você tem evento publicado com data futura. Cancele ou encerre seus eventos antes de excluir a conta.' })
   }
+  // Saque em andamento: o destino bancário seria apagado abaixo e o repasse ficaria sem para onde ir
+  const { data: saques, error: wError } = await admin.from('withdrawals')
+    .select('id').eq('producer_id', uid).in('status', ['pending', 'processing']).limit(1)
+  if (wError) return json(500, { error: 'Não foi possível conferir seus saques. Tente de novo.' })
+  if (saques && saques.length) {
+    return json(409, { error: 'Você tem um saque em andamento. Aguarde a conclusão antes de excluir a conta.' })
+  }
 
   // 2..5: cada passo é idempotente; a primeira falha interrompe ANTES de mexer no login
   const steps: Array<[string, () => PromiseLike<{ error: { message: string } | null }>]> = [
