@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState } from 'react'
-import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye } from 'lucide-react'
+import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye, Info } from 'lucide-react'
 import gsap from 'gsap'
-import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel } from '../../hooks/useEvents'
+import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
@@ -26,12 +26,29 @@ const approvalStatusCfg: Record<string, { label: string; cls: string }> = {
   rejected: { label: 'Rejeitado', cls: 'bg-red-100 text-red-700 border-red-200' },
 }
 
+const fmtDateTime = (s?: string | null) => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }
+
 export default function AdminEvents() {
   const ref = useRef<HTMLDivElement>(null)
   const { data: allEvents = [], isLoading, isError, error } = useAdminEvents()
   const approveMutation = useApproveEvent()
   const toggleFeaturedMutation = useToggleFeaturedCarousel()
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
+  // Painel de detalhes: guarda só o id e deriva da lista, para refletir aprovação/rejeição/destaque sem cópia velha
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const openerRef = useRef<HTMLElement | null>(null) // botão que abriu o painel: recebe o foco de volta ao fechar
+  const detail: AdminEvent | null = detailId ? allEvents.find(e => e.id === detailId) ?? null : null
+
+  useEffect(() => {
+    if (!detailId) return
+    // painel modal: Esc fecha, a página de fundo não rola e o foco volta ao botão que abriu
+    const opener = openerRef.current
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (ev: KeyboardEvent) => { if (ev.key === 'Escape') setDetailId(null) }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; opener?.focus?.() }
+  }, [detailId])
 
   useEffect(() => {
     if (!isLoading) {
@@ -225,6 +242,14 @@ export default function AdminEvents() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={ev => { openerRef.current = ev.currentTarget; setDetailId(e.id) }}
+                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                              title="Ver detalhes do evento"
+                              aria-label="Ver detalhes do evento"
+                            >
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
                             {(e.approval_status === 'pending' || !e.approval_status) && (
                               <>
                                 <button
@@ -268,6 +293,115 @@ export default function AdminEvents() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* Painel lateral de detalhes (mesmo padrão do "Gerenciar" de Users.tsx) */}
+      {detail && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDetailId(null)} />
+          <aside role="dialog" aria-modal="true" aria-label={`Detalhes do evento ${detail.title}`} className="relative w-full max-w-lg h-full bg-card text-foreground border-l border-border shadow-2xl overflow-y-auto">
+            <div className="p-6 border-b border-border flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-serif text-lg text-foreground">{detail.title}</h3>
+                {detail.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{detail.subtitle}</p>}
+              </div>
+              <button autoFocus onClick={() => setDetailId(null)} aria-label="Fechar detalhes" className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 text-sm">
+              {detail.cover_image && <img src={detail.cover_image} alt="" className="w-full aspect-video object-cover rounded-xl bg-muted" />}
+
+              <div className="flex flex-wrap gap-2">
+                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${(statusCfg[detail.status] || { cls: 'bg-slate-50 text-slate-500 border-slate-100' }).cls}`}>
+                  Publicação: {statusCfg[detail.status]?.label || detail.status}
+                </span>
+                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${approvalStatusCfg[detail.approval_status || 'pending'].cls}`}>
+                  Moderação: {approvalStatusCfg[detail.approval_status || 'pending'].label}
+                </span>
+                {detail.featured_carousel && <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-100">Em destaque</span>}
+              </div>
+
+              {detail.description && <p className="text-muted-foreground whitespace-pre-line">{detail.description}</p>}
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+                {([
+                  ['Categoria', detail.category],
+                  ['Data', detail.date ? new Date(detail.date + 'T00:00:00').toLocaleDateString('pt-BR') : null],
+                  ['Horário', detail.time?.slice(0, 5)],
+                  ['Início', fmtDateTime(detail.start_date)],
+                  ['Fim', fmtDateTime(detail.end_date)],
+                  ['Local', detail.venue_name],
+                  ['Endereço', detail.venue_address],
+                  ['Cidade/UF', [detail.venue_city, detail.venue_state].filter(Boolean).join('/')],
+                  ['Capacidade', detail.capacity],
+                  ['Produtor', detail.profiles ? `${detail.profiles.full_name || 'Sem nome'} · ${detail.profiles.email}` : null],
+                  ['Aprovado em', fmtDateTime(detail.approved_at)],
+                  ['Motivo da rejeição', detail.rejection_reason],
+                  ['Criado em', fmtDateTime(detail.created_at)],
+                ] as [string, string | number | null | undefined][]).map(([l, v]) => (
+                  <div key={l}>
+                    <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{l}</dt>
+                    <dd className="text-foreground mt-0.5 break-words">{v ?? '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              <div>
+                <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Ingressos</h4>
+                {!detail.ticket_types?.length ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhum tipo de ingresso cadastrado.</p>
+                ) : (
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-left text-muted-foreground">
+                        <th className="py-1 pr-2 font-medium">Nome</th>
+                        <th className="py-1 pr-2 font-medium">Preço</th>
+                        <th className="py-1 pr-2 font-medium">Qtd.</th>
+                        <th className="py-1 pr-2 font-medium">Vendidos</th>
+                        <th className="py-1 font-medium">Ativo</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {detail.ticket_types.map(t => (
+                        <tr key={t.id} className="border-t border-border">
+                          <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
+                          <td className="py-1.5 pr-2 text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                          <td className="py-1.5 pr-2 text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
+                          <td className="py-1.5 pr-2 text-foreground">{t.sold ?? 0}</td>
+                          <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
+                {(detail.approval_status === 'pending' || !detail.approval_status) && (
+                  <>
+                    <button onClick={() => handleApprove(detail.id)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 transition-colors">
+                      <Check className="w-3.5 h-3.5" /> Aprovar
+                    </button>
+                    <button onClick={() => handleReject(detail.id)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors">
+                      <X className="w-3.5 h-3.5" /> Rejeitar
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={() => handleToggleFeatured(detail.id, !!detail.featured_carousel)}
+                  disabled={detail.approval_status !== 'approved'}
+                  title={detail.approval_status !== 'approved' ? 'Só eventos aprovados podem ser destacados' : undefined}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-amber-400 hover:text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Star className={`w-3.5 h-3.5 ${detail.featured_carousel ? 'fill-current text-amber-500' : ''}`} />
+                  {detail.featured_carousel ? 'Remover destaque' : 'Destacar no carrossel'}
+                </button>
+              </div>
+            </div>
+          </aside>
         </div>
       )}
     </div>
