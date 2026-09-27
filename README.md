@@ -31,7 +31,8 @@ supabase/
   migrations/         ← Migrations SQL (schema + RLS)
   functions/          ← Edge Functions (stripe, woovi/pix, check-in, e-mail…)
 docs/archive/         ← Documentação histórica de planejamento/análise
-AGENTS.md             ← Convenções para agentes de IA neste repo
+AGENTS.md             ← Contexto para agentes de IA (qualquer ferramenta) + ruleset Ponytail
+CLAUDE.md             ← Instruções do Claude Code neste repositório
 ```
 
 ## Como rodar localmente
