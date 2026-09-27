@@ -217,6 +217,8 @@ function Layout() {
           <Suspense fallback={<PageLoading />}>
             <Routes>
               <Route path="/auth/login" element={<AuthLogin />} />
+              <Route path="/auth/forgot" element={<AuthForgot />} />
+              <Route path="/auth/reset" element={<AuthReset />} />
 
               {/* Admin - protected */}
               <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
