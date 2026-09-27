@@ -4,9 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
 
-// Último usuário cuja sessão nova já foi registrada (record-access); zera quando a página recarrega
-let recordedAccessFor: string | null = null
-
 export interface UserProfile {
   id: string
   role: Role
@@ -60,16 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session) {
+          // Login de verdade traz token NOVO (senha, login social, retorno do provedor); recarga e
+          // troca de aba reemitem SIGNED_IN com o token que a memória já tem. Só o novo é registrado:
+          // o servidor grava data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos.
+          // Fica antes da trava abaixo porque o `user` pode estar persistido de uma sessão antiga.
+          const prevToken = useAuthStore.getState().session?.access_token
           setSession(session)
-
-          // Login de verdade (SIGNED_IN: senha, login social, retorno do provedor): o servidor grava
-          // data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Fica ANTES da
-          // trava abaixo porque o login por senha já preenche o usuário na memória antes deste evento.
-          // Em segundo plano; falha é só aviso. Uma vez por usuário por carga da página.
-          if (event === 'SIGNED_IN' && recordedAccessFor !== session.user.id) {
-            recordedAccessFor = session.user.id
+          if (event === 'SIGNED_IN' && session.access_token !== prevToken) {
             supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
               .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+              .catch((err) => console.warn('[AuthContext] record-access:', err))
           }
 
           const currentUser = useAuthStore.getState().user
