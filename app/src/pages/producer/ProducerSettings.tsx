@@ -350,8 +350,8 @@ export default function ProducerSettings() {
     if (!window.confirm('Tem certeza de que deseja excluir permanentemente sua conta e todos os dados associados de eventos e ingressos? Esta ação é irreversível e em total conformidade com a LGPD.')) {
       return
     }
-    // Não depende de `data`: a função identifica o usuário pelo token da sessão. (Sem
-    // producer_profiles a consulta desta tela falha e `data` fica vazio — o botão travava aqui.)
+    // A função só precisa do JWT da sessão (o supabase-js o envia sozinho); a consulta
+    // desta tela (`data`) não é necessária aqui.
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
     try {
       // Função com chave de serviço: anonimiza perfil e cadastro de produtor (dados bancários),
