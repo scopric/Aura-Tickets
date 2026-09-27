@@ -47,8 +47,8 @@ export default function ContactSection() {
 
   const contactInfo = [
     { icon: Mail, label: 'Email', value: 'contato@evokaa.com.br', href: 'mailto:contato@evokaa.com.br', color: '#1d68c4' },
-    { icon: Phone, label: 'Telefone', value: '(11) 4000-2025', href: 'tel:+551140002025', color: '#8f33f5' },
-    { icon: MapPin, label: 'Endereço', value: 'Rua Augusta, 1500 — São Paulo/SP', href: '#', color: '#0d9488' },
+    { icon: Phone, label: 'Telefone e WhatsApp', value: '(41) 99758-5425', href: 'tel:+5541997585425', color: '#8f33f5' },
+    { icon: MapPin, label: 'Endereço', value: 'Rua Treze de Maio, 336, salas 33 e 34 — Curitiba/PR', href: '#', color: '#0d9488' },
     { icon: Clock, label: 'Atendimento', value: 'Seg a Sex: 9h as 18h | Sab: 10h as 14h', href: '#', color: '#ea580c' },
   ]
 
@@ -135,7 +135,7 @@ export default function ContactSection() {
                 <div className="flex items-center gap-2">
                   {[
                     { icon: Instagram, label: 'Instagram', href: '#', color: '#e1306c' },
-                    { icon: MessageCircle, label: 'WhatsApp', href: 'https://wa.me/551140002025', color: '#22c55e' },
+                    { icon: MessageCircle, label: 'WhatsApp', href: 'https://wa.me/5541997585425', color: '#22c55e' },
                     { icon: Globe, label: 'Website', href: '/', color: '#1d68c4' },
                   ].map((social) => (
                     <a
