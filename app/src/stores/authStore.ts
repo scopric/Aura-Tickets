@@ -10,6 +10,11 @@ export interface User {
   role: 'admin' | 'producer' | 'user' | 'editor'
   admin_permissions?: string[]
   producer_profile?: ProducerProfile | null
+  // dados pessoais editáveis no Perfil do participante (colunas de public.profiles)
+  phone?: string | null
+  city?: string | null
+  bio?: string | null
+  birth_date?: string | null
 }
 
 export interface ProducerProfile {
@@ -191,6 +196,10 @@ export const useAuthStore = create<AuthState>()(
               // papel desconhecido no banco vira 'user' (evita liberar rota por papel nulo ou loops)
               role: (['admin', 'producer', 'editor', 'user'].includes(profile.role) ? profile.role : 'user') as 'admin' | 'producer' | 'user' | 'editor',
               admin_permissions: profile.admin_permissions || [],
+              phone: profile.phone ?? null,
+              city: profile.city ?? null,
+              bio: profile.bio ?? null,
+              birth_date: profile.birth_date ?? null,
               producer_profile: (profile.role === 'producer' || profile.role === 'editor') ? {
                 company_name: profile.full_name || 'Minha Empresa',
                 cnpj: '',
@@ -218,7 +227,8 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'aura-auth',
       partialize: (state) => ({
-        user: state.user,
+        // dados pessoais (telefone, cidade, bio, nascimento) não ficam no localStorage: o fetchProfile de cada carregamento repõe
+        user: state.user && (Object.fromEntries(Object.entries(state.user).filter(([k]) => !['phone', 'city', 'bio', 'birth_date'].includes(k))) as User),
         session: state.session,
         isAuthenticated: state.isAuthenticated,
       }),

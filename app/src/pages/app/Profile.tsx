@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Star, Ticket, Heart, DollarSign, Shield, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
+import { useAuthStore } from '../../stores/authStore'
 import { useUserTickets } from '../../hooks/useUserTickets'
 import { useUserOrders } from '../../hooks/useUserOrders'
 import { supabase } from '../../lib/supabase'
@@ -113,6 +114,8 @@ export default function ParticipantProfile() {
 
   const handleSave = async () => {
     if (!user?.id) return
+    // chave `phone` ausente = perfil ainda não veio do banco (o persist a remove; o usuário provisório não a tem): salvar agora gravaria vazio por cima
+    if (user.phone === undefined) { toast.error('Aguarde o perfil terminar de carregar e tente de novo'); return }
     setIsSaving(true)
     const toastId = toast.loading('Salvando alterações no perfil...')
     try {
@@ -123,12 +126,15 @@ export default function ParticipantProfile() {
           phone: profile.phone,
           bio: profile.bio,
           city: profile.city,
-          birth_date: profile.birthDate
+          birth_date: profile.birthDate || null, // coluna date: '' daria erro no banco
         })
         .eq('id', user.id)
 
       if (error) throw error
 
+      // atualiza o store com o que foi gravado (sem reler pela rede: uma falha na releitura zeraria o formulário e o papel)
+      const atual = useAuthStore.getState().user
+      if (atual) useAuthStore.getState().setUser({ ...atual, full_name: profile.name, phone: profile.phone, city: profile.city, bio: profile.bio, birth_date: profile.birthDate || null })
       toast.success('Perfil salvo com sucesso!', { id: toastId })
       setEditing(false)
     } catch (err: any) {

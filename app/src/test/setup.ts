@@ -23,7 +23,7 @@ vi.mock('@/lib/supabase', () => ({
       updateUser: vi.fn(),
     },
     from: vi.fn(() => ({
-      select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })),
+      select: vi.fn(() => ({ eq: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })), maybeSingle: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })),
       insert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })),
       update: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })),
       delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })),

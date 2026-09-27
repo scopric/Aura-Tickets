@@ -1,15 +1,10 @@
+import { useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
-import { useAuthStore } from '../stores/authStore'
+import { useAuthStore, type User } from '../stores/authStore'
 import { toast } from 'sonner'
 
-export interface ExtendedUser {
-  id: string
-  email: string
-  full_name: string | null
-  avatar_url: string | null
-  role: 'admin' | 'producer' | 'user' | 'editor'
-  producer_profile?: import('../stores/authStore').ProducerProfile | null
+export interface ExtendedUser extends User {
   name?: string
   avatar?: string
 }
@@ -41,11 +36,13 @@ export function useAuth() {
   const queryClient = useQueryClient()
   const { user, isAuthenticated, isLoading, fetchProfile } = useAuthStore()
 
-  const extendedUser = user ? {
+  // Memoizado: sem isso cada render criava um objeto novo e todo useEffect com [user] rodava de novo
+  // (laço infinito no Perfil; consulta de planos do useFeatures sem parar)
+  const extendedUser = useMemo<ExtendedUser | null>(() => user ? {
     ...user,
     name: user.full_name || undefined,
     avatar: user.avatar_url || undefined,
-  } as ExtendedUser : null
+  } : null, [user])
 
   const signInMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string; password: string }) => {
