@@ -123,9 +123,9 @@ export default function ContactPage() {
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Central Telefônica</div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Telefone e WhatsApp</div>
                   <span className="text-sm font-semibold text-slate-800 mt-0.5 block">
-                    (11) 4000-2025
+                    (41) 99758-5425
                   </span>
                 </div>
               </div>
@@ -137,10 +137,10 @@ export default function ContactPage() {
                 <div>
                   <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Localização</div>
                   <span className="text-sm font-semibold text-slate-800 mt-0.5 block">
-                    Rua Augusta, 1500
+                    Rua Treze de Maio, 336, salas 33 e 34
                   </span>
                   <span className="text-[10px] text-slate-400 block mt-0.5 font-light">
-                    Consolação, São Paulo/SP
+                    Curitiba/PR
                   </span>
                 </div>
               </div>
@@ -161,7 +161,7 @@ export default function ContactPage() {
 
             {/* WhatsApp Premium CTA */}
             <a 
-              href="https://wa.me/551140002025" 
+              href="https://wa.me/5541997585425"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-between p-5 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/[0.02] hover:bg-[#22c55e]/5 transition-all duration-300 group max-w-sm shadow-sm"
@@ -361,8 +361,8 @@ export default function ContactPage() {
               <MapPin className="w-4 h-4 text-white" />
             </div>
           </div>
-          <h3 className="font-serif text-lg font-bold text-slate-800">Rua Augusta, 1500</h3>
-          <p className="text-xs text-slate-400 mt-1 font-light">Consolação, São Paulo/SP — Próximo ao Metrô Consolação</p>
+          <h3 className="font-serif text-lg font-bold text-slate-800">Rua Treze de Maio, 336, salas 33 e 34</h3>
+          <p className="text-xs text-slate-400 mt-1 font-light">Curitiba/PR</p>
         </div>
       </section>
 

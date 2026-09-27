@@ -16,9 +16,10 @@ const producerFAQs = [
 ]
 
 const affiliateFAQs = [
-  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o seu link de afiliado (botao Copiar, na tela Afiliados do produtor) com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
-  { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00.' },
-  { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX para a chave cadastrada. Voce pode acompanhar o valor pendente e o ja pago no seu perfil de afiliado.' },
+  // Programa em fase beta (Decisão 27, 27/09/2026): a venda pelo link ainda não é atribuída automaticamente.
+  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20) e um link para compartilhar. O programa esta em fase beta: por enquanto a venda feita pelo link ainda nao e ligada automaticamente ao seu codigo, entao combine com o produtor como ele vai conferir as suas vendas.' },
+  { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00. O calculo automatico entra quando a integracao de pagamentos estiver pronta.' },
+  { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX pelo produtor, para a chave cadastrada. O acompanhamento automatico do valor pendente e pago sera liberado com a integracao de pagamentos.' },
   { question: 'O que e o meu cupom exclusivo?', answer: 'O produtor pode criar um cupom de desconto exclusivo para voce (ex: CARLOSVIP 15% OFF). Isso ajuda a vender mais porque o comprador tambem ganha desconto!' },
   { question: 'Existe limite de vendas?', answer: 'Sim, o produtor define um limite de ingressos por afiliado. Voce pode ver seu limite e quantos ja vendeu no painel. Quando atingir o limite, avise o produtor para liberar mais.' },
   { question: 'Como subo de nivel?', answer: 'Voce sobe de nivel (Bronze → Prata → Ouro → Platina) vendendo mais ingressos. Cada nivel tem metas: Bronze (0), Prata (25), Ouro (75), Platina (150). Afiliados de nivel mais alto podem ter beneficios exclusivos.' },

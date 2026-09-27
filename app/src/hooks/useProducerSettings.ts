@@ -87,8 +87,7 @@ export function useProducerSettings() {
             bank_account: {},
             pix_key: '',
             notification_settings: {},
-            api_key: `ak_live_${Math.random().toString(36).substring(2, 18)}`,
-            webhook_url: '',
+            // api_key e webhook_url ficam NULL: não há API nem webhook para produtores (Decisão 28, 27/09/2026)
           })
           .select()
           .single()
