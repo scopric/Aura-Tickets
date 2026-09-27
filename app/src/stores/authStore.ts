@@ -106,10 +106,9 @@ export const useAuthStore = create<AuthState>()(
             let authUser: any = session?.user || null
             let authUserError: any = null
 
-            if (authUser) {
-            } else {
+            if (!authUser) {
+              // sem usuário na sessão: pede ao Supabase, com timeout para não travar a aplicação se a API estiver lenta
               try {
-                // Executa getUser com timeout de 7 segundos para evitar travar a aplicacao se a API estiver lenta/indisponivel
                 const getUserPromise = supabase.auth.getUser()
                 const timeoutError = new Error('Timeout ao obter usuario do Supabase')
                 const result = await Promise.race([
@@ -155,7 +154,7 @@ export const useAuthStore = create<AuthState>()(
             }
 
             if (profile && profile.is_authorized === false) {
-              console.warn('[AuthStore] Usuario inativo ou nao autorizado pelo admin:', profile.email)
+              console.warn('[AuthStore] Usuario inativo ou nao autorizado pelo admin:', authUser.id)
               set({ user: null, session: null, isAuthenticated: false, isLoading: false })
               supabase.auth.signOut().catch(() => {})
               throw new Error('Sua conta ainda não foi autorizada por um administrador. Entre em contato com o suporte.')
