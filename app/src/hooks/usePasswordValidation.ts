@@ -1,27 +1,16 @@
 import { useMemo } from 'react'
+import { passwordChecks } from '../lib/password'
 
 export interface PasswordValidation {
   isValid: boolean
   strength: number // 0-5
   strengthLabel: string
   strengthColor: string
-  checks: {
-    minLength: boolean
-    hasUppercase: boolean
-    hasLowercase: boolean
-    hasNumber: boolean
-    hasSpecial: boolean
-  }
+  checks: ReturnType<typeof passwordChecks>
 }
 
 export function usePasswordValidation(password: string): PasswordValidation {
-  const checks = useMemo(() => ({
-    minLength: password.length >= 8,
-    hasUppercase: /[A-Z]/.test(password),
-    hasLowercase: /[a-z]/.test(password),
-    hasNumber: /\d/.test(password),
-    hasSpecial: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password),
-  }), [password])
+  const checks = useMemo(() => passwordChecks(password), [password])
 
   const strength = useMemo(() => {
     if (!password) return 0

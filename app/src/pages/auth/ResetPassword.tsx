@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Lock, Loader2, CheckCircle2 } from 'lucide-react'
 import { supabase, initialAuthHash } from '../../lib/supabase'
 import { toast } from 'sonner'
+import { passwordError, PASSWORD_HINT } from '../../lib/password'
 
 export default function ResetPassword() {
   const [password, setPassword] = useState('')
@@ -41,8 +42,9 @@ export default function ResetPassword() {
       toast.error('As senhas não conferem')
       return
     }
-    if (password.length < 6) {
-      toast.error('A senha deve ter pelo menos 6 caracteres')
+    const pw = passwordError(password)
+    if (pw) {
+      toast.error(pw)
       return
     }
 
@@ -138,7 +140,8 @@ export default function ResetPassword() {
                   autoComplete="new-password"
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder="Nova senha"
+                  aria-describedby="password-hint"
                   disabled={isSubmitting}
                   className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
@@ -150,6 +153,7 @@ export default function ResetPassword() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              <p id="password-hint" className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>
             </div>
 
             <div>
