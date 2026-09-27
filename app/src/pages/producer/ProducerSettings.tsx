@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
+import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import {
   User, Lock, CreditCard, Bell, Briefcase, Users, Link2, Save,
   Eye, EyeOff, Instagram, Globe, Copy,
@@ -294,8 +295,9 @@ export default function ProducerSettings() {
       toast.error('Senhas não conferem')
       return
     }
-    if (password.new.length < 6) {
-      toast.error('Mínimo 6 caracteres')
+    const pw = passwordError(password.new)
+    if (pw) {
+      toast.error(pw)
       return
     }
     try {
@@ -502,6 +504,7 @@ export default function ProducerSettings() {
                           {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {field === 'new' && <p className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>}
                     </div>
                   ))}
                   <button onClick={handlePassword} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Atualizar senha</button>

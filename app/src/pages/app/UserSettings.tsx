@@ -9,6 +9,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import { supabase } from '../../lib/supabase'
+import { passwordError, PASSWORD_HINT } from '../../lib/password'
 
 type Section = 'perfil' | 'seguranca' | 'pagamento' | 'notificacoes' | 'privacidade'
 
@@ -17,6 +18,7 @@ export default function UserSettings() {
   const navigate = useNavigate()
   const [section, setSection] = useState<Section>('perfil')
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
+  const [savingPw, setSavingPw] = useState(false)
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
@@ -190,14 +192,24 @@ export default function UserSettings() {
     toast.success('Alteracoes salvas!')
   }
 
-  const handlePassword = () => {
+  const handlePassword = async () => {
     if (!password.current || !password.new || !password.confirm) {
       toast.error('Preencha todos os campos'); return
     }
-    if (password.new !== password.confirm) { toast.error('Senhas nao conferem'); return }
-    if (password.new.length < 8) { toast.error('Minimo 8 caracteres'); return }
-    setPassword({ current: '', new: '', confirm: '' })
-    toast.success('Senha alterada!')
+    if (password.new !== password.confirm) { toast.error('Senhas não conferem'); return }
+    const pw = passwordError(password.new)
+    if (pw) { toast.error(pw); return }
+    setSavingPw(true)
+    try {
+      const { error } = await supabase.auth.updateUser({ password: password.new })
+      if (error) { toast.error(error.message); return }
+      setPassword({ current: '', new: '', confirm: '' })
+      toast.success('Senha alterada!')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível alterar a senha')
+    } finally {
+      setSavingPw(false)
+    }
   }
 
   const handleDeleteAccount = () => {
@@ -358,9 +370,10 @@ export default function UserSettings() {
                           {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
+                      {field === 'new' && <p className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>}
                     </div>
                   ))}
-                  <button onClick={handlePassword} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Atualizar senha</button>
+                  <button onClick={handlePassword} disabled={savingPw} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">{savingPw ? 'Salvando…' : 'Atualizar senha'}</button>
                 </div>
               </div>
 

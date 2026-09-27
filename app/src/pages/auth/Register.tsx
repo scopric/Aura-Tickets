@@ -4,8 +4,10 @@ import { Eye, EyeOff, ArrowRight, ArrowLeft, User, Building, Loader2 } from 'luc
 import { useAuth } from '../../hooks/useAuth'
 import type { Role } from '../../types/auth'
 import { toast } from 'sonner'
+import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import AuthLGPDConsent from '../../components/AuthLGPDConsent'
 import AuthAcquisitionSelector from '../../components/AuthAcquisitionSelector'
+import AuthPasswordStrength from '../../components/AuthPasswordStrength'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
@@ -17,6 +19,7 @@ export default function AuthRegister() {
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -56,8 +59,10 @@ export default function AuthRegister() {
     if (!lastName.trim()) e.lastName = 'Sobrenome obrigatório'
     if (!email.trim()) e.email = 'E-mail obrigatório'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) e.email = 'E-mail inválido'
-    if (!password) e.password = 'Senha obrigatória'
-    else if (password.length < 6) e.password = 'Mínimo 6 caracteres'
+    const pw = passwordError(password)
+    if (pw) e.password = pw
+    if (!confirmPassword) e.confirmPassword = 'Repita a senha'
+    else if (confirmPassword !== password) e.confirmPassword = 'As senhas não conferem'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -209,15 +214,34 @@ export default function AuthRegister() {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   disabled={isSubmitting}
-                  onChange={e => { setPassword(e.target.value); if (errors.password) setErrors(p => { const n = { ...p }; delete n.password; return n }) }}
-                  placeholder="Mínimo 6 caracteres"
+                  autoComplete="new-password"
+                  onChange={e => { setPassword(e.target.value); setErrors(p => { const n = { ...p }; delete n.password; delete n.confirmPassword; return n }) }}
+                  placeholder="Crie uma senha"
+                  aria-describedby="password-hint"
+                  aria-invalid={!!errors.password}
                   className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
                 />
                 <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              {errors.password && <p className="text-[10px] text-red-500 mt-1">{errors.password}</p>}
+              {/* dica em prosa antes de digitar; ao digitar, o checklist abaixo de "Confirmar senha" assume */}
+              <p id="password-hint" className={`text-[10px] mt-1 ${errors.password ? 'text-red-500' : 'text-espresso/50'}`}>{errors.password ?? (password.length > 0 ? '' : PASSWORD_HINT)}</p>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Confirmar senha</label>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={confirmPassword}
+                disabled={isSubmitting}
+                autoComplete="new-password"
+                onChange={e => { setConfirmPassword(e.target.value); if (errors.confirmPassword) setErrors(p => { const n = { ...p }; delete n.confirmPassword; return n }) }}
+                placeholder="Repita a senha"
+                aria-invalid={!!errors.confirmPassword}
+                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.confirmPassword ? 'border-red-300' : 'border-white/60'}`}
+              />
+              {errors.confirmPassword && <p className="text-[10px] text-red-500 mt-1">{errors.confirmPassword}</p>}
+              {password.length > 0 && <div className="mt-2"><AuthPasswordStrength password={password} confirmPassword={confirmPassword} /></div>}
             </div>
 
             <button 

@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { usePasswordValidation } from '../hooks/usePasswordValidation'
+import { PASSWORD_MIN } from '../lib/password'
 
 interface PasswordStrengthProps {
   password: string
@@ -10,11 +11,11 @@ export default function AuthPasswordStrength({ password, confirmPassword }: Pass
   const { strength, strengthLabel, strengthColor, checks, isValid } = usePasswordValidation(password)
 
   const requirements = [
-    { key: 'minLength' as const, label: 'Mínimo 8 caracteres' },
+    { key: 'minLength' as const, label: `Mínimo ${PASSWORD_MIN} caracteres` },
     { key: 'hasLowercase' as const, label: 'Pelo menos 1 letra minúscula' },
     { key: 'hasUppercase' as const, label: 'Pelo menos 1 letra maiúscula' },
     { key: 'hasNumber' as const, label: 'Pelo menos 1 número' },
-    { key: 'hasSpecial' as const, label: 'Pelo menos 1 caractere especial (!@#$%)' },
+    { key: 'hasSpecial' as const, label: 'Pelo menos 1 símbolo do teclado (!@#$%); acento e espaço não contam' },
   ]
 
   const passwordsMatch = confirmPassword !== undefined && password === confirmPassword && password.length > 0
