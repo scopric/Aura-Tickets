@@ -480,7 +480,8 @@ export function useAdminEvents() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
-        .select(`*, profiles (full_name), ticket_types (*)`)
+        // events tem duas FKs para profiles (producer_id e approved_by): sem o !producer_id o PostgREST devolve PGRST201
+        .select(`*, profiles!producer_id (full_name), ticket_types (*)`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
