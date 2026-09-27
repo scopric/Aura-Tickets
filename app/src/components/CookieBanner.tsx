@@ -1,9 +1,22 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCookieConsent } from '../hooks/useCookieConsent'
 import { Cookie, X, Check, Settings } from 'lucide-react'
 
 export default function CookieBanner() {
   const { consent, hasConsented, showBanner, setConsent, acceptAll, rejectAll, openBanner } = useCookieConsent()
+
+  // Publica a altura do aviso em --cookie-banner-h no <body> para o que fica fixo no rodapé
+  // (ex.: barra do carrinho na página do evento) subir e não ficar coberto
+  const bannerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = bannerRef.current
+    if (!showBanner || !el) return
+    const apply = () => document.body.style.setProperty('--cookie-banner-h', `${el.offsetHeight}px`)
+    apply()
+    const ro = new ResizeObserver(apply)
+    ro.observe(el)
+    return () => { ro.disconnect(); document.body.style.removeProperty('--cookie-banner-h') }
+  }, [showBanner])
 
   // Expõe função global para o footer poder abrir o banner
   useEffect(() => {
@@ -20,8 +33,8 @@ export default function CookieBanner() {
   if (!showBanner) return null
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[100] p-4 md:p-6 animate-in slide-in-from-bottom duration-500">
-      <div className="max-w-4xl mx-auto bg-slate-950/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] p-5 relative overflow-hidden">
+    <div ref={bannerRef} className="fixed bottom-0 left-0 right-0 z-[100] p-4 md:p-6 animate-in slide-in-from-bottom duration-500 pointer-events-none">
+      <div className="max-w-4xl mx-auto bg-slate-950/80 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] p-5 relative overflow-hidden pointer-events-auto">
         {/* Glow de fundo sutil */}
         <div className="absolute -top-12 -left-12 w-24 h-24 bg-[#8f33f5]/10 rounded-full blur-2xl pointer-events-none" />
         <div className="absolute -bottom-12 -right-12 w-24 h-24 bg-[#1d68c4]/10 rounded-full blur-2xl pointer-events-none" />

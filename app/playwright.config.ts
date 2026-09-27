@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './src/test',
+  testMatch: '**/e2e-*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
@@ -11,12 +12,14 @@ export default defineConfig({
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    // vídeo exige o ffmpeg do Playwright (não baixado neste Mac); só no CI
+    video: process.env.CI ? 'retain-on-failure' : 'off',
   },
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      // PW_CHANNEL=chrome usa o Google Chrome instalado (o Chromium do Playwright não está baixado neste Mac)
+      use: { ...devices['Desktop Chrome'], channel: process.env.PW_CHANNEL },
     },
     {
       name: 'firefox',
@@ -28,7 +31,7 @@ export default defineConfig({
     },
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: { ...devices['Pixel 5'], channel: process.env.PW_CHANNEL },
     },
     {
       name: 'Mobile Safari',

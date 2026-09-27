@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  /** Quando muda (ex.: o pathname), o boundary sai do estado de erro sem remontar os filhos */
+  resetKey?: string;
 }
 
 interface State {
@@ -26,6 +28,12 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("[ErrorBoundary]", error, errorInfo);
   }
 
+  componentDidUpdate(prev: Props) {
+    if (this.state.hasError && prev.resetKey !== this.props.resetKey) {
+      this.setState({ hasError: false, error: undefined });
+    }
+  }
+
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -40,7 +48,7 @@ export class ErrorBoundary extends Component<Props, State> {
           <p className="text-muted-foreground mb-6 max-w-md">
             Ocorreu um erro inesperado. Tente recarregar a página ou volte mais tarde.
           </p>
-          {this.state.error && (
+          {import.meta.env.DEV && this.state.error && (
             <pre className="text-xs bg-muted p-3 rounded-lg mb-6 max-w-full overflow-auto">
               {this.state.error.message}
             </pre>

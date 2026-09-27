@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { 
   TrendingUp, TrendingDown, CreditCard, ArrowUpRight, ArrowDownRight, 
   Wallet, BarChart3, Search, DollarSign, Check, X, Clock, 
-  Building2, Filter, AlertCircle, RefreshCw
+  Building2, Filter, AlertCircle, RefreshCw, Settings, ArrowRight
 } from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'

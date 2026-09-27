@@ -1,6 +1,5 @@
 import { Component, type ReactNode } from 'react'
 import { Home, RefreshCw } from 'lucide-react'
-import { Link } from 'react-router-dom'
 
 interface Props {
   children: ReactNode
@@ -61,13 +60,14 @@ export default class ErrorBoundary extends Component<Props, State> {
                 <RefreshCw className="w-4 h-4" />
                 Recarregar
               </button>
-              <Link
-                to="/"
+              {/* <a>, não <Link>: este boundary envolve o BrowserRouter e o fallback renderiza fora dele */}
+              <a
+                href="/"
                 className="flex items-center gap-2 px-6 py-3 border border-espresso/15 text-espresso font-medium rounded-full hover:bg-espresso/5 transition-all"
               >
                 <Home className="w-4 h-4" />
                 Inicio
-              </Link>
+              </a>
             </div>
           </div>
         </div>

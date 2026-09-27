@@ -9,6 +9,7 @@ import { useAuth } from '../hooks/useAuth'
 import { useUserNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
 import { cn } from '../lib/utils'
 import ThemeToggle from './ThemeToggle'
+import { ErrorBoundary } from './error-boundary'
 import { uploadAvatar } from '../lib/avatarUpload'
 
 const navItems = [
@@ -352,7 +353,9 @@ export default function AppLayout() {
 
         {/* Page Content */}
         <main className="flex-1 p-6 lg:p-10 max-w-[1440px] mx-auto w-full">
-          <Outlet />
+          <ErrorBoundary resetKey={location.pathname}>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 

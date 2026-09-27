@@ -600,7 +600,7 @@ export default function EventPage() {
 
       {/* Floating Cart */}
       {cartCount > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ bottom: 'calc(var(--cookie-banner-h, 0px) + 1.5rem)' }}>
           <div className="glass-dark border border-white/10 rounded-full px-6 py-3 flex items-center gap-4 shadow-elevated animate-pulse-glow">
             <ShoppingCart className="w-5 h-5 text-plum" />
             <span className="text-cream text-sm font-medium">{cartCount} ingresso{cartCount > 1 ? 's' : ''}</span>
