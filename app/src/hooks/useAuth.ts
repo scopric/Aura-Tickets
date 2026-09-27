@@ -104,7 +104,7 @@ export function useAuth() {
           email: data.user.email || '',
           full_name: data.user.user_metadata?.full_name || null,
           avatar_url: data.user.user_metadata?.avatar_url || null,
-          role: (data.user.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user' | 'editor',
+          role: 'user', // provisório: o papel real vem de profiles.role no fetchProfile abaixo
         })
         await fetchProfile().catch(() => {})
       }
@@ -216,9 +216,9 @@ export function useAuth() {
       const userData = { full_name: name, role }
       const data = await signUpMutation.mutateAsync({ email, password, userData })
       
-      // Após signup, se o trigger não criou o profile com role, atualizamos
+      // Após signup, garante o nome no profile (o papel é definido pelo banco no cadastro, nunca pelo cliente)
       if (data.user && !data.user.user_metadata?.role) {
-        await supabase.from('profiles').update({ role, full_name: name }).eq('id', data.user.id).catch(() => {})
+        await supabase.from('profiles').update({ full_name: name }).eq('id', data.user.id).catch(() => {})
       }
       
       toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.')

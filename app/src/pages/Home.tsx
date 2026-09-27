@@ -3,6 +3,7 @@ import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield, Check, Chec
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
+import { appUrl } from '../lib/appHost'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import ModernHero from '../components/ModernHero'
 import FAQSection from '../components/FAQSection'
@@ -846,7 +847,7 @@ export default function Home() {
 
                 <div className="relative z-10 mt-auto">
                   <Link
-                    to="/auth/register"
+                    to={appUrl('/auth/register')}
                     className="w-full py-3 bg-white text-slate-950 hover:bg-slate-100 active:scale-[0.98] text-xs font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-wider"
                   >
                     <span>Criar Plataforma</span>
@@ -942,7 +943,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to="/auth/register"
+                to={appUrl('/auth/register')}
                 className="btn-primary flex items-center gap-2"
               >
                 Criar Meu Evento

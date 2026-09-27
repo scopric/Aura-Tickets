@@ -4,6 +4,7 @@ import { Menu, X, UserPlus, LogOut, LayoutDashboard, ChevronDown } from 'lucide-
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
+import { appUrl } from '../lib/appHost'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -150,7 +151,7 @@ export default function Header() {
             ) : (
               <>
                 <Link
-                  to="/auth/login"
+                  to={appUrl('/auth/login')}
                   className={cn(
                     'text-[13px] py-2.5 px-5 font-medium rounded-full transition-all duration-300',
                     isScrolled 
@@ -161,7 +162,7 @@ export default function Header() {
                   Entrar
                 </Link>
                 <Link
-                  to="/auth/register"
+                  to={appUrl('/auth/register')}
                   className="text-[13px] py-2.5 px-5 font-semibold text-white rounded-full transition-all duration-300 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:scale-[1.02] active:scale-[0.98]"
                   style={{
                     background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
@@ -239,14 +240,14 @@ export default function Header() {
             ) : (
               <>
                 <Link
-                  to="/auth/login"
+                  to={appUrl('/auth/login')}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex-1 flex items-center justify-center py-3 text-sm font-medium text-slate-600 border border-slate-200 rounded-full hover:bg-slate-50 transition-all"
                 >
                   Entrar
                 </Link>
                 <Link
-                  to="/auth/register"
+                  to={appUrl('/auth/register')}
                   onClick={() => setIsMobileMenuOpen(false)}
                   className="flex-1 flex items-center justify-center py-3 text-sm font-semibold text-white rounded-full transition-all hover:shadow-lg"
                   style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}

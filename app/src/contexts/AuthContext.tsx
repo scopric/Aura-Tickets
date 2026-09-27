@@ -28,12 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           console.log('[DEBUG AuthContext] Sessao encontrada em getSession. Buscando perfil...')
           setSession(session)
           
-          const currentUser = useAuthStore.getState().user
-          if (currentUser && currentUser.id === session.user.id) {
-            console.log('[DEBUG AuthContext] Perfil ja presente em getSession. Bypass no fetchProfile.')
-            setLoading(false)
-            return
-          }
+          // Sempre relê o perfil ao carregar: o papel salvo no navegador pode estar desatualizado.
           fetchProfile()
         } else {
           const activeSession = useAuthStore.getState().session

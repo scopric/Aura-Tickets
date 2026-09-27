@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { appUrl } from '../lib/appHost'
 import { ArrowRight, Play } from 'lucide-react'
 import gsap from 'gsap'
 
@@ -291,7 +292,7 @@ export default function ModernHero() {
           {/* CTAs */}
           <div className="mh-cta-group flex flex-col sm:flex-row items-stretch sm:items-start gap-4">
             <Link
-              to="/auth/register"
+              to={appUrl('/auth/register')}
               className="group relative w-full sm:w-auto sm:min-w-[180px] h-12 border border-transparent text-sm font-semibold text-white rounded-full transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_40px_rgba(29,104,196,0.4)] active:scale-[0.98] overflow-hidden flex items-center justify-center"
               style={{
                 background: 'linear-gradient(135deg, #1d68c4, #4a60e3, #8f33f5)',
