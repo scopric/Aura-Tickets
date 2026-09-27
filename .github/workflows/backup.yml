@@ -1,0 +1,61 @@
+# Backup semanal do banco de produção (Supabase, plano gratuito não tem backup próprio).
+# Precisa de dois secrets no repositório (Settings → Secrets and variables → Actions):
+#   SUPABASE_DB_URL    — string de conexão do Postgres (Supabase → Connect → URI, com a senha)
+#   BACKUP_PASSPHRASE  — frase longa para cifrar o arquivo (o repositório é público e artefatos são baixáveis)
+# Restaurar: veja docs/backup/README.md
+name: Backup semanal do banco
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # toda segunda, 06:00 UTC (03:00 em Brasília)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    name: supabase db dump (roles, schema, dados)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Conferir secrets
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$DB_URL" || { echo "::error::Secret SUPABASE_DB_URL ausente"; exit 1; }
+          test -n "$PASS" || { echo "::error::Secret BACKUP_PASSPHRASE ausente (o artefato ficaria legível para qualquer um)"; exit 1; }
+
+      - uses: supabase/setup-cli@v3
+        with:
+          version: latest
+
+      - name: Dump
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          supabase db dump --db-url "$DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$DB_URL" -f backup/data.sql --use-copy --data-only
+          ls -la backup
+          tar czf "backup-$(date -u +%F).tar.gz" backup
+
+      - name: Cifrar (AES-256, simétrico) e descartar o texto claro
+        env:
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          f=$(ls backup-*.tar.gz)
+          printf '%s' "$PASS" | gpg --batch --yes --symmetric --cipher-algo AES256 --pinentry-mode loopback --passphrase-fd 0 -o "$f.gpg" "$f"
+          shred -u "$f" || rm -f "$f"
+          rm -rf backup
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ github.run_id }}
+          path: backup-*.tar.gz.gpg
+          retention-days: 90
+          if-no-files-found: error
