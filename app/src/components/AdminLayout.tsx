@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard,
   Users,
@@ -171,7 +172,9 @@ export default function AdminLayout() {
       </aside>
 
       <div className={cn('flex-1 transition-all duration-300 min-h-screen', collapsed ? 'ml-16' : 'ml-60')}>
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </div>
     </div>
   )

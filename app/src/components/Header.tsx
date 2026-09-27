@@ -71,7 +71,7 @@ export default function Header() {
           <nav className="hidden md:flex items-center gap-1">
             {[
               { href: '/', label: 'Início' },
-              { href: '/event/festival-de-verao-2025', label: 'Eventos' },
+              { href: '/events', label: 'Eventos' },
               { href: '/app/download', label: 'App' },
               { href: '/contato', label: 'Contato' },
             ].map((link) => (
@@ -180,6 +180,8 @@ export default function Header() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            aria-label="Menu"
+            aria-expanded={isMobileMenuOpen}
             className={cn(
               'md:hidden p-2',
               isScrolled ? 'text-slate-700' : 'text-white'
@@ -200,7 +202,7 @@ export default function Header() {
         <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200/60 px-6 py-6 space-y-1">
           {[
             { href: '/', label: 'Início' },
-            { href: '/event/noite-eletro-2025', label: 'Eventos' },
+            { href: '/events', label: 'Eventos' },
             { href: '/app/download', label: 'App' },
             { href: '/contato', label: 'Contato' },
           ].map((link) => (

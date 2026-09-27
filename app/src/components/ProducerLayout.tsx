@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useRef } from 'react'
+import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard, Calendar, Users, Wallet,
   ChevronLeft, ChevronRight, Settings, LogOut,
@@ -417,7 +418,9 @@ export default function ProducerLayout() {
         className="flex-1 transition-all duration-300 min-h-screen"
         style={{ marginLeft: collapsed ? '68px' : '232px' }}
       >
-        <Outlet />
+        <ErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </div>
       <OnboardingTour role="producer" onComplete={() => {}} />
     </div>
