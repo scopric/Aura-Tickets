@@ -12,7 +12,18 @@ export function appUrl(
   path: string,
   { hostname, protocol, port }: Pick<Location, 'hostname' | 'protocol' | 'port'> = window.location
 ): string {
-  if (hostname.endsWith('evokaa.com.br')) return `https://app.evokaa.com.br${path}`
+  if (hostname === 'evokaa.com.br' || hostname.endsWith('.evokaa.com.br')) return `https://app.evokaa.com.br${path}`
   if (hostname === 'localhost' || hostname.endsWith('.localhost')) return `${protocol}//app.localhost:${port}${path}`
   return path
+}
+
+// URL do site público (www.*) para um caminho: links que o produtor ou o participante copiam para divulgar.
+// Sempre absoluta (vai para a área de transferência); em previews da Vercel usa a origem atual.
+export function siteUrl(
+  path: string,
+  { hostname, protocol, port }: Pick<Location, 'hostname' | 'protocol' | 'port'> = window.location
+): string {
+  if (hostname === 'evokaa.com.br' || hostname.endsWith('.evokaa.com.br')) return `https://www.evokaa.com.br${path}`
+  if (hostname === 'localhost' || hostname.endsWith('.localhost')) return `${protocol}//localhost:${port}${path}`
+  return `${protocol}//${hostname}${port ? `:${port}` : ''}${path}`
 }

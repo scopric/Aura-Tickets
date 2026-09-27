@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
-  Mail, Phone, MapPin, Clock, Send, Instagram, MessageCircle,
+  Mail, Phone, MapPin, Clock, Send, MessageCircle,
   CheckCircle2, Globe, Headphones, Zap, Shield,
   ChevronRight, ChevronDown, MessageSquarePlus, ArrowUpRight, Sparkles,
   User, AtSign, FileText, AlignLeft
@@ -150,11 +150,7 @@ export default function ContactPage() {
             <div className="pt-6 border-t border-slate-100">
               <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-3">Siga-nos</span>
               <div className="flex gap-4">
-                <a href="#" className="text-xs font-semibold text-slate-500 hover:text-[#1d68c4] transition-colors flex items-center gap-1 group">
-                  <Instagram className="w-3.5 h-3.5" />
-                  <span>Instagram</span>
-                  <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </a>
+                {/* Instagram: sem perfil registrado no projeto; volta quando houver o endereço */}
                 <a href="/" className="text-xs font-semibold text-slate-500 hover:text-[#1d68c4] transition-colors flex items-center gap-1 group">
                   <Globe className="w-3.5 h-3.5" />
                   <span>Website</span>

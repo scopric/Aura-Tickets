@@ -29,7 +29,7 @@ interface SubItem {
   to: string
   icon: React.ElementType
   label: string
-  /** Ferramenta ainda em construção: exibida com selo "em breve" */
+  /** Ferramenta ainda em construção: fica fora do menu (Decisão 22); a rota segue atrás de ComingSoonRoute */
   comingSoon?: boolean
 }
 
@@ -133,11 +133,16 @@ const menuGroups: MenuGroup[] = [
   },
 ]
 
-function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePath }: {
+// Decisão 22 (27/09/2026): o que está "em breve" sai do menu até ficar pronto; as rotas continuam atrás de ComingSoonRoute.
+const visibleMenuGroups: MenuGroup[] = menuGroups.map(g => ({ ...g, items: g.items.filter(i => !i.comingSoon) }))
+
+function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, onExpand, isActivePath }: {
   group: MenuGroup
   collapsed: boolean
   expandedGroup: string | null
   toggleGroup: (id: string) => void
+  /** Menu recolhido: abre a barra lateral já com este grupo expandido */
+  onExpand: (id: string) => void
   isActivePath: (path: string) => boolean
 }) {
   const isExpanded = expandedGroup === group.id
@@ -147,7 +152,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
     return (
       <div className="relative group/menu">
         <button
-          onClick={() => {}}
+          onClick={() => onExpand(group.id)}
           className={cn(
             'flex items-center justify-center w-full rounded-lg transition-all py-2.5 mx-1',
             hasActiveChild
@@ -174,9 +179,6 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
               )}>
               <item.icon className="w-3.5 h-3.5 flex-shrink-0" />
               {item.label}
-              {item.comingSoon && (
-                <span className="ml-auto text-[8px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">em breve</span>
-              )}
             </Link>
           ))}
         </div>
@@ -225,9 +227,6 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, isActivePa
                 style={{ color: isActivePath(item.to) ? '#a78bfa' : undefined }}
               />
               <span className="text-[11.5px]">{item.label}</span>
-              {item.comingSoon && (
-                <span className="ml-auto text-[8px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400 font-semibold">em breve</span>
-              )}
             </Link>
           ))}
         </div>
@@ -333,13 +332,14 @@ export default function ProducerLayout() {
           </Link>
 
           {/* Menu Groups */}
-          {menuGroups.map(group => (
+          {visibleMenuGroups.map(group => (
             <SubMenuGroup
               key={group.id}
               group={group}
               collapsed={collapsed}
               expandedGroup={expandedGroup}
               toggleGroup={toggleGroup}
+              onExpand={(id) => { setCollapsed(false); setExpandedGroup(id) }}
               isActivePath={isActivePath}
             />
           ))}
@@ -406,6 +406,7 @@ export default function ProducerLayout() {
         {/* Collapse toggle */}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           className="absolute -right-3 top-[70px] w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 z-50"
           style={{ background: 'linear-gradient(135deg, #1d68c4, #8f33f5)', color: 'white', boxShadow: '0 2px 8px rgba(143,51,245,0.4)' }}
         >

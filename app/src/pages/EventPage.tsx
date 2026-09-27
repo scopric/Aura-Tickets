@@ -1,6 +1,6 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useRef, useEffect, useState } from 'react'
-import { MapPin, Calendar, Clock, Check, ChevronDown, ChevronUp, ShoppingCart, Heart, Share2, ArrowLeft, Users } from 'lucide-react'
+import { MapPin, Calendar, Clock, Check, ChevronDown, ChevronUp, ShoppingCart, Share2, ArrowLeft, Users } from 'lucide-react'
 import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
@@ -290,9 +290,7 @@ export default function EventPage() {
             >
               Comprar Ingressos
             </a>
-            <button className="p-4 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10 hover:bg-white/20 transition-all">
-              <Heart className="w-5 h-5" />
-            </button>
+            {/* favoritar: botão retirado até existir a tabela (Decisão 21, 27/09/2026) */}
             <button
               onClick={handleShare}
               className="p-4 rounded-full bg-white/10 backdrop-blur-sm text-cream border border-white/10 hover:bg-white/20 transition-all"

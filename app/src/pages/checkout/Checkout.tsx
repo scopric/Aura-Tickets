@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2, LogIn, Lock, Info, Building2, Armchair, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react'
+import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2, LogIn, Lock, Info, Building2, Armchair, ZoomIn, ZoomOut, RotateCcw, ShoppingCart } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePublicEvent } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
@@ -163,11 +163,7 @@ export default function Checkout() {
 
 
   useEffect(() => {
-    if (!eventId) {
-      toast.error('Nenhum evento selecionado para checkout.')
-      navigate('/')
-      return
-    }
+    if (!eventId) return // sem evento: a tela "carrinho vazio" abaixo cuida disso
 
     async function loadSeatingMap() {
       setLoadingMap(true)
@@ -195,7 +191,7 @@ export default function Checkout() {
     }
     
     loadSeatingMap()
-  }, [eventId, navigate])
+  }, [eventId])
 
   // Sincronizar carrinho com os assentos escolhidos no mapa
   useEffect(() => {
@@ -308,6 +304,21 @@ export default function Checkout() {
         itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
       }
     })
+  }
+
+  if (!eventId) {
+    return (
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md bg-white/60 border border-white/60 rounded-3xl p-8 backdrop-blur-sm shadow-elevated">
+          <ShoppingCart className="w-10 h-10 text-plum/40 mx-auto mb-4" />
+          <h2 className="font-serif text-2xl text-espresso mb-3">Seu carrinho está vazio</h2>
+          <p className="text-sm text-espresso/60 mb-6">Escolha um evento e adicione ingressos para continuar.</p>
+          <Link to="/events" className="btn-primary inline-flex items-center gap-2">
+            <Ticket className="w-4 h-4" /> Ver eventos
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   if (isLoading) {

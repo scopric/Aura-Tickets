@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { appUrl } from '../lib/appHost'
 import { ArrowUpRight, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
@@ -74,21 +75,25 @@ export default function Footer() {
                 Plataforma
               </h4>
               <ul className="space-y-3">
-                {[
-                  { label: 'Dashboard', href: '/producer/dashboard' },
-                  { label: 'Eventos', href: '/producer/events' },
-                  { label: 'Brand Studio', href: '/producer/brand' },
-                ].map((link) => (
-                  <li key={link.label}>
-                    <Link
-                      to={link.href}
-                      className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
-                    >
-                      {link.label}
-                      <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
-                    </Link>
-                  </li>
-                ))}
+                <li>
+                  {/* painel do produtor fica em app.*: âncora comum, não <Link> (troca de host) */}
+                  <a
+                    href={appUrl('/producer/dashboard')}
+                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                  >
+                    Dashboard
+                    <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
+                  </a>
+                </li>
+                <li>
+                  <Link
+                    to="/events"
+                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                  >
+                    Eventos
+                    <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
+                  </Link>
+                </li>
               </ul>
             </div>
             <div>
@@ -96,13 +101,16 @@ export default function Footer() {
                 Empresa
               </h4>
               <ul className="space-y-3">
-                {['Sobre', 'Carreiras', 'Contato'].map((label) => (
-                  <li key={label}>
-                    <span className="text-sm text-white/60 cursor-default">
-                      {label}
-                    </span>
-                  </li>
-                ))}
+                {/* "Sobre" e "Carreiras" saíram: não há página para elas */}
+                <li>
+                  <Link
+                    to="/contato"
+                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                  >
+                    Contato
+                    <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>

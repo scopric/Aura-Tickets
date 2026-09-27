@@ -107,7 +107,7 @@ export default function ProducerMenu() {
     byCategory: categories.map(c => ({
       ...c,
       count: items.filter(i => i.category === c.value).length,
-      value: items.filter(i => i.category === c.value).reduce((s, i) => s + Number(i.price), 0),
+      // (não sobrescrever `value`: é o id da categoria e serve de key)
     }))
   }
 

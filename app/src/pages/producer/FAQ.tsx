@@ -16,7 +16,7 @@ const producerFAQs = [
 ]
 
 const affiliateFAQs = [
-  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o link https://evokaa.events/?ref=SEUCODIGO com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
+  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20). Compartilhe o seu link de afiliado (botao Copiar, na tela Afiliados do produtor) com seus contatos. Toda venda feita pelo seu link entra na sua comissao.' },
   { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00.' },
   { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX para a chave cadastrada. Voce pode acompanhar o valor pendente e o ja pago no seu perfil de afiliado.' },
   { question: 'O que e o meu cupom exclusivo?', answer: 'O produtor pode criar um cupom de desconto exclusivo para voce (ex: CARLOSVIP 15% OFF). Isso ajuda a vender mais porque o comprador tambem ganha desconto!' },
