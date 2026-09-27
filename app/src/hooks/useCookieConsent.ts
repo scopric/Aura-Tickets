@@ -1,4 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { trackPageView, hasAnalyticsConsent } from '../lib/tracking'
+import { gaRevokeConsent } from '../lib/googleAnalytics'
 
 export interface CookieConsent {
   necessary: boolean
@@ -43,10 +45,15 @@ export function useCookieConsent() {
 
   const setConsent = useCallback((newConsent: CookieConsent) => {
     const merged = { ...newConsent, necessary: true }
+    const tinhaAnalytics = hasAnalyticsConsent()
     setConsentState(merged)
     setHasConsented(true)
     setShowBanner(false)
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ consent: merged, version: VERSION, date: new Date().toISOString() }))
+    // Só quando o consentimento analítico muda de fato (regravar o mesmo não repete a página):
+    // passou a consentir → registra a página atual (Supabase e GA4); retirou → GA4 desligado
+    if (merged.analytics && !tinhaAnalytics) trackPageView(window.location.pathname)
+    else if (!merged.analytics && tinhaAnalytics) gaRevokeConsent()
   }, [])
 
   const acceptAll = useCallback(() => {

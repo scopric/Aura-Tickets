@@ -50,6 +50,7 @@ npm run dev                  # http://localhost:3000
 ```
 VITE_SUPABASE_URL=https://<seu-projeto>.supabase.co
 VITE_SUPABASE_ANON_KEY=<sua-chave-anon>
+VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX   # opcional: Google Analytics 4; sem ela o GA não carrega
 ```
 
 > Variáveis expostas ao client **devem** começar com `VITE_`. A chave `anon` é pública por
@@ -77,4 +78,8 @@ em `app/src/types/database.ts` e devem ser mantidos em sincronia com o schema.
 - **Root Directory:** `app`
 - **Framework Preset:** Vite · **Build:** `npm run build` · **Output:** `dist`
 - Configure `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` nas Environment Variables.
+- **Analytics:** Vercel Web Analytics (ligar em Analytics → Enable no painel; `<Analytics />` já está no `App.tsx`)
+  e Google Analytics 4 (`VITE_GA_MEASUREMENT_ID` só em Production; carrega apenas após o consentimento
+  de cookies analíticos, com `page_view` manual por rota — na medição aprimorada do GA4, desligue
+  "alterações de página com base em eventos do histórico do navegador" para não contar em dobro).
 - `app/vercel.json` já contém os rewrites de SPA. Detalhes em `app/DEPLOY.md`.
