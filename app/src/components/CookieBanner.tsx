@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useCookieConsent } from '../hooks/useCookieConsent'
-import { Cookie, X, Check, Settings } from 'lucide-react'
+import { Cookie, X, Check } from 'lucide-react'
 
 export default function CookieBanner() {
-  const { consent, hasConsented, showBanner, setConsent, acceptAll, rejectAll, openBanner } = useCookieConsent()
+  const { consent, hasConsented, showBanner, acceptAll, rejectAll, openBanner } = useCookieConsent()
 
   // Publica a altura do aviso em --cookie-banner-h no <body> para o que fica fixo no rodapé
   // (ex.: barra do carrinho na página do evento) subir e não ficar coberto
@@ -73,21 +73,6 @@ export default function CookieBanner() {
               <X className="w-3.5 h-3.5" />
               Rejeitar opcionais
             </button>
-            <button
-              onClick={() => {
-                const newConsent = {
-                  necessary: true,
-                  analytics: !consent.analytics,
-                  marketing: !consent.marketing,
-                  preferences: !consent.preferences,
-                }
-                setConsent(newConsent)
-              }}
-              className="inline-flex items-center gap-1.5 px-4 py-2 text-white/40 hover:text-white/80 text-xs font-medium rounded-full hover:bg-white/5 transition-all duration-300"
-            >
-              <Settings className="w-3.5 h-3.5 animate-spin-slow" />
-              Personalizar
-            </button>
           </div>
         </div>
 
@@ -98,12 +83,6 @@ export default function CookieBanner() {
             </span>
             <span className={`px-2 py-0.5 rounded-full border ${consent.analytics ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'border-white/10 text-white/30'}`}>
               Analíticos {consent.analytics ? '✓' : ''}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full border ${consent.marketing ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'border-white/10 text-white/30'}`}>
-              Marketing {consent.marketing ? '✓' : ''}
-            </span>
-            <span className={`px-2 py-0.5 rounded-full border ${consent.preferences ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'border-white/10 text-white/30'}`}>
-              Preferências {consent.preferences ? '✓' : ''}
             </span>
           </div>
         )}
