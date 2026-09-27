@@ -1,5 +1,6 @@
 import { Suspense, lazy, useState, useEffect } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { SpeedInsights } from '@vercel/speed-insights/react'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAuth } from './hooks/useAuth'
@@ -362,6 +363,7 @@ function Layout() {
       <FeedbackButton />
       <CookieBanner />
       {!hideLayout && <SupportChatWidget />}
+      <SpeedInsights />
     </div>
   )
 }

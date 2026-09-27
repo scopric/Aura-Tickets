@@ -2,27 +2,18 @@ import { useState } from 'react'
 import {
   Star, Bug, Lightbulb, HelpCircle, ThumbsUp, Search,
   CheckCircle2, Mail, Trash2, Eye, MessageSquare,
-  Clock, X
+  Clock, X, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { feedbackMock } from '../../data/feedbackMock'
-
-type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
-type FeedbackRole = 'cliente' | 'produtor' | 'admin'
-type FeedbackStatus = 'novo' | 'lido' | 'respondido' | 'resolvido'
-
-interface FeedbackItem {
-  id: string
-  type: FeedbackType
-  role: FeedbackRole
-  name: string
-  email: string
-  message: string
-  rating: number
-  page: string
-  status: FeedbackStatus
-  createdAt: string
-}
+import {
+  useAdminFeedback,
+  useUpdateFeedbackStatus,
+  useDeleteFeedback,
+  type FeedbackType,
+  type FeedbackRole,
+  type FeedbackStatus,
+  type AdminFeedbackItem as FeedbackItem,
+} from '../../hooks/useFeedback'
 
 const typeConfig: Record<FeedbackType, { icon: typeof Star; label: string; color: string; bg: string }> = {
   melhoria: { icon: Lightbulb, label: 'Melhoria', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
@@ -40,7 +31,9 @@ const statusConfig: Record<FeedbackStatus, { label: string; color: string; bg: s
 }
 
 export default function AdminFeedback() {
-  const [items, setItems] = useState<FeedbackItem[]>(import.meta.env.DEV ? feedbackMock : [])
+  const { data: items = [], isLoading } = useAdminFeedback()
+  const updateStatusMutation = useUpdateFeedbackStatus()
+  const deleteMutation = useDeleteFeedback()
   const [search, setSearch] = useState('')
   const [filterType, setFilterType] = useState<FeedbackType | 'all'>('all')
   const [filterStatus, setFilterStatus] = useState<FeedbackStatus | 'all'>('all')
@@ -61,16 +54,24 @@ export default function AdminFeedback() {
     avgRating: items.filter(i => i.rating > 0).length > 0 ? (items.filter(i => i.rating > 0).reduce((s, i) => s + i.rating, 0) / items.filter(i => i.rating > 0).length).toFixed(1) : '-',
   }
 
-  const updateStatus = (id: string, status: FeedbackStatus) => {
-    setItems(items.map(i => i.id === id ? { ...i, status } : i))
-    toast.success(`Status atualizado: ${getStatusConfig(status).label}`)
-    if (selected?.id === id) setSelected({ ...selected, status })
+  const updateStatus = async (id: string, status: FeedbackStatus) => {
+    try {
+      await updateStatusMutation.mutateAsync({ id, status })
+      toast.success(`Status atualizado: ${getStatusConfig(status).label}`)
+      if (selected?.id === id) setSelected({ ...selected, status })
+    } catch {
+      toast.error('Erro ao atualizar status')
+    }
   }
 
-  const deleteItem = (id: string) => {
-    setItems(items.filter(i => i.id !== id))
-    setSelected(null)
-    toast.success('Removido')
+  const deleteItem = async (id: string) => {
+    try {
+      await deleteMutation.mutateAsync(id)
+      setSelected(null)
+      toast.success('Removido')
+    } catch {
+      toast.error('Erro ao remover')
+    }
   }
 
   // Validadores estritos de acesso a objetos de configuração para evitar bracket notation dinâmica (Prototype Pollution)
@@ -199,6 +200,16 @@ export default function AdminFeedback() {
               </tr>
             </thead>
             <tbody>
+              {isLoading && (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-espresso/40">
+                  <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                </td></tr>
+              )}
+              {!isLoading && filtered.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-12 text-center text-xs text-espresso/40">
+                  Nenhum feedback encontrado.
+                </td></tr>
+              )}
               {filtered.map(item => {
                 const tc = getTypeConfig(item.type)
                 const sc = getStatusConfig(item.status)

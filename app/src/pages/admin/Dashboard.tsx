@@ -5,14 +5,7 @@ import {
   CreditCard, BarChart3, Clock, AlertTriangle, Mail, Phone
 } from 'lucide-react'
 import { toast } from 'sonner'
-
-interface User {
-  id: string; name: string; email: string; role: 'participante' | 'produtor' | 'admin';
-  plan: string; status: 'ativo' | 'bloqueado' | 'pendente'; joinedAt: string;
-  events: number; revenue: number; lastLogin: string; phone: string; avatar: string;
-  paymentMethod: string; planDueDate: string; planValue: number; totalSpent: number;
-  termsAccepted: string; features: string[];
-}
+import { useAdminUsers, useToggleUserBlock, type AdminUser as User } from '../../hooks/useAdminUsers'
 
 interface Plan {
   id: string; name: string; price: number; period: 'mensal' | 'anual';
@@ -24,15 +17,6 @@ interface FeatureGate {
   id: string; name: string; description: string;
   plans: Record<string, boolean>; freeTrial: number;
 }
-
-const mockUsers: User[] = [
-  { id: 'u1', name: 'Joao Silva', email: 'joao@email.com', role: 'produtor', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '01 Mar 2025', events: 12, revenue: 156000, lastLogin: '2h atras', phone: '(11) 98765-4321', avatar: 'https://i.pravatar.cc/150?img=11', paymentMethod: 'Cartao Credito', planDueDate: '01 Jun 2025', planValue: 149, totalSpent: 2847, termsAccepted: '01 Mar 2025', features: ['tudo'] },
-  { id: 'u2', name: 'Ana Costa', email: 'ana@email.com', role: 'participante', plan: 'Gratuito', status: 'ativo', joinedAt: '15 Fev 2025', events: 0, revenue: 0, lastLogin: '5h atras', phone: '(11) 91234-5678', avatar: 'https://i.pravatar.cc/150?img=5', paymentMethod: '-', planDueDate: '-', planValue: 0, totalSpent: 890, termsAccepted: '15 Fev 2025', features: ['compra', 'favoritos'] },
-  { id: 'u3', name: 'Carlos Mendes', email: 'carlos@email.com', role: 'produtor', plan: 'Evokaa Starter', status: 'ativo', joinedAt: '10 Abr 2025', events: 3, revenue: 23400, lastLogin: '1 dia', phone: '(11) 92345-6789', avatar: 'https://i.pravatar.cc/150?img=3', paymentMethod: 'PIX', planDueDate: '10 Mai 2025', planValue: 49, totalSpent: 147, termsAccepted: '10 Abr 2025', features: ['eventos_limitados', 'financeiro'] },
-  { id: 'u4', name: 'Maria Souza', email: 'maria@email.com', role: 'admin', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '01 Jan 2025', events: 0, revenue: 0, lastLogin: '30min', phone: '(11) 93456-7890', avatar: 'https://i.pravatar.cc/150?img=9', paymentMethod: 'Cartao Credito', planDueDate: '01 Jan 2026', planValue: 149, totalSpent: 1788, termsAccepted: '01 Jan 2025', features: ['tudo'] },
-  { id: 'u5', name: 'Pedro Lima', email: 'pedro@email.com', role: 'participante', plan: 'Evokaa Plus', status: 'bloqueado', joinedAt: '20 Mar 2025', events: 0, revenue: 0, lastLogin: '15 dias', phone: '(11) 94567-8901', avatar: 'https://i.pravatar.cc/150?img=8', paymentMethod: 'Boleto', planDueDate: 'Vencido', planValue: 99, totalSpent: 297, termsAccepted: '20 Mar 2025', features: ['compra', 'mesa_coletiva', 'favoritos'] },
-  { id: 'u6', name: 'Fernanda Rocha', email: 'fernanda@email.com', role: 'produtor', plan: 'Evokaa Pro', status: 'ativo', joinedAt: '05 Jan 2025', events: 8, revenue: 98000, lastLogin: '3h atras', phone: '(11) 95678-9012', avatar: 'https://i.pravatar.cc/150?img=20', paymentMethod: 'PIX', planDueDate: '05 Jun 2025', planValue: 149, totalSpent: 745, termsAccepted: '05 Jan 2025', features: ['tudo'] },
-]
 
 const plans: Plan[] = [
   { id: 'starter', name: 'Evokaa Starter', price: 49, period: 'mensal', color: '#8b5cf6', subscribers: 234, revenue: 11466,
@@ -64,7 +48,8 @@ export default function AdminDashboard() {
   const [userFilter, setUserFilter] = useState('all')
 
   const totalRevenue = plans.reduce((s, p) => s + p.revenue, 0)
-  const dbUsers = import.meta.env.DEV ? mockUsers : []
+  const { data: dbUsers = [] } = useAdminUsers()
+  const toggleBlockMutation = useToggleUserBlock()
   const totalUsers = dbUsers.length
   const activeUsers = dbUsers.filter(u => u.status === 'ativo').length
   const pendingPayments = dbUsers.filter(u => u.planDueDate === 'Vencido').length
@@ -75,12 +60,17 @@ export default function AdminDashboard() {
     return matchSearch && matchFilter
   })
 
-  const toggleUserStatus = (id: string) => {
+  const toggleUserStatus = async (id: string) => {
     const user = dbUsers.find(u => u.id === id)
-    if (user) {
-      user.status = user.status === 'ativo' ? 'bloqueado' : 'ativo'
-      toast.success(`${user.name} ${user.status === 'ativo' ? 'ativado' : 'bloqueado'}`)
-      setSelectedUser({ ...user })
+    if (!user) return
+    const block = user.status === 'ativo'
+    try {
+      await toggleBlockMutation.mutateAsync({ id, block })
+      const newStatus = block ? 'bloqueado' : 'ativo'
+      toast.success(`${user.name} ${newStatus === 'ativo' ? 'ativado' : 'bloqueado'}`)
+      setSelectedUser({ ...user, status: newStatus })
+    } catch {
+      toast.error('Erro ao atualizar status do usuário')
     }
   }
 
