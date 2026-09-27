@@ -53,6 +53,26 @@ test.describe('admin com conta real', () => {
     await page.goto(`${ALPHA}/admin/events`)
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15000 })
+    // A1b: painel de detalhes do evento (a barra lateral também tem "Ingressos", por isso o escopo no dialog)
+    await page.getByRole('button', { name: 'Ver detalhes do evento' }).first().click()
+    await expect(page.getByRole('dialog')).toContainText('Ingressos')
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+
+    // A1b: produtores reais (a linha de "nenhum produtor" também é um tr, por isso a segunda checagem)
+    await page.goto(`${ALPHA}/admin/producers`)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('tbody tr').first()).not.toContainText('Nenhum produtor')
+    await expect(page.locator('body')).not.toContainText('Pulse Entretenimento')
+
+    // A1b: dashboard sem os números inventados do antigo mock
+    await page.goto(`${ALPHA}/admin/dashboard`)
+    await expect(page.getByText('Fila de moderação')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByText(/Atualizado em/)).toBeVisible({ timeout: 20000 }) // só depois das consultas o body está completo
+    const dashboard = await page.locator('body').innerText()
+    expect(dashboard).not.toContain('107.968')
+    expect(dashboard).not.toMatch(/882 assinantes|Distribuicao de Planos/)
 
     for (const tema of ['dark', 'light']) {
       await page.evaluate(t => localStorage.setItem('evokaa-theme', t), tema)
