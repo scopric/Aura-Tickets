@@ -9,7 +9,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: process.env.PW_BASE_URL || 'http://localhost:3000', // PW_BASE_URL para testar outro servidor já de pé (ex.: worktree na 3001)
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     // vídeo exige o ffmpeg do Playwright (não baixado neste Mac); só no CI
@@ -40,7 +40,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    url: process.env.PW_BASE_URL || 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
   },
 })

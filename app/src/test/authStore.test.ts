@@ -130,6 +130,24 @@ describe('authStore', () => {
     expect(state.isLoading).toBe(false)
   })
 
+  it('mapeia telefone, cidade, bio e nascimento do perfil (Perfil do participante)', async () => {
+    vi.mocked(supabase.auth.getUser).mockResolvedValueOnce({
+      data: { user: { id: 'real-id', email: 'real@usuario.com' } },
+      error: null,
+    } as unknown as Awaited<ReturnType<typeof supabase.auth.getUser>>)
+    vi.mocked(supabase.from).mockReturnValueOnce({
+      select: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(() => Promise.resolve({ data: { full_name: 'Usuario Real', role: 'user', phone: '+5511999990000', city: 'Curitiba - PR', bio: 'Oi', birth_date: '1990-05-20' }, error: null })),
+        })),
+      })),
+    } as unknown as ReturnType<typeof supabase.from>)
+    useAuthStore.getState().setSession({ access_token: 'real-token' })
+    await useAuthStore.getState().fetchProfile()
+    const u = useAuthStore.getState().user
+    expect(u).toMatchObject({ phone: '+5511999990000', city: 'Curitiba - PR', bio: 'Oi', birth_date: '1990-05-20' })
+  })
+
   it('deve limpar estado quando não houver usuário autenticado', async () => {
     vi.mocked(supabase.auth.getUser).mockResolvedValueOnce({
       data: { user: null },

@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 .vercel
 .env*
+
+# artefatos do Playwright (relatórios e prints de telas logadas)
+test-results/
+playwright-report/
