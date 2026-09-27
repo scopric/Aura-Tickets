@@ -45,11 +45,6 @@ const GoogleIcon = () => (
   </svg>
 )
 
-const AppleIcon = () => (
-  <svg className="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-    <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.82M15.97 4.17c.66-.81 1.11-1.93.99-3.06-1 .04-2.22.67-2.94 1.5-.63.73-1.18 1.87-1.03 2.98 1.12.09 2.27-.56 2.98-1.42z" />
-  </svg>
-)
 
 export default function AuthLogin() {
   const navigate = useNavigate()
@@ -109,7 +104,7 @@ export default function AuthLogin() {
   // Fluxo implícito (lib/supabase.ts): a sessão volta no hash da URL e o supabase-js a processa.
   const handleOAuthLogin = async (provider: OAuthProvider) => {
     if (!socialConsent) {
-      setError('Marque o aceite dos Termos de Uso e da Política de Privacidade para entrar com Google ou Apple.')
+      setError('Marque o aceite dos Termos de Uso e da Política de Privacidade para entrar com Google.')
       return
     }
     setIsSubmitting(true)
@@ -473,7 +468,7 @@ export default function AuthLogin() {
                   className="mt-0.5 h-3.5 w-3.5 accent-plum"
                 />
                 <span>
-                  Li e aceito os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidade</a> para entrar com Google ou Apple.
+                  Li e aceito os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidade</a> para entrar com Google.
                 </span>
               </label>
               <button
@@ -485,15 +480,8 @@ export default function AuthLogin() {
                 <GoogleIcon />
                 <span>Entrar com Google</span>
               </button>
-              <button
-                type="button"
-                onClick={() => handleOAuthLogin('apple')}
-                disabled={isSubmitting || !socialConsent}
-                className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
-              >
-                <AppleIcon />
-                <span>Entrar com Apple</span>
-              </button>
+              {/* "Entrar com Apple" escondido por decisão do Ricardo (28/09/2026): só Google por ora.
+                  A Apple exige o Apple Developer Program (US$ 99/ano); handleOAuthLogin('apple') continua pronto. */}
               {/* "Entrar com Microsoft" escondido até o app do Azure ser refeito (Decisão 23, 27/09/2026):
                   o Client ID atual devolve AADSTS65002. handleOAuthLogin('azure') continua pronto. */}
             </div>
