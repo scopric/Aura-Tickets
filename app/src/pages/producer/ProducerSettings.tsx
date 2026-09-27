@@ -709,26 +709,8 @@ export default function ProducerSettings() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-xl bg-white/60 border border-white/60">
-                  <label className="text-xs text-espresso/40 mb-2 block flex items-center gap-1"><Link2 className="w-3 h-3" />Webhook URL</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/40 font-mono truncate">{integrations.webhook}</div>
-                    <button onClick={() => handleCopy(integrations.webhook)} className="px-3 py-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all">
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-5 rounded-xl bg-white/60 border border-white/60">
-                  <h3 className="text-sm font-medium text-espresso mb-3">Widget de Vendas</h3>
-                  <p className="text-xs text-espresso/30 mb-3">Incorpore o botao de compra no seu site</p>
-                  <div className="p-3 bg-canvas rounded-xl font-mono text-[10px] text-espresso/40 break-all">
-                    {`<script src="https://evokaa.events/widget.js" data-producer="123"></script>`}
-                  </div>
-                  <button onClick={() => handleCopy(`<script src="https://evokaa.events/widget.js" data-producer="123"></script>`)} className="mt-2 px-4 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso hover:bg-white transition-all flex items-center gap-1">
-                    <Copy className="w-3 h-3" /> Copiar codigo
-                  </button>
-                </div>
+                {/* "Webhook URL" e "Widget de Vendas" retirados: não há webhook nem widget.js; produtores antigos
+                    ainda têm no banco a URL inventada de api.evokaa.events (pendência: limpar a coluna) */}
               </div>
             </div>
           )}

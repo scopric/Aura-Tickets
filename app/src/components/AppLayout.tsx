@@ -273,10 +273,14 @@ export default function AppLayout() {
             {/* Search */}
             <div className="relative w-72 max-w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+              {/* A busca ainda não filtra nada: fica desabilitada e avisa, em vez de fingir (pendência: filtro real) */}
               <input
                 type="text"
-                placeholder="Buscar eventos..."
-                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500/30 transition-all"
+                disabled
+                aria-label="Busca de eventos (em breve)"
+                title="Busca de eventos em breve"
+                placeholder="Busca de eventos em breve"
+                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/40 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none transition-all"
               />
             </div>
           </div>

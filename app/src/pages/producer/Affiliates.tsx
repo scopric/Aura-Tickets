@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { siteUrl } from '../../lib/appHost'
 import {
   Users, UserPlus, TrendingUp, DollarSign, QrCode, Copy, Check,
   X, Search, Medal, Crown, Award, Star, Tag, Ticket, BarChart3,
@@ -222,7 +223,7 @@ export default function ProducerAffiliates() {
   }
 
   const copyCode = (code: string, id: string) => {
-    navigator.clipboard.writeText(`https://evokaa.events/?ref=${code}`)
+    navigator.clipboard.writeText(siteUrl(`/?ref=${code}`))
     setCopied(id)
     setTimeout(() => setCopied(null), 1500)
     toast.success('Link de afiliado copiado!')

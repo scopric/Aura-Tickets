@@ -4,7 +4,7 @@ test.describe('Checkout', () => {
   test.beforeEach(async ({ page }) => {
     // Login como participante antes de cada teste de checkout
     await page.goto('/auth/login')
-    await page.getByRole('button', { name: 'Participante' }).click()
+    await page.getByRole('button', { name: 'Participante', exact: true }).click() // sem exact casa também "Entrar como Participante"
     await page.getByPlaceholder('seu@email.com').fill('user@aura.teste')
     await page.getByPlaceholder('Sua senha').fill('senha123')
     await page.getByRole('button', { name: /Entrar como Participante/ }).click()
@@ -26,12 +26,10 @@ test.describe('Checkout', () => {
     }
   })
 
-  test('deve calcular total no checkout corretamente', async ({ page }) => {
-    // Navegar direto para checkout com estado
+  test('/checkout sem carrinho mostra o aviso de carrinho vazio', async ({ page }) => {
+    // Sem estado nem carrinho pendente: tela "Seu carrinho está vazio" (PR 2A), não a Home
     await page.goto('/checkout')
-
-    // Verificar se a página carregou
-    await expect(page.getByText('Checkout')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Seu carrinho está vazio' })).toBeVisible()
   })
 
   test('deve exigir seleção de ingresso antes de continuar', async ({ page }) => {

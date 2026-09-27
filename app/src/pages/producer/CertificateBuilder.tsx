@@ -60,6 +60,7 @@ export default function CertificateBuilder() {
   const [eventId, setEventId] = useState<string | null>(eventIdParam)
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic')
+  const [accentColor, setAccentColor] = useState<string | null>(null) // null = cor do modelo
   const [fields, setFields] = useState<CertField[]>(defaultFields)
   const [selectedField, setSelectedField] = useState<string | null>(null)
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
@@ -109,6 +110,8 @@ export default function CertificateBuilder() {
         } else if (data && data.template) {
           const tpl = data.template as any
           if (tpl.selectedTemplate) setSelectedTemplate(tpl.selectedTemplate)
+          // só cor hexadecimal: o valor vem do JSON do banco e vai para `style`
+          if (/^#[0-9a-f]{6}$/i.test(tpl.accentColor)) setAccentColor(tpl.accentColor)
           if (tpl.fields) setFields(tpl.fields)
           if (tpl.logoUrl) setLogoUrl(tpl.logoUrl)
           if (tpl.sigUrl) setSigUrl(tpl.sigUrl)
@@ -152,6 +155,7 @@ export default function CertificateBuilder() {
         event_id: activeEventId,
         template: {
           selectedTemplate,
+          accentColor,
           fields,
           logoUrl,
           sigUrl
@@ -166,7 +170,8 @@ export default function CertificateBuilder() {
     }
   }
 
-  const template = templates.find(t => t.id === selectedTemplate) || templates[0]
+  const baseTemplate = templates.find(t => t.id === selectedTemplate) || templates[0]
+  const template = accentColor ? { ...baseTemplate, accentColor } : baseTemplate
 
   const updateField = (id: string, updates: Partial<CertField>) => {
     setFields(fields.map(f => f.id === id ? { ...f, ...updates } : f))
@@ -253,7 +258,7 @@ export default function CertificateBuilder() {
         <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Layout className="w-4 h-4 text-plum" /> Escolha um Modelo</h2>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           {templates.map(t => (
-            <button key={t.id} onClick={() => setSelectedTemplate(t.id)}
+            <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setAccentColor(null) }}
               className={`p-4 rounded-xl border-2 transition-all text-center ${selectedTemplate === t.id ? 'border-plum bg-plum/5' : 'border-white/60 bg-white/40 hover:border-plum/20'}`}>
               <div className="w-12 h-16 mx-auto rounded mb-2 border" style={{ background: t.bgColor, borderColor: t.accentColor }} />
               <div className="text-xs font-medium text-espresso">{t.name}</div>
@@ -289,7 +294,7 @@ export default function CertificateBuilder() {
               <label className="text-xs text-espresso/50 mb-1 block">Cor de Destaque</label>
               <div className="flex gap-2">
                 {['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2'].map(c => (
-                  <button key={c} onClick={() => {}} title={`Cor ${c}`} aria-label={`Selecionar cor de destaque ${c}`} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                  <button key={c} onClick={() => setAccentColor(c)} title={`Cor ${c}`} aria-label={`Selecionar cor de destaque ${c}`} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
                 ))}
               </div>
             </div>

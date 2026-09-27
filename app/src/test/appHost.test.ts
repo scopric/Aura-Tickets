@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getAppMode, appUrl } from '../lib/appHost'
+import { getAppMode, appUrl, siteUrl } from '../lib/appHost'
 
 const loc = (hostname: string, protocol = 'https:', port = '') => ({ hostname, protocol, port })
 
@@ -20,5 +20,12 @@ describe('appHost', () => {
     expect(appUrl('/auth/login', loc('localhost', 'http:', '3000'))).toBe('http://app.localhost:3000/auth/login')
     expect(appUrl('/auth/login', loc('app.localhost', 'http:', '3000'))).toBe('http://app.localhost:3000/auth/login')
     expect(appUrl('/auth/login', loc('evokaa-git-x.vercel.app'))).toBe('/auth/login')
+  })
+
+  it('siteUrl aponta para www.* em produção e para localhost sem subdomínio; origem atual nos previews', () => {
+    expect(siteUrl('/events', loc('app.evokaa.com.br'))).toBe('https://www.evokaa.com.br/events')
+    expect(siteUrl('/?ref=ABC', loc('www.evokaa.com.br'))).toBe('https://www.evokaa.com.br/?ref=ABC')
+    expect(siteUrl('/event/x', loc('app.localhost', 'http:', '3003'))).toBe('http://localhost:3003/event/x')
+    expect(siteUrl('/event/x', loc('evokaa-git-x.vercel.app'))).toBe('https://evokaa-git-x.vercel.app/event/x')
   })
 })

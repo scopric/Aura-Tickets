@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ImagePlus, Upload, X, Eye, Trash2, Copy, ToggleLeft, ToggleRight, Loader2
+  ImagePlus, Upload, X, Eye, Trash2, ToggleLeft, ToggleRight, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -65,11 +65,6 @@ export default function ProducerEventBanners() {
     }
   }
 
-  const copyLink = (id: string) => {
-    navigator.clipboard.writeText(`https://aura.events/b/${id}`)
-    toast.success('Link copiado!')
-  }
-
   if (isLoading) {
     return (
       <div className="p-6 lg:p-10 max-w-6xl mx-auto flex flex-col items-center justify-center py-20">
@@ -115,9 +110,6 @@ export default function ProducerEventBanners() {
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                 <button onClick={() => setPreviewBanner(banner)} className="p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors">
                   <Eye className="w-4 h-4" />
-                </button>
-                <button onClick={() => copyLink(banner.id)} className="p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors">
-                  <Copy className="w-4 h-4" />
                 </button>
               </div>
               <div className="absolute top-3 left-3">
