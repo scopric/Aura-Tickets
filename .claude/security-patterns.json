@@ -1,0 +1,11 @@
+{
+  "patterns": [
+    {"rule_name": "chave_secreta_stripe", "substrings": ["sk_live_", "sk_test_", "whsec_"], "reminder": "Chave ou segredo do Stripe em código. Leia do ambiente da Edge Function (Deno.env), nunca versione."},
+    {"rule_name": "service_role_no_front", "substrings": ["service_role", "SUPABASE_SERVICE_ROLE_KEY"], "paths": ["**/app/src/**"], "reminder": "service_role no front-end expõe o banco inteiro. Só em Edge Functions, via ambiente."},
+    {"rule_name": "jwt_literal", "regex": "eyJ[A-Za-z0-9_-]{20,}\\.[A-Za-z0-9_-]{20,}\\.", "reminder": "Parece um JWT literal em código. Remova e rotacione se for real."},
+    {"rule_name": "woovi_app_id", "substrings": ["WOOVI_APP_ID", "OPENPIX_APP_ID"], "paths": ["**/app/src/**"], "reminder": "Credencial da Woovi/OpenPix no front. Só na Edge Function."},
+    {"rule_name": "log_dado_pessoal", "regex": "console\\.(log|info|debug)\\([^)]*(cpf|email|e-mail|telefone|phone|endereco|address|session|token)", "paths": ["**/app/src/**"], "reminder": "Log com possível dado pessoal ou token. Remova antes de publicar (LGPD)."},
+    {"rule_name": "migration_por_agente", "regex": ".", "paths": ["**/supabase/migrations/**"], "reminder": "Arquivo em supabase/migrations: a integração Supabase↔GitHub aplicaria em produção. SQL novo vai para docs/sql/ e é aplicado pelo mantenedor."},
+    {"rule_name": "redirect_aberto", "regex": "redirectTo\\s*[:=]\\s*[^'\"]*(searchParams|query|params)", "paths": ["**/app/src/**"], "reminder": "Redirecionamento vindo de parâmetro da URL: use lista de destinos permitidos."}
+  ]
+}
