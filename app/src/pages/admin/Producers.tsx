@@ -1,130 +1,206 @@
-import { useRef, useEffect } from 'react'
-import { Shield, CheckCircle, XCircle, Clock, Star, Mail, Phone, Calendar, ArrowUpRight } from 'lucide-react'
-import gsap from 'gsap'
+import { useEffect, useState } from 'react'
+import { Shield, Building2, BadgeCheck, Calendar, Search, Loader2 } from 'lucide-react'
+import { supabase } from '../../lib/supabase'
+import { toast } from 'sonner'
 
-const mockProducers = [
-  { id: 'p1', name: 'Joao Eventos', email: 'joao@eventos.com', phone: '(11) 98765-0001', avatar: 'https://i.pravatar.cc/150?img=60', status: 'approved', rating: 4.8, events: 12, revenue: 145000, joined: '15 Mar 2024' },
-  { id: 'p2', name: 'Maria Producoes', email: 'maria@prod.com', phone: '(11) 98765-0002', avatar: 'https://i.pravatar.cc/150?img=44', status: 'approved', rating: 4.9, events: 8, revenue: 89000, joined: '22 Jan 2024' },
-  { id: 'p3', name: 'Pulse Entretenimento', email: 'contato@pulse.com', phone: '(11) 98765-0003', avatar: 'https://i.pravatar.cc/150?img=33', status: 'pending', rating: 0, events: 0, revenue: 0, joined: '10 Mai 2025' },
-  { id: 'p4', name: 'Nexus Festas', email: 'nexus@festas.com', phone: '(11) 98765-0004', avatar: 'https://i.pravatar.cc/150?img=68', status: 'approved', rating: 4.5, events: 5, revenue: 45000, joined: '03 Fev 2024' },
-  { id: 'p5', name: 'Eko Events', email: 'eko@events.com', phone: '(11) 98765-0005', avatar: 'https://i.pravatar.cc/150?img=12', status: 'rejected', rating: 0, events: 0, revenue: 0, joined: '18 Abr 2025' },
-]
+interface Company {
+  company_name: string
+  cnpj: string
+  is_verified: boolean
+  commission_rate: number | null
+}
 
-const statusConfig: Record<string, { label: string, cls: string, icon: typeof CheckCircle }> = {
-  approved: { label: 'Aprovado', cls: 'bg-green-50 text-green-600 border-green-100', icon: CheckCircle },
-  pending: { label: 'Pendente', cls: 'bg-amber-50 text-amber-600 border-amber-100', icon: Clock },
-  rejected: { label: 'Rejeitado', cls: 'bg-red-50 text-red-500 border-red-100', icon: XCircle },
+interface Producer {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  created_at: string
+  company: Company | null // linha em producer_profiles (1:1); null = cadastro de empresa incompleto
+  events: number
 }
 
 export default function AdminProducers() {
-  const ref = useRef<HTMLDivElement>(null)
+  const [producers, setProducers] = useState<Producer[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [savingId, setSavingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.fromTo('.prod-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.05, ease: 'power3.out' })
-    }, ref)
-    return () => ctx.revert()
-  }, [])
+  const loadData = async () => {
+    setIsLoading(true)
+    setLoadError(null)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201
+        .select('id, email, full_name, avatar_url, created_at, producer_profiles(company_name, cnpj, is_verified, commission_rate), events!producer_id(count)')
+        .eq('role', 'producer')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setProducers((data || []).map((p: any) => {
+        const pp = Array.isArray(p.producer_profiles) ? p.producer_profiles[0] : p.producer_profiles
+        const ev = Array.isArray(p.events) ? p.events[0] : p.events
+        return { id: p.id, email: p.email, full_name: p.full_name, avatar_url: p.avatar_url, created_at: p.created_at, company: pp || null, events: Number(ev?.count) || 0 }
+      }))
+    } catch (err: any) {
+      setProducers([])
+      setLoadError(err?.message || 'Erro desconhecido')
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-  const producers = import.meta.env.DEV ? mockProducers : []
-  const approved = producers.filter(p => p.status === 'approved')
-  const pending = producers.filter(p => p.status === 'pending')
-  const totalRevenue = producers.reduce((s, p) => s + p.revenue, 0)
+  useEffect(() => { loadData() }, [])
+
+  const setVerified = async (p: Producer, value: boolean) => {
+    if (!value && !window.confirm(`Remover a verificação de ${p.company?.company_name || p.email}?`)) return
+    setSavingId(p.id)
+    try {
+      const { data, error } = await supabase
+        .from('producer_profiles')
+        .update({ is_verified: value })
+        .eq('id', p.id)
+        .select('id')
+      if (error) throw error
+      if (!data || data.length === 0) throw new Error('nenhuma linha foi alterada (regra de acesso ou cadastro inexistente)')
+      // profiles.is_verified é o que o app carrega no usuário (authStore); manter os dois iguais
+      const { error: profileError } = await supabase.from('profiles').update({ is_verified: value }).eq('id', p.id)
+      if (profileError) throw profileError
+      toast.success(value ? 'Produtor marcado como verificado.' : 'Verificação removida.')
+      await loadData()
+    } catch (err: any) {
+      toast.error('Não foi possível gravar: ' + (err?.message || 'erro desconhecido'))
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const q = search.trim().toLowerCase()
+  const filtered = q
+    ? producers.filter(p => [p.full_name, p.email, p.company?.company_name].some(v => v?.toLowerCase().includes(q)))
+    : producers
+
+  const kpis = [
+    { label: 'Produtores', value: producers.length, icon: Shield },
+    { label: 'Cadastro de empresa completo', value: producers.filter(p => p.company).length, icon: Building2 },
+    { label: 'Verificados', value: producers.filter(p => p.company?.is_verified).length, icon: BadgeCheck },
+    { label: 'Eventos no total', value: producers.reduce((s, p) => s + p.events, 0), icon: Calendar },
+  ]
 
   return (
-    <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
+    <div className="p-6 lg:p-10 max-w-7xl">
       <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Produtores</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie produtores e aprovacoes</p>
+        <h1 className="font-serif text-3xl text-foreground">Produtores</h1>
+        <p className="text-sm text-muted-foreground mt-1">Contas com papel de produtor e a verificação do cadastro de empresa</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Total', value: producers.length.toString(), icon: Shield },
-          { label: 'Aprovados', value: approved.length.toString(), icon: CheckCircle },
-          { label: 'Pendentes', value: pending.length.toString(), icon: Clock },
-          { label: 'Receita Total', value: `R$ ${(totalRevenue / 1000).toFixed(0)}K`, icon: Star },
-        ].map(k => (
-          <div key={k.label} className="prod-card p-5 rounded-2xl bg-white/60 border border-white/60">
-            <k.icon className="w-4 h-4 text-plum mb-3" />
-            <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+        {kpis.map(k => (
+          <div key={k.label} className="p-5 rounded-2xl bg-card border border-border">
+            <k.icon className="w-4 h-4 text-primary mb-3" />
+            <div className="font-serif text-2xl text-foreground">{isLoading ? '…' : k.value}</div>
+            <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Pending approvals */}
-      {pending.length > 0 && (
-        <div className="prod-card mb-6 p-6 rounded-2xl bg-amber-50/50 border border-amber-100">
-          <h3 className="text-sm font-medium text-espresso mb-4 flex items-center gap-2"><Clock className="w-4 h-4 text-amber-500" /> Aprovacoes Pendentes ({pending.length})</h3>
-          <div className="space-y-3">
-            {pending.map(p => (
-              <div key={p.id} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                <div className="flex items-center gap-3">
-                  <img src={p.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
-                  <div>
-                    <div className="text-sm font-medium text-espresso">{p.name}</div>
-                    <div className="text-[10px] text-espresso/40">{p.email}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button className="px-4 py-2 bg-green-500 text-white text-xs font-medium rounded-full hover:bg-green-600 transition-colors">Aprovar</button>
-                  <button className="px-4 py-2 bg-red-500 text-white text-xs font-medium rounded-full hover:bg-red-600 transition-colors">Rejeitar</button>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="relative max-w-md mb-6">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Buscar por nome, e-mail ou empresa..."
+          aria-label="Buscar produtor"
+          className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
+        />
+      </div>
+
+      {loadError && (
+        <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+          Não foi possível carregar os produtores: {loadError}
         </div>
       )}
 
-      {/* All producers */}
-      <div className="prod-card bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-espresso/5">
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Produtor</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Contato</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Eventos</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Desde</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {producers.map(p => {
-                const sc = statusConfig[p.status]
-                return (
-                  <tr key={p.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <img src={p.avatar} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-canvas" />
-                        <div>
-                          <div className="text-sm text-espresso font-medium">{p.name}</div>
-                          {p.rating > 0 && <div className="flex items-center gap-1 text-[10px] text-amber-500"><Star className="w-3 h-3 fill-amber-500" />{p.rating}</div>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-1 text-[11px] text-espresso/40"><Mail className="w-3 h-3" />{p.email}</div>
-                        <div className="flex items-center gap-1 text-[11px] text-espresso/40"><Phone className="w-3 h-3" />{p.phone}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell">
-                      <div className="font-serif text-sm text-espresso">{p.events}</div>
-                      <div className="text-[10px] text-espresso/30">{p.revenue > 0 ? `R$ ${(p.revenue / 1000).toFixed(0)}K` : '-'}</div>
-                    </td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${sc.cls}`}>{sc.label}</span></td>
-                    <td className="px-4 py-3 hidden lg:table-cell"><div className="flex items-center gap-1 text-[11px] text-espresso/30"><Calendar className="w-3 h-3" />{p.joined}</div></td>
-                    <td className="px-4 py-3"><button className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><ArrowUpRight className="w-3.5 h-3.5" /></button></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {isLoading ? (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
-      </div>
+      ) : (
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  {['Produtor', 'Empresa / CNPJ', 'Eventos', 'Verificação', 'Cadastro', ''].map((h, i) => (
+                    <th key={i} className={`text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase ${i === 1 ? 'hidden md:table-cell' : i === 2 || i === 4 ? 'hidden lg:table-cell' : ''}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground italic">
+                      {producers.length === 0 ? 'Nenhum produtor cadastrado.' : 'Nenhum produtor encontrado com essa busca.'}
+                    </td>
+                  </tr>
+                ) : filtered.map(p => {
+                  const c = p.company
+                  const saving = savingId === p.id
+                  return (
+                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={p.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.full_name || 'Produtor')}`}
+                            alt=""
+                            className="w-9 h-9 rounded-full object-cover bg-muted"
+                          />
+                          <div>
+                            <div className="text-sm text-foreground font-medium">{p.full_name || 'Sem nome'}</div>
+                            <div className="text-[11px] text-muted-foreground">{p.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell">
+                        {c ? (
+                          <div>
+                            <div className="text-sm text-foreground">{c.company_name}</div>
+                            <div className="text-[11px] text-muted-foreground">CNPJ {c.cnpj}</div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">cadastro incompleto</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-sm text-foreground">{p.events}</td>
+                      <td className="px-4 py-3">
+                        {!c ? (
+                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-muted text-muted-foreground border-border">Sem cadastro</span>
+                        ) : c.is_verified ? (
+                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-green-50 text-green-700 border-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/20">Verificado</span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">Não verificado</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setVerified(p, !c?.is_verified)}
+                          disabled={!c || saving}
+                          title={!c ? 'Produtor ainda não completou o cadastro de empresa' : undefined}
+                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-foreground disabled:hover:border-border"
+                        >
+                          {saving ? 'Gravando…' : c?.is_verified ? 'Remover verificação' : 'Verificar'}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

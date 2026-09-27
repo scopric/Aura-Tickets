@@ -18,6 +18,7 @@ export interface DbTicketType {
   type: 'individual' | 'vip' | 'coletiva' | 'mesa'
   perks: string[] | null
   is_active: boolean
+  quantity_total?: number | null // coluna real no banco (capacity é legado)
   lot_number: number
   sale_start: string | null
   sale_end: string | null
@@ -474,27 +475,29 @@ export function usePublicEvents() {
   })
 }
 
+export type AdminEvent = DbEvent & { profiles: { full_name: string | null; email: string } | null }
+
 export function useAdminEvents() {
-  return useQuery<(DbEvent & { profiles: { full_name: string } | null })[]>({
+  return useQuery<AdminEvent[]>({
     queryKey: ['admin-events'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('events')
         // events tem duas FKs para profiles (producer_id e approved_by): sem o !producer_id o PostgREST devolve PGRST201
-        .select(`*, profiles!producer_id (full_name), ticket_types (*)`)
+        .select(`*, profiles!producer_id (full_name, email), ticket_types (*)`)
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
       const realEvents = (data || []).map((event: any) => normalizeEventTicketTypes(event))
       if (realEvents.length > 0 || !demoAtual()) {
-        return realEvents as (DbEvent & { profiles: { full_name: string } | null })[]
+        return realEvents as AdminEvent[]
       }
 
       return MOCK_EVENTS.map(e => ({
         ...e,
-        profiles: { full_name: 'Produtor Teste' }
-      })) as (DbEvent & { profiles: { full_name: string } | null })[]
+        profiles: { full_name: 'Produtor Teste', email: 'produtor@aura.teste' }
+      })) as AdminEvent[]
     }
   })
 }
