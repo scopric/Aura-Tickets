@@ -130,7 +130,7 @@ export default function ParticipantSettings() {
       {/* Danger Zone */}
       <div className="p-6 rounded-2xl bg-red-500/5 border border-red-500/20">
         <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Zona de Perigo</h3>
-        <p className="text-xs text-red-400/60 mb-3">Ao cancelar sua conta, todos os seus dados e ingressos serão permanentemente excluídos.</p>
+        <p className="text-xs text-red-400/60 mb-3">Ao excluir sua conta, seus dados pessoais são apagados de forma permanente e o acesso é encerrado.</p>
         <button onClick={() => setShowDelete(true)} className="px-5 py-2.5 bg-red-500 text-white text-xs font-medium rounded-full hover:bg-red-600 transition-all flex items-center gap-2">
           <Trash2 className="w-3.5 h-3.5" /> Excluir conta
         </button>
