@@ -60,7 +60,8 @@ VITE_SUPABASE_ANON_KEY=<sua-chave-anon>
 | Comando | Ação |
 |---|---|
 | `npm run dev` | Servidor de desenvolvimento (Vite) |
-| `npm run build` | Typecheck (`tsc -b`) + build de produção |
+| `npm run build` | Build de produção (`vite build`, sem checagem de tipos) |
+| `npx tsc -b` | Checagem de tipos (centenas de erros herdados; o CI roda sem bloquear) |
 | `npm run lint` | ESLint |
 | `npm run test` | Testes unitários (Vitest) |
 | `npm run test:e2e` | Testes e2e (Playwright) |

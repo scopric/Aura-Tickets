@@ -90,7 +90,7 @@ serve(async (req) => {
     const messageText = `💬 *Novo Suporte na Fila — Evokaa*\n\n` +
       `👤 *Cliente:* ${clientName} ${clientContact}\n` +
       `✉️ *Mensagem:* "${record.content}"\n\n` +
-      `👉 *Responder Cliente:* https://evokaa.events/admin/support?session=${session.id}`
+      `👉 *Responder Cliente:* https://alpha.evokaa.com.br/admin/support?session=${session.id}`
 
     // 5. Enviar para a API de WhatsApp (Exemplo: Evolution API)
     // Suporta Evolution API por padrão na rota `/message/sendText`

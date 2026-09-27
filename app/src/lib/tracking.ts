@@ -41,8 +41,8 @@ export async function trackEvent(
   path?: string,
   metadata: Record<string, any> = {}
 ) {
-  // Eventos analíticos (como page_view) exigem o consentimento explícito do usuário sob LGPD
-  if (eventType === 'page_view' && !hasAnalyticsConsent()) {
+  // LGPD: nenhum evento é gravado sem o consentimento de cookies analíticos (banner do site)
+  if (!hasAnalyticsConsent()) {
     return
   }
 

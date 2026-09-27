@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://aura-eventos.vercel.app/sitemap.xml
+Sitemap: https://www.evokaa.com.br/sitemap.xml

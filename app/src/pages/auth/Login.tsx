@@ -210,7 +210,7 @@ export default function AuthLogin() {
         }
 
         // Registrar log de login no Supabase
-        trackEvent('login', location.pathname, { email: cleanEmail })
+        trackEvent('login', location.pathname)
 
         // Checar se o usuário tem 2FA configurado
         const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
