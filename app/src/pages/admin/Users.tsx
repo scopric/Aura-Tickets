@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { 
-  Users as UsersIcon, Search, User, Mail, Phone, Calendar, 
-  Ban, CheckCircle, Shield, Award, Edit3, X, CreditCard, 
-  Plus, Trash2, Key, Check, Clock, AlertCircle, Activity, ArrowUpRight, Loader2
+  Users as UsersIcon, Search, User, Mail, Phone, 
+  Shield, Edit3, X, CreditCard, 
+  Key, Clock, Activity, ArrowUpRight, Loader2
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -10,8 +10,7 @@ import { toast } from 'sonner'
 import gsap from 'gsap'
 
 interface Subscription {
-  plan: 'free' | 'starter' | 'plus' | 'pro' | 'enterprise'
-  custom_price: number | null
+  plan: 'free' | 'starter' | 'pro' | 'enterprise' // CHECK do banco: não existe 'plus'
   expires_at: string | null
   is_active: boolean
 }
@@ -27,7 +26,6 @@ interface Profile {
   full_name: string | null
   phone: string | null
   role: 'user' | 'customer' | 'producer' | 'admin' | 'editor'
-  is_authorized: boolean
   created_at: string
   avatar_url: string | null
   producer_subscriptions?: Subscription | null
@@ -53,7 +51,6 @@ const roleColors: Record<string, string> = {
 const PLAN_FEATURES: Record<string, string[]> = {
   free: [],
   starter: ['support', 'caixinha', 'calculator'],
-  plus: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons'],
   pro: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables'],
   enterprise: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables', 'api_access']
 }
@@ -77,7 +74,8 @@ export default function AdminUsers() {
   const [isLoading, setIsLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('all')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [historyError, setHistoryError] = useState<string | null>(null)
   
   // Drawer de Edição
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null)
@@ -85,9 +83,7 @@ export default function AdminUsers() {
   
   // Formulário de Edição
   const [editRole, setEditRole] = useState<Profile['role']>('user')
-  const [editAuthorized, setEditAuthorized] = useState(true)
   const [editPlan, setEditPlan] = useState<Subscription['plan']>('free')
-  const [editCustomPrice, setEditCustomPrice] = useState<string>('')
   const [editExpiresAt, setEditExpiresAt] = useState<string>('')
   
   // Custom Features a serem modificadas
@@ -124,14 +120,15 @@ export default function AdminUsers() {
 
   const loadData = async () => {
     setIsLoading(true)
+    setLoadError(null)
     try {
-      // 1. Tenta a busca completa com relações do banco
+      // Uma consulta só: se falhar, o erro aparece na tela (nada de lista parcial sem aviso)
       const { data, error } = await supabase
         .from('profiles')
         .select(`
-          id, email, full_name, phone, role, is_authorized, created_at, avatar_url,
+          id, email, full_name, phone, role, created_at, avatar_url,
           producer_subscriptions (
-            plan, custom_price, expires_at, is_active
+            plan, expires_at, is_active
           ),
           user_custom_features (
             feature_key, expires_at
@@ -139,42 +136,17 @@ export default function AdminUsers() {
         `)
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.warn('Erro na query completa, tentando fallback simples:', error.message)
-        // 2. Se falhar, tenta o fallback simples apenas na tabela profiles
-        const { data: simpleData, error: simpleError } = await supabase
-          .from('profiles')
-          .select('id, email, full_name, phone, role, is_authorized, created_at, avatar_url')
-          .order('created_at', { ascending: false })
-
-        if (simpleError) throw simpleError
-        
-        const formatted = (simpleData || []).map((p: any) => ({
-          ...p,
-          producer_subscriptions: null,
-          user_custom_features: []
-        }))
-        setProfiles(formatted)
-      } else {
-        const formattedProfiles: Profile[] = (data || []).map((p: any) => ({
-          ...p,
-          producer_subscriptions: p.producer_subscriptions?.[0] || p.producer_subscriptions || null
-        }))
-        setProfiles(formattedProfiles)
-      }
+      if (error) throw error
+      const formattedProfiles: Profile[] = (data || []).map((p: any) => ({
+        ...p,
+        producer_subscriptions: p.producer_subscriptions?.[0] || p.producer_subscriptions || null
+      }))
+      setProfiles(formattedProfiles)
     } catch (err: any) {
-      console.error('Erro ao carregar usuários do Supabase, usando mocks de demonstração:', err)
-      
-      // 3. Fallback total para modo de demonstração (se o Supabase estiver indisponível ou vazio)
-      const mockProfiles: Profile[] = [
-        { id: 'u1', email: 'joao@email.com', full_name: 'Joao Silva', phone: '(11) 98765-4321', role: 'producer', is_authorized: true, created_at: new Date().toISOString(), avatar_url: 'https://i.pravatar.cc/150?img=11', producer_subscriptions: { plan: 'pro', custom_price: 149, expires_at: '2025-06-01T00:00:00Z', is_active: true }, user_custom_features: [] },
-        { id: 'u2', email: 'ana@email.com', full_name: 'Ana Costa', phone: '(11) 91234-5678', role: 'user', is_authorized: true, created_at: new Date().toISOString(), avatar_url: 'https://i.pravatar.cc/150?img=5', producer_subscriptions: null, user_custom_features: [] },
-        { id: 'u3', email: 'carlos@email.com', full_name: 'Carlos Mendes', phone: '(11) 92345-6789', role: 'producer', is_authorized: true, created_at: new Date().toISOString(), avatar_url: 'https://i.pravatar.cc/150?img=3', producer_subscriptions: { plan: 'starter', custom_price: 49, expires_at: '2025-05-10T00:00:00Z', is_active: true }, user_custom_features: [] },
-        { id: 'u4', email: 'maria@email.com', full_name: 'Maria Souza', phone: '(11) 93456-7890', role: 'admin', is_authorized: true, created_at: new Date().toISOString(), avatar_url: 'https://i.pravatar.cc/150?img=9', producer_subscriptions: null, user_custom_features: [] },
-        { id: 'u5', email: 'pedro@email.com', full_name: 'Pedro Lima', phone: '(11) 94567-8901', role: 'editor', is_authorized: false, created_at: new Date().toISOString(), avatar_url: 'https://i.pravatar.cc/150?img=8', producer_subscriptions: null, user_custom_features: [] }
-      ]
-      setProfiles(mockProfiles)
-      toast.info('Visualizando em modo de demonstração local.')
+      // Nunca mostrar usuários inventados: lista vazia e o erro real na tela.
+      console.error('Erro ao carregar usuários:', err)
+      setProfiles([])
+      setLoadError(err?.message || 'Erro desconhecido')
     } finally {
       setIsLoading(false)
     }
@@ -184,8 +156,9 @@ export default function AdminUsers() {
     loadData()
   }, [])
 
-  const loadUserHistory = async (userId: string, email: string) => {
+  const loadUserHistory = async (userId: string) => {
     setUserHistoryLoading(true)
+    setHistoryError(null)
     try {
       // 1. Carregar logs reais do Supabase
       const { data: activities, error: actError } = await supabase
@@ -302,58 +275,17 @@ export default function AdminUsers() {
           metadata: a.metadata
         })))
       } else {
-        // Fallback para mock se o banco estiver vazio para este usuário
-        throw new Error("Sem logs no banco")
-      }
-    } catch (err) {
-      console.log('Sem dados reais de tracking para o usuário, usando dados simulados detalhados para exibição local.')
-      
-      const isProducer = selectedProfile?.role === 'producer'
-      const isUser = selectedProfile?.role === 'user'
-      const isBlocked = selectedProfile?.is_authorized === false
-
-      let status = 'Ativo'
-      if (isBlocked) status = 'Bloqueado'
-      else if (isProducer && selectedProfile?.producer_subscriptions && !selectedProfile.producer_subscriptions.is_active) status = 'Assinatura Cancelada'
-      else if (email.includes('roberto') || email.includes('pedro')) status = 'Inativo'
-
-      const mockMetrics = {
-        totalLogins: email === 'ana@email.com' ? 34 : email === 'joao@email.com' ? 82 : 12,
-        inactivityDays: status === 'Inativo' ? 14 : status === 'Ativo' ? 0 : 2,
-        avgSessionTimeMin: isProducer ? 18 : isUser ? 6 : 10,
-        monthlyFrequency: status === 'Inativo' ? 2 : isProducer ? 22 : 8,
-        accountStatus: status
-      }
-      setUserHistoryMetrics(mockMetrics)
-
-      // Mocks de visualizados e não comprados
-      if (isUser || email === 'ana@email.com') {
-        setAbandonedEvents([
-          { id: 'ev-mock-1', title: 'Festival Sunset Evokaa 2026', date: '2026-07-15', time: '16:00', venue: 'Arena Sunset' },
-          { id: 'ev-mock-2', title: 'Jazz & Blues Night', date: '2026-08-02', time: '20:00', venue: 'Teatro Bradesco' }
-        ])
-      } else {
+        // Conta sem registros de uso: vazio, nunca dados inventados.
+        setUserHistoryMetrics(null)
         setAbandonedEvents([])
+        setRecentNavigation([])
       }
-
-      // Mocks de navegação recente
-      const now = new Date()
-      const mockNav = [
-        { id: 'nav-1', event_type: 'page_view', path: '/app/hub', created_at: new Date(now.getTime() - 5 * 60 * 1000).toISOString(), metadata: { device: 'Mobile' } },
-        { id: 'nav-2', event_type: 'page_view', path: '/event/ev-mock-1', created_at: new Date(now.getTime() - 12 * 60 * 1000).toISOString(), metadata: { device: 'Mobile' } },
-        { id: 'nav-3', event_type: 'add_to_cart', path: '/checkout', created_at: new Date(now.getTime() - 15 * 60 * 1000).toISOString(), metadata: { device: 'Mobile', event_id: 'ev-mock-1' } },
-        { id: 'nav-4', event_type: 'page_view', path: '/event/ev-mock-2', created_at: new Date(now.getTime() - 25 * 60 * 1000).toISOString(), metadata: { device: 'Mobile' } },
-        { id: 'nav-5', event_type: 'login', path: '/auth/login', created_at: new Date(now.getTime() - 30 * 60 * 1000).toISOString(), metadata: { device: 'Mobile' } }
-      ]
-      
-      if (isProducer) {
-        mockNav.unshift(
-          { id: 'nav-p1', event_type: 'page_view', path: '/producer/dashboard', created_at: new Date(now.getTime() - 2 * 60 * 1000).toISOString(), metadata: { device: 'Desktop' } },
-          { id: 'nav-p2', event_type: 'page_view', path: '/producer/events', created_at: new Date(now.getTime() - 10 * 60 * 1000).toISOString(), metadata: { device: 'Desktop' } }
-        )
-      }
-
-      setRecentNavigation(mockNav)
+    } catch (err: any) {
+      // Erro real (regra de acesso, rede): dizer que não deu para carregar, não "sem registros".
+      setUserHistoryMetrics(null)
+      setAbandonedEvents([])
+      setRecentNavigation([])
+      setHistoryError(err?.message || 'Erro desconhecido')
     } finally {
       setUserHistoryLoading(false)
     }
@@ -367,7 +299,7 @@ export default function AdminUsers() {
 
   useEffect(() => {
     if (selectedProfile && drawerTab === 'history') {
-      loadUserHistory(selectedProfile.id, selectedProfile.email)
+      loadUserHistory(selectedProfile.id)
     }
   }, [drawerTab, selectedProfile])
 
@@ -378,17 +310,15 @@ export default function AdminUsers() {
       }, ref)
       return () => ctx.revert()
     }
-  }, [isLoading, roleFilter, statusFilter])
+  }, [isLoading, roleFilter])
 
   // Abrir detalhes e preencher estados de edição
   const handleOpenEdit = (profile: Profile) => {
     setSelectedProfile(profile)
     setEditRole(profile.role)
-    setEditAuthorized(profile.is_authorized)
     
     const sub = profile.producer_subscriptions
     setEditPlan(sub?.plan || 'free')
-    setEditCustomPrice(sub?.custom_price !== null && sub?.custom_price !== undefined ? String(sub.custom_price) : '')
     setEditExpiresAt(sub?.expires_at ? sub.expires_at.substring(0, 10) : '')
 
     // Inicializar mapa de features temporárias
@@ -406,24 +336,19 @@ export default function AdminUsers() {
   // Gravar modificações no Supabase
   const handleSaveUser = async () => {
     if (!selectedProfile) return
+    const roleChanged = editRole !== selectedProfile.role
+    if (roleChanged && selectedProfile.id === loggedInUser?.id) {
+      toast.error('Você não pode alterar o próprio papel.')
+      return
+    }
+    if (roleChanged && editRole === 'admin' && !window.confirm(`Tornar ${selectedProfile.email} administrador da plataforma?`)) return
     setIsSaving(true)
     
     try {
-      // 1. Atualizar o profile (role e is_authorized)
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: editRole,
-          is_authorized: editAuthorized
-        })
-        .eq('id', selectedProfile.id)
-
-      if (profileError) throw profileError
-
-      // 2. Tratar Subscription
+      // 1. Assinatura e recursos primeiro: se falharem (hoje producer_subscriptions não tem regra de acesso),
+      //    o papel não fica gravado pela metade.
       if (editPlan !== 'free') {
         const expiresVal = editExpiresAt ? new Date(editExpiresAt).toISOString() : null
-        const customPriceVal = editCustomPrice.trim() !== '' ? Number(editCustomPrice) : null
 
         // Tentar upsert na tabela de assinaturas
         const { error: subError } = await supabase
@@ -431,7 +356,6 @@ export default function AdminUsers() {
           .upsert({
             producer_id: selectedProfile.id,
             plan: editPlan,
-            custom_price: customPriceVal,
             expires_at: expiresVal,
             is_active: true,
             started_at: new Date().toISOString()
@@ -439,14 +363,15 @@ export default function AdminUsers() {
 
         if (subError) throw subError
       } else {
-        // Se mudou para free, podemos excluir a assinatura anterior do produtor
-        await supabase
+        // Se mudou para free, excluir a assinatura anterior do produtor
+        const { error: delSubError } = await supabase
           .from('producer_subscriptions')
           .delete()
           .eq('producer_id', selectedProfile.id)
+        if (delSubError) throw delSubError
       }
 
-      // 3. Tratar Custom Features (Inserir novos, atualizar prazos e deletar inativos)
+      // 2. Tratar Custom Features (Inserir novos, atualizar prazos e deletar inativos)
       for (const [key, feat] of Object.entries(tempFeatures)) {
         if (feat.active) {
           const expVal = feat.expires_at ? new Date(feat.expires_at).toISOString() : null
@@ -461,12 +386,22 @@ export default function AdminUsers() {
           if (featError) throw featError
         } else {
           // Deletar se existia
-          await supabase
+          const { error: delFeatError } = await supabase
             .from('user_custom_features')
             .delete()
             .eq('user_id', selectedProfile.id)
             .eq('feature_key', key)
+          if (delFeatError) throw delFeatError
         }
+      }
+
+      // 3. Papel por último (o gatilho do banco só deixa admin alterar role)
+      if (roleChanged) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({ role: editRole })
+          .eq('id', selectedProfile.id)
+        if (profileError) throw profileError
       }
 
       toast.success('Usuário atualizado com sucesso!')
@@ -490,18 +425,14 @@ export default function AdminUsers() {
 
     const matchRole = roleFilter === 'all' || p.role === roleFilter
     
-    let matchStatus = true
-    if (statusFilter === 'authorized') matchStatus = p.is_authorized
-    else if (statusFilter === 'pending') matchStatus = !p.is_authorized
-
-    return matchSearch && matchRole && matchStatus
+    return matchSearch && matchRole
   })
 
   // Contadores rápidos para o topo
   const kpis = {
     total: profiles.length,
     producers: profiles.filter(p => p.role === 'producer').length,
-    pending: profiles.filter(p => !p.is_authorized).length,
+    admins: profiles.filter(p => p.role === 'admin').length,
     activeSubscribers: profiles.filter(p => p.producer_subscriptions?.is_active).length
   }
 
@@ -520,7 +451,7 @@ export default function AdminUsers() {
         {[
           { label: 'Total Usuários', value: kpis.total.toString(), icon: UsersIcon, color: 'text-blue-500' },
           { label: 'Produtores', value: kpis.producers.toString(), icon: Shield, color: 'text-purple-500' },
-          { label: 'Pendente Aprovação', value: kpis.pending.toString(), icon: AlertCircle, color: kpis.pending > 0 ? 'text-amber-500 animate-pulse' : 'text-slate-400' },
+          { label: 'Administradores', value: kpis.admins.toString(), icon: Shield, color: 'text-red-500' },
           { label: 'Planos Ativos', value: kpis.activeSubscribers.toString(), icon: CreditCard, color: 'text-green-500' },
         ].map(k => (
           <div key={k.label} className="user-card p-5 rounded-2xl surface">
@@ -554,24 +485,20 @@ export default function AdminUsers() {
           >
             <option value="all">Todos os Papéis</option>
             <option value="user">Participante</option>
+            <option value="customer">Cliente</option>
             <option value="producer">Produtor</option>
             <option value="editor">Editor</option>
             <option value="admin">Administrador</option>
           </select>
 
-          {/* Status Filter */}
-          <select 
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            aria-label="Filtrar por Autorização"
-            className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30"
-          >
-            <option value="all">Status de Acesso</option>
-            <option value="authorized">Ativos / Autorizados</option>
-            <option value="pending">Pendentes</option>
-          </select>
         </div>
       </div>
+
+      {loadError && (
+        <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+          Não foi possível carregar os usuários: {loadError}
+        </div>
+      )}
 
       {/* Users Table */}
       {isLoading ? (
@@ -590,7 +517,7 @@ export default function AdminUsers() {
                   <th className="hidden md:table-cell">Contato</th>
                   <th className="hidden lg:table-cell">Assinatura / Preço</th>
                   <th className="hidden lg:table-cell">Recursos Extras</th>
-                  <th>Status</th>
+                  <th>Cadastro</th>
                   <th></th>
                 </tr>
               </thead>
@@ -627,11 +554,7 @@ export default function AdminUsers() {
                           <div className="text-xs">
                             <span className="font-semibold text-plum capitalize">{sub.plan}</span>
                             <div className="text-[10px] text-espresso/40 mt-0.5">
-                              {sub.custom_price !== null ? (
-                                <span className="text-green-600 font-medium">R$ {sub.custom_price}/mês (Custom)</span>
-                              ) : (
-                                <span>Preço padrão</span>
-                              )}
+                              <span>Preço do plano</span>
                             </div>
                             {sub.expires_at && (
                               <div className="text-[9px] text-espresso/30 flex items-center gap-1 mt-0.5">
@@ -657,10 +580,7 @@ export default function AdminUsers() {
                         )}
                       </td>
                       <td>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-semibold rounded-full border ${p.is_authorized ? 'bg-green-50 text-green-600 border-green-100 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' : 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 animate-pulse'}`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${p.is_authorized ? 'bg-green-500' : 'bg-amber-500'}`} />
-                          {p.is_authorized ? 'Autorizado' : 'Pendente'}
-                        </span>
+                        <span className="text-xs text-espresso/50" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
                       </td>
                       <td>
                         <button 
@@ -753,7 +673,9 @@ export default function AdminUsers() {
                       <select 
                         value={editRole}
                         onChange={e => setEditRole(e.target.value as Profile['role'])}
-                        className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
+                        disabled={selectedProfile.id === loggedInUser?.id}
+                        title={selectedProfile.id === loggedInUser?.id ? 'Você não pode alterar o próprio papel' : undefined}
+                        className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700 disabled:opacity-50"
                       >
                         <option value="user">Participante</option>
                         <option value="producer">Produtor</option>
@@ -762,22 +684,6 @@ export default function AdminUsers() {
                       </select>
                     </div>
 
-                    {/* Switch Authorization */}
-                    <div>
-                      <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Status de Acesso</label>
-                      <button
-                        type="button"
-                        onClick={() => setEditAuthorized(!editAuthorized)}
-                        className={`w-full py-2 px-3 text-xs font-semibold rounded-xl border flex items-center justify-center gap-1.5 transition-all ${
-                          editAuthorized 
-                            ? 'bg-green-500/10 border-green-500/20 text-green-600 hover:bg-green-500/20' 
-                            : 'bg-amber-500/10 border-amber-500/20 text-amber-600 hover:bg-amber-500/20'
-                        }`}
-                      >
-                        {editAuthorized ? <CheckCircle className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                        {editAuthorized ? 'Conta Autorizada' : 'Bloqueado / Pendente'}
-                      </button>
-                    </div>
                   </div>
                 </div>
 
@@ -796,7 +702,6 @@ export default function AdminUsers() {
                       >
                         <option value="free">Sem Plano (Gratuito/Participante)</option>
                         <option value="starter">Evokaa Starter (R$ 49/mês)</option>
-                        <option value="plus">Evokaa Plus (R$ 99/mês)</option>
                         <option value="pro">Evokaa Pro (R$ 149/mês)</option>
                         <option value="enterprise">Evokaa Enterprise (R$ 349/mês)</option>
                       </select>
@@ -804,19 +709,6 @@ export default function AdminUsers() {
 
                     {editPlan !== 'free' && (
                       <div className="grid grid-cols-2 gap-4">
-                        {/* Preço Customizado */}
-                        <div>
-                          <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Preço Customizado (R$)</label>
-                          <input
-                            type="number"
-                            value={editCustomPrice}
-                            onChange={e => setEditCustomPrice(e.target.value)}
-                            placeholder="Ex: 50"
-                            className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
-                          />
-                          <span className="text-[9px] text-espresso/35 mt-1 block">Deixe em branco para usar valor do plano.</span>
-                        </div>
-
                         {/* Tempo de Gratuidade / Expiração */}
                         <div>
                           <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Vencimento / Expiração</label>
@@ -950,6 +842,11 @@ export default function AdminUsers() {
                   </div>
                 ) : (
                   <div className="space-y-6">
+                    {historyError && (
+                      <div role="alert" className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                        Não foi possível carregar o histórico: {historyError}
+                      </div>
+                    )}
                     {/* Status da Conta */}
                     <div className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border border-white/60 dark:bg-white/5 dark:border-white/5">
                       <div>
@@ -970,14 +867,14 @@ export default function AdminUsers() {
                             ? 'bg-slate-400'
                             : 'bg-rose-500'
                         }`} />
-                        {userHistoryMetrics?.accountStatus}
+                        {userHistoryMetrics?.accountStatus || 'Sem registros'}
                       </span>
                     </div>
 
                     {/* Grid de Métricas */}
                     <div className="grid grid-cols-2 gap-4">
                       {[
-                        { label: 'Tempo sem Uso', value: userHistoryMetrics?.inactivityDays === 0 ? 'Ativo Hoje' : `${userHistoryMetrics?.inactivityDays} dias`, desc: 'Desde o último log', icon: Clock, color: 'text-amber-500' },
+                        { label: 'Tempo sem Uso', value: !userHistoryMetrics ? '—' : userHistoryMetrics.inactivityDays === 0 ? 'Ativo Hoje' : `${userHistoryMetrics.inactivityDays} dias`, desc: 'Desde o último log', icon: Clock, color: 'text-amber-500' },
                         { label: 'Total de Logins', value: `${userHistoryMetrics?.totalLogins || 0} logins`, desc: 'Acessos registrados', icon: Shield, color: 'text-plum' },
                         { label: 'Média por Sessão', value: `${userHistoryMetrics?.avgSessionTimeMin || 0} min`, desc: 'Tempo médio de navegação', icon: Activity, color: 'text-blue-500' },
                         { label: 'Frequência Mensal', value: `${userHistoryMetrics?.monthlyFrequency || 0} dias ativos`, desc: 'Acessos únicos nos últimos 30d', icon: UsersIcon, color: 'text-purple-500' },
@@ -1064,7 +961,7 @@ export default function AdminUsers() {
                                 </div>
                                 {log.metadata && (
                                   <div className="text-[8px] text-espresso/30 mt-0.5 font-mono">
-                                    Device: {log.metadata.device || 'Desconhecido'} · Agent: {log.metadata.userAgent?.slice(0, 40)}...
+                                    Device: {log.metadata.device || 'Desconhecido'}{log.metadata.userAgent ? ` · Agent: ${String(log.metadata.userAgent).slice(0, 40)}…` : ''}
                                   </div>
                                 )}
                               </div>

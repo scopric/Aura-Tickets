@@ -1,8 +1,17 @@
 import { useRef, useEffect, useState } from 'react'
-import { Calendar, DollarSign, Clock, CheckCircle, ArrowUpRight, Loader2, Check, X, Star, Eye } from 'lucide-react'
+import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye } from 'lucide-react'
 import gsap from 'gsap'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel } from '../../hooks/useEvents'
 import { toast } from 'sonner'
+
+// A página pública do evento fica no site (www); o alpha não tem a rota /event.
+// lib/appHost.ts só tem appUrl() (app.*); a Fase 2 do front está criando siteUrl() lá — trocar por ela quando estiver no main.
+// ponytail: cópia local de 4 linhas para não conflitar com esse PR.
+function publicEventUrl(idOrSlug: string, loc: Pick<Location, 'hostname' | 'protocol' | 'port'> = window.location) {
+  if (loc.hostname.endsWith('evokaa.com.br')) return `https://www.evokaa.com.br/event/${idOrSlug}`
+  if (loc.hostname === 'localhost' || loc.hostname.endsWith('.localhost')) return `${loc.protocol}//localhost:${loc.port}/event/${idOrSlug}`
+  return `/event/${idOrSlug}`
+}
 
 const statusCfg: Record<string, { label: string, cls: string }> = {
   published: { label: 'Publicado', cls: 'bg-green-50 text-green-600 border-green-100' },
@@ -19,7 +28,7 @@ const approvalStatusCfg: Record<string, { label: string; cls: string }> = {
 
 export default function AdminEvents() {
   const ref = useRef<HTMLDivElement>(null)
-  const { data: allEvents = [], isLoading } = useAdminEvents()
+  const { data: allEvents = [], isLoading, isError, error } = useAdminEvents()
   const approveMutation = useApproveEvent()
   const toggleFeaturedMutation = useToggleFeaturedCarousel()
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all')
@@ -128,8 +137,15 @@ export default function AdminEvents() {
         </div>
       )}
 
+      {/* Erro real na tela, em vez de "0 eventos" silencioso */}
+      {isError && (
+        <div role="alert" className="evt-card mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+          Não foi possível carregar os eventos: {(error as Error)?.message || 'erro desconhecido'}
+        </div>
+      )}
+
       {/* Table */}
-      {!isLoading && (
+      {!isLoading && !isError && (
         <div className="evt-card bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -209,7 +225,7 @@ export default function AdminEvents() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {e.approval_status === 'pending' && (
+                            {(e.approval_status === 'pending' || !e.approval_status) && (
                               <>
                                 <button
                                   onClick={() => handleApprove(e.id)}
@@ -227,15 +243,22 @@ export default function AdminEvents() {
                                 </button>
                               </>
                             )}
-                            <a
-                              href={`/event/${e.id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="p-1.5 rounded-lg hover:bg-canvas text-espresso/30 hover:text-espresso/60 transition-colors"
-                              title="Visualizar"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </a>
+                            {e.status === 'published' && e.approval_status === 'approved' ? (
+                              <a
+                                href={publicEventUrl(e.slug || e.id)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/30 hover:text-espresso/60 transition-colors"
+                                title="Ver página pública"
+                                aria-label="Ver página pública"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </a>
+                            ) : (
+                              <span className="p-1.5 text-espresso/15 cursor-not-allowed" title="Só eventos publicados e aprovados têm página pública" aria-label="Sem página pública">
+                                <Eye className="w-3.5 h-3.5" />
+                              </span>
+                            )}
                           </div>
                         </td>
                       </tr>
