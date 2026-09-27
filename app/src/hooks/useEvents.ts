@@ -1,6 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { useAuthStore } from '../stores/authStore'
+import { isDemoAccount } from '../lib/demo'
+
+// dados de exemplo só para conta de demonstração em desenvolvimento (lib/demo.ts)
+const demoAtual = () => isDemoAccount(useAuthStore.getState().user?.id)
 
 export interface DbTicketType {
   id: string
@@ -183,11 +188,6 @@ const MOCK_EVENTS: DbEvent[] = [
   }
 ]
 
-const DEMO_USER_IDS = new Set([
-  'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4',
-  'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d',
-])
-
 function normalizeEventTicketTypes(event: any): DbEvent {
   return {
     ...event,
@@ -220,7 +220,7 @@ export function useProducerEvents() {
           const realEvents = (data || []).map(normalizeEventTicketTypes)
           if (realEvents.length > 0) return realEvents
 
-          if (DEMO_USER_IDS.has(user.id)) return MOCK_EVENTS
+          if (isDemoAccount(user.id)) return MOCK_EVENTS
           return []
         })()
 
@@ -229,13 +229,13 @@ export function useProducerEvents() {
           new Promise<DbEvent[]>((resolve) => 
             setTimeout(() => {
               console.warn('[useProducerEvents] Timeout ao buscar eventos, usando fallback local.');
-              resolve(DEMO_USER_IDS.has(user.id) ? MOCK_EVENTS : [])
+              resolve(isDemoAccount(user.id) ? MOCK_EVENTS : [])
             }, 6000)
           )
         ])
       } catch (err) {
         console.error('[useProducerEvents] Erro:', err)
-        return DEMO_USER_IDS.has(user?.id || '') ? MOCK_EVENTS : []
+        return isDemoAccount(user?.id) ? MOCK_EVENTS : []
       }
     },
     enabled: !!user?.id,
@@ -444,8 +444,8 @@ export function usePublicEvent(eventIdOrSlug: string | undefined) {
       if (error) throw error
       if (data) return normalizeEventTicketTypes(data)
 
-      const mockEvent = MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug)
-      return mockEvent || null
+      if (!demoAtual()) return null
+      return MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug) || null
     },
     enabled: !!eventIdOrSlug,
   })
@@ -467,7 +467,7 @@ export function usePublicEvents() {
       if (error) throw error
 
       const realEvents = (data || []).map(normalizeEventTicketTypes)
-      if (realEvents.length > 0) return realEvents
+      if (realEvents.length > 0 || !demoAtual()) return realEvents
 
       return MOCK_EVENTS.filter(e => e.status === 'published' && e.date && e.date >= todayStr)
     }
@@ -486,7 +486,7 @@ export function useAdminEvents() {
       if (error) throw error
 
       const realEvents = (data || []).map((event: any) => normalizeEventTicketTypes(event))
-      if (realEvents.length > 0) {
+      if (realEvents.length > 0 || !demoAtual()) {
         return realEvents as (DbEvent & { profiles: { full_name: string } | null })[]
       }
 
@@ -527,7 +527,7 @@ export function useAdminTickets() {
         producer_name: t.events?.profiles?.full_name || null,
       })) as AdminTicketType[]
 
-      if (realTickets.length > 0) return realTickets
+      if (realTickets.length > 0 || !demoAtual()) return realTickets
 
       return MOCK_EVENTS.flatMap(e =>
         (e.ticket_types || []).map(t => ({
@@ -599,14 +599,15 @@ export function useFeaturedEvents() {
 
         const combined = [...featuredReal, ...fallbackReal]
         
-        if (combined.length > 0) return combined
+        if (combined.length > 0 || !demoAtual()) return combined
 
-        // Se o banco estiver vazio, cai nos mocks do MOCK_EVENTS
+        // banco vazio: eventos de exemplo só para conta demo em desenvolvimento
         return MOCK_EVENTS
           .filter(e => e.status === 'published' && e.date && e.date >= todayStr)
           .slice(0, 10)
       } catch (err) {
         console.error('[useFeaturedEvents] Erro:', err)
+        if (!demoAtual()) return []
         const todayStr = new Date().toISOString().split('T')[0]
         return MOCK_EVENTS.filter(e => e.status === 'published' && e.date && e.date >= todayStr).slice(0, 10)
       }

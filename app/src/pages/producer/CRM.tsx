@@ -116,104 +116,12 @@ export default function ProducerCRM() {
 
       if (error) throw error
 
-      if (!dbLeads || dbLeads.length === 0) {
-        // Auto-seed apenas em desenvolvimento para demonstração
-        if (import.meta.env.DEV) {
-          await seedInitialLeads(user.id)
-        }
-        return
-      }
-
       setLeads(dbLeads.map(mapDbLeadToLead))
     } catch (err: any) {
       console.error('Erro ao carregar leads:', err)
       toast.error('Erro ao carregar leads do CRM')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Criar registros iniciais (auto-seed) para demonstração sem telas vazias
-  const seedInitialLeads = async (producerId: string) => {
-    try {
-      const initialLeadsData = [
-        { producer_id: producerId, full_name: 'Pedro Santos', email: 'pedro@empresa.com', stage_id: 'novo', source: 'Instagram', score: 72, potential_value: 5000, event_interest: 'Festa Corporativa', phone: '(11) 98765-1111', notes: 'Interessado em evento para 100 pessoas' },
-        { producer_id: producerId, full_name: 'Mariana Costa', email: 'mariana@design.com', stage_id: 'qualificado', source: 'Indicacao', score: 91, potential_value: 12000, event_interest: 'Noite Eletro 2025', phone: '(11) 98765-2222', notes: 'Ja comprou antes, quer upgrade' },
-        { producer_id: producerId, full_name: 'Carlos Eduardo', email: 'carlos@tech.com', stage_id: 'proposta', source: 'Google Ads', score: 68, potential_value: 8500, event_interest: 'Workshop UX', phone: '(11) 98765-3333', notes: 'Aguardando aprovacao do gestor' },
-        { producer_id: producerId, full_name: 'Fernanda Lima', email: 'fernanda@food.com', stage_id: 'negociacao', source: 'Afiliado', score: 85, potential_value: 15000, event_interest: 'Gastronomia Fest', phone: '(11) 98765-4444', notes: 'Negociando desconto de 10%' },
-        { producer_id: producerId, full_name: 'Roberto Souza', email: 'roberto@corp.com', stage_id: 'fechado', source: 'LinkedIn', score: 94, potential_value: 22000, event_interest: 'Evento Corporativo Q3', phone: '(11) 98765-5555', notes: 'CONTRATO ASSINADO!' }
-      ]
-
-      const { data: createdLeads, error: leadsError } = await supabase
-        .from('crm_leads')
-        .insert(initialLeadsData)
-        .select()
-
-      if (leadsError) throw leadsError
-
-      // Criar algumas interações iniciais vinculadas a esses leads
-      if (createdLeads && createdLeads.length > 0) {
-        const interactionsToInsert = []
-
-        const findLeadId = (name: string) => createdLeads.find(l => l.full_name === name)?.id
-
-        const pedroId = findLeadId('Pedro Santos')
-        if (pedroId) {
-          interactionsToInsert.push(
-            { lead_id: pedroId, type: 'Visita', content: 'Visitou pagina do evento e preencheu cadastro.' },
-            { lead_id: pedroId, type: 'Email', content: 'Clicou no email de lancamento do lote.' }
-          )
-        }
-
-        const marianaId = findLeadId('Mariana Costa')
-        if (marianaId) {
-          interactionsToInsert.push(
-            { lead_id: marianaId, type: 'Ligacao', content: 'Conversa de 15 min por telefone, interesse em area VIP confirmado.' },
-            { lead_id: marianaId, type: 'WhatsApp', content: 'Pediu orcamento de camarote privado.' }
-          )
-        }
-
-        const carlosId = findLeadId('Carlos Eduardo')
-        if (carlosId) {
-          interactionsToInsert.push(
-            { lead_id: carlosId, type: 'Email', content: 'Primeira proposta comercial enviada por e-mail.' }
-          )
-        }
-
-        const fernandaId = findLeadId('Fernanda Lima')
-        if (fernandaId) {
-          interactionsToInsert.push(
-            { lead_id: fernandaId, type: 'Ligacao', content: 'Negociacao ativa. Solicitou 10% de desconto para faturar corporativo.' }
-          )
-        }
-
-        const robertoId = findLeadId('Roberto Souza')
-        if (robertoId) {
-          interactionsToInsert.push(
-            { lead_id: robertoId, type: 'Fechamento', content: 'Contrato de patrocinio assinado e lote de ingressos faturado!' }
-          )
-        }
-
-        if (interactionsToInsert.length > 0) {
-          await supabase.from('crm_interactions').insert(interactionsToInsert)
-        }
-      }
-
-      // Recarregar os dados agora já semeados no banco
-      const { data: finalLeads } = await supabase
-        .from('crm_leads')
-        .select(`
-          *,
-          crm_interactions (*)
-        `)
-        .eq('producer_id', producerId)
-        .order('created_at', { ascending: false })
-
-      if (finalLeads) {
-        setLeads(finalLeads.map(mapDbLeadToLead))
-      }
-    } catch (err: any) {
-      console.error('Erro no auto-seed de CRM:', err)
     }
   }
 

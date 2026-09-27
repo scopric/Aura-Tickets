@@ -234,11 +234,6 @@ export default function ProducerFinance() {
 
       if (error) throw error
 
-      if (!dbTxs || dbTxs.length === 0) {
-        await seedInitialTransactions(user.id, dbEvents || [])
-        return
-      }
-
       setTransactions(dbTxs.map(mapDbTxToTransaction))
     } catch (err: any) {
       console.error('Erro ao carregar dados financeiros:', err)
@@ -274,36 +269,6 @@ export default function ProducerFinance() {
       date: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
       dueDate: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
       category: dbTx.type === 'income' ? 'Ingressos' : 'Local'
-    }
-  }
-
-  const seedInitialTransactions = async (producerId: string, producerEvents: any[]) => {
-    try {
-      const eventId = producerEvents.length > 0 ? producerEvents[0].id : null
-
-      const initialTxs = [
-        { producer_id: producerId, event_id: eventId, type: 'income', amount: 2840, description: 'Venda ingressos - lote 1', status: 'paid', created_at: new Date(Date.now() - 5 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'income', amount: 4260, description: 'Venda ingressos - lote 2', status: 'paid', created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'income', amount: 960, description: 'Venda ingressos VIP', status: 'paid', created_at: new Date(Date.now() - 1 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'expense', amount: 3500, description: 'Aluguel do espaço', status: 'paid', created_at: new Date(Date.now() - 10 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'expense', amount: 1200, description: 'Equipamento de som', status: 'pending', created_at: new Date().toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'expense', amount: 380, description: 'Comissão Evokaa - Processamento', status: 'paid', created_at: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString() }
-      ]
-
-      const { error } = await supabase.from('transactions').insert(initialTxs)
-      if (error) throw error
-
-      const { data: finalTxs } = await supabase
-        .from('transactions')
-        .select(`*, events (title)`)
-        .eq('producer_id', producerId)
-        .order('created_at', { ascending: false })
-
-      if (finalTxs) {
-        setTransactions(finalTxs.map(mapDbTxToTransaction))
-      }
-    } catch (err) {
-      console.error('Erro ao semear transações:', err)
     }
   }
 

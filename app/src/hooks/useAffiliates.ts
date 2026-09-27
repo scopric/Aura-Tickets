@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
 
 export interface Affiliate {
@@ -32,7 +33,7 @@ export function useAffiliates(eventId?: string) {
     queryFn: async () => {
       if (!user?.id) return []
 
-      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
+      if (isDemoAccount(user.id)) {
         return eventId ? DEMO_AFFILIATES.filter(a => a.event_id === eventId) : DEMO_AFFILIATES
       }
 

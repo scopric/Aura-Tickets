@@ -15,7 +15,7 @@ export interface AddressResult {
 export async function getCepApiSettings() {
   try {
     const { data, error } = await supabase
-      .from('system_settings')
+      .from('platform_settings')
       .select('value')
       .eq('key', 'general')
       .maybeSingle()

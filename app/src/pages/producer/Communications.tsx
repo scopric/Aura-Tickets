@@ -99,65 +99,12 @@ export default function ProducerCommunications() {
 
       if (error) throw error
 
-      if (!dbComms || dbComms.length === 0) {
-        // Auto-seed apenas em desenvolvimento para demonstração
-        if (import.meta.env.DEV) {
-          await seedInitialCampaigns(user.id)
-        }
-        setIsLoading(false)
-        return
-      }
-
       setCampaigns(dbComms.map(mapDbCommToCampaign))
     } catch (err: any) {
       console.error('Erro ao carregar comunicações:', err)
       toast.error('Erro ao carregar histórico de comunicações')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Realizar auto-seed para exibição do portfólio no localhost
-  const seedInitialCampaigns = async (producerId: string) => {
-    try {
-      // Obter um evento do produtor para vincular se possível
-      const { data: events } = await supabase
-        .from('events')
-        .select('id')
-        .eq('producer_id', producerId)
-        .limit(1)
-
-      const eventId = events && events.length > 0 ? events[0].id : null
-
-      const initialCommsData = [
-        { producer_id: producerId, event_id: eventId, type: 'email', recipient: 'Compradores VIP', subject: 'Lembrete Noite Eletro', content: 'Faltam 2 dias! Preparado? A área VIP abre às 22h.', status: 'sent', created_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'email', recipient: 'Todos os participantes', subject: 'Promoção Early Bird', content: '50% OFF - Somente hoje. Aproveite os ingressos promocionais.', status: 'sent', created_at: new Date(Date.now() - 8 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'sms', recipient: 'Compradores VIP', subject: 'SMS - Últimas Mesas', content: 'Apenas 5 mesas VIP restantes! Garanta o seu upgrade agora.', status: 'sent', created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'push', recipient: 'Todos os participantes', subject: 'Push - Jazz Sunset', content: 'Novos ingressos extras liberados no lote 3!', status: 'pending', created_at: new Date(Date.now() + 2 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, type: 'email', recipient: 'Lista de interesse', subject: 'Lembrete Palestra', content: 'Não esqueça de preencher sua ficha de presença para o certificado.', status: 'draft', created_at: new Date().toISOString() }
-      ]
-
-      const { error: insertError } = await supabase
-        .from('communications')
-        .insert(initialCommsData)
-
-      if (insertError) throw insertError
-
-      // Recarregar do banco
-      const { data: finalComms } = await supabase
-        .from('communications')
-        .select(`
-          *,
-          events (title)
-        `)
-        .eq('producer_id', producerId)
-        .order('created_at', { ascending: false })
-
-      if (finalComms) {
-        setCampaigns(finalComms.map(mapDbCommToCampaign))
-      }
-    } catch (err) {
-      console.error('Erro no auto-seed de comunicações:', err)
     }
   }
 

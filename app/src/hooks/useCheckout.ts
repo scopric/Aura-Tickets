@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
 
 export interface DbOrder {
@@ -166,7 +167,7 @@ export function useUserOrders() {
       if (!user?.id) return []
 
       // Modo demo
-      if (user.id === 'b2c3d4e5-f6a7-8901-bcde-f23456789012') {
+      if (isDemoAccount(user.id)) {
         return MOCK_ORDERS
       }
 
@@ -213,7 +214,7 @@ export function useUserTickets() {
       if (!user?.id) return []
 
       // Modo demo
-      if (user.id === 'b2c3d4e5-f6a7-8901-bcde-f23456789012') {
+      if (isDemoAccount(user.id)) {
         return MOCK_TICKETS
       }
 

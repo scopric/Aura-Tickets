@@ -12,7 +12,7 @@ test.describe('Front 1A — navegação e barra do carrinho', () => {
   })
 
   test('barra "Finalizar" é clicável com o aviso de cookies aberto', async ({ page }) => {
-    // evento de exemplo (some quando a vitrine deixar de usar MOCK_EVENTS: trocar por um evento real aprovado)
+    // evento real do banco de produção (criado em maio, sem aprovação; visível pelo slug)
     await page.goto('/event/noite-eletro-2025')
     await expect(page.getByRole('button', { name: /Rejeitar opcionais/ })).toBeVisible()
     await page.getByRole('button', { name: /Adicionar ao Carrinho/ }).first().click()

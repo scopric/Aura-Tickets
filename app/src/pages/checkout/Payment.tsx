@@ -59,7 +59,7 @@ export default function CheckoutPayment() {
     async function loadSystemCurrency() {
       try {
         const { data, error } = await supabase
-          .from('system_settings')
+          .from('platform_settings')
           .select('value')
           .eq('key', 'general')
           .maybeSingle()

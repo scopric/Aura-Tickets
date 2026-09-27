@@ -105,7 +105,7 @@ export function useAuth() {
         })
         await fetchProfile().catch(() => {})
       }
-      queryClient.invalidateQueries({ queryKey: ['profile'] })
+      queryClient.invalidateQueries() // tudo depende do usuário (inclusive o que a conta demo vê em desenvolvimento)
     },
   })
 
