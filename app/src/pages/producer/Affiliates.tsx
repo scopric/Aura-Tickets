@@ -278,6 +278,10 @@ export default function ProducerAffiliates() {
         <div>
           <h1 className="font-serif text-3xl text-espresso">Afiliados</h1>
           <p className="text-sm text-espresso/50 mt-1">Gerencie a equipe de comissões, vendas e cupons</p>
+          {/* Decisão 36 (27/09/2026): não prometer na tela o que o sistema ainda não processa */}
+          <p className="text-xs text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mt-3 max-w-xl">
+            <strong>Fase beta.</strong> A venda feita pelo link ainda não é atribuída automaticamente ao afiliado: confira as vendas e acerte a comissão diretamente com ele. O rastreamento automático (janela de 30 dias, último clique) entra com a integração de pagamentos.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowRanking(!showRanking)} className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full hover:bg-white transition-all">
