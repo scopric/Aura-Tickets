@@ -16,7 +16,7 @@ const producerFAQs = [
 ]
 
 const affiliateFAQs = [
-  // Programa em fase beta (Decisão 27, 27/09/2026): a venda pelo link ainda não é atribuída automaticamente.
+  // Programa em fase beta (Decisão 36, 27/09/2026): a venda pelo link ainda não é atribuída automaticamente.
   { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20) e um link para compartilhar. O programa esta em fase beta: por enquanto a venda feita pelo link ainda nao e ligada automaticamente ao seu codigo, entao combine com o produtor como ele vai conferir as suas vendas.' },
   { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00. O calculo automatico entra quando a integracao de pagamentos estiver pronta.' },
   { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX pelo produtor, para a chave cadastrada. O acompanhamento automatico do valor pendente e pago sera liberado com a integracao de pagamentos.' },
