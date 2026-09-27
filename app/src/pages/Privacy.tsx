@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/40">Última atualização: 24 de maio de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
+          <p className="text-xs text-espresso/40">Última atualização: 27 de setembro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
@@ -55,6 +55,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li>Com produtores de eventos que você adquire ingressos</li>
               <li>Com processadores de pagamento para transações</li>
+              <li>Com fornecedores de medição de audiência (Vercel e Google), que tratam os dados em nosso nome, conforme a seção 7</li>
               <li>Quando exigido por lei ou ordem judicial</li>
             </ul>
           </section>
@@ -79,7 +80,14 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">7. Cookies e Tecnologias Semelhantes</h2>
-            <p>Usamos cookies essenciais para autenticação e funcionalidade. Cookies analíticos e de marketing só são ativados com seu consentimento, gerenciado pelo banner de cookies.</p>
+            <p>Usamos cookies essenciais para autenticação e funcionamento da plataforma. Eles não dependem de consentimento.</p>
+            <p>Para entender como o site é usado, contamos com duas ferramentas de medição de audiência:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li><strong>Vercel Web Analytics</strong> (Vercel Inc., Estados Unidos): registra páginas visitadas, origem do acesso, tipo de aparelho, navegador e cidade aproximada. Não usa cookies nem identificadores persistentes: o visitante é representado por um código temporário, descartado em 24 horas, e só vemos dados agregados. Base legal: legítimo interesse (LGPD, art. 7º, IX).</li>
+              <li><strong>Google Analytics</strong> (Google LLC, Estados Unidos): mede páginas visitadas e origem do tráfego usando os cookies <code>_ga</code> e <code>_ga_*</code>, com validade de até 2 anos. Só é ativado com o seu consentimento, dado no aviso de cookies. Base legal: consentimento (LGPD, art. 7º, I).</li>
+            </ul>
+            <p>Esses fornecedores estão fora do Brasil; a transferência segue o art. 33 da LGPD, com garantias contratuais de proteção de dados. Não enviamos a eles nome, e-mail, CPF ou qualquer dado que identifique você diretamente.</p>
+            <p>Você pode mudar sua escolha a qualquer momento pelo link <strong>Cookies</strong> no rodapé das páginas públicas do site. Ao retirar o consentimento, o Google Analytics é desligado e seus cookies são apagados deste site. Para bloquear o Google Analytics em todos os sites, existe a extensão oficial de desativação do Google.</p>
           </section>
 
           <section>
