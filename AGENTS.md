@@ -1,59 +1,52 @@
-# Evokaa Eventos — Agent Context
+# Evokaa — contexto para agentes de IA
 
-Arquivo de contexto para agentes de IA trabalharem neste projeto sem precisar redescobrir a estrutura a cada sessão.
+Contexto do repositório para qualquer agente de código (Claude Code, Codex, Cursor, Copilot, Jules e outros que leem `AGENTS.md`).
 
-> 🆕 **Novo sistema de inicialização do Kimi CLI disponível!** Veja a seção [Inicialização com Kimi CLI](#-inicialização-com-kimi-cli) abaixo.
+## Como trabalhar aqui
 
----
+- **Claude Code** é a ferramenta principal do projeto. As instruções específicas dele estão em [`CLAUDE.md`](CLAUDE.md), carregado automaticamente. A memória entre sessões (histórico, decisões, pendências) fica num cofre do Obsidian fora deste repositório, na máquina do mantenedor; este arquivo é o contexto público.
+- **Um ramo por tarefa, a partir do `main` atualizado, sempre com pull request.** Quem mescla é o mantenedor. Nenhuma correção de segurança fica parada num ramo.
+- **Repositório público:** nenhuma chave, senha ou token em arquivo versionado. As variáveis ficam na Vercel e no Supabase.
+- **Banco de produção:** SQL novo vai para `docs/sql/`, não para `supabase/migrations/` (a integração Supabase↔GitHub rodaria as migrations em produção e a primeira apaga tabelas). Aplicar SQL em produção é ato do mantenedor.
+- O histórico de maio e junho de 2026 (Lovable, Antigravity e Kimi Code CLI) está em `docs/archive/`. Os arquivos do agente Kimi (`aura-agent.yaml`, `aura-system-prompt.md`) e do agente Antigravity (`run_agent.py`, `requirements.txt`, `.env.example` com chave Gemini) foram removidos em 27/09/2026; `docs/archive/KIMI_MEMORY.md` ficou como registro histórico.
 
-## 🤖 Inicialização com Kimi CLI
+## Ponytail — modo de trabalho (código enxuto)
 
-O projeto agora conta com um agente customizado e sistema de memória persistente para o Kimi Code CLI.
+O projeto é escrito no modo Ponytail. No Claude Code o plugin `ponytail` aplica isto sozinho em toda sessão; nos demais agentes, vale o texto abaixo (cópia do ruleset oficial em <https://github.com/DietrichGebert/ponytail>).
 
-### Arquivos do sistema
+You are a lazy senior developer. Lazy means efficient, not careless. The best code is the code never written.
 
-| Arquivo | Função |
-|---------|--------|
-| `Iniciar-Kimi-Evokaa.bat` | 🖱️ **Clique duplo** — inicia o Kimi CLI em uma nova janela do PowerShell |
-| `Iniciar-Kimi-Evokaa.ps1` | Script PowerShell avançado com parâmetros (`-Continue`, `-Session`, `-Yolo`) |
-| `aura-agent.yaml` | Configuração do agente customizado `aura-tickets` |
-| `aura-system-prompt.md` | System prompt com instruções obrigatórias para o agente |
-| `KIMI_MEMORY.md` | 🧠 **Memória persistente** — histórico, erros, decisões e estado atual do projeto |
+Before writing any code, stop at the first rung that holds:
 
-### Como usar
+1. Does this need to be built at all? (YAGNI)
+2. Does it already exist in this codebase? Reuse the helper, util, or pattern that's already here, don't re-write it.
+3. Does the standard library already do this? Use it.
+4. Does a native platform feature cover it? Use it.
+5. Does an already-installed dependency solve it? Use it.
+6. Can this be one line? Make it one line.
+7. Only then: write the minimum code that works.
 
-**Método 1 — Clique duplo (mais fácil):**
-1. Abra a pasta `Evokaa Tickets` no Explorer
-2. Clique duplo em `Iniciar-Kimi-Evokaa.bat`
-3. O PowerShell abre automaticamente com o Kimi CLI já configurado
+The ladder runs after you understand the problem, not instead of it: read the task and the code it touches, trace the real flow end to end, then climb.
 
-**Método 2 — PowerShell (mais controle):**
-```powershell
-cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets"
-.\Iniciar-Kimi-Evokaa.ps1           # Nova sessão
-.\Iniciar-Kimi-Evokaa.ps1 -Continue # Continuar sessão anterior
-.\Iniciar-Kimi-Evokaa.ps1 -Session  # Escolher sessão para retomar
-```
+Bug fix = root cause, not symptom: a report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken.
 
-### O que o agente faz automaticamente
+Rules:
 
-1. **Carrega contexto:** O `AGENTS.md` é injetado automaticamente no system prompt via `${KIMI_AGENTS_MD}`
-2. **Lê memória:** Ao iniciar, o agente lê o `KIMI_MEMORY.md` para saber o estado atual e evitar repetir erros
-3. **Atualiza memória:** Ao final de cada sessão significativa, o agente atualiza o `KIMI_MEMORY.md` com o que foi feito, erros encontrados e próximos passos
+- No abstractions that weren't explicitly requested.
+- No new dependency if it can be avoided.
+- No boilerplate nobody asked for.
+- Deletion over addition. Boring over clever. Fewest files possible.
+- Shortest working diff wins, but only once you understand the problem. The smallest change in the wrong place isn't lazy, it's a second bug.
+- Question complex requests: "Do you actually need X, or does Y cover it?"
+- Pick the edge-case-correct option when two stdlib approaches are the same size, lazy means less code, not the flimsier algorithm.
+- Mark deliberate simplifications that cut a real corner with a known ceiling (global lock, O(n²) scan, naive heuristic) with a `ponytail:` comment naming the ceiling and upgrade path.
 
-### Comandos úteis durante a sessão
-
-| Comando | Ação |
-|---------|------|
-| `/sessions` | Listar sessões anteriores |
-| `--continue` | Continuar a sessão mais recente |
-| `/export` | Exportar a sessão como Markdown |
-| `/compact` | Compactar o contexto se ficar muito longo |
-| `/clear` | Limpar o contexto atual |
+Not lazy about: understanding the problem (read it fully and trace the real flow before picking a rung, a small diff you don't understand is just laziness dressed up as efficiency), input validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs (the platform is never the spec ideal, a clock drifts, a sensor reads off), anything explicitly requested. Lazy code without its check is unfinished: non-trivial logic leaves ONE runnable check behind, the smallest thing that fails if the logic breaks (an assert-based demo/self-check or one small test file; no frameworks, no fixtures). Trivial one-liners need no test.
 
 ---
 
----
+> [!NOTE]
+> **O restante deste arquivo é um retrato de 24/05/2026** (auditoria feita com o Kimi Code CLI). Vários itens já mudaram: a marca é Evokaa, o login usa `supabase.auth`, há testes e2e, o `app` publica na Vercel a cada merge. Para o estado atual, confie no código em `app/src/` e em [`CLAUDE.md`](CLAUDE.md); use o texto abaixo como histórico e mapa, não como lista de tarefas.
 
 ## 📁 Onde está o código fonte real
 
@@ -227,7 +220,7 @@ NotFoundError: Failed to execute 'insertBefore' on 'Node'
 - `AuraAcademy.tsx` → título "Evokaa Academy" ✅
 - URLs `aura.events` → `evokaa.events` ✅
 
-**Nota:** Identificadores técnicos (projeto Vercel `aura-tickets-pypy`, chave localStorage `aura-auth`, arquivos `aura-agent.yaml`) foram mantidos para não quebrar compatibilidade.
+**Nota:** Identificadores técnicos (projeto Vercel `aura-tickets-pypy`, chave localStorage `aura-auth`) foram mantidos para não quebrar compatibilidade.
 
 ---
 
@@ -315,7 +308,6 @@ Evokaa Tickets/
 ├── postcss.config.js              # Idêntico ao de app/
 ├── components.json                # Idêntico ao de app/
 ├── eslint.config.js               # Idêntico ao de app/
-├── .env.example                   # Formato antigo (GEMINI_API_KEY)
 ├── supabase.ts                    # Cliente Supabase sem tipagem
 ├── supabase_schema.sql            # Schema antigo (tabela 'profiles')
 ├── *.tsx (AdminSettings, Analytics, Dashboard, etc.)  # Páginas antigas
@@ -326,8 +318,6 @@ Evokaa Tickets/
 ├── 404.html                       # Página 404 antiga
 ├── _redirects                     # Redirecionamentos antigos
 ├── deploy.ps1                     # Script deploy antigo
-├── run_agent.py                   # Script Python antigo
-├── requirements.txt               # Dependências Python antigas
 ├── info.md                        # Mensagem de setup do Lovable
 ├── aura-complete-code.md          # Blueprint completo antigo
 ├── aura-complete-source/          # Cópia estática do código
@@ -966,4 +956,4 @@ Para análise completa da estrutura do projeto (inventário de arquivos, inconsi
 
 ---
 
-*Última atualização: 2026-05-24 (Auditoria completa realizada)*
+*Retrato de 2026-05-24 (auditoria com o Kimi Code CLI); cabeçalho atualizado em 2026-09-27.*
