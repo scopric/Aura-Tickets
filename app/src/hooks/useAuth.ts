@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuthStore, type User } from '../stores/authStore'
@@ -208,9 +209,23 @@ export function useAuth() {
     }
   }
 
-  const register = async (name: string, email: string, password: string, role: 'user' | 'producer' | 'admin'): Promise<boolean> => {
+  const register = async (
+    name: string, email: string, password: string, role: 'user' | 'producer' | 'admin',
+    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean }
+  ): Promise<boolean> => {
     try {
-      const userData = { full_name: name, role }
+      // O aceite vai nos metadados do usuário (prova de aceite, LGPD art. 8º, § 2º); a função
+      // record-access copia para user_consents no 1º login, com o IP. Antes, era descartado.
+      const userData = {
+        full_name: name, role,
+        ...(consent?.acceptedTerms && consent?.acceptedPrivacy ? {
+          terms_version: TERMS_VERSION,
+          privacy_version: PRIVACY_VERSION,
+          marketing_consent: consent.marketingConsent === true,
+          data_sharing_consent: consent.dataSharingConsent === true,
+          consent_at: new Date().toISOString(),
+        } : {}),
+      }
       const data = await signUpMutation.mutateAsync({ email, password, userData })
       
       // Após signup, garante o nome no profile (o papel é definido pelo banco no cadastro, nunca pelo cliente)

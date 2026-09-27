@@ -34,6 +34,7 @@ export default function PrivacyPage() {
               <li>Dados de eventos: informações criadas por produtores</li>
               <li>Dados de transações: histórico de compras (processado por parceiros)</li>
               <li>Dados de navegação: cookies e logs para melhorar a experiência</li>
+              <li>Registros de acesso: data, hora e endereço IP de cada login, guardados por 6 meses por obrigação legal (Marco Civil da Internet, art. 15) e depois apagados automaticamente; e o registro do seu aceite destes Termos e desta Política (versão, data e IP)</li>
             </ul>
           </section>
 

@@ -63,6 +63,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLoading(false)
             return
           }
+          // Sessão nova (senha, login social ou retorno do provedor): o servidor grava data/hora + IP
+          // (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Em segundo plano; falha é só log.
+          supabase.functions.invoke('record-access', { body: { kind: 'login' } })
+            .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+            .catch((e) => console.warn('[AuthContext] record-access:', e))
           await fetchProfile()
         } else {
           // Se a sessao atual salva no Zustand for mock, nao devemos limpar a autenticacao
