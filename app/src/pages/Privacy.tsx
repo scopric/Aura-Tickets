@@ -87,7 +87,7 @@ export default function PrivacyPage() {
               <li><strong>Google Analytics</strong> (Google LLC, Estados Unidos): mede páginas visitadas e origem do tráfego usando os cookies <code>_ga</code> e <code>_ga_*</code>, com validade de até 2 anos. Só é ativado com o seu consentimento, dado no aviso de cookies. Base legal: consentimento (LGPD, art. 7º, I).</li>
             </ul>
             <p>Esses fornecedores estão fora do Brasil; a transferência segue o art. 33 da LGPD, com garantias contratuais de proteção de dados. Não enviamos a eles nome, e-mail, CPF ou qualquer dado que identifique você diretamente.</p>
-            <p>Você pode mudar sua escolha a qualquer momento pelo link <strong>Cookies</strong> no rodapé. Ao retirar o consentimento, o Google Analytics é desligado e seus cookies são apagados deste site. Para bloquear o Google Analytics em todos os sites, existe a extensão oficial de desativação do Google.</p>
+            <p>Você pode mudar sua escolha a qualquer momento pelo link <strong>Cookies</strong> no rodapé das páginas públicas do site. Ao retirar o consentimento, o Google Analytics é desligado e seus cookies são apagados deste site. Para bloquear o Google Analytics em todos os sites, existe a extensão oficial de desativação do Google.</p>
           </section>
 
           <section>
