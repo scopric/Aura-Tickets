@@ -464,7 +464,7 @@ export default function AuthLogin() {
                 <input
                   type="checkbox"
                   checked={socialConsent}
-                  onChange={(e) => { setSocialConsent(e.target.checked); if (e.target.checked) setError('') }}
+                  onChange={(e) => setSocialConsent(e.target.checked)}
                   className="mt-0.5 h-3.5 w-3.5 accent-plum"
                 />
                 <span>
