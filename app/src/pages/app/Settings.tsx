@@ -50,16 +50,20 @@ export default function ParticipantSettings() {
 
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id)
-
-      if (error) throw error
+      // Função com chave de serviço: anonimiza o perfil, apaga os dados só pessoais e desativa o login.
+      // (Apagar `profiles` daqui nunca funcionou: não há regra de DELETE, e pedidos apontam para o perfil.)
+      const { data, error } = await supabase.functions.invoke('delete-account')
+      if (error) {
+        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error || error.message)
+      }
+      if (!data?.ok) throw new Error(data?.error || 'A exclusão não foi concluída')
 
       toast.success('Conta cancelada. Sentiremos sua falta!', { id: toastId })
       setShowDelete(false)
-      logout()
+      // A sessão já foi encerrada no servidor; o logout local só limpa o navegador
+      await Promise.resolve(logout()).catch(() => {})
     } catch (err: any) {
       console.error('[ParticipantSettings] Erro ao excluir conta:', err)
       toast.error(err.message || 'Erro ao processar o cancelamento da conta', { id: toastId })

@@ -356,15 +356,19 @@ export default function ProducerSettings() {
     }
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', data.profile.id)
-
-      if (error) throw error
+      // Função com chave de serviço: anonimiza perfil e cadastro de produtor (dados bancários),
+      // apaga os dados só pessoais e desativa o login. Pedidos e ingressos ficam (obrigação fiscal).
+      const { data: result, error } = await supabase.functions.invoke('delete-account')
+      if (error) {
+        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error || error.message)
+      }
+      if (!result?.ok) throw new Error(result?.error || 'A exclusão não foi concluída')
 
       toast.success('Sua conta foi excluída com sucesso!', { id: toastId })
-      await supabase.auth.signOut()
+      // A sessão já foi encerrada no servidor; o signOut local só limpa o navegador
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
       window.location.href = '/'
     } catch (err: any) {
       console.error('[ProducerSettings] Erro ao excluir conta:', err)
