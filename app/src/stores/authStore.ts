@@ -60,20 +60,16 @@ export const useAuthStore = create<AuthState>()(
 
       fetchProfile: async () => {
         if (activeProfilePromise) {
-          console.log('[DEBUG AuthStore] fetchProfile ja em andamento. Reaproveitando promessa ativa.')
           return activeProfilePromise
         }
 
         const runFetch = async () => {
           set({ isLoading: true })
-          console.log('[DEBUG AuthStore] Iniciando fetchProfile...')
           try {
             const session = get().session
-            console.log('[DEBUG AuthStore] Sessao atual no store:', session)
 
             // Modo demo: mock sessions
             if (isMockSession(session)) {
-              console.log('[DEBUG AuthStore] Sessao identificada como MOCK')
               const token = session.access_token || '';
               const isProducer = token.endsWith('producer') || token.includes('d3f6ab7a');
               const isAdmin = token.endsWith('admin') || token.includes('a1b2c3d4');
@@ -103,7 +99,6 @@ export const useAuthStore = create<AuthState>()(
                   is_verified: true
                 } : null
               }
-              console.log('[DEBUG AuthStore] Mapeado usuario MOCK:', mappedUser)
               set({ user: mappedUser, isAuthenticated: true, isLoading: false })
               return
             }
@@ -111,12 +106,9 @@ export const useAuthStore = create<AuthState>()(
             let authUser: any = session?.user || null
             let authUserError: any = null
 
-            if (authUser) {
-              console.log('[DEBUG AuthStore] Usando usuario obtido diretamente da sessao:', authUser.id)
-            } else {
-              console.log('[DEBUG AuthStore] User nao encontrado na sessao. Chamando supabase.auth.getUser()...')
+            if (!authUser) {
+              // sem usuário na sessão: pede ao Supabase, com timeout para não travar a aplicação se a API estiver lenta
               try {
-                // Executa getUser com timeout de 7 segundos para evitar travar a aplicacao se a API estiver lenta/indisponivel
                 const getUserPromise = supabase.auth.getUser()
                 const timeoutError = new Error('Timeout ao obter usuario do Supabase')
                 const result = await Promise.race([
@@ -126,20 +118,18 @@ export const useAuthStore = create<AuthState>()(
                 
                 authUser = result?.data?.user || null
                 authUserError = result?.error || null
-                console.log('[DEBUG AuthStore] Retorno getUser:', { authUser, authUserError })
               } catch (timeoutErr: any) {
-                console.warn('[DEBUG AuthStore] supabase.auth.getUser falhou ou estourou o timeout:', timeoutErr?.message || timeoutErr)
+                console.warn('[AuthStore] supabase.auth.getUser falhou ou estourou o timeout:', timeoutErr?.message || timeoutErr)
                 authUserError = timeoutErr
               }
             }
             
             if (authUserError || !authUser) {
-              console.warn('[DEBUG AuthStore] Usuario nao autenticado ou erro:', authUserError)
+              console.warn('[AuthStore] Usuario nao autenticado ou erro:', authUserError)
               set({ user: null, session: null, isAuthenticated: false, isLoading: false })
               return
             }
 
-            console.log('[DEBUG AuthStore] Buscando profile na tabela para UUID:', authUser.id)
             let profile: any = null
             let profileError: any = null
             try {
@@ -159,13 +149,12 @@ export const useAuthStore = create<AuthState>()(
               profile = result?.data || null
               profileError = result?.error || null
             } catch (profileTimeoutErr: any) {
-              console.warn('[DEBUG AuthStore] Busca na tabela profiles falhou ou estourou o timeout:', profileTimeoutErr?.message || profileTimeoutErr)
+              console.warn('[AuthStore] Busca na tabela profiles falhou ou estourou o timeout:', profileTimeoutErr?.message || profileTimeoutErr)
               profileError = profileTimeoutErr
             }
-            console.log('[DEBUG AuthStore] Retorno tabela profiles:', { profile, error: profileError })
 
             if (profile && profile.is_authorized === false) {
-              console.warn('[DEBUG AuthStore] Usuario inativo ou nao autorizado pelo admin:', profile.email)
+              console.warn('[AuthStore] Usuario inativo ou nao autorizado pelo admin:', authUser.id)
               set({ user: null, session: null, isAuthenticated: false, isLoading: false })
               supabase.auth.signOut().catch(() => {})
               throw new Error('Sua conta ainda não foi autorizada por um administrador. Entre em contato com o suporte.')
@@ -174,7 +163,7 @@ export const useAuthStore = create<AuthState>()(
             // Se não encontrar profile, cria um user básico com dados do authUser
             // Isso evita que o user fique null e as queries fiquem in loading infinito
             if (profileError || !profile) {
-              console.warn('[AuthStore] Profile nÃ£o encontrado, usando dados do authUser:', profileError?.message || profileError)
+              console.warn('[AuthStore] Profile não encontrado, usando dados do authUser:', profileError?.message || profileError)
               const mappedUser: User = {
                 id: authUser.id,
                 email: authUser.email || '',
@@ -183,7 +172,6 @@ export const useAuthStore = create<AuthState>()(
                 role: 'user', // sem profile: menor privilégio (user_metadata é editável pelo próprio usuário)
                 admin_permissions: [],
               }
-              console.log('[DEBUG AuthStore] mappedUser provisorio (sem profile):', mappedUser)
               set({ user: mappedUser, isAuthenticated: true, isLoading: false })
               return
             }
@@ -209,7 +197,6 @@ export const useAuthStore = create<AuthState>()(
                 is_verified: profile.is_verified || false
               } : null
             }
-            console.log('[DEBUG AuthStore] mappedUser completo (com profile):', mappedUser)
 
             set({ user: mappedUser, isAuthenticated: true, isLoading: false })
           } catch (err) {
