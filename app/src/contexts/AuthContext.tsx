@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
 
+// Último usuário cuja sessão nova já foi registrada (record-access); zera quando a página recarrega
+let recordedAccessFor: string | null = null
+
 export interface UserProfile {
   id: string
   role: Role
@@ -66,9 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           // Sessão nova (senha, login social ou retorno do provedor): o servidor grava data/hora + IP
           // (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Em segundo plano; falha é só log.
-          supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
-            .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
-            .catch((e) => console.warn('[AuthContext] record-access:', e))
+          // SIGNED_IN e INITIAL_SESSION chegam juntos na volta do provedor: registra uma vez por usuário.
+          if (recordedAccessFor !== session.user.id) {
+            recordedAccessFor = session.user.id
+            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
+              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+          }
           await fetchProfile()
         } else {
           // Se a sessao atual salva no Zustand for mock, nao devemos limpar a autenticacao

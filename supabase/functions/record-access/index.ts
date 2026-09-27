@@ -34,7 +34,7 @@ export function clientIp(headers: Headers): { ip: string | null; forwarded_for: 
     forwarded_for: chain ? chain.slice(-200) : null,
   }
 }
-const FIRST_VERSION = '2026-09-27'  // primeira versão publicada dos textos; nada anterior é aceito
+const FIRST_VERSION = '2026-09-27'  // primeira versão publicada dos textos (app/src/lib/legal.ts); nada anterior é aceito
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -74,15 +74,22 @@ Deno.serve(async (req) => {
   const today = new Date().toISOString().slice(0, 10)
   const versionOk = (v: unknown): v is string =>
     typeof v === 'string' && VERSION_RE.test(v) && v >= FIRST_VERSION && v <= today
-  const terms_version = versionOk(m.terms_version) ? m.terms_version : body.terms_version
-  const privacy_version = versionOk(m.privacy_version) ? m.privacy_version : body.privacy_version
-  if (versionOk(terms_version) && versionOk(privacy_version)) {
-    const now = Date.now()
-    const created = Date.parse(user.created_at)
-    const informed = typeof m.consent_at === 'string' ? Date.parse(m.consent_at) : NaN
-    const accepted_at = new Date(informed >= created && informed <= now ? informed : now).toISOString()
+  const now = Date.now()
+  const created = Date.parse(user.created_at)
+  const informed = typeof m.consent_at === 'string' ? Date.parse(m.consent_at) : NaN
+  const acceptedAtCadastro = new Date(informed >= created && informed <= now ? informed : now).toISOString()
+  // Dois pares possíveis: o do cadastro (metadados) e o vigente (body). Quem se cadastrou numa
+  // versão e continua usando o site depois de uma nova também fica com a linha da nova (Termos, 8).
+  const pares: Array<{ t: unknown; p: unknown; accepted_at: string }> = [
+    { t: m.terms_version, p: m.privacy_version, accepted_at: acceptedAtCadastro },
+    { t: body.terms_version, p: body.privacy_version, accepted_at: new Date(now).toISOString() },
+  ]
+  const feitos = new Set<string>()
+  for (const { t, p, accepted_at } of pares) {
+    if (!versionOk(t) || !versionOk(p) || feitos.has(`${t}|${p}`)) continue
+    feitos.add(`${t}|${p}`)
     const { error: consentError } = await admin.from('user_consents').upsert({
-      user_id: user.id, terms_version, privacy_version,
+      user_id: user.id, terms_version: t, privacy_version: p,
       marketing_consent: m.marketing_consent === true,
       data_sharing_consent: m.data_sharing_consent === true,
       accepted_at, ip, forwarded_for, user_agent,

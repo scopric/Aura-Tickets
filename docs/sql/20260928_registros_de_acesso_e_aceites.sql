@@ -13,7 +13,7 @@ create table if not exists public.access_logs (
   id uuid primary key default gen_random_uuid(),
   user_id uuid,                     -- sem FK de propósito: o registro precisa sobreviver à conta
   event text not null default 'login' check (event in ('login')),
-  ip inet,                          -- candidato (cf-connecting-ip ou 1º do x-forwarded-for)
+  ip inet,                          -- candidato (cf-connecting-ip ou o ÚLTIMO do x-forwarded-for)
   forwarded_for text check (length(forwarded_for) <= 200),  -- cadeia completa: o cliente não apaga o fim
   user_agent text check (length(user_agent) <= 300),
   created_at timestamptz not null default now()
@@ -50,6 +50,9 @@ create policy user_consents_select_own on public.user_consents
 
 -- 3. Limpeza automática: acessos com mais de 6 meses saem todo dia às 03:17 UTC.
 create extension if not exists pg_cron;
+-- permissões que a doc da Supabase exige para o SQL Editor (role postgres) agendar jobs
+grant usage on schema cron to postgres;
+grant all privileges on all tables in schema cron to postgres;
 select cron.unschedule('limpar_access_logs') where exists (select 1 from cron.job where jobname = 'limpar_access_logs');
 select cron.schedule('limpar_access_logs', '17 3 * * *',
   $$delete from public.access_logs where created_at < now() - interval '6 months'$$);
