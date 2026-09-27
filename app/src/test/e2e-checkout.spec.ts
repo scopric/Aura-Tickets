@@ -4,7 +4,7 @@ test.describe('Checkout', () => {
   test.beforeEach(async ({ page }) => {
     // Login como participante antes de cada teste de checkout
     await page.goto('/auth/login')
-    await page.getByRole('button', { name: 'Participante' }).click()
+    await page.getByRole('button', { name: 'Participante', exact: true }).click() // sem exact casa também "Entrar como Participante"
     await page.getByPlaceholder('seu@email.com').fill('user@aura.teste')
     await page.getByPlaceholder('Sua senha').fill('senha123')
     await page.getByRole('button', { name: /Entrar como Participante/ }).click()
