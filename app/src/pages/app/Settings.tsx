@@ -53,7 +53,11 @@ export default function ParticipantSettings() {
       // Função com chave de serviço: anonimiza o perfil, apaga os dados só pessoais e desativa o login.
       // (Apagar `profiles` daqui nunca funcionou: não há regra de DELETE, e pedidos apontam para o perfil.)
       const { data, error } = await supabase.functions.invoke('delete-account')
-      if (error) throw error
+      if (error) {
+        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error || error.message)
+      }
       if (!data?.ok) throw new Error(data?.error || 'A exclusão não foi concluída')
 
       toast.success('Conta cancelada. Sentiremos sua falta!', { id: toastId })

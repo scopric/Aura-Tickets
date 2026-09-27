@@ -359,7 +359,11 @@ export default function ProducerSettings() {
       // Função com chave de serviço: anonimiza perfil e cadastro de produtor (dados bancários),
       // apaga os dados só pessoais e desativa o login. Pedidos e ingressos ficam (obrigação fiscal).
       const { data: result, error } = await supabase.functions.invoke('delete-account')
-      if (error) throw error
+      if (error) {
+        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error || error.message)
+      }
       if (!result?.ok) throw new Error(result?.error || 'A exclusão não foi concluída')
 
       toast.success('Sua conta foi excluída com sucesso!', { id: toastId })

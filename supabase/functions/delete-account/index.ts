@@ -41,6 +41,16 @@ Deno.serve(async (req) => {
   const uid = user.id
   const anonEmail = `removido-${uid}@anonimo.evokaa.com.br`
 
+  // Produtor com evento publicado e ainda por acontecer: não some enquanto há venda em curso
+  // (o repasse ficaria sem destino). Ele cancela ou encerra o evento e tenta de novo.
+  const { data: ativos, error: eventsError } = await admin.from('events')
+    .select('id').eq('producer_id', uid).eq('status', 'published')
+    .gte('start_date', new Date().toISOString()).limit(1)
+  if (eventsError) return json(500, { error: 'Não foi possível conferir seus eventos. Tente de novo.' })
+  if (ativos && ativos.length) {
+    return json(409, { error: 'Você tem evento publicado com data futura. Cancele ou encerre seus eventos antes de excluir a conta.' })
+  }
+
   // 2..5: cada passo é idempotente; a primeira falha interrompe ANTES de mexer no login
   const steps: Array<[string, () => PromiseLike<{ error: { message: string } | null }>]> = [
     // Perfil anonimizado (a linha fica: pedidos e ingressos apontam para ela)
@@ -59,9 +69,13 @@ Deno.serve(async (req) => {
     ['tickets', () => admin.from('tickets').update({ buyer_email: anonEmail }).eq('user_id', uid)],
     // Saques do produtor: destino bancário fora (sacar antes de excluir a conta)
     ['withdrawals', () => admin.from('withdrawals').update({ pix_key: null, bank_account: {} }).eq('producer_id', uid)],
-    // Conteúdo escrito pelo usuário
+    // CRM do produtor: ficha do participante sem base fiscal
+    ['customers', () => admin.from('customers').update({ name: 'Usuário removido', email: anonEmail, phone: null, notes: null }).eq('user_id', uid)],
+    // Conteúdo escrito pelo usuário (chat entre usuários e chat de suporte)
     ['event_reviews', () => admin.from('event_reviews').update({ comment: null }).eq('user_id', uid)],
     ['messages', () => admin.from('messages').delete().eq('sender_id', uid)],
+    ['support_messages', () => admin.from('support_messages').delete().eq('sender_id', uid)],
+    ['support_sessions', () => admin.from('support_sessions').update({ user_id: null }).eq('user_id', uid)],
     // Tabelas só pessoais, sem valor fiscal
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
         'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists']
