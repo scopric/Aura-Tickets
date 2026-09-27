@@ -59,6 +59,7 @@ export default function FeedbackButton() {
     <>
       <button
         onClick={() => setIsOpen(!isOpen)}
+        aria-label={isOpen ? 'Fechar feedback' : 'Enviar feedback'}
         className={`fixed bottom-6 right-6 z-50 p-3 rounded-full shadow-lg transition-all duration-300 ${
           isOpen ? 'bg-espresso text-cream rotate-90' : 'bg-plum text-cream hover:shadow-glow'
         }`}

@@ -6,9 +6,11 @@ import {
 import { toast } from 'sonner'
 import gsap from 'gsap'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 interface AdminProfile {
   id: string
+  email: string | null
   full_name: string | null
   avatar_url: string | null
   role: 'user' | 'producer' | 'admin'
@@ -31,10 +33,12 @@ const PERMISSIONS = [
 
 export default function AdminTeamManager() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const { user } = useAuth()
   
   // States
   const [admins, setAdmins] = useState<AdminProfile[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   
   // Promotion Search
   const [searchEmail, setSearchEmail] = useState('')
@@ -59,35 +63,11 @@ export default function AdminTeamManager() {
 
       if (error) throw error
       setAdmins(data || [])
+      setLoadError('')
     } catch (err: any) {
       console.error('Erro ao buscar equipe admin:', err)
-      // Fallback local caso o supabase falhe
-      setAdmins([
-        { 
-          id: 'admin-1', 
-          full_name: 'Ricardo Scoparo', 
-          avatar_url: null, 
-          role: 'admin', 
-          admin_permissions: ['super_admin'], 
-          updated_at: new Date().toISOString() 
-        },
-        { 
-          id: 'admin-2', 
-          full_name: 'Pedro Silva (Suporte)', 
-          avatar_url: null, 
-          role: 'admin', 
-          admin_permissions: ['manage_users', 'manage_tickets', 'manage_feedback'], 
-          updated_at: new Date().toISOString() 
-        },
-        { 
-          id: 'admin-3', 
-          full_name: 'Mariana Costa (Marketing)', 
-          avatar_url: null, 
-          role: 'admin', 
-          admin_permissions: ['manage_newsletter', 'view_analytics'], 
-          updated_at: new Date().toISOString() 
-        }
-      ])
+      setAdmins([])
+      setLoadError(err.message || 'Erro ao buscar a equipe')
     } finally {
       setIsLoading(false)
     }
@@ -122,40 +102,20 @@ export default function AdminTeamManager() {
     setFoundUser(null)
     
     try {
-      // Como o Supabase restringe listagem do Auth.users para segurança,
-      // buscamos na tabela public.profiles que costuma mapear os emails na criação (se disponível), 
-      // ou realizamos uma busca simples.
-      // Observação: Se não houver campo email em profiles, fazemos pesquisa.
-      // O mock da estrutura do banco possui profiles vinculada a auth.users.
-      // Para este fluxo de admin, vamos procurar na REST API se houver e-mail ou no fallback.
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
-        .eq('role', 'user')
-        .limit(1)
+        .select('id, email, full_name, role, avatar_url')
+        .eq('email', searchEmail.trim().toLowerCase())
+        .maybeSingle()
 
-      // Nota: Caso não encontremos pela coluna email (pois no core original profiles pode não ter e-mail, 
-      // mas apenas full_name/role, puxamos dados aproximados ou simulamos se falhar).
-      // Vamos simular a pesquisa em profiles se o banco for restrito.
       if (error) throw error
-      
-      if (data && data.length > 0) {
-        // Encontrou algum usuário elegível
-        const user = data[0] as unknown as AdminProfile
-        setFoundUser(user)
-        toast.success(`Usuário encontrado: ${user.full_name || 'Participante'}`)
+
+      if (!data) {
+        toast.error('Nenhuma conta com esse e-mail. A pessoa precisa se cadastrar antes.')
+      } else if (data.role === 'admin') {
+        toast.info(`${data.full_name || data.email} já é administrador.`)
       } else {
-        // Mock de busca para fins demonstrativos caso o banco esteja vazio
-        const mockFound: AdminProfile = {
-          id: 'user-temp-' + Math.random().toString().slice(2, 8),
-          full_name: 'Lucas Almeida',
-          avatar_url: null,
-          role: 'user',
-          admin_permissions: [],
-          updated_at: new Date().toISOString()
-        }
-        setFoundUser(mockFound)
-        toast.info('Usuário demonstrativo encontrado (Lucas Almeida).')
+        setFoundUser({ ...data, admin_permissions: [], updated_at: null } as AdminProfile)
       }
     } catch (err: any) {
       console.error(err)
@@ -182,23 +142,13 @@ export default function AdminTeamManager() {
 
       if (error) throw error
       
-      toast.success(`${foundUser.full_name || 'Usuário'} promovido a Administrador!`)
+      toast.success(`${foundUser.full_name || foundUser.email} promovido a Administrador!`)
       setFoundUser(null)
       setSearchEmail('')
       fetchAdmins()
     } catch (err: any) {
       console.error(err)
-      // Fallback local
-      const newAdmin: AdminProfile = {
-        ...foundUser,
-        role: 'admin',
-        admin_permissions: ['view_analytics'],
-        updated_at: new Date().toISOString()
-      }
-      setAdmins([...admins, newAdmin])
-      toast.success(`${foundUser.full_name} promovido localmente no Ambiente Demo!`)
-      setFoundUser(null)
-      setSearchEmail('')
+      toast.error('Erro ao promover: ' + (err.message || 'falha desconhecida'))
     } finally {
       setIsPromoting(false)
     }
@@ -220,8 +170,23 @@ export default function AdminTeamManager() {
   }
 
   // Save admin permissions
+  // Último admin com super_admin não pode perder o acesso total, senão ninguém mais administra a equipe
+  const isLastSuperAdmin = (adminId: string) => {
+    const supers = admins.filter(a => a.admin_permissions?.includes('super_admin'))
+    return supers.length === 1 && supers[0].id === adminId
+  }
+
   const handleSavePermissions = async () => {
     if (!selectedAdmin) return
+    const losesSuper = selectedAdmin.admin_permissions?.includes('super_admin') && !selectedPermissions.includes('super_admin')
+    if (losesSuper && selectedAdmin.id === user?.id) {
+      toast.error('Você não pode rebaixar a si mesmo.')
+      return
+    }
+    if (losesSuper && isLastSuperAdmin(selectedAdmin.id)) {
+      toast.error('Este é o último Super Admin: promova outro antes de rebaixá-lo.')
+      return
+    }
     setIsSavingPermissions(true)
     try {
       const { error } = await supabase
@@ -244,13 +209,7 @@ export default function AdminTeamManager() {
       setSelectedAdmin(null)
     } catch (err: any) {
       console.error(err)
-      // Fallback local
-      setAdmins(admins.map(a => a.id === selectedAdmin.id ? { 
-        ...a, 
-        admin_permissions: selectedPermissions 
-      } : a))
-      toast.success('Permissões atualizadas localmente no Ambiente Demo.')
-      setSelectedAdmin(null)
+      toast.error('Erro ao salvar permissões: ' + (err.message || 'falha desconhecida'))
     } finally {
       setIsSavingPermissions(false)
     }
@@ -258,6 +217,14 @@ export default function AdminTeamManager() {
 
   // Remove Admin (Demote to User)
   const handleRemoveAdmin = async (adminId: string, name: string) => {
+    if (adminId === user?.id) {
+      toast.error('Você não pode remover a si mesmo da equipe.')
+      return
+    }
+    if (isLastSuperAdmin(adminId)) {
+      toast.error('Este é o último Super Admin: promova outro antes de removê-lo.')
+      return
+    }
     const confirm = window.confirm(`Tem certeza de que deseja remover o privilégio administrativo de ${name}? Ele será rebaixado a participante comum.`)
     if (!confirm) return
 
@@ -277,10 +244,7 @@ export default function AdminTeamManager() {
       if (selectedAdmin?.id === adminId) setSelectedAdmin(null)
     } catch (err: any) {
       console.error(err)
-      // Fallback local
-      setAdmins(admins.filter(a => a.id !== adminId))
-      toast.success(`${name} rebaixado localmente no Ambiente Demo.`)
-      if (selectedAdmin?.id === adminId) setSelectedAdmin(null)
+      toast.error('Erro ao remover: ' + (err.message || 'falha desconhecida'))
     }
   }
 
@@ -300,6 +264,11 @@ export default function AdminTeamManager() {
               <Shield className="w-5 h-5 text-plum" /> Membros do Time Admin
             </h2>
 
+            {loadError && (
+              <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                Não foi possível carregar a equipe: {loadError}
+              </div>
+            )}
             {isLoading ? (
               <div className="flex justify-center py-20">
                 <Loader2 className="w-8 h-8 text-plum animate-spin" />
@@ -453,10 +422,10 @@ export default function AdminTeamManager() {
             /* Invite / Promote Box */
             <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
               <h3 className="font-serif text-xl text-espresso mb-1.5 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-plum" /> Adicionar Admin
+                <UserPlus className="w-5 h-5 text-plum" /> Promover conta existente
               </h3>
               <p className="text-[10px] text-espresso/40 mb-5 leading-normal">
-                Promova um usuário ativo da plataforma (Participante ou Produtor) a Administrador para auxiliar no suporte e moderação.
+                A pessoa precisa já ter conta na Evokaa (cadastro pelo site ou app). Informe o e-mail dessa conta para promovê-la a administrador.
               </p>
 
               <form onSubmit={handleSearchUser} className="space-y-4 mb-6">
@@ -490,8 +459,8 @@ export default function AdminTeamManager() {
                       {foundUser.full_name?.charAt(0) || <User className="w-3 h-3" />}
                     </div>
                     <div>
-                      <div className="text-xs font-bold text-espresso">{foundUser.full_name || 'Lucas Almeida'}</div>
-                      <div className="text-[10px] text-espresso/40 capitalize">Cargo Atual: {foundUser.role}</div>
+                      <div className="text-xs font-bold text-espresso">{foundUser.full_name || foundUser.email}</div>
+                      <div className="text-[10px] text-espresso/40">{foundUser.email} · Cargo atual: <span className="capitalize">{foundUser.role}</span></div>
                     </div>
                   </div>
                   
