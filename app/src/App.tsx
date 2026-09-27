@@ -20,6 +20,10 @@ import AppLayout from './components/AppLayout'
 import FeatureGuard from './components/FeatureGuard'
 import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent } from './lib/tracking'
+import { getAppMode } from './lib/appHost'
+
+// O host não muda durante a sessão do SPA
+const appMode = getAppMode()
 
 // Public pages (lazy loaded)
 const Home = lazy(() => import('./pages/Home'))
@@ -160,8 +164,11 @@ function ProtectedRoute({
   }
 
   if (role && !allowedRoles.includes(role)) {
+    // No alpha não existem painéis de outros papéis: redirecionar para eles cairia no catch-all e voltaria aqui (loop).
+    // O login recusa a sessão com "Acesso restrito."
+    if (appMode === 'admin') return <Navigate to="/auth/login" replace />
     if (role === 'admin') return <Navigate to="/admin/dashboard" replace />
-    if (role === 'producer') return <Navigate to="/producer/dashboard" replace />
+    if (role === 'producer' || role === 'editor') return <Navigate to="/producer/dashboard" replace />
     return <Navigate to="/app/hub" replace />
   }
 
@@ -178,6 +185,17 @@ function ProtectedRoute({
   return <>{children}</>
 }
 
+// app.* e alpha.* não têm landing: sem sessão vai direto ao login; com sessão, ao painel do papel.
+// No alpha qualquer sessão vai a /admin/dashboard e o ProtectedRoute recusa quem não é admin.
+function RootRedirect() {
+  const { isAuthenticated, role } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/auth/login" replace />
+  if (appMode === 'admin') return <Navigate to="/admin/dashboard" replace />
+  if (role === 'producer' || role === 'editor') return <Navigate to="/producer/dashboard" replace />
+  if (role === 'user') return <Navigate to="/app/hub" replace />
+  return <Navigate to="/auth/login" replace />
+}
+
 function Layout() {
   const location = useLocation()
 
@@ -190,6 +208,43 @@ function Layout() {
     // Registra a visualizacao da pagina em cada mudanca de rota
     trackPageView(location.pathname)
   }, [location.pathname])
+
+  // alpha.*: só o login administrativo e o painel /admin/* (sem site institucional)
+  if (appMode === 'admin') {
+    return (
+      <div className="min-h-screen bg-canvas">
+        <main>
+          <Suspense fallback={<PageLoading />}>
+            <Routes>
+              <Route path="/auth/login" element={<AuthLogin />} />
+
+              {/* Admin - protected */}
+              <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminUsers /></ProtectedRoute>} />
+                <Route path="/admin/producers" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminProducers /></ProtectedRoute>} />
+                <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_events"><AdminEvents /></ProtectedRoute>} />
+                <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_finance"><AdminFinance /></ProtectedRoute>} />
+                <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
+                <Route path="/admin/tickets" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_tickets"><AdminTickets /></ProtectedRoute>} />
+                <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminSettingsPage /></ProtectedRoute>} />
+                <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
+                <Route path="/admin/support" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><SupportChatAdmin /></ProtectedRoute>} />
+                <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
+                <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
+              </Route>
+
+              <Route path="*" element={<RootRedirect />} />
+            </Routes>
+          </Suspense>
+        </main>
+        <Toaster />
+        <FeedbackButton />
+        <CookieBanner />
+      </div>
+    )
+  }
 
   const hideLayout =
     location.pathname.startsWith('/producer') ||
@@ -205,7 +260,7 @@ function Layout() {
         <Suspense fallback={<PageLoading />}>
           <Routes>
             {/* Public */}
-            <Route path="/" element={<Home />} />
+            <Route path="/" element={appMode === 'app' ? <RootRedirect /> : <Home />} />
             <Route path="/events" element={<EventsBrowse />} />
             <Route path="/event/:eventId" element={<EventPage />} />
             <Route path="/app/download" element={<AppDownload />} />
@@ -274,22 +329,8 @@ function Layout() {
               } 
             />
 
-            {/* Admin - protected */}
-            <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminUsers /></ProtectedRoute>} />
-              <Route path="/admin/producers" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminProducers /></ProtectedRoute>} />
-              <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_events"><AdminEvents /></ProtectedRoute>} />
-              <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_finance"><AdminFinance /></ProtectedRoute>} />
-              <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
-              <Route path="/admin/tickets" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_tickets"><AdminTickets /></ProtectedRoute>} />
-              <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminSettingsPage /></ProtectedRoute>} />
-              <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
-              <Route path="/admin/support" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><SupportChatAdmin /></ProtectedRoute>} />
-              <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
-              <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
-            </Route>
+            {/* Admin só existe no alpha.* */}
+            <Route path="/admin/*" element={<Navigate to="/" replace />} />
 
             {/* Participant - protected with AppLayout */}
             <Route element={<ProtectedRoute allowedRoles={['user']}><AppLayout /></ProtectedRoute>}>

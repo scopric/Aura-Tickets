@@ -6,14 +6,32 @@ import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { trackEvent } from '../../lib/tracking'
+import { getAppMode } from '../../lib/appHost'
 
 type UserRole = 'user' | 'producer' | 'admin'
 
-const roleLabels: Record<string, string> = {
-  user: 'Participante',
-  producer: 'Produtor',
-  admin: 'Administrador',
-  editor: 'Editor'
+const isAdminMode = getAppMode() === 'admin'
+
+// Destino pelo papel real (profiles.role); a aba escolhida no formulário é só visual
+function panelFor(role: string) {
+  if (role === 'admin') return '/admin/dashboard'
+  if (role === 'producer' || role === 'editor') return '/producer/dashboard'
+  return '/app/hub'
+}
+
+// alpha.* só aceita admin; app.* e o site nunca aceitam admin
+function blockedMessage(role: string) {
+  if (isAdminMode) return role === 'admin' ? null : 'Acesso restrito.'
+  return role === 'admin' ? 'Esta conta não pode acessar por este endereço.' : null
+}
+
+// Derruba a sessão recusada só neste host ('local'): um admin que abre o app.* por engano
+// não perde a sessão do alpha.
+async function clearSession() {
+  await useAuthStore.getState().setUser(null)
+  await useAuthStore.getState().setSession(null)
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  localStorage.removeItem('aura-auth')
 }
 
 const GoogleIcon = () => (
@@ -50,7 +68,7 @@ export default function AuthLogin() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<UserRole>('user')
+  const [role, setRole] = useState<UserRole>(isAdminMode ? 'admin' : 'user')
   const [error, setError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -143,9 +161,17 @@ export default function AuthLogin() {
   }
 
   // Redirect if already authenticated
+  // Não age durante o envio: ali o papel no store ainda é o provisório ('user') e quem decide é o handleLogin.
   useEffect(() => {
     console.log('[DEBUG Login] useEffect check:', { isAuthenticated, currentRoleContext, step })
-    if (isAuthenticated && currentRoleContext && step === 'credentials') {
+    // mfaRequired: quem decide é o checkRequiredMfa (senão vira loop com o ProtectedRoute)
+    if (isAuthenticated && currentRoleContext && step === 'credentials' && !isSubmitting && !location.state?.mfaRequired) {
+      const blocked = blockedMessage(currentRoleContext)
+      if (blocked) {
+        setError(blocked)
+        clearSession()
+        return
+      }
       console.log('[DEBUG Login] Redirecionando usuario logado. Role:', currentRoleContext)
       // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
@@ -153,11 +179,9 @@ export default function AuthLogin() {
         navigate('/checkout')
         return
       }
-      if (currentRoleContext === 'admin') navigate('/admin/dashboard')
-      else if (currentRoleContext === 'producer' || currentRoleContext === 'editor') navigate('/producer/dashboard')
-      else navigate('/app/hub')
+      navigate(panelFor(currentRoleContext))
     }
-  }, [isAuthenticated, currentRoleContext, navigate, step])
+  }, [isAuthenticated, currentRoleContext, navigate, step, isSubmitting, location.state])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -170,27 +194,18 @@ export default function AuthLogin() {
     }
     
     setIsSubmitting(true)
+    let redirected = false
     try {
       console.log('[DEBUG Login] Chamando login() para:', cleanEmail)
       const success = await login(cleanEmail, cleanPassword)
       console.log('[DEBUG Login] Retorno do login():', success)
       if (success) {
-        // Verificar se a role real do banco coincide com a role selecionada no formulário de login
-        // (com a exceção de que um usuário com a role real 'editor' no banco pode logar selecionando 'producer' no formulário)
-        const loggedUser = useAuthStore.getState().user
-        const isRoleMatch = loggedUser && (
-          loggedUser.role === role || 
-          (loggedUser.role === 'editor' && role === 'producer')
-        )
-        if (loggedUser && !isRoleMatch) {
-          // Se a role selecionada for diferente da role do banco, desloga e dá erro
-          await useAuthStore.getState().setUser(null)
-          await useAuthStore.getState().setSession(null)
-          await supabase.auth.signOut().catch(() => {})
-          localStorage.removeItem('aura-auth')
-          
-          setError(`Este e-mail está cadastrado como ${roleLabels[loggedUser.role] || loggedUser.role} e não pode ser utilizado como ${roleLabels[role] || role}.`)
-          setIsSubmitting(false)
+        // Papel real: profiles.role, carregado pelo fetchProfile dentro do login()
+        const realRole = useAuthStore.getState().user?.role
+        const blocked = realRole && blockedMessage(realRole)
+        if (blocked) {
+          await clearSession()
+          setError(blocked)
           return
         }
 
@@ -217,11 +232,12 @@ export default function AuthLogin() {
         }
 
         toast.success(`Bem-vindo de volta!`)
-        // Se veio do checkout, redirecionar para lá após login bem-sucedido
+        // Se veio do checkout, redirecionar para lá após login bem-sucedido; senão, painel do papel real
         const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
-        if (fromCheckout && pendingCheckout) {
-          navigate('/checkout')
-          return
+        const target = fromCheckout && pendingCheckout ? '/checkout' : realRole && panelFor(realRole)
+        if (target) {
+          redirected = true
+          navigate(target)
         }
       } else {
         setError('E-mail ou senha incorretos')
@@ -230,7 +246,9 @@ export default function AuthLogin() {
       console.error('[Login] Erro capturado:', err)
       setError(err?.message || err?.error_description || 'E-mail ou senha incorretos')
     } finally {
-      setIsSubmitting(false)
+      // Após navegar, o botão segue travado: assim o useEffect de "já autenticado" não navega de novo
+      // (com v7_startTransition a troca de rota é adiada e ele rodaria antes dela).
+      if (!redirected) setIsSubmitting(false)
     }
   }
 
@@ -263,12 +281,8 @@ export default function AuthLogin() {
         return
       }
 
-      // Redireciona com base nas credenciais
-      const { data: sessionData } = await supabase.auth.getSession()
-      const metadataRole = sessionData.session?.user?.user_metadata?.role
-      if (metadataRole === 'admin') navigate('/admin/dashboard')
-      else if (metadataRole === 'producer' || metadataRole === 'editor') navigate('/producer/dashboard')
-      else navigate('/app/hub')
+      // Redireciona pelo papel do perfil (profiles.role), nunca por user_metadata (editável pelo usuário)
+      navigate(panelFor(useAuthStore.getState().user?.role ?? 'user'))
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
       setError(err.message || 'Erro ao verificar código de 2FA')
@@ -293,13 +307,13 @@ export default function AuthLogin() {
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
             <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
-          <h1 className="font-serif text-2xl text-espresso">Bem-vindo de volta</h1>
-          <p className="text-sm text-espresso/50 mt-1">Escolha seu perfil e entre</p>
+          <h1 className="font-serif text-2xl text-espresso">{isAdminMode ? 'Acesso administrativo' : 'Bem-vindo de volta'}</h1>
+          {!isAdminMode && <p className="text-sm text-espresso/50 mt-1">Escolha seu perfil e entre</p>}
         </div>
 
-        {/* Role Selection */}
+        {/* Role Selection: alpha.* só Administrador; demais hosts só Participante e Produtor */}
         <div className="bg-white/60 border border-white/60 rounded-2xl p-1.5 mb-6 flex gap-1">
-          {roles.map((r) => (
+          {roles.filter(r => (r.value === 'admin') === isAdminMode).map((r) => (
             <button
               key={r.value}
               type="button"
@@ -469,6 +483,8 @@ export default function AuthLogin() {
               )}
             </button>
 
+            {/* Acesso administrativo: só e-mail e senha */}
+            {!isAdminMode && (<>
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-espresso/5" />
@@ -507,9 +523,11 @@ export default function AuthLogin() {
                 <span>Entrar com Microsoft</span>
               </button>
             </div>
+            </>)}
           </form>
         )}
 
+        {!isAdminMode && (<>
         <p className="text-center text-xs text-espresso/40 mt-6">
           Não tem conta?{' '}
           <Link to="/auth/register" className="text-plum hover:underline">Criar conta</Link>
@@ -525,6 +543,7 @@ export default function AuthLogin() {
             Ver opções de download <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
+        </>)}
       </div>
     </div>
   )

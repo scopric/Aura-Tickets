@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { appUrl } from '../lib/appHost'
 import { ArrowRight, Play } from 'lucide-react'
 import gsap from 'gsap'
 
@@ -256,7 +257,7 @@ export default function VideoHero() {
             {/* CTAs */}
             <div className="vh-cta-group flex flex-col sm:flex-row items-start gap-4">
               <Link
-                to="/auth/register"
+                to={appUrl('/auth/register')}
                 className="group relative px-8 py-4 bg-plum text-cream font-medium rounded-full transition-all duration-500 hover:shadow-glow hover:scale-105 overflow-hidden"
               >
                 <span className="relative z-10 flex items-center gap-2">

@@ -175,8 +175,8 @@ export const useAuthStore = create<AuthState>()(
                 email: authUser.email || '',
                 full_name: authUser.user_metadata?.full_name || null,
                 avatar_url: authUser.user_metadata?.avatar_url || null,
-                role: (authUser.user_metadata?.role || 'user') as 'admin' | 'producer' | 'user' | 'editor',
-                admin_permissions: authUser.user_metadata?.admin_permissions || [],
+                role: 'user', // sem profile: menor privilégio (user_metadata é editável pelo próprio usuário)
+                admin_permissions: [],
               }
               console.log('[DEBUG AuthStore] mappedUser provisorio (sem profile):', mappedUser)
               set({ user: mappedUser, isAuthenticated: true, isLoading: false })
@@ -188,7 +188,8 @@ export const useAuthStore = create<AuthState>()(
               email: authUser.email || '',
               full_name: profile.full_name,
               avatar_url: profile.avatar_url,
-              role: profile.role as 'admin' | 'producer' | 'user' | 'editor',
+              // papel desconhecido no banco vira 'user' (evita liberar rota por papel nulo ou loops)
+              role: (['admin', 'producer', 'editor', 'user'].includes(profile.role) ? profile.role : 'user') as 'admin' | 'producer' | 'user' | 'editor',
               admin_permissions: profile.admin_permissions || [],
               producer_profile: (profile.role === 'producer' || profile.role === 'editor') ? {
                 company_name: profile.full_name || 'Minha Empresa',
