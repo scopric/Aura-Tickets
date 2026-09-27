@@ -4,9 +4,6 @@ import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
 
-// Último usuário cuja sessão nova já foi registrada (record-access); zera quando a página recarrega
-let recordedAccessFor: string | null = null
-
 export interface UserProfile {
   id: string
   role: Role
@@ -57,23 +54,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
     // Escuta mudanças de auth para sincronização automática em tempo real
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session) {
+          // Login de verdade traz token NOVO (senha, login social, retorno do provedor); recarga e
+          // troca de aba reemitem SIGNED_IN com o token que a memória já tem. Só o novo é registrado:
+          // o servidor grava data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos.
+          // Fica antes da trava abaixo porque o `user` pode estar persistido de uma sessão antiga.
+          const prevToken = useAuthStore.getState().session?.access_token
           setSession(session)
-          
+          if (event === 'SIGNED_IN' && session.access_token !== prevToken) {
+            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
+              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+              .catch((err) => console.warn('[AuthContext] record-access:', err))
+          }
+
           const currentUser = useAuthStore.getState().user
           if (currentUser && currentUser.id === session.user.id) {
             setLoading(false)
             return
-          }
-          // Sessão nova (senha, login social ou retorno do provedor): o servidor grava data/hora + IP
-          // (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Em segundo plano; falha é só log.
-          // SIGNED_IN e INITIAL_SESSION chegam juntos na volta do provedor: registra uma vez por usuário.
-          if (recordedAccessFor !== session.user.id) {
-            recordedAccessFor = session.user.id
-            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
-              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
           }
           await fetchProfile()
         } else {
