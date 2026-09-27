@@ -48,8 +48,8 @@ export default function CookieBanner() {
             <h3 className="text-sm font-bold font-serif text-white mb-1">Sua privacidade importa</h3>
             <p className="text-xs text-white/50 leading-relaxed font-light">
               Usamos cookies essenciais para autenticação e funcionamento da plataforma.
-              Com seu consentimento, também usamos os cookies analíticos do Google Analytics (Google LLC, Estados Unidos),
-              o que envia dados de navegação para fora do Brasil, para entender como o site é usado.
+              Com seu consentimento, também usamos os cookies do Google Analytics (Google LLC, EUA) para entender como
+              o site é usado, o que envia esses dados de navegação para fora do Brasil.
               Leia nossa{' '}
               <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="text-[#1d68c4] hover:text-[#8f33f5] hover:underline transition-colors">
                 Política de Privacidade

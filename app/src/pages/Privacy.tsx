@@ -22,7 +22,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
-            <p>A Evokaa respeita sua privacidade e está comprometida em proteger seus dados pessoais. Esta política explica como coletamos, usamos, armazenamos e protegemos suas informações.</p>
+            <p>A Evokaa (Evoka Soluções Ltda, CNPJ 68.076.437/0001-42, Curitiba/PR), controladora dos seus dados pessoais, respeita sua privacidade e está comprometida em protegê-los. Esta política explica como coletamos, usamos, armazenamos e protegemos suas informações.</p>
           </section>
 
           <section>
@@ -97,6 +97,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">9. Contato</h2>
+            <p>Controladora: Evoka Soluções Ltda, CNPJ 68.076.437/0001-42.</p>
             <p>Encarregado de Dados (DPO): dpo@evokaa.com.br</p>
             <p>Formulário de contato: <Link to="/contato" className="text-plum hover:underline">/contato</Link></p>
           </section>
