@@ -20,18 +20,21 @@ const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/
 const VERSION_RE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
- * IP provável do cliente + cadeia completa dos proxies. O cliente pode inventar o PRIMEIRO
- * elemento do x-forwarded-for, mas não apagar o que os proxies acrescentam depois: por isso
- * a cadeia inteira (forwarded_for) é guardada e vale como registro; `ip` é só o candidato.
+ * IP provável do cliente + fim da cadeia de proxies. O cliente pode inventar o COMEÇO do
+ * x-forwarded-for, mas não apagar o que os proxies acrescentam no FIM: por isso o candidato
+ * é o último elemento (ou cf-connecting-ip, que o Cloudflare sobrescreve) e forwarded_for
+ * guarda os últimos 200 caracteres da cadeia. Qual header o gateway do Supabase preenche de
+ * fato: conferir após o deploy com um login real (ver PR #27).
  */
 export function clientIp(headers: Headers): { ip: string | null; forwarded_for: string | null } {
   const chain = headers.get('x-forwarded-for')
-  const candidate = (headers.get('cf-connecting-ip') ?? chain?.split(',')[0] ?? headers.get('x-real-ip') ?? '').trim()
+  const candidate = (headers.get('cf-connecting-ip') ?? chain?.split(',').at(-1) ?? headers.get('x-real-ip') ?? '').trim()
   return {
     ip: IP_RE.test(candidate) ? candidate : null,
-    forwarded_for: chain ? chain.slice(0, 200) : null,
+    forwarded_for: chain ? chain.slice(-200) : null,
   }
 }
+const FIRST_VERSION = '2026-09-27'  // primeira versão publicada dos textos; nada anterior é aceito
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -59,16 +62,21 @@ Deno.serve(async (req) => {
       console.error('[record-access] access_logs', user.id, logError.message)
       return json(500, { error: 'access_logs' })
     }
+  } else {
+    return json(200, { ok: true, skipped: 'recent' })  // aceite também respeita o 1/min
   }
 
-  // 2. Aceite, uma vez por versão (unique + ignoreDuplicates: a 1ª gravação nunca é sobrescrita)
+  // 2. Aceite, uma vez por versão (unique + ignoreDuplicates: a 1ª gravação nunca é sobrescrita).
+  //    Só versões entre a primeira publicada e hoje: o cliente controla o valor.
   let body: Record<string, unknown> = {}
   try { body = await req.json() } catch { /* sem body */ }
   const m = (user.user_metadata ?? {}) as Record<string, unknown>
-  const terms_version = typeof m.terms_version === 'string' ? m.terms_version : body.terms_version
-  const privacy_version = typeof m.privacy_version === 'string' ? m.privacy_version : body.privacy_version
-  if (typeof terms_version === 'string' && VERSION_RE.test(terms_version) &&
-      typeof privacy_version === 'string' && VERSION_RE.test(privacy_version)) {
+  const today = new Date().toISOString().slice(0, 10)
+  const versionOk = (v: unknown): v is string =>
+    typeof v === 'string' && VERSION_RE.test(v) && v >= FIRST_VERSION && v <= today
+  const terms_version = versionOk(m.terms_version) ? m.terms_version : body.terms_version
+  const privacy_version = versionOk(m.privacy_version) ? m.privacy_version : body.privacy_version
+  if (versionOk(terms_version) && versionOk(privacy_version)) {
     const now = Date.now()
     const created = Date.parse(user.created_at)
     const informed = typeof m.consent_at === 'string' ? Date.parse(m.consent_at) : NaN
