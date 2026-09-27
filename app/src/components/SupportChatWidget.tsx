@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { MessageCircle, X, Send, Loader2, Sparkles } from 'lucide-react'
@@ -23,7 +25,6 @@ export default function SupportChatWidget() {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
-  const [isTyping, setIsTyping] = useState(false) // Simular digitação do suporte ou indicar status
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 1. Inicializar ou carregar o visitor_id do localStorage
@@ -34,29 +35,43 @@ export default function SupportChatWidget() {
       localStorage.setItem('evokaa_visitor_id', localVisitorId)
     }
     setVisitorId(localVisitorId)
+  }, [])
 
-    // Buscar sessão ativa existente para este visitante
+  // 1b. Sessão ativa do usuário logado. As regras de acesso (RLS) de support_sessions e
+  // support_messages só liberam linhas com user_id = auth.uid() ou para admin; visitante
+  // anônimo não consegue abrir sessão, por isso o chat pede login.
+  useEffect(() => {
+    if (!user?.id) return
+    const userId = user.id
+    let cancelled = false
+
     async function fetchActiveSession() {
       try {
         const { data, error } = await supabase
           .from('support_sessions')
           .select('id')
-          .eq('visitor_id', localVisitorId)
+          .eq('user_id', userId)
           .neq('status', 'closed')
           .order('created_at', { ascending: false })
           .limit(1)
-          .headers({ 'x-visitor-id': localVisitorId! })
 
-        if (!error && data && data.length > 0) {
-          setSessionId(data[0].id)
-        }
+        if (cancelled) return
+        if (error) throw error
+        setSessionId(data?.[0]?.id ?? null)
       } catch (err) {
         console.error('[SupportChat] Erro ao buscar sessao ativa:', err)
       }
     }
 
     fetchActiveSession()
-  }, [])
+    // Ao trocar de usuário ou deslogar, nada da conta anterior fica na tela
+    return () => {
+      cancelled = true
+      setSessionId(null)
+      setMessages([])
+      setUnreadCount(0)
+    }
+  }, [user?.id])
 
   // 2. Tocar áudio de notificação usando a Web Audio API
   const playNotificationSound = () => {
@@ -87,15 +102,15 @@ export default function SupportChatWidget() {
   // 3. Buscar mensagens quando a sessão for identificada
   useEffect(() => {
     if (!sessionId || !visitorId) return
+    const sid = sessionId
 
     async function fetchMessages() {
       setIsLoading(true)
       const { data, error } = await supabase
         .from('support_messages')
         .select('*')
-        .eq('session_id', sessionId)
+        .eq('session_id', sid)
         .order('created_at', { ascending: true })
-        .headers({ 'x-visitor-id': visitorId })
 
       if (!error && data) {
         setMessages(data as Message[])
@@ -163,7 +178,6 @@ export default function SupportChatWidget() {
         .from('support_messages')
         .update({ read_at: new Date().toISOString() })
         .in('id', unreadIds)
-        .headers({ 'x-visitor-id': visitorId })
 
       setMessages(prev =>
         prev.map(m => (unreadIds.includes(m.id) ? { ...m, read_at: new Date().toISOString() } : m))
@@ -181,7 +195,6 @@ export default function SupportChatWidget() {
         .from('support_messages')
         .update({ read_at: new Date().toISOString() })
         .eq('id', msgId)
-        .headers({ 'x-visitor-id': visitorId })
     } catch (err) {
       console.error('[SupportChat] Erro ao marcar mensagem realtime como lida:', err)
     }
@@ -198,7 +211,7 @@ export default function SupportChatWidget() {
   // Enviar Mensagem
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inputValue.trim() || !visitorId) return
+    if (!inputValue.trim() || !visitorId || !user) return
 
     const messageText = inputValue.trim()
     setInputValue('')
@@ -212,7 +225,7 @@ export default function SupportChatWidget() {
           .from('support_sessions')
           .insert({
             visitor_id: visitorId,
-            user_id: user?.id || null,
+            user_id: user.id,
             status: 'open'
           })
           .select('id')
@@ -229,15 +242,16 @@ export default function SupportChatWidget() {
         .insert({
           session_id: currentSessionId,
           sender_type: 'visitor',
-          sender_id: visitorId,
-          sender_name: user?.full_name || user?.email || 'Visitante',
+          sender_id: user.id,
+          sender_name: user.full_name || user.email || 'Cliente',
           content: messageText
         })
-        .headers({ 'x-visitor-id': visitorId })
 
       if (msgError) throw msgError
     } catch (err) {
       console.error('[SupportChat] Erro ao enviar mensagem:', err)
+      setInputValue((v) => (v ? `${messageText} ${v}` : messageText))
+      toast.error('Não foi possível enviar a mensagem. Tente de novo.')
     } finally {
       setIsLoading(false)
     }
@@ -268,6 +282,7 @@ export default function SupportChatWidget() {
             </div>
             <button
               onClick={() => setIsOpen(false)}
+              aria-label="Fechar chat de suporte"
               className="p-1 rounded-lg hover:bg-cream/10 text-cream/70 hover:text-white transition-colors"
             >
               <X className="w-5 h-5" />
@@ -283,8 +298,10 @@ export default function SupportChatWidget() {
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-white">Como podemos te ajudar hoje?</h4>
-                  <p className="text-xs text-cream/50 mt-1 max-w-[200px]">
-                    Envie uma mensagem abaixo e nossa equipe responderá em minutos.
+                  <p className="text-xs text-cream/50 mt-1 max-w-[220px]">
+                    {user
+                      ? 'Envie uma mensagem abaixo e nossa equipe responderá em minutos.'
+                      : 'Entre na sua conta para conversar com a equipe, ou use o formulário de contato.'}
                   </p>
                 </div>
               </div>
@@ -329,7 +346,23 @@ export default function SupportChatWidget() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input de Envio */}
+          {/* Input de Envio (só para usuário logado) */}
+          {!user ? (
+            <div className="p-3 bg-espresso/50 border-t border-cream/10 flex items-center gap-2">
+              <Link
+                to="/auth/login"
+                className="flex-1 py-2 bg-plum hover:brightness-110 text-white text-sm text-center rounded-xl transition-all"
+              >
+                Entrar
+              </Link>
+              <Link
+                to="/contato"
+                className="flex-1 py-2 bg-cream/5 border border-cream/10 text-cream text-sm text-center rounded-xl hover:bg-cream/10 transition-all"
+              >
+                Formulário de contato
+              </Link>
+            </div>
+          ) : (
           <form
             onSubmit={handleSendMessage}
             className="p-3 bg-espresso/50 border-t border-cream/10 flex items-center gap-2"
@@ -339,12 +372,13 @@ export default function SupportChatWidget() {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               placeholder="Digite sua mensagem..."
+              aria-label="Mensagem para o suporte"
               className="flex-1 bg-cream/5 border border-cream/10 rounded-xl px-4 py-2 text-sm text-white placeholder-cream/40 focus:outline-none focus:border-plum/50 focus:ring-1 focus:ring-plum/50 transition-all"
             />
             <button
               type="submit"
               disabled={!inputValue.trim() || isLoading}
-              className="p-2.5 bg-plum hover:bg-plum-hover text-white rounded-xl disabled:opacity-50 disabled:hover:bg-plum transition-all flex items-center justify-center shadow-md active:scale-95"
+              className="p-2.5 bg-plum hover:brightness-110 text-white rounded-xl disabled:opacity-50 disabled:hover:brightness-100 transition-all flex items-center justify-center shadow-md active:scale-95"
             >
               {isLoading ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -353,13 +387,15 @@ export default function SupportChatWidget() {
               )}
             </button>
           </form>
+          )}
         </div>
       )}
 
       {/* Botão de abrir/fechar flutuante */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative group p-4 bg-plum hover:bg-plum/90 text-white rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 border border-cream/20 hover:border-cream/30"
+        aria-label={isOpen ? 'Fechar chat de suporte' : 'Abrir chat de suporte'}
+        className="relative group p-4 bg-plum hover:brightness-110 text-white rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 border border-cream/20 hover:border-cream/30"
       >
         {isOpen ? <X className="w-6 h-6" /> : <MessageCircle className="w-6 h-6" />}
         

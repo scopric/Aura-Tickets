@@ -32,13 +32,23 @@ jobs:
           cd app
           npm run lint || echo "Lint warnings found but build validation continues."
 
-      - name: Run Type Check & Build
+      - name: Build
         run: |
           cd app
           npm run build
 
+      # Checagem de tipos: o projeto tem centenas de erros herdados (27/09/2026), então ainda não bloqueia.
+      # Meta: zerar os erros e tirar o continue-on-error (aí o CI passa a barrar tipo errado).
+      - name: Type Check (non-blocking)
+        continue-on-error: true
+        run: |
+          cd app
+          npx tsc -b --pretty false > tsc.log || true
+          echo "Erros de tipo: $(grep -c 'error TS' tsc.log || true)"
+          tail -n 30 tsc.log
+
       # Suíte unitária legada em reparo: reporta resultado mas não bloqueia o pipeline.
-      # O portão real de correção é o build com typecheck (tsc -b) acima.
+      # O portão que bloqueia hoje é o build (vite build); a checagem de tipos acima ainda não.
       - name: Run Unit Tests (non-blocking)
         continue-on-error: true
         run: |
