@@ -457,6 +457,10 @@ export default function AuthLogin() {
             </div>
 
             <div className="space-y-2.5">
+              {/* Quem entra por provedor não passa pelo cadastro: o aceite é registrado no 1º login (record-access) */}
+              <p className="text-[11px] text-espresso/50 text-center mb-2">
+                Ao entrar com Google, Apple ou Microsoft, você aceita os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidade</a>.
+              </p>
               <button
                 type="button"
                 onClick={() => handleOAuthLogin('google')}

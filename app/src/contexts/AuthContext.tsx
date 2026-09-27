@@ -1,7 +1,11 @@
 import { useEffect } from 'react'
+import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { supabase } from '../lib/supabase'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
+
+// Último usuário cuja sessão nova já foi registrada (record-access); zera quando a página recarrega
+let recordedAccessFor: string | null = null
 
 export interface UserProfile {
   id: string
@@ -62,6 +66,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (currentUser && currentUser.id === session.user.id) {
             setLoading(false)
             return
+          }
+          // Sessão nova (senha, login social ou retorno do provedor): o servidor grava data/hora + IP
+          // (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Em segundo plano; falha é só log.
+          // SIGNED_IN e INITIAL_SESSION chegam juntos na volta do provedor: registra uma vez por usuário.
+          if (recordedAccessFor !== session.user.id) {
+            recordedAccessFor = session.user.id
+            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
+              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
           }
           await fetchProfile()
         } else {
