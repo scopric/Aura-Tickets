@@ -58,7 +58,8 @@ export default function ParticipantSettings() {
 
       toast.success('Conta cancelada. Sentiremos sua falta!', { id: toastId })
       setShowDelete(false)
-      logout()
+      // A sessão já foi encerrada no servidor; o logout local só limpa o navegador
+      await Promise.resolve(logout()).catch(() => {})
     } catch (err: any) {
       console.error('[ParticipantSettings] Erro ao excluir conta:', err)
       toast.error(err.message || 'Erro ao processar o cancelamento da conta', { id: toastId })

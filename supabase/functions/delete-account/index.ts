@@ -3,12 +3,20 @@
 // Por que anonimizar em vez de apagar: `profiles` cai em cascata com `auth.users`, mas
 // `orders`, `tickets`, `transactions` (e mais 20 tabelas) apontam para `profiles` SEM cascata
 // e precisam ser guardados (obrigação fiscal; LGPD, art. 16, I). Apagar de verdade falharia
-// em qualquer conta com compra. Então: o perfil vira "Usuário removido" sem nenhum dado
-// pessoal, o cadastro de produtor perde os dados bancários, as tabelas só pessoais são
-// apagadas e o login é desativado (soft delete: sessões encerradas, e-mail ofuscado).
+// em qualquer conta com compra. Então: o perfil vira "Usuário removido" sem dado pessoal,
+// o cadastro de produtor perde dados bancários e chaves, e-mail/telefone saem de pedidos,
+// ingressos e saques (nome e CPF ficam para o fisco), as tabelas só pessoais são apagadas
+// e, só se tudo isso deu certo, o login é desativado (soft delete do GoTrue: sessões
+// encerradas, e-mail/telefone ofuscados, senha e identidades removidas). Se algo falhar
+// antes, nada de login é tocado e o usuário pode tentar de novo: todos os passos são
+// idempotentes.
 //
 // Chamada: POST com o JWT do próprio usuário (supabase.functions.invoke('delete-account')).
-// Só age sobre o usuário do token: não recebe id nenhum de fora.
+// Só age sobre o usuário do token: não lê nada do body.
+//
+// Colunas obrigatórias no banco (conferido em 27/09/2026): profiles.email e admin_permissions
+// (text[]), producer_profiles.company_name, cnpj (único), bank_account e notification_settings
+// (jsonb), tickets.buyer_email. Por isso valores vazios, não nulos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
 
 const corsHeaders = {
@@ -18,56 +26,61 @@ const corsHeaders = {
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-// Tabelas com dados só do usuário, sem valor fiscal: apagadas de vez.
-const PERSONAL_TABLES = [
-  'user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
-  'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists',
-]
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json(405, { error: 'Método não permitido' })
 
   const url = Deno.env.get('SUPABASE_URL') ?? ''
-  const authHeader = req.headers.get('Authorization') ?? ''
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  if (!token) return json(401, { error: 'Não autenticado' })
 
-  // 1. Quem está pedindo: o dono do token, e só ele
-  const asUser = createClient(url, Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
-    global: { headers: { Authorization: authHeader } },
-  })
-  const { data: { user }, error: userError } = await asUser.auth.getUser()
+  // 1. Quem está pedindo: o dono do token, validado no GoTrue; e só ele
+  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+  const { data: { user }, error: userError } = await admin.auth.getUser(token)
   if (userError || !user) return json(401, { error: 'Não autenticado' })
   const uid = user.id
-  const anonEmail = `removido-${uid.slice(0, 8)}@anonimo.evokaa.com.br`
+  const anonEmail = `removido-${uid}@anonimo.evokaa.com.br`
 
-  const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-  const failures: string[] = []
-
-  // 2. Perfil anonimizado (a linha fica, porque pedidos e ingressos apontam para ela)
-  const { error: profileError } = await admin.from('profiles').update({
-    email: anonEmail, full_name: 'Usuário removido', phone: null, cpf: null, avatar_url: null,
-    bio: null, city: null, birth_date: null, instagram: null, tiktok: null, linkedin: null,
-    website: null, stripe_customer_id: null, role: 'user', admin_permissions: null, is_verified: false,
-  }).eq('id', uid)
-  if (profileError) return json(500, { error: `Perfil: ${profileError.message}` })
-
-  // 3. Cadastro de produtor: dados bancários e chaves fora
-  const { error: producerError } = await admin.from('producer_profiles').update({
-    company_name: 'Removido', cnpj: null, stripe_account_id: null, woovi_account_id: null,
-    bank_account: null, pix_key: null, api_key: null, webhook_url: null, notification_settings: null, is_verified: false,
-  }).eq('id', uid)
-  if (producerError) failures.push(`producer_profiles: ${producerError.message}`)
-
-  // 4. Tabelas só pessoais
-  for (const table of PERSONAL_TABLES) {
-    const { error } = await admin.from(table).delete().eq('user_id', uid)
-    if (error) failures.push(`${table}: ${error.message}`)
+  // 2..5: cada passo é idempotente; a primeira falha interrompe ANTES de mexer no login
+  const steps: Array<[string, () => PromiseLike<{ error: { message: string } | null }>]> = [
+    // Perfil anonimizado (a linha fica: pedidos e ingressos apontam para ela)
+    ['profiles', () => admin.from('profiles').update({
+      email: anonEmail, full_name: 'Usuário removido', phone: null, cpf: null, avatar_url: null,
+      bio: null, city: null, birth_date: null, instagram: null, tiktok: null, linkedin: null,
+      website: null, stripe_customer_id: null, role: 'user', admin_permissions: [], is_verified: false,
+    }).eq('id', uid)],
+    // Cadastro de produtor: dados bancários e chaves fora (0 linhas se não for produtor)
+    ['producer_profiles', () => admin.from('producer_profiles').update({
+      company_name: 'Removido', cnpj: `REMOVIDO-${uid}`, stripe_account_id: null, woovi_account_id: null,
+      bank_account: {}, pix_key: null, api_key: null, webhook_url: null, notification_settings: {}, is_verified: false,
+    }).eq('id', uid)],
+    // Compras: nome e CPF ficam (fisco); e-mail e telefone não são exigência fiscal
+    ['orders', () => admin.from('orders').update({ customer_email: anonEmail, customer_phone: null }).eq('user_id', uid)],
+    ['tickets', () => admin.from('tickets').update({ buyer_email: anonEmail }).eq('user_id', uid)],
+    // Saques do produtor: destino bancário fora (sacar antes de excluir a conta)
+    ['withdrawals', () => admin.from('withdrawals').update({ pix_key: null, bank_account: {} }).eq('producer_id', uid)],
+    // Conteúdo escrito pelo usuário
+    ['event_reviews', () => admin.from('event_reviews').update({ comment: null }).eq('user_id', uid)],
+    ['messages', () => admin.from('messages').delete().eq('sender_id', uid)],
+    // Tabelas só pessoais, sem valor fiscal
+    ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
+        'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists']
+      .map((t): [string, () => PromiseLike<{ error: { message: string } | null }>] =>
+        [t, () => admin.from(t).delete().eq('user_id', uid)]),
+  ]
+  for (const [name, run] of steps) {
+    const { error } = await run()
+    if (error) {
+      console.error('[delete-account]', uid, name, error.message)
+      return json(500, { error: `Não foi possível concluir (${name}). Tente de novo; se persistir, fale com dpo@evokaa.com.br.` })
+    }
   }
 
-  // 5. Login desativado: sessões encerradas, e-mail e telefone ofuscados, identidades (Google etc.) removidas
+  // 6. Login desativado por último: sessões encerradas, e-mail/telefone ofuscados, senha e identidades fora
   const { error: authError } = await admin.auth.admin.deleteUser(uid, true)
-  if (authError) return json(500, { error: `Login: ${authError.message}`, failures })
-
-  if (failures.length) console.warn('[delete-account] parcial', uid, failures)
-  return json(200, { ok: true, failures })
+  if (authError) {
+    console.error('[delete-account]', uid, 'auth', authError.message)
+    return json(500, { error: 'Dados removidos, mas o login não pôde ser desativado. Tente de novo.' })
+  }
+  return json(200, { ok: true })
 })

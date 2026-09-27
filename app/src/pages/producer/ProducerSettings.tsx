@@ -363,7 +363,8 @@ export default function ProducerSettings() {
       if (!result?.ok) throw new Error(result?.error || 'A exclusão não foi concluída')
 
       toast.success('Sua conta foi excluída com sucesso!', { id: toastId })
-      await supabase.auth.signOut()
+      // A sessão já foi encerrada no servidor; o signOut local só limpa o navegador
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
       window.location.href = '/'
     } catch (err: any) {
       console.error('[ProducerSettings] Erro ao excluir conta:', err)
