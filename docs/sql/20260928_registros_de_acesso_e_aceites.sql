@@ -11,9 +11,10 @@
 --    (art. 15 do Marco Civil: "registros de acesso a aplicações de internet").
 create table if not exists public.access_logs (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users(id) on delete set null,  -- fica anônimo se a conta sumir
+  user_id uuid,                     -- sem FK de propósito: o registro precisa sobreviver à conta
   event text not null default 'login' check (event in ('login')),
-  ip inet,
+  ip inet,                          -- candidato (cf-connecting-ip ou 1º do x-forwarded-for)
+  forwarded_for text check (length(forwarded_for) <= 200),  -- cadeia completa: o cliente não apaga o fim
   user_agent text check (length(user_agent) <= 300),
   created_at timestamptz not null default now()
 );
@@ -24,16 +25,18 @@ alter table public.access_logs enable row level security;
 revoke all on public.access_logs from anon, authenticated;
 
 -- 2. Aceites: qual versão dos Termos/Política a pessoa aceitou, quando e de onde.
+--    A prova é recorded_at + ip (servidor); accepted_at é o que o cliente informou no cadastro.
 create table if not exists public.user_consents (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users(id) on delete cascade,
-  terms_version text not null,
-  privacy_version text not null,
+  user_id uuid not null,            -- sem FK: a prova do aceite fica mesmo se a conta for apagada
+  terms_version text not null check (length(terms_version) <= 20),
+  privacy_version text not null check (length(privacy_version) <= 20),
   marketing_consent boolean not null default false,
   data_sharing_consent boolean not null default false,
   accepted_at timestamptz not null,          -- momento do cadastro (metadados do signUp)
   recorded_at timestamptz not null default now(),  -- momento em que o servidor gravou (1º login)
   ip inet,
+  forwarded_for text check (length(forwarded_for) <= 200),
   user_agent text check (length(user_agent) <= 300),
   unique (user_id, terms_version, privacy_version)
 );
