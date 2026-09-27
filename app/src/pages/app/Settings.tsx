@@ -50,12 +50,11 @@ export default function ParticipantSettings() {
 
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', user.id)
-
+      // Função com chave de serviço: anonimiza o perfil, apaga os dados só pessoais e desativa o login.
+      // (Apagar `profiles` daqui nunca funcionou: não há regra de DELETE, e pedidos apontam para o perfil.)
+      const { data, error } = await supabase.functions.invoke('delete-account')
       if (error) throw error
+      if (!data?.ok) throw new Error(data?.error || 'A exclusão não foi concluída')
 
       toast.success('Conta cancelada. Sentiremos sua falta!', { id: toastId })
       setShowDelete(false)
