@@ -4,9 +4,9 @@ Plataforma de venda de ingressos e gestão de eventos (site institucional, área
 
 ## Onde estão as coisas
 
-- Código ativo: `app/src/` (`pages/` por domínio: `public`, `auth`, `app`, `producer`, `admin`, `checkout`; `components/`; `hooks/` com TanStack Query + Supabase; `lib/`; `types/database.ts`). Os arquivos da raiz do repositório não fazem parte do build.
+- Código ativo: `app/src/` (`pages/`: páginas públicas soltas na raiz e subpastas `auth`, `app`, `producer`, `admin`, `checkout`; `components/`; `hooks/` com TanStack Query + Supabase; `lib/`; `types/database.ts`). Os arquivos da raiz do repositório não fazem parte do build.
 - Testes: `app/src/test/` (Vitest) e Playwright (`npm run test:e2e`). Comandos em `app/package.json`; visão geral no [`README.md`](README.md).
-- Banco: schema em `supabase/migrations/` (histórico) e SQL novo em `docs/sql/`. Tipos em `app/src/types/database.ts`.
+- Banco: schema em `supabase/migrations/` (histórico; há também `app/supabase/migrations/` com o chat de suporte e o webhook, de 06/2026) e SQL novo em `docs/sql/`. Tipos em `app/src/types/database.ts`.
 - Contexto para qualquer agente, histórico e o ruleset do Ponytail: [`AGENTS.md`](AGENTS.md).
 
 ## Regras que só quem mantém o projeto sabe
@@ -22,6 +22,6 @@ Plataforma de venda de ingressos e gestão de eventos (site institucional, área
 
 ```bash
 cd app && npm install && npm run dev    # http://localhost:3000
-npm run test                            # Vitest
+npm run test -- --run                   # Vitest (sem --run fica em modo de observação)
 npm run test:e2e                        # Playwright
 ```
