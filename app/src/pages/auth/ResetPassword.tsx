@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Eye, EyeOff, Lock, Loader2, CheckCircle2 } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
+import { supabase, initialAuthHash } from '../../lib/supabase'
 import { toast } from 'sonner'
 
 export default function ResetPassword() {
@@ -14,44 +14,20 @@ export default function ResetPassword() {
   const [validating, setValidating] = useState(true)
   const [valid, setValid] = useState(false)
 
-  // O Supabase coloca o access_token no hash da URL (#access_token=...)
-  // Precisamos detectar o evento PASSWORD_RECOVERY via onAuthStateChange
+  // Só aceita a sessão criada pelo link de recuperação (#…&type=recovery). Link com erro
+  // (expirado/já usado) ou uma sessão comum já aberta (ex.: admin logado) não trocam senha aqui.
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setValid(true)
-        setValidating(false)
-      } else if (event === 'SIGNED_IN' && window.location.hash.includes('type=recovery')) {
-        setValid(true)
-        setValidating(false)
-      } else {
-        // Se não houver hash de recovery, pode ser que o usuário chegou aqui sem link
-        // Verificamos se há hash na URL
-        if (!window.location.hash && !session) {
-          setValid(false)
-          setValidating(false)
-        } else if (window.location.hash) {
-          setValid(true)
-          setValidating(false)
-        }
-      }
-    })
-
-    // Verificação inicial
+    if (initialAuthHash.get('error') || initialAuthHash.get('type') !== 'recovery') {
+      setValid(false)
+      setValidating(false)
+      return
+    }
+    // getSession aguarda o supabase-js terminar de processar o link. Se o link falhar, a sessão
+    // antiga (ex.: admin logado) é mantida — por isso exige que seja a sessão criada pelo link.
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (window.location.hash.includes('access_token')) {
-        setValid(true)
-        setValidating(false)
-      } else if (!session) {
-        setValid(false)
-        setValidating(false)
-      } else {
-        setValid(true)
-        setValidating(false)
-      }
+      setValid(!!session && session.access_token === initialAuthHash.get('access_token'))
+      setValidating(false)
     })
-
-    return () => subscription.unsubscribe()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
