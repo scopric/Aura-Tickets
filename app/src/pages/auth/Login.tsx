@@ -66,6 +66,9 @@ export default function AuthLogin() {
   // O supabase-js não limpa o hash quando há erro, por isso basta ler o da rota atual.
   const [error, setError] = useState(() => new URLSearchParams(location.hash.slice(1)).get('error_description') ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  // Login social não passa pelo cadastro: o aceite dos Termos/Política precisa ser marcado aqui
+  // (LGPD art. 8º: manifestação inequívoca); record-access grava no 1º login.
+  const [socialConsent, setSocialConsent] = useState(false)
 
   // Estados do MFA (2FA)
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
@@ -105,6 +108,10 @@ export default function AuthLogin() {
   // e respeita o carrinho pendente do checkout — o mesmo caminho do login com senha.
   // Fluxo implícito (lib/supabase.ts): a sessão volta no hash da URL e o supabase-js a processa.
   const handleOAuthLogin = async (provider: OAuthProvider) => {
+    if (!socialConsent) {
+      setError('Marque o aceite dos Termos de Uso e da Política de Privacidade para entrar com Google ou Apple.')
+      return
+    }
     setIsSubmitting(true)
     setError('')
     try {
@@ -457,14 +464,22 @@ export default function AuthLogin() {
             </div>
 
             <div className="space-y-2.5">
-              {/* Quem entra por provedor não passa pelo cadastro: o aceite é registrado no 1º login (record-access) */}
-              <p className="text-[11px] text-espresso/50 text-center mb-2">
-                Ao entrar com Google, Apple ou Microsoft, você aceita os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidade</a>.
-              </p>
+              {/* Quem entra por provedor não passa pelo cadastro: aceite explícito aqui; record-access grava no 1º login */}
+              <label className="flex items-start gap-2 text-[11px] text-espresso/60 mb-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={socialConsent}
+                  onChange={(e) => { setSocialConsent(e.target.checked); if (e.target.checked) setError('') }}
+                  className="mt-0.5 h-3.5 w-3.5 accent-plum"
+                />
+                <span>
+                  Li e aceito os <a href="/termos" target="_blank" rel="noopener noreferrer" className="underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidade</a> para entrar com Google ou Apple.
+                </span>
+              </label>
               <button
                 type="button"
                 onClick={() => handleOAuthLogin('google')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !socialConsent}
                 className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
                 <GoogleIcon />
@@ -473,7 +488,7 @@ export default function AuthLogin() {
               <button
                 type="button"
                 onClick={() => handleOAuthLogin('apple')}
-                disabled={isSubmitting}
+                disabled={isSubmitting || !socialConsent}
                 className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
                 <AppleIcon />
