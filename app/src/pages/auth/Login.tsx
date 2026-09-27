@@ -136,7 +136,6 @@ export default function AuthLogin() {
   // Redirect if already authenticated
   // Não age durante o envio: ali o papel no store ainda é o provisório ('user') e quem decide é o handleLogin.
   useEffect(() => {
-    console.log('[DEBUG Login] useEffect check:', { isAuthenticated, currentRoleContext, step })
     // mfaRequired: quem decide é o checkRequiredMfa (senão vira loop com o ProtectedRoute)
     if (isAuthenticated && currentRoleContext && step === 'credentials' && !isSubmitting && !location.state?.mfaRequired) {
       const blocked = blockedMessage(currentRoleContext)
@@ -145,7 +144,6 @@ export default function AuthLogin() {
         clearSession()
         return
       }
-      console.log('[DEBUG Login] Redirecionando usuario logado. Role:', currentRoleContext)
       // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
       if (pendingCheckout && currentRoleContext === 'user') {
@@ -169,9 +167,7 @@ export default function AuthLogin() {
     setIsSubmitting(true)
     let redirected = false
     try {
-      console.log('[DEBUG Login] Chamando login() para:', cleanEmail)
       const success = await login(cleanEmail, cleanPassword)
-      console.log('[DEBUG Login] Retorno do login():', success)
       if (success) {
         // Papel real: profiles.role, carregado pelo fetchProfile dentro do login()
         const realRole = useAuthStore.getState().user?.role
