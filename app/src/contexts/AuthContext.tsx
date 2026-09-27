@@ -57,23 +57,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
 
     // Escuta mudanças de auth para sincronização automática em tempo real
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
         if (session) {
           setSession(session)
-          
+
+          // Login de verdade (SIGNED_IN: senha, login social, retorno do provedor): o servidor grava
+          // data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Fica ANTES da
+          // trava abaixo porque o login por senha já preenche o usuário na memória antes deste evento.
+          // Em segundo plano; falha é só aviso. Uma vez por usuário por carga da página.
+          if (event === 'SIGNED_IN' && recordedAccessFor !== session.user.id) {
+            recordedAccessFor = session.user.id
+            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
+              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+          }
+
           const currentUser = useAuthStore.getState().user
           if (currentUser && currentUser.id === session.user.id) {
             setLoading(false)
             return
-          }
-          // Sessão nova (senha, login social ou retorno do provedor): o servidor grava data/hora + IP
-          // (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. Em segundo plano; falha é só log.
-          // SIGNED_IN e INITIAL_SESSION chegam juntos na volta do provedor: registra uma vez por usuário.
-          if (recordedAccessFor !== session.user.id) {
-            recordedAccessFor = session.user.id
-            supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
-              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
           }
           await fetchProfile()
         } else {
