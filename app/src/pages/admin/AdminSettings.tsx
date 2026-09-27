@@ -2,12 +2,29 @@ import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import {
   Settings, Globe, Mail, Shield, Save,
-  AlertTriangle, Database, FileText, RefreshCw, Lock, Eye,
-  Camera, Loader2
+  AlertTriangle, Database, FileText, Lock,
+  Loader2
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import { supabase } from '../../lib/supabase'
+import { Button } from '../../components/ui/button'
+import { toCsv, downloadCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
+
+type LogFilter = 'all' | 'login' | 'page_view' | 'session_start'
+interface Activity { id: string; user_id: string | null; event_type: string; path: string | null; created_at: string; profiles?: { email: string | null } | null }
+const LOG_FILTERS: { id: LogFilter; label: string }[] = [
+  { id: 'all', label: 'Todos' }, { id: 'login', label: 'Logins' }, { id: 'page_view', label: 'Páginas' }, { id: 'session_start', label: 'Sessões' },
+]
+const LOG_LABEL: Record<string, string> = { login: 'Login', page_view: 'Página', session_start: 'Sessão' }
+
+// Colunas reais das tabelas (conferidas em produção); o PostgREST devolve no máximo 1.000 linhas por consulta
+const EXPORTS: Record<string, { table: string; columns: string[] }> = {
+  Usuarios: { table: 'profiles', columns: ['id', 'email', 'full_name', 'role', 'created_at'] },
+  Eventos: { table: 'events', columns: ['id', 'title', 'venue_name', 'venue_city', 'date', 'status', 'approval_status', 'created_at'] },
+  Transacoes: { table: 'orders', columns: ['id', 'user_id', 'event_id', 'total', 'status', 'payment_method', 'created_at'] },
+  Logs: { table: 'user_activities', columns: ['id', 'user_id', 'session_id', 'event_type', 'path', 'created_at'] },
+}
 
 type Section = 'geral' | 'email' | 'moderacao' | 'backup' | 'logs' | 'seguranca'
 
@@ -137,8 +154,22 @@ export default function AdminSettingsPage() {
       setMfaFactors([])
     } catch (err: any) {
       console.error('[MFA Unenroll Admin] Erro:', err)
-      toast.error(err.message || 'Erro ao desativar o 2FA')
+      // O Supabase só remove um fator verificado numa sessão AAL2 (login feito com o código)
+      const msg = /aal2/i.test(err?.message || '')
+        ? 'Saia e entre de novo com o código para desativar o 2FA'
+        : err.message || 'Erro ao desativar o 2FA'
+      toast.error(msg)
     }
+  }
+
+  // Cancelar o cadastro antes de verificar: remove o fator para não ficar órfão na conta
+  const handleCancelEnroll = async () => {
+    const factorId = enrollData?.id
+    setShowMfaModal(false)
+    setEnrollData(null)
+    if (!factorId) return
+    const { error } = await supabase.auth.mfa.unenroll({ factorId })
+    if (error) console.error('[MFA Enroll Admin] Erro ao descartar fator não verificado:', error)
   }
 
   const [general, setGeneral] = useState({
@@ -150,25 +181,7 @@ export default function AdminSettingsPage() {
     maintenance: false,
     registrationOpen: true,
     producerApproval: true,
-    cepProvider: 'viacep',
-    cepApiKey: '',
-    cepApiUrl: '',
   })
-
-  const [emailConfig, setEmailConfig] = useState({
-    smtpHost: 'smtp.sendgrid.net',
-    smtpPort: '587',
-    smtpUser: 'apikey',
-    fromName: 'Evokaa',
-    fromEmail: 'noreply@evokaa.com.br',
-  })
-
-  const [templates] = useState([
-    { id: 'welcome', name: 'Boas-vindas', subject: 'Bem-vindo a Evokaa!', status: 'active' },
-    { id: 'purchase', name: 'Confirmacao de Compra', subject: 'Seu ingresso esta confirmado', status: 'active' },
-    { id: 'reminder', name: 'Lembrete de Evento', subject: 'Seu evento e amanha!', status: 'active' },
-    { id: 'payout', name: 'Saque Concluido', subject: 'Seu saque foi processado', status: 'active' },
-  ])
 
   const [moderation, setModeration] = useState({
     bannedWords: 'golpe, fraude, pix falso',
@@ -177,16 +190,37 @@ export default function AdminSettingsPage() {
     reportThreshold: '3',
   })
 
-  const [logs] = useState([
-    { id: 1, type: 'login', user: 'admin@aura.com', ip: '189.45.67.89', date: '2025-06-15 14:32', action: 'Login bem-sucedido' },
-    { id: 2, type: 'error', user: 'sistema', ip: '-', date: '2025-06-15 13:15', action: 'Falha na conexao SMTP' },
-    { id: 3, type: 'login', user: 'joao@eventos.com', ip: '201.78.34.12', date: '2025-06-15 12:48', action: 'Login bem-sucedido' },
-    { id: 4, type: 'action', user: 'admin@aura.com', ip: '189.45.67.89', date: '2025-06-15 11:20', action: 'Aprovou produtor #44' },
-    { id: 5, type: 'error', user: 'sistema', ip: '-', date: '2025-06-15 10:05', action: 'Timeout no processamento de pagamento' },
-  ])
-
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
+
+  // Logs reais (user_activities): últimos 200, filtrados por event_type no servidor
+  const [logFilter, setLogFilter] = useState<LogFilter>('all')
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [logsError, setLogsError] = useState('')
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false)
+
+  useEffect(() => {
+    if (section !== 'logs') return
+    let cancelled = false
+    async function loadLogs() {
+      setIsLoadingLogs(true)
+      setLogsError('')
+      const query = (select: string) => {
+        let q = supabase.from('user_activities').select(select).order('created_at', { ascending: false }).limit(200)
+        if (logFilter !== 'all') q = q.eq('event_type', logFilter)
+        return q
+      }
+      // Tenta com o e-mail via embed; se a relação não existir, cai para só o user_id
+      let res: { data: any[] | null; error: any } = await query('id, user_id, event_type, path, created_at, profiles(email)')
+      if (res.error) res = await query('id, user_id, event_type, path, created_at')
+      if (cancelled) return
+      if (res.error) setLogsError(res.error.message || 'Erro ao carregar os logs')
+      else setActivities((res.data || []) as Activity[])
+      setIsLoadingLogs(false)
+    }
+    loadLogs()
+    return () => { cancelled = true }
+  }, [section, logFilter])
 
   // Carrega configurações reais do banco de dados na inicialização
   useEffect(() => {
@@ -201,9 +235,9 @@ export default function AdminSettingsPage() {
         if (dbData) {
           dbData.forEach(item => {
             if (item.key === 'general' && item.value) {
-              setGeneral(prev => ({ ...prev, ...item.value }))
-            } else if (item.key === 'email' && item.value) {
-              setEmailConfig(prev => ({ ...prev, ...item.value }))
+              // A linha `general` é lida no navegador pelo checkout: chave de CEP não pode ficar nela (e some no próximo Salvar)
+              const { cepProvider: _p, cepApiKey: _k, cepApiUrl: _u, ...rest } = item.value as Record<string, unknown>
+              setGeneral(prev => ({ ...prev, ...rest }))
             } else if (item.key === 'moderation' && item.value) {
               setModeration(prev => ({ ...prev, ...item.value }))
             }
@@ -229,9 +263,6 @@ export default function AdminSettingsPage() {
       if (section === 'geral') {
         key = 'general'
         payload = general
-      } else if (section === 'email') {
-        key = 'email'
-        payload = emailConfig
       } else if (section === 'moderacao') {
         key = 'moderation'
         payload = moderation
@@ -256,115 +287,20 @@ export default function AdminSettingsPage() {
     }
   }
 
-  // Exportação Real para CSV das Tabelas
+  // Exportação CSV paginada (só o que a regra de acesso deixa o admin ler; erro real no toast)
   const handleExport = async (type: string) => {
-    const toastId = toast.loading(`Buscando dados de ${type.toLowerCase()}...`)
+    const { table, columns } = EXPORTS[type]
+    const toastId = toast.loading(`Buscando ${table}...`)
     try {
-      let csvContent = ''
-      const filename = `export_${type.toLowerCase()}_${new Date().toISOString().slice(0, 10)}.csv`
-
-      if (type === 'Usuarios') {
-        const { data: users, error } = await supabase
-          .from('profiles')
-          .select('full_name, email, phone, role, created_at')
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const headers = ['Nome', 'Email', 'Telefone', 'Papel', 'Data de Cadastro']
-        const rows = [headers.join(',')]
-        users?.forEach(u => {
-          rows.push([
-            `"${(u.full_name || '').replace(/"/g, '""')}"`,
-            `"${(u.email || '').replace(/"/g, '""')}"`,
-            `"${(u.phone || '').replace(/"/g, '""')}"`,
-            `"${(u.role || '').replace(/"/g, '""')}"`,
-            `"${u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : ''}"`
-          ].join(','))
-        })
-        csvContent = rows.join('\n')
-
-      } else if (type === 'Eventos') {
-        const { data: events, error } = await supabase
-          .from('events')
-          .select('title, description, start_date, location, status, created_at')
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const headers = ['Título', 'Descrição', 'Data de Início', 'Local', 'Status', 'Criado Em']
-        const rows = [headers.join(',')]
-        events?.forEach(e => {
-          rows.push([
-            `"${(e.title || '').replace(/"/g, '""')}"`,
-            `"${(e.description || '').replace(/"/g, '""')}"`,
-            `"${e.start_date ? new Date(e.start_date).toLocaleDateString('pt-BR') : ''}"`,
-            `"${(e.location || '').replace(/"/g, '""')}"`,
-            `"${(e.status || '').replace(/"/g, '""')}"`,
-            `"${e.created_at ? new Date(e.created_at).toLocaleDateString('pt-BR') : ''}"`
-          ].join(','))
-        })
-        csvContent = rows.join('\n')
-
-      } else if (type === 'Transacoes') {
-        const { data: orders, error } = await supabase
-          .from('orders')
-          .select('id, user_id, total_amount, status, payment_method, created_at')
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const headers = ['ID do Pedido', 'ID do Usuário', 'Valor Total', 'Status', 'Método de Pagamento', 'Data']
-        const rows = [headers.join(',')]
-        orders?.forEach(o => {
-          rows.push([
-            `"${o.id}"`,
-            `"${o.user_id || ''}"`,
-            `"${o.total_amount || 0}"`,
-            `"${(o.status || '').replace(/"/g, '""')}"`,
-            `"${(o.payment_method || '').replace(/"/g, '""')}"`,
-            `"${o.created_at ? new Date(o.created_at).toLocaleDateString('pt-BR') : ''}"`
-          ].join(','))
-        })
-        csvContent = rows.join('\n')
-
-      } else if (type === 'Logs') {
-        const { data: logsData, error } = await supabase
-          .from('user_activities')
-          .select('user_id, session_id, event_type, path, created_at')
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const headers = ['ID do Usuário', 'ID de Sessão', 'Tipo do Evento', 'Caminho/URL', 'Data/Hora']
-        const rows = [headers.join(',')]
-        logsData?.forEach(l => {
-          rows.push([
-            `"${l.user_id || 'Visitante'}"`,
-            `"${l.session_id || ''}"`,
-            `"${(l.event_type || '').replace(/"/g, '""')}"`,
-            `"${(l.path || '').replace(/"/g, '""')}"`,
-            `"${l.created_at ? new Date(l.created_at).toLocaleString('pt-BR') : ''}"`
-          ].join(','))
-        })
-        csvContent = rows.join('\n')
-      }
-
-      if (!csvContent || csvContent.split('\n').length <= 1) {
-        toast.info('Nenhum dado encontrado para exportar.', { id: toastId })
+      const rows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+        supabase.from(table).select(columns.join(', ')).order('created_at', { ascending: false }).order('id').range(from, to) as any
+      )
+      if (rows.length === 0) {
+        toast.info(`Nenhuma linha em ${table} para exportar (ou o admin ainda não tem regra de leitura nessa tabela).`, { id: toastId })
         return
       }
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.setAttribute('href', url)
-      link.setAttribute('download', filename)
-      link.style.visibility = 'hidden'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      toast.success('Download concluído com sucesso!', { id: toastId })
+      downloadCsv(csvFilename(table), toCsv(rows, columns))
+      toast.success(`${rows.length} linha(s) de ${table} exportada(s).`, { id: toastId })
     } catch (err: any) {
       console.error('[AdminSettings] Erro ao exportar dados:', err)
       toast.error(err.message || 'Erro ao exportar dados', { id: toastId })
@@ -473,49 +409,6 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
-              {/* APIs E INTEGRAÇÕES DE CEP */}
-              <div className="border-t border-espresso/5 pt-4 space-y-4">
-                <h3 className="text-sm font-medium text-espresso">Configuração de CEP / Código Postal</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="cepProvider" className="text-xs text-espresso/40 mb-1 block">Provedor de CEP</label>
-                    <select
-                      id="cepProvider"
-                      value={general.cepProvider || 'viacep'}
-                      onChange={e => setGeneral({ ...general, cepProvider: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                    >
-                      <option value="viacep">ViaCEP (Apenas Brasil - Grátis)</option>
-                      <option value="geoapify">Geoapify (Internacional - Requer Key)</option>
-                      <option value="google">Google Maps Geocoding (Requer Key)</option>
-                      <option value="nominatim">Nominatim OSM (Internacional - Grátis)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label htmlFor="cepApiKey" className="text-xs text-espresso/40 mb-1 block">Chave da API (API Key)</label>
-                    <input
-                      id="cepApiKey"
-                      type="password"
-                      placeholder="Sua chave secreta da API"
-                      value={general.cepApiKey || ''}
-                      onChange={e => setGeneral({ ...general, cepApiKey: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="cepApiUrl" className="text-xs text-espresso/40 mb-1 block">URL Customizada da API (Opcional)</label>
-                    <input
-                      id="cepApiUrl"
-                      type="text"
-                      placeholder="https://api.provider.com/v1"
-                      value={general.cepApiUrl || ''}
-                      onChange={e => setGeneral({ ...general, cepApiUrl: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                    />
-                  </div>
-                </div>
-              </div>
-
               <div className="border-t border-espresso/5 pt-4 space-y-3">
                 <h3 className="text-sm font-medium text-espresso">Controle da Plataforma</h3>
                 {[
@@ -541,70 +434,46 @@ export default function AdminSettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2">
+                <button onClick={handleSave} disabled={isSavingSettings} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50">
                   <Save className="w-4 h-4" />Salvar
                 </button>
               </div>
             </div>
           )}
 
-          {/* EMAIL */}
+          {/* EMAIL: somente leitura; nada aqui é editável nem gravado no banco */}
           {section === 'email' && (
             <div className="space-y-6">
               <h2 className="text-lg font-medium text-espresso">Configuracao de E-mail</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="smtpHost" className="text-xs text-espresso/40 mb-1 block">SMTP Host</label>
-                  <input id="smtpHost" placeholder="smtp.example.com" value={emailConfig.smtpHost} onChange={e => setEmailConfig({ ...emailConfig, smtpHost: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
+                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2"><Mail className="w-4 h-4 text-rose-400" />Provedor</h3>
+                  <dl className="text-xs space-y-2">
+                    <div><dt className="text-muted-foreground">Serviço</dt><dd className="text-foreground">Resend</dd></div>
+                    <div><dt className="text-muted-foreground">Função de envio</dt><dd className="text-foreground"><code>send-email</code> (Supabase Edge Function, publicada, versão 13, exige JWT)</dd></div>
+                    <div><dt className="text-muted-foreground">Remetente</dt><dd className="text-foreground">Evokaa Tickets &lt;ingressos@evokaa.com.br&gt;</dd></div>
+                  </dl>
+                  <p className="text-[11px] text-muted-foreground flex items-start gap-1.5"><Lock className="w-3 h-3 mt-0.5 shrink-0" />A chave <code>RESEND_API_KEY</code> fica só nos segredos da Edge Function: nunca no navegador nem nesta tela.</p>
+                  <div className="flex flex-wrap gap-3 pt-1 text-xs">
+                    <a href="https://resend.com/emails" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">Painel do Resend</a>
+                    <a href="https://supabase.com/dashboard/project/rwaezeqyuhxrssntcxdv/functions" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">Funções no Supabase</a>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="smtpPort" className="text-xs text-espresso/40 mb-1 block">Porta</label>
-                  <input id="smtpPort" placeholder="587" value={emailConfig.smtpPort} onChange={e => setEmailConfig({ ...emailConfig, smtpPort: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label htmlFor="smtpUser" className="text-xs text-espresso/40 mb-1 block">Usuario</label>
-                  <input id="smtpUser" placeholder="Usuario SMTP" value={emailConfig.smtpUser} onChange={e => setEmailConfig({ ...emailConfig, smtpUser: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label htmlFor="smtpPassword" className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Lock className="w-3 h-3" />Senha</label>
-                  <input id="smtpPassword" placeholder="Senha SMTP" type="password" value="********" readOnly className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label htmlFor="fromName" className="text-xs text-espresso/40 mb-1 block">Nome do Remetente</label>
-                  <input id="fromName" placeholder="Nome do Remetente" value={emailConfig.fromName} onChange={e => setEmailConfig({ ...emailConfig, fromName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label htmlFor="fromEmail" className="text-xs text-espresso/40 mb-1 block">E-mail do Remetente</label>
-                  <input id="fromEmail" placeholder="remetente@email.com" value={emailConfig.fromEmail} onChange={e => setEmailConfig({ ...emailConfig, fromEmail: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-              </div>
 
-              <div className="border-t border-espresso/5 pt-4">
-                <h3 className="text-sm font-medium text-espresso mb-3">Templates de E-mail</h3>
-                <div className="space-y-2">
-                  {templates.map(t => (
-                    <div key={t.id} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                      <div className="flex items-center gap-3">
-                        <Mail className="w-4 h-4 text-rose-400" />
-                        <div>
-                          <div className="text-sm text-espresso">{t.name}</div>
-                          <div className="text-[10px] text-espresso/30">{t.subject}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="px-2 py-0.5 bg-green-50 text-green-600 text-[10px] rounded-full border border-green-100">{t.status}</span>
-                        <button aria-label={`Visualizar template ${t.name}`} className="p-1.5 rounded-lg hover:bg-white text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                      </div>
-                    </div>
-                  ))}
+                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
+                  <h3 className="text-sm font-medium text-foreground">O que dispara e-mail hoje</h3>
+                  <ul className="text-xs text-foreground space-y-1.5 list-disc pl-4">
+                    <li>Formulário de contato do site (<code>useContact.ts</code> → contato@evokaa.com.br)</li>
+                  </ul>
+                  <h3 className="text-sm font-medium text-foreground pt-2">Ainda não disparam</h3>
+                  <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-4">
+                    <li>Confirmação de pedido</li>
+                    <li>Ingressos</li>
+                    <li>Newsletter</li>
+                  </ul>
+                  <p className="text-[11px] text-muted-foreground">Em construção na fase A2c.</p>
                 </div>
-              </div>
-
-              <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2">
-                  <Save className="w-4 h-4" />Salvar
-                </button>
               </div>
             </div>
           )}
@@ -651,7 +520,7 @@ export default function AdminSettingsPage() {
               </div>
 
               <div className="flex justify-end">
-                <button onClick={handleSave} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2">
+                <button onClick={handleSave} disabled={isSavingSettings} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50">
                   <Save className="w-4 h-4" />Salvar
                 </button>
               </div>
@@ -664,12 +533,12 @@ export default function AdminSettingsPage() {
               <h2 className="text-lg font-medium text-espresso">Backup & Exportacao</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-white/60 border border-white/60">
+                <div className="p-5 rounded-2xl bg-card border border-border">
                   <Database className="w-6 h-6 text-rose-400 mb-3" />
-                  <h3 className="text-sm font-medium text-espresso mb-1">Exportar Dados</h3>
-                  <p className="text-xs text-espresso/30 mb-4">Download de todos os dados da plataforma</p>
+                  <h3 className="text-sm font-medium text-foreground mb-1">Exportar Dados</h3>
+                  <p className="text-xs text-muted-foreground mb-4">Extrato parcial em CSV: só o que a regra de acesso deixa o admin ler</p>
                   <div className="space-y-2">
-                    {['Usuarios', 'Eventos', 'Transacoes', 'Logs'].map(item => (
+                    {Object.keys(EXPORTS).map(item => (
                       <button key={item} onClick={() => handleExport(item)} className="w-full flex items-center justify-between p-3 rounded-lg bg-white/40 hover:bg-white/60 transition-all text-left">
                         <span className="text-xs text-espresso">{item}</span>
                         <span className="text-[10px] text-rose-400">CSV</span>
@@ -678,70 +547,71 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
 
-                <div className="p-5 rounded-2xl bg-white/60 border border-white/60">
-                  <RefreshCw className="w-6 h-6 text-rose-400 mb-3" />
-                  <h3 className="text-sm font-medium text-espresso mb-1">Backup Automatico</h3>
-                  <p className="text-xs text-espresso/30 mb-4">Agendar backups periodicos</p>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/40">
-                      <label htmlFor="backupFrequency" className="text-xs text-espresso">Frequencia</label>
-                      <select id="backupFrequency" aria-label="Frequencia do backup" className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
-                        <option>Diario</option><option>Semanal</option><option>Mensal</option>
-                      </select>
-                    </div>
-                    <div className="flex items-center justify-between p-3 rounded-lg bg-white/40">
-                      <label htmlFor="backupTime" className="text-xs text-espresso">Horario</label>
-                      <input id="backupTime" type="time" defaultValue="03:00" className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none" aria-label="Horario do backup" />
-                    </div>
-                    <button onClick={() => toast.success('Backup agendado!')} className="w-full py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center justify-center gap-1">
-                      <RefreshCw className="w-3 h-3" /> Agendar Backup
-                    </button>
-                  </div>
+                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
+                  <AlertTriangle className="w-6 h-6 text-amber-500 mb-1" />
+                  <h3 className="text-sm font-medium text-foreground">Backup completo</h3>
+                  <p className="text-xs text-muted-foreground">O plano gratuito do Supabase não faz backup ("Not included").</p>
+                  <p className="text-xs text-muted-foreground">O backup semanal completo é feito por uma GitHub Action (<code>.github/workflows/backup.yml</code>, <code>supabase db dump</code>) e guardado <strong>cifrado (AES-256)</strong> como artefato do repositório, que é público: sem a frase-senha o arquivo não abre. Se o workflow ainda não existir no repositório, o backup automático ainda não está ativo.</p>
+                  <p className="text-xs text-muted-foreground">As exportações ao lado são um extrato parcial, não substituem o backup.</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* LOGS */}
+          {/* LOGS: user_activities (session_start, page_view, login) */}
           {section === 'logs' && (
             <div className="space-y-6">
               <h2 className="text-lg font-medium text-espresso">Logs do Sistema</h2>
 
-              <div className="flex items-center gap-3 mb-4">
-                <button className="px-3 py-1.5 bg-rose-50 text-rose-500 text-xs rounded-full border border-rose-100">Todos</button>
-                <button className="px-3 py-1.5 bg-white/60 text-espresso/40 text-xs rounded-full border border-white/60 hover:text-espresso">Login</button>
-                <button className="px-3 py-1.5 bg-white/60 text-espresso/40 text-xs rounded-full border border-white/60 hover:text-espresso">Erros</button>
-                <button className="px-3 py-1.5 bg-white/60 text-espresso/40 text-xs rounded-full border border-white/60 hover:text-espresso">Acoes</button>
+              <div className="flex items-center gap-2 mb-4" role="group" aria-label="Filtrar por tipo">
+                {LOG_FILTERS.map(f => (
+                  <Button key={f.id} type="button" size="sm" variant={logFilter === f.id ? 'default' : 'outline'} aria-pressed={logFilter === f.id} onClick={() => setLogFilter(f.id)} className="rounded-full">
+                    {f.label}
+                  </Button>
+                ))}
               </div>
 
-              <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-espresso/5">
-                      <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Tipo</th>
-                      <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Usuario</th>
-                      <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">IP</th>
-                      <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Acao</th>
-                      <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Data</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map(log => (
-                      <tr key={log.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.type === 'login' ? 'bg-blue-50 text-blue-600 border-blue-100' : log.type === 'error' ? 'bg-red-50 text-red-500 border-red-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
-                            {log.type === 'login' ? 'Login' : log.type === 'error' ? 'Erro' : 'Acao'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-espresso hidden md:table-cell">{log.user}</td>
-                        <td className="px-4 py-3 text-xs text-espresso/30 hidden lg:table-cell">{log.ip}</td>
-                        <td className="px-4 py-3 text-xs text-espresso">{log.action}</td>
-                        <td className="px-4 py-3 text-right text-xs text-espresso/30 hidden md:table-cell">{log.date}</td>
+              {logsError && (
+                <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                  Não foi possível carregar os logs: {logsError}
+                </div>
+              )}
+
+              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+                {isLoadingLogs ? (
+                  <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-rose-400" /></div>
+                ) : activities.length === 0 && !logsError ? (
+                  <div className="py-12 text-center text-sm text-muted-foreground">Nenhum registro encontrado.</div>
+                ) : (
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border">
+                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Tipo</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Usuario</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Caminho</th>
+                        <th className="text-right px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Data</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {activities.map(log => (
+                        <tr key={log.id} className="border-b border-border last:border-0 hover:bg-white/40 transition-colors">
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-600 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-espresso/5 text-espresso/60 border-espresso/10'}`}>
+                              {LOG_LABEL[log.event_type] || log.event_type}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-xs text-foreground hidden md:table-cell font-mono">{log.profiles?.email || log.user_id || 'Visitante'}</td>
+                          <td className="px-4 py-3 text-xs text-foreground break-all">{log.path || '—'}</td>
+                          <td className="px-4 py-3 text-right text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
+              {!isLoadingLogs && activities.length === 200 && (
+                <p className="text-[11px] text-muted-foreground">Mostrando os 200 registros mais recentes. Para o histórico completo, exporte na aba Backup.</p>
+              )}
             </div>
           )}
 
@@ -749,27 +619,6 @@ export default function AdminSettingsPage() {
           {section === 'seguranca' && (
             <div className="space-y-6">
               <h2 className="text-lg font-medium text-espresso">Seguranca</h2>
-
-              <div className="space-y-3">
-                {[
-                  { label: 'Forcar 2FA para admins', desc: 'Todos os administradores devem usar autenticacao em duas etapas' },
-                  { label: 'Bloquear IP suspeito', desc: 'Bloquear automaticamente IPs com multiplas tentativas falhas' },
-                  { label: 'Sessao unica', desc: 'Desconectar outras sessoes ao logar em novo dispositivo' },
-                  { label: 'Auditoria de acesso', desc: 'Registrar todas as acoes administrativas' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                    <div>
-                      <div className="text-sm text-espresso">{item.label}</div>
-                      <div className="text-[10px] text-espresso/30">{item.desc}</div>
-                    </div>
-                    <label htmlFor={`security-toggle-${i}`} className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" id={`security-toggle-${i}`} defaultChecked={i < 2} aria-label={item.label} className="sr-only peer" />
-                      <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </label>
-                  </div>
-                ))}
-              </div>
 
               {/* 2FA Pessoal do Admin */}
               <div className="p-4 rounded-xl bg-white/60 border border-white/60 flex items-center justify-between">
@@ -781,32 +630,13 @@ export default function AdminSettingsPage() {
                 </div>
                 <button 
                   disabled={loadingMfa}
+                  aria-label={twoFA ? 'Desativar 2FA' : 'Ativar 2FA'}
+                  aria-pressed={twoFA}
                   onClick={twoFA ? handleDisableMfa : handleStartEnroll} 
                   className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-rose-500' : 'bg-espresso/10'} disabled:opacity-55`}
                 >
                   <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twoFA ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
-              </div>
-
-              <div className="p-4 rounded-xl bg-amber-50/50 border border-amber-100">
-                <h3 className="text-sm font-medium text-amber-700 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" />Sessoes Ativas</h3>
-                <div className="space-y-2">
-                  {[
-                    { device: 'Chrome - Windows', ip: '189.45.67.89', current: true },
-                    { device: 'Safari - iPhone', ip: '189.45.67.90', current: false },
-                  ].map((s, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-white/60">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-2 h-2 rounded-full ${s.current ? 'bg-green-500' : 'bg-amber-400'}`} />
-                        <div>
-                          <div className="text-xs text-espresso">{s.device}</div>
-                          <div className="text-[10px] text-espresso/30">{s.ip}</div>
-                        </div>
-                      </div>
-                      {s.current ? <span className="text-[10px] text-green-600">Atual</span> : <button className="text-[10px] text-red-500 hover:underline">Revogar</button>}
-                    </div>
-                  ))}
-                </div>
               </div>
             </div>
           )}
@@ -864,10 +694,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   disabled={isVerifyingMfa}
-                  onClick={() => {
-                    setShowMfaModal(false)
-                    setEnrollData(null)
-                  }}
+                  onClick={handleCancelEnroll}
                   className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
                 >
                   Cancelar

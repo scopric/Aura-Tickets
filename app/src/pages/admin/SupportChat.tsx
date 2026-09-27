@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { 
@@ -43,6 +44,7 @@ interface Message {
 
 export default function SupportChat() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
   const [sessions, setSessions] = useState<Session[]>([])
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -82,7 +84,7 @@ export default function SupportChat() {
   const fetchSessions = async () => {
     setIsLoadingSessions(true)
     try {
-      // Buscar sessões de suporte
+      // Sessões + usuário + última mensagem (embed limitado a 1 por sessão), numa consulta só
       const { data: sessionData, error: sessionError } = await supabase
         .from('support_sessions')
         .select(`
@@ -90,48 +92,47 @@ export default function SupportChat() {
           user:user_id (
             email,
             full_name
-          )
+          ),
+          support_messages (id, content, created_at)
         `)
         .neq('status', 'closed')
         .order('updated_at', { ascending: false })
+        .order('created_at', { referencedTable: 'support_messages', ascending: false })
+        .limit(1, { referencedTable: 'support_messages' })
 
       if (sessionError) throw sessionError
 
-      // Mapear dados do usuário para as sessões
-      const formattedSessions: Session[] = (sessionData || []).map((s: any) => ({
-        ...s,
-        user_email: s.user?.email || undefined,
-        user_name: s.user?.full_name || undefined,
-        unread_count: 0,
-        last_message: ''
-      }))
-
-      // Buscar última mensagem e contagem de não lidas para cada sessão
-      for (const session of formattedSessions) {
-        // Última mensagem
-        const { data: msgData } = await supabase
-          .from('support_messages')
-          .select('content')
-          .eq('session_id', session.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (msgData && msgData.length > 0) {
-          session.last_message = msgData[0].content
+      const formattedSessions: Session[] = (sessionData || []).map((s: any) => {
+        const { support_messages, ...rest } = s
+        return {
+          ...rest,
+          user_email: s.user?.email || undefined,
+          user_name: s.user?.full_name || undefined,
+          unread_count: 0,
+          last_message: support_messages?.[0]?.content || ''
         }
+      })
 
-        // Não lidas
-        const { count } = await supabase
+      // Não lidas de todas as sessões numa consulta, somadas no cliente
+      // ponytail: o PostgREST devolve no máximo 1.000 linhas; acima disso o badge subconta (trocar por RPC/agregação se acontecer)
+      if (formattedSessions.length > 0) {
+        const { data: unread, error: unreadError } = await supabase
           .from('support_messages')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', session.id)
+          .select('session_id')
+          .in('session_id', formattedSessions.map(s => s.id))
           .eq('sender_type', 'visitor')
           .is('read_at', null)
-
-        session.unread_count = count || 0
+        if (unreadError) throw unreadError
+        const counts: Record<string, number> = {}
+        for (const m of unread || []) counts[m.session_id] = (counts[m.session_id] || 0) + 1
+        for (const s of formattedSessions) s.unread_count = counts[s.id] || 0
       }
 
       setSessions(formattedSessions)
+
+      // Aberto por link (?session=<id>): seleciona a sessão pedida se ela estiver na lista
+      const wanted = searchParams.get('session')
+      if (wanted && formattedSessions.some(s => s.id === wanted)) setActiveSessionId(wanted)
     } catch (err: any) {
       console.error('[AdminSupportChat] Erro ao carregar sessoes:', err)
       toast.error('Erro ao carregar lista de atendimentos')
@@ -410,10 +411,10 @@ export default function SupportChat() {
       {/* 1. PAINEL ESQUERDO: Lista de Atendimentos */}
       <div className="w-80 border-r border-white/[0.05] bg-[#07080c]/50 flex flex-col h-full">
         <div className="p-4 border-b border-white/[0.05]">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
+          <h1 className="text-lg font-bold text-white flex items-center gap-2">
             <Inbox className="w-5 h-5 text-purple-400" />
-            Suporte em Fila
-          </h2>
+            Chat de Suporte
+          </h1>
           <p className="text-xs text-white/50 mt-1">Gerencie e responda os visitantes do portal</p>
         </div>
 
@@ -523,6 +524,10 @@ export default function SupportChat() {
               {isLoadingMessages ? (
                 <div className="h-full flex items-center justify-center">
                   <Loader2 className="w-8 h-8 animate-spin text-purple-500" />
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="h-full flex items-center justify-center text-xs text-white/40">
+                  Nenhuma mensagem nesta conversa ainda.
                 </div>
               ) : (
                 messages.map((msg) => {

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { getAppMode } from './appHost'
 import { useAuthStore } from '../stores/authStore'
 import { gaPageView } from './googleAnalytics'
 
@@ -42,6 +43,7 @@ export async function trackEvent(
   path?: string,
   metadata: Record<string, any> = {}
 ) {
+  if (getAppMode() === 'admin') return // painel de administração não é rastreado (Decisão 46 do cofre)
   // LGPD: nenhum evento é gravado sem o consentimento de cookies analíticos (banner do site)
   if (!hasAnalyticsConsent()) {
     return

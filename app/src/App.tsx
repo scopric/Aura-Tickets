@@ -205,6 +205,7 @@ function RootRedirect() {
 function Layout() {
   const location = useLocation()
 
+  // Alpha (painel admin) sem rastreio (Decisão 46 do cofre); a trava de raiz está em lib/tracking.ts
   useEffect(() => {
     // Registra o inicio de sessao na primeira carga da plataforma
     trackEvent('session_start')
@@ -248,8 +249,6 @@ function Layout() {
           </Suspense>
         </main>
         <Toaster />
-        <FeedbackButton />
-        <CookieBanner />
       </div>
     )
   }
@@ -377,8 +376,8 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <Layout />
-        {/* Vercel Web Analytics: sem cookies e sem identificar o visitante (Decisões, 20) */}
-        <Analytics beforeSend={semHash} />
+        {/* Vercel Web Analytics: sem cookies e sem identificar o visitante (Decisão 26 do cofre); não no alpha (Decisão 46) */}
+        {appMode !== 'admin' && <Analytics beforeSend={semHash} />}
       </ThemeProvider>
     </AuthProvider>
   )
