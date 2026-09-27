@@ -29,6 +29,10 @@ export default function ProducerSettings() {
   } = useProducerSettings()
 
   const [section, setSection] = useState<Section>('perfil')
+  // Confirmação da exclusão num modal da página: window.confirm pode ser bloqueado pelo
+  // navegador e devolver false sem mostrar nada (foi o que aconteceu no teste de 27/09).
+  const [showDelete, setShowDelete] = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
   
@@ -347,11 +351,9 @@ export default function ProducerSettings() {
   }
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm('Tem certeza de que deseja excluir permanentemente sua conta e todos os dados associados de eventos e ingressos? Esta ação é irreversível e em total conformidade com a LGPD.')) {
-      return
-    }
-    // Não depende de `data`: a função identifica o usuário pelo token da sessão. (Sem
-    // producer_profiles a consulta desta tela falha e `data` fica vazio — o botão travava aqui.)
+    if (deleteConfirm !== 'CANCELAR') { toast.error('Digite CANCELAR para confirmar'); return }
+    // A função só precisa do JWT da sessão (o supabase-js o envia sozinho); a consulta
+    // desta tela (`data`) não é necessária aqui.
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
     try {
       // Função com chave de serviço: anonimiza perfil e cadastro de produtor (dados bancários),
@@ -365,6 +367,7 @@ export default function ProducerSettings() {
       if (!result?.ok) throw new Error(result?.error || 'A exclusão não foi concluída')
 
       toast.success('Sua conta foi excluída com sucesso!', { id: toastId })
+      setShowDelete(false)
       // A sessão já foi encerrada no servidor; o signOut local só limpa o navegador
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
       window.location.href = '/'
@@ -540,7 +543,7 @@ export default function ProducerSettings() {
                       <div className="text-sm text-espresso">Excluir conta</div>
                       <div className="text-[10px] text-espresso/30">Esta acao nao pode ser desfeita</div>
                     </div>
-                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={handleDeleteAccount}>Excluir</button>
+                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={() => { setDeleteConfirm(''); setShowDelete(true) }}>Excluir</button>
                   </div>
                 </div>
               </div>
@@ -807,6 +810,25 @@ export default function ProducerSettings() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDelete(false)} />
+          <div className="relative w-full max-w-sm bg-white border border-red-100 rounded-3xl p-6 shadow-xl">
+            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-500" /></div>
+            <h3 className="font-serif text-xl text-espresso text-center mb-2">Excluir conta</h3>
+            <p className="text-xs text-espresso/50 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>
+            <div className="p-3 rounded-xl bg-red-50 border border-red-100 mb-4">
+              <p className="text-xs text-red-500 mb-2">Digite <strong>CANCELAR</strong> para confirmar:</p>
+              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="CANCELAR" className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
+            </div>
+            <div className="space-y-2">
+              <button onClick={handleDeleteAccount} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
+              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-espresso/40 hover:text-espresso transition-colors">Voltar</button>
+            </div>
           </div>
         </div>
       )}
