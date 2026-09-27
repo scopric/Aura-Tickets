@@ -45,7 +45,7 @@ export default function ParticipantSettings() {
   const { logout, user } = useAuth()
 
   const handleDelete = async () => {
-    if (deleteConfirm !== 'CANCELAR') { toast.error('Digite CANCELAR para confirmar'); return }
+    if (deleteConfirm !== 'EXCLUIR') { toast.error('Digite EXCLUIR para confirmar'); return }
     if (!user?.id) { toast.error('Usuário não autenticado'); return }
 
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
@@ -60,7 +60,7 @@ export default function ParticipantSettings() {
       }
       if (!data?.ok) throw new Error(data?.error || 'A exclusão não foi concluída')
 
-      toast.success('Conta cancelada. Sentiremos sua falta!', { id: toastId })
+      toast.success('Conta excluída. Sentiremos sua falta!', { id: toastId })
       setShowDelete(false)
       // A sessão já foi encerrada no servidor; o logout local só limpa o navegador
       await Promise.resolve(logout()).catch(() => {})
@@ -132,7 +132,7 @@ export default function ParticipantSettings() {
         <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Zona de Perigo</h3>
         <p className="text-xs text-red-400/60 mb-3">Ao cancelar sua conta, todos os seus dados e ingressos serão permanentemente excluídos.</p>
         <button onClick={() => setShowDelete(true)} className="px-5 py-2.5 bg-red-500 text-white text-xs font-medium rounded-full hover:bg-red-600 transition-all flex items-center gap-2">
-          <Trash2 className="w-3.5 h-3.5" /> Cancelar Conta
+          <Trash2 className="w-3.5 h-3.5" /> Excluir conta
         </button>
       </div>
 
@@ -142,14 +142,14 @@ export default function ParticipantSettings() {
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDelete(false)} />
           <div className="relative w-full max-w-sm bg-slate-950 border border-white/10 rounded-3xl p-6 shadow-elevated">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><Trash2 className="w-6 h-6 text-red-500" /></div>
-            <h3 className="font-serif text-xl text-cream text-center mb-2">Cancelar Conta</h3>
+            <h3 className="font-serif text-xl text-cream text-center mb-2">Excluir conta</h3>
             <p className="text-xs text-white/40 text-center mb-4">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
-              <p className="text-xs text-red-400 mb-2">Digite <strong>CANCELAR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="CANCELAR" className="w-full px-3 py-2 bg-white/[0.04] border border-red-500/20 rounded-lg text-sm text-red-400 placeholder:text-red-300 focus:outline-none focus:border-red-400/50" />
+              <p className="text-xs text-red-400 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
+              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white/[0.04] border border-red-500/20 rounded-lg text-sm text-red-400 placeholder:text-red-300 focus:outline-none focus:border-red-400/50" />
             </div>
             <div className="space-y-2">
-              <button onClick={handleDelete} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar Cancelamento</button>
+              <button onClick={handleDelete} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
               <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-white/40 hover:text-white/80 transition-colors">Voltar</button>
             </div>
           </div>

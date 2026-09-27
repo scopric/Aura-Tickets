@@ -351,7 +351,7 @@ export default function ProducerSettings() {
   }
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirm !== 'CANCELAR') { toast.error('Digite CANCELAR para confirmar'); return }
+    if (deleteConfirm !== 'EXCLUIR') { toast.error('Digite EXCLUIR para confirmar'); return }
     // A função só precisa do JWT da sessão (o supabase-js o envia sozinho); a consulta
     // desta tela (`data`) não é necessária aqui.
     const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
@@ -822,8 +822,8 @@ export default function ProducerSettings() {
             <h3 className="font-serif text-xl text-espresso text-center mb-2">Excluir conta</h3>
             <p className="text-xs text-espresso/50 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>
             <div className="p-3 rounded-xl bg-red-50 border border-red-100 mb-4">
-              <p className="text-xs text-red-500 mb-2">Digite <strong>CANCELAR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="CANCELAR" className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
+              <p className="text-xs text-red-500 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
+              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
             </div>
             <div className="space-y-2">
               <button onClick={handleDeleteAccount} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
