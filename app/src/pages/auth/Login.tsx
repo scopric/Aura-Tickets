@@ -9,6 +9,8 @@ import { trackEvent } from '../../lib/tracking'
 import { getAppMode } from '../../lib/appHost'
 
 type UserRole = 'user' | 'producer' | 'admin'
+type OAuthProvider = 'google' | 'apple' | 'azure'
+const OAUTH_LABEL: Record<OAuthProvider, string> = { google: 'Google', apple: 'Apple', azure: 'Microsoft' }
 
 const isAdminMode = getAppMode() === 'admin'
 
@@ -69,7 +71,9 @@ export default function AuthLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [role, setRole] = useState<UserRole>(isAdminMode ? 'admin' : 'user')
-  const [error, setError] = useState('')
+  // Erro devolvido pelo provedor na volta do login social (#error=…&error_description=…).
+  // O supabase-js não limpa o hash quando há erro, por isso basta ler o da rota atual.
+  const [error, setError] = useState(() => new URLSearchParams(location.hash.slice(1)).get('error_description') ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Estados do MFA (2FA)
@@ -105,57 +109,26 @@ export default function AuthLogin() {
     checkRequiredMfa()
   }, [location.state])
 
-  const handleGoogleLogin = async () => {
+  // Login social. Volta ao próprio /auth/login: o useEffect "já autenticado" abaixo decide o
+  // destino pelo papel real (profiles.role), aplica o bloqueio por endereço (admin no app.*)
+  // e respeita o carrinho pendente do checkout — o mesmo caminho do login com senha.
+  // Fluxo implícito (lib/supabase.ts): a sessão volta no hash da URL e o supabase-js a processa.
+  const handleOAuthLogin = async (provider: OAuthProvider) => {
     setIsSubmitting(true)
     setError('')
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: {
-          redirectTo: `${window.location.origin}/app/hub`
-        }
+          redirectTo: `${window.location.origin}/auth/login`,
+          // Azure: o Supabase exige o escopo email; profile traz o nome (openid ele já acrescenta).
+          ...(provider === 'azure' ? { scopes: 'email profile' } : {}),
+        },
       })
       if (error) throw error
     } catch (err: any) {
-      console.error('[OAuth Google] Erro:', err)
-      setError(err?.message || 'Erro ao entrar com Google')
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleMicrosoftLogin = async () => {
-    setIsSubmitting(true)
-    setError('')
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          redirectTo: `${window.location.origin}/app/hub`,
-          scopes: 'email openid profile User.Read'
-        }
-      })
-      if (error) throw error
-    } catch (err: any) {
-      console.error('[OAuth Microsoft] Erro:', err)
-      setError(err?.message || 'Erro ao entrar com Microsoft')
-      setIsSubmitting(false)
-    }
-  }
-
-  const handleAppleLogin = async () => {
-    setIsSubmitting(true)
-    setError('')
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'apple',
-        options: {
-          redirectTo: `${window.location.origin}/app/hub`
-        }
-      })
-      if (error) throw error
-    } catch (err: any) {
-      console.error('[OAuth Apple] Erro:', err)
-      setError(err?.message || 'Erro ao entrar com Apple')
+      console.error(`[OAuth ${OAUTH_LABEL[provider]}] Erro:`, err)
+      setError(err?.message || `Erro ao entrar com ${OAUTH_LABEL[provider]}`)
       setIsSubmitting(false)
     }
   }
@@ -497,7 +470,7 @@ export default function AuthLogin() {
             <div className="space-y-2.5">
               <button
                 type="button"
-                onClick={handleGoogleLogin}
+                onClick={() => handleOAuthLogin('google')}
                 disabled={isSubmitting}
                 className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
@@ -506,7 +479,7 @@ export default function AuthLogin() {
               </button>
               <button
                 type="button"
-                onClick={handleAppleLogin}
+                onClick={() => handleOAuthLogin('apple')}
                 disabled={isSubmitting}
                 className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
@@ -515,7 +488,7 @@ export default function AuthLogin() {
               </button>
               <button
                 type="button"
-                onClick={handleMicrosoftLogin}
+                onClick={() => handleOAuthLogin('azure')}
                 disabled={isSubmitting}
                 className="w-full py-2.5 px-4 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all disabled:opacity-50 flex items-center justify-center"
               >
