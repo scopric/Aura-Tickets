@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
 
 export interface DbMenuItem {
@@ -32,7 +33,7 @@ export function useProducerMenuItems(eventId?: string) {
       if (!user?.id) return []
 
       // Modo demo
-      if (user.id === 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4') {
+      if (isDemoAccount(user.id)) {
         if (eventId) return MOCK_MENU_ITEMS.filter(i => i.event_id === eventId)
         return MOCK_MENU_ITEMS
       }
@@ -66,7 +67,7 @@ export function useEventMenuItems(eventId?: string) {
       if (!eventId) return []
 
       // Modo demo
-      if (eventId === 'evt-001') {
+      if (import.meta.env.DEV && eventId === 'evt-001') { // evento de exemplo (só demo em desenvolvimento)
         return MOCK_MENU_ITEMS.filter(i => i.event_id === eventId && i.is_available)
       }
 

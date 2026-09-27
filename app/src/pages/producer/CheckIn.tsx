@@ -86,88 +86,12 @@ export default function ProducerCheckIn() {
 
       if (error) throw error
 
-      if (!data || data.length === 0) {
-        // Se o evento não tem ingressos comprados no banco, realizamos auto-seed para teste rápido
-        await seedInitialTickets(eventId)
-        return
-      }
-
       setTickets(data.map(mapDbTicketToTicketCheck))
     } catch (err: any) {
       console.error('Erro ao carregar ingressos:', err)
       toast.error('Erro ao carregar ingressos da portaria')
     } finally {
       setIsLoadingTickets(false)
-    }
-  }
-
-  // Realizar auto-seed de ingressos para eventos novos para que o produtor possa testar
-  const seedInitialTickets = async (eventId: string) => {
-    try {
-      // 1. Obter ou criar um tipo de ingresso do evento para vincular
-      const { data: ticketTypes, error: typeError } = await supabase
-        .from('ticket_types')
-        .select('id, name')
-        .eq('event_id', eventId)
-
-      if (typeError) throw typeError
-
-      let typeId = ''
-      if (ticketTypes && ticketTypes.length > 0) {
-        typeId = ticketTypes[0].id
-      } else {
-        // Criar tipo de ingresso padrão se não houver
-        const { data: newType, error: createTypeError } = await supabase
-          .from('ticket_types')
-          .insert({
-            event_id: eventId,
-            name: 'Pista Geral',
-            price: 50.00,
-            capacity: 500,
-            sold: 0,
-            type: 'individual',
-            lot_number: 1,
-            is_active: true
-          })
-          .select()
-          .single()
-
-        if (createTypeError) throw createTypeError
-        typeId = newType.id
-      }
-
-      // 2. Inserir ingressos de teste
-      const testTickets = [
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'Ana Costa', buyer_email: 'ana@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-001`, status: 'active' },
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'Pedro Lima', buyer_email: 'pedro@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-002`, status: 'used', checked_in_at: new Date(Date.now() - 3600000).toISOString() },
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'Maria Souza', buyer_email: 'maria@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-003`, status: 'active' },
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'João Silva', buyer_email: 'joao@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-004`, status: 'used', checked_in_at: new Date(Date.now() - 7200000).toISOString() },
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'Fernanda Rocha', buyer_email: 'fernanda@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-005`, status: 'active' },
-        { event_id: eventId, ticket_type_id: typeId, user_id: user?.id || eventId, buyer_name: 'Lucas Oliveira', buyer_email: 'lucas@email.com', qr_code: `AUR-${eventId.substring(0,4).toUpperCase()}-006`, status: 'cancelled' }
-      ]
-
-      const { error: insertError } = await supabase
-        .from('tickets')
-        .insert(testTickets)
-
-      if (insertError) throw insertError
-
-      // Recarregar
-      const { data: finalTickets } = await supabase
-        .from('tickets')
-        .select(`
-          *,
-          ticket_types (name),
-          events (title)
-        `)
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false })
-
-      if (finalTickets) {
-        setTickets(finalTickets.map(mapDbTicketToTicketCheck))
-      }
-    } catch (err) {
-      console.error('Erro no auto-seed de ingressos:', err)
     }
   }
 

@@ -194,7 +194,7 @@ export default function EventsBrowse() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 bg-white/30 border border-dashed border-white/60 rounded-3xl">
-            <p className="text-sm text-espresso/40 italic">Nenhum evento encontrado para os filtros selecionados.</p>
+            <p className="text-sm text-espresso/60">Nenhum evento publicado para estes filtros.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

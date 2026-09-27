@@ -139,66 +139,12 @@ export default function ProducerAffiliates() {
 
       if (error) throw error
 
-      if (!data || data.length === 0) {
-        // Auto-seed apenas em desenvolvimento para demonstração
-        if (import.meta.env.DEV) {
-          await seedInitialAffiliates(user.id)
-        }
-        setIsLoading(false)
-        return
-      }
-
       setAffiliates(data.map(mapDbAffiliateToAffiliate))
     } catch (err: any) {
       console.error('Erro ao carregar afiliados:', err)
       toast.error('Erro ao carregar lista de afiliados')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Auto-seed de afiliados
-  const seedInitialAffiliates = async (producerId: string) => {
-    try {
-      const { data: dbEvents } = await supabase
-        .from('events')
-        .select('id')
-        .eq('producer_id', producerId)
-        .limit(1)
-      const eventId = dbEvents && dbEvents.length > 0 ? dbEvents[0].id : null
-
-      const initialAffs = [
-        { producer_id: producerId, event_id: eventId, affiliate_user_id: producerId, commission_percent: 10, sales: 87, total_earned: 12500, status: 'active', created_at: new Date(Date.now() - 60 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, affiliate_user_id: producerId, commission_percent: 10, sales: 52, total_earned: 8400, status: 'active', created_at: new Date(Date.now() - 45 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, affiliate_user_id: producerId, commission_percent: 10, sales: 41, total_earned: 6200, status: 'active', created_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() },
-        { producer_id: producerId, event_id: eventId, affiliate_user_id: producerId, commission_percent: 10, sales: 0, total_earned: 0, status: 'pending', created_at: new Date().toISOString() }
-      ]
-
-      const { error } = await supabase
-        .from('affiliates')
-        .insert(initialAffs)
-
-      if (error) throw error
-
-      // Recarregar
-      const { data: finalAffs } = await supabase
-        .from('affiliates')
-        .select(`
-          *,
-          profiles:affiliate_user_id (
-            full_name,
-            email,
-            avatar_url
-          ),
-          events (title)
-        `)
-        .eq('producer_id', producerId)
-
-      if (finalAffs) {
-        setAffiliates(finalAffs.map(mapDbAffiliateToAffiliate))
-      }
-    } catch (err) {
-      console.error('Erro no auto-seed de afiliados:', err)
     }
   }
 

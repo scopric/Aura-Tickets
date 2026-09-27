@@ -120,57 +120,12 @@ export default function TeamManager() {
 
       if (error) throw error
 
-      if (!data || data.length === 0) {
-        // Se estiver vazio, rodamos o auto-seed
-        await seedInitialTeam(user.id)
-        return
-      }
-
       setMembers(data.map(mapDbMemberToTeamMember))
     } catch (err: any) {
       console.error('Erro ao carregar equipe:', err)
       toast.error('Erro ao carregar equipe de administradores')
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  // Auto-seed de membros de teste
-  const seedInitialTeam = async (producerId: string) => {
-    try {
-      // Criar alguns usuários falsos na tabela profiles para associar (ou usar o próprio id como admin)
-      // Como não podemos criar contas no Auth facilmente, criaremos linhas na tabela team_members simulando os convites
-      const initialMembers = [
-        { producer_id: producerId, user_id: producerId, role: 'admin', invited_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString(), accepted_at: new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString() },
-        // Criaremos convites simulados
-        { producer_id: producerId, user_id: producerId, role: 'editor', invited_at: new Date().toISOString(), accepted_at: null },
-        { producer_id: producerId, user_id: producerId, role: 'viewer', invited_at: new Date().toISOString(), accepted_at: null }
-      ]
-
-      const { error } = await supabase
-        .from('team_members')
-        .insert(initialMembers)
-
-      if (error) throw error
-
-      // Recarregar
-      const { data: finalMembers } = await supabase
-        .from('team_members')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq('producer_id', producerId)
-
-      if (finalMembers) {
-        setMembers(finalMembers.map(mapDbMemberToTeamMember))
-      }
-    } catch (err) {
-      console.error('Erro no auto-seed de equipe:', err)
     }
   }
 

@@ -193,7 +193,7 @@ export default function AdminSettingsPage() {
     async function loadSettings() {
       try {
         const { data: dbData, error } = await supabase
-          .from('system_settings')
+          .from('platform_settings')
           .select('key, value')
         
         if (error) throw error
@@ -242,8 +242,8 @@ export default function AdminSettingsPage() {
       }
 
       const { error } = await supabase
-        .from('system_settings')
-        .upsert({ key, value: payload, updated_at: new Date().toISOString() })
+        .from('platform_settings')
+        .upsert({ key, value: payload, updated_at: new Date().toISOString() }, { onConflict: 'key' }) // a chave única é `key`, não o id
 
       if (error) throw error
 
