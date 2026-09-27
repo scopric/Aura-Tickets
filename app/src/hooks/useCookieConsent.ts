@@ -2,11 +2,12 @@ import { useState, useEffect, useCallback } from 'react'
 import { trackPageView, hasAnalyticsConsent } from '../lib/tracking'
 import { gaRevokeConsent } from '../lib/googleAnalytics'
 
+// Só duas categorias: o site não usa cookie de marketing nem de preferências
+// (tema e id do chat de suporte são funcionais). Formato salvo continua o mesmo
+// (VERSION 1.0): respostas antigas com campos a mais seguem válidas.
 export interface CookieConsent {
   necessary: boolean
   analytics: boolean
-  marketing: boolean
-  preferences: boolean
 }
 
 const STORAGE_KEY = 'aura-cookie-consent'
@@ -15,8 +16,6 @@ const VERSION = '1.0'
 const defaultConsent: CookieConsent = {
   necessary: true,
   analytics: false,
-  marketing: false,
-  preferences: false,
 }
 
 export function useCookieConsent() {
@@ -30,7 +29,7 @@ export function useCookieConsent() {
       if (stored) {
         const parsed = JSON.parse(stored)
         if (parsed.version === VERSION) {
-          setConsentState(parsed.consent)
+          setConsentState({ necessary: true, analytics: !!parsed.consent?.analytics })
           setHasConsented(true)
         } else {
           setShowBanner(true)
@@ -57,21 +56,11 @@ export function useCookieConsent() {
   }, [])
 
   const acceptAll = useCallback(() => {
-    setConsent({
-      necessary: true,
-      analytics: true,
-      marketing: true,
-      preferences: true,
-    })
+    setConsent({ necessary: true, analytics: true })
   }, [setConsent])
 
   const rejectAll = useCallback(() => {
-    setConsent({
-      necessary: true,
-      analytics: false,
-      marketing: false,
-      preferences: false,
-    })
+    setConsent({ necessary: true, analytics: false })
   }, [setConsent])
 
   const openBanner = useCallback(() => {
