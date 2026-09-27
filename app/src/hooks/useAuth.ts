@@ -211,7 +211,7 @@ export function useAuth() {
 
   const register = async (
     name: string, email: string, password: string, role: 'user' | 'producer' | 'admin',
-    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean }
+    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean; howDidYouHear?: string; referralEmail?: string }
   ): Promise<boolean> => {
     try {
       // O aceite vai nos metadados do usuário (prova de aceite, LGPD art. 8º, § 2º); a função
