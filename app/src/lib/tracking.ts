@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { useAuthStore } from '../stores/authStore'
+import { gaPageView } from './googleAnalytics'
 
 const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
 const SESSION_ID_KEY = 'aura_session_id'
@@ -44,6 +45,11 @@ export async function trackEvent(
   // LGPD: nenhum evento é gravado sem o consentimento de cookies analíticos (banner do site)
   if (!hasAnalyticsConsent()) {
     return
+  }
+
+  // Google Analytics 4 recebe só as visualizações de página (mesma regra de consentimento)
+  if (eventType === 'page_view') {
+    gaPageView(path || (typeof window !== 'undefined' ? window.location.pathname : '/'))
   }
 
   try {

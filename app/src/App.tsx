@@ -12,6 +12,7 @@ import CookieBanner from './components/CookieBanner'
 import SupportChatWidget from './components/SupportChatWidget'
 import { supabase } from './lib/supabase'
 import { Loader2 } from 'lucide-react'
+import { Analytics, type BeforeSend } from '@vercel/analytics/react'
 
 // Layouts (pequenos, carregados estaticamente)
 import ProducerLayout from './components/ProducerLayout'
@@ -24,6 +25,11 @@ import { getAppMode } from './lib/appHost'
 
 // O host não muda durante a sessão do SPA
 const appMode = getAppMode()
+
+// Vercel Web Analytics envia a URL inteira; o Supabase devolve o token no #hash
+// (login social e redefinição de senha), então o hash nunca sai daqui. Fora do componente
+// para não re-registrar o script a cada render.
+const semHash: BeforeSend = (event) => ({ ...event, url: event.url.split('#')[0] })
 
 // Public pages (lazy loaded)
 const Home = lazy(() => import('./pages/Home'))
@@ -371,6 +377,8 @@ export default function App() {
     <AuthProvider>
       <ThemeProvider>
         <Layout />
+        {/* Vercel Web Analytics: sem cookies e sem identificar o visitante (Decisões, 20) */}
+        <Analytics beforeSend={semHash} />
       </ThemeProvider>
     </AuthProvider>
   )
