@@ -18,7 +18,7 @@ export default function TermsPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/40">Última atualização: 24 de maio de 2026</p>
+          <p className="text-xs text-espresso/40">Última atualização: 27 de setembro de 2026</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Aceitação dos Termos</h2>
@@ -33,6 +33,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">3. Cadastro e Conta</h2>
             <p>Para usar certos recursos, você deve criar uma conta fornecendo informações precisas e completas. Você é responsável por manter a confidencialidade de sua senha e por todas as atividades em sua conta.</p>
+            <p><strong>3.4. Exclusão da conta.</strong> Você pode excluir sua conta a qualquer momento em Configurações. A exclusão é imediata e irreversível: seus dados pessoais são apagados ou tornados anônimos, e o acesso à conta é encerrado.</p>
+            <p><strong>3.5. Registros que permanecem.</strong> Os registros de compras já realizadas (pedidos, ingressos emitidos, pagamentos e repasses) são mantidos pelo prazo exigido pela legislação fiscal e para o cumprimento de obrigações legais, conforme o art. 16, I, da LGPD, e não podem ser excluídos a pedido. Nesses registros, dados de contato como e-mail e telefone são removidos; nome e CPF permanecem por exigência fiscal.</p>
+            <p><strong>3.6. Condições para produtores.</strong> Produtores com evento publicado e ainda não realizado, ou com saque em andamento, precisam encerrar ou cancelar o evento e concluir o saque antes de excluir a conta.</p>
+            <p><strong>3.7. Ingressos.</strong> Ingressos já emitidos para eventos futuros continuam válidos e registrados no nome do comprador; utilize-os ou transfira-os antes da exclusão, pois não será possível gerenciá-los depois.</p>
           </section>
 
           <section>

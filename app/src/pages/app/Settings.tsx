@@ -1,46 +1,11 @@
 import { useState } from 'react'
-import { Bell, FileText, Shield, Trash2, AlertTriangle, Check, Download, LogOut } from 'lucide-react'
+import { Bell, FileText, Shield, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 
-const termsText = `TERMOS E CONDICOES DE USO - PARTICIPANTE
-
-1. ACEITACAO
-Ao utilizar a Evokaa, voce aceita estes termos integralmente.
-
-2. COMPRA DE INGRESSOS
-2.1. Todos os ingressos sao emitidos digitalmente via QR Code.
-2.2. O reembolso e permitido ate 7 dias antes do evento, salvo excecoes.
-2.3. Em caso de cancelamento do evento pelo produtor, o reembolso e automatico e integral.
-2.4. O prazo de reembolso e de ate 7 dias uteis apos a aprovacao.
-
-3. POLITICA DE CANCELAMENTO
-3.1. Reembolso 100%: ate 7 dias antes do evento.
-3.2. Reembolso 50%: de 7 a 2 dias antes do evento.
-3.3. Sem reembolso: menos de 48h antes do evento.
-3.4. Reembolso pro-rata: aplicado em caso de adiamento ou mudanca significativa.
-
-4. MESA COLETIVA
-4.1. Ao optar por mesa coletiva, voce concorda em ser agrupado por afinidade de perfil.
-4.2. O questionario de perfil deve ser respondido ate 48h antes do evento.
-4.3. Nao ha garantia de mesa especifica, apenas de perfil compativel.
-
-5. DADOS E PRIVACIDADE
-5.1. Seus dados sao criptografados e nunca vendidos a terceiros.
-5.2. Voce pode solicitar exclusao de dados a qualquer momento.
-
-6. CANCELAMENTO DE CONTA
-6.1. Voce pode cancelar sua conta a qualquer momento.
-6.2. Ao cancelar, todos os seus dados serao excluidos em ate 30 dias.
-6.3. Ingressos ativos devem ser utilizados ou cancelados antes do fechamento da conta.
-
-Aceito em: 01 Mar 2025
-Versao: 2.1.0`
-
 export default function ParticipantSettings() {
   const [showDelete, setShowDelete] = useState(false)
-  const [showTerms, setShowTerms] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState('')
   const { logout, user } = useAuth()
 
@@ -97,19 +62,12 @@ export default function ParticipantSettings() {
 
       {/* Terms */}
       <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md mb-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-semibold text-cream flex items-center gap-2"><FileText className="w-4 h-4 text-plum" /> Termos e Condições</h3>
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-green-400" />
-            <span className="text-xs text-green-400">Aceito em 01 Mar 2025</span>
-          </div>
+        <h3 className="text-sm font-semibold text-cream flex items-center gap-2 mb-3"><FileText className="w-4 h-4 text-plum" /> Termos e Privacidade</h3>
+        {/* Um único texto oficial: o da página /termos. (Antes havia aqui uma amostra fixa, com data de aceite fictícia.) */}
+        <div className="flex flex-wrap gap-2">
+          <a href="/termos" target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-xs text-plum hover:bg-plum/10 rounded-full transition-colors">Termos de Uso</a>
+          <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-xs text-plum hover:bg-plum/10 rounded-full transition-colors">Política de Privacidade</a>
         </div>
-        <p className="text-xs text-white/40 mb-3">Versão 2.1.0 · Última atualização: 15 Mai 2025</p>
-        <div className="flex gap-2">
-          <button onClick={() => setShowTerms(!showTerms)} className="px-4 py-2 text-xs text-plum hover:bg-plum/10 rounded-full transition-colors">{showTerms ? 'Ocultar' : 'Ler Termos'}</button>
-          <button onClick={() => toast.success('PDF baixado!')} className="px-4 py-2 text-xs text-white/40 hover:text-white/80 transition-colors flex items-center gap-1"><Download className="w-3.5 h-3.5" /> PDF</button>
-        </div>
-        {showTerms && <div className="mt-3 p-4 rounded-xl bg-white/[0.03] text-xs text-white/60 leading-relaxed whitespace-pre-line max-h-64 overflow-y-auto">{termsText}</div>}
       </div>
 
       {/* Privacy */}
