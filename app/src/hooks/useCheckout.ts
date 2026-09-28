@@ -75,7 +75,10 @@ export function useCreateOrder() {
           user_id: user.id,
           event_id,
           total: total_amount,
-          status: payment_method === 'pix' || payment_method === 'credit_card' ? 'paid' : 'pending',
+          // ponytail: sem gateway publicado, todo pedido nasce pendente — só uma confirmação
+          // real de pagamento (Fase 4) deveria gravar 'paid'. O status do ticket (abaixo)
+          // já deriva daqui.
+          status: 'pending',
           payment_method,
           gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           customer_name: user.name || user.full_name || 'Participante',
