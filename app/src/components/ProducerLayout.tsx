@@ -102,8 +102,8 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/producer/wallet', icon: Wallet, label: 'Carteira' },
       { to: '/producer/finance', icon: BarChart3, label: 'Financeiro' },
-      { to: '/producer/bordero', icon: Award, label: 'Bordero' },
-      { to: '/producer/antecipacao', icon: Zap, label: 'Antecipacao' },
+      { to: '/producer/bordero', icon: Award, label: 'Bordero', comingSoon: true },
+      { to: '/producer/antecipacao', icon: Zap, label: 'Antecipacao', comingSoon: true },
       { to: '/producer/parcelamento', icon: CreditCard, label: 'Parcelamento', comingSoon: true },
       { to: '/producer/calculator', icon: Calculator, label: 'Calc. de Preco' },
       { to: '/producer/tables', icon: Tag, label: 'Calc. de Mesas' },

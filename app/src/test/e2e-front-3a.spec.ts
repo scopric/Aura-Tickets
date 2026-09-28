@@ -1,0 +1,40 @@
+import { test, expect, type Page } from '@playwright/test'
+
+// Fase 3, bloco A: Antecipação e Borderô (dados de exemplo) viram "Em construção"; a tela de sucesso do checkout
+// não mostra mais o Pix falso nem botões que só davam toast.
+async function entrar(page: Page, aba: string, email: string, botao: RegExp) {
+  await page.goto('/auth/login')
+  await page.getByRole('button', { name: aba, exact: true }).first().click()
+  await page.getByPlaceholder('seu@email.com').fill(email)
+  await page.getByPlaceholder('Sua senha').fill('senha123')
+  await page.getByRole('button', { name: botao }).first().click()
+  await page.waitForURL(u => !u.toString().includes('/auth/login'))
+}
+
+test('produtor: Antecipação e Borderô mostram "Em construção", sem o borderô de exemplo', async ({ page }) => {
+  await entrar(page, 'Produtor', 'produtor@aura.teste', /Entrar como Produtor/)
+  for (const rota of ['/producer/antecipacao', '/producer/bordero']) {
+    await page.goto(rota)
+    await expect(page.getByRole('heading', { name: 'Em construção' })).toBeVisible()
+    await expect(page.getByText(/147\.600|Noite Eletro/)).toHaveCount(0)
+  }
+})
+
+test('/checkout/success sem pedido volta à Home, sem o Pix de exemplo', async ({ page }) => {
+  await page.goto('/checkout/success')
+  await expect(page).toHaveURL(/\/$/)
+  await expect(page.getByText(/252,00|AURA TICKETS/)).toHaveCount(0)
+})
+
+test('/checkout/success de um pedido Pix: sem "Pague com Pix" falso; "Ver meus ingressos" no lugar do download', async ({ page }) => {
+  await page.goto('/')
+  // o estado do react-router (history.state.usr) só chega pela navegação: empilha a tela com estado e volta a ela
+  await page.evaluate(() => {
+    history.pushState({ usr: { orderId: '00000000-0000-0000-0000-000000000000', paymentMethod: 'pix' }, key: 'e2e3a', idx: 1 }, '', '/checkout/success')
+    history.pushState({ usr: null, key: 'e2e3b', idx: 2 }, '', '/')
+    history.back()
+  })
+  await expect(page).toHaveURL(/\/checkout\/success$/)
+  await expect(page.getByRole('link', { name: 'Ver meus ingressos' })).toHaveAttribute('href', '/app/tickets')
+  await expect(page.getByText(/Pague com Pix|Copiar Código Pix|Enviar por E-mail|Baixar Ingresso/)).toHaveCount(0)
+})
