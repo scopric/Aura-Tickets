@@ -61,8 +61,8 @@ export function useFeatures() {
       }
     } catch (err) {
       console.error('[useFeatures] Erro ao buscar limites do plano no Supabase:', err)
-      // Mocks de fallback caso a base de dados local ainda não tenha as tabelas
-      setSubscription({ plan: 'pro', is_active: true, expires_at: null })
+      // Em erro, fecha: sem plano (antes liberava "pro" para todo mundo)
+      setSubscription(null)
       setCustomFeatures([])
     } finally {
       setIsLoading(false)
