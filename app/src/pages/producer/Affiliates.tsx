@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { siteUrl } from '../../lib/appHost'
 import {
   Users, UserPlus, TrendingUp, DollarSign, QrCode, Copy, Check,
-  X, Search, Medal, Crown, Award, Star, Tag, Ticket, BarChart3,
+  X, Search, Medal, Crown, Award, Star, Ticket, BarChart3,
   Phone, Mail, Share2, Edit3, Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,8 +22,6 @@ interface Affiliate {
   phone: string
   avatar: string
   code: string
-  couponCode: string
-  couponDiscount: number
   status: 'ativo' | 'pausado' | 'pendente'
   totalSales: number
   ticketsSold: number
@@ -38,12 +36,6 @@ interface Affiliate {
   joinedAt: string
   salesHistory: AffiliateSale[]
   conversionRate: number
-}
-
-const generateHistory = (): AffiliateSale[] => {
-  // Histórico diário viria de uma tabela de vendas por afiliado
-  // Retorna vazio até implementação do backend de analytics
-  return []
 }
 
 const levelConfig = {
@@ -70,7 +62,7 @@ export default function ProducerAffiliates() {
     const profile = dbAff.profiles || {}
     const tickets = dbAff.sales || 0
     const totalValue = Number(dbAff.total_earned) || 0
-    const rate = dbAff.commission_percent || 10
+    const rate = Number(dbAff.commission_percent) || 0
     const commission = (totalValue * rate) / 100
 
     let statusVal: Affiliate['status'] = 'ativo'
@@ -87,7 +79,6 @@ export default function ProducerAffiliates() {
     else if (tickets >= 25) level = 'silver'
 
     const code = `REF-${dbAff.id?.substring(0, 5).toUpperCase() || 'AURA'}`
-    const couponCode = `CUPOM-${dbAff.id?.substring(0, 5).toUpperCase() || 'AURA'}`
 
     return {
       id: dbAff.id,
@@ -96,8 +87,6 @@ export default function ProducerAffiliates() {
       phone: profile.phone || '',
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`,
       code,
-      couponCode,
-      couponDiscount: 10,
       status: statusVal,
       totalSales: totalValue,
       ticketsSold: tickets,
@@ -105,16 +94,12 @@ export default function ProducerAffiliates() {
       commission: commission,
       commissionRate: rate,
       commissionPaid: dbAff.commission_paid || 0,
-      lastSale: tickets > 0 ? 'Há 2h' : '-',
+      lastSale: '-',
       level: level,
       eventName: dbAff.events?.title || 'Geral',
       pixKey: dbAff.pix_key || '',
       joinedAt: new Date(dbAff.created_at).toLocaleDateString('pt-BR'),
-      salesHistory: generateHistory().map(h => ({
-        ...h,
-        tickets: Math.max(1, Math.floor(tickets / 7)),
-        value: Math.max(50, Math.floor(totalValue / 7))
-      })),
+      salesHistory: [],
       conversionRate: dbAff.conversion_rate || 0
     }
   }
@@ -187,8 +172,12 @@ export default function ProducerAffiliates() {
         .eq('email', form.email)
         .maybeSingle()
 
-      // Para testes locais se não existir, vincula ao id do produtor
-      const targetUserId = profile ? profile.id : user.id
+      // Sem conta com esse e-mail, para: não gravar o próprio produtor como afiliado
+      if (!profile) {
+        toast.error('Nenhuma conta Evokaa com esse e-mail. O afiliado precisa se cadastrar antes.')
+        return
+      }
+      const targetUserId = profile.id
 
       // 2. Procurar evento para vincular
       const { data: dbEvents } = await supabase
@@ -204,7 +193,7 @@ export default function ProducerAffiliates() {
           producer_id: user.id,
           event_id: eventId,
           affiliate_user_id: targetUserId,
-          commission_percent: Number(form.commissionRate) || 10,
+          commission_percent: Math.min(100, Math.max(0, Number(form.commissionRate) || 0)), // 0 é 0, não 10
           sales: 0,
           total_earned: 0,
           status: 'active'
@@ -369,7 +358,7 @@ export default function ProducerAffiliates() {
               <thead>
                 <tr className="border-b border-espresso/5">
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Afiliado</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Código / Cupom</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Código</th>
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Limite Vendas</th>
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Conv.</th>
                   <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
@@ -393,7 +382,6 @@ export default function ProducerAffiliates() {
                         <button onClick={() => copyCode(a.code, a.id)} className="flex items-center gap-1 px-2 py-1 bg-canvas rounded-lg text-[10px] text-espresso/50 hover:text-plum transition-colors">
                           <QrCode className="w-3 h-3" /> {a.code} {copied === a.id ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                         </button>
-                        {a.couponCode && <span className="px-2 py-1 bg-plum/10 rounded-lg text-[10px] text-plum flex items-center gap-1"><Tag className="w-3 h-3" /> {a.couponCode} ({a.couponDiscount}%)</span>}
                       </div>
                     </td>
                     <td className="px-4 py-3">

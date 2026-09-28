@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabase'
 import { useEffect } from 'react'
 import {
   ArrowLeft, Download, Eye, Upload, Type, Image, Signature,
-  QrCode, Trash2, Copy, Grid3x3, Sparkles, Save, Mail, Send,
+  QrCode, Trash2, Copy, Grid3x3, Sparkles, Save, Mail,
   Calendar as CalendarDays, Plus, Layout
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -70,8 +70,6 @@ export default function CertificateBuilder() {
   const [previewDate, setPreviewDate] = useState('15 de Junho de 2025')
   const [previewHours, setPreviewHours] = useState('8')
   const [showPreview, setShowPreview] = useState(false)
-  const [showSend, setShowSend] = useState(false)
-  const [sendEmails, setSendEmails] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sigInputRef = useRef<HTMLInputElement>(null)
 
@@ -220,14 +218,6 @@ export default function CertificateBuilder() {
       .replace('{{HORAS}}', previewHours)
       .replace('{{ASSINATURA}}', sigUrl ? '[ASSINATURA]' : '_________________')
       .replace('{{DATA_EMISSAO}}', new Date().toLocaleDateString('pt-BR'))
-  }
-
-  const handleDownload = () => { toast.success('Certificado modelo baixado!') }
-  const handleSend = () => {
-    if (!sendEmails.trim()) { toast.error('Digite os emails'); return }
-    toast.success('Certificados enviados!')
-    setShowSend(false)
-    setSendEmails('')
   }
 
   const selected = fields.find(f => f.id === selectedField)
@@ -381,11 +371,11 @@ export default function CertificateBuilder() {
 
           {/* Actions */}
           <div className="flex gap-2">
-            <button onClick={() => setShowSend(true)} className="flex-1 py-3 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
-              <Mail className="w-4 h-4" /> Enviar
+            <button disabled className="flex-1 py-3 bg-plum text-cream text-sm rounded-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Mail className="w-4 h-4" /> Enviar (em breve)
             </button>
-            <button onClick={handleDownload} className="flex-1 py-3 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-plum hover:text-cream transition-all flex items-center justify-center gap-2">
-              <Download className="w-4 h-4" /> Baixar
+            <button disabled className="flex-1 py-3 bg-white/60 border border-white/60 text-espresso text-sm rounded-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              <Download className="w-4 h-4" /> Baixar (em breve)
             </button>
           </div>
         </div>
@@ -451,25 +441,6 @@ export default function CertificateBuilder() {
         </div>
       </div>
 
-      {/* Send Modal */}
-      {showSend && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-espresso/20 backdrop-blur-sm" onClick={() => setShowSend(false)} />
-          <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
-            <h3 className="font-serif text-xl text-espresso mb-4">Enviar Certificados</h3>
-            <p className="text-xs text-espresso/50 mb-3">Digite os emails separados por virgula</p>
-            <textarea value={sendEmails} onChange={e => setSendEmails(e.target.value)} rows={4}
-              placeholder="ana@email.com, pedro@email.com, ..."
-              className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none mb-4" />
-            <div className="flex gap-2">
-              <button onClick={() => setShowSend(false)} className="flex-1 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all">Cancelar</button>
-              <button onClick={handleSend} className="flex-1 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
-                <Send className="w-4 h-4" /> Enviar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

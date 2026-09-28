@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowLeft, Award, Download, FileText, CheckCircle2, Users,
-  Mail, Search, GraduationCap, Calendar, Palette, Loader2
+  ArrowLeft, Award, FileText, CheckCircle2, Users,
+  Search, GraduationCap, Calendar, Palette, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
@@ -59,10 +59,6 @@ export default function Certificates() {
     } catch {
       toast.error('Erro ao emitir certificado')
     }
-  }
-
-  const handleDownloadOne = (cert: import('../../hooks/useProducerTools').DbCertificate) => {
-    toast.success(`Certificado de ${cert.participant_name} baixado!`)
   }
 
   const isLoading = eventsLoading || certsLoading
@@ -178,12 +174,6 @@ export default function Certificates() {
                   <Award className="w-3.5 h-3.5" />
                 </button>
               )}
-              <button onClick={() => handleDownloadOne(cert)} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum transition-colors">
-                <Download className="w-3.5 h-3.5" />
-              </button>
-              <button className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum transition-colors">
-                <Mail className="w-3.5 h-3.5" />
-              </button>
             </div>
           </div>
         ))}

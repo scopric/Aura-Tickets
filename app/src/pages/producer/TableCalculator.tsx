@@ -10,13 +10,7 @@ interface TableConfig {
 }
 
 export default function TableCalculator() {
-  const [tables, setTables] = useState<TableConfig[]>([
-    { id: '1', name: 'Mesa Premium 1', capacity: 8, pricePerSeat: 200, filled: 8 },
-    { id: '2', name: 'Mesa Premium 2', capacity: 8, pricePerSeat: 200, filled: 6 },
-    { id: '3', name: 'Mesa Gold 1', capacity: 6, pricePerSeat: 150, filled: 4 },
-    { id: '4', name: 'Mesa Gold 2', capacity: 6, pricePerSeat: 150, filled: 6 },
-    { id: '5', name: 'Mesa Silver 1', capacity: 4, pricePerSeat: 100, filled: 2 },
-  ])
+  const [tables, setTables] = useState<TableConfig[]>([])
 
   const addTable = () => {
     const num = tables.length + 1
@@ -62,9 +56,9 @@ export default function TableCalculator() {
             <Plus className="w-4 h-4" />
             Nova Mesa
           </button>
-          <button className="flex items-center gap-2 px-5 py-2.5 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
+          <button disabled className="flex items-center gap-2 px-5 py-2.5 border border-espresso/15 text-espresso text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
             <Save className="w-4 h-4" />
-            Salvar
+            Salvar (em breve)
           </button>
         </div>
       </div>
@@ -103,6 +97,10 @@ export default function TableCalculator() {
           <div className="text-xs text-espresso/40 mt-1">de R$ {maxRevenue.toLocaleString()} max.</div>
         </div>
       </div>
+
+      {tables.length === 0 && (
+        <p className="text-sm text-espresso/50 text-center py-8">Nenhuma mesa ainda. Clique em Nova Mesa</p>
+      )}
 
       {/* Tables Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
 import {
   TrendingUp, Users, Percent,
-  Copy, Check, Trash2, RotateCcw, Sparkles
+  RotateCcw, Sparkles
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 // ─── Markup Calculator ───
 function MarkupCalc() {
@@ -240,55 +239,6 @@ function ProjectionCalc() {
   )
 }
 
-// ─── Saved Results ───
-function SavedResults() {
-  const [saved, setSaved] = useState<{ id: string; label: string; value: string; date: string }[]>(() => {
-    const s = localStorage.getItem('aura_calc_results')
-    return s ? JSON.parse(s) : []
-  })
-  const [copied, setCopied] = useState<string | null>(null)
-
-  const copy = (id: string, text: string) => {
-    navigator.clipboard.writeText(text)
-    setCopied(id)
-    setTimeout(() => setCopied(null), 1500)
-    toast.success('Copiado!')
-  }
-
-  const remove = (id: string) => {
-    const updated = saved.filter(s => s.id !== id)
-    setSaved(updated)
-    localStorage.setItem('aura_calc_results', JSON.stringify(updated))
-  }
-
-  if (saved.length === 0) return null
-
-  return (
-    <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-      <h3 className="text-sm font-medium text-espresso mb-4">Resultados Salvos</h3>
-      <div className="space-y-2">
-        {saved.map(s => (
-          <div key={s.id} className="flex items-center justify-between p-3 rounded-xl bg-canvas hover:bg-white/40 transition-colors">
-            <div>
-              <div className="text-xs text-espresso font-medium">{s.label}</div>
-              <div className="text-[10px] text-espresso/30">{s.date}</div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-serif text-plum">{s.value}</span>
-              <button onClick={() => copy(s.id, s.value)} className="p-1.5 rounded-lg hover:bg-white text-espresso/20 hover:text-espresso/60 transition-colors">
-                {copied === s.id ? <Check className="w-3.5 h-3.5 text-green-500" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-              <button onClick={() => remove(s.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 // ─── Main ───
 export default function ProducerCalculator() {
   return (
@@ -302,10 +252,6 @@ export default function ProducerCalculator() {
         <MarkupCalc />
         <SplitCalc />
         <ProjectionCalc />
-      </div>
-
-      <div className="mt-6">
-        <SavedResults />
       </div>
     </div>
   )

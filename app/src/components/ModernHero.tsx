@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { appUrl } from '../lib/appHost'
-import { ArrowRight, Play } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import gsap from 'gsap'
 
 interface Particle {
@@ -304,28 +304,8 @@ export default function ModernHero() {
                 <ArrowRight className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" />
               </span>
             </Link>
-            <Link
-              to="/event/festival-de-verao-2025"
-              className="group w-full sm:w-auto sm:min-w-[180px] h-12 border border-white/15 text-white font-semibold rounded-full text-sm transition-all duration-300 hover:bg-white/5 hover:border-white/25 active:scale-[0.98] flex items-center justify-center gap-2"
-            >
-              <span>Ver Demo</span>
-              <Play className="w-3.5 h-3.5 transition-transform duration-300 group-hover:scale-110 fill-current" />
-            </Link>
           </div>
 
-          {/* Quick stats */}
-          <div className="mh-stats mt-14 grid grid-cols-3 gap-8 max-w-sm">
-            {[
-              { value: '10K+', label: 'Eventos' },
-              { value: '500K+', label: 'Ingressos' },
-              { value: '98%', label: 'Satisfação' },
-            ].map((stat) => (
-              <div key={stat.label} className="text-left">
-                <div className="text-2xl font-bold text-gradient">{stat.value}</div>
-                <div className="text-[10px] text-white/30 uppercase tracking-[0.15em] mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

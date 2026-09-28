@@ -92,8 +92,8 @@ export default function TeamManager() {
       role: (dbMember.role || 'viewer') as TeamMember['role'],
       status: status,
       permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
-      assignedTasks: Math.floor(Math.random() * 5), // Dados fictícios para o layout de tarefas
-      completedTasks: Math.floor(Math.random() * 2),
+      assignedTasks: 0, // sem tabela de tarefas: não inventar número
+      completedTasks: 0,
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`
@@ -168,9 +168,12 @@ export default function TeamManager() {
         .eq('email', inviteEmail)
         .maybeSingle()
 
-      // Para fins de MVP em localhost, se o perfil não existe, vinculamos temporariamente ao id do próprio produtor
-      // simulando o convite pendente.
-      const targetUserId = profileData ? profileData.id : user.id
+      // Sem conta com esse e-mail, para: não gravar o próprio produtor como membro da equipe
+      if (!profileData) {
+        toast.error('Nenhuma conta Evokaa com esse e-mail. A pessoa precisa se cadastrar antes.')
+        return
+      }
+      const targetUserId = profileData.id
 
       const { error } = await supabase
         .from('team_members')
@@ -183,7 +186,7 @@ export default function TeamManager() {
 
       if (error) throw error
 
-      toast.success(`Convite enviado para ${inviteEmail}!`)
+      toast.success('Membro adicionado')
       setInviteEmail('')
       setShowInvite(false)
       loadMembers()
