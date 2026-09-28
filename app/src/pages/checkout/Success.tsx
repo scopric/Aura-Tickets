@@ -12,10 +12,9 @@ export default function CheckoutSuccess() {
   const location = useLocation()
   const navigate = useNavigate()
   
-  const { orderId, totalAmount, paymentMethod } = (location.state || {}) as {
+  const { orderId, totalAmount } = (location.state || {}) as {
     orderId?: string
     totalAmount?: number
-    paymentMethod?: 'credit_card' | 'pix'
   }
 
   const [showTable, setShowTable] = useState(false)
@@ -65,14 +64,10 @@ export default function CheckoutSuccess() {
           <div className="success-icon w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          <h1 className="success-text font-serif text-3xl text-espresso mb-2">
-            {paymentMethod === 'pix' ? 'Pedido Reservado!' : 'Pagamento Confirmado!'}
-          </h1>
-          <p className="success-text text-espresso/50">
-            {paymentMethod === 'pix' 
-              ? 'Realize o pagamento do Pix abaixo para ativar seus ingressos.' 
-              : 'Seu ingresso foi reservado com sucesso. Enviamos os detalhes para seu e-mail.'}
-          </p>
+          {/* O Payment.tsx só manda para cá com o pedido pago (Pix confirmado pelo webhook ou cartão);
+              nenhuma função envia e-mail, então não prometer e-mail */}
+          <h1 className="success-text font-serif text-3xl text-espresso mb-2">Pagamento confirmado!</h1>
+          <p className="success-text text-espresso/50">Seus ingressos já estão em "Meus ingressos".</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">

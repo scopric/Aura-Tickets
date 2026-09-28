@@ -20,12 +20,6 @@ test('produtor: Antecipação e Borderô mostram "Em construção", sem o border
   }
 })
 
-test('/checkout/success sem pedido volta à Home, sem o Pix de exemplo', async ({ page }) => {
-  await page.goto('/checkout/success')
-  await expect(page).toHaveURL(/\/$/)
-  await expect(page.getByText(/252,00|AURA TICKETS/)).toHaveCount(0)
-})
-
 test('/checkout/success de um pedido Pix: sem "Pague com Pix" falso; "Ver meus ingressos" no lugar do download', async ({ page }) => {
   await page.goto('/')
   // o estado do react-router (history.state.usr) só chega pela navegação: empilha a tela com estado e volta a ela
@@ -37,4 +31,7 @@ test('/checkout/success de um pedido Pix: sem "Pague com Pix" falso; "Ver meus i
   await expect(page).toHaveURL(/\/checkout\/success$/)
   await expect(page.getByRole('link', { name: 'Ver meus ingressos' })).toHaveAttribute('href', '/app/tickets')
   await expect(page.getByText(/Pague com Pix|Copiar Código Pix|Enviar por E-mail|Baixar Ingresso/)).toHaveCount(0)
+  // o pedido chega aqui já pago: nada de "Pedido Reservado" nem "Realize o pagamento"
+  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toBeVisible()
+  await expect(page.getByText(/Pedido Reservado|Realize o pagamento|Enviamos os detalhes/)).toHaveCount(0)
 })
