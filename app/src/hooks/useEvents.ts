@@ -19,7 +19,7 @@ export interface DbTicketType {
   perks: string[] | null
   is_active: boolean
   quantity_total?: number | null // coluna real no banco (capacity é legado)
-  lot_number: number
+  lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null
   sale_end: string | null
   created_at: string
@@ -302,7 +302,7 @@ export function useCreateEvent() {
           type: t.type || 'individual',
           perks: t.perks || [],
           is_active: true,
-          lot_number: 1,
+          // sem lot_number: a coluna não existe em ticket_types (Decisão 20: o código se adapta ao banco)
         }))
 
         const { error: ticketsError } = await supabase
@@ -383,7 +383,6 @@ export function useUpdateEvent() {
         type: t.type || 'individual',
         perks: t.perks || [],
         is_active: true,
-        lot_number: 1,
       }))
 
       if (ticketsToUpsert.length > 0) {
