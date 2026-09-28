@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import {
-  ArrowLeft, ScanLine, Users, BarChart3, Bell,
-  QrCode, Wifi, WifiOff, Star, Shield, Zap, Check
+  ArrowLeft, ScanLine, Users, BarChart3,
+  QrCode, Shield, Zap, Check
 } from 'lucide-react'
 
 const features = [
@@ -16,14 +16,6 @@ const features = [
   {
     icon: BarChart3, title: 'Dashboard em Tempo Real', color: '#7a3b69',
     desc: 'Acompanhe vendas, ocupacao e receita ao vivo durante o evento.',
-  },
-  {
-    icon: Bell, title: 'Notificacoes Push', color: '#f59e0b',
-    desc: 'Receba alertas de vendas, lotes esgotando e mensagens importantes.',
-  },
-  {
-    icon: WifiOff, title: 'Funciona Offline', color: '#06b6d4',
-    desc: 'Sem internet? Sem problema. O check-in funciona offline e sincroniza depois.',
   },
   {
     icon: QrCode, title: 'Scanner QR Code', color: '#8b5cf6',
@@ -65,9 +57,7 @@ export default function OrganizerApp() {
             </Link>
           </div>
           <div className="flex items-center gap-4 text-[10px] text-espresso/30">
-            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> 100% Seguro</span>
-            <span className="flex items-center gap-1"><Wifi className="w-3 h-3" /> Funciona offline</span>
-            <span className="flex items-center gap-1"><Star className="w-3 h-3" /> 4.9 estrelas</span>
+            <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Login seguro</span>
           </div>
         </div>
         {/* Phone mockup */}

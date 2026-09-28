@@ -306,19 +306,6 @@ export default function ModernHero() {
             </Link>
           </div>
 
-          {/* Quick stats */}
-          <div className="mh-stats mt-14 grid grid-cols-3 gap-8 max-w-sm">
-            {[
-              { value: '10K+', label: 'Eventos' },
-              { value: '500K+', label: 'Ingressos' },
-              { value: '98%', label: 'Satisfação' },
-            ].map((stat) => (
-              <div key={stat.label} className="text-left">
-                <div className="text-2xl font-bold text-gradient">{stat.value}</div>
-                <div className="text-[10px] text-white/30 uppercase tracking-[0.15em] mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

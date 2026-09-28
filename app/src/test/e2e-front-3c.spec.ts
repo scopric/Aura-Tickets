@@ -14,19 +14,21 @@ test('Calculadora de Mesas começa vazia, sem mesas de exemplo', async ({ page }
   await entrarProdutor(page)
   await page.goto('/producer/tables')
   await expect(page.getByText('Nenhuma mesa ainda')).toBeVisible()
-  await expect(page.getByText('Premium')).toHaveCount(0)
+  // o nome da mesa de exemplo ficava no value de um <input>, que getByText não enxerga
+  await expect(page.locator('input[value^="Mesa Premium"]')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Salvar \(em breve\)/ })).toBeDisabled()
 })
 
-test('Afiliados não mostra "Há 2h" inventado', async ({ page }) => {
+test('App do Organizador sem nota nem recursos inventados', async ({ page }) => {
   await entrarProdutor(page)
-  await page.goto('/producer/afiliados', { waitUntil: 'networkidle', timeout: 15000 })
-  await expect(page.getByText(/Afiliados|Fazer Upgrade|Funcionalidade Exclusiva/).first()).toBeVisible()
-  await expect(page.getByText('Há 2h')).toHaveCount(0)
+  await page.goto('/producer/app')
+  await expect(page.getByRole('heading', { name: 'App do Organizador' })).toBeVisible()
+  await expect(page.getByText(/4\.9 estrelas|Funciona offline|Notificacoes Push/i)).toHaveCount(0)
 })
 
-test('Home não tem link "Ver Demo"', async ({ page }) => {
+test('Home sem "Ver Demo" e sem números inventados (10K+, 500K+, 98%)', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('link', { name: /Começar Agora/ }).first()).toBeVisible()
   await expect(page.getByRole('link', { name: /Ver Demo/ })).toHaveCount(0)
+  await expect(page.getByText(/^(10K\+|500K\+|98%)$/)).toHaveCount(0)
 })

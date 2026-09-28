@@ -88,6 +88,7 @@ export default function ProducerDashboard() {
           .from('tickets')
           .select('id')
           .in('event_id', eventIds)
+          .in('status', ['active', 'used', 'transferred']) // sem ingresso de pedido não pago ou reembolsado
 
         if (ticketsError) throw ticketsError
 

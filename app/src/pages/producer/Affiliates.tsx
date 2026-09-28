@@ -172,8 +172,12 @@ export default function ProducerAffiliates() {
         .eq('email', form.email)
         .maybeSingle()
 
-      // Para testes locais se não existir, vincula ao id do produtor
-      const targetUserId = profile ? profile.id : user.id
+      // Sem conta com esse e-mail, para: não gravar o próprio produtor como afiliado
+      if (!profile) {
+        toast.error('Nenhuma conta Evokaa com esse e-mail. O afiliado precisa se cadastrar antes.')
+        return
+      }
+      const targetUserId = profile.id
 
       // 2. Procurar evento para vincular
       const { data: dbEvents } = await supabase
@@ -189,7 +193,7 @@ export default function ProducerAffiliates() {
           producer_id: user.id,
           event_id: eventId,
           affiliate_user_id: targetUserId,
-          commission_percent: Number(form.commissionRate) || 10,
+          commission_percent: Math.min(100, Math.max(0, Number(form.commissionRate) || 0)), // 0 é 0, não 10
           sales: 0,
           total_earned: 0,
           status: 'active'

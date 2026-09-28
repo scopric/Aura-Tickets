@@ -168,9 +168,12 @@ export default function TeamManager() {
         .eq('email', inviteEmail)
         .maybeSingle()
 
-      // Para fins de MVP em localhost, se o perfil não existe, vinculamos temporariamente ao id do próprio produtor
-      // simulando o convite pendente.
-      const targetUserId = profileData ? profileData.id : user.id
+      // Sem conta com esse e-mail, para: não gravar o próprio produtor como membro da equipe
+      if (!profileData) {
+        toast.error('Nenhuma conta Evokaa com esse e-mail. A pessoa precisa se cadastrar antes.')
+        return
+      }
+      const targetUserId = profileData.id
 
       const { error } = await supabase
         .from('team_members')
