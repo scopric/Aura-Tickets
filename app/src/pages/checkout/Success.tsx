@@ -47,6 +47,10 @@ export default function CheckoutSuccess() {
 
   const firstTicket = tickets[0]
   const event = firstTicket?.events
+  // Sem gateway publicado, nenhum ticket nasce 'active' hoje. `some` (não `every`) porque, quando
+  // a Fase 4 existir, o webhook do Pix insere tickets novos 'active' ao lado dos que o checkout já
+  // criou 'cancelled' para o mesmo pedido — `every` ficaria preso em "Pedido registrado" mesmo pago.
+  const ticketsActive = tickets.some(t => t.status === 'active')
   const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'collective_table' || t.ticket_types?.name?.toLowerCase().includes('mesa'))
 
   // Mapeamento dos ingressos agrupados por tipo para resumo do card
@@ -64,10 +68,17 @@ export default function CheckoutSuccess() {
           <div className="success-icon w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          {/* O Payment.tsx só manda para cá com o pedido pago (Pix confirmado pelo webhook ou cartão);
-              nenhuma função envia e-mail, então não prometer e-mail */}
-          <h1 className="success-text font-serif text-3xl text-espresso mb-2">Pagamento confirmado!</h1>
-          <p className="success-text text-espresso/50">Seus ingressos já estão em "Meus ingressos".</p>
+          {/* O Payment.tsx manda para cá assim que o gateway não devolve erro — sem Stripe/Woovi
+              publicados isso nunca confirma pagamento de verdade hoje, então o texto segue o
+              status real do ticket, não a suposição de que chegar aqui = pago. */}
+          <h1 className="success-text font-serif text-3xl text-espresso mb-2">
+            {ticketsActive ? 'Pagamento confirmado!' : 'Pedido registrado!'}
+          </h1>
+          <p className="success-text text-espresso/50">
+            {ticketsActive
+              ? 'Seus ingressos já estão em "Meus ingressos".'
+              : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos em "Meus ingressos".'}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
@@ -89,9 +100,15 @@ export default function CheckoutSuccess() {
                         </div>
                       </div>
 
-                      {/* QR Code per ticket */}
+                      {/* QR só para ingresso já ativo — o de pedido pendente não passa no check-in */}
                       <div className="flex items-center gap-4 mb-4 p-3 rounded-xl bg-white/5 border border-white/10">
-                        <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="rounded-lg flex-shrink-0" />
+                        {t.status === 'active' ? (
+                          <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="rounded-lg flex-shrink-0" />
+                        ) : (
+                          <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-white/5 border border-white/10 flex items-center justify-center text-[9px] text-cream/40 text-center px-1">
+                            Aguardando pagamento
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <div className="text-[10px] text-cream/30">Código do Ingresso</div>
                           <div className="text-xs font-mono text-cream/70 truncate">{t.qr_code || t.code}</div>
@@ -225,9 +242,13 @@ export default function CheckoutSuccess() {
                 <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mb-4">
                   <Ticket className="w-8 h-8 text-plum" />
                 </div>
-                <h3 className="font-serif text-2xl text-espresso mb-2">Ingressos Emitidos com Sucesso!</h3>
+                <h3 className="font-serif text-2xl text-espresso mb-2">
+                  {ticketsActive ? 'Ingressos Emitidos com Sucesso!' : 'Pedido Registrado!'}
+                </h3>
                 <p className="text-sm text-espresso/60 mb-6 max-w-sm">
-                  Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Evokaa ou no aplicativo do Participante.
+                  {ticketsActive
+                    ? 'Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Evokaa ou no aplicativo do Participante.'
+                    : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos e disponíveis pelo Hub Evokaa.'}
                 </p>
                 <Link
                   to="/app/hub"
