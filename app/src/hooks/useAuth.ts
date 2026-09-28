@@ -154,6 +154,13 @@ export function useAuth() {
       if (data.session) {
         useAuthStore.getState().setSession(data.session)
         await fetchProfile().catch(() => {})
+        // Boas-vindas para quem cadastrou + aviso para a equipe. Best-effort: a função já
+        // garante 1 envio por conta e resolve nome/papel no servidor — não trava o cadastro
+        // se o e-mail falhar. `invoke` nunca lança, então o erro vem em `error`.
+        supabase.functions.invoke('send-email', { body: { emailType: 'welcome' } })
+          .then(({ error }) => { if (error) console.error('[Welcome Email Error]', error) })
+        supabase.functions.invoke('send-email', { body: { emailType: 'signup_notification' } })
+          .then(({ error }) => { if (error) console.error('[Signup Notification Error]', error) })
       }
     }
   })
@@ -233,7 +240,8 @@ export function useAuth() {
         await supabase.from('profiles').update({ full_name: name }).eq('id', data.user.id).catch(() => {})
       }
       
-      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.')
+      // mailer_autoconfirm está ligado: não existe e-mail de confirmação para verificar.
+      toast.success('Cadastro realizado! Bem-vindo(a) à Evokaa.')
       return true
     } catch (error: any) {
       toast.error(error.message || 'Erro ao realizar cadastro')
