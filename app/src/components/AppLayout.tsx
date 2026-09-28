@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
-  LayoutDashboard, Calendar, Heart, Ticket, ShoppingCart, MessageCircle,
+  LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
   Menu, Camera
 } from 'lucide-react'
@@ -16,7 +16,6 @@ const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Início' },
   { to: '/app/tickets', icon: Ticket, label: 'Meus Ingressos' },
   { to: '/app/events', icon: Calendar, label: 'Eventos' },
-  { to: '/app/favorites', icon: Heart, label: 'Favoritos' },
   { to: '/app/orders', icon: ShoppingCart, label: 'Compras' },
   { to: '/app/chat', icon: MessageCircle, label: 'Chat' },
   { to: '/app/notifications', icon: Bell, label: 'Notificações' },

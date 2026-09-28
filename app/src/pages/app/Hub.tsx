@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
-  Ticket, Heart, MessageSquare, QrCode, Clock, MapPin, Calendar,
+  Ticket, MessageSquare, QrCode, Clock, MapPin, Calendar,
   ChevronRight, Star, Share2, Download, Wine, UtensilsCrossed,
   Package, Send, User, Bell, Search, Sparkles,
   ShoppingCart, Minus, Plus, Image as ImageIcon, Loader2
@@ -18,7 +18,6 @@ import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
-  const [favorites, setFavorites] = useState<Record<string, boolean>>({})
   const [showQR, setShowQR] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [chatMessage, setChatMessage] = useState('')
@@ -55,8 +54,6 @@ export default function AppHub() {
       markAsRead.mutate()
     }
   }, [activeTab, activeEventId])
-
-  const toggleFav = (id: string) => setFavorites(prev => ({ ...prev, [id]: !prev[id] }))
 
   // Mapear tickets do DB para o formato do layout
   const myTickets = (dbTickets || []).map(t => {
@@ -96,23 +93,18 @@ export default function AppHub() {
     { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length > 0 ? myTickets.length : undefined },
     { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
     { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
-    { id: 'chat' as const, label: 'Chat', icon: MessageSquare, count: 1 },
+    { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
   ]
 
   const filteredEvents = dbEvents.filter(e => 
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (e.venue_name || e.location || '').toLowerCase().includes(searchTerm.toLowerCase())
   )  const renderStats = () => (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-3">
       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
         <Ticket className="w-4 h-4 text-plum mx-auto mb-1" />
         <div className="font-serif text-xl text-cream">{isLoadingTickets ? '...' : myTickets.length}</div>
         <div className="text-[10px] text-cream/30">Ingressos</div>
-      </div>
-      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
-        <Heart className="w-4 h-4 text-rose-400 mx-auto mb-1" />
-        <div className="font-serif text-xl text-cream">{Object.values(favorites).filter(Boolean).length}</div>
-        <div className="text-[10px] text-cream/30">Favoritos</div>
       </div>
       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
         <Calendar className="w-4 h-4 text-amber-400 mx-auto mb-1" />
@@ -239,7 +231,6 @@ export default function AppHub() {
           ))
         ) : filteredEvents.length > 0 ? (
           filteredEvents.map(event => {
-            const isFav = favorites[event.id]
             const formattedDate = event.date 
               ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
               : 'Data a definir'
@@ -250,9 +241,6 @@ export default function AppHub() {
                 <div className="relative h-44">
                   <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-transparent to-transparent" />
-                  <button onClick={() => toggleFav(event.id)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center transition-transform hover:scale-105 active:scale-95">
-                    <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-cream/60'}`} />
-                  </button>
                   <div className="absolute bottom-3 left-4 right-4">
                     <h3 className="font-serif text-base text-cream">{event.title}</h3>
                     <p className="text-[10px] text-cream/40">{formattedDate} · {event.venue_name || event.location || 'Local a definir'}</p>
@@ -364,8 +352,8 @@ export default function AppHub() {
             <span className="text-xs text-cream/70">{cartCount} itens</span>
             <span className="font-serif text-base text-cream">R$ {cartTotal}</span>
           </div>
-          <button className="w-full py-1.5 bg-cream text-plum text-xs font-semibold rounded-lg hover:bg-cream/90 transition-all">
-            Confirmar Pedido
+          <button disabled className="w-full py-1.5 bg-cream/60 text-plum text-xs font-semibold rounded-lg cursor-not-allowed">
+            Pedidos em breve
           </button>
         </div>
       )}
