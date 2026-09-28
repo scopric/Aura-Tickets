@@ -312,14 +312,14 @@ function Layout() {
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
-              <Route path="/producer/bordero" element={<EventBordero />} />
+              <Route path="/producer/bordero" element={<ComingSoonRoute title="O Borderô"><EventBordero /></ComingSoonRoute>} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
               <Route path="/producer/marketing" element={<ComingSoonRoute title="O Marketing"><Marketing /></ComingSoonRoute>} />
               <Route path="/producer/academy" element={<EvokaaAcademy />} />
               <Route path="/producer/app" element={<OrganizerApp />} />
-              <Route path="/producer/antecipacao" element={<AdvancePayment />} />
+              <Route path="/producer/antecipacao" element={<ComingSoonRoute title="A Antecipação de recebíveis"><AdvancePayment /></ComingSoonRoute>} />
               <Route path="/producer/parcelamento" element={<ComingSoonRoute title="O Parcelamento"><Installments /></ComingSoonRoute>} />
               <Route path="/producer/pos-evento" element={<PostEventReport />} />
             </Route>

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle, Download, Ticket, Mail, Calendar, Users, Sparkles, Loader2, QrCode, Clipboard } from 'lucide-react'
+import { CheckCircle, Ticket, Calendar, Users, Sparkles, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import YourTable from '../../components/YourTable'
@@ -12,10 +12,9 @@ export default function CheckoutSuccess() {
   const location = useLocation()
   const navigate = useNavigate()
   
-  const { orderId, totalAmount, paymentMethod } = (location.state || {}) as {
+  const { orderId, totalAmount } = (location.state || {}) as {
     orderId?: string
     totalAmount?: number
-    paymentMethod?: 'credit_card' | 'pix'
   }
 
   const [showTable, setShowTable] = useState(false)
@@ -36,11 +35,6 @@ export default function CheckoutSuccess() {
     }, ref)
     return () => ctx.revert()
   }, [])
-
-  const copyPixCode = () => {
-    navigator.clipboard.writeText('00020101021226870014br.gov.bcb.pix2565pix-key-aura@tickets.com.br5204000053039865409252.005802BR5912AURA TICKETS6009SAO PAULO62070503***6304D1B2')
-    toast.success('Código Pix Copiado!')
-  }
 
   if (isLoading) {
     return (
@@ -70,42 +64,16 @@ export default function CheckoutSuccess() {
           <div className="success-icon w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
             <CheckCircle className="w-10 h-10 text-green-600" />
           </div>
-          <h1 className="success-text font-serif text-3xl text-espresso mb-2">
-            {paymentMethod === 'pix' ? 'Pedido Reservado!' : 'Pagamento Confirmado!'}
-          </h1>
-          <p className="success-text text-espresso/50">
-            {paymentMethod === 'pix' 
-              ? 'Realize o pagamento do Pix abaixo para ativar seus ingressos.' 
-              : 'Seu ingresso foi reservado com sucesso. Enviamos os detalhes para seu e-mail.'}
-          </p>
+          {/* O Payment.tsx só manda para cá com o pedido pago (Pix confirmado pelo webhook ou cartão);
+              nenhuma função envia e-mail, então não prometer e-mail */}
+          <h1 className="success-text font-serif text-3xl text-espresso mb-2">Pagamento confirmado!</h1>
+          <p className="success-text text-espresso/50">Seus ingressos já estão em "Meus ingressos".</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
           {/* Left: Ticket + Actions */}
           <div className="lg:col-span-2 space-y-4">
             <div className="sticky top-24 space-y-4">
-              {/* PIX Area if payment is Pix */}
-              {paymentMethod === 'pix' && (
-                <div className="success-card bg-white/80 border border-white/60 backdrop-blur-sm rounded-3xl p-6 text-center space-y-4 shadow-sm">
-                  <h3 className="font-serif text-lg text-espresso">Pague com Pix</h3>
-                  <div className="w-40 h-40 mx-auto bg-white border border-espresso/10 p-2 rounded-2xl flex items-center justify-center shadow-inner">
-                    {orderId ? (
-                      <TicketQRCode code={`AURA-${orderId.substring(0, 8).toUpperCase()}`} size={144} className="rounded-xl" />
-                    ) : (
-                      <QrCode className="w-32 h-32 text-espresso" />
-                    )}
-                  </div>
-                  <button
-                    onClick={copyPixCode}
-                    className="w-full py-2.5 bg-green-600 text-cream text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 hover:bg-green-700 transition-colors"
-                  >
-                    <Clipboard className="w-4 h-4" />
-                    Copiar Código Pix
-                  </button>
-                  <p className="text-[10px] text-espresso/40">Após efetuar o pagamento, seu ingresso ficará ativo imediatamente no seu Hub.</p>
-                </div>
-              )}
-
               {/* Ticket Cards */}
               {tickets.length > 0 ? (
                 <div className="space-y-4">
@@ -192,20 +160,13 @@ export default function CheckoutSuccess() {
 
               {/* Actions */}
               <div className="success-card space-y-3">
-                <button
-                  onClick={() => toast.success('Download de ingresso iniciado!')}
+                <Link
+                  to="/app/tickets"
                   className="w-full py-3 bg-void text-cream font-medium rounded-full hover:bg-void/80 transition-all flex items-center justify-center gap-2"
                 >
-                  <Download className="w-4 h-4" />
-                  Baixar Ingresso
-                </button>
-                <button
-                  onClick={() => toast.success('E-mail de confirmação enviado!')}
-                  className="w-full py-3 border border-espresso/15 text-espresso font-medium rounded-full hover:bg-espresso/5 transition-all flex items-center justify-center gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  Enviar por E-mail
-                </button>
+                  <Ticket className="w-4 h-4" />
+                  Ver meus ingressos
+                </Link>
                 {event && (
                   <Link
                     to={`/event/${event.id}`}

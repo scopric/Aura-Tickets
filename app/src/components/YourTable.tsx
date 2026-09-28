@@ -227,6 +227,7 @@ export default function YourTable({ eventId }: YourTableProps) {
   const effectiveTable = useMemo(() => {
     if (tableData) return tableData
     const mock = import.meta.env.DEV ? (mesasColetivas.find((m) => m.id.includes(eventId.split('-')[0])) ?? mesasColetivas[0]) : undefined
+    if (!mock) return null
     return {
       id: mock.id,
       event_id: eventId,
@@ -254,7 +255,8 @@ export default function YourTable({ eventId }: YourTableProps) {
         isYou: false,
       }))
     }
-    const mock = import.meta.env.DEV ? (mesasColetivas.find((m) => m.id === effectiveTable.id) ?? mesasColetivas[0]) : undefined
+    const mock = import.meta.env.DEV ? (mesasColetivas.find((m) => m.id === effectiveTable?.id) ?? mesasColetivas[0]) : undefined
+    if (!mock) return []
     return mock.members.map((m) => ({
       id: m.id,
       name: m.name,
@@ -264,7 +266,7 @@ export default function YourTable({ eventId }: YourTableProps) {
       interests: m.interests,
       isYou: m.name === 'Você',
     }))
-  }, [tableMembers, effectiveTable.id])
+  }, [tableMembers, effectiveTable?.id])
 
   /* ---- Contador regressivo ---- */
   const eventDate = useMemo(() => getEventDate(eventId), [eventId])
@@ -272,7 +274,7 @@ export default function YourTable({ eventId }: YourTableProps) {
 
   /* ---- Score animado ---- */
   useEffect(() => {
-    const target = effectiveTable.compatibility_score ?? 0
+    const target = effectiveTable?.compatibility_score ?? 0
     if (target <= 0) return
     const obj = { val: 0 }
     gsap.to(obj, {
@@ -281,7 +283,7 @@ export default function YourTable({ eventId }: YourTableProps) {
       ease: 'power2.out',
       onUpdate: () => setDisplayedScore(Math.round(obj.val)),
     })
-  }, [effectiveTable.compatibility_score])
+  }, [effectiveTable?.compatibility_score])
 
   /* ---- Animações GSAP ---- */
   useGSAP(
@@ -351,8 +353,8 @@ export default function YourTable({ eventId }: YourTableProps) {
   }, [effectiveMembers, radius])
 
   const isLoading = tableLoading && !tableData
-  const mission = useMemo(() => generateMission(effectiveTable.name), [effectiveTable.name])
-  const icebreaker = effectiveTable.icebreaker_question ?? 'Se vocês pudessem criar um drink que representasse essa mesa, quais ingredientes teria?'
+  const mission = useMemo(() => generateMission(effectiveTable?.name ?? ''), [effectiveTable?.name])
+  const icebreaker = effectiveTable?.icebreaker_question ?? 'Se vocês pudessem criar um drink que representasse essa mesa, quais ingredientes teria?'
 
   const toggleLike = (id: string) => {
     setLiked((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -386,6 +388,9 @@ export default function YourTable({ eventId }: YourTableProps) {
       </div>
     )
   }
+
+  // Sem mesa real (e sem mock fora de DEV): nada a mostrar
+  if (!effectiveTable) return null
 
   /* ==========================================================
      Render Principal

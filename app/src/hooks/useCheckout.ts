@@ -29,6 +29,7 @@ export interface DbTicket {
   ticket_type_id: string
   user_id: string
   code: string
+  qr_code?: string
   status: 'active' | 'used' | 'cancelled' | 'transferred'
   seat_info: string | null
   checked_in_at: string | null
@@ -246,6 +247,7 @@ export function useUserTickets() {
       // Mapear retorno aninhado para facilitar o consumo no frontend
       return (data || []).map((t: any) => ({
         ...t,
+        code: t.code ?? t.qr_code,
         ticket_types: {
           name: t.ticket_types?.name,
           price: Number(t.ticket_types?.price) || 0,
@@ -295,6 +297,7 @@ export function useOrderTickets(orderId?: string) {
 
       return (data || []).map((t: any) => ({
         ...t,
+        code: t.code ?? t.qr_code,
         ticket_types: {
           name: t.ticket_types?.name,
           price: Number(t.ticket_types?.price) || 0,
