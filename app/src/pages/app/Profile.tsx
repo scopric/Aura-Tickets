@@ -365,7 +365,7 @@ export default function ParticipantProfile() {
               <div className="text-sm text-cream">Autenticação de dois fatores</div>
               <div className="text-xs text-white/30">Adicione segurança extra</div>
             </div>
-            <button disabled className="px-4 py-2 text-xs text-white/30 rounded-full cursor-not-allowed">Em breve</button>
+            <button disabled aria-label="Autenticação de dois fatores: em breve" className="px-4 py-2 text-xs text-white/30 rounded-full cursor-not-allowed">Em breve</button>
           </div>
         </div>
       </div>

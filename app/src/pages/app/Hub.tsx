@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { siteUrl } from '../../lib/appHost'
 import {
   Ticket, MessageSquare, QrCode, Clock, MapPin, Calendar,
-  ChevronRight, Star, Share2, Download, Wine, UtensilsCrossed,
+  ChevronRight, Star, Share2, Wine, UtensilsCrossed,
   Package, Send, User, Bell, Search, Sparkles,
   ShoppingCart, Minus, Plus, Image as ImageIcon, Loader2
 } from 'lucide-react'
@@ -71,7 +72,7 @@ export default function AppHub() {
       seat: t.seat_info || 'Livre',
       price: t.ticket_types?.price || 0,
       qr: t.code || t.qr_code || '',
-      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'ativo',
+      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'transferido',
     }
   })
 
@@ -147,7 +148,7 @@ export default function AppHub() {
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === 'ativo' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                  {ticket.status === 'ativo' ? 'Ativo' : 'Usado'}
+                  {{ ativo: 'Ativo', usado: 'Usado', cancelado: 'Cancelado', transferido: 'Transferido' }[ticket.status]}
                 </span>
               </div>
               <div className="flex items-center gap-4 text-[11px] text-cream/30 mb-3 overflow-x-auto pb-1">
@@ -164,11 +165,8 @@ export default function AppHub() {
                 <button onClick={() => setShowQR(ticket.qr)} className="flex-1 py-2 bg-plum text-cream text-xs font-medium rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5">
                   <QrCode className="w-3.5 h-3.5" /> Ver QR Code
                 </button>
-                <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
+                <button onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label="Copiar link do evento" title="Copiar link do evento" className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
                   <Share2 className="w-4 h-4" />
-                </button>
-                <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/40 hover:text-cream transition-colors">
-                  <Download className="w-4 h-4" />
                 </button>
               </div>
             </div>
