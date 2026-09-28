@@ -371,21 +371,27 @@ export default function AdminUsers() {
         if (delSubError) throw delSubError
       }
 
-      // 2. Tratar Custom Features (Inserir novos, atualizar prazos e deletar inativos)
+      // 2. Tratar Custom Features (inserir novas, atualizar prazo das existentes, apagar as desativadas)
+      // Produção diverge da migration 00000000000007 (que cria a UNIQUE(user_id, feature_key)):
+      // a tabela já existia sem essa constraint, então upsert com onConflict falha ("no unique
+      // or exclusion constraint"). Update-se-existe/insert-se-novo em vez de delete+insert: um
+      // delete seguido de insert que falhe apagaria a liberação sem conseguir recriar.
       for (const [key, feat] of Object.entries(tempFeatures)) {
+        const existed = selectedProfile.user_custom_features?.some(uf => uf.feature_key === key)
+
         if (feat.active) {
           const expVal = feat.expires_at ? new Date(feat.expires_at).toISOString() : null
-          const { error: featError } = await supabase
-            .from('user_custom_features')
-            .upsert({
-              user_id: selectedProfile.id,
-              feature_key: key,
-              expires_at: expVal
-            }, { onConflict: 'user_id,feature_key' })
-          
+          const { error: featError } = existed
+            ? await supabase
+                .from('user_custom_features')
+                .update({ expires_at: expVal })
+                .eq('user_id', selectedProfile.id)
+                .eq('feature_key', key)
+            : await supabase
+                .from('user_custom_features')
+                .insert({ user_id: selectedProfile.id, feature_key: key, expires_at: expVal })
           if (featError) throw featError
-        } else {
-          // Deletar se existia
+        } else if (existed) {
           const { error: delFeatError } = await supabase
             .from('user_custom_features')
             .delete()
