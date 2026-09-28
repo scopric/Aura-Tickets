@@ -1,6 +1,3 @@
-// Salvar em: supabase/functions/send-email/index.ts
-// Deploy: npx supabase functions deploy send-email
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 
@@ -12,6 +9,137 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+const TEAM_EMAIL = "contato@evokaa.com.br";
+
+// Mesmo padrão de extração de IP já usado em produção (record-access): o cliente pode inventar
+// o COMEÇO do x-forwarded-for, mas não o que os proxies acrescentam no FIM.
+const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/;
+function clientIp(headers: Headers): string | null {
+  const chain = headers.get("x-forwarded-for");
+  const candidate = (headers.get("cf-connecting-ip") ?? chain?.split(",").at(-1) ?? headers.get("x-real-ip") ?? "").trim();
+  return IP_RE.test(candidate) ? candidate : null;
+}
+
+// Identifica quem está chamando pelo token da requisição — nunca confiar em `to`/`from` do
+// corpo sem saber quem pediu, senão qualquer conta (autoconfirmada, trivial de criar) manda
+// e-mail de phishing assinado pelo domínio evokaa.com.br para qualquer vítima.
+async function getCaller(req: Request) {
+  const authHeader = req.headers.get("Authorization") || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null;
+
+  const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data, error } = await supabaseAdmin.auth.getUser(token);
+  if (error || !data.user?.email) return null;
+  return { id: data.user.id, email: data.user.email.toLowerCase() };
+}
+
+// Nome/e-mail/mensagem digitados por quem quer que seja vão dentro de HTML de e-mail — sem
+// escapar, um nome tipo `<a href="...">Confirme sua conta</a>` vira link ativo no e-mail.
+function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
+}
+
+const APP_URL = "https://app.evokaa.com.br";
+
+function emailShell(title: string, intro: string, body: string, ctaLabel: string, ctaHref: string) {
+  return `
+    <div style="background-color: ${colors.cream}; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; padding: 40px 20px; color: ${colors.textDark};">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);">
+        <div style="background-color: ${colors.plum}; padding: 40px 30px; text-align: center; color: #FFFFFF;">
+          <h1 style="margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Evokaa</h1>
+          <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.8); font-size: 16px;">${title}</p>
+        </div>
+        <div style="padding: 30px;">
+          <p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">${intro}</p>
+          ${body}
+          <div style="text-align: center; margin: 30px 0 10px 0;">
+            <a href="${ctaHref}" style="background-color: ${colors.plum}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px;">${ctaLabel}</a>
+          </div>
+        </div>
+        <div style="background-color: ${colors.void}; padding: 20px; text-align: center; color: rgba(255,255,255,0.6); font-size: 12px;">
+          <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
+          <p style="margin: 5px 0 0 0; color: rgba(255,255,255,0.4);">Dúvidas? contato@evokaa.com.br</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Roteiro real do que já funciona hoje — nada de recurso prometido que ainda não está no ar
+function getWelcomeHtml(rawName: string, role: "user" | "producer") {
+  const name = escapeHtml(rawName);
+  if (role === "producer") {
+    const steps = `
+      <div style="background-color: ${colors.canvas}; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 14px; line-height: 1.8; color: ${colors.textDark};">
+        <p style="margin: 0 0 8px 0;"><strong>1.</strong> Crie seu primeiro evento em "Meus Eventos → Criar Evento".</p>
+        <p style="margin: 0 0 8px 0;"><strong>2.</strong> Configure os tipos e preços de ingresso.</p>
+        <p style="margin: 0 0 8px 0;"><strong>3.</strong> Convide afiliados ou membros da equipe, se precisar de ajuda na divulgação.</p>
+        <p style="margin: 0;"><strong>4.</strong> No dia do evento, use o Check-in para validar os ingressos na portaria.</p>
+      </div>
+    `;
+    return emailShell("Bem-vindo(a) à Evokaa!", `Olá, ${name}! Sua conta de produtor está pronta.`, steps, "Criar meu primeiro evento", `${APP_URL}/producer/events/new`);
+  }
+  const steps = `
+    <div style="background-color: ${colors.canvas}; border-radius: 12px; padding: 20px; margin: 20px 0; font-size: 14px; line-height: 1.8; color: ${colors.textDark};">
+      <p style="margin: 0 0 8px 0;"><strong>1.</strong> Explore o catálogo de eventos.</p>
+      <p style="margin: 0 0 8px 0;"><strong>2.</strong> Complete seu perfil (telefone, cidade) para uma experiência melhor.</p>
+      <p style="margin: 0;"><strong>3.</strong> Seus ingressos ficam disponíveis pelo Hub, em "Meus Ingressos".</p>
+    </div>
+  `;
+  return emailShell("Bem-vindo(a) à Evokaa!", `Olá, ${name}! Sua conta está pronta.`, steps, "Ver eventos disponíveis", `${APP_URL}/events`);
+}
+
+function getSignupNotificationHtml(rawName: string, rawEmail: string, role: string) {
+  const name = escapeHtml(rawName);
+  const email = escapeHtml(rawEmail);
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+      <div style="background-color: ${colors.plum}; padding: 24px; text-align: center; color: white;">
+        <h2 style="margin: 0; font-size: 18px;">Novo cadastro na Evokaa</h2>
+      </div>
+      <div style="padding: 24px; font-size: 14px; color: ${colors.textDark}; line-height: 1.8;">
+        <p style="margin: 0;"><strong>Nome:</strong> ${name}</p>
+        <p style="margin: 0;"><strong>E-mail:</strong> ${email}</p>
+        <p style="margin: 0;"><strong>Papel:</strong> ${role === "producer" ? "Produtor" : "Participante"}</p>
+      </div>
+    </div>
+  `;
+}
+
+function getContactHtml(rawName: string, rawEmail: string, rawPhone: string, rawMessage: string, rawSubject: string) {
+  const name = escapeHtml(rawName);
+  const email = escapeHtml(rawEmail);
+  const phone = escapeHtml(rawPhone) || "Não informado";
+  const message = escapeHtml(rawMessage);
+  const subjectLine = escapeHtml(rawSubject) || "Contato geral";
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden;">
+      <div style="background-color: #0c2340; padding: 30px 24px; text-align: center; color: white;">
+        <h2 style="margin: 0; font-size: 22px; font-weight: 700;">Evokaa Eventos</h2>
+        <p style="margin: 6px 0 0 0; opacity: 0.8; font-size: 14px;">Nova mensagem de suporte recebida pelo formulário do site</p>
+      </div>
+      <div style="padding: 30px 24px; color: #1c1917; font-size: 15px; line-height: 1.6;">
+        <div style="background-color: #f5f5f4; border-radius: 12px; padding: 20px; margin: 0 0 25px 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 8px 0; font-weight: bold; color: #78716c; width: 140px;">Nome:</td><td style="padding: 8px 0; font-weight: bold;">${name}</td></tr>
+            <tr><td style="padding: 8px 0; font-weight: bold; color: #78716c;">E-mail:</td><td style="padding: 8px 0;"><a href="mailto:${email}" style="color: #1d68c4;">${email}</a></td></tr>
+            <tr><td style="padding: 8px 0; font-weight: bold; color: #78716c;">Telefone:</td><td style="padding: 8px 0;">${phone}</td></tr>
+            <tr><td style="padding: 8px 0; font-weight: bold; color: #78716c;">Assunto:</td><td style="padding: 8px 0; font-weight: bold;">${subjectLine}</td></tr>
+          </table>
+        </div>
+        <div style="background-color: #faf8f5; border: 1px solid rgba(0,0,0,0.05); border-radius: 12px; padding: 20px;">
+          <h4 style="margin: 0 0 10px 0; color: #0c2340; font-size: 14px;">Mensagem enviada:</h4>
+          <p style="margin: 0; white-space: pre-wrap; font-size: 14px;">${message}</p>
+        </div>
+      </div>
+      <div style="background-color: #0c2340; padding: 20px; text-align: center; color: rgba(255,255,255,0.6); font-size: 12px;">
+        Evokaa — Gestão de Eventos e Ingressos
+      </div>
+    </div>
+  `;
+}
 
 // Paleta de cores premium Aura (Plum, Espresso, Cream, Canvas, Void)
 const colors = {
@@ -38,7 +166,7 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
         <div style="padding: 30px;">
           <h2 style="font-size: 20px; margin-top: 0; color: ${colors.plum};">Olá, ${recipientName}!</h2>
           <p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">Preparamos tudo para você. O pagamento do seu pedido foi processado e seus ingressos já estão ativos.</p>
-          
+
           <div style="background-color: ${colors.canvas}; border-radius: 12px; padding: 20px; margin: 25px 0;">
             <h3 style="margin-top: 0; font-size: 16px; color: ${colors.espresso}; border-bottom: 1px solid rgba(0,0,0,0.1); padding-bottom: 10px;">Resumo do Pedido</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
@@ -62,7 +190,7 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
           </div>
 
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${SUPABASE_URL.replace(".supabase.co", "")}/app/tickets" style="background-color: ${colors.plum}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px; box-shadow: 0 4px 6px rgba(126,34,206,0.2);">Acessar Meus Ingressos</a>
+            <a href="${APP_URL}/app/tickets" style="background-color: ${colors.plum}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px; box-shadow: 0 4px 6px rgba(126,34,206,0.2);">Acessar Meus Ingressos</a>
           </div>
 
           <p style="font-size: 13px; color: ${colors.textMuted}; text-align: center; line-height: 1.5;">Os ingressos em formato digital com QR Code foram enviados em um e-mail separado. Você também poderá acessá-los a qualquer momento pelo nosso app.</p>
@@ -85,21 +213,21 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
         <div style="display: flex; justify-content: space-between; border-bottom: 1px solid ${colors.canvas}; padding-bottom: 10px; margin-bottom: 15px;">
           <div>
             <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${colors.accent}; font-weight: bold;">Ingresso</span>
-            <h4 style="margin: 4px 0 0 0; font-size: 18px; color: ${colors.plum};">${ticket.ticket_types?.name || "Ingresso Individual"}</h4>
+            <h4 style="margin: 4px 0 0 0; font-size: 18px; color: ${colors.plum};">${escapeHtml(ticket.ticket_types?.name || "Ingresso Individual")}</h4>
           </div>
           <div style="text-align: right;">
             <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: ${colors.textMuted};">Código</span>
-            <h4 style="margin: 4px 0 0 0; font-size: 16px; font-family: monospace; color: ${colors.textDark};">${ticket.qr_code.substring(0, 10).toUpperCase()}</h4>
+            <h4 style="margin: 4px 0 0 0; font-size: 16px; font-family: monospace; color: ${colors.textDark};">${escapeHtml((ticket.qr_code || "").substring(0, 10).toUpperCase())}</h4>
           </div>
         </div>
         <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: ${colors.textDark};">
           <tr>
             <td style="padding: 4px 0; color: ${colors.textMuted};">Nome do Portador:</td>
-            <td style="padding: 4px 0; text-align: right; font-weight: bold;">${ticket.buyer_name || recipientName}</td>
+            <td style="padding: 4px 0; text-align: right; font-weight: bold;">${ticket.buyer_name ? escapeHtml(ticket.buyer_name) : recipientName}</td>
           </tr>
           <tr>
             <td style="padding: 4px 0; color: ${colors.textMuted};">CPF:</td>
-            <td style="padding: 4px 0; text-align: right; font-family: monospace;">${ticket.buyer_cpf ? ticket.buyer_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "Não informado"}</td>
+            <td style="padding: 4px 0; text-align: right; font-family: monospace;">${ticket.buyer_cpf ? escapeHtml(ticket.buyer_cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")) : "Não informado"}</td>
           </tr>
           <tr>
             <td style="padding: 4px 0; color: ${colors.textMuted};">Local do Evento:</td>
@@ -113,7 +241,7 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
         <div style="text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px dashed ${colors.canvas};">
           <p style="font-size: 12px; color: ${colors.textMuted}; margin-bottom: 10px;">Apresente o QR Code abaixo na entrada do evento pelo celular:</p>
           <div style="background-color: ${colors.canvas}; padding: 15px; display: inline-block; border-radius: 8px; font-family: monospace; font-size: 14px; font-weight: bold; letter-spacing: 2px; color: ${colors.textDark}; border: 1px solid rgba(0,0,0,0.08);">
-            ${ticket.qr_code}
+            ${escapeHtml(ticket.qr_code)}
           </div>
         </div>
       </div>
@@ -130,7 +258,7 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
         <div style="padding: 30px; background-color: ${colors.canvas};">
           <h2 style="font-size: 20px; margin-top: 0; color: ${colors.plum};">Olá, ${recipientName}!</h2>
           <p style="line-height: 1.5; font-size: 14px; color: ${colors.textDark}; margin-bottom: 20px;">Aqui estão os seus ingressos digitais para <strong>${eventTitle}</strong>. Salve este e-mail ou faça o download dos ingressos na plataforma.</p>
-          
+
           ${ticketsHtmlList}
 
           <div style="background-color: #FFFFFF; border-radius: 12px; padding: 20px; border: 1px solid rgba(0,0,0,0.05); margin-top: 25px;">
@@ -190,154 +318,151 @@ serve(async (req) => {
 
   try {
     const payload = await req.json();
-    let { orderId, emailType, to, subject, html, from } = payload;
+    // `from` nunca vem do chamador — só o roteamento abaixo, por `emailType`, decide o
+    // remetente. Aceitar `from` do corpo permitiria assinar e-mail como qualquer endereço.
+    let { orderId, emailType } = payload;
+    let from: string;
 
-    if (!from) {
-      if (emailType === "order_confirmation" || emailType === "ticket_delivery" || !emailType) {
-        from = "Evokaa Gestão de Eventos e Ingressos <ingressos@evokaa.com.br>";
-      } else if (emailType.startsWith("newsletter") || emailType === "info") {
-        from = "Evokaa <info@evokaa.com.br>";
-      } else if (emailType.startsWith("auth") || emailType === "cadastro") {
-        from = "Evokaa <cadastro@evokaa.com.br>";
-      } else if (emailType.startsWith("contact") || emailType === "support" || emailType === "contato") {
-        from = "Evokaa <contato@evokaa.com.br>";
-      } else {
-        from = "Evokaa <contato@evokaa.com.br>";
-      }
+    if (emailType === "order_confirmation" || emailType === "ticket_delivery" || !emailType) {
+      from = "Evokaa Gestão de Eventos e Ingressos <ingressos@evokaa.com.br>";
+    } else if (emailType === "welcome" || emailType === "signup_notification") {
+      from = "Evokaa <cadastro@evokaa.com.br>";
+    } else {
+      from = "Evokaa <contato@evokaa.com.br>";
     }
 
-    // DETECÇÃO DE DATABASE WEBHOOK DO SUPABASE
-    // Se a requisição veio de um webhook de update da tabela orders para status 'paid'
-    if (payload.record && payload.table === "orders") {
-      const record = payload.record;
-      const oldRecord = payload.old_record;
+    // O branch de webhook de `orders` (que existia numa versão anterior deste arquivo) foi
+    // tirado: nada no repositório configura um Database Webhook do Supabase apontando para cá,
+    // ele não pedia autenticação nenhuma, e a proteção contra reenvio dependia de `email_logs`,
+    // tabela que não existe em produção — um payload forjado (`{table:'orders', record:{id,
+    // status:'paid'}}`) conseguiria bombardear o e-mail do cliente de um pedido pago real, sem
+    // limite. Quando a Fase 4 (gateway de pagamento de verdade) precisar desse aviso automático,
+    // desenhar com segredo compartilhado no header e a tabela de log criada por migration.
 
-      // Só dispara se o status mudou para 'paid'
-      if (record.status === "paid" && (!oldRecord || oldRecord.status !== "paid")) {
-        orderId = record.id;
-        
-        if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-          throw new Error("Variáveis de ambiente do Supabase não configuradas para processar o webhook");
-        }
-
-        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-
-        // Buscar detalhes do pedido, do evento e dos ingressos
-        const { data: order, error: orderError } = await supabaseAdmin
-          .from("orders")
-          .select("*, events(*)")
-          .eq("id", orderId)
-          .single();
-
-        if (orderError || !order) throw new Error(`Webhook Error: Pedido ${orderId} não encontrado.`);
-
-        const { data: tickets, error: ticketsError } = await supabaseAdmin
-          .from("tickets")
-          .select("*, ticket_types(name)")
-          .eq("order_id", orderId);
-
-        if (ticketsError || !tickets || tickets.length === 0) {
-          throw new Error(`Webhook Error: Ingressos do pedido ${orderId} não encontrados.`);
-        }
-
-        const recipientEmail = order.customer_email || order.buyer_email;
-        const recipientName = order.customer_name || "Participante";
-        const eventTitle = order.events?.title || "Evento Evokaa";
-        const eventDate = order.events?.date ? new Date(order.events.date).toLocaleDateString("pt-BR") : "";
-        const eventTime = order.events?.time || "";
-        const venueName = order.events?.venue_name || "Local a definir";
-
-        if (!recipientEmail) throw new Error("Webhook Error: E-mail do cliente não configurado.");
-
-        const results = [];
-
-        // 1. Enviar E-mail de Confirmação de Compra (se não enviado)
-        const { data: existingConf } = await supabaseAdmin
-          .from("email_logs")
-          .select("id")
-          .eq("order_id", orderId)
-          .eq("email_type", "order_confirmation")
-          .maybeSingle();
-
-        if (!existingConf) {
-          try {
-            const confSubject = `Compra Confirmada! — ${eventTitle}`;
-            const confHtml = getOrderConfirmationHtml(recipientName, eventTitle, orderId, new Date(order.created_at).toLocaleDateString("pt-BR"), Number(order.total || 0));
-            const mailRes = await sendMail(recipientEmail, confSubject, confHtml, from);
-            
-            await supabaseAdmin.from("email_logs").insert({
-              order_id: orderId,
-              email_type: "order_confirmation",
-              recipient: recipientEmail,
-              status: mailRes.demo ? "simulated_demo" : "sent",
-              resend_id: mailRes.id
-            });
-            results.push({ email: "order_confirmation", success: true });
-          } catch (e) {
-            console.error("Erro ao enviar confirmação de compra:", e);
-            await supabaseAdmin.from("email_logs").insert({
-              order_id: orderId,
-              email_type: "order_confirmation",
-              recipient: recipientEmail,
-              status: "failed",
-              error_message: e.message
-            });
-            results.push({ email: "order_confirmation", success: false, error: e.message });
-          }
-        }
-
-        // 2. Enviar E-mail com os Ingressos (se não enviado)
-        const { data: existingDeliv } = await supabaseAdmin
-          .from("email_logs")
-          .select("id")
-          .eq("order_id", orderId)
-          .eq("email_type", "ticket_delivery")
-          .maybeSingle();
-
-        if (!existingDeliv) {
-          try {
-            const delivSubject = `Seus Ingressos Chegaram! — ${eventTitle}`;
-            const delivHtml = getTicketDeliveryHtml(recipientName, eventTitle, tickets, venueName, eventDate, eventTime);
-            const mailRes = await sendMail(recipientEmail, delivSubject, delivHtml, from);
-
-            await supabaseAdmin.from("email_logs").insert({
-              order_id: orderId,
-              email_type: "ticket_delivery",
-              recipient: recipientEmail,
-              status: mailRes.demo ? "simulated_demo" : "sent",
-              resend_id: mailRes.id
-            });
-            results.push({ email: "ticket_delivery", success: true });
-          } catch (e) {
-            console.error("Erro ao enviar entrega de ingressos:", e);
-            await supabaseAdmin.from("email_logs").insert({
-              order_id: orderId,
-              email_type: "ticket_delivery",
-              recipient: recipientEmail,
-              status: "failed",
-              error_message: e.message
-            });
-            results.push({ email: "ticket_delivery", success: false, error: e.message });
-          }
-        }
-
-        return new Response(JSON.stringify({ success: true, trigger: "orders_update_paid", results }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } else {
-        return new Response(JSON.stringify({ success: true, message: "Ignorado. Pedido não foi alterado para status 'paid'." }), {
-          status: 200,
+    // BOAS-VINDAS NO CADASTRO (emailType: 'welcome') e AVISO INTERNO (emailType: 'signup_notification')
+    // Nenhum dos dois aceita `to`/`subject`/`html` do cliente: com `mailer_autoconfirm` ligado,
+    // qualquer um cria uma conta com o e-mail de outra pessoa e ganha um JWT dessa conta — um
+    // caminho que confiasse em "to === e-mail do chamador" ainda seria um relay de phishing.
+    // O servidor busca nome/papel em `profiles` (nunca do corpo da requisição) e monta o HTML;
+    // o destinatário do boas-vindas é sempre `caller.email`, e o aviso interno vai sempre para
+    // `TEAM_EMAIL` — nenhum dos dois é parâmetro. Envia só uma vez por conta (marcado em
+    // `app_metadata`, que o usuário não consegue editar): sem isso, a mesma conta forjada
+    // acima poderia chamar em loop e despejar e-mail sem limite na caixa da vítima.
+    if (emailType === "welcome" || emailType === "signup_notification") {
+      const caller = await getCaller(req);
+      if (!caller) {
+        return new Response(JSON.stringify({ error: "Não autenticado." }), {
+          status: 401,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // ENVIO MANUAL GENÉRICO (to + subject + html)
-    if (to && subject && html) {
+      const sentFlag = emailType === "welcome" ? "welcome_email_sent" : "signup_notification_sent";
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.getUserById(caller.id);
+      if (userError || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Não foi possível confirmar a conta." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (userData.user.app_metadata?.[sentFlag]) {
+        return new Response(JSON.stringify({ success: true, message: "Já enviado para esta conta." }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Marca ANTES de mandar, não depois: entre "checar a flag" e "gravar a flag" existe uma
+      // janela — sem isso, um script chamando em paralelo com o mesmo JWT passa pela checagem
+      // várias vezes antes de qualquer gravação acontecer (a checagem por si só não impede
+      // duas chamadas simultâneas). Se o envio falhar, desmarca para permitir nova tentativa.
+      const { error: markError } = await supabaseAdmin.auth.admin.updateUserById(caller.id, {
+        app_metadata: { [sentFlag]: true },
+      });
+      if (markError) {
+        return new Response(JSON.stringify({ error: "Não foi possível reservar o envio." }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: profile } = await supabaseAdmin
+        .from("profiles")
+        .select("full_name, role")
+        .eq("id", caller.id)
+        .maybeSingle();
+
+      // Nome digitado no cadastro: cortado (e-mail não é lugar para texto longo); o escape de
+      // HTML acontece dentro de getWelcomeHtml/getSignupNotificationHtml.
+      const name = (profile?.full_name || "Participante").slice(0, 60);
+      const role = profile?.role === "producer" ? "producer" : "user";
+
       try {
-        const mailRes = await sendMail(to, subject, html, from);
-        return new Response(JSON.stringify({ success: true, message: "E-mail genérico enviado com sucesso.", ...mailRes }), {
+        const mailRes = emailType === "welcome"
+          ? await sendMail(caller.email, "Bem-vindo(a) à Evokaa!", getWelcomeHtml(name, role), from)
+          : await sendMail(TEAM_EMAIL, `[Novo cadastro] ${name} (${role === "producer" ? "Produtor" : "Participante"})`, getSignupNotificationHtml(name, caller.email, role), from);
+
+        return new Response(JSON.stringify({ success: true, ...mailRes }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        // Não desmarca a flag: reservar-enviar-desmarcar-se-falhar tem a mesma janela de
+        // corrida que reservar depois de enviar (uma rajada em paralelo derruba a marcação de
+        // todo mundo antes de qualquer envio terminar). Um boas-vindas que falhe simplesmente
+        // não é reenviado — aceitável para um e-mail de cortesia.
+        return new Response(JSON.stringify({ error: e.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // FORMULÁRIO DE CONTATO (emailType: 'contact') — canal público, sem login. Também não
+    // aceita `html` pronto do cliente: só os campos estruturados do formulário, escapados e
+    // montados no servidor; o destino é sempre TEAM_EMAIL, nunca `to` do corpo.
+    if (emailType === "contact") {
+      const { name, email, phone, message, subject: contactSubject } = payload;
+      if (!name || !email || !message) {
+        return new Response(JSON.stringify({ error: "Nome, e-mail e mensagem são obrigatórios." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Limite de taxa por IP: canal público sem login, sem isso alguém gasta a cota da Resend
+      // chamando em loop. 5 mensagens a cada 10 minutos por IP.
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const ip = clientIp(req.headers);
+      if (ip) {
+        const since = new Date(Date.now() - 10 * 60_000).toISOString();
+        const { count } = await supabaseAdmin
+          .from("contact_rate_limit_hits")
+          .select("id", { count: "exact", head: true })
+          .eq("ip", ip)
+          .gte("created_at", since);
+        if ((count ?? 0) >= 5) {
+          return new Response(JSON.stringify({ error: "Muitas mensagens enviadas. Tente de novo em alguns minutos." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
+      }
+
+      try {
+        const mailRes = await sendMail(
+          TEAM_EMAIL,
+          `[Contato Site] ${contactSubject || "Nova Mensagem"} - ${name}`,
+          getContactHtml(String(name), String(email), phone ? String(phone) : "", String(message), contactSubject ? String(contactSubject) : ""),
+          from
+        );
+        return new Response(JSON.stringify({ success: true, ...mailRes }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } catch (e) {
@@ -356,7 +481,43 @@ serve(async (req) => {
 
       const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-      // Evitar reenvio
+      // Autenticar ANTES de tocar no banco — senão um `orderId` chutado, sem login nenhum,
+      // já revela se aquele pedido existe (oráculo de UUID) pela diferença entre as respostas.
+      const caller = await getCaller(req);
+      if (!caller) {
+        return new Response(JSON.stringify({ error: "Não autenticado." }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Buscar detalhes do pedido, do evento e dos ingressos
+      const { data: order, error: orderError } = await supabaseAdmin
+        .from("orders")
+        .select("*, events(*)")
+        .eq("id", orderId)
+        .single();
+
+      // Mesma resposta para "não existe" e "existe mas não é seu" — senão dá pra descobrir,
+      // testando UUIDs com uma conta qualquer, quais pedidos de outra pessoa existem de verdade.
+      if (orderError || !order || order.user_id !== caller.id) {
+        return new Response(JSON.stringify({ error: "Você não tem acesso a este pedido." }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Só se o pedido estiver mesmo pago no banco (nada de reenviar "Compra Confirmada" de um
+      // pedido pendente).
+      if (order.status !== "paid") {
+        return new Response(JSON.stringify({ error: "Este pedido ainda não está pago." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Evitar reenvio (best-effort: se `email_logs` não existir, só deixa de bloquear reenvio
+      // duplicado — o dono do próprio pedido pago pedindo de novo não é um risco novo)
       const { data: existingEmail } = await supabaseAdmin
         .from("email_logs")
         .select("id")
@@ -371,15 +532,6 @@ serve(async (req) => {
         });
       }
 
-      // Buscar detalhes do pedido, do evento e dos ingressos
-      const { data: order, error: orderError } = await supabaseAdmin
-        .from("orders")
-        .select("*, events(*)")
-        .eq("id", orderId)
-        .single();
-
-      if (orderError || !order) throw new Error(`Pedido ${orderId} não encontrado.`);
-
       const { data: tickets, error: ticketsError } = await supabaseAdmin
         .from("tickets")
         .select("*, ticket_types(name)")
@@ -389,12 +541,21 @@ serve(async (req) => {
         throw new Error(`Nenhum ingresso encontrado para o pedido ${orderId}.`);
       }
 
-      const recipientEmail = order.customer_email || order.buyer_email;
-      const recipientName = order.customer_name || "Participante";
-      const eventTitle = order.events?.title || "Evento Evokaa";
+      // Nome do comprador e título/local do evento vêm de quem comprou e de quem criou o
+      // evento — escapados antes de entrar no HTML do e-mail (o mesmo vale para o branch acima).
+      // O assunto usa o título cru: é texto puro, não HTML, então "Rock & Roll" não deveria
+      // virar "Rock &amp; Roll" na caixa de entrada.
+      // O e-mail vai para quem está logado (dono confirmado do pedido acima), nunca para
+      // `order.customer_email` — essa coluna é gravada pelo próprio cliente no checkout
+      // (`useCheckout.ts`, sem policy que confira o valor), então um pedido forjado poderia
+      // apontar para o e-mail de outra pessoa e usar este caminho como relay.
+      const recipientEmail = caller.email;
+      const eventTitleRaw = order.events?.title || "Evento Evokaa";
+      const recipientName = escapeHtml(order.customer_name || "Participante");
+      const eventTitle = escapeHtml(eventTitleRaw);
       const eventDate = order.events?.date ? new Date(order.events.date).toLocaleDateString("pt-BR") : "";
-      const eventTime = order.events?.time || "";
-      const venueName = order.events?.venue_name || "Local a definir";
+      const eventTime = escapeHtml(order.events?.time || "");
+      const venueName = escapeHtml(order.events?.venue_name || "Local a definir");
 
       if (!recipientEmail) throw new Error("E-mail do cliente não configurado.");
 
@@ -402,10 +563,10 @@ serve(async (req) => {
       let mailHtml = "";
 
       if (emailType === "order_confirmation") {
-        mailSubject = `Compra Confirmada! — ${eventTitle}`;
+        mailSubject = `Compra Confirmada! — ${eventTitleRaw}`;
         mailHtml = getOrderConfirmationHtml(recipientName, eventTitle, orderId, new Date(order.created_at).toLocaleDateString("pt-BR"), Number(order.total || 0));
       } else if (emailType === "ticket_delivery") {
-        mailSubject = `Seus Ingressos Chegaram! — ${eventTitle}`;
+        mailSubject = `Seus Ingressos Chegaram! — ${eventTitleRaw}`;
         mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, tickets, venueName, eventDate, eventTime);
       } else {
         throw new Error(`Tipo de e-mail ${emailType} não suportado para e-mails de pedido.`);
@@ -413,7 +574,7 @@ serve(async (req) => {
 
       try {
         const mailRes = await sendMail(recipientEmail, mailSubject, mailHtml, from);
-        
+
         await supabaseAdmin.from("email_logs").insert({
           order_id: orderId,
           email_type: emailType,
@@ -445,4 +606,3 @@ serve(async (req) => {
     });
   }
 });
-
