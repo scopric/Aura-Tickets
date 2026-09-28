@@ -92,8 +92,8 @@ export default function TeamManager() {
       role: (dbMember.role || 'viewer') as TeamMember['role'],
       status: status,
       permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
-      assignedTasks: Math.floor(Math.random() * 5), // Dados fictícios para o layout de tarefas
-      completedTasks: Math.floor(Math.random() * 2),
+      assignedTasks: 0, // sem tabela de tarefas: não inventar número
+      completedTasks: 0,
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`
@@ -183,7 +183,7 @@ export default function TeamManager() {
 
       if (error) throw error
 
-      toast.success(`Convite enviado para ${inviteEmail}!`)
+      toast.success('Membro adicionado')
       setInviteEmail('')
       setShowInvite(false)
       loadMembers()

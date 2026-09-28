@@ -3,9 +3,8 @@ import { Link } from 'react-router-dom'
 import {
   ArrowLeft, Users, DollarSign, Star, TrendingUp,
   MapPin, Send, ThumbsUp, ThumbsDown, MessageSquare,
-  ChevronDown, ChevronUp, Award, Target, Zap, Loader2
+  ChevronDown, ChevronUp, Award, Target, Loader2
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
@@ -49,12 +48,6 @@ export default function PostEventReport() {
   const [showNPS, setShowNPS] = useState(true)
   const [showHeatmap, setShowHeatmap] = useState(true)
   const [showComments, setShowComments] = useState(false)
-  const [sendNPS, setSendNPS] = useState(false)
-
-  const handleSendNPS = () => {
-    setSendNPS(true)
-    toast.success('Pesquisa NPS enviada para todos os participantes!')
-  }
 
   const isLoadingAny = eventsLoading || surveysLoading || zonesLoading || statsLoading
 
@@ -87,15 +80,10 @@ export default function PostEventReport() {
             <option key={e.id} value={e.id}>{e.title}</option>
           ))}
         </select>
-        {!sendNPS && selectedEventId && (
-          <button onClick={handleSendNPS} className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-            <Send className="w-4 h-4" /> Enviar NPS
+        {selectedEventId && (
+          <button disabled className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            <Send className="w-4 h-4" /> Enviar NPS (em breve)
           </button>
-        )}
-        {sendNPS && (
-          <span className="px-4 py-2 bg-green-50 text-green-600 text-xs rounded-full flex items-center gap-1">
-            <Zap className="w-3.5 h-3.5" /> NPS Enviado
-          </span>
         )}
       </div>
 

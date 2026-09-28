@@ -363,8 +363,8 @@ export default function ProducerFinance() {
           <p className="text-sm text-espresso/50 mt-1">Dashboard com dados reais do banco, fluxo de caixa e conciliação</p>
         </div>
         <div className="flex items-center gap-3">
-          <button onClick={() => toast.success('Relatório CSV exportado!')} className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full hover:bg-white transition-all">
-            <Download className="w-4 h-4" /> Exportar
+          <button disabled className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
+            <Download className="w-4 h-4" /> Exportar (em breve)
           </button>
           <button onClick={() => { setEditingTx(null); setShowForm(true) }} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
             <Plus className="w-4 h-4" /> Nova Transação

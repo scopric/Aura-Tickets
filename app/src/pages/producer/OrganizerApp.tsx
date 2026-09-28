@@ -1,9 +1,8 @@
 import { Link } from 'react-router-dom'
 import {
   ArrowLeft, ScanLine, Users, BarChart3, Bell,
-  QrCode, Wifi, WifiOff, Download, Star, Shield, Zap, Check
+  QrCode, Wifi, WifiOff, Star, Shield, Zap, Check
 } from 'lucide-react'
-import { toast } from 'sonner'
 
 const features = [
   {
@@ -33,8 +32,6 @@ const features = [
 ]
 
 export default function OrganizerApp() {
-  const handleInstall = () => { toast.success('Instalacao iniciada!') }
-
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       {/* Header */}
@@ -61,10 +58,8 @@ export default function OrganizerApp() {
             Nosso app PWA (Progressive Web App) funciona diretamente no navegador do seu celular, 
             sem precisar baixar nada da loja. Instale na tela inicial e use como um app nativo.
           </p>
-          <div className="flex flex-wrap gap-3 mb-6">
-            <button onClick={handleInstall} className="px-6 py-3 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-              <Download className="w-4 h-4" /> Instalar App
-            </button>
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <p className="text-sm text-espresso/70">Adicione à tela inicial pelo menu do navegador</p>
             <Link to="/app/download" className="px-6 py-3 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all">
               Saiba Mais
             </Link>
@@ -84,7 +79,7 @@ export default function OrganizerApp() {
               <div className="p-4 h-full">
                 <div className="flex items-center justify-between mb-6 mt-4">
                   <div>
-                    <div className="text-[10px] text-espresso/30">Noite Eletro 2025</div>
+                    <div className="text-[10px] text-espresso/30">Seu evento</div>
                     <div className="text-sm font-medium text-espresso">Dashboard</div>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-plum/10 flex items-center justify-center">
@@ -93,18 +88,18 @@ export default function OrganizerApp() {
                 </div>
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <div className="p-3 bg-white/60 rounded-xl">
-                    <div className="text-lg font-medium text-espresso">184</div>
+                    <div className="text-lg font-medium text-espresso">—</div>
                     <div className="text-[9px] text-espresso/30">Check-ins</div>
                   </div>
                   <div className="p-3 bg-white/60 rounded-xl">
-                    <div className="text-lg font-medium text-green-600">92%</div>
+                    <div className="text-lg font-medium text-green-600">—</div>
                     <div className="text-[9px] text-espresso/30">Ocupacao</div>
                   </div>
                 </div>
                 <div className="p-3 bg-white/60 rounded-xl mb-4">
                   <div className="flex justify-between mb-2">
                     <span className="text-[10px] text-espresso/40">Vendas em tempo real</span>
-                    <span className="text-[10px] text-green-600">+12%</span>
+                    <span className="text-[10px] text-green-600">—</span>
                   </div>
                   <div className="flex items-end gap-1 h-16">
                     {[40, 60, 45, 80, 55, 90, 70, 85, 60, 75].map((h, i) => (
@@ -114,7 +109,7 @@ export default function OrganizerApp() {
                 </div>
                 <div className="p-3 bg-white/60 rounded-xl">
                   <div className="text-[10px] text-espresso/40 mb-2">Ultimos check-ins</div>
-                  {['Ana Silva', 'Pedro Costa', 'Mariana Lima'].map((name, i) => (
+                  {['—', '—', '—'].map((name, i) => (
                     <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/40 last:border-0">
                       <div className="w-6 h-6 rounded-full bg-plum/10 flex items-center justify-center">
                         <span className="text-[8px] text-plum">{name[0]}</span>

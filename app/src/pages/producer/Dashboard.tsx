@@ -47,6 +47,7 @@ export default function ProducerDashboard() {
             profiles (full_name)
           `)
           .in('event_id', eventIds)
+          .eq('status', 'paid')
           .order('created_at', { ascending: false })
           .limit(5)
 
@@ -79,6 +80,7 @@ export default function ProducerDashboard() {
           .from('orders')
           .select('total, user_id')
           .in('event_id', eventIds)
+          .eq('status', 'paid')
 
         if (ordersError) throw ordersError
 
