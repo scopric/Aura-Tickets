@@ -13,15 +13,6 @@ interface Subscription {
   expires_at: string | null
 }
 
-// Mapeamento de quais features estão inclusas em cada plano por padrão
-const planFeatures: Record<string, string[]> = {
-  free: [],
-  starter: ['support', 'caixinha', 'calculator'],
-  plus: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons'],
-  pro: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables'],
-  enterprise: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables', 'api_access']
-}
-
 export function useFeatures() {
   const { user } = useAuth()
   const [subscription, setSubscription] = useState<Subscription | null>(null)
@@ -73,26 +64,12 @@ export function useFeatures() {
     loadFeaturesData()
   }, [user])
 
-  /**
-   * Verifica se o usuário tem acesso a uma funcionalidade
-   */
+  // ponytail: sem Stripe/Woovi no ar, ninguém paga plano de verdade — liberado para todo
+  // mundo poder testar e ajustar. Voltar a checar `subscription`/`customFeatures` (já
+  // carregados acima) quando o pagamento estiver funcionando de fato.
   const hasFeature = (featureKey: string): boolean => {
-    // 1. Administradores têm acesso ilimitado a todas as ferramentas
-    if (user?.role === 'admin') return true
-
-    // 2. Verificar se o plano atual ativo possui a feature
-    const currentPlan = subscription?.is_active ? subscription.plan : 'free'
-    const hasInPlan = planFeatures[currentPlan]?.includes(featureKey)
-    if (hasInPlan) return true
-
-    // 3. Verificar se há liberação individual customizada (bypass) e se não expirou
-    const customFeat = customFeatures.find(f => f.feature_key === featureKey)
-    if (customFeat) {
-      if (!customFeat.expires_at) return true // Acesso vitalício ou prazo indefinido
-      return new Date(customFeat.expires_at) > new Date() // Se a expiração for futura, libera
-    }
-
-    return false
+    void featureKey
+    return true
   }
 
   return {
