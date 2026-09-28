@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { 
   Users, Calendar, DollarSign, TrendingUp, Activity, PieChart, 
-  Globe, Laptop, Smartphone, Tablet, Percent, Eye, ShoppingCart, 
+  Globe, Percent, Eye, ShoppingCart,
   CheckCircle, ArrowUpRight, BarChart3, Info, Award,
   UserCheck, UserX, Clock, Loader2
 } from 'lucide-react'
@@ -32,14 +32,6 @@ const funnelSteps = [
   { step: 'Adições ao Carrinho', count: 4800, percentage: 42.1, color: 'bg-indigo-500/20 text-indigo-700 border-indigo-200' },
   { step: 'Checkouts Iniciados', count: 1950, percentage: 17.1, color: 'bg-blue-500/20 text-blue-700 border-blue-200' },
   { step: 'Vendas Concluídas (Pago)', count: 510, percentage: 4.47, color: 'bg-emerald-500/20 text-emerald-700 border-emerald-200' },
-]
-
-// Traffic Sources
-const trafficSources = [
-  { source: 'Acesso Direto', count: 3990, share: 35, color: '#7c3aed' },
-  { source: 'Busca Orgânica (Google)', count: 3420, share: 30, color: '#3b82f6' },
-  { source: 'Redes Sociais (Instagram/FB)', count: 2280, share: 20, color: '#f43f5e' },
-  { source: 'E-mail Marketing & News', count: 1710, share: 15, color: '#10b981' },
 ]
 
 // Event performance details for admin overview
@@ -704,120 +696,51 @@ export default function AdminAnalytics() {
       )}
 
       {activeSubTab === 'traffic' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Traffic Sources detailed graph */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm">
-              <h3 className="text-sm font-semibold text-espresso mb-1">Origem do Tráfego (Canais de Aquisição)</h3>
-              <p className="text-[10px] text-espresso/40 mb-6">De onde vêm os participantes que compram na plataforma.</p>
-
-              <div className="space-y-4">
-                {trafficSources.map(src => (
-                  <div key={src.source}>
-                    <div className="flex justify-between items-center text-xs mb-1">
-                      <span className="font-semibold text-espresso/70 flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: src.color }} />
-                        {src.source}
-                      </span>
-                      <span className="text-espresso/40 text-[10px]">
-                        <strong>{src.count.toLocaleString()}</strong> visitas ({src.share}%)
-                      </span>
-                    </div>
-                    <div className="w-full h-3 bg-canvas rounded-full overflow-hidden">
-                      <div 
-                        className="h-full rounded-full transition-all" 
-                        style={{ width: `${src.share}%`, backgroundColor: src.color }}
-                      />
-                    </div>
-                  </div>
-                ))}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Vercel Web Analytics: sem cookie, não depende do banner de consentimento — vê
+              tráfego de todo mundo, inclusive quem recusou o GA4. */}
+          <a
+            href="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm hover:border-plum/30 transition-colors group"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-plum/5 border border-plum/10">
+                <Globe className="w-5 h-5 text-plum" />
               </div>
+              <ArrowUpRight className="w-4 h-4 text-espresso/30 group-hover:text-plum transition-colors" />
             </div>
+            <h3 className="text-sm font-semibold text-espresso mb-1">Vercel Web Analytics</h3>
+            <p className="text-[11px] text-espresso/50 leading-relaxed">
+              Origem de tráfego, páginas mais visitadas e dispositivo — sem cookie, conta visitantes sem depender do banner. Abre o painel da Vercel. Requer acesso à conta do time.
+            </p>
+          </a>
 
-            {/* Daily visits estimate chart bars */}
-            <div className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm">
-              <h3 className="text-sm font-semibold text-espresso mb-1">Visitas Semanais (Estimativas)</h3>
-              <p className="text-[10px] text-espresso/40 mb-6">Volume médio diário de acessos à página `/events` e checkout.</p>
-              
-              <div className="flex items-end gap-3 h-36 pt-4">
-                {[
-                  { day: 'Seg', visits: 1200, percentage: 40 },
-                  { day: 'Ter', visits: 1500, percentage: 50 },
-                  { day: 'Qua', visits: 1400, percentage: 46 },
-                  { day: 'Qui', visits: 1800, percentage: 60 },
-                  { day: 'Sex', visits: 2800, percentage: 93 },
-                  { day: 'Sáb', visits: 3000, percentage: 100 },
-                  { day: 'Dom', visits: 2100, percentage: 70 },
-                ].map(item => (
-                  <div key={item.day} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <div className="text-[9px] font-bold text-plum opacity-0 group-hover:opacity-100 transition-opacity">
-                      {(item.visits / 1000).toFixed(1)}k
-                    </div>
-                    <div className="w-full bg-plum/5 rounded-t-lg relative" style={{ height: '70%' }}>
-                      <div 
-                        className="absolute bottom-0 left-0 right-0 bg-plum/20 hover:bg-plum/30 rounded-t-lg transition-all" 
-                        style={{ height: `${item.percentage}%` }}
-                      />
-                    </div>
-                    <span className="text-[9.5px] font-semibold text-espresso/40">{item.day}</span>
-                  </div>
-                ))}
+          {/* GA4: só quem aceitou o banner de cookies analíticos entra aqui (Decisão 13/26). */}
+          <a
+            href="https://analytics.google.com/analytics/web/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm hover:border-plum/30 transition-colors group"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-2.5 rounded-xl bg-plum/5 border border-plum/10">
+                <BarChart3 className="w-5 h-5 text-plum" />
               </div>
+              <ArrowUpRight className="w-4 h-4 text-espresso/30 group-hover:text-plum transition-colors" />
             </div>
-          </div>
+            <h3 className="text-sm font-semibold text-espresso mb-1">Google Analytics 4</h3>
+            <p className="text-[11px] text-espresso/50 leading-relaxed">
+              Páginas vistas, canais de aquisição e comportamento — só conta quem aceitou o banner de cookies analíticos. Abre o painel do Google. Requer acesso à conta.
+            </p>
+          </a>
 
-          {/* Devices and Browsers distribution (Right Col) */}
-          <div className="space-y-6">
-            <div className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm">
-              <h3 className="text-xs font-bold text-espresso/50 uppercase tracking-wider mb-5">Acesso por Dispositivo</h3>
-
-              <div className="space-y-4">
-                {[
-                  { label: 'Mobile (Smartphones)', icon: Smartphone, share: 72, color: 'text-plum', bg: 'bg-plum/5 border-plum/10' },
-                  { label: 'Desktop (Computadores)', icon: Laptop, share: 24, color: 'text-rose-500', bg: 'bg-rose-50 border-rose-100' },
-                  { label: 'Tablet (iPads/Outros)', icon: Tablet, share: 4, color: 'text-blue-500', bg: 'bg-blue-50 border-blue-100' },
-                ].map(dev => (
-                  <div key={dev.label} className="flex items-center gap-3 p-3 rounded-xl border border-white bg-white/30">
-                    <div className={`p-2 rounded-lg ${dev.bg}`}>
-                      <dev.icon className={`w-5 h-5 ${dev.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-espresso/70 truncate">{dev.label}</div>
-                      <div className="w-full h-1.5 bg-canvas rounded-full mt-1.5 overflow-hidden">
-                        <div 
-                          className="h-full rounded-full" 
-                          style={{ 
-                            width: `${dev.share}%`, 
-                            backgroundColor: dev.color.includes('plum') ? 'var(--plum)' : dev.color.includes('rose') ? '#f43f5e' : '#3b82f6' 
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-espresso">{dev.share}%</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="an-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm">
-              <h3 className="text-xs font-bold text-espresso/50 uppercase tracking-wider mb-4">Métricas de Rejeição</h3>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-xs pb-3 border-b border-espresso/5">
-                  <span className="text-espresso/60">Tempo Médio na Sessão</span>
-                  <span className="font-bold text-espresso">3m 42s</span>
-                </div>
-                <div className="flex justify-between items-center text-xs pb-3 border-b border-espresso/5">
-                  <span className="text-espresso/60">Visualizações por Sessão</span>
-                  <span className="font-bold text-espresso">4.8 páginas</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-espresso/60">Taxa de Rejeição (Bounce)</span>
-                  <span className="font-bold text-espresso">38.4%</span>
-                </div>
-              </div>
-            </div>
+          <div className="an-anim lg:col-span-2 p-4 rounded-2xl bg-amber-50 dark:bg-amber-500/10 border border-amber-100 dark:border-amber-500/20 flex gap-3">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">
+              A Vercel não oferece API para trazer esses números a este painel. O GA4 oferece, mas exige credencial de servidor, ainda não configurada — por isso os dois abrem em aba própria. Os gráficos que existiam nesta aba mostravam números fixos, não dados reais — foram tirados.
+            </p>
           </div>
         </div>
       )}
