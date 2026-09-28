@@ -12,6 +12,15 @@ const corsHeaders = {
 
 const TEAM_EMAIL = "contato@evokaa.com.br";
 
+// Mesmo padrão de extração de IP já usado em produção (record-access): o cliente pode inventar
+// o COMEÇO do x-forwarded-for, mas não o que os proxies acrescentam no FIM.
+const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/;
+function clientIp(headers: Headers): string | null {
+  const chain = headers.get("x-forwarded-for");
+  const candidate = (headers.get("cf-connecting-ip") ?? chain?.split(",").at(-1) ?? headers.get("x-real-ip") ?? "").trim();
+  return IP_RE.test(candidate) ? candidate : null;
+}
+
 // Identifica quem está chamando pelo token da requisição — nunca confiar em `to`/`from` do
 // corpo sem saber quem pediu, senão qualquer conta (autoconfirmada, trivial de criar) manda
 // e-mail de phishing assinado pelo domínio evokaa.com.br para qualquer vítima.
@@ -422,6 +431,30 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      // Limite de taxa por IP: canal público sem login, sem isso alguém gasta a cota da Resend
+      // chamando em loop. 5 mensagens a cada 10 minutos por IP.
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const ip = clientIp(req.headers);
+      if (ip) {
+        const since = new Date(Date.now() - 10 * 60_000).toISOString();
+        const { count } = await supabaseAdmin
+          .from("contact_rate_limit_hits")
+          .select("id", { count: "exact", head: true })
+          .eq("ip", ip)
+          .gte("created_at", since);
+        if ((count ?? 0) >= 5) {
+          return new Response(JSON.stringify({ error: "Muitas mensagens enviadas. Tente de novo em alguns minutos." }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
+      }
+
       try {
         const mailRes = await sendMail(
           TEAM_EMAIL,
@@ -521,7 +554,7 @@ serve(async (req) => {
       const recipientName = escapeHtml(order.customer_name || "Participante");
       const eventTitle = escapeHtml(eventTitleRaw);
       const eventDate = order.events?.date ? new Date(order.events.date).toLocaleDateString("pt-BR") : "";
-      const eventTime = order.events?.time || "";
+      const eventTime = escapeHtml(order.events?.time || "");
       const venueName = escapeHtml(order.events?.venue_name || "Local a definir");
 
       if (!recipientEmail) throw new Error("E-mail do cliente não configurado.");
