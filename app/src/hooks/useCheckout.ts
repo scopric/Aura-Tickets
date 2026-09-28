@@ -98,51 +98,18 @@ export function useCreateOrder() {
         subtotal: Number((total_amount / items.reduce((sum, it) => sum + it.quantity, 0) * item.quantity).toFixed(2)),
       }))
 
-      const { data: orderItemsData, error: orderItemsError } = await supabase
+      const { error: orderItemsError } = await supabase
         .from('order_items')
         .insert(orderItemsToInsert)
-        .select()
 
       if (orderItemsError) throw orderItemsError
 
-      // 3. Criar os ingressos (tickets) individuais vinculados aos order_items
-      const ticketsToInsert: any[] = []
-      const orderItemsMap = new Map<string, string>()
-      
-      // Mapear ticket_type_id -> order_item_id
-      for (const oi of (orderItemsData || [])) {
-        orderItemsMap.set(oi.ticket_type_id, oi.id)
-      }
-
-      for (const item of items) {
-        const orderItemId = orderItemsMap.get(item.ticket_type_id)
-        const unitPrice = Number((total_amount / items.reduce((sum, it) => sum + it.quantity, 0)).toFixed(2))
-        
-        for (let i = 0; i < item.quantity; i++) {
-          const code = `TK-${Math.random().toString(36).substr(2, 6).toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
-          
-          ticketsToInsert.push({
-            order_item_id: orderItemId,
-            order_id: order.id,
-            ticket_type_id: item.ticket_type_id,
-            event_id,
-            user_id: user.id,
-            buyer_name: user.name || user.full_name || 'Participante',
-            buyer_email: user.email,
-            qr_code: code,
-            status: order.status === 'paid' ? 'active' : 'cancelled',
-            price_paid: unitPrice
-          })
-        }
-      }
-
-      if (ticketsToInsert.length > 0) {
-        const { error: ticketsError } = await supabase
-          .from('tickets')
-          .insert(ticketsToInsert)
-
-        if (ticketsError) throw ticketsError
-      }
+      // Ingressos (tickets) não são mais criados aqui: o cliente só grava o próprio pedido
+      // pendente e seus itens. Criar o ticket é ato de quem confirma o pagamento (service_role,
+      // no webhook do gateway — Fase 4); dar esse INSERT ao cliente permitia gravar um ticket
+      // 'active' sem pagar nada (RLS não tinha como distinguir "meu ticket" de "meu ticket já
+      // pago"). Enquanto não há gateway publicado, nenhum pedido vira ingresso — correto, já
+      // que nenhuma compra é real hoje.
 
       return {
         ...order,
