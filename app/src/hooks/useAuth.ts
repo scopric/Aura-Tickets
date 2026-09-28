@@ -232,8 +232,21 @@ export function useAuth() {
       if (data.user && !data.user.user_metadata?.role) {
         await supabase.from('profiles').update({ full_name: name }).eq('id', data.user.id).catch(() => {})
       }
-      
-      toast.success('Cadastro realizado! Verifique seu e-mail para confirmar.')
+
+      // E-mail de boas-vindas (para quem se cadastrou) e aviso para a equipe. O servidor monta
+      // o HTML a partir do que já está gravado em `profiles` e manda só para o e-mail
+      // autenticado (boas-vindas) ou para a caixa da equipe (aviso) — o cliente não manda
+      // destinatário/assunto/corpo nenhum. Disparado sem aguardar (não deve travar a tela de
+      // cadastro); o `.invoke` do supabase-js não lança erro, devolve `{error}` — por isso
+      // checa o campo.
+      void Promise.all([
+        supabase.functions.invoke('send-email', { body: { emailType: 'welcome' } }),
+        supabase.functions.invoke('send-email', { body: { emailType: 'signup_notification' } }),
+      ]).then(results => {
+        results.forEach(r => { if (r.error) console.error('[Signup Email Error]', r.error) })
+      })
+
+      toast.success('Cadastro realizado!')
       return true
     } catch (error: any) {
       toast.error(error.message || 'Erro ao realizar cadastro')
