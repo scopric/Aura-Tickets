@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '@/lib/supabase'
 
@@ -176,6 +176,7 @@ describe('authStore', () => {
     const state = useAuthStore.getState()
     expect(state.user).toBeNull()
     expect(state.isAuthenticated).toBe(false)
-    vi.unstubAllEnvs()
   })
+
+  afterEach(() => vi.unstubAllEnvs()) // o stub de DEV não vaza se uma asserção falhar
 })
