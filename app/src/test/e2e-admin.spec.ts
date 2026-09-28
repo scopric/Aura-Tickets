@@ -54,10 +54,16 @@ test.describe('admin com conta real', () => {
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15000 })
     // A1b: painel de detalhes do evento (a barra lateral também tem "Ingressos", por isso o escopo no dialog)
-    await page.getByRole('button', { name: 'Ver detalhes do evento' }).first().click()
-    await expect(page.getByRole('dialog')).toContainText('Ingressos')
-    await page.keyboard.press('Escape')
-    await expect(page.getByRole('dialog')).toHaveCount(0)
+    // Com o banco sem eventos (os de teste foram apagados em 28/09), a tabela mostra só o estado vazio
+    const detalhes = page.getByRole('button', { name: 'Ver detalhes do evento' })
+    if (await detalhes.count()) {
+      await detalhes.first().click()
+      await expect(page.getByRole('dialog')).toContainText('Ingressos')
+      await page.keyboard.press('Escape')
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+    } else {
+      await expect(page.getByText('Nenhum evento nesta categoria.')).toBeVisible()
+    }
 
     // A1b: produtores reais (a linha de "nenhum produtor" também é um tr, por isso a segunda checagem)
     await page.goto(`${ALPHA}/admin/producers`)
