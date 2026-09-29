@@ -91,6 +91,7 @@ const PostEventReport = lazy(() => import('./pages/producer/PostEventReport'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminUsers = lazy(() => import('./pages/admin/Users'))
 const AdminProducers = lazy(() => import('./pages/admin/Producers'))
+const AdminPlatformAffiliates = lazy(() => import('./pages/admin/PlatformAffiliates'))
 const AdminEvents = lazy(() => import('./pages/admin/Events'))
 const AdminFinance = lazy(() => import('./pages/admin/Finance'))
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'))
@@ -234,6 +235,7 @@ function Layout() {
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminUsers /></ProtectedRoute>} />
                 <Route path="/admin/producers" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminProducers /></ProtectedRoute>} />
+                <Route path="/admin/affiliates" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_affiliates"><AdminPlatformAffiliates /></ProtectedRoute>} />
                 <Route path="/admin/events" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_events"><AdminEvents /></ProtectedRoute>} />
                 <Route path="/admin/finance" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_finance"><AdminFinance /></ProtectedRoute>} />
                 <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="view_analytics"><AdminAnalytics /></ProtectedRoute>} />
