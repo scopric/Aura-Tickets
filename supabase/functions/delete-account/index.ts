@@ -82,16 +82,14 @@ Deno.serve(async (req) => {
     ['event_reviews', () => admin.from('event_reviews').update({ comment: null }).eq('user_id', uid)],
     ['messages', () => admin.from('messages').delete().eq('sender_id', uid)],
     // Chat de atendimento (conversations): só o que a pessoa escreveu como CLIENTE sai; se ela
-    // atendeu (admin/produtor), as respostas dela nas conversas dos outros ficam. Arquivos: os
-    // anexos dessas mensagens e os que ela subiu e nunca anexou (chat_orfaos_de, pelo dono).
+    // atendeu (admin/produtor), as respostas dela nas conversas dos outros ficam. Arquivos: só os
+    // que ELA subiu (owner) — anexos das mensagens dela de cliente e os nunca anexados
+    // (chat_arquivos_a_apagar); arquivo de outra pessoa nunca é removido.
     // ponytail: remove() numa chamada só; em lotes se alguém passar de centenas de arquivos.
     ['chat_anexos', async () => {
-      const { data: anexos, error } = await admin.from('conversation_messages').select('attachment_path')
-        .eq('sender_id', uid).eq('sender_role', 'customer').not('attachment_path', 'is', null)
+      const { data, error } = await admin.rpc('chat_arquivos_a_apagar', { p_user: uid })
       if (error) return { error }
-      const { data: orfaos, error: orfaosError } = await admin.rpc('chat_orfaos_de', { p_user: uid })
-      if (orfaosError) return { error: orfaosError }
-      const paths = [...(anexos ?? []).map((m: { attachment_path: string }) => m.attachment_path), ...((orfaos ?? []) as string[])]
+      const paths = (data ?? []) as string[]
       if (!paths.length) return { error: null }
       const { error: storageError } = await admin.storage.from('chat-anexos').remove(paths)
       return { error: storageError }

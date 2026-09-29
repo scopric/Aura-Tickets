@@ -4,10 +4,12 @@
 // cabeçalho x-chat-secret, lido do Vault na hora de rodar. Publicar com --no-verify-jwt.
 // Não recebe destinatário nem texto: a fila (chat_notify_due) e os destinos vêm do banco.
 // Cliente: um e-mail por conversa. Equipe: um único e-mail-resumo por rodada com as conversas
-// pendentes (até 50). Depois de cada envio, chat_notify_mark grava a data (sucesso) ou soma uma
-// falha; falha de um envio não para os outros e a conversa volta na próxima rodada (com 5 falhas
-// seguidas ela sai da fila). Responde só contagens: o corpo fica em net._http_response, então
-// nada de dado pessoal aqui.
+// pendentes (até 50). chat_notify_due reserva as linhas por 2 min (contra envio duplicado).
+// Depois de cada envio, chat_notify_mark grava a data (sucesso); falha do e-mail ao cliente soma
+// uma falha (com 5 ele sai da fila do cliente até a próxima mensagem); falha do resumo à equipe
+// não soma (é de sistema) e as conversas voltam quando a reserva vence. Falha de um envio não
+// para os outros. Responde só contagens: o corpo fica em net._http_response, então nada de dado
+// pessoal aqui.
 // O e-mail ao cliente NÃO repete a resposta: o e-mail da conta não é confirmado (plano, "Limite
 // conhecido"); ele só avisa e leva para a conta.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
@@ -166,7 +168,7 @@ Deno.serve(async (req) => {
 
   let enviados = 0
   let falhas = 0
-  // Envia um e-mail e marca o resultado nas conversas dele (data no sucesso, +1 falha no erro).
+  // Envia um e-mail e marca o resultado nas conversas dele (regras em chat_notify_mark).
   const tentar = async (ids: string[], tipo: Aviso['tipo'], envio: () => Promise<unknown>) => {
     let ok = true
     try {
