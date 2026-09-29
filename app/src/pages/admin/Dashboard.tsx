@@ -48,7 +48,7 @@ export default function AdminDashboard() {
       // ponytail: o PostgREST corta em 1.000 linhas; trocar por count head por papel quando passar de centenas de contas
       tenta(supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
       tenta(supabase.from('events').select('id, approval_status'), r => (r.data || []).map((e: any) => e.approval_status ?? null)),
-      tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
+      tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
       tenta(supabase.from('support_sessions').select('id', { count: 'exact', head: true }).neq('status', 'closed'), r => r.count ?? 0),
       tenta(supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
       // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201

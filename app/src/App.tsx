@@ -39,6 +39,7 @@ const BrandStudio = lazy(() => import('./pages/BrandStudio'))
 const ContactPage = lazy(() => import('./pages/Contact'))
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
+const NewsletterUnsubscribe = lazy(() => import('./pages/NewsletterUnsubscribe'))
 const AuthLogin = lazy(() => import('./pages/auth/Login'))
 const AuthRegister = lazy(() => import('./pages/auth/Register'))
 const AuthForgot = lazy(() => import('./pages/auth/ForgotPassword'))
@@ -278,6 +279,7 @@ function Layout() {
             <Route path="/contato" element={<ContactPage />} />
             <Route path="/termos" element={<TermsPage />} />
             <Route path="/privacidade" element={<PrivacyPage />} />
+            <Route path="/newsletter/sair" element={<NewsletterUnsubscribe />} />
             <Route path="/auth/login" element={<AuthLogin />} />
             <Route path="/auth/register" element={<AuthRegister />} />
             <Route path="/auth/forgot" element={<AuthForgot />} />
