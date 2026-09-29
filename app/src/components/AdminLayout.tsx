@@ -18,6 +18,7 @@ import {
   MessageCircle,
   Mail,
   Camera,
+  TicketPercent,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -38,6 +39,7 @@ const navItems = [
   { to: '/admin/analytics', icon: BarChart3, label: 'Analytics', permission: 'view_analytics' },
   { to: '/admin/tickets', icon: Ticket, label: 'Ingressos', permission: 'manage_tickets' },
   { to: '/admin/newsletter', icon: Mail, label: 'Newsletter', permission: 'manage_newsletter' },
+  { to: '/admin/coupons', icon: TicketPercent, label: 'Cupons', permission: 'manage_coupons' },
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
   { to: '/admin/support', icon: MessageCircle, label: 'Chat Suporte', permission: 'manage_feedback' },

@@ -98,6 +98,7 @@ const AdminTickets = lazy(() => import('./pages/admin/Tickets'))
 const AdminSettingsPage = lazy(() => import('./pages/admin/AdminSettings'))
 const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
 const AdminNewsletter = lazy(() => import('./pages/admin/Newsletter'))
+const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
 const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
 const SupportChatAdmin = lazy(() => import('./pages/admin/SupportChat'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
@@ -241,6 +242,7 @@ function Layout() {
                 <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
                 <Route path="/admin/support" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><SupportChatAdmin /></ProtectedRoute>} />
                 <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
+                <Route path="/admin/coupons" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_coupons"><AdminCoupons /></ProtectedRoute>} />
                 <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
               </Route>
 
