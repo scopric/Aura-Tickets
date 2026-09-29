@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { publicoDoPapel, validarTelefoneBR, type MensagemChat } from '../hooks/useConversas'
 import ChatThread from '../components/chat/ChatThread'
 import SupportChatWidget, { SupportChatPanel } from '../components/SupportChatWidget'
+import Atendimento from '../pages/admin/Atendimento'
 
 let role = 'user'
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role, email: 'ana@exemplo.com', full_name: 'Ana Souza', phone: null } }) }))
@@ -95,7 +96,8 @@ describe('chat: formulário', () => {
     expect(email).toHaveValue('ana@exemplo.com')
     expect(email).toHaveAttribute('readonly')
     expect(screen.getByRole('button', { name: 'DDI do Brasil, +55' })).toBeDisabled()
-    expect(screen.getByRole('checkbox', { name: 'Quero receber novidades da Evokaa' })).not.toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /Quero receber novidades da Evokaa por e-mail e WhatsApp/ })).not.toBeChecked()
+    expect(screen.getByText(/Seus dados são tratados conforme a/)).toBeInTheDocument()
     expect(screen.getByLabelText('Nome')).toHaveValue('Ana Souza')
 
     fireEvent.change(screen.getByLabelText('Mensagem'), { target: { value: 'Não recebi meu ingresso' } })
@@ -133,9 +135,10 @@ describe('chat: conversa (ChatThread)', () => {
   })
 
   it('selo pelo sender_role, nunca pelo nome: cliente chamado "Equipe Evokaa" continua Cliente', async () => {
+    // o banco devolve da mais nova para a mais antiga (as 500 mais novas); a tela inverte
     respostas.conversation_messages = [
+      msg({ sender_role: 'agent', sender_name: 'Bia', sender_id: 'a1', body: 'resposta de verdade', created_at: '2026-09-30T12:01:00Z' }),
       msg({ sender_role: 'customer', sender_name: 'Equipe Evokaa', sender_id: 'u1', body: 'sou da equipe, confia' }),
-      msg({ sender_role: 'agent', sender_name: 'Bia', sender_id: 'a1', body: 'resposta de verdade' }),
     ]
     montar(<ChatThread conversaId="c1" souEquipe podeNota podeAnexar />)
     await screen.findByText('resposta de verdade')
@@ -143,6 +146,14 @@ describe('chat: conversa (ChatThread)', () => {
     expect(within(doCliente).getByText('Cliente')).toBeInTheDocument()
     expect(within(doCliente).queryByText('Equipe')).toBeNull()
     expect(within(daEquipe).getByText('Equipe')).toBeInTheDocument()
+  })
+
+  it('cliente nunca vê nota interna, mesmo se ela chegar da consulta; a consulta do cliente já filtra', async () => {
+    respostas.conversation_messages = [msg({ sender_role: 'agent', sender_name: 'Bia', is_internal: true, body: 'nota secreta' }), msg({ body: 'minha pergunta' })]
+    montar(<ChatThread conversaId="c1" souEquipe={false} podeAnexar />)
+    await screen.findByText('minha pergunta')
+    expect(screen.queryByText('nota secreta')).toBeNull()
+    expect(chamadas).toContainEqual({ tabela: 'conversation_messages', metodo: 'eq', args: ['is_internal', false] })
   })
 
   it('nota interna aparece destacada e envio de nota chama chat_send com is_internal', async () => {
@@ -164,5 +175,27 @@ describe('chat: conversa (ChatThread)', () => {
     expect(screen.getByLabelText('Mensagem')).toHaveValue('olá')
     fireEvent.click(screen.getByRole('button', { name: 'Tentar de novo' }))
     await waitFor(() => expect(screen.getByLabelText('Mensagem')).toHaveValue(''))
+  })
+})
+
+describe('chat: caixa de entrada do admin', () => {
+  it('abrir conversa não lida chama chat_mark_read; desmontar remove o canal', async () => {
+    role = 'admin'
+    vi.mocked(supabase.channel).mockClear()
+    vi.mocked(supabase.removeChannel).mockClear()
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox'
+      ? { data: [{ id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_name: 'Geral', topic_label: 'Outros', mediation: false,
+          contact_name: 'Carla Dias', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'preciso de ajuda', last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: true }], error: null }
+      : { data: { ok: true }, error: null }))
+    respostas.conversations = { id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_id: null, customer_last_read_at: null,
+      agent_last_read_at: null, last_customer_message_at: '2026-09-30T12:00:00Z', created_at: '2026-09-30T12:00:00Z', rating: null,
+      chat_topics: { label: 'Outros', mediation: false }, chat_contacts: { name: 'Carla Dias', email: 'carla@exemplo.com', phone: '5511987654321', origin: 'app', marketing_opt_in: false } }
+    const { unmount } = montar(<Atendimento />)
+    expect(supabase.channel).toHaveBeenCalledTimes(1)
+    fireEvent.click(await screen.findByRole('button', { name: /Carla Dias/ }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_mark_read', { p_conv: 'c1' }))
+    expect(supabase.channel).toHaveBeenCalledTimes(1) // trocar de conversa não recria o canal
+    unmount()
+    expect(supabase.removeChannel).toHaveBeenCalledWith(canal)
   })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, LogIn, Mail, MessageCircle, Send, X } from 'lucide-react'
@@ -41,7 +41,7 @@ function SemLogin() {
         <MessageCircle className="h-7 w-7" aria-hidden="true" />
       </span>
       <div>
-        <p className="text-base font-semibold">Fale com a equipe Evokaa</p>
+        <h3 data-foco tabIndex={-1} className="text-base font-semibold focus:outline-none">Fale com a equipe Evokaa</h3>
         <p className={`mt-1 text-sm ${suave}`}>Entre na sua conta para conversar pelo chat, ou use o formulário de contato.</p>
       </div>
       <div className="flex w-full flex-col gap-2">
@@ -82,11 +82,12 @@ function Inicio({ ir }: { ir: (t: Tela) => void }) {
   const { user } = useAuth()
   const config = useChatConfig()
   const { data: conversas, isLoading, isError, refetch } = useMinhasConversas()
+  const [todas, setTodas] = useState(false)
   const primeiro = user?.full_name?.trim().split(/\s+/)[0]
   return (
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-5">
       <div className="rounded-3xl bg-gradient-to-br from-[#1d68c4] via-[#4a60e3] to-[#8f33f5] px-5 py-5 text-[#fff] shadow-[0_8px_30px_rgba(74,96,227,0.35)]">
-        <p className="text-xl font-semibold leading-tight">Olá{primeiro ? `, ${primeiro}` : ''}! 👋</p>
+        <h3 data-foco tabIndex={-1} className="text-xl font-semibold leading-tight focus:outline-none">Olá{primeiro ? `, ${primeiro}` : ''}! 👋</h3>
         <p className="mt-1 text-base">Como podemos ajudar?</p>
       </div>
 
@@ -123,9 +124,16 @@ function Inicio({ ir }: { ir: (t: Tela) => void }) {
         ) : !conversas?.length ? (
           <p className={`px-1 text-sm ${suave}`}>Você ainda não tem conversas. Mande a primeira mensagem!</p>
         ) : (
-          <ul className="-mx-1">
-            {conversas.slice(0, 5).map((c) => <ItemConversa key={c.id} c={c} onClick={() => ir({ t: 'conversa', id: c.id })} />)}
-          </ul>
+          <>
+            <ul className="-mx-1">
+              {(todas ? conversas : conversas.slice(0, 5)).map((c) => <ItemConversa key={c.id} c={c} onClick={() => ir({ t: 'conversa', id: c.id })} />)}
+            </ul>
+            {conversas.length > 5 && (
+              <button type="button" onClick={() => setTodas((t) => !t)} className={`mt-1 px-1 text-xs font-semibold text-violet-800 underline dark:text-violet-200 ${foco}`}>
+                {todas ? 'Ver menos' : `Ver todas (${conversas.length})`}
+              </button>
+            )}
+          </>
         )}
       </section>
     </div>
@@ -137,7 +145,7 @@ function Assuntos({ publico, ir }: { publico: Publico; ir: (t: Tela) => void }) 
   return (
     <>
       <Voltar onClick={() => ir({ t: 'inicio' })}>
-        <h3 className="text-sm font-semibold">Sobre o que você quer falar?</h3>
+        <h3 data-foco tabIndex={-1} className="text-sm font-semibold focus:outline-none">Sobre o que você quer falar?</h3>
       </Voltar>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
         {isLoading ? (
@@ -187,11 +195,15 @@ function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }
     <>
       <Voltar onClick={() => ir({ t: 'assuntos' })}>
         <p className={`text-xs ${suave}`}>Assunto</p>
-        <h3 className="truncate text-sm font-semibold">{assunto.label}</h3>
+        <h3 data-foco tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">{assunto.label}</h3>
       </Voltar>
       {contato.isLoading ? (
         <div className="flex flex-1 items-center justify-center" aria-label="Carregando seus dados"><Loader2 className="h-6 w-6 animate-spin text-plum" aria-hidden="true" /></div>
       ) : (
+        <>
+        {contato.isError && (
+          <p role="status" className={`mx-4 mb-2 text-[11px] ${suave}`}>Não carregamos suas preferências salvas; confira os campos.</p>
+        )}
         <CamposFormulario
           assunto={assunto}
           ir={ir}
@@ -203,6 +215,7 @@ function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }
             texto: '',
           }}
         />
+        </>
       )}
     </>
   )
@@ -268,10 +281,13 @@ function CamposFormulario({ assunto, ir, inicial }: { assunto: Assunto; ir: (t: 
       </div>
       <label className="flex items-start gap-2 text-sm">
         <input type="checkbox" checked={f.novidades} onChange={(e) => mudar('novidades', e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-violet-600" />
-        <span>Quero receber novidades da Evokaa</span>
+        <span>
+          Quero receber novidades da Evokaa por e-mail e WhatsApp
+          {inicial.novidades && f.novidades && <span className={`block text-[11px] ${suave}`}>Você já aceitou; desmarque para deixar de receber.</span>}
+        </span>
       </label>
       <p className={`text-[11px] leading-snug ${suave}`}>
-        Ao continuar, você concorda com a{' '}
+        Seus dados são tratados conforme a{' '}
         <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="font-semibold underline">Política de Privacidade</a>.
       </p>
       {erro && (
@@ -349,7 +365,7 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   return (
     <>
       <Voltar onClick={() => ir({ t: 'inicio' })}>
-        <h3 className="truncate text-sm font-semibold">{c?.chat_topics?.label ?? 'Conversa'}</h3>
+        <h3 data-foco tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">{c?.chat_topics?.label ?? 'Conversa'}</h3>
         <p className={`text-xs ${suave}`}>Equipe Evokaa{c?.status === 'resolved' ? ' · resolvida' : ''}</p>
       </Voltar>
       {c?.status === 'resolved' && <Avaliacao c={c} atualizar={atualizar} />}
@@ -366,16 +382,23 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   )
 }
 
-function Suporte({ publico }: { publico: Publico }) {
+function Suporte({ publico, focarAoAbrir = false }: { publico: Publico; focarAoAbrir?: boolean }) {
   const { user } = useAuth()
   const [tela, setTela] = useState<Tela>({ t: 'inicio' })
-  if (!user) return <SemLogin />
+  const raiz = useRef<HTMLDivElement>(null)
+  const anterior = useRef(tela)
+  // A cada troca de tela o foco vai para o título (leitor de tela e teclado); ao abrir o balão, também
+  useEffect(() => {
+    if (anterior.current !== tela || focarAoAbrir) raiz.current?.querySelector<HTMLElement>('[data-foco]')?.focus()
+    anterior.current = tela
+  }, [tela, focarAoAbrir])
   return (
-    <div className="flex min-h-0 flex-1 flex-col pt-3">
-      {tela.t === 'inicio' && <Inicio ir={setTela} />}
-      {tela.t === 'assuntos' && <Assuntos publico={publico} ir={setTela} />}
-      {tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} />}
-      {tela.t === 'conversa' && <TelaConversa id={tela.id} ir={setTela} />}
+    <div ref={raiz} className="flex min-h-0 flex-1 flex-col pt-3">
+      {!user && <SemLogin />}
+      {user && tela.t === 'inicio' && <Inicio ir={setTela} />}
+      {user && tela.t === 'assuntos' && <Assuntos publico={publico} ir={setTela} />}
+      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} />}
+      {user && tela.t === 'conversa' && <TelaConversa id={tela.id} ir={setTela} />}
     </div>
   )
 }
@@ -390,7 +413,12 @@ export function SupportChatPanel() {
 export default function SupportChatWidget() {
   const { user } = useAuth()
   const [aberto, setAberto] = useState(false)
+  const botao = useRef<HTMLButtonElement>(null)
   const { naoLidas } = useMinhasConversas(true)
+  const fechar = () => {
+    setAberto(false)
+    botao.current?.focus()
+  }
   const rotuloBotao = aberto ? 'Fechar chat com a Evokaa' : naoLidas > 0 ? `Falar com a Evokaa (${naoLidas} ${naoLidas === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com a Evokaa'
 
   return (
@@ -399,20 +427,21 @@ export default function SupportChatWidget() {
         <div
           role="dialog"
           aria-labelledby="suporte-titulo"
-          onKeyDown={(e) => e.key === 'Escape' && setAberto(false)}
+          onKeyDown={(e) => e.key === 'Escape' && fechar()}
           className="glass-panel mb-4 flex h-[min(620px,calc(100dvh-7rem))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4"
           style={{ borderRadius: 28 }}
         >
           <div className="flex items-center justify-between px-5 pb-1 pt-4">
             <h2 id="suporte-titulo" className="text-base font-semibold">Falar com a Evokaa</h2>
-            <button type="button" onClick={() => setAberto(false)} aria-label="Fechar chat com a Evokaa" className={`rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 ${foco}`}>
+            <button type="button" onClick={fechar} aria-label="Fechar chat com a Evokaa" className={`rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 ${foco}`}>
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
           </div>
-          <Suporte key={user?.id ?? 'anon'} publico="site" />
+          <Suporte key={user?.id ?? 'anon'} publico="site" focarAoAbrir />
         </div>
       )}
       <button
+        ref={botao}
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-label={rotuloBotao}

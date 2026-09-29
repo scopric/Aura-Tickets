@@ -100,7 +100,9 @@ export function mensagemDeErro(e: unknown): string {
   if (e instanceof Error && e.name === 'ErroChat') return e.message
   if (typeof navigator !== 'undefined' && !navigator.onLine) return 'Sem conexão com a internet. Tente de novo quando voltar.'
   const err = e as { code?: string; message?: string } | null
-  if (err?.code === '22023' || err?.code === '42501') return err.message ?? 'Operação recusada.'
+  // recusa do banco em português passa; texto técnico (RLS, privilégio) nunca chega à tela
+  if ((err?.code === '22023' || err?.code === '42501') && err.message && !/permission denied|violates|row-level security|policy/i.test(err.message)) return err.message
+  if (err?.code === '42501') return 'Você não tem acesso a esta conversa.'
   return 'Não foi possível concluir agora. Tente de novo em instantes.'
 }
 
@@ -177,7 +179,8 @@ export function useUrlAnexo(path: string | null, baixar?: string) {
     queryKey: ['chat-url', path, baixar ?? null],
     queryFn: () => urlAssinada(path as string, baixar),
     enabled: !!path,
-    staleTime: 9 * 60_000, // a URL vale 10 min
+    staleTime: 9 * 60_000, // a URL vale 10 min: renova antes de vencer com a tela aberta
+    refetchInterval: 9 * 60_000,
     gcTime: 10 * 60_000,
     retry: false,
   })
@@ -198,6 +201,7 @@ export function bipe(tom: [number, number] = [523.25, 783.99]) {
     osc.start()
     osc.frequency.setValueAtTime(tom[1], ctx.currentTime + 0.08)
     ganho.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    osc.onended = () => { ctx.close() }
     osc.stop(ctx.currentTime + 0.3)
   } catch {
     // sem áudio: segue em silêncio
@@ -272,7 +276,7 @@ export function useMinhasConversas(ouvir = false) {
         .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, chat_topics(label)')
         .eq('user_id', uid!)
         .order('last_message_at', { ascending: false })
-        .limit(20)
+        .limit(50)
       if (error) throw error
       return (data ?? []) as unknown as Conversa[]
     },
@@ -301,20 +305,21 @@ export function useMinhasConversas(ouvir = false) {
   return { ...q, naoLidas }
 }
 
-// ponytail: até 500 mensagens por conversa; paginar se alguma conversa passar disso
-export function useMensagens(conversaId: string | null) {
+// ponytail: as 500 mensagens mais novas da conversa; paginar se alguma conversa passar disso.
+// `apenasPublicas` (tela do cliente): nota interna fica de fora mesmo que a RLS falhe.
+export function useMensagens(conversaId: string | null, apenasPublicas = false) {
   return useQuery<MensagemChat[]>({
-    queryKey: ['chat-mensagens', conversaId],
+    queryKey: ['chat-mensagens', conversaId, apenasPublicas ? 'publicas' : 'todas'],
     enabled: !!conversaId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from('conversation_messages' as never)
         .select('id, conversation_id, sender_id, sender_role, sender_name, body, is_internal, attachment_path, attachment_name, attachment_mime, attachment_size, created_at')
         .eq('conversation_id', conversaId!)
-        .order('created_at')
-        .limit(500)
+      if (apenasPublicas) q = q.eq('is_internal', false)
+      const { data, error } = await q.order('created_at', { ascending: false }).limit(500)
       if (error) throw error
-      return (data ?? []) as unknown as MensagemChat[]
+      return ((data ?? []) as unknown as MensagemChat[]).reverse()
     },
   })
 }

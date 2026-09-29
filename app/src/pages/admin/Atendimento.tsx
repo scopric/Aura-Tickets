@@ -152,7 +152,7 @@ function useOpcoes() {
       return (d ?? []) as unknown as { id: string; full_name: string | null; email: string }[]
     },
   })
-  return { setores: setores.data ?? [], atendentes: atendentes.data ?? [] }
+  return { setores: setores.data ?? [], atendentes: atendentes.data ?? [], erroAtendentes: atendentes.error }
 }
 
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
@@ -175,15 +175,16 @@ export default function Atendimento() {
   const [salvando, setSalvando] = useState(false)
 
   useEffect(() => {
-    const t = setTimeout(() => setBusca(textoBusca.trim()), 300)
+    // a partir de 2 caracteres (1 letra casaria quase tudo e a busca no texto é cara)
+    const t = setTimeout(() => setBusca(textoBusca.trim().length >= 2 ? textoBusca.trim() : ''), 300)
     return () => clearTimeout(t)
   }, [textoBusca])
 
   // Um canal só, criado ao montar (não recria ao trocar de conversa): INSERT/UPDATE de conversas e
   // INSERT de mensagens. O Realtime respeita o RLS; aqui só se invalida o cache.
   useEffect(() => {
-    const aoMudarConversa = ({ eventType, new: c }: { eventType: string; new: { id?: string } }) => {
-      if (eventType === 'INSERT') bipe([659.25, 987.77])
+    // o bipe sai só na mensagem do cliente (conversa nova também traz a 1ª mensagem: um bipe só)
+    const aoMudarConversa = ({ new: c }: { new: { id?: string } }) => {
       qc.invalidateQueries({ queryKey: ['chat-inbox'] })
       if (c.id) {
         qc.invalidateQueries({ queryKey: ['chat-conversa', c.id] })
@@ -208,7 +209,7 @@ export default function Atendimento() {
   const conversa = useConversaAdmin(sel)
   const c = conversa.data
   const extra = useExtra(c?.user_id ?? null, sel)
-  const { setores, atendentes } = useOpcoes()
+  const { setores, atendentes, erroAtendentes } = useOpcoes()
   const naoLida = !!c && depois(c.last_customer_message_at, c.agent_last_read_at)
 
   useEffect(() => {
@@ -240,7 +241,7 @@ export default function Atendimento() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
+    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
       {/* 1. Filtros + busca */}
       <nav aria-label="Filtros do atendimento" className={`${sel ? 'hidden lg:flex' : 'flex'} w-44 shrink-0 flex-col gap-1 border-r border-border bg-card p-3`}>
         <h1 className="mb-2 flex items-center gap-2 px-2 text-base font-semibold">
@@ -291,6 +292,10 @@ export default function Atendimento() {
               {busca ? 'Nenhuma conversa encontrada para essa busca.' : 'Nenhuma conversa neste filtro.'}
             </div>
           ) : (
+            <>
+            {inbox.data.length >= 100 && (
+              <p role="status" className="border-b border-border px-3 py-2 text-xs text-muted-foreground">Mostrando as 100 mais recentes. Use a busca para achar as outras.</p>
+            )}
             <ul className="divide-y divide-border">
               {inbox.data.map((l) => {
                 const aguardando = l.status === 'open' && depois(l.last_customer_message_at, l.last_reply_at)
@@ -324,6 +329,7 @@ export default function Atendimento() {
                 )
               })}
             </ul>
+            </>
           )}
         </div>
       </div>
@@ -426,8 +432,13 @@ export default function Atendimento() {
                 <label htmlFor="atendimento-dono" className="text-xs text-muted-foreground">Responsável</label>
                 <select id="atendimento-dono" value={c.assignee_id ?? ''} disabled={salvando} onChange={(e) => mudar({ assignee_id: e.target.value || null })} className={selectCls}>
                   <option value="">Sem dono</option>
+                  {/* dono atual fora da lista (perdeu a permissão, lista carregando ou com erro): o seletor não pode mentir */}
+                  {c.assignee_id && !atendentes.some((a) => a.id === c.assignee_id) && (
+                    <option value={c.assignee_id}>{c.assignee_id === user?.id ? 'Você' : 'Responsável atual'}</option>
+                  )}
                   {atendentes.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.id === user?.id ? ' (você)' : ''}</option>)}
                 </select>
+                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes)}</p>}
               </div>
               <div>
                 <label htmlFor="atendimento-setor" className="text-xs text-muted-foreground">Setor</label>

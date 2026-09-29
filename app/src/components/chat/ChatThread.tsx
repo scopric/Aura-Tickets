@@ -79,7 +79,9 @@ export default function ChatThread({
   rotuloCampo?: string
 }) {
   const qc = useQueryClient()
-  const { data: mensagens, isLoading, isError, refetch } = useMensagens(conversaId)
+  const { data: todas, isLoading, isError, refetch } = useMensagens(conversaId, !souEquipe)
+  // cliente nunca vê nota interna, nem se a RLS e o filtro da consulta falharem
+  const mensagens = souEquipe ? todas : todas?.filter((m) => !m.is_internal)
   const [texto, setTexto] = useState('')
   const [nota, setNota] = useState(false)
   const [arquivo, setArquivo] = useState<File | null>(null)
@@ -123,7 +125,8 @@ export default function ChatThread({
         setAnexo(a)
       }
       await enviarMensagem(conversaId, t, { nota, anexo: a ?? undefined })
-      setTexto('')
+      // o que foi digitado durante o envio fica no campo
+      setTexto((x) => (x.trim() === t ? '' : x))
       setArquivo(null)
       setAnexo(null)
       qc.invalidateQueries({ queryKey: ['chat-mensagens', conversaId] })
