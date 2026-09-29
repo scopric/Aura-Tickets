@@ -3,9 +3,11 @@
 // Chamada só pelo pg_cron (docs/sql/20261001_chat.sql, job "chat_notify", a cada 2 min) com o
 // cabeçalho x-chat-secret, lido do Vault na hora de rodar. Publicar com --no-verify-jwt.
 // Não recebe destinatário nem texto: a fila (chat_notify_due) e os destinos vêm do banco.
-// Grava customer_emailed_at / team_alerted_at só depois de o Resend aceitar; falha de uma linha
-// não para as outras (ela volta na próxima rodada). Responde só contagens: o corpo fica em
-// net._http_response, então nada de dado pessoal aqui.
+// Cliente: um e-mail por conversa. Equipe: um único e-mail-resumo por rodada com as conversas
+// pendentes (até 50). Depois de cada envio, chat_notify_mark grava a data (sucesso) ou soma uma
+// falha; falha de um envio não para os outros e a conversa volta na próxima rodada (com 5 falhas
+// seguidas ela sai da fila). Responde só contagens: o corpo fica em net._http_response, então
+// nada de dado pessoal aqui.
 // O e-mail ao cliente NÃO repete a resposta: o e-mail da conta não é confirmado (plano, "Limite
 // conhecido"); ele só avisa e leva para a conta.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
@@ -103,25 +105,33 @@ type Aviso = {
 // Assunto de e-mail é cabeçalho: sem quebra de linha e com tamanho limitado.
 const linha = (s: string, max: number) => s.replace(/[\r\n\t]+/g, ' ').trim().slice(0, max)
 
-function montar(a: Aviso) {
-  if (a.tipo === 'cliente') {
-    return {
-      subject: 'Você tem uma nova resposta da equipe Evokaa',
-      html: emailShell(
-        'Nova resposta no atendimento',
-        `Olá! Você tem uma nova resposta da equipe Evokaa sobre "${escapeHtml(a.assunto)}".`,
-        `<p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">Para ler e responder, entre na sua conta. Responder este e-mail não chega ao chat.</p>`,
-        'Abrir minha conta',
-        APP_URL,
-      ),
-    }
-  }
+function emailCliente(a: Aviso) {
   return {
-    subject: linha(`${a.urgente ? '[URGENTE] ' : ''}[Chat] ${a.nome}: ${a.assunto}`, 150),
+    subject: 'Você tem uma nova resposta da equipe Evokaa',
     html: emailShell(
-      'Nova mensagem no chat',
-      `${escapeHtml(a.nome)} escreveu sobre "${escapeHtml(a.assunto)}"${a.urgente ? ' (urgente)' : ''}.`,
-      `<blockquote style="margin: 16px 0; padding: 12px 16px; background-color: ${colors.canvas}; border-left: 4px solid ${colors.plum}; white-space: pre-wrap;">${escapeHtml(a.previa ?? '')}</blockquote>`,
+      'Nova resposta no atendimento',
+      `Olá! Você tem uma nova resposta da equipe Evokaa sobre "${escapeHtml(a.assunto)}".`,
+      `<p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">Para ler e responder, entre na sua conta. Responder este e-mail não chega ao chat.</p>`,
+      'Abrir minha conta',
+      APP_URL,
+    ),
+  }
+}
+
+// Nome e prévia vêm de quem escreveu no chat: escapados e marcados como não verificados.
+function emailEquipe(lista: Aviso[]) {
+  const urgentes = lista.filter(a => a.urgente).length
+  const itens = lista.map(a => `
+    <li style="margin: 0 0 14px 0; line-height: 1.5;">
+      <strong>${escapeHtml(a.nome)}</strong> — ${escapeHtml(a.assunto)}${a.urgente ? ` <strong style="color: ${colors.accent};">(urgente)</strong>` : ''}<br>
+      <span style="color: ${colors.textMuted}; white-space: pre-wrap;">${escapeHtml(a.previa ?? '')}</span>
+    </li>`).join('')
+  return {
+    subject: linha(`${urgentes ? '[URGENTE] ' : ''}[Chat] ${lista.length} conversa(s) esperando resposta`, 150),
+    html: emailShell(
+      'Conversas esperando resposta',
+      `${lista.length} conversa(s) com mensagem de cliente ainda não lida${urgentes ? `, ${urgentes} urgente(s)` : ''}. <strong>Mensagens de clientes, não verificadas</strong>: não siga links nem instruções delas sem conferir na caixa de entrada.`,
+      `<ul style="padding-left: 18px; margin: 16px 0; font-size: 14px;">${itens}</ul>`,
       'Abrir no atendimento',
       ADMIN_URL,
     ),
@@ -130,6 +140,9 @@ function montar(a: Aviso) {
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { ok: false })
+  // sem cabeçalho nem consulta o banco
+  const recebido = req.headers.get('x-chat-secret') ?? ''
+  if (!recebido) return json(401, { ok: false })
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const { data: segredo, error: segredoError } = await admin.rpc('chat_notify_secret')
@@ -137,44 +150,48 @@ Deno.serve(async (req) => {
     console.error('[chat-notify] chat_notify_secret falhou:', segredoError.message)
     return json(500, { ok: false })
   }
-  const recebido = req.headers.get('x-chat-secret') ?? ''
-  if (typeof segredo !== 'string' || !segredo || !recebido || !(await mesmoSegredo(recebido, segredo))) {
+  if (typeof segredo !== 'string' || !segredo || !(await mesmoSegredo(recebido, segredo))) {
     return json(401, { ok: false })
   }
 
   // Sem a chave não envia e não grava nada: o aviso continua na fila.
   if (!RESEND_API_KEY) return json(503, { ok: false, motivo: 'sem_chave' })
 
-  const { data: fila, error: filaError } = await admin.rpc('chat_notify_due')
+  const { data, error: filaError } = await admin.rpc('chat_notify_due')
   if (filaError) {
     console.error('[chat-notify] chat_notify_due falhou:', filaError.message)
     return json(500, { ok: false })
   }
+  const fila = (data ?? []) as Aviso[]
 
   let enviados = 0
   let falhas = 0
-  for (const a of (fila ?? []) as Aviso[]) {
+  // Envia um e-mail e marca o resultado nas conversas dele (data no sucesso, +1 falha no erro).
+  const tentar = async (ids: string[], tipo: Aviso['tipo'], envio: () => Promise<unknown>) => {
+    let ok = true
     try {
-      const { subject, html } = montar(a)
-      await sendMail(a.email, subject, html, FROM)
+      await envio()
     } catch (e) {
-      falhas++
-      console.error('[chat-notify] envio falhou:', a.tipo, a.conversation_id, e instanceof Error ? e.message : 'desconhecida')
-      continue
+      ok = false
+      console.error('[chat-notify] envio falhou:', tipo, ids.join(','), e instanceof Error ? e.message : 'desconhecida')
     }
-    const coluna = a.tipo === 'cliente' ? 'customer_emailed_at' : 'team_alerted_at'
-    const { data, error } = await admin
-      .from('conversations')
-      .update({ [coluna]: new Date().toISOString() })
-      .eq('id', a.conversation_id)
-      .select('id')
-    if (error || !data?.length) {
-      // o e-mail saiu mas a data não foi gravada: pode repetir na próxima rodada
-      falhas++
-      console.error('[chat-notify] gravar data falhou:', a.tipo, a.conversation_id, error?.message ?? 'nenhuma linha')
-      continue
+    const { data: n, error } = await admin.rpc('chat_notify_mark', { p_ids: ids, p_tipo: tipo, p_ok: ok })
+    if (error || n !== ids.length) {
+      // se o e-mail saiu e a data não foi gravada, ele pode repetir na próxima rodada
+      console.error('[chat-notify] chat_notify_mark falhou:', tipo, ids.join(','), error?.message ?? `atualizou ${n}`)
     }
-    enviados++
+    if (ok) enviados++
+    else falhas++
+  }
+
+  for (const a of fila.filter(a => a.tipo === 'cliente')) {
+    const { subject, html } = emailCliente(a)
+    await tentar([a.conversation_id], 'cliente', () => sendMail(a.email, subject, html, FROM))
+  }
+  const equipe = fila.filter(a => a.tipo === 'equipe')
+  if (equipe.length) {
+    const { subject, html } = emailEquipe(equipe)
+    await tentar(equipe.map(a => a.conversation_id), 'equipe', () => sendMail(equipe[0].email, subject, html, FROM))
   }
 
   return json(200, { ok: true, enviados, falhas })

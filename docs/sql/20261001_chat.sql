@@ -87,6 +87,8 @@ create table if not exists public.conversations (
   rating smallint check (rating between 1 and 3),
   customer_emailed_at timestamptz,
   team_alerted_at timestamptz,
+  -- envios que falharam seguidos (chat-notify); em 5 a conversa sai da fila e não trava as outras
+  notify_failures int not null default 0,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -202,6 +204,28 @@ as $$
   end;
 $$;
 
+-- 3b'. chat_can_upload: regra de ENVIO ao bucket = vínculo com a conversa do caminho, conversa
+--      aberta e no máximo 20 arquivos na pasta dela. CASE garante a ordem: o cast do UUID só
+--      roda depois de chat_role_path validar o formato.
+--      ponytail: dois envios simultâneos podem passar de 20 por 1; lock por conversa se virar abuso.
+create or replace function public.chat_can_upload(p_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select case
+    when public.chat_role_path(p_name) is null then false
+    else exists (
+           select 1 from public.conversations c
+           where c.id = split_part(p_name, '/', 1)::uuid and c.status = 'open')
+         and (select count(*) from storage.objects o
+              where o.bucket_id = 'chat-anexos'
+                and starts_with(o.name, split_part(p_name, '/', 1) || '/')) < 20
+  end;
+$$;
+
 -- 3c. chat_start: abre conversa com a 1ª mensagem (sem anexo; o clipe só aparece depois).
 --     Público permitido = o do papel real (profiles.role) + 'site'. participant_producer e
 --     p_event_id ficam recusados na 1a (o parâmetro já existe para a etapa 4 não trocar a assinatura).
@@ -307,7 +331,8 @@ $$;
 -- 3d. chat_send: papel por chat_role, nunca por parâmetro. Cliente não manda nota; nota não
 --     leva anexo (o cliente listaria o arquivo na pasta da conversa). Anexo: caminho
 --     {conversa}/…, objeto existente no bucket chat-anexos; tipo e tamanho lidos do Storage.
---     Limite: 20 mensagens por minuto por pessoa. Cliente escrevendo em resolvida reabre.
+--     Limite: 20 mensagens por minuto por pessoa. Cliente escrevendo em resolvida reabre
+--     (respeitando o máximo de 3 abertas).
 create or replace function public.chat_send(
   p_conv uuid, p_body text, p_is_internal boolean, p_attachment_path text, p_attachment_name text
 )
@@ -368,6 +393,11 @@ begin
   end if;
 
   if v_role = 'customer' then
+    -- reabrir conta no limite de 3 abertas, como no chat_start
+    if (select c.status from public.conversations c where c.id = p_conv) = 'resolved'
+       and (select count(*) from public.conversations c where c.user_id = v_uid and c.status = 'open') >= 3 then
+      return jsonb_build_object('ok', false, 'motivo', 'limite_abertas');
+    end if;
     select ct.name into v_sender
     from public.conversations c join public.chat_contacts ct on ct.id = c.contact_id
     where c.id = p_conv;
@@ -375,8 +405,11 @@ begin
     set status = 'open', resolved_at = null, updated_at = now()
     where c.id = p_conv and c.status = 'resolved';
   end if;
+  -- cliente: nome do contato (ou do perfil); equipe e produtor: só o primeiro nome
   if v_sender is null then
-    select left(nullif(trim(p.full_name), ''), 120) into v_sender from public.profiles p where p.id = v_uid;
+    select left(case when v_role = 'customer' then nullif(trim(p.full_name), '')
+                     else nullif(split_part(trim(p.full_name), ' ', 1), '') end, 120)
+      into v_sender from public.profiles p where p.id = v_uid;
   end if;
   v_sender := coalesce(v_sender, case v_role when 'agent' then 'Equipe Evokaa' when 'producer' then 'Produtor' else 'Cliente' end);
 
@@ -529,7 +562,8 @@ $$;
 
 -- 3i. chat_inbox: lista da caixa de entrada. SECURITY INVOKER: o RLS continua valendo (cliente
 --     só vê as próprias conversas; nota interna não vaza pela busca no texto).
---     ponytail: a busca no texto avalia o RLS por mensagem; índice de texto ou pg_trgm se ficar lenta.
+--     ponytail: a busca no texto avalia o RLS por mensagem (medida do revisor: ≈2 s com 5.000
+--     conversas / 50.000 mensagens); trocar por índice de texto ou pg_trgm antes de chegar lá.
 create or replace function public.chat_inbox(p_filtro text, p_busca text, p_limite int)
 returns table (
   id uuid, user_id uuid, contact_id uuid, kind text, status text, priority text,
@@ -586,7 +620,7 @@ end;
 $$;
 
 -- 3j. Gatilho: resumo da conversa a cada mensagem (nota interna não mexe: senão a prévia e a
---     "não lida" do cliente mostrariam a nota).
+--     "não lida" do cliente mostrariam a nota). Quem escreve conta como quem leu.
 create or replace function public.chat_messages_after_insert()
 returns trigger
 language plpgsql
@@ -601,6 +635,13 @@ begin
     last_message_preview = left(case when new.body <> '' then new.body
                                      else 'Anexo: ' || coalesce(new.attachment_name, 'arquivo') end, 140),
     last_customer_message_at = case when new.sender_role = 'customer' then new.created_at else c.last_customer_message_at end,
+    -- quem escreve leu a conversa até ali
+    customer_last_read_at = case when new.sender_role = 'customer'
+                                 then greatest(coalesce(c.customer_last_read_at, '-infinity'), new.created_at)
+                                 else c.customer_last_read_at end,
+    agent_last_read_at = case when new.sender_role in ('agent', 'producer')
+                              then greatest(coalesce(c.agent_last_read_at, '-infinity'), new.created_at)
+                              else c.agent_last_read_at end,
     last_reply_at = case when new.sender_role in ('agent', 'producer') then new.created_at else c.last_reply_at end,
     first_response_at = case when new.sender_role in ('agent', 'producer') and c.first_response_at is null
                              then new.created_at else c.first_response_at end,
@@ -625,13 +666,15 @@ as $$
   select d.decrypted_secret from vault.decrypted_secrets d where d.name = 'chat_notify_secret' limit 1;
 $$;
 
--- Avisos devidos (máx. 50, urgentes primeiro). O destino sai do banco, nunca do chamador:
---   cliente: e-mail da conta (auth.users) quando há resposta humana (não nota) com mais de
---            5 min, mais nova que o que ele leu e que o último e-mail. Só conversa com dono.
+-- Avisos devidos (até 50 de cada tipo, urgentes primeiro). O destino sai do banco, nunca do chamador:
+--   cliente: e-mail da conta (auth.users, conta não excluída) quando há resposta humana (não
+--            nota) com mais de 5 min, mais nova que o que ele leu e que o último e-mail.
 --   equipe:  chat_settings.team_email quando o cliente escreveu depois da última leitura e do
 --            último alerta: conversa nova (nunca alertada) ou urgente na hora; as demais depois
---            de 5 min sem leitura; no máximo 1 alerta por conversa a cada 30 min.
--- A função chat-notify grava customer_emailed_at / team_alerted_at só depois de enviar.
+--            de 5 min sem leitura; no máximo 1 alerta por conversa a cada 30 min. A chat-notify
+--            junta as linhas "equipe" num único e-mail-resumo por rodada.
+--   Conversa com 5 falhas seguidas de envio (notify_failures) sai da fila, para não travar as outras.
+-- A chat-notify marca o resultado por chat_notify_mark, só depois de tentar enviar.
 create or replace function public.chat_notify_due()
 returns table (
   tipo text, conversation_id uuid, email text, nome text, assunto text, urgente boolean, previa text
@@ -641,37 +684,78 @@ stable
 security definer
 set search_path = ''
 as $$
-  select x.tipo, x.conversation_id, x.email, x.nome, x.assunto, x.urgente, x.previa
-  from (
-    select 'cliente'::text as tipo, c.id as conversation_id, u.email::text as email,
-           coalesce(ct.name, 'cliente') as nome, coalesce(t.label, 'Atendimento') as assunto,
-           c.priority = 'urgent' as urgente, null::text as previa, c.last_reply_at as quando
-    from public.conversations c
-    join auth.users u on u.id = c.user_id
-    left join public.chat_contacts ct on ct.id = c.contact_id
-    left join public.chat_topics t on t.id = c.topic_id
-    where c.last_reply_at < now() - interval '5 minutes'
-      and c.last_reply_at > greatest(coalesce(c.customer_last_read_at, '-infinity'),
-                                     coalesce(c.customer_emailed_at, '-infinity'))
-      and u.email is not null
-    union all
-    select 'equipe', c.id, s.team_email,
-           coalesce(ct.name, 'Sem nome'), coalesce(t.label, 'Sem assunto'),
-           c.priority = 'urgent', c.last_message_preview, c.last_customer_message_at
-    from public.conversations c
-    join public.chat_settings s on s.id = 1
-    left join public.chat_contacts ct on ct.id = c.contact_id
-    left join public.chat_topics t on t.id = c.topic_id
-    where c.status = 'open'
-      and c.kind = 'evokaa'
-      and c.last_customer_message_at > greatest(coalesce(c.agent_last_read_at, '-infinity'),
-                                                coalesce(c.team_alerted_at, '-infinity'))
-      and (c.team_alerted_at is null or c.team_alerted_at < now() - interval '30 minutes')
-      and (c.team_alerted_at is null or c.priority = 'urgent'
-           or c.last_customer_message_at < now() - interval '5 minutes')
-  ) x
-  order by x.urgente desc, x.quando
-  limit 50;
+  (select 'cliente'::text, c.id, u.email::text,
+          coalesce(ct.name, 'cliente'), coalesce(t.label, 'Atendimento'),
+          c.priority = 'urgent', null::text
+   from public.conversations c
+   join auth.users u on u.id = c.user_id
+   left join public.chat_contacts ct on ct.id = c.contact_id
+   left join public.chat_topics t on t.id = c.topic_id
+   where c.last_reply_at < now() - interval '5 minutes'
+     and c.last_reply_at > greatest(coalesce(c.customer_last_read_at, '-infinity'),
+                                    coalesce(c.customer_emailed_at, '-infinity'))
+     and u.email is not null
+     and u.deleted_at is null
+     and c.notify_failures < 5
+   order by c.priority = 'urgent' desc, c.last_reply_at
+   limit 50)
+  union all
+  (select 'equipe', c.id, s.team_email,
+          coalesce(ct.name, 'Sem nome'), coalesce(t.label, 'Sem assunto'),
+          c.priority = 'urgent', c.last_message_preview
+   from public.conversations c
+   join public.chat_settings s on s.id = 1
+   left join public.chat_contacts ct on ct.id = c.contact_id
+   left join public.chat_topics t on t.id = c.topic_id
+   where c.status = 'open'
+     and c.kind = 'evokaa'
+     and c.last_customer_message_at > greatest(coalesce(c.agent_last_read_at, '-infinity'),
+                                               coalesce(c.team_alerted_at, '-infinity'))
+     and (c.team_alerted_at is null or c.team_alerted_at < now() - interval '30 minutes')
+     and (c.team_alerted_at is null or c.priority = 'urgent'
+          or c.last_customer_message_at < now() - interval '5 minutes')
+     and c.notify_failures < 5
+   order by c.priority = 'urgent' desc, c.last_customer_message_at
+   limit 50);
+$$;
+
+-- Resultado do envio: sucesso grava a data do tipo e zera as falhas; falha soma 1.
+create or replace function public.chat_notify_mark(p_ids uuid[], p_tipo text, p_ok boolean)
+returns int
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_n int;
+begin
+  if coalesce(p_tipo, '') not in ('cliente', 'equipe') or p_ok is null then
+    raise exception 'Parâmetros inválidos' using errcode = '22023';
+  end if;
+  update public.conversations c set
+    customer_emailed_at = case when p_ok and p_tipo = 'cliente' then now() else c.customer_emailed_at end,
+    team_alerted_at = case when p_ok and p_tipo = 'equipe' then now() else c.team_alerted_at end,
+    notify_failures = case when p_ok then 0 else c.notify_failures + 1 end
+  where c.id = any(p_ids);
+  get diagnostics v_n = row_count;
+  return v_n;
+end;
+$$;
+
+-- 3m. chat_orfaos_de (exclusão de conta, delete-account): arquivos do bucket que a pessoa
+--     subiu e que nenhuma mensagem usa.
+create or replace function public.chat_orfaos_de(p_user uuid)
+returns setof text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select o.name
+  from storage.objects o
+  where o.bucket_id = 'chat-anexos'
+    and o.owner = p_user
+    and not exists (select 1 from public.conversation_messages m where m.attachment_path = o.name);
 $$;
 
 -- 4. RLS: leitura só; nenhuma escrita direta (tudo pelas funções acima) -------
@@ -726,9 +810,11 @@ create policy chat_settings_select on public.chat_settings
   using ((select public.gf_admin_can('manage_support')));
 
 -- 5. Storage: bucket privado chat-anexos (10 MB; jpeg, png, webp, pdf) --------
---    Ler e enviar só quem tem vínculo com a conversa do caminho. bucket_id na regra: sem ele,
---    ela valeria para qualquer bucket futuro. Sem UPDATE/DELETE.
---    ponytail: arquivo enviado e nunca anexado fica no bucket; limpeza e cota por conversa se houver abuso.
+--    Ler: quem tem vínculo com a conversa do caminho. Enviar: idem, com a conversa aberta e até
+--    20 arquivos por conversa (chat_can_upload). bucket_id na regra: sem ele, ela valeria para
+--    qualquer bucket futuro. Sem UPDATE/DELETE.
+--    ponytail: arquivo enviado e nunca anexado fica no bucket (até 20 por conversa); a exclusão
+--    de conta apaga os da pessoa; limpeza periódica se houver abuso.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('chat-anexos', 'chat-anexos', false, 10485760,
         array['image/jpeg', 'image/png', 'image/webp', 'application/pdf'])
@@ -745,7 +831,7 @@ create policy chat_anexos_select on storage.objects
 drop policy if exists chat_anexos_insert on storage.objects;
 create policy chat_anexos_insert on storage.objects
   for insert to authenticated
-  with check (bucket_id = 'chat-anexos' and public.chat_role_path(name) is not null);
+  with check (bucket_id = 'chat-anexos' and public.chat_can_upload(name));
 
 -- 6. Realtime (o Realtime respeita o RLS acima). O front assina só INSERT (mensagens) e
 --    INSERT/UPDATE (conversas): DELETE não passa pelo filtro do RLS.
@@ -792,12 +878,33 @@ select cron.schedule('chat_notify', '*/2 * * * *', $cron$
   );
 $cron$);
 
+-- 7b. Fila do pg_net: o Supabase deixa anon e authenticated lerem net.http_request_queue e
+--     net._http_response (conferido em produção em 29/09). A fila guarda os cabeçalhos do pedido
+--     enquanto ele não sai, ou seja, o x-chat-secret deste cron; a resposta guarda o corpo que a
+--     função devolve. Ninguém do navegador precisa ler nenhuma das duas.
+--     ATENÇÃO: só quem deu a permissão consegue tirá-la. Na imagem supabase/postgres ela foi dada
+--     por supabase_admin a PUBLIC, e este revoke rodado como postgres não tem efeito (só WARNING).
+--     O bloco abaixo avisa se a fila continuar legível; aí vira pendência (suporte da Supabase).
+revoke select on net.http_request_queue, net._http_response from anon, authenticated;
+do $$
+begin
+  if has_table_privilege('anon', 'net.http_request_queue', 'select')
+     or has_table_privilege('authenticated', 'net.http_request_queue', 'select')
+     or has_table_privilege('anon', 'net._http_response', 'select')
+     or has_table_privilege('authenticated', 'net._http_response', 'select') then
+    raise warning 'A fila do pg_net continua legível por anon/authenticated: o revoke não teve efeito (permissão dada por outro papel). Registrar como pendência.';
+  end if;
+end $$;
+
 -- 8. Quem executa o quê (o Supabase dá EXECUTE a anon/authenticated por padrão) --
 revoke all on function public.chat_role(uuid) from public, anon, authenticated, service_role;
 grant execute on function public.chat_role(uuid) to authenticated;
 
 revoke all on function public.chat_role_path(text) from public, anon, authenticated, service_role;
 grant execute on function public.chat_role_path(text) to authenticated;
+
+revoke all on function public.chat_can_upload(text) from public, anon, authenticated, service_role;
+grant execute on function public.chat_can_upload(text) to authenticated;
 
 revoke all on function public.chat_start(uuid, uuid, text, text, boolean, text) from public, anon, authenticated, service_role;
 grant execute on function public.chat_start(uuid, uuid, text, text, boolean, text) to authenticated;
@@ -828,12 +935,19 @@ grant execute on function public.chat_notify_secret() to service_role;
 revoke all on function public.chat_notify_due() from public, anon, authenticated, service_role;
 grant execute on function public.chat_notify_due() to service_role;
 
+revoke all on function public.chat_notify_mark(uuid[], text, boolean) from public, anon, authenticated, service_role;
+grant execute on function public.chat_notify_mark(uuid[], text, boolean) to service_role;
+
+revoke all on function public.chat_orfaos_de(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.chat_orfaos_de(uuid) to service_role;
+
 -- 9. Migração do chat antigo (support_*) — idempotente, reusa os ids --------------
 --    Roda de novo depois do deploy do PR B (pega o que foi escrito no chat antigo entre os PRs).
---    closed → resolved; open/assigned → open; visitor → customer; agent → agent; remetente ou
---    atendente sem perfil → nulo; sessão sem conta → conversa sem contato. Assunto: "Imprensa
---    e outros assuntos" (site, setor Geral). Nenhum aviso sobre conversa antiga: as datas de
---    leitura e de aviso das migradas vão para now() no fim do bloco.
+--    closed → resolved; open/assigned → open; visitor → customer; agent → agent só se o
+--    remetente é admin (senão customer); remetente ou atendente sem perfil → nulo; sessão sem
+--    conta → conversa sem contato. Assunto: "Imprensa e outros assuntos" (site, setor Geral).
+--    Nenhum aviso sobre o que já existia: a conversa nasce com leituras e avisos em now(). Na
+--    2ª rodada, mensagem nova numa conversa já migrada fica "não lida" (e avisa a equipe).
 insert into public.chat_contacts (user_id, name, email, origin)
 select distinct on (p.id)
        p.id,
@@ -872,7 +986,8 @@ on conflict (id) do nothing;
 
 insert into public.conversation_messages (id, conversation_id, sender_id, sender_role, sender_name, body, created_at)
 select m.id, m.session_id, p.id,
-       case when m.sender_type = 'agent' then 'agent' else 'customer' end,
+       -- o chat antigo deixava o cliente gravar qualquer sender_type: "agent" só vale de admin
+       case when m.sender_type = 'agent' and p.role = 'admin' then 'agent' else 'customer' end,
        left(coalesce(nullif(trim(m.sender_name), ''), 'Sem nome'), 120),
        left(coalesce(nullif(trim(m.content), ''), '(mensagem vazia)'), 4000),
        coalesce(m.created_at, now())
@@ -881,11 +996,6 @@ join public.conversations c on c.id = m.session_id
 left join public.profiles p on p.id = m.sender_id
 order by m.created_at
 on conflict (id) do nothing;
-
-update public.conversations c
-set customer_last_read_at = now(), agent_last_read_at = now(),
-    customer_emailed_at = now(), team_alerted_at = now()
-where c.id in (select s.id from public.support_sessions s);
 
 commit;
 
@@ -1238,7 +1348,7 @@ commit;
 -- begin
 --   for f in select p.oid::regprocedure from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname like 'chat\_%' loop
 --     assert not has_function_privilege('anon', f, 'execute'), format('anon executa %s', f);
---     if f::text like 'chat_notify%' then
+--     if f::text like 'chat_notify%' or f::text like 'chat_orfaos_de%' then
 --       assert not has_function_privilege('authenticated', f, 'execute') and has_function_privilege('service_role', f, 'execute'), format('%s', f);
 --     end if;
 --   end loop;
@@ -1261,6 +1371,7 @@ commit;
 --   cp uuid := current_setting('teste.conv_p')::uuid;
 -- begin
 --   -- conversa nova (nunca alertada) aparece para a equipe; conversa de produtor não
+--   update public.conversations set agent_last_read_at = null, team_alerted_at = null where id = ca;
 --   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca), 'nova sem alerta';
 --   assert not exists (select 1 from public.chat_notify_due() where conversation_id = cp and tipo = 'equipe'), 'conversa de produtor alertou a equipe';
 --   assert (select email from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca) = 'contato@evokaa.com.br', 'destino da equipe';
@@ -1287,9 +1398,13 @@ commit;
 --   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou 2 vezes';
 --   update public.conversations set customer_emailed_at = null, customer_last_read_at = now() where id = ca;
 --   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou resposta lida';
---   -- migradas nunca aparecem
---   assert not exists (select 1 from public.chat_notify_due() d join public.support_sessions s on s.id = d.conversation_id), 'migrada gerou aviso';
---   assert (select count(*) from public.chat_notify_due()) <= 50, 'mais de 50';
+--   -- migrada sem mensagem nova depois da migração não aparece
+--   assert not exists (select 1 from public.chat_notify_due() d
+--                      join public.support_sessions s on s.id = d.conversation_id
+--                      join public.conversations c on c.id = d.conversation_id
+--                      where not exists (select 1 from public.conversation_messages m
+--                                        where m.conversation_id = c.id and m.created_at > c.team_alerted_at)), 'migrada gerou aviso';
+--   assert (select count(*) from public.chat_notify_due() where tipo = 'equipe') <= 50, 'mais de 50';
 --   raise notice 'T14 OK: regras de aviso ao cliente e à equipe';
 -- end $t$;
 --
@@ -1301,13 +1416,140 @@ commit;
 --   assert not exists (select 1 from public.conversations c join public.support_sessions s on s.id = c.id
 --                      where c.status <> case when s.status = 'closed' then 'resolved' else 'open' end), 'status';
 --   assert not exists (select 1 from public.conversation_messages m join public.support_messages s on s.id = m.id
---                      where m.sender_role <> case when s.sender_type = 'agent' then 'agent' else 'customer' end
+--                      where m.sender_role <> case when s.sender_type = 'agent'
+--                                                   and exists (select 1 from public.profiles p where p.id = s.sender_id and p.role = 'admin')
+--                                                  then 'agent' else 'customer' end
 --                         or m.sender_id is distinct from (select p.id from public.profiles p where p.id = s.sender_id)), 'remetente';
 --   assert not exists (select 1 from public.conversations c join public.support_sessions s on s.id = c.id
 --                      where (s.user_id is null) <> (c.contact_id is null)
 --                         or c.department_id is distinct from (select id from public.chat_departments where slug = 'geral')), 'contato/setor';
---   raise notice 'T15 OK: % conversas e % mensagens migradas',
+--   raise notice 'T15 OK: % conversas e % mensagens migradas; % "agent" forjado(s) gravado(s) como customer',
 --     (select count(*) from public.conversations c join public.support_sessions s on s.id = c.id),
---     (select count(*) from public.conversation_messages m join public.support_messages s on s.id = m.id);
+--     (select count(*) from public.conversation_messages m join public.support_messages s on s.id = m.id),
+--     (select count(*) from public.conversation_messages m join public.support_messages s on s.id = m.id
+--      where s.sender_type = 'agent' and m.sender_role = 'customer');
+-- end $t$;
+--
+-- -- T16. Gatilho: quem escreve leu (as duas ordens: cliente → equipe e equipe → cliente)
+-- do $t$
+-- declare a uuid := 'a0000000-0000-4000-8000-000000000001'; ad uuid := 'a0000000-0000-4000-8000-000000000004';
+--   cv uuid; t0 timestamptz := now() - interval '10 minutes'; c public.conversations;
+-- begin
+--   insert into public.conversations (user_id, kind) values (a, 'evokaa') returning id into cv;
+--   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
+--   values (cv, a, 'customer', 'Ana', 'pergunta', t0);
+--   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
+--   values (cv, ad, 'agent', 'Alice', 'resposta', t0 + interval '1 minute');
+--   select * into c from public.conversations where id = cv;
+--   assert c.customer_last_read_at = t0 and c.agent_last_read_at = t0 + interval '1 minute', format('ordem 1: %s', c);
+--   assert not exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'equipe respondeu e ainda alerta';
+--   assert exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = cv), 'resposta não lida não avisa o cliente';
+--   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
+--   values (cv, a, 'customer', 'Ana', 'réplica', t0 + interval '2 minutes');
+--   select * into c from public.conversations where id = cv;
+--   assert c.customer_last_read_at = t0 + interval '2 minutes', format('ordem 2: %s', c);
+--   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = cv), 'cliente escreveu depois e ainda recebe e-mail';
+--   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'réplica do cliente não alerta a equipe';
+--   -- mensagem com data anterior não faz a leitura voltar
+--   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
+--   values (cv, ad, 'agent', 'Alice', 'atrasada', t0);
+--   assert (select agent_last_read_at from public.conversations where id = cv) = t0 + interval '1 minute', 'leitura voltou no tempo';
+--   delete from public.conversations where id = cv;
+--   raise notice 'T16 OK: quem escreve conta como quem leu, nas duas ordens';
+-- end $t$;
+--
+-- -- T17. Reabrir pelo chat_send respeita o máximo de 3 abertas
+-- do $t$
+-- declare r jsonb; b uuid := 'a0000000-0000-4000-8000-000000000002';
+-- begin
+--   perform pg_temp.como(b);    -- B: 2 abertas (T11); conv_b e a do produtor (T2) resolvidas
+--   assert (select count(*) from public.conversations where user_id = b and status = 'open') = 2, 'preparo';
+--   r := public.chat_send(current_setting('teste.conv_b')::uuid, 'reabrindo', false, null, null);
+--   assert (r->>'ok')::boolean, format('3ª reaberta: %s', r);
+--   r := public.chat_send(current_setting('teste.conv_p')::uuid, 'reabrindo outra', false, null, null);
+--   assert r->>'motivo' = 'limite_abertas', format('4ª reaberta: %s', r);
+--   assert (select status from public.conversations where id = current_setting('teste.conv_p')::uuid) = 'resolved', 'reabriu mesmo assim';
+--   perform pg_temp.como(null);
+--   raise notice 'T17 OK: reabrir conta no limite de 3 abertas';
+-- end $t$;
+--
+-- -- T19. Envio ao bucket: só em conversa aberta e até 20 arquivos por conversa; órfãos da pessoa
+-- do $t$
+-- declare a uuid := 'a0000000-0000-4000-8000-000000000001'; ca text := current_setting('teste.conv_a'); i int;
+-- begin
+--   update public.conversations set status = 'resolved' where id = ca::uuid;
+--   perform pg_temp.como(a);
+--   assert pg_temp.erro(format('insert into storage.objects (bucket_id, name, owner) values (%L, %L, %L)', 'chat-anexos', ca || '/r.png', a)) = '42501', 'enviou em conversa resolvida';
+--   perform pg_temp.como(null);
+--   update public.conversations set status = 'open' where id = ca::uuid;
+--   perform pg_temp.como(a);
+--   assert pg_temp.erro(format('insert into storage.objects (bucket_id, name, owner) values (%L, %L, %L)', 'chat-anexos', ca || '/ok2.png', a)) = 'ok', 'não enviou em conversa aberta';
+--   perform pg_temp.como(null);
+--   for i in (select count(*) from storage.objects where bucket_id = 'chat-anexos' and name like ca || '/%') + 1 .. 20 loop
+--     insert into storage.objects (bucket_id, name, owner) values ('chat-anexos', ca || '/enchendo-' || i || '.png', a);
+--   end loop;
+--   assert (select count(*) from storage.objects where bucket_id = 'chat-anexos' and name like ca || '/%') = 20, 'preparo';
+--   perform pg_temp.como(a);
+--   assert pg_temp.erro(format('insert into storage.objects (bucket_id, name, owner) values (%L, %L, %L)', 'chat-anexos', ca || '/21.png', a)) = '42501', 'passou de 20 arquivos';
+--   perform pg_temp.como(null);
+--   assert exists (select 1 from public.chat_orfaos_de(a) o where o = ca || '/script.html'), 'arquivo não anexado fora da lista';
+--   assert not exists (select 1 from public.chat_orfaos_de(a) o where o = ca || '/foto.png'), 'arquivo anexado entrou como órfão';
+--   raise notice 'T19 OK: envio só em conversa aberta, até 20 por conversa; órfãos listados';
+-- end $t$;
+--
+-- -- T20. Fila de avisos: conta excluída e 5 falhas seguidas saem; chat_notify_mark
+-- do $t$
+-- declare a uuid := 'a0000000-0000-4000-8000-000000000001'; ca uuid := current_setting('teste.conv_a')::uuid; n int;
+-- begin
+--   update public.conversations set last_reply_at = now() - interval '6 minutes', customer_last_read_at = null,
+--     customer_emailed_at = null, notify_failures = 0 where id = ca;
+--   assert exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'preparo';
+--   update auth.users set deleted_at = now() where id = a;
+--   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou conta excluída';
+--   update auth.users set deleted_at = null where id = a;
+--   update public.conversations set notify_failures = 4 where id = ca;
+--   n := public.chat_notify_mark(array[ca], 'cliente', false);
+--   assert n = 1 and (select notify_failures from public.conversations where id = ca) = 5, 'falha não somou';
+--   assert not exists (select 1 from public.chat_notify_due() where conversation_id = ca), 'conversa com 5 falhas continua na fila';
+--   n := public.chat_notify_mark(array[ca], 'cliente', true);
+--   assert (select notify_failures = 0 and customer_emailed_at = now() and team_alerted_at is distinct from now()
+--           from public.conversations where id = ca), 'sucesso não zerou nem gravou só a data do tipo';
+--   assert pg_temp.erro(format('select public.chat_notify_mark(array[%L]::uuid[], %L, true)', ca, 'outro')) = '22023', 'tipo inválido aceito';
+--   raise notice 'T20 OK: fila sem conta excluída nem conversa travada; chat_notify_mark';
+-- end $t$;
+--
+-- -- T21. Migração, 2ª rodada: mensagem nova no chat antigo depois da 1ª rodada fica não lida e
+-- --      avisa a equipe (no Postgres descartável, entra uma mensagem entre a 1ª e a 2ª execução;
+-- --      em produção, antes do deploy do PR B, pode não haver caso e o teste só avisa)
+-- do $t$
+-- declare cv uuid;
+-- begin
+--   select c.id into cv
+--   from public.conversations c join public.support_sessions s on s.id = c.id
+--   where c.status = 'open' and c.last_customer_message_at > c.team_alerted_at
+--   limit 1;
+--   if cv is null then
+--     raise notice 'T21 sem caso (nenhuma mensagem nova no chat antigo depois da 1ª rodada)';
+--     return;
+--   end if;
+--   assert (select last_customer_message_at > agent_last_read_at from public.conversations where id = cv), 'ficou como lida';
+--   assert not exists (select 1 from public.chat_notify_due() where conversation_id = cv), 'alertou antes de 30 min da migração';
+--   -- simula 31 minutos passados: todas as datas da conversa andam juntas para trás
+--   update public.conversations set team_alerted_at = team_alerted_at - interval '31 minutes',
+--     agent_last_read_at = agent_last_read_at - interval '31 minutes',
+--     customer_last_read_at = customer_last_read_at - interval '31 minutes',
+--     last_customer_message_at = last_customer_message_at - interval '31 minutes' where id = cv;
+--   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'não entrou na fila';
+--   raise notice 'T21 OK: mensagem da 2ª rodada fica não lida e entra no chat_notify_due';
+-- end $t$;
+--
+-- -- T18. Fila do pg_net fechada para anon e authenticated (último: se falhar, os outros já rodaram)
+-- do $t$
+-- begin
+--   assert not has_table_privilege('anon', 'net.http_request_queue', 'select')
+--      and not has_table_privilege('authenticated', 'net.http_request_queue', 'select')
+--      and not has_table_privilege('anon', 'net._http_response', 'select')
+--      and not has_table_privilege('authenticated', 'net._http_response', 'select'), 'fila do pg_net legível';
+--   raise notice 'T18 OK: anon e authenticated não leem net.http_request_queue nem net._http_response';
 -- end $t$;
 -- rollback;
