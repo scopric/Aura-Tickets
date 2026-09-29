@@ -21,6 +21,7 @@ interface AdminProfile {
 const PERMISSIONS = [
   { id: 'super_admin', label: 'Super Admin 👑', desc: 'Acesso total e irrestrito a todas as funcionalidades e configurações da plataforma.' },
   { id: 'manage_users', label: 'Gerenciar Usuários & Produtores', desc: 'Permite visualizar, suspender e gerenciar contas de clientes e produtores.' },
+  { id: 'manage_affiliates', label: 'Afiliados Evokaa', desc: 'Cadastrar afiliados que revendem a plataforma, acordos de comissão e carteiras de produtores.' },
   { id: 'manage_events', label: 'Moderação de Eventos', desc: 'Permite aprovar ou rejeitar novos eventos criados por produtores.' },
   { id: 'manage_finance', label: 'Visualizar Financeiro', desc: 'Acesso a relatórios de vendas, faturamento geral e repasses.' },
   { id: 'view_analytics', label: 'Visualizar Analytics', desc: 'Acesso a gráficos de tráfego, vendas gerais e dados analíticos.' },
