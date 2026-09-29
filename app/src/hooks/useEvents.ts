@@ -275,6 +275,8 @@ export function useCreateEvent() {
           tags: event.tags || [],
           venue_name: event.venue_name || event.location || null,
           venue_address: event.venue_address || null,
+          venue_city: event.venue_city || null,
+          venue_state: event.venue_state || null,
           date: event.date || null,
           time: event.time || null,
           start_date: event.start_date || new Date().toISOString(),

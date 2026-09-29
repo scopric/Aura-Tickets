@@ -20,6 +20,7 @@ import {
   Mail,
   Camera,
   TicketPercent,
+  Bot,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -45,6 +46,7 @@ const navItems = [
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
   { to: '/admin/support', icon: MessageCircle, label: 'Chat Suporte', permission: 'manage_feedback' },
+  { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
 

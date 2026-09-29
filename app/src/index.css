@@ -636,6 +636,30 @@ a, button { transition: all 0.2s ease; }
   50% { transform: translateY(-10px); }
 }
 
+/* Evo flutuante (EvoHub/EvoChat): sobe 4 px, a sombra encolhe quando ele sobe, o brilho atrás
+   do corpo pulsa roxo → azul. Usadas só com motion-safe: (paradas com prefers-reduced-motion: reduce). */
+@keyframes evo-flutuar {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes evo-sombra {
+  0%, 100% { transform: scale(1); opacity: 0.45; }
+  50% { transform: scale(0.75); opacity: 0.25; }
+}
+
+/* resposta chegou com o painel fechado: dois pulinhos (~600 ms) */
+@keyframes evo-pulinho {
+  0%, 50%, 100% { transform: translateY(0); }
+  25% { transform: translateY(-10px); }
+  75% { transform: translateY(-5px); }
+}
+
+@keyframes evo-brilho {
+  0%, 100% { filter: drop-shadow(0 0 8px rgba(143, 51, 245, 0.55)); }
+  50% { filter: drop-shadow(0 0 14px rgba(29, 104, 196, 0.6)); }
+}
+
 @keyframes scrollDot {
   0% { transform: translateY(-20px); opacity: 0; }
   50% { opacity: 1; }
@@ -646,4 +670,44 @@ a, button { transition: all 0.2s ease; }
    espaço embaixo para o conteúdo poder rolar acima do aviso (botões no fim dos formulários) */
 body {
   padding-bottom: var(--cookie-banner-h, 0px);
+}
+
+/* Vidro "Liquid Glass" (valores de seunghan91/ios27-design-system, MIT, packages/tokens/src/materials.json,
+   lido em 29/09/2026). Segue o tema pela classe .dark do <html> (ThemeContext). Por ora só no modal do Evo;
+   feito para ser reaproveitado nos outros modais. */
+.glass-backdrop {
+  background: rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+.dark .glass-backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+.glass-panel {
+  color: #0c2340; /* marinho da marca */
+  /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09 */
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 34px;
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  backdrop-filter: blur(24px) saturate(1.8);
+}
+.dark .glass-panel {
+  color: #f8fafc;
+  /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09; textos secundários em slate-300 para manter AA */
+  background: rgba(18, 20, 45, 0.5);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+/* Sem transparência (preferência do sistema ou navegador sem backdrop-filter): fundo opaco, sem blur */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-panel { background: #ffffff; }
+  .dark .glass-panel { background: #12142d; }
+  .glass-backdrop { background: rgba(0, 0, 0, 0.5); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel { background: #ffffff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .dark .glass-panel { background: #12142d; }
+  .glass-backdrop { background: rgba(0, 0, 0, 0.5); -webkit-backdrop-filter: none; backdrop-filter: none; }
 }

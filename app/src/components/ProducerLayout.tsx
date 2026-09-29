@@ -20,6 +20,11 @@ import { useAuth } from '../hooks/useAuth'
 import { toast } from 'sonner'
 import ThemeToggle from './ThemeToggle'
 import { uploadAvatar } from '../lib/avatarUpload'
+import EvoHub from './EvoHub'
+import FeedbackTopButton from './FeedbackTopButton'
+import NotificationsTopButton from './NotificationsTopButton'
+
+const botaoTopo = 'rounded-xl p-2 text-espresso hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -414,15 +419,22 @@ export default function ProducerLayout() {
         </button>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content (pb-24: o fim da página rola acima do Evo flutuante) */}
       <div
-        className="flex-1 transition-all duration-300 min-h-screen"
+        className="flex-1 transition-all duration-300 min-h-screen pb-24"
         style={{ marginLeft: collapsed ? '68px' : '232px' }}
       >
+        {/* Barra invisível do topo: só ícones à direita, numa faixa própria de 40 px (não cobre
+            botões do cabeçalho das páginas, como "Novo Evento" do painel) */}
+        <div className="flex h-10 items-center justify-end gap-1 px-4 pt-1">
+          <NotificationsTopButton className={botaoTopo} />
+          <FeedbackTopButton className={botaoTopo} />
+        </div>
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet />
         </ErrorBoundary>
       </div>
+      <EvoHub />
       {/* O tour só abre no painel: antes ele aparecia em toda rota do produtor e cobria
           /producer/events/new, bloqueando o botão "Criar Evento" atrás do overlay. */}
       {(location.pathname === '/producer' || location.pathname === '/producer/dashboard') && (

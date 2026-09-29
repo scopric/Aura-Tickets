@@ -11,6 +11,8 @@ import { cn } from '../lib/utils'
 import ThemeToggle from './ThemeToggle'
 import { ErrorBoundary } from './error-boundary'
 import { uploadAvatar } from '../lib/avatarUpload'
+import EvoHub from './EvoHub'
+import FeedbackTopButton from './FeedbackTopButton'
 
 const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Início' },
@@ -346,6 +348,8 @@ export default function AppLayout() {
               )}
             </div>
 
+            <FeedbackTopButton className="p-2.5 rounded-xl text-white/60 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400" />
+
             {/* Avatar */}
             <img
               src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
@@ -355,14 +359,15 @@ export default function AppLayout() {
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex-1 p-6 lg:p-10 max-w-[1440px] mx-auto w-full">
+        {/* Page Content (pb-24: o fim da página rola acima do Evo flutuante) */}
+        <main className="flex-1 p-6 pb-24 lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
           <ErrorBoundary resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>
         </main>
       </div>
 
+      <EvoHub />
     </div>
   )
 }

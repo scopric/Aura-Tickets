@@ -18,8 +18,8 @@ const typeConfig: Record<FeedbackType, FeedbackTypeConfig> = {
   elogio: { icon: ThumbsUp, label: 'Elogio', color: 'text-green-600' },
 }
 
-export default function FeedbackButton() {
-  const [isOpen, setIsOpen] = useState(false)
+/** Formulário de feedback, usado no botão flutuante (páginas públicas) e no ícone de Feedback do topo (FeedbackTopButton). */
+export function FeedbackForm({ onDone }: { onDone?: () => void }) {
   const [type, setType] = useState<FeedbackType>('melhoria')
   const [message, setMessage] = useState('')
   const [rating, setRating] = useState(0)
@@ -44,16 +44,91 @@ export default function FeedbackButton() {
       toast.success('Feedback enviado! Obrigado.')
       setTimeout(() => {
         setSent(false)
-        setIsOpen(false)
         setMessage('')
         setRating(0)
         setType('melhoria')
+        onDone?.()
       }, 2000)
     } catch (err) {
       console.error('[Feedback]', err)
       toast.error('Erro ao enviar feedback.')
     }
   }
+
+  if (sent) {
+    return (
+      <div className="text-center py-6" role="status">
+        <Check className="w-10 h-10 text-green-500 mx-auto mb-3" />
+        <h3 className="font-medium text-espresso">Obrigado!</h3>
+        <p className="text-xs text-espresso mt-1">Seu feedback foi enviado com sucesso.</p>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <h3 className="font-medium text-sm text-espresso">Envie seu feedback</h3>
+
+      <div className="flex gap-1" role="group" aria-label="Tipo de feedback">
+        {(Object.keys(typeConfig) as FeedbackType[]).map((t) => {
+          const { icon: Icon, label, color } = typeConfig[t]
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setType(t)}
+              aria-pressed={type === t}
+              className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum ${
+                type === t ? 'border border-plum' : 'border border-transparent hover:border-slate-500/40'
+              }`}
+            >
+              <Icon className={`w-3.5 h-3.5 ${color}`} />
+              <span className="text-espresso">{label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <textarea
+        value={message}
+        onChange={(e) => setMessage(e.target.value)}
+        placeholder="Conte-nos o que voce pensa..."
+        aria-label="Mensagem do feedback"
+        className="w-full px-3 py-2 bg-canvas border border-slate-500/40 rounded-xl text-xs text-espresso placeholder:text-slate-500 focus:outline-none focus:border-plum focus-visible:ring-2 focus-visible:ring-plum transition-colors resize-none h-20"
+      />
+
+      <div className="flex items-center gap-1" role="group" aria-label="Nota de 1 a 5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onClick={() => setRating(n)}
+            aria-label={`Nota ${n} de 5`}
+            aria-pressed={n === rating}
+            className="p-0.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum"
+          >
+            <Star
+              className={`w-4 h-4 transition-colors ${
+                n <= rating ? 'text-amber-400 fill-amber-400' : 'text-slate-500'
+              }`}
+            />
+          </button>
+        ))}
+      </div>
+
+      <button
+        type="submit"
+        disabled={isSubmitting}
+        className="w-full py-2.5 bg-plum text-white text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-plum"
+      >
+        {isSubmitting ? 'Enviando...' : <><Send className="w-3.5 h-3.5" /> Enviar</>}
+      </button>
+    </form>
+  )
+}
+
+export default function FeedbackButton() {
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
     <>
@@ -69,68 +144,7 @@ export default function FeedbackButton() {
 
       {isOpen && (
         <div className="fixed bottom-20 right-6 z-50 w-80 bg-canvas border border-white/60 rounded-2xl shadow-xl p-4">
-          {sent ? (
-            <div className="text-center py-6">
-              <Check className="w-10 h-10 text-green-500 mx-auto mb-3" />
-              <h3 className="font-medium text-espresso">Obrigado!</h3>
-              <p className="text-xs text-espresso/50 mt-1">Seu feedback foi enviado com sucesso.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <h3 className="font-medium text-sm text-espresso">Envie seu feedback</h3>
-
-              <div className="flex gap-1">
-                {(Object.keys(typeConfig) as FrontendFeedbackType[]).map((t) => {
-                  const { icon: Icon, label, color } = typeConfig[t]
-                  return (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setType(t)}
-                      className={`flex-1 flex flex-col items-center gap-1 py-2 rounded-lg text-[10px] transition-all ${
-                        type === t ? 'bg-white/60 border border-white/60' : 'hover:bg-white/30'
-                      }`}
-                    >
-                      <Icon className={`w-3.5 h-3.5 ${color}`} />
-                      <span className="text-espresso/60">{label}</span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Conte-nos o que voce pensa..."
-                className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors resize-none h-20"
-              />
-
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setRating(n)}
-                    className="p-0.5"
-                  >
-                    <Star
-                      className={`w-4 h-4 transition-colors ${
-                        n <= rating ? 'text-amber-400 fill-amber-400' : 'text-espresso/15'
-                      }`}
-                    />
-                  </button>
-                ))}
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full py-2.5 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {isSubmitting ? 'Enviando...' : <><Send className="w-3.5 h-3.5" /> Enviar</>}
-              </button>
-            </form>
-          )}
+          <FeedbackForm onDone={() => setIsOpen(false)} />
         </div>
       )}
     </>

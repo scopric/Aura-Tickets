@@ -1,0 +1,318 @@
+import { describe, it, expect, vi } from 'vitest'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { EvoMarkdown, type Mensagem } from '../components/evo/EvoChat'
+import { conversaParaMarkdown, nomeArquivoConversa } from '../lib/evoConversa'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { supabase } from '@/lib/supabase'
+import EvoHub from '../components/EvoHub'
+import userEvent from '@testing-library/user-event'
+
+let role = 'producer'
+vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role, email: 'a@b.c' } }) }))
+const criar = vi.fn(() => Promise.resolve({ id: 'ev1' }))
+vi.mock('../hooks/useEvents', () => ({ useCreateEvent: () => ({ mutateAsync: criar, isPending: false }) }))
+vi.mock('../hooks/useFeedback', () => ({ useFeedback: () => ({ mutateAsync: vi.fn(), isPending: false }) }))
+
+// jsdom não tem scrollIntoView nem ResizeObserver (tooltip do Radix); no Node 26 o localStorage global vem vazio
+Element.prototype.scrollIntoView = vi.fn()
+vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
+const mem: Record<string, string> = {}
+vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
+
+const SALDO_OK = { data: { habilitado: true, plano: 'free', cota: 5, concedido: 0, usado: 1, restante: 4, periodo: 'total' }, error: null }
+function montar(saldo: unknown = SALDO_OK) {
+  ;(supabase as unknown as { rpc: unknown }).rpc = vi.fn(() => Promise.resolve(saldo))
+  return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><EvoHub /></MemoryRouter></QueryClientProvider>)
+}
+
+describe('Evo: markdown mínimo e exportação da conversa', () => {
+  it('renderiza títulos, listas e negrito, e escapa HTML', () => {
+    const html = renderToStaticMarkup(
+      <EvoMarkdown texto={'## Bebida\nConta **simples**\n\n- cerveja\n- água\n1. um\n2. dois\n<img src=x onerror=alert(1)> **aberto'} />
+    )
+    expect(html).toContain('<h4 class="font-semibold">Bebida</h4>')
+    expect(html).toContain('<strong class="font-semibold">simples</strong>')
+    expect(html).toContain('<ul class="list-disc space-y-1 pl-5"><li>cerveja</li><li>água</li></ul>')
+    expect(html).toContain('<ol class="list-decimal space-y-1 pl-5"><li>um</li><li>dois</li></ol>')
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt; **aberto')
+    expect(html).not.toContain('<img')
+  })
+
+  it('monta o .md e o nome do arquivo com data local', () => {
+    const agora = new Date(2026, 8, 29, 7, 5)
+    const msgs: Mensagem[] = [
+      { id: '1', role: 'user', text: 'Oi' },
+      { id: '2', role: 'model', text: '**Olá!**' },
+    ]
+    expect(conversaParaMarkdown(msgs, agora)).toBe('# Conversa com o Evo — 29/09/2026 07:05\n\n**Você:** Oi\n\n**Evo:** **Olá!**\n')
+    expect(nomeArquivoConversa(agora)).toBe('evo-conversa-2026-09-29-0705.md')
+  })
+})
+
+describe('EvoHub: painel, chat e rascunho', () => {
+  it('produtor: abre, mostra abas, saldo, envia e trata recusa', async () => {
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: '## Oi\n- **um**', usage_id: 'x', restante: 3 }, error: null } as never)
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: false, motivo: 'sem_credito', message: 'x' }, error: null } as never)
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: false, motivo: 'sem_credito', message: 'x', custo: 3, restante: 1 }, error: null } as never)
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: false, motivo: 'nao_autorizado', message: 'x' }, error: null } as never)
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Evo', 'Falar com a Evokaa'])
+    expect(screen.getByText(/Não cole dados de compradores \(CPF, e-mail, telefone\)\. As conversas são processadas pelo Google Gemini\./)).toBeInTheDocument()
+    expect(await screen.findByText('4 créditos de amostra')).toBeInTheDocument()
+    const caixa = screen.getByLabelText('Mensagem para o Evo')
+    fireEvent.change(caixa, { target: { value: 'Oi Evo' } })
+    fireEvent.keyDown(caixa, { key: 'Enter' })
+    expect(await screen.findByRole('heading', { name: 'Oi' })).toBeInTheDocument()
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'chat', message: 'Oi Evo', history: [] } })
+    expect(await screen.findByText('3 créditos de amostra')).toBeInTheDocument()
+    fireEvent.change(caixa, { target: { value: 'De novo' } })
+    fireEvent.keyDown(caixa, { key: 'Enter' })
+    expect(await screen.findByText('Seus créditos de amostra do Evo acabaram.')).toBeInTheDocument()
+    const hist = (vi.mocked(supabase.functions.invoke).mock.calls[1][1] as { body: { history: unknown } }).body.history
+    expect(hist).toEqual([{ role: 'user', text: 'Oi Evo' }, { role: 'model', text: '## Oi\n- **um**' }])
+    fireEvent.change(caixa, { target: { value: 'Planeje tudo' } })
+    fireEvent.keyDown(caixa, { key: 'Enter' })
+    expect(await screen.findByText('Este pedido custa 3 créditos e você tem 1.')).toBeInTheDocument()
+    fireEvent.change(caixa, { target: { value: 'Mais uma' } })
+    fireEvent.keyDown(caixa, { key: 'Enter' })
+    expect(await screen.findByText('Sua conta não tem acesso ao Evo.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Planejar meu primeiro evento' }))
+    expect(screen.getByLabelText('Gênero')).toBeInTheDocument()
+    expect(screen.getAllByRole('option').length).toBeGreaterThan(27)
+  })
+  it('fechar e reabrir o painel mantém o texto e não permite envio duplo', async () => {
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockReturnValue(new Promise(() => {}) as never) // pedido em voo
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: 'Primeira' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    fireEvent.change(screen.getByLabelText('Mensagem para o Evo'), { target: { value: 'Rascunho que não pode sumir' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'O Evo está pensando na sua resposta' }))
+    const caixa = await screen.findByLabelText('Mensagem para o Evo')
+    expect(caixa).toHaveValue('Rascunho que não pode sumir')
+    expect(screen.getByText('O Evo está pensando…')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Enviar' })).toBeDisabled()
+    fireEvent.keyDown(caixa, { key: 'Enter' })
+    expect(supabase.functions.invoke).toHaveBeenCalledTimes(1)
+    vi.mocked(supabase.functions.invoke).mockReset()
+  })
+  it('participante: abre direto no "Falar com a Evokaa", sem abas', async () => {
+    role = 'user'
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    expect(await screen.findByRole('heading', { name: 'Falar com a Evokaa' })).toBeInTheDocument()
+    expect(screen.queryByRole('tab')).toBeNull()
+    expect(screen.queryByLabelText('Mensagem para o Evo')).toBeNull()
+  })
+  it('planejar: envia form, mostra proposta editável e cria rascunho só no clique', async () => {
+    role = 'producer'
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
+      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', date: '2026-11-20', time: '22:00', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      tickets: [{ name: '1º lote', price: 40, quantity: 150 }] } }, error: null } as never)
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Planejar meu primeiro evento' }))
+    fireEvent.change(screen.getByLabelText('Gênero'), { target: { value: 'forro' } })
+    fireEvent.change(screen.getByLabelText('Público esperado'), { target: { value: '300' } })
+    fireEvent.change(screen.getByLabelText('Duração (horas)'), { target: { value: '6' } })
+    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: ' Recife ' } })
+    fireEvent.change(screen.getByLabelText('UF'), { target: { value: 'PE' } })
+    fireEvent.submit(screen.getByLabelText('Gênero').closest('form')!)
+    await screen.findByText('Plano')
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'planejar', form: { genero: 'forro', publico: 300, cidade: 'Recife', uf: 'PE', duracao_h: 6, layout: 'em_pe' } } })
+    expect(criar).not.toHaveBeenCalled()
+    expect(screen.getByText('Show')).toBeInTheDocument() // categoria
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Forró pé de serra' } })
+    fireEvent.change(screen.getByLabelText('Preço do lote 1 em reais'), { target: { value: '35' } })
+    const insert = vi.fn(() => Promise.resolve({ error: null }))
+    vi.mocked(supabase.from).mockReturnValueOnce({ insert } as never)
+    fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
+    expect(await screen.findByRole('link', { name: 'Abrir rascunho' })).toHaveAttribute('href', '/producer/events/ev1/edit')
+    expect(criar).toHaveBeenCalledWith({
+      event: { title: 'Forró da Vila', description: 'Forró pé de serra', category: 'Show', date: '2026-11-20', time: '22:00', start_date: new Date('2026-11-20T22:00').toISOString(), venue_name: null, venue_city: 'Recife', venue_state: 'PE', capacity: 300, status: 'draft',
+        settings: { genero: 'forro', uf: 'PE', origem: 'evo', ai_usage_id: 'u-9' } },
+      tickets: [],
+    })
+    expect(supabase.from).toHaveBeenCalledWith('ticket_types')
+    expect(insert).toHaveBeenCalledWith([{ event_id: 'ev1', name: '1º lote', description: null, price: 35, capacity: 150, quantity_total: 150, sold: 0, quantity_sold: 0, type: 'individual', perks: [], is_active: true }])
+  })
+  it('planejar: lotes falham depois do evento criado → guarda o id e não deixa criar de novo', async () => {
+    criar.mockClear()
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
+      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      tickets: [{ name: '1º lote', price: 40, quantity: 150 }] } }, error: null } as never)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: 'Monte o rascunho' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    await screen.findByText('Plano')
+    vi.mocked(supabase.from).mockReturnValueOnce({ insert: vi.fn(() => Promise.resolve({ error: { message: 'rls' } })) } as never)
+    fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
+    expect(await screen.findByText('Rascunho criado sem os lotes — abra o evento para completar')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Abrir rascunho' })).toHaveAttribute('href', '/producer/events/ev1/edit')
+    expect(screen.queryByRole('button', { name: 'Criar rascunho do evento' })).toBeNull()
+    expect(criar).toHaveBeenCalledTimes(1)
+  })
+
+  it('convite: aparece ~2 s depois e some de vez ao abrir o Evo', async () => {
+    role = 'producer'
+    delete mem['evo-convite-v1']
+    const { unmount } = montar()
+    expect(await screen.findByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.', {}, { timeout: 3000 })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    await screen.findByRole('dialog')
+    expect(screen.queryByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.')).toBeNull()
+    expect(JSON.parse(mem['evo-convite-v1'])).toEqual({ aberto: true, fechados: 0 })
+    unmount()
+    montar()
+    await new Promise((r) => setTimeout(r, 2300))
+    expect(screen.queryByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.')).toBeNull()
+  })
+  it('convite: localStorage falhando não quebra (mostra e fecha)', async () => {
+    const quebrado = { getItem: () => { throw new Error('bloqueado') }, setItem: () => { throw new Error('bloqueado') } }
+    vi.stubGlobal('localStorage', quebrado)
+    try {
+      montar()
+      expect(await screen.findByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.', {}, { timeout: 3000 })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar aviso do Evo' }))
+      expect(screen.queryByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.')).toBeNull()
+    } finally {
+      vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
+    }
+  })
+  it('resposta com o painel fechado: selo "1", balão e anúncio; abrir zera', async () => {
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
+    let responder: (v: unknown) => void = () => {}
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockReturnValueOnce(new Promise((r) => { responder = r }) as never)
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: 'Oi' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(screen.getByRole('button', { name: 'O Evo está pensando na sua resposta' })).toBeInTheDocument()
+    await act(async () => { responder({ data: { ok: true, reply_md: 'Resposta', usage_id: 'x', restante: 2 }, error: null }) })
+    const botao = await screen.findByRole('button', { name: 'Falar com o Evo (1 resposta nova)' })
+    expect(botao).toHaveTextContent('1')
+    expect(screen.getByText('O Evo respondeu! Toque para ver.')).toBeInTheDocument()
+    expect(screen.getByText('Nova resposta do Evo')).toBeInTheDocument()
+    fireEvent.click(botao)
+    await screen.findByText('Resposta')
+    expect(screen.getByRole('button', { name: 'Falar com o Evo', hidden: true })).not.toHaveTextContent('1') // atrás do modal aberto
+    expect(screen.queryByText('O Evo respondeu! Toque para ver.')).toBeNull()
+    expect(screen.queryByText('Nova resposta do Evo')).toBeNull()
+    // 2ª rodada: o anúncio foi limpo ao abrir e é gravado de novo (o leitor de tela anuncia outra vez)
+    vi.mocked(supabase.functions.invoke).mockReturnValueOnce(new Promise((r) => { responder = r }) as never)
+    fireEvent.change(screen.getByLabelText('Mensagem para o Evo'), { target: { value: 'De novo' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    await act(async () => { responder({ data: { ok: true, reply_md: 'Outra', usage_id: 'y', restante: 1 }, error: null }) })
+    expect(await screen.findByText('Nova resposta do Evo')).toBeInTheDocument()
+  })
+
+  it('proposta: edição e "criando" sobrevivem a fechar e reabrir o painel; só 1 evento criado', async () => {
+    role = 'producer'
+    criar.mockClear()
+    let terminar: (v: { id: string }) => void = () => {}
+    criar.mockImplementationOnce(() => new Promise<{ id: string }>((r) => { terminar = r }))
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
+      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300, tickets: [] } }, error: null } as never)
+    montar()
+    const reabrir = async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))
+      await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+      fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+      await screen.findByRole('dialog')
+    }
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: 'Monte o rascunho' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    await screen.findByText('Plano')
+    fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Descrição editada' } })
+    await reabrir()
+    expect(screen.getByLabelText('Descrição')).toHaveValue('Descrição editada')
+    fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
+    await reabrir()
+    const botao = screen.getByRole('button', { name: 'Criar rascunho do evento' })
+    expect(botao).toBeDisabled()
+    fireEvent.click(botao)
+    expect(criar).toHaveBeenCalledTimes(1)
+    await act(async () => { terminar({ id: 'ev1' }) })
+    expect(await screen.findByRole('link', { name: 'Abrir rascunho' })).toHaveAttribute('href', '/producer/events/ev1/edit')
+    expect(criar).toHaveBeenCalledTimes(1)
+    expect(criar).toHaveBeenCalledWith(expect.objectContaining({ event: expect.objectContaining({ description: 'Descrição editada' }) }))
+  })
+
+  it('planejar: o que foi digitado no formulário sobrevive a fechar e reabrir', async () => {
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Planejar meu primeiro evento' }))
+    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Caruaru' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    expect(await screen.findByLabelText('Cidade')).toHaveValue('Caruaru')
+  })
+
+  it('função fora do ar não culpa a conexão (404, 5xx, CORS) e offline sim', async () => {
+    const erro = (name: string, context: unknown) => ({ data: null, error: Object.assign(new Error(name), { name, context }) })
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke)
+      .mockResolvedValueOnce(erro('FunctionsHttpError', new Response('{"code":"NOT_FOUND"}', { status: 404 })) as never)
+      .mockResolvedValueOnce(erro('FunctionsHttpError', new Response('{}', { status: 503 })) as never)
+      .mockResolvedValueOnce(erro('FunctionsFetchError', new TypeError('Failed to fetch')) as never)
+      .mockResolvedValueOnce(erro('FunctionsFetchError', new TypeError('Failed to fetch')) as never)
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    const perguntar = async (t: string) => {
+      fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: t } })
+      fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Enviar' })).toBeInTheDocument())
+      await waitFor(() => expect(screen.queryByText('O Evo está pensando…')).toBeNull())
+    }
+    await perguntar('um')
+    expect(screen.getByText('O Evo ainda não está disponível. Tente mais tarde.')).toBeInTheDocument()
+    await perguntar('dois')
+    expect(screen.getAllByText('O Evo está com instabilidade. Tente de novo em instantes.')).toHaveLength(1)
+    await perguntar('três')
+    expect(screen.getAllByText('O Evo está com instabilidade. Tente de novo em instantes.')).toHaveLength(2)
+    expect(screen.queryByText(/Confira sua conexão/)).toBeNull()
+    const offline = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    await perguntar('quatro')
+    offline.mockRestore()
+    expect(screen.getByText('Não consegui falar com o Evo. Confira sua conexão e tente de novo.')).toBeInTheDocument()
+  })
+
+  it('saldo: erro sai do "Carregando…" na hora; função inexistente avisa que o Evo não está disponível', async () => {
+    const { unmount } = montar({ data: null, error: { code: 'PGRST202', message: 'not found' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    expect(await screen.findByText('O Evo ainda não está disponível. Tente mais tarde.')).toBeInTheDocument()
+    unmount()
+    montar({ data: null, error: { code: '500', message: 'x' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    expect(await screen.findByText('Não consegui ver seus créditos agora.')).toBeInTheDocument()
+    expect(supabase.rpc).toHaveBeenCalledTimes(1) // sem novas tentativas
+  })
+
+  it('Evo flutuante: sem moldura (ring/rounded) e focável por Tab', async () => {
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
+    montar()
+    const botao = screen.getByRole('button', { name: 'Falar com o Evo' })
+    expect(botao.className).not.toMatch(/\b(ring|rounded)-/)
+    await userEvent.tab()
+    expect(botao).toHaveFocus()
+  })
+})
