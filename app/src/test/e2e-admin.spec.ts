@@ -6,7 +6,7 @@ import { test, expect, type Page } from '@playwright/test'
 // Parte 2 usa a conta real de admin de testes, com e-mail e senha em app/.env.local (E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD).
 const ALPHA = process.env.PW_ALPHA_URL || 'http://alpha.localhost:3000'
 const ROTAS = ['/admin/dashboard', '/admin/users', '/admin/producers', '/admin/events', '/admin/finance', '/admin/analytics',
-  '/admin/tickets', '/admin/newsletter', '/admin/team', '/admin/feedback', '/admin/support', '/admin/settings']
+  '/admin/tickets', '/admin/newsletter', '/admin/team', '/admin/feedback', '/admin/atendimento', '/admin/settings']
 const FICTICIOS = ['Joao Silva', 'Pulse Entretenimento', 'modo de demonstração']
 
 async function login(page: Page, email: string, senha: string) {

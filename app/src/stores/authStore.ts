@@ -90,7 +90,7 @@ export const useAuthStore = create<AuthState>()(
                 avatar_url: null,
                 role,
                 admin_permissions: role === 'admin' 
-                  ? ['manage_users', 'manage_events', 'manage_finance', 'manage_tickets', 'manage_feedback', 'manage_settings', 'manage_newsletter', 'view_dashboard', 'view_analytics'] 
+                  ? ['manage_users', 'manage_events', 'manage_finance', 'manage_tickets', 'manage_feedback', 'manage_support', 'manage_settings', 'manage_newsletter', 'view_dashboard', 'view_analytics'] 
                   : [],
                 producer_profile: role === 'producer' ? {
                   company_name: name,

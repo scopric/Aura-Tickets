@@ -1,6 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard,
@@ -27,6 +28,7 @@ import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
 import { uploadAvatar } from '../lib/avatarUpload'
+import { supabase } from '../lib/supabase'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -45,7 +47,7 @@ const navItems = [
   { to: '/admin/coupons', icon: TicketPercent, label: 'Cupons', permission: 'manage_coupons' },
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
-  { to: '/admin/support', icon: MessageCircle, label: 'Chat Suporte', permission: 'manage_feedback' },
+  { to: '/admin/atendimento', icon: MessageCircle, label: 'Atendimento', permission: 'manage_support' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
@@ -74,6 +76,19 @@ export default function AdminLayout() {
     logout()
     // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
+
+  // Contador de conversas abertas ao lado de "Atendimento" (ponytail: polling de 60 s; o Realtime fica só na tela)
+  const podeAtender = !!user?.admin_permissions?.some((p) => p === 'manage_support' || p === 'super_admin')
+  const { data: abertas } = useQuery({
+    queryKey: ['chat-abertas'],
+    enabled: podeAtender,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { count, error } = await supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open')
+      if (error) throw error
+      return count ?? 0
+    },
+  })
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.permission) return true
@@ -122,6 +137,11 @@ export default function AdminLayout() {
             >
               <item.icon className="w-[18px] h-[18px] flex-shrink-0" />
               {!collapsed && <span>{item.label}</span>}
+              {!collapsed && item.to === '/admin/atendimento' && !!abertas && (
+                <span className="ml-auto rounded-full bg-purple-600 px-1.5 text-[10px] font-bold leading-4 text-[#fff]">
+                  {abertas}<span className="sr-only"> conversas abertas</span>
+                </span>
+              )}
             </Link>
           ))}
         </nav>

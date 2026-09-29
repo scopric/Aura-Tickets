@@ -22,8 +22,19 @@ const mem: Record<string, string> = {}
 vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
 
 const SALDO_OK = { data: { habilitado: true, plano: 'free', cota: 5, concedido: 0, usado: 1, restante: 4, periodo: 'mes' }, error: null }
-function montar(saldo: unknown = SALDO_OK) {
-  ;(supabase as unknown as { rpc: unknown }).rpc = vi.fn(() => Promise.resolve(saldo))
+// O EvoHub também lê as conversas do suporte (selo) e abre um canal do Realtime: consulta encadeável
+// que devolve lista vazia e canal encadeável (.on().on().subscribe())
+function consultaVazia(data: unknown[] = []): unknown {
+  const c: unknown = new Proxy(() => {}, { get: (_, k) => (k === 'then' ? (ok: (v: unknown) => unknown) => ok({ data, error: null }) : () => c) })
+  return c
+}
+const canal: Record<string, unknown> = {}
+canal.on = vi.fn(() => canal)
+canal.subscribe = vi.fn(() => canal)
+function montar(saldo: unknown = SALDO_OK, conversas: unknown[] = []) {
+  ;(supabase as unknown as { rpc: unknown }).rpc = vi.fn((nome: string) => Promise.resolve(nome === 'ai_balance' ? saldo : { data: null, error: null }))
+  vi.mocked(supabase.from).mockImplementation(() => consultaVazia(conversas) as never)
+  vi.mocked(supabase.channel).mockImplementation(() => canal as never)
   return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><EvoHub /></MemoryRouter></QueryClientProvider>)
 }
 
@@ -305,6 +316,17 @@ describe('EvoHub: painel, chat e rascunho', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
     expect(await screen.findByText('Não consegui ver seus créditos agora.')).toBeInTheDocument()
     expect(supabase.rpc).toHaveBeenCalledTimes(1) // sem novas tentativas
+  })
+
+  it('selo soma as respostas não lidas da equipe (aba "Falar com a Evokaa")', async () => {
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
+    montar(SALDO_OK, [
+      { id: 'c1', status: 'open', last_reply_at: '2026-09-30T12:05:00Z', customer_last_read_at: '2026-09-30T12:00:00Z', last_message_at: '2026-09-30T12:05:00Z' },
+      { id: 'c2', status: 'open', last_reply_at: '2026-09-30T11:00:00Z', customer_last_read_at: '2026-09-30T11:30:00Z', last_message_at: '2026-09-30T11:00:00Z' },
+    ])
+    const botao = await screen.findByRole('button', { name: 'Falar com o Evo (1 resposta nova)' })
+    expect(botao).toHaveTextContent('1')
+    expect(supabase.channel).toHaveBeenCalled()
   })
 
   it('Evo flutuante: sem moldura (ring/rounded) e focável por Tab', async () => {

@@ -6,6 +6,7 @@ import { Dialog, DialogClose, DialogDescription, DialogOverlay, DialogPortal, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useAuth } from '../hooks/useAuth'
+import { useMinhasConversas } from '../hooks/useConversas'
 import { SupportChatPanel } from './SupportChatWidget'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
 import type { CamposPlanejar } from './evo/EvoPlanejar'
@@ -59,6 +60,8 @@ export default function EvoHub() {
   const abertoRef = useRef(aberto)
   const { pathname } = useLocation()
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
+  // Respostas da equipe não lidas (a aba "Falar com a Evokaa"); o canal do Realtime fica aqui porque o EvoHub não desmonta
+  const { naoLidas: naoLidasSuporte } = useMinhasConversas(true)
 
   useEffect(() => {
     abertoRef.current = aberto
@@ -118,9 +121,10 @@ export default function EvoHub() {
   // aria-live com o mesmo texto
   const anuncio = naoLidas === 0 ? '' : naoLidas === 1 ? 'Nova resposta do Evo' : `Nova resposta do Evo (${naoLidas})`
   const pensandoFechado = pensando && !aberto
+  const selo = naoLidas + naoLidasSuporte
   const rotulo = pensandoFechado
     ? 'O Evo está pensando na sua resposta'
-    : naoLidas > 0 ? `Falar com o Evo (${naoLidas} ${naoLidas === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com o Evo'
+    : selo > 0 ? `Falar com o Evo (${selo} ${selo === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com o Evo'
   const textoBalao = {
     convite: podeEvo ? 'Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.' : 'Oi! Sou o Evo 👋 Precisa de ajuda?',
     resposta: 'O Evo respondeu! Toque para ver.',
@@ -197,9 +201,9 @@ export default function EvoHub() {
                       className="h-[92px] w-auto [filter:drop-shadow(0_0_8px_rgba(143,51,245,0.55))] motion-safe:animate-[evo-brilho_4s_ease-in-out_infinite] group-focus-visible:animate-none group-focus-visible:[filter:drop-shadow(2px_0_0_#4c1d95)_drop-shadow(-2px_0_0_#4c1d95)_drop-shadow(0_2px_0_#4c1d95)_drop-shadow(0_-2px_0_#4c1d95)_drop-shadow(0_0_10px_rgba(143,51,245,0.95))] dark:group-focus-visible:[filter:drop-shadow(2px_0_0_#fff)_drop-shadow(-2px_0_0_#fff)_drop-shadow(0_2px_0_#fff)_drop-shadow(0_-2px_0_#fff)_drop-shadow(0_0_10px_rgba(143,51,245,0.95))]"
                     />
                   </span>
-                  {naoLidas > 0 && (
+                  {selo > 0 && (
                     <span aria-hidden="true" className="absolute -top-1 right-0 grid h-5 min-w-5 place-items-center rounded-full bg-plum px-1 text-[11px] font-bold text-[#fff] ring-2 ring-[#f8fafc] dark:ring-[#07080c]">
-                      {naoLidas}
+                      {selo}
                     </span>
                   )}
                 </button>

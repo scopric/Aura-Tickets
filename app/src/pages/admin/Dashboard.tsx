@@ -49,7 +49,7 @@ export default function AdminDashboard() {
       tenta(supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
       tenta(supabase.from('events').select('id, approval_status'), r => (r.data || []).map((e: any) => e.approval_status ?? null)),
       tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
-      tenta(supabase.from('support_sessions').select('id', { count: 'exact', head: true }).neq('status', 'closed'), r => r.count ?? 0),
+      tenta(supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open'), r => r.count ?? 0),
       tenta(supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
       // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201
       tenta(supabase.from('events').select('id, title, date, created_at, profiles!producer_id(full_name)').or('approval_status.eq.pending,approval_status.is.null').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as FilaItem[]),

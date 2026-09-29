@@ -107,7 +107,7 @@ const AdminNewsletter = lazy(() => import('./pages/admin/Newsletter'))
 const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
 const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
 const AdminAiSettings = lazy(() => import('./pages/admin/AiSettings'))
-const SupportChatAdmin = lazy(() => import('./pages/admin/SupportChat'))
+const AdminAtendimento = lazy(() => import('./pages/admin/Atendimento'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
 // App pages (lazy loaded)
@@ -252,7 +252,8 @@ function Layout() {
                 <Route path="/admin/tickets" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_tickets"><AdminTickets /></ProtectedRoute>} />
                 <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminSettingsPage /></ProtectedRoute>} />
                 <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
-                <Route path="/admin/support" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><SupportChatAdmin /></ProtectedRoute>} />
+                <Route path="/admin/atendimento" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_support"><AdminAtendimento /></ProtectedRoute>} />
+                <Route path="/admin/support" element={<Navigate to="/admin/atendimento" replace />} />
                 <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
                 <Route path="/admin/coupons" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_coupons"><AdminCoupons /></ProtectedRoute>} />
                 <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
