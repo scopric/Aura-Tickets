@@ -49,6 +49,7 @@ export default function AppLayout() {
     if (file && user?.id) {
       await uploadAvatar(file, user.id)
     }
+    e.target.value = '' // escolher a mesma imagem de novo volta a disparar o envio
   }
 
   const triggerUpload = () => {
@@ -340,12 +341,14 @@ export default function AppLayout() {
 
             <FeedbackTopButton className="p-2.5 rounded-xl text-white/60 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400" />
 
-            {/* Avatar */}
-            <img
-              src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
-              alt="Avatar"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
-            />
+            {/* Avatar: clicar troca a foto */}
+            <button type="button" onClick={triggerUpload} title="Alterar foto de perfil" aria-label="Alterar foto de perfil" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum">
+              <img
+                src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
+                alt=""
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
+              />
+            </button>
           </div>
         </header>
 

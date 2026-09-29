@@ -65,15 +65,18 @@ export async function uploadAvatar(file: File, userId: string): Promise<string |
 
     // 2. Salva no banco de dados na tabela profiles
     toast.loading('Atualizando perfil no banco...', { id: toastId })
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .update({ avatar_url: base64Url })
       .eq('id', userId)
+      .select('id')
 
     if (error) {
       console.error('Erro ao atualizar avatar no Supabase:', error)
       throw error
     }
+    // RLS que filtra não dá erro: devolve zero linha (Decisão 62)
+    if (!data?.length) throw new Error('A foto não foi gravada no seu perfil')
 
     // 3. Atualiza o Zustand Store local para refletir a alteração instantaneamente
     const currentStore = useAuthStore.getState()
