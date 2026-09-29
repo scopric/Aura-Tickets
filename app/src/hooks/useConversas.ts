@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
@@ -28,6 +28,8 @@ export interface Conversa {
   agent_last_read_at: string | null
   rating: number | null
   created_at: string
+  /** primeiro nome de quem assumiu (gravado pelo servidor, 20261002_chat_atendente.sql) */
+  assignee_name: string | null
   chat_topics: { label: string } | null
 }
 
@@ -186,11 +188,43 @@ export function useUrlAnexo(path: string | null, baixar?: string) {
   })
 }
 
-/** Som curto ao chegar resposta (Web Audio; navegador que bloqueia só fica em silêncio). */
+// Liga/desliga do som das mensagens (padrão ligado). Sem localStorage (modo privado, cota), vale
+// só a memória desta carga.
+const CHAVE_SOM = 'evokaa-som-chat'
+let somMemoria = true
+const ouvintesSom = new Set<() => void>()
+export function somLigado(): boolean {
+  try {
+    const v = localStorage.getItem(CHAVE_SOM)
+    return v === null ? somMemoria : v !== 'off'
+  } catch {
+    return somMemoria
+  }
+}
+export function useSomChat(): [boolean, () => void] {
+  const ligado = useSyncExternalStore((cb) => {
+    ouvintesSom.add(cb)
+    return () => { ouvintesSom.delete(cb) }
+  }, somLigado)
+  const alternar = () => {
+    somMemoria = !ligado
+    try {
+      localStorage.setItem(CHAVE_SOM, somMemoria ? 'on' : 'off')
+    } catch {
+      // sem storage: fica só em memória
+    }
+    ouvintesSom.forEach((f) => f())
+  }
+  return [ligado, alternar]
+}
+
+/** Som curto ao chegar mensagem (Web Audio). Desligado pelo usuário, ou bloqueado pelo navegador antes da 1ª interação: silêncio. */
 export function bipe(tom: [number, number] = [523.25, 783.99]) {
+  if (!somLigado()) return
   try {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
     const ctx = new Ctx()
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {})
     const osc = ctx.createOscillator()
     const ganho = ctx.createGain()
     osc.connect(ganho)
@@ -273,7 +307,7 @@ export function useMinhasConversas(ouvir = false) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('conversations' as never)
-        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, chat_topics(label)')
+        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, assignee_name, chat_topics(label)')
         .eq('user_id', uid!)
         .order('last_message_at', { ascending: false })
         .limit(50)
@@ -286,7 +320,8 @@ export function useMinhasConversas(ouvir = false) {
     if (!ouvir || !uid) return
     const aoMudar = ({ new: nova }: { new: Partial<Conversa> }) => {
       const antes = qc.getQueryData<Conversa[]>(['chat-minhas', uid])?.find((c) => c.id === nova.id)
-      if (nova.last_reply_at && nova.last_reply_at !== antes?.last_reply_at) bipe()
+      // resposta nova da equipe (a mensagem do próprio cliente não mexe em last_reply_at)
+      if (depois(nova.last_reply_at, antes?.last_reply_at)) bipe()
       qc.invalidateQueries({ queryKey: ['chat-minhas', uid] })
       if (nova.id) qc.invalidateQueries({ queryKey: ['chat-mensagens', nova.id] })
     }

@@ -7,10 +7,20 @@ import { publicoDoPapel, validarTelefoneBR, type MensagemChat } from '../hooks/u
 import ChatThread from '../components/chat/ChatThread'
 import SupportChatWidget, { SupportChatPanel } from '../components/SupportChatWidget'
 import Atendimento from '../pages/admin/Atendimento'
+import AdminLayout from '../components/AdminLayout'
 
 let role = 'user'
-vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role, email: 'ana@exemplo.com', full_name: 'Ana Souza', phone: null } }) }))
+vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({
+  user: { id: 'u1', role, email: 'ana@exemplo.com', full_name: 'Ana Souza', phone: null, admin_permissions: role === 'admin' ? ['manage_support'] : [] },
+  logout: vi.fn(),
+}) }))
+vi.mock('../components/ThemeToggle', () => ({ default: () => null })) // o AdminLayout usa; o tema não importa aqui
 Element.prototype.scrollIntoView = vi.fn()
+// som: conta quantos AudioContext o bipe cria (o construtor falha de propósito: o bipe tem de engolir)
+let bipes = 0
+vi.stubGlobal('AudioContext', class { constructor() { bipes++; throw new Error('sem áudio no jsdom') } })
+const mem: Record<string, string> = {}
+vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v }, removeItem: (k: string) => { delete mem[k] } })
 
 // Consulta encadeável que anota cada chamada (tabela, método, argumentos) e devolve respostas[tabela]
 let chamadas: { tabela: string; metodo: string; args: unknown[] }[] = []
@@ -197,5 +207,63 @@ describe('chat: caixa de entrada do admin', () => {
     expect(supabase.channel).toHaveBeenCalledTimes(1) // trocar de conversa não recria o canal
     unmount()
     expect(supabase.removeChannel).toHaveBeenCalledWith(canal)
+  })
+})
+
+describe('chat: nome de quem atende', () => {
+  const conversa = (assignee_name: string | null) => ({
+    id: 'c9', status: 'open', priority: 'normal', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'oi', last_reply_at: null,
+    customer_last_read_at: null, agent_last_read_at: null, rating: null, created_at: '2026-09-30T12:00:00Z', assignee_name, chat_topics: { label: 'Minha conta e acesso' },
+  })
+  it.each([['Ana', 'Ana está te atendendo'], [null, 'Equipe Evokaa']])('assignee_name %s → cabeçalho "%s"', async (nome, titulo) => {
+    role = 'user'
+    respostas.conversations = [conversa(nome)]
+    montar(<SupportChatPanel />)
+    fireEvent.click(await screen.findByRole('button', { name: /Minha conta e acesso/ }))
+    expect(await screen.findByRole('heading', { name: titulo })).toBeInTheDocument()
+    if (nome) expect(screen.getByText('Equipe Evokaa')).toBeInTheDocument()
+    expect(chamadas.some((c) => c.tabela === 'conversations' && c.metodo === 'select' && String(c.args[0]).includes('assignee_name'))).toBe(true)
+  })
+})
+
+describe('chat: som das mensagens', () => {
+  // dispara no canal do AdminLayout uma mensagem nova (payload do Realtime)
+  const chegar = (m: Record<string, unknown>) => {
+    const chamada = vi.mocked(canal.on as (...a: unknown[]) => unknown).mock.calls
+      .find((c) => (c[1] as { table?: string }).table === 'conversation_messages')
+    ;(chamada![2] as (p: unknown) => void)({ new: m })
+  }
+  beforeEach(() => {
+    role = 'admin'
+    bipes = 0
+    delete mem['evokaa-som-chat']
+    vi.mocked(canal.on as (...a: unknown[]) => unknown).mockClear()
+  })
+
+  it('admin, em qualquer página: mensagem de cliente toca; a própria, nota interna e resposta da equipe não', () => {
+    montar(<AdminLayout />)
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    expect(bipes).toBe(1)
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'u1' }) // o próprio admin como cliente
+    chegar({ sender_role: 'agent', is_internal: false, sender_id: 'a2' })
+    chegar({ sender_role: 'customer', is_internal: true, sender_id: 'cliente-1' })
+    expect(bipes).toBe(1)
+  })
+
+  it('som desligado no botão: nada toca, e a escolha fica guardada', async () => {
+    montar(<><AdminLayout /><Atendimento /></>)
+    const botao = screen.getByRole('button', { name: 'Som das mensagens' })
+    expect(botao).toHaveAttribute('aria-pressed', 'true')
+    fireEvent.click(botao)
+    expect(botao).toHaveAttribute('aria-pressed', 'false')
+    expect(mem['evokaa-som-chat']).toBe('off')
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    expect(bipes).toBe(0)
+  })
+
+  it('participante não tem o canal do admin', () => {
+    role = 'user'
+    montar(<AdminLayout />)
+    expect(vi.mocked(canal.on as (...a: unknown[]) => unknown).mock.calls.some((c) => (c[1] as { table?: string }).table === 'conversation_messages')).toBe(false)
   })
 })

@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard,
@@ -29,6 +29,7 @@ import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
 import { uploadAvatar } from '../lib/avatarUpload'
 import { supabase } from '../lib/supabase'
+import { bipe } from '../hooks/useConversas'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -89,6 +90,29 @@ export default function AdminLayout() {
       return count ?? 0
     },
   })
+
+  // Som de mensagem de cliente em qualquer página do alpha (não só no Atendimento): um canal só,
+  // INSERT de mensagens de cliente (a RLS limita ao que a pessoa atende). Atualiza o contador na hora.
+  const qc = useQueryClient()
+  const uid = user?.id
+  useEffect(() => {
+    if (!podeAtender) return
+    const canal = supabase
+      .channel(`admin-chat-som-${crypto.randomUUID()}`)
+      .on<{ sender_role: string; is_internal: boolean; sender_id: string | null }>(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: 'sender_role=eq.customer' },
+        ({ new: m }) => {
+          if (m.sender_role !== 'customer' || m.is_internal || m.sender_id === uid) return
+          bipe([659.25, 987.77])
+          qc.invalidateQueries({ queryKey: ['chat-abertas'] })
+        },
+      )
+      .subscribe()
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [podeAtender, uid, qc])
 
   const filteredNavItems = navItems.filter((item) => {
     if (!item.permission) return true

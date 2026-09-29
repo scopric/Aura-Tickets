@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useAuth } from '../hooks/useAuth'
 import { publicoDoPapel, useMinhasConversas } from '../hooks/useConversas'
 import { JanelaSuporte, SupportChatPanel } from './SupportChatWidget'
+import { BotaoSom } from './chat/ChatThread'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
 import type { CamposPlanejar } from './evo/EvoPlanejar'
 
@@ -249,6 +250,7 @@ export default function EvoHub() {
               <DialogDescription className="sr-only">
                 Assistente de IA e conversa com a equipe da Evokaa
               </DialogDescription>
+              <BotaoSom className="ml-auto mr-1 text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white" />
               <DialogClose
                 aria-label="Fechar central do Evo"
                 className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"

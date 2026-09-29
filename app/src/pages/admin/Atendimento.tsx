@@ -6,8 +6,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { atualizarConversa, bipe, depois, iniciais, marcarLida, mensagemDeErro, quando } from '../../hooks/useConversas'
-import ChatThread from '../../components/chat/ChatThread'
+import { atualizarConversa, depois, iniciais, marcarLida, mensagemDeErro, quando } from '../../hooks/useConversas'
+import ChatThread, { BotaoSom } from '../../components/chat/ChatThread'
 
 // Caixa de entrada do atendimento (etapa 1a do chat estilo Intercom), estilo Intercom em 4 colunas:
 // filtros + busca · lista (chat_inbox) · conversa (ChatThread com nota interna) · contato e ações.
@@ -46,6 +46,7 @@ interface ConversaAdmin {
   status: 'open' | 'resolved'
   priority: 'normal' | 'urgent'
   assignee_id: string | null
+  assignee_name: string | null
   department_id: string | null
   customer_last_read_at: string | null
   agent_last_read_at: string | null
@@ -70,6 +71,7 @@ const ORIGEM: Record<string, string> = { site: 'Site', app: 'App', migracao: 'Ch
 const ROTULO_NOTA = ['', '😞 Ruim', '😐 Regular', '😊 Ótimo']
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+const primeiroNome = (a?: { full_name: string | null; email: string }) => (a ? (a.full_name?.trim().split(/\s+/)[0] || a.email) : undefined)
 const telefone = (d: string | null) => (d && /^55\d{10,11}$/.test(d) ? `+55 (${d.slice(2, 4)}) ${d.slice(4, -4)}-${d.slice(-4)}` : d ?? '—')
 
 function useInbox(filtro: Filtro, busca: string) {
@@ -91,7 +93,7 @@ function useConversaAdmin(id: string | null) {
     queryFn: async () => {
       const { data: d, error } = await supabase
         .from('conversations' as never)
-        .select('id, user_id, status, priority, assignee_id, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
+        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
         .eq('id', id!)
         .maybeSingle()
       if (error) throw error
@@ -183,7 +185,7 @@ export default function Atendimento() {
   // Um canal só, criado ao montar (não recria ao trocar de conversa): INSERT/UPDATE de conversas e
   // INSERT de mensagens. O Realtime respeita o RLS; aqui só se invalida o cache.
   useEffect(() => {
-    // o bipe sai só na mensagem do cliente (conversa nova também traz a 1ª mensagem: um bipe só)
+    // o som fica no AdminLayout (toca em qualquer página do alpha); aqui só se renova o cache
     const aoMudarConversa = ({ new: c }: { new: { id?: string } }) => {
       qc.invalidateQueries({ queryKey: ['chat-inbox'] })
       if (c.id) {
@@ -195,8 +197,7 @@ export default function Atendimento() {
       .channel(`atendimento-${crypto.randomUUID()}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversations' }, aoMudarConversa)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, aoMudarConversa)
-      .on<{ conversation_id: string; sender_role: string }>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_messages' }, ({ new: m }) => {
-        if (m.sender_role === 'customer') bipe([659.25, 987.77])
+      .on<{ conversation_id: string }>('postgres_changes', { event: 'INSERT', schema: 'public', table: 'conversation_messages' }, ({ new: m }) => {
         qc.invalidateQueries({ queryKey: ['chat-mensagens', m.conversation_id] })
       })
       .subscribe()
@@ -244,9 +245,12 @@ export default function Atendimento() {
     <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
       {/* 1. Filtros + busca */}
       <nav aria-label="Filtros do atendimento" className={`${sel ? 'hidden lg:flex' : 'flex'} w-44 shrink-0 flex-col gap-1 border-r border-border bg-card p-3`}>
-        <h1 className="mb-2 flex items-center gap-2 px-2 text-base font-semibold">
-          <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Atendimento
-        </h1>
+        <div className="mb-2 flex items-center gap-1 px-2">
+          <h1 className="flex items-center gap-2 text-base font-semibold">
+            <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Atendimento
+          </h1>
+          <BotaoSom className="ml-auto text-muted-foreground hover:bg-muted hover:text-foreground" />
+        </div>
         {FILTROS.map((f) => (
           <button
             key={f.id}
@@ -322,6 +326,11 @@ export default function Atendimento() {
                           {l.mediation && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">Mediação</span>}
                           {l.department_name && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{l.department_name}</span>}
                           {!l.assignee_id && l.status === 'open' && <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">Sem dono</span>}
+                          {l.assignee_id && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-px text-[10px] text-foreground">
+                              <UserCheck className="h-3 w-3" aria-hidden="true" />{l.assignee_id === user?.id ? 'Você' : primeiroNome(atendentes.find((a) => a.id === l.assignee_id)) ?? 'Com dono'}
+                            </span>
+                          )}
                         </span>
                       </span>
                     </button>
@@ -361,6 +370,7 @@ export default function Atendimento() {
                 <p className="truncate text-xs text-muted-foreground">
                   {c.chat_topics?.label ?? 'Sem assunto'} · {c.status === 'open' ? 'Aberta' : 'Resolvida'}
                   {c.priority === 'urgent' ? ' · Urgente' : ''}
+                  {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id ? '' : ' · sem dono'}
                 </p>
               </div>
               {c.assignee_id !== user?.id && c.status === 'open' && (

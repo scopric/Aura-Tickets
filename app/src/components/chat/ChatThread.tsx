@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, CheckCheck, Download, FileText, Loader2, Lock, Paperclip, Send, WifiOff, X } from 'lucide-react'
+import { AlertCircle, CheckCheck, Download, FileText, Loader2, Lock, Paperclip, Send, Volume2, VolumeX, WifiOff, X } from 'lucide-react'
 import {
   MAX_TEXTO, TIPOS_ANEXO, depois, enviarAnexo, enviarMensagem, iniciais, mensagemDeErro, problemaNoArquivo,
-  useMensagens, useUrlAnexo, type MensagemChat, type PapelMensagem,
+  useMensagens, useSomChat, useUrlAnexo, type MensagemChat, type PapelMensagem,
 } from '../../hooks/useConversas'
 
 // Selo de quem escreveu: SEMPRE pelo sender_role gravado pelo servidor, nunca pelo nome (o nome
@@ -24,6 +24,17 @@ function assinarConexao(cb: () => void) {
 function tamanho(bytes: number | null) {
   if (!bytes) return ''
   return bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1).replace('.', ',')} MB`
+}
+
+/** Liga/desliga o som das mensagens (preferência do navegador, vale para o chat e para o atendimento). */
+export function BotaoSom({ className = '' }: { className?: string }) {
+  const [ligado, alternar] = useSomChat()
+  const Icone = ligado ? Volume2 : VolumeX
+  return (
+    <button type="button" onClick={alternar} aria-pressed={ligado} aria-label="Som das mensagens" title={ligado ? 'Som das mensagens: ligado' : 'Som das mensagens: desligado'} className={`rounded-lg p-1.5 ${foco} ${className}`}>
+      <Icone className="h-4 w-4" aria-hidden="true" />
+    </button>
+  )
 }
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })

@@ -4,12 +4,12 @@ import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, LogIn, Mail, MessageCircle, Send, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import {
-  MAX_TEXTO, avaliarConversa, depois, iniciarConversa, marcarLida, mensagemDeErro, publicoDoPapel, quando,
+  MAX_TEXTO, avaliarConversa, depois, iniciais, iniciarConversa, marcarLida, mensagemDeErro, publicoDoPapel, quando,
   useAssuntos, useChatConfig, useMeuContato, useMinhasConversas, validarTelefoneBR,
   type Assunto, type Conversa, type Publico,
 } from '../hooks/useConversas'
 import PhoneInput from './ui/PhoneInput'
-import ChatThread from './chat/ChatThread'
+import ChatThread, { BotaoSom } from './chat/ChatThread'
 
 // Widget do cliente (etapa 1a do chat estilo Intercom): balão do site (export default, assuntos do
 // site) e aba "Falar com a Evokaa" da janela do Evo (SupportChatPanel, assuntos do papel da conta).
@@ -365,8 +365,22 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   return (
     <>
       <Voltar onClick={() => ir({ t: 'inicio' })}>
-        <h3 data-foco tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">{c?.chat_topics?.label ?? 'Conversa'}</h3>
-        <p className={`text-xs ${suave}`}>Equipe Evokaa{c?.status === 'resolved' ? ' · resolvida' : ''}</p>
+        {/* quem assumiu aparece com o nome (assignee_name, gravado pelo servidor); sem dono, "Equipe Evokaa" */}
+        <div className="flex items-center gap-2.5">
+          <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-xs font-bold text-[#fff]">
+            {c?.assignee_name ? iniciais(c.assignee_name) : <MessageCircle className="h-4 w-4" />}
+          </span>
+          <div className="min-w-0">
+            <h3 data-foco tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">
+              {c?.assignee_name ? `${c.assignee_name} está te atendendo` : 'Equipe Evokaa'}
+            </h3>
+            <p className={`truncate text-xs ${suave}`}>
+              {c?.assignee_name && <span>Equipe Evokaa</span>}
+              {c?.assignee_name && <span aria-hidden="true"> · </span>}
+              <span>{c?.chat_topics?.label ?? 'Conversa'}{c?.status === 'resolved' ? ' · resolvida' : ''}</span>
+            </p>
+          </div>
+        </div>
       </Voltar>
       {c?.status === 'resolved' && <Avaliacao c={c} atualizar={atualizar} />}
       <ChatThread
@@ -427,6 +441,7 @@ export function JanelaSuporte({ publico, aoFechar, posicao }: { publico: Publico
     >
       <div className="flex items-center justify-between px-5 pb-1 pt-4">
         <h2 id="suporte-titulo" className="text-base font-semibold">Falar com a Evokaa</h2>
+        <BotaoSom className="ml-auto mr-1 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10" />
         <button type="button" onClick={aoFechar} aria-label="Fechar chat com a Evokaa" className={`rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 ${foco}`}>
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
