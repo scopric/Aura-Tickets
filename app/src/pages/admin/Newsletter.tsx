@@ -207,13 +207,15 @@ export default function AdminNewsletter() {
     ctaUrl: string
     selectedEvents: DbEvent[]
   }) => {
+    // E-mail não tem "site atual": caminho relativo (/images/...) sai quebrado no Gmail/Outlook
+    const abs = (url: string) => (url.startsWith('/') ? `https://www.evokaa.com.br${url}` : url)
     const eventsHtml = config.selectedEvents.map(evt => `
       <div style="background-color: #ffffff; border: 1px solid #f1eeeb; border-radius: 12px; padding: 18px; margin: 18px 0; text-align: left; font-family: sans-serif;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%">
           <tr>
             ${evt.cover_image ? `
             <td width="90" style="vertical-align: top; padding-right: 15px;">
-              <img src="${evt.cover_image}" alt="" width="90" height="90" style="object-fit: cover; border-radius: 8px; display: block;" />
+              <img src="${abs(evt.cover_image)}" alt="" width="90" height="90" style="object-fit: cover; border-radius: 8px; display: block;" />
             </td>
             ` : ''}
             <td style="vertical-align: top;">
@@ -228,7 +230,7 @@ export default function AdminNewsletter() {
     `).join('')
 
     const logoBlock = config.includeLogo 
-      ? `<img src="${config.logoUrl}" alt="Evokaa" style="max-height: 45px; display: block; margin: 0 auto 10px auto;" onerror="this.src='https://evokaa.com.br/images/logo-evokaa.png';this.onerror=null;" />`
+      ? `<img src="${abs(config.logoUrl)}" alt="Evokaa" style="max-height: 45px; display: block; margin: 0 auto 10px auto;" />`
       : ''
 
     const couponBlock = config.includeCoupon ? `
@@ -965,7 +967,9 @@ export default function AdminNewsletter() {
                   srcDoc={liveHtml || '<p style="text-align:center;padding-top:100px;color:#888;font-family:sans-serif;font-size:12px;">Seu e-mail aparecerá aqui</p>'}
                   title="Newsletter Preview"
                   className="w-full h-full border-0"
-                  sandbox=""
+                  // sem allow-scripts: nenhum script do HTML roda. sandbox="" deixava o preview em
+                  // branco (testado no navegador em 29/09/2026)
+                  sandbox="allow-same-origin"
                 />
               </div>
             </div>
