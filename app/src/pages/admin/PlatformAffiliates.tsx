@@ -63,7 +63,7 @@ export default function AdminPlatformAffiliates() {
   const queryClient = useQueryClient()
   const { user } = useAuth()
   const [form, setForm] = useState<Form | null>(null)
-  const [aberto, setAberto] = useState<string | null>(null) // afiliado com a carteira aberta
+  const [aberto, setAberto] = useState<string | null>(null) // afiliado com a lista de indicados aberta
   const [produtorNovo, setProdutorNovo] = useState('')
   const [buscando, setBuscando] = useState(false)
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm(f => (f ? { ...f, [k]: v } : f))
@@ -140,13 +140,13 @@ export default function AdminPlatformAffiliates() {
         .insert({ producer_id: producerId, affiliate_id: affiliateId, source: 'manual', linked_by: user?.id ?? null } as never)
         .select('producer_id')
       if (e) {
-        if (e.code === '23505') throw new Error('Esse produtor já está na carteira de um afiliado.')
+        if (e.code === '23505') throw new Error('Esse produtor já é indicado de um afiliado.')
         throw e
       }
       if (!d?.length) throw new Error('Nada foi gravado (sem permissão).')
     },
     onSuccess: () => {
-      toast.success('Produtor adicionado à carteira.')
+      toast.success('Produtor adicionado aos indicados.')
       setProdutorNovo('')
       queryClient.invalidateQueries({ queryKey: ['admin-platform-affiliates'] })
     },
@@ -160,7 +160,7 @@ export default function AdminPlatformAffiliates() {
       if (!d?.length) throw new Error('Nada foi removido (sem permissão).')
     },
     onSuccess: () => {
-      toast.success('Produtor retirado da carteira.')
+      toast.success('Produtor retirado dos indicados.')
       queryClient.invalidateQueries({ queryKey: ['admin-platform-affiliates'] })
     },
     onError: e => toast.error(erroDe(e)),
@@ -195,7 +195,7 @@ export default function AdminPlatformAffiliates() {
         <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
         <div>
           <strong>Comissão:</strong> 50% do valor do plano na primeira venda e recorrência de 15% a 25% conforme o acordo de cada afiliado.
-          {' '}<strong>Nenhuma comissão é calculada ainda:</strong> a cobrança dos planos não existe; quando for ligada, as vendas dos produtores da carteira passam a gerar comissão. O cupom do afiliado (5% a 25%) entra na etapa seguinte.
+          {' '}<strong>Nenhuma comissão é calculada ainda:</strong> a cobrança dos planos não existe; quando for ligada, as vendas de planos aos produtores indicados passam a gerar comissão, paga direto na conta do afiliado (não passa pela carteira do produtor). O cupom do afiliado (5% a 25%) entra na etapa seguinte.
         </div>
       </div>
 
@@ -208,7 +208,7 @@ export default function AdminPlatformAffiliates() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         {[
           { label: 'Afiliados ativos', value: afiliados.filter(a => a.status === 'active').length },
-          { label: 'Produtores em carteiras', value: vinculos.length },
+          { label: 'Produtores indicados', value: vinculos.length },
           { label: 'Produtores sem afiliado', value: semAfiliado.length },
         ].map(k => (
           <div key={k.label} className="p-4 rounded-2xl bg-card border border-border">
@@ -225,7 +225,7 @@ export default function AdminPlatformAffiliates() {
       ) : (
         <div className="space-y-3">
           {afiliados.map(a => {
-            const carteira = vinculos.filter(v => v.affiliate_id === a.id)
+            const indicados = vinculos.filter(v => v.affiliate_id === a.id)
             const expandido = aberto === a.id
             return (
               <div key={a.id} className="border border-border rounded-2xl bg-card">
@@ -244,7 +244,7 @@ export default function AdminPlatformAffiliates() {
                       aria-expanded={expandido}
                       className="px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted"
                     >
-                      Carteira ({carteira.length})
+                      Produtores indicados ({indicados.length})
                     </button>
                     <button
                       type="button"
@@ -263,7 +263,7 @@ export default function AdminPlatformAffiliates() {
                       <p className="text-xs text-amber-700">Afiliado {STATUS[a.status].label.toLowerCase()}: não recebe produtores novos. Reative o acordo para adicionar.</p>
                     )}
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <label className="sr-only" htmlFor={`add-${a.id}`}>Adicionar produtor à carteira</label>
+                      <label className="sr-only" htmlFor={`add-${a.id}`}>Adicionar produtor indicado</label>
                       <select id={`add-${a.id}`} className={inputCls} value={produtorNovo} onChange={e => setProdutorNovo(e.target.value)}>
                         <option value="">Adicionar produtor sem afiliado…</option>
                         {semAfiliado.filter(p => p.id !== a.user_id).map(p => <option key={p.id} value={p.id}>{p.full_name || p.email} ({p.email})</option>)}
@@ -277,19 +277,19 @@ export default function AdminPlatformAffiliates() {
                         <UserPlus className="w-4 h-4" aria-hidden="true" /> Adicionar
                       </button>
                     </div>
-                    {carteira.length === 0 ? (
-                      <p className="text-xs text-muted-foreground italic">Nenhum produtor na carteira.</p>
+                    {indicados.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhum produtor indicado.</p>
                     ) : (
                       <ul className="divide-y divide-border">
-                        {carteira.map(v => (
+                        {indicados.map(v => (
                           <li key={v.producer_id} className="py-2 flex items-center justify-between gap-2 text-sm">
                             <span className="text-foreground">{v.producer?.full_name || v.producer?.email} <span className="text-xs text-muted-foreground">desde {dataBr(v.linked_at)}</span></span>
                             <button
                               type="button"
-                              onClick={() => { if (window.confirm('Retirar este produtor da carteira? A recorrência futura deixa de ir para este afiliado.')) desvincular.mutate(v.producer_id) }}
+                              onClick={() => { if (window.confirm('Retirar este produtor dos indicados? A recorrência futura deixa de ir para este afiliado.')) desvincular.mutate(v.producer_id) }}
                               disabled={desvincular.isPending}
                               className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-40"
-                              aria-label={`Retirar ${v.producer?.email} da carteira`}
+                              aria-label={`Retirar ${v.producer?.email} dos indicados`}
                             >
                               <Unlink className="w-4 h-4" />
                             </button>
