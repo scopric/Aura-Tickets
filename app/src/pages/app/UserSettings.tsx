@@ -537,8 +537,8 @@ export default function UserSettings() {
 
       {/* Modal do 2FA */}
       {showMfaModal && enrollData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel w-full max-w-md p-6 relative text-espresso">
             <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
               <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
             </h3>

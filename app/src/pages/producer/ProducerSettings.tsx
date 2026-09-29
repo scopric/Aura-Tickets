@@ -719,8 +719,8 @@ export default function ProducerSettings() {
 
       {/* Modal do 2FA */}
       {showMfaModal && enrollData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel w-full max-w-md p-6 relative text-espresso">
             <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
               <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
             </h3>
@@ -798,8 +798,8 @@ export default function ProducerSettings() {
 
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDelete(false)} />
-          <div className="relative w-full max-w-sm bg-white border border-red-100 rounded-3xl p-6 shadow-xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowDelete(false)} />
+          <div className="glass-panel relative w-full max-w-sm p-6">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-500" /></div>
             <h3 className="font-serif text-xl text-espresso text-center mb-2">Excluir conta</h3>
             <p className="text-xs text-espresso/50 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>

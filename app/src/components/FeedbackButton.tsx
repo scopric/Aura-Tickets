@@ -143,7 +143,7 @@ export default function FeedbackButton() {
       </button>
 
       {isOpen && (
-        <div className="fixed bottom-20 right-6 z-50 w-80 bg-canvas border border-white/60 rounded-2xl shadow-xl p-4">
+        <div className="fixed bottom-20 right-6 z-50 w-80 glass-panel rounded-2xl p-4">
           <FeedbackForm onDone={() => setIsOpen(false)} />
         </div>
       )}

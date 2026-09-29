@@ -97,18 +97,18 @@ export default function ParticipantSettings() {
       {/* Delete Modal */}
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDelete(false)} />
-          <div className="relative w-full max-w-sm bg-slate-950 border border-white/10 rounded-3xl p-6 shadow-elevated">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowDelete(false)} />
+          <div className="glass-panel relative w-full max-w-sm p-6">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><Trash2 className="w-6 h-6 text-red-500" /></div>
             <h3 className="font-serif text-xl text-cream text-center mb-2">Excluir conta</h3>
-            <p className="text-xs text-white/40 text-center mb-4">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
+            <p className="text-xs text-white/60 text-center mb-4">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
             <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
-              <p className="text-xs text-red-400 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white/[0.04] border border-red-500/20 rounded-lg text-sm text-red-400 placeholder:text-red-300 focus:outline-none focus:border-red-400/50" />
+              <p className="text-xs text-red-700 dark:text-red-400 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
+              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white/[0.04] border border-red-500/20 rounded-lg text-sm text-red-700 dark:text-red-400 placeholder:text-red-600/50 dark:placeholder:text-red-300 focus:outline-none focus:border-red-400/50" />
             </div>
             <div className="space-y-2">
               <button onClick={handleDelete} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
-              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-white/40 hover:text-white/80 transition-colors">Voltar</button>
+              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-white/60 hover:text-white/80 transition-colors">Voltar</button>
             </div>
           </div>
         </div>

@@ -9,7 +9,7 @@
     /* shadcn/ui tokens - updated to slate/cool grays for dark mode by default */
     --background: 222 47% 6%;
     --foreground: 210 40% 98%;
-    --card: 222 47% 9%;
+    --card: 222 47% 9% / 0.6;          /* material regular: cartões translúcidos sobre o fundo ambiente */
     --card-foreground: 210 40% 98%;
     --popover: 222 47% 9%;
     --popover-foreground: 210 40% 98%;
@@ -73,7 +73,7 @@
   .light {
     --background: 210 40% 98%;
     --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
+    --card: 0 0% 100% / 0.6;
     --card-foreground: 222 47% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
@@ -397,10 +397,7 @@
 
 /* Estilização da barra lateral no Modo Claro (Light Mode) */
 .light aside {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-right-color: rgba(15, 23, 42, 0.08) !important;
+  border-right-color: rgba(15, 23, 42, 0.08) !important; /* fundo vem do .glass-bar */
 }
 
 .light aside div, .light aside header, .light aside .border-t {
@@ -463,10 +460,7 @@
 }
 
 .light header {
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-bottom-color: rgba(15, 23, 42, 0.08) !important;
+  border-bottom-color: rgba(15, 23, 42, 0.08) !important; /* fundo vem do .glass-bar (layouts) ou da própria tela */
 }
 .light header *, .light header input {
   color: #1e293b !important;
@@ -534,6 +528,21 @@
   background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
+/* 4b. Cartões (div) no material regular do iOS 27 (branco a 60%); campos e botões continuam no bloco acima.
+   Brilho no topo e sombra com :where() (especificidade 0,0,1): shadow-* e ring-* das telas continuam valendo. */
+.light div.bg-white\/80,
+.light div.bg-white\/60,
+.light div.bg-white\/50,
+.light div.bg-white\/40 {
+  background-color: rgba(255, 255, 255, 0.6) !important;
+}
+:where(.light) div:where(.bg-white\/80, .bg-white\/60, .bg-white\/50, .bg-white\/40) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+}
+:where(.dark) div:where(.bg-white\/80, .bg-white\/60, .bg-white\/50, .bg-white\/40) {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 /* 5. Sobrescritas para classes de Borda Translúcida de Branco (Quadros e Linhas) */
 .light .border-white\/80,
 .light .border-white\/60,
@@ -589,6 +598,8 @@
 .light button.bg-red-600 *,
 .light a.bg-plum,
 .light a.bg-plum *,
+.light .bg-plum.text-white,
+.light .bg-plum.text-white *,
 .light .badge,
 .light .badge * {
   color: #ffffff !important;
@@ -677,41 +688,75 @@ body {
 }
 
 /* Vidro "Liquid Glass" (valores de seunghan91/ios27-design-system, MIT, packages/tokens/src/materials.json,
-   lido em 29/09/2026). Segue o tema pela classe .dark do <html> (ThemeContext). Por ora só no modal do Evo;
-   feito para ser reaproveitado nos outros modais. */
-.glass-backdrop {
-  background: rgba(0, 0, 0, 0.18);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
+   lido em 29/09/2026). Segue o tema pela classe .dark do <html> (ThemeContext).
+   Apple (HIG, Materials): Liquid Glass só na camada de controle — sobreposições (glass-backdrop/-panel) e
+   barras (glass-bar); cartões de conteúdo usam o material regular (remendos de bg-white/NN mais acima).
+   Em @layer components: utilidades (rounded-*, h-full, border-*) ajustam o vidro; no painel, não deixe
+   classes de fundo, cor de borda ou sombra — no claro elas ganham do vidro. */
+@layer components {
+  /* O desfoque fica no ::before: se ficasse no próprio elemento, ele viraria o limite do desfoque do
+     painel quando o painel é filho dele (vários modais), e o painel ficaria cinza sem borrar a página */
+  .glass-backdrop::before {
+    content: "";
+    position: fixed; /* fixed, não absolute: nos fundos que rolam (editor de cupom, Evo) o véu não pode rolar junto */
+    inset: 0;
+    z-index: -1;
+    background: rgba(0, 0, 0, 0.18);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+  }
+  .dark .glass-backdrop::before {
+    background: rgba(0, 0, 0, 0.35);
+  }
+  .glass-panel {
+    color: #0c2340; /* marinho da marca */
+    /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09 */
+    background: rgba(255, 255, 255, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    border-radius: 34px;
+    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+    backdrop-filter: blur(24px) saturate(1.8);
+  }
+  .dark .glass-panel {
+    color: #f8fafc;
+    /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09; textos secundários em slate-300 para manter AA */
+    background: rgba(18, 20, 45, 0.5);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  }
+  /* Barras (lateral e topo): material "sidebar" dos tokens (#f7f7f7 / preto a 80%, desfoque 40) */
+  .glass-bar {
+    background: rgba(247, 247, 247, 0.8);
+    border-color: rgba(15, 23, 42, 0.08);
+    -webkit-backdrop-filter: blur(40px) saturate(1.8);
+    backdrop-filter: blur(40px) saturate(1.8);
+  }
+  .dark .glass-bar {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  /* Fundo ambiente dos painéis: sem algo atrás, o vidro sobre cor lisa não aparece */
+  .glass-canvas {
+    background-color: var(--canvas);
+    background-image:
+      radial-gradient(60rem 40rem at 100% 0%, rgba(143, 51, 245, 0.10), transparent 60%),
+      radial-gradient(50rem 40rem at 0% 100%, rgba(29, 104, 196, 0.10), transparent 60%);
+  }
+  /* Sem transparência (preferência do sistema ou navegador sem backdrop-filter): fundo opaco, sem blur */
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    .glass-panel { background: #ffffff; }
+    .dark .glass-panel { background: #12142d; }
+    .glass-bar { background: #f7f7f7; }
+    .dark .glass-bar { background: #07080c; }
+    .glass-backdrop::before, .dark .glass-backdrop::before { background: rgba(0, 0, 0, 0.5); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass-panel { background: #ffffff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .dark .glass-panel { background: #12142d; }
+    .glass-bar { background: #f7f7f7; -webkit-backdrop-filter: none; backdrop-filter: none; }
+    .dark .glass-bar { background: #07080c; }
+    .glass-backdrop::before, .dark .glass-backdrop::before { background: rgba(0, 0, 0, 0.5); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
 }
-.dark .glass-backdrop {
-  background: rgba(0, 0, 0, 0.35);
-}
-.glass-panel {
-  color: #0c2340; /* marinho da marca */
-  /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09 */
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  border-radius: 34px;
-  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  -webkit-backdrop-filter: blur(24px) saturate(1.8);
-  backdrop-filter: blur(24px) saturate(1.8);
-}
-.dark .glass-panel {
-  color: #f8fafc;
-  /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09; textos secundários em slate-300 para manter AA */
-  background: rgba(18, 20, 45, 0.5);
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
-}
-/* Sem transparência (preferência do sistema ou navegador sem backdrop-filter): fundo opaco, sem blur */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-panel { background: #ffffff; }
-  .dark .glass-panel { background: #12142d; }
-  .glass-backdrop { background: rgba(0, 0, 0, 0.5); }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .glass-panel { background: #ffffff; -webkit-backdrop-filter: none; backdrop-filter: none; }
-  .dark .glass-panel { background: #12142d; }
-  .glass-backdrop { background: rgba(0, 0, 0, 0.5); -webkit-backdrop-filter: none; backdrop-filter: none; }
-}
+

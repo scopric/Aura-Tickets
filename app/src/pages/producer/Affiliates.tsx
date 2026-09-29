@@ -414,7 +414,7 @@ export default function ProducerAffiliates() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
+          <div className="glass-panel relative w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6"><h3 className="font-serif text-xl text-espresso">Novo Afiliado</h3><button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button></div>
             <div className="space-y-3">
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nome completo *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
@@ -437,8 +437,8 @@ export default function ProducerAffiliates() {
       {/* Detail / Performance Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="relative w-full max-w-lg bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
+          <div className="glass-panel relative w-full max-w-lg h-full overflow-y-auto rounded-r-none border-y-0 border-r-0">
             <div className="p-6">
               {/* Header */}
               <div className="flex items-start justify-between mb-6">

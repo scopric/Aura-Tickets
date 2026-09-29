@@ -573,8 +573,8 @@ export default function AdminCoupons() {
       )}
 
       {form && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-start justify-center overflow-y-auto p-4" role="dialog" aria-modal="true" aria-labelledby="cupom-titulo" onKeyDown={e => { if (e.key === 'Escape') setForm(null) }}>
-          <form onSubmit={enviar} className="w-full max-w-2xl my-8 bg-card border border-border rounded-2xl p-6 space-y-5">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="cupom-titulo" onKeyDown={e => { if (e.key === 'Escape') setForm(null) }}>
+          <form onSubmit={enviar} className="glass-panel w-full max-w-2xl my-8 p-6 space-y-5">
             <div className="flex items-center justify-between">
               <h2 id="cupom-titulo" className="font-serif text-xl text-foreground">
                 {form.id ? `Editar ${form.code}` : form.request_id ? 'Criar cupom do pedido do afiliado' : 'Novo cupom'}

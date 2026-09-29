@@ -135,8 +135,8 @@ export default function ProducerPartners() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-md bg-canvas border border-white/60 rounded-3xl p-6 shadow-2xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
+          <div className="glass-panel relative w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Novo Parceiro</h3>
               <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/40"><X className="w-5 h-5" /></button>

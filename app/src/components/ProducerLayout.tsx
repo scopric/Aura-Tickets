@@ -24,7 +24,7 @@ import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
 import NotificationsTopButton from './NotificationsTopButton'
 
-const botaoTopo = 'rounded-xl p-2 text-espresso hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
+const botaoTopo = 'rounded-full p-2 text-espresso hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -272,18 +272,13 @@ export default function ProducerLayout() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--canvas)' }}>
+    <div className="flex min-h-screen glass-canvas">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 ease-out',
+          'fixed left-0 top-0 bottom-0 z-40 flex flex-col glass-bar border-r transition-all duration-300 ease-out',
           collapsed ? 'w-[68px]' : 'w-[232px]'
         )}
-        style={{ 
-          background: 'rgba(7, 8, 12, 0.75)', 
-          backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-        }}
       >
         {/* Logo area */}
         <div className={cn(
@@ -426,9 +421,11 @@ export default function ProducerLayout() {
       >
         {/* Barra invisível do topo: só ícones à direita, numa faixa própria de 40 px (não cobre
             botões do cabeçalho das páginas, como "Novo Evento" do painel) */}
-        <div className="flex h-10 items-center justify-end gap-1 px-4 pt-1">
-          <NotificationsTopButton className={botaoTopo} />
-          <FeedbackTopButton className={botaoTopo} />
+        <div className="sticky top-0 z-30 flex h-10 items-center justify-end px-4 pointer-events-none">
+          <div className="glass-bar pointer-events-auto flex items-center gap-1 rounded-full border">
+            <NotificationsTopButton className={botaoTopo} />
+            <FeedbackTopButton className={botaoTopo} />
+          </div>
         </div>
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet />

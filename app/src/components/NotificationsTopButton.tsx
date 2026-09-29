@@ -40,7 +40,7 @@ export default function NotificationsTopButton({ className }: { className: strin
         <TooltipContent>Notificações</TooltipContent>
       </Tooltip>
 
-      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl border border-slate-900/10 bg-canvas p-0 text-espresso shadow-2xl dark:border-white/10">
+      <PopoverContent align="end" className="w-96 max-w-[calc(100vw-1.5rem)] overflow-hidden p-0 text-espresso">
         <div className="flex items-center justify-between border-b border-slate-900/10 p-4 dark:border-white/10">
           <h3 className="text-sm font-semibold">Notificações</h3>
           <button

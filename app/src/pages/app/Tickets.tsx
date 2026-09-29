@@ -158,18 +158,18 @@ export default function ParticipantTickets() {
       {/* QR Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="relative w-full max-w-sm bg-slate-950 border border-white/10 rounded-3xl p-6 shadow-elevated">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
+          <div className="glass-panel relative w-full max-w-sm p-6">
             <div className="text-center">
               <h3 className="font-serif text-xl text-cream mb-1">{selected.events?.title || 'Evento'}</h3>
-              <p className="text-xs text-white/40">{formatDate(selected.events?.date || null)} · {selected.events?.time || '--:--'}</p>
+              <p className="text-xs text-white/60">{formatDate(selected.events?.date || null)} · {selected.events?.time || '--:--'}</p>
               <div className="w-48 h-48 mx-auto my-6">
                 <TicketQRCode code={selected.code} size={192} className="rounded-2xl" />
               </div>
-              <div className="text-xs font-mono text-white/30 mb-4">{selected.code}</div>
+              <div className="text-xs font-mono text-white/60 mb-4">{selected.code}</div>
               <div className="flex items-center gap-2">
                 <button onClick={handleDownload} className="flex-1 py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-1"><Download className="w-3.5 h-3.5" /> Baixar PDF</button>
-                <button onClick={() => handleCancel(selected.id)} className="flex-1 py-2.5 bg-red-500/10 text-red-400 text-xs rounded-full hover:bg-red-500/20 transition-all">Cancelar</button>
+                <button onClick={() => handleCancel(selected.id)} className="flex-1 py-2.5 bg-red-500/10 text-red-700 dark:text-red-400 text-xs rounded-full hover:bg-red-500/20 transition-all">Cancelar</button>
               </div>
             </div>
           </div>

@@ -830,8 +830,8 @@ export default function Checkout() {
 
       {/* Modal de Ocupante */}
       {occupantModal && occupantModal.open && (
-        <div className="fixed inset-0 bg-void/50 backdrop-blur-xs flex items-center justify-center p-4 z-55 animate-fade-in">
-          <div className="bg-white rounded-3xl border border-stone-200/80 p-6 max-w-sm w-full space-y-4 shadow-elevated">
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-[55] animate-fade-in glass-backdrop">
+          <div className="glass-panel p-6 max-w-sm w-full space-y-4">
             <div className="flex items-center gap-2 text-plum">
               <Ticket className="w-5 h-5" />
               <h3 className="font-serif text-lg text-espresso">Identificar Assento</h3>

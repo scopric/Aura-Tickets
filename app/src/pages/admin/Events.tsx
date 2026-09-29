@@ -336,8 +336,8 @@ export default function AdminEvents() {
       {/* Painel lateral de detalhes (mesmo padrão do "Gerenciar" de Users.tsx) */}
       {detail && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setDetailId(null)} />
-          <aside role="dialog" aria-modal="true" aria-label={`Detalhes do evento ${detail.title}`} className="relative w-full max-w-lg h-full bg-card text-foreground border-l border-border shadow-2xl overflow-y-auto">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setDetailId(null)} />
+          <div role="dialog" aria-modal="true" aria-label={`Detalhes do evento ${detail.title}`} className="glass-panel relative w-full max-w-lg h-full text-foreground overflow-y-auto rounded-r-none border-y-0 border-r-0">
             <div className="p-6 border-b border-border flex items-start justify-between gap-4">
               <div>
                 <h3 className="font-serif text-lg text-foreground">{detail.title}</h3>
@@ -448,7 +448,7 @@ export default function AdminEvents() {
                 </button>
               </div>
             </div>
-          </aside>
+          </div>
         </div>
       )}
     </div>

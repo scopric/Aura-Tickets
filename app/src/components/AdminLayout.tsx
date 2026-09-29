@@ -26,7 +26,11 @@ import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
+import NotificationsTopButton from './NotificationsTopButton'
+import FeedbackTopButton from './FeedbackTopButton'
 import { uploadAvatar } from '../lib/avatarUpload'
+
+const botaoTopo = 'rounded-full p-2 text-foreground hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -84,10 +88,10 @@ export default function AdminLayout() {
   })
 
   return (
-    <div className="flex min-h-screen bg-canvas pt-16">
+    <div className="flex min-h-screen glass-canvas">
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40 bg-[#07080c]/80 backdrop-blur-xl border-r border-white/[0.05] transition-all duration-300 flex flex-col',
+          'fixed left-0 top-0 bottom-0 z-40 glass-bar border-r transition-all duration-300 flex flex-col',
           collapsed ? 'w-16' : 'w-60'
         )}
       >
@@ -178,6 +182,13 @@ export default function AdminLayout() {
       </aside>
 
       <div className={cn('flex-1 transition-all duration-300 min-h-screen', collapsed ? 'ml-16' : 'ml-60')}>
+        {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
+        <div className="sticky top-0 z-30 flex h-16 items-center justify-end px-4 pointer-events-none">
+          <div className="glass-bar pointer-events-auto flex items-center gap-1 rounded-full border p-0.5">
+            <NotificationsTopButton className={botaoTopo} />
+            <FeedbackTopButton className={botaoTopo} />
+          </div>
+        </div>
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet />
         </ErrorBoundary>

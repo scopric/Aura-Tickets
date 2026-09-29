@@ -280,7 +280,7 @@ export default function EventManager() {
                       {actionMenu === event.id && (
                         <>
                           <div className="fixed inset-0 z-10" onClick={() => setActionMenu(null)} />
-                          <div className="absolute right-0 top-full mt-1 w-44 bg-white rounded-xl shadow-elevated border border-white/60 z-20 py-1 overflow-hidden">
+                          <div className="absolute right-0 top-full mt-1 glass-panel w-44 rounded-2xl z-20 py-1 overflow-hidden">
                             <Link to={`/producer/events/${event.id}/edit`} onClick={() => setActionMenu(null)} className="w-full flex items-center gap-2 px-3 py-2 text-xs text-espresso hover:bg-canvas transition-colors">
                               <Pencil className="w-3.5 h-3.5 text-plum" /> Editar evento
                             </Link>

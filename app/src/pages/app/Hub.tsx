@@ -538,8 +538,8 @@ export default function AppHub() {
 
       {/* QR Code Modal */}
       {showQR && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowQR(null)}>
-          <div className="bg-void border border-white/10 rounded-3xl p-8 max-w-xs w-full text-center shadow-elevated" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" onClick={() => setShowQR(null)}>
+          <div className="glass-panel p-8 max-w-xs w-full text-center" onClick={e => e.stopPropagation()}>
             <h3 className="font-serif text-xl text-cream mb-2">Ingresso</h3>
             <p className="text-xs text-cream/40 mb-6">Apresente na entrada do evento</p>
             <div className="w-48 h-48 mx-auto mb-4">

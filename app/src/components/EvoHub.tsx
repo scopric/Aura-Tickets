@@ -135,8 +135,7 @@ export default function EvoHub() {
         {balao && !aberto && (
           // < 380 px o balão cobriria o conteúdo: não aparece (o selo e o anúncio continuam)
           <div
-            className="glass-panel absolute bottom-14 right-full mr-3 flex w-max max-w-[min(260px,calc(100vw-7.5rem))] items-start gap-0.5 py-2 pl-3.5 pr-1 text-sm leading-snug max-[379px]:hidden motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2"
-            style={{ borderRadius: 18 }}
+            className="glass-panel absolute bottom-14 right-full mr-3 flex w-max max-w-[min(260px,calc(100vw-7.5rem))] items-start gap-0.5 py-2 pl-3.5 pr-1 text-sm leading-snug max-[379px]:hidden rounded-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2"
           >
             <button
               type="button"
@@ -159,7 +158,7 @@ export default function EvoHub() {
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
             {/* seta apontando para o Evo */}
-            <span aria-hidden="true" className="glass-panel absolute -right-2 bottom-4 h-3.5 w-2 [clip-path:polygon(0_0,100%_50%,0_100%)]" style={{ borderRadius: 0 }} />
+            <span aria-hidden="true" className="glass-panel absolute -right-2 bottom-4 h-3.5 w-2 [clip-path:polygon(0_0,100%_50%,0_100%)] rounded-none" />
           </div>
         )}
 

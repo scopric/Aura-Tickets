@@ -167,7 +167,7 @@ export default function ProducerInterestList() {
       {showNotifyModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowNotifyModal(false)} />
-          <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
+          <div className="glass-panel relative w-full max-w-md p-6">
             <div className="w-14 h-14 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
               <MailOpen className="w-6 h-6 text-plum" />
             </div>

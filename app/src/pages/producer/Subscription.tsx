@@ -355,7 +355,7 @@ export default function ProducerSubscription() {
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowConfirm(false)} />
-          <div className="relative w-full max-w-sm bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
+          <div className="glass-panel relative w-full max-w-sm p-6">
             <h3 className="font-serif text-xl text-espresso mb-2 text-center">Confirmar Assinatura</h3>
             
             {/* Preço de confirmação */}

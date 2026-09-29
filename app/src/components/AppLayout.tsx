@@ -70,11 +70,11 @@ export default function AppLayout() {
     location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex min-h-screen glass-canvas">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -85,13 +85,9 @@ export default function AppLayout() {
           'fixed left-0 top-0 bottom-0 z-50 flex flex-col transition-all duration-300 ease-out',
           'lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          collapsed ? 'w-[72px]' : 'w-[250px]'
+          collapsed ? 'w-[72px]' : 'w-[250px]',
+          'glass-bar border-r'
         )}
-        style={{
-          background: 'rgba(7, 8, 12, 0.75)',
-          backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-        }}
       >
         {/* Logo */}
         <div
@@ -247,12 +243,7 @@ export default function AppLayout() {
       >
         {/* Header */}
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b"
-          style={{
-            background: 'rgba(7, 8, 12, 0.75)',
-            backdropFilter: 'blur(20px)',
-            borderColor: 'rgba(255, 255, 255, 0.05)',
-          }}
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b glass-bar"
         >
           <div className="flex items-center gap-4">
             {/* Mobile menu button */}

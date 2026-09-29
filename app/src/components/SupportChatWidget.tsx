@@ -310,7 +310,7 @@ function SupportChatBody({ chat }: { chat: SupportChat }) {
                     </p>
                   )}
                   <p className="leading-relaxed break-words">{msg.content}</p>
-                  <span className="block text-[9px] text-slate-600 dark:text-slate-300 text-right mt-1.5">
+                  <span className={`block text-[9px] text-right mt-1.5 ${isVisitor ? '' : 'text-slate-600 dark:text-slate-300'}`}>
                     {new Date(msg.created_at).toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
@@ -386,7 +386,7 @@ export default function SupportChatWidget() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       {/* Janela de Conversa (Chat Box) */}
       {isOpen && (
-        <div className="mb-4 w-[360px] max-w-[calc(100vw-2rem)] h-[480px] bg-void/90 backdrop-blur-xl border border-cream/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
+        <div className="mb-4 w-[360px] max-w-[calc(100vw-2rem)] h-[480px] glass-panel rounded-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
           
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-plum/60 to-void/80 border-b border-cream/10 flex items-center justify-between">

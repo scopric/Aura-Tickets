@@ -179,7 +179,7 @@ export default function ProducerEventGallery() {
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowUpload(false)} />
-          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
+          <div className="glass-panel relative w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Adicionar Foto</h3>
               <button onClick={() => setShowUpload(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
@@ -219,8 +219,8 @@ export default function ProducerEventGallery() {
       {/* Photo Detail Modal */}
       {selectedPhoto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)} />
-          <div className="relative w-full max-w-3xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl max-h-[90vh]">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedPhoto(null)} />
+          <div className="glass-panel relative w-full max-w-3xl overflow-hidden max-h-[90vh]">
             <img src={selectedPhoto.url} alt={selectedPhoto.caption || ''} className="w-full max-h-[50vh] object-cover" />
             <div className="p-6">
               <div className="flex items-start justify-between">

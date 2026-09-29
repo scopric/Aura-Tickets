@@ -453,8 +453,8 @@ export default function ProducerCRM() {
       {/* Modal: Novo Lead */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-canvas border border-white/60 rounded-3xl p-6 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setIsAddModalOpen(false)} />
+          <div className="glass-panel relative w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso flex items-center gap-2">
                 <Users className="w-5 h-5 text-plum" />
@@ -563,8 +563,8 @@ export default function ProducerCRM() {
       {/* Detail Drawer */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="relative w-full max-w-md bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl flex flex-col justify-between">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
+          <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto flex flex-col justify-between rounded-r-none border-y-0 border-r-0">
             <div className="p-6 overflow-y-auto flex-1">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">

@@ -187,8 +187,8 @@ export default function ProducerWallet() {
 
       {/* Withdraw Modal */}
       {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-canvas rounded-2xl border border-white/60 shadow-xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-serif text-xl text-espresso">Solicitar Saque</h3>
               <button onClick={() => setShowWithdrawModal(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/40">

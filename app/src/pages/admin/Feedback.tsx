@@ -434,8 +434,8 @@ export default function AdminFeedback() {
       {/* Detail Modal */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="relative w-full max-w-md bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
+          <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto rounded-r-none border-y-0 border-r-0">
             <div className="p-6">
               <div className="flex items-start justify-between mb-6">
                 {(() => {

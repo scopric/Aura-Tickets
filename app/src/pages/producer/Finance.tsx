@@ -96,8 +96,8 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg surface-elevated p-6 max-h-[90vh] overflow-y-auto text-white">
+      <div className="absolute inset-0 glass-backdrop" onClick={onClose} />
+      <div className="glass-panel relative w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto text-white">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-serif text-xl text-white">{tx ? 'Editar' : 'Nova'} Transação</h3>
           <button onClick={onClose} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-white/[0.06] text-white/40 hover:text-white transition-colors">

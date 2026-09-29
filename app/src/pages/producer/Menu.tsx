@@ -242,8 +242,8 @@ export default function ProducerMenu() {
 
       {/* Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-canvas rounded-3xl p-6 max-w-md w-full shadow-elevated border border-white/60">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel p-6 max-w-md w-full">
             <div className="flex items-center justify-between mb-6">
               <h2 className="font-serif text-xl text-espresso">{editingId ? 'Editar Item' : 'Novo Item'}</h2>
               <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/40 transition-colors">

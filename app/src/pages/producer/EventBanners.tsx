@@ -154,7 +154,7 @@ export default function ProducerEventBanners() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
+          <div className="glass-panel relative w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Novo Banner</h3>
               <button onClick={() => setShowForm(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
@@ -202,8 +202,8 @@ export default function ProducerEventBanners() {
       {/* Full Preview Modal */}
       {previewBanner && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setPreviewBanner(null)} />
-          <div className="relative w-full max-w-3xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setPreviewBanner(null)} />
+          <div className="glass-panel relative w-full max-w-3xl overflow-hidden">
             <img src={previewBanner.image_url || ''} alt={previewBanner.name} className="w-full max-h-[60vh] object-cover" />
             <div className="p-6">
               <h3 className="font-serif text-xl text-espresso mb-1">{previewBanner.name}</h3>

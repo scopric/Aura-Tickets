@@ -618,8 +618,8 @@ export default function AdminUsers() {
       {/* Drawer Lateral de Gerenciamento do Usuário */}
       {selectedProfile && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedProfile(null)} />
-          <div className="relative w-full max-w-lg bg-canvas border-l border-slate-200/60 dark:border-white/5 h-full shadow-2xl flex flex-col justify-between overflow-y-auto">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedProfile(null)} />
+          <div className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0">
             {/* Top Header */}
             <div className="p-6 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">

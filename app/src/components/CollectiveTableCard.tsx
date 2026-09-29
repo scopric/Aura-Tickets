@@ -151,8 +151,8 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
 
       {/* Consent Modal */}
       {showConsent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-void border border-white/10 rounded-3xl p-8 max-w-md w-full shadow-elevated">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel p-8 max-w-md w-full">
             <div className="w-12 h-12 rounded-2xl bg-plum/20 flex items-center justify-center mx-auto mb-4">
               <Users className="w-6 h-6 text-plum" />
             </div>
