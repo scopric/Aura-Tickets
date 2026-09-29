@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import {
-  User, Lock, CreditCard, Bell, Briefcase, Users, Link2, Save,
-  Eye, EyeOff, Instagram, Globe, Copy,
+  User, Lock, CreditCard, Bell, Users, Save,
+  Eye, EyeOff, Instagram, Globe,
   Shield, Smartphone, Mail, Trash2, AlertTriangle, Loader2
 } from 'lucide-react'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
@@ -12,7 +12,7 @@ import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
 
-type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe' | 'integracoes'
+type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe'
 
 export default function ProducerSettings() {
   const {
@@ -185,8 +185,6 @@ export default function ProducerSettings() {
   const [team, setTeam] = useState<Array<{ id: string; name: string; email: string; role: string; status: 'active' | 'pending' }>>([])
   const [inviteEmail, setInviteEmail] = useState('')
 
-  const [integrations, setIntegrations] = useState({ apiKey: '', webhook: '' })
-
   // Sincronizar estado local com dados do Supabase
   useEffect(() => {
     if (data) {
@@ -223,10 +221,6 @@ export default function ProducerSettings() {
         smsEnabled: ns.smsEnabled ?? false,
       })
       setTeam(data.team)
-      setIntegrations({
-        apiKey: data.producer_profile?.api_key || '',
-        webhook: data.producer_profile?.webhook_url || '',
-      })
     }
   }, [data])
 
@@ -345,11 +339,6 @@ export default function ProducerSettings() {
     }
   }
 
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast.success('Copiado!')
-  }
-
   const handleDeleteAccount = async () => {
     if (deleteConfirm !== 'EXCLUIR') { toast.error('Digite EXCLUIR para confirmar'); return }
     // A função só precisa do JWT da sessão (o supabase-js o envia sozinho); a consulta
@@ -383,7 +372,6 @@ export default function ProducerSettings() {
     { id: 'pagamento', label: 'Pagamento', icon: CreditCard },
     { id: 'notificacoes', label: 'Notificacoes', icon: Bell },
     { id: 'equipe', label: 'Equipe', icon: Users },
-    { id: 'integracoes', label: 'Integracoes', icon: Link2 },
   ]
 
   if (isLoading) {
@@ -693,27 +681,8 @@ export default function ProducerSettings() {
             </div>
           )}
 
-          {/* INTEGRACOES */}
-          {section === 'integracoes' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Integracoes</h2>
-
-              <div className="space-y-4">
-                <div className="p-5 rounded-xl bg-white/60 border border-white/60">
-                  <label className="text-xs text-espresso/40 mb-2 block flex items-center gap-1"><Briefcase className="w-3 h-3" />API Key</label>
-                  <div className="flex gap-2">
-                    <div className="flex-1 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/40 font-mono truncate">{integrations.apiKey}</div>
-                    <button onClick={() => handleCopy(integrations.apiKey)} className="px-3 py-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all">
-                      <Copy className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* "Webhook URL" e "Widget de Vendas" retirados: não há webhook nem widget.js; produtores antigos
-                    ainda têm no banco a URL inventada de api.evokaa.events (pendência: limpar a coluna) */}
-              </div>
-            </div>
-          )}
+          {/* Aba "Integrações" (API Key, Webhook, Widget) retirada: não existe API, webhook nem widget para
+              produtores (Decisão 37). Volta quando houver, com chave gerada no servidor. */}
         </div>
       </div>
 
