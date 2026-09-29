@@ -6,7 +6,9 @@
 --
 -- ORDEM: aplicar DEPOIS que o front do mesmo PR (Login.tsx) estiver no ar; senão o admin com 2FA
 -- não consegue entrar (o login lia o perfil antes do código). Idempotente: pode rodar de novo.
--- Depois de reaplicar o SQL do chat (create or replace de chat_role/chat_start), rodar este de novo.
+-- REAPLICAR ESTE ARQUIVO depois de rodar de novo qualquer SQL que recrie gf_is_admin, gf_admin_can,
+-- chat_role, chat_start, affiliate_my_producers, link_me_to_affiliate, ai_balance ou rls_auto_enable
+-- (hardening de 27/09, agente_evo, afiliados_v2, chat): eles voltam sem a checagem do 2FA.
 begin;
 
 -- 1. Regra única: aal2 no token OU nenhum fator confirmado. SECURITY DEFINER porque o usuário
@@ -153,15 +155,16 @@ as $$
   order by v.linked_at desc;
 $$;
 
--- 4d. chat_start e link_me_to_affiliate só usam auth.uid(): uma linha logo após o "begin".
+-- 4d. chat_start, link_me_to_affiliate e ai_balance só usam auth.uid(): uma linha logo após o "begin".
 --     Lida da definição atual do banco para não sobrescrever a versão do chat com uma cópia velha.
 do $$
 declare
   f text;
   def text;
 begin
-  foreach f in array array['chat_start', 'link_me_to_affiliate'] loop
-    select pg_get_functiondef(p.oid) into def
+  foreach f in array array['chat_start', 'link_me_to_affiliate', 'ai_balance'] loop
+    -- strict: aborta se houver duas versões (sobrecarga) com o mesmo nome
+    select pg_get_functiondef(p.oid) into strict def
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
     where n.nspname = 'public' and p.proname = f;
     if def is null then
@@ -178,6 +181,31 @@ begin
 end;
 $$;
 
+-- 5. Conferência obrigatória: se faltar a regra em alguma tabela ou a checagem em alguma função,
+--    nada deste arquivo é gravado.
+do $$
+declare
+  v_faltam text;
+begin
+  select string_agg(t.tablename, ', ') into v_faltam
+  from pg_tables t
+  where t.schemaname = 'public'
+    and not exists (select 1 from pg_policies p where p.schemaname = 'public' and p.tablename = t.tablename
+                    and p.policyname = 'gf_mfa_aal2' and p.permissive = 'RESTRICTIVE');
+  if v_faltam is not null then
+    raise exception 'tabelas sem gf_mfa_aal2: %', v_faltam;
+  end if;
+  select string_agg(f, ', ') into v_faltam
+  from unnest(array['gf_is_admin', 'gf_admin_can', 'chat_role', 'affiliate_my_producers', 'chat_start',
+                    'link_me_to_affiliate', 'ai_balance', 'rls_auto_enable']) f
+  where not exists (select 1 from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname = f
+                    and pg_get_functiondef(p.oid) like '%gf_mfa_ok%');
+  if v_faltam is not null then
+    raise exception 'funções sem a checagem do 2FA: %', v_faltam;
+  end if;
+end;
+$$;
+
 commit;
 
 -- Conferência (só leitura):
@@ -187,11 +215,15 @@ commit;
 --  where t.schemaname = 'public';                                   -- sem_regra deve ser 0
 -- select tablename from pg_policies where schemaname = 'storage' and policyname = 'gf_mfa_aal2';  -- objects
 -- select proname from pg_proc where pronamespace = 'public'::regnamespace
---    and pg_get_functiondef(oid) like '%gf_mfa_ok%' order by 1;     -- 8 funções
+--    and pg_get_functiondef(oid) like '%gf_mfa_ok%' order by 1;     -- 9 (8 acima + gf_mfa_ok)
+-- select tablename from pg_tables where schemaname = 'public' and not rowsecurity;   -- nenhuma
+-- select relname from pg_class where relnamespace = 'public'::regnamespace and relkind in ('v','m')
+--    and coalesce(array_to_string(reloptions, ','), '') not like '%security_invoker=true%'
+--    and has_table_privilege('authenticated', oid, 'select');     -- nenhuma (view assim passa por cima do RLS)
 --
 -- Desfazer:
 -- do $$ declare t record; begin
 --   for t in select format('%I.%I', schemaname, tablename) nome from pg_policies where policyname = 'gf_mfa_aal2'
 --   loop execute format('drop policy gf_mfa_aal2 on %s', t.nome); end loop; end $$;
--- e recriar gf_is_admin, gf_admin_can, chat_role, affiliate_my_producers, rls_auto_enable, chat_start e
--- link_me_to_affiliate sem a condição (versões anteriores: docs/sql do chat, dos afiliados e do hardening).
+-- e recriar gf_is_admin, gf_admin_can, chat_role, affiliate_my_producers, rls_auto_enable, chat_start,
+-- link_me_to_affiliate e ai_balance sem a condição (versões anteriores: docs/sql do chat, dos afiliados e do hardening).

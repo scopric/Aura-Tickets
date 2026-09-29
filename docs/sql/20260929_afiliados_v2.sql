@@ -1,3 +1,5 @@
+-- ATENÇÃO (30/09/2026): este arquivo recria funções que docs/sql/20260930_2fa_no_banco.sql protege com o
+-- 2FA. Se for rodado de novo, rode também o 20260930_2fa_no_banco.sql logo depois.
 -- Afiliados Evokaa v2 (idempotente) — Decisões 64 e 65, pedidos do Ricardo em 29/09/2026:
 --   1. cadastro completo do afiliado (nome, CPF, nascimento, endereço, e-mail, telefone, WhatsApp);
 --   2. conta de recebimento do afiliado no gateway (para o split — gateway ainda não definido);

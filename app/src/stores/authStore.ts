@@ -34,7 +34,7 @@ interface AuthState {
   setUser: (user: User | null) => void
   setSession: (session: any) => void
   setLoading: (loading: boolean) => void
-  fetchProfile: () => Promise<void>
+  fetchProfile: (opts?: { force?: boolean }) => Promise<void>
 }
 
 // Sessão de demonstração só em desenvolvimento: em produção um `mock-token-` gravado no
@@ -60,9 +60,12 @@ export const useAuthStore = create<AuthState>()(
       setLoading: (isLoading) => set({ isLoading }),
 
 
-      fetchProfile: async () => {
+      fetchProfile: async (opts) => {
         if (activeProfilePromise) {
-          return activeProfilePromise
+          if (!opts?.force) return activeProfilePromise
+          // force: espera a busca em andamento (pode ser a de antes do 2FA, sem o perfil) e busca de novo
+          await activeProfilePromise.catch(() => {})
+          if (activeProfilePromise) return activeProfilePromise
         }
 
         const runFetch = async () => {

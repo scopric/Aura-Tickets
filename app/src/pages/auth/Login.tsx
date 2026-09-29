@@ -73,21 +73,26 @@ export default function AuthLogin() {
   // Conta com 2FA e sessão ainda sem o código (aal1): abre o passo do código e devolve true.
   // Enquanto isso o banco não entrega nada da conta (docs/sql/20260930_2fa_no_banco.sql): o papel
   // lido no login ainda é o provisório, por isso nada de bloqueio por papel antes do código.
-  async function startMfaIfNeeded() {
+  // Erro ao abrir o passo do código também devolve true (com a mensagem na tela): quem chama para ali,
+  // sem decidir pelo papel provisório.
+  async function startMfaIfNeeded(): Promise<boolean> {
     try {
       const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      if (error || data?.currentLevel !== 'aal1' || data?.nextLevel !== 'aal2') return false
+      if (error) throw error
+      if (data?.currentLevel !== 'aal1' || data?.nextLevel !== 'aal2') return false
       const factors = await supabase.auth.mfa.listFactors()
+      if (factors.error) throw factors.error
       const totpFactor = factors.data?.totp?.[0]
-      if (!totpFactor) return false
+      if (!totpFactor) throw new Error('Esta conta usa um tipo de 2FA que o site ainda não aceita.')
       const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
-      if (!challenge.data) return false
+      if (challenge.error) throw challenge.error
       setMfaChallenge({ factorId: totpFactor.id, challengeId: challenge.data.id })
       setStep('mfa')
       return true
-    } catch (err) {
+    } catch (err: any) {
       console.error('[Login MFA] Erro ao abrir o passo do código:', err)
-      return false
+      setError(`Não foi possível pedir o código do 2FA: ${err?.message || 'tente de novo'}`)
+      return true // interrompe: sem o código a conta não é lida, e o papel provisório bloquearia errado
     }
   }
 
@@ -223,7 +228,7 @@ export default function AuthLogin() {
       }
 
       // Só agora (aal2) o banco entrega o perfil: papel real e bloqueio por endereço
-      await useAuthStore.getState().fetchProfile()
+      await useAuthStore.getState().fetchProfile({ force: true })
       const realRole = useAuthStore.getState().user?.role ?? 'user'
       const blocked = blockedMessage(realRole)
       if (blocked) {
@@ -367,7 +372,10 @@ export default function AuthLogin() {
             <button
               type="button"
               disabled={isSubmitting}
-              onClick={() => {
+              onClick={async () => {
+                // Sai da sessão sem o código: senão o efeito "já autenticado" reabre este passo e a
+                // sessão aal1 deixa o site vazio (o banco não entrega nada sem o código)
+                await clearSession()
                 setStep('credentials')
                 setMfaChallenge(null)
                 setMfaCode('')
