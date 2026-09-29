@@ -376,13 +376,6 @@ export default function YourTable({ eventId }: YourTableProps) {
           </div>
           <div className="space-y-2">
             <h3 className="font-serif text-2xl text-cream">Carregando sua mesa</h3>
-            <p className="text-sm text-cream/70 max-w-xs mx-auto">
-              Analisando afinidades, temperamentos e vibes para criar uma experiência inesquecível.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-plum/70">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Análise de compatibilidade em andamento</span>
           </div>
         </div>
       </div>

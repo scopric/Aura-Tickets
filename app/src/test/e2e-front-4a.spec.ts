@@ -14,7 +14,7 @@ async function entrarProdutor(page: Page) {
 }
 
 test('Equipe do produtor sem contagem de tarefas (não há tarefas) e com "Adicionar membro"', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'painel do produtor no celular: o título cobre o "Convidar" (já era assim no main; pendência)')
+  test.skip(isMobile, 'painel do produtor no celular: a barra lateral abre por padrão e empurra o "Convidar" para fora da tela (já era assim no main; pendência)')
   await entrarProdutor(page)
   await page.goto('/producer/team')
   await expect(page.getByText('Total Membros')).toBeVisible()

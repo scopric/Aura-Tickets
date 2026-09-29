@@ -16,7 +16,7 @@ const producerSteps: TourStep[] = [
   { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido e atualiza em tempo real.' },
   { title: 'Financeiro', description: 'Controle receitas e despesas com formas de pagamento (PIX, cartao, boleto). Veja saldo, pendentes e atrasados.' },
   { title: 'Caixinha', description: 'Separe dinheiro por categoria: Marketing, Decoracao, Emergencia. Defina metas e acompanhe o progresso.' },
-  { title: 'Comunicacao', description: 'Organize as mensagens e campanhas para seus participantes. O envio automatico chega em breve.' },
+  { title: 'Comunicacao', description: 'A comunicacao com os participantes chega em breve.' },
   { title: 'Cupons', description: 'Crie cupons de desconto para impulsionar vendas. Percentual ou valor fixo, com limite de usos e validade.' },
   { title: 'Cronograma', description: 'Monte a timeline do evento: soundcheck, abertura, shows, encerramento. Marque itens como concluidos.' },
   { title: 'Voce esta pronto!', description: 'Explore o menu lateral para descobrir todas as ferramentas. Precisa de ajuda? O FAQ esta no menu "Ajuda".' },

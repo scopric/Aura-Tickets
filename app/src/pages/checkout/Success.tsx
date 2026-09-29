@@ -51,7 +51,7 @@ export default function CheckoutSuccess() {
   // a Fase 4 existir, o webhook do Pix insere tickets novos 'active' ao lado dos que o checkout já
   // criou 'cancelled' para o mesmo pedido — `every` ficaria preso em "Pedido registrado" mesmo pago.
   const ticketsActive = tickets.some(t => t.status === 'active')
-  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'collective_table' || t.ticket_types?.name?.toLowerCase().includes('mesa'))
+  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'coletiva' || t.ticket_types?.name?.toLowerCase().includes('mesa'))
 
   // Mapeamento dos ingressos agrupados por tipo para resumo do card
   const ticketSummary = tickets.reduce((acc, t) => {
@@ -209,7 +209,7 @@ export default function CheckoutSuccess() {
                   <h3 className="font-serif text-2xl mb-2">Mesa coletiva</h3>
                   <p className="text-sm text-cream/70 mb-6 max-w-sm">
                     A formação automática das mesas ainda não está disponível.
-                    Seu ingresso vale normalmente no evento.
+                    {ticketsActive && ' Seu ingresso vale normalmente no evento.'}
                   </p>
                   <button
                     onClick={() => setShowTable(true)}

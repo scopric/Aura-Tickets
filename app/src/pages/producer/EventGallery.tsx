@@ -30,7 +30,7 @@ export default function ProducerEventGallery() {
   const filtered = activeEvent === 'Todos' ? photos : photos.filter(p => p.event_name === activeEvent)
 
   const addPhoto = async () => {
-    if (!uploadPreview) { toast.error('Selecione uma imagem'); return }
+    if (!uploadPreview) { toast.error('Cole o endereço da imagem'); return }
     try {
       await createPhoto.mutateAsync({
         event_name: uploadForm.eventName || null,
