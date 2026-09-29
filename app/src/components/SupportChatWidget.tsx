@@ -130,7 +130,7 @@ function Inicio({ ir }: { ir: (t: Tela) => void }) {
             </ul>
             {conversas.length > 5 && (
               <button type="button" onClick={() => setTodas((t) => !t)} className={`mt-1 px-1 text-xs font-semibold text-violet-800 underline dark:text-violet-200 ${foco}`}>
-                {todas ? 'Ver menos' : `Ver todas (${conversas.length})`}
+                {todas ? 'Ver menos' : `Ver mais (${conversas.length - 5})`}
               </button>
             )}
           </>

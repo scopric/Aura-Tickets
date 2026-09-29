@@ -125,8 +125,11 @@ export default function ChatThread({
         setAnexo(a)
       }
       await enviarMensagem(conversaId, t, { nota, anexo: a ?? undefined })
-      // o que foi digitado durante o envio fica no campo
-      setTexto((x) => (x.trim() === t ? '' : x))
+      // tira do campo só o que foi enviado; o que foi digitado durante o envio fica
+      setTexto((x) => {
+        const r = x.trimStart()
+        return r.startsWith(t) ? r.slice(t.length).trimStart() : x
+      })
       setArquivo(null)
       setAnexo(null)
       qc.invalidateQueries({ queryKey: ['chat-mensagens', conversaId] })
