@@ -21,11 +21,12 @@ export default function Footer() {
     try {
       const { error } = await supabase
         .from('newsletter_subscribers')
-        .insert({ email: email.trim() })
+        .insert({ email: email.trim().toLowerCase() })
 
       if (error) {
         if (error.message?.includes('duplicate') || error.code === '23505') {
-          toast.info('Este e-mail já está inscrito na newsletter.')
+          // pode ser inscrição ativa ou alguém que descadastrou (a linha fica como prova LGPD)
+          toast.info('Este e-mail já está na nossa lista. Para voltar a receber, fale com contato@evokaa.com.br.')
         } else {
           toast.error('Erro ao inscrever. Tente novamente.')
           console.error('[Newsletter]', error)

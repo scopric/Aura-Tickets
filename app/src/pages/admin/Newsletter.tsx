@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { 
   Mail, Users, Send, Plus, Trash2, Loader2, Sparkles, 
   Search, Calendar, ArrowRight, Eye, Code, Layout, Palette, Gift, Check,
-  CheckCircle, ShieldAlert, AlertTriangle, UserMinus
+  CheckCircle, UserMinus
 } from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
@@ -15,7 +15,7 @@ interface Campaign {
   content: string
   status: 'draft' | 'sent'
   sent_at: string | null
-  recipient_count: number
+  recipient_count: number | null
   created_at: string
 }
 
@@ -23,6 +23,7 @@ interface Subscriber {
   id: string
   email: string
   created_at: string
+  unsubscribed_at: string | null
 }
 
 const BRAND_COLORS = [
@@ -43,6 +44,8 @@ export default function AdminNewsletter() {
   const [activeTab, setActiveTab] = useState<'campaigns' | 'subscribers'>('campaigns')
   const [isLoadingSubscribers, setIsLoadingSubscribers] = useState(true)
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(true)
+  const [subscribersError, setSubscribersError] = useState<string | null>(null)
+  const [campaignsError, setCampaignsError] = useState<string | null>(null)
   
   // Subscriber form
   const [newEmail, setNewEmail] = useState('')
@@ -83,22 +86,19 @@ export default function AdminNewsletter() {
   // Fetch Subscribers
   const fetchSubscribers = async () => {
     setIsLoadingSubscribers(true)
+    setSubscribersError(null)
     try {
       const { data, error } = await supabase
         .from('newsletter_subscribers')
         .select('*')
         .order('created_at', { ascending: false })
-      
+
       if (error) throw error
-      setSubscribers(data || [])
+      setSubscribers((data || []) as Subscriber[])
     } catch (err: any) {
       console.error('Erro ao buscar inscritos:', err)
-      setSubscribers([
-        { id: '1', email: 'ricardo@licitou.com.br', created_at: new Date().toISOString() },
-        { id: '2', email: 'contato@evokaa.com.br', created_at: new Date().toISOString() },
-        { id: '3', email: 'suporte@evokaa.com', created_at: new Date().toISOString() },
-        { id: '4', email: 'participante.demo@gmail.com', created_at: new Date().toISOString() },
-      ])
+      setSubscribersError(err.message || 'erro desconhecido')
+      setSubscribers([])
     } finally {
       setIsLoadingSubscribers(false)
     }
@@ -107,27 +107,19 @@ export default function AdminNewsletter() {
   // Fetch Campaigns
   const fetchCampaigns = async () => {
     setIsLoadingCampaigns(true)
+    setCampaignsError(null)
     try {
       const { data, error } = await supabase
         .from('newsletters')
         .select('*')
         .order('created_at', { ascending: false })
-      
+
       if (error) throw error
       setCampaigns(data || [])
     } catch (err: any) {
       console.error('Erro ao buscar campanhas:', err)
-      setCampaigns([
-        { 
-          id: 'camp-1', 
-          title: 'Evokaa Eventos: Os Melhores Eventos do Seu Fim de Semana!', 
-          content: '', 
-          status: 'sent', 
-          sent_at: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(), 
-          recipient_count: 4, 
-          created_at: new Date(Date.now() - 4 * 24 * 3600 * 1000).toISOString() 
-        }
-      ])
+      setCampaignsError(err.message || 'erro desconhecido')
+      setCampaigns([])
     } finally {
       setIsLoadingCampaigns(false)
     }
@@ -147,74 +139,7 @@ export default function AdminNewsletter() {
       setAvailableEvents(data || [])
     } catch (err: any) {
       console.error('Erro ao buscar eventos para newsletter:', err)
-      setAvailableEvents([
-        {
-          id: 'evt-mock-1',
-          producer_id: '',
-          title: 'Festival Sunset Evokaa 2026 🌅',
-          subtitle: 'Música eletrônica e indie na praia',
-          slug: 'festival-sunset-2026',
-          description: null,
-          short_description: null,
-          cover_image: '/images/hero-bg.jpg',
-          image_url: null,
-          gallery: null,
-          category: 'Música',
-          tags: [],
-          venue_name: 'Parque Ibirapuera',
-          venue_address: null,
-          venue_city: 'São Paulo',
-          venue_state: 'SP',
-          venue_zip: null,
-          venue_lat: null,
-          venue_lng: null,
-          date: '2026-11-20',
-          time: '16:00',
-          start_date: '',
-          end_date: null,
-          status: 'published',
-          visibility: 'public',
-          password: null,
-          capacity: null,
-          branding: null,
-          settings: null,
-          created_at: '',
-          updated_at: ''
-        },
-        {
-          id: 'evt-mock-2',
-          producer_id: '',
-          title: 'Workshop de Growth & Inovação 🚀',
-          subtitle: 'Aprenda growth marketing na prática',
-          slug: 'growth-marketing',
-          description: null,
-          short_description: null,
-          cover_image: '/images/hero-bg.jpg',
-          image_url: null,
-          gallery: null,
-          category: 'Negócios',
-          tags: [],
-          venue_name: 'WeWork Faria Lima',
-          venue_address: null,
-          venue_city: 'São Paulo',
-          venue_state: 'SP',
-          venue_zip: null,
-          venue_lat: null,
-          venue_lng: null,
-          date: '2026-12-05',
-          time: '09:00',
-          start_date: '',
-          end_date: null,
-          status: 'published',
-          visibility: 'public',
-          password: null,
-          capacity: null,
-          branding: null,
-          settings: null,
-          created_at: '',
-          updated_at: ''
-        }
-      ])
+      setAvailableEvents([])
     }
   }
 
@@ -336,7 +261,7 @@ export default function AdminNewsletter() {
   </div>
   <div style="background-color: #f5f2ef; padding: 20px; text-align: center; font-size: 11px; color: #8e7a72; border-top: 1px solid #eae5e0;">
     <p style="margin: 0 0 6px 0;">Você recebeu este e-mail porque se cadastrou no boletim informativo da Evokaa.</p>
-    <p style="margin: 0;"><a href="#" style="color: ${config.primaryColor}; text-decoration: underline;">Descadastrar-se</a> | Evokaa Eventos 2026</p>
+    <p style="margin: 0;"><a href="%%UNSUBSCRIBE_URL%%" style="color: ${config.primaryColor}; text-decoration: underline;">Descadastrar-se</a> | Evokaa Eventos 2026</p>
   </div>
 </div>
 `.trim()
@@ -427,17 +352,6 @@ export default function AdminNewsletter() {
       }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao inscrever assinante.')
-      // Fallback local se mockado
-      if (!subscribers.find(s => s.email === newEmail.trim().toLowerCase())) {
-        const fallbackSub: Subscriber = {
-          id: Math.random().toString(),
-          email: newEmail.trim().toLowerCase(),
-          created_at: new Date().toISOString()
-        }
-        setSubscribers([fallbackSub, ...subscribers])
-        toast.success('Assinante inscrito localmente (Ambiente Demo).')
-        setNewEmail('')
-      }
     } finally {
       setIsAddingSub(false)
     }
@@ -459,7 +373,6 @@ export default function AdminNewsletter() {
       setSubscribers(subscribers.filter(s => s.id !== id))
     } catch (err: any) {
       toast.error('Erro ao remover assinante: ' + err.message)
-      setSubscribers(subscribers.filter(s => s.id !== id))
     }
   }
 
@@ -508,26 +421,6 @@ export default function AdminNewsletter() {
     } catch (err: any) {
       console.error(err)
       toast.error('Erro ao salvar campanha: ' + err.message)
-      
-      // Fallback local
-      if (editingCampaignId) {
-        setCampaigns(campaigns.map(c => c.id === editingCampaignId ? { ...c, title, content: liveHtml } : c))
-        toast.success('Campanha atualizada localmente (Demo).')
-        setEditingCampaignId(null)
-      } else {
-        const newCamp: Campaign = {
-          id: Math.random().toString(),
-          title: title.trim(),
-          content: liveHtml.trim(),
-          status: 'draft',
-          sent_at: null,
-          recipient_count: 0,
-          created_at: new Date().toISOString()
-        }
-        setCampaigns([newCamp, ...campaigns])
-        toast.success('Campanha de e-mail criada localmente (Demo).')
-      }
-      setTitle('')
     } finally {
       setIsSavingCampaign(false)
     }
@@ -571,51 +464,45 @@ export default function AdminNewsletter() {
       setCampaigns(campaigns.filter(c => c.id !== id))
     } catch (err: any) {
       toast.error('Erro ao excluir campanha: ' + err.message)
-      setCampaigns(campaigns.filter(c => c.id !== id))
     }
   }
 
-  // Simulate Send Campaign
+  // Send Campaign — dispara de verdade pela Edge Function send-email (emailType: 'newsletter'),
+  // que confere que quem chama é admin e reescreve o link de descadastro por assinante.
+  const activeSubscriberCount = subscribers.filter(s => !s.unsubscribed_at).length
+
   const handleSendCampaign = async (campaign: Campaign) => {
-    const confirm = window.confirm(`Deseja simular o envio de "${campaign.title}" para os ${subscribers.length} assinantes cadastrados?`)
+    const confirm = window.confirm(`Enviar "${campaign.title}" de verdade para os ${activeSubscriberCount} assinantes ativos? Essa ação não pode ser desfeita.`)
     if (!confirm) return
 
     setIsSendingId(campaign.id)
-    
-    setTimeout(async () => {
-      try {
-        const count = subscribers.length
-        const now = new Date().toISOString()
-
-        const { error } = await supabase
-          .from('newsletters')
-          .update({
-            status: 'sent',
-            sent_at: now,
-            recipient_count: count
-          })
-          .eq('id', campaign.id)
-
-        if (error) throw error
-
-        toast.success(`Disparo concluído! ${count} e-mails simulados com sucesso via Evokaa Mail.`)
-        fetchCampaigns()
-      } catch (err: any) {
-        console.error(err)
-        // Fallback local
-        const count = subscribers.length
-        const now = new Date().toISOString()
-        setCampaigns(campaigns.map(c => c.id === campaign.id ? {
-          ...c,
-          status: 'sent',
-          sent_at: now,
-          recipient_count: count
-        } : c))
-        toast.success(`Disparo concluído! ${count} e-mails simulados localmente no Ambiente Demo.`)
-      } finally {
-        setIsSendingId(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: { emailType: 'newsletter', campaignId: campaign.id }
+      })
+      if (error) {
+        // FunctionsHttpError esconde a mensagem da função ("já enviada", "sem permissão"...) no context
+        const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context
+        const msg = typeof ctx?.json === 'function'
+          ? await ctx.json().then(b => b?.error).catch(() => undefined)
+          : undefined
+        throw new Error(msg || error.message)
       }
-    }, 1500)
+      if (data?.error) throw new Error(data.error)
+
+      if (data.failed > 0) {
+        toast.warning(`Disparo concluído com falhas: ${data.sentCount} de ${data.total} e-mails enviados (${data.failed} falharam).`)
+      } else {
+        toast.success(`Disparo concluído: ${data.sentCount} de ${data.total} e-mails enviados.`)
+      }
+    } catch (err: any) {
+      console.error(err)
+      toast.error('Erro ao disparar a campanha: ' + (err.message || 'erro desconhecido'))
+    } finally {
+      // recarrega sempre: mesmo com erro a campanha pode ter mudado (ex.: voltou a rascunho)
+      fetchCampaigns()
+      setIsSendingId(null)
+    }
   }
 
   // Filter Subscribers
@@ -636,18 +523,12 @@ export default function AdminNewsletter() {
     }
   }
 
-  // KPIs de Entregabilidade de E-mail
+  // KPIs reais — sem estimativa: a Resend não tem webhook de entrega/bounce configurado ainda,
+  // então só mostramos o que o banco realmente sabe (quantos e-mails saíram e quantos descadastraram)
   const totalSent = campaigns
     .filter(c => c.status === 'sent')
     .reduce((sum, c) => sum + (c.recipient_count || 0), 0)
-
-  const kpiEntregues = totalSent > 0 ? Math.floor(totalSent * 0.982) : subscribers.length
-  const kpiBloqueados = totalSent > 0 ? Math.floor(totalSent * 0.013) : 0
-  const kpiSpam = totalSent > 0 ? Math.floor(totalSent * 0.002) : 0
-  const kpiDescadastros = totalSent > 0 ? Math.floor(totalSent * 0.003) : 0
-
-  const taxaEntrega = totalSent > 0 ? ((kpiEntregues / totalSent) * 100).toFixed(1) : '98.5'
-  const taxaRejeicao = totalSent > 0 ? ((kpiBloqueados / totalSent) * 100).toFixed(1) : '1.2'
+  const kpiDescadastros = subscribers.filter(s => s.unsubscribed_at).length
 
   return (
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
@@ -681,40 +562,32 @@ export default function AdminNewsletter() {
         </div>
       </div>
 
-      {/* KPIs de Entregabilidade de E-mail (Calculados dinamicamente com base nas campanhas enviadas) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8 anim-fade">
+      {/* KPIs reais — sem estimativa de entrega/bounce/spam (a Resend não tem webhook configurado) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 anim-fade">
         {[
-          { 
-            label: 'E-mails Entregues', 
-            value: `${kpiEntregues}`, 
-            detail: totalSent > 0 ? `${taxaEntrega}% de sucesso` : 'Base de dados ativa', 
-            icon: CheckCircle, 
-            color: 'text-green-600', 
-            bg: 'bg-green-50 border-green-100' 
+          {
+            label: 'E-mails Enviados',
+            value: `${totalSent}`,
+            detail: 'Soma de todas as campanhas disparadas',
+            icon: CheckCircle,
+            color: 'text-green-600',
+            bg: 'bg-green-50 border-green-100'
           },
-          { 
-            label: 'Bloqueados (Bounces)', 
-            value: `${kpiBloqueados}`, 
-            detail: totalSent > 0 ? `${taxaRejeicao}% de rejeição` : 'Nenhum erro de caixa', 
-            icon: ShieldAlert, 
-            color: 'text-red-500', 
-            bg: 'bg-red-50 border-red-100' 
+          {
+            label: 'Assinantes Ativos',
+            value: `${activeSubscriberCount}`,
+            detail: 'Recebem a próxima campanha',
+            icon: Users,
+            color: 'text-plum',
+            bg: 'bg-plum/5 border-plum/10'
           },
-          { 
-            label: 'Reclamações de Spam', 
-            value: `${kpiSpam}`, 
-            detail: totalSent > 0 ? 'Taxa recomendada < 0.1%' : 'Excelente reputação', 
-            icon: AlertTriangle, 
-            color: 'text-amber-600', 
-            bg: 'bg-amber-50 border-amber-100' 
-          },
-          { 
-            label: 'Solicitaram Descadastro', 
-            value: `${kpiDescadastros}`, 
-            detail: totalSent > 0 ? 'Removidos da base' : 'Cancelamentos de inscrição', 
-            icon: UserMinus, 
-            color: 'text-plum', 
-            bg: 'bg-plum/5 border-plum/10' 
+          {
+            label: 'Descadastros',
+            value: `${kpiDescadastros}`,
+            detail: 'Pelo link no rodapé do e-mail',
+            icon: UserMinus,
+            color: 'text-amber-600',
+            bg: 'bg-amber-50 border-amber-100'
           },
         ].map(k => (
           <div key={k.label} className="p-4 rounded-2xl border border-white bg-white/60 backdrop-blur-sm shadow-sm flex items-center gap-4">
@@ -1088,11 +961,11 @@ export default function AdminNewsletter() {
 
               {/* Iframe for Isolated CSS Rendering */}
               <div className="flex-1 bg-white border border-espresso/5 rounded-xl overflow-hidden shadow-inner p-1">
-                <iframe 
-                  srcDoc={liveHtml || '<p style="text-align:center;padding-top:100px;color:#888;font-family:sans-serif;font-size:12px;">Seu e-mail aparecerá aqui</p>'} 
+                <iframe
+                  srcDoc={liveHtml || '<p style="text-align:center;padding-top:100px;color:#888;font-family:sans-serif;font-size:12px;">Seu e-mail aparecerá aqui</p>'}
                   title="Newsletter Preview"
                   className="w-full h-full border-0"
-                  sandbox="allow-same-origin"
+                  sandbox=""
                 />
               </div>
             </div>
@@ -1100,7 +973,13 @@ export default function AdminNewsletter() {
             {/* Existing Campaigns List */}
             <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-5 backdrop-blur-sm">
               <h2 className="font-serif text-sm text-espresso mb-3">Campanhas Salvas</h2>
-              
+
+              {campaignsError && (
+                <div role="alert" className="mb-3 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">
+                  Não foi possível carregar as campanhas: {campaignsError}
+                </div>
+              )}
+
               {isLoadingCampaigns ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="w-5 h-5 text-plum animate-spin" />
@@ -1135,7 +1014,11 @@ export default function AdminNewsletter() {
 
                       {camp.status === 'sent' ? (
                         <div className="text-[9px] text-espresso/50 border-t border-espresso/5 pt-2 flex items-center justify-between">
-                          <span>Disparado para: <strong>{camp.recipient_count}</strong> destinatários</span>
+                          {camp.recipient_count == null ? (
+                            <span className="text-amber-600">Envio em andamento ou interrompido — confira antes de reenviar</span>
+                          ) : (
+                            <span>Disparado para: <strong>{camp.recipient_count}</strong> destinatários</span>
+                          )}
                           {camp.sent_at && (
                             <span className="italic">{new Date(camp.sent_at).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}</span>
                           )}
@@ -1217,8 +1100,8 @@ export default function AdminNewsletter() {
               {/* Stats Box */}
               <div className="mt-8 p-4 rounded-xl bg-plum/5 border border-plum/10 text-center">
                 <span className="text-[10px] text-plum font-semibold uppercase tracking-wider block mb-1">Base Ativa de Newsletter</span>
-                <span className="font-serif text-3xl text-espresso">{subscribers.length}</span>
-                <p className="text-[10px] text-espresso/40 mt-1">E-mails cadastrados que receberão as campanhas disparadas.</p>
+                <span className="font-serif text-3xl text-espresso">{activeSubscriberCount}</span>
+                <p className="text-[10px] text-espresso/40 mt-1">E-mails que receberão as próximas campanhas ({subscribers.length} cadastrados no total).</p>
               </div>
             </div>
           </div>
@@ -1241,6 +1124,12 @@ export default function AdminNewsletter() {
                   />
                 </div>
               </div>
+
+              {subscribersError && (
+                <div role="alert" className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">
+                  Não foi possível carregar os assinantes: {subscribersError}
+                </div>
+              )}
 
               {isLoadingSubscribers ? (
                 <div className="flex justify-center py-20">
@@ -1267,6 +1156,9 @@ export default function AdminNewsletter() {
                             <td className="px-4 py-3 flex items-center gap-2">
                               <Mail className="w-3.5 h-3.5 text-espresso/30" />
                               <span className="text-xs font-medium text-espresso">{sub.email}</span>
+                              {sub.unsubscribed_at && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-espresso/5 text-espresso/40 border border-espresso/10">Descadastrado</span>
+                              )}
                             </td>
                             <td className="px-4 py-3 text-xs text-espresso/50 hidden sm:table-cell">
                               {new Date(sub.created_at).toLocaleDateString('pt-BR', {
@@ -1278,13 +1170,18 @@ export default function AdminNewsletter() {
                               })}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <button 
-                                onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
-                                className="p-1.5 text-espresso/30 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
-                                title="Descadastrar"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              {/* quem descadastrou fica na base como prova do opt-out (LGPD); apagar
+                                  a linha também deixaria o e-mail ser reinscrito pelo rodapé */}
+                              {!sub.unsubscribed_at && (
+                                <button
+                                  onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
+                                  className="p-1.5 text-espresso/30 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
+                                  title="Remover assinante"
+                                  aria-label={`Remover ${sub.email}`}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}

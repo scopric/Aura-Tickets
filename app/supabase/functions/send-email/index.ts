@@ -327,6 +327,8 @@ serve(async (req) => {
       from = "Evokaa Gestão de Eventos e Ingressos <ingressos@evokaa.com.br>";
     } else if (emailType === "welcome" || emailType === "signup_notification") {
       from = "Evokaa <cadastro@evokaa.com.br>";
+    } else if (emailType === "newsletter") {
+      from = "Evokaa Eventos <contato@evokaa.com.br>";
     } else {
       from = "Evokaa <contato@evokaa.com.br>";
     }
@@ -471,6 +473,159 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+    }
+
+    // DESCADASTRO DA NEWSLETTER (emailType: 'unsubscribe') — público, sem login. Chega por POST
+    // a partir da página /newsletter/sair do app, depois de um clique do assinante: um GET direto
+    // no link do e-mail seria disparado sozinho pelos robôs de segurança (Outlook Safe Links,
+    // antivírus corporativos) e descadastraria gente que não pediu.
+    if (emailType === "unsubscribe") {
+      const token = String(payload.unsubscribeToken || "");
+      // uuid tem formato fixo: recusar antes de ir ao banco evita erro de cast virando 500
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
+        return new Response(JSON.stringify({ error: "Link de descadastro inválido." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: sub, error: subError } = await supabaseAdmin
+        .from("newsletter_subscribers")
+        .select("id, unsubscribed_at")
+        .eq("unsubscribe_token", token)
+        .maybeSingle();
+      if (subError) throw subError;
+      if (!sub) {
+        return new Response(JSON.stringify({ error: "Link de descadastro inválido." }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      // 2º clique no mesmo link não sobrescreve o carimbo original (registro LGPD do opt-out)
+      if (!sub.unsubscribed_at) {
+        const { error: updError } = await supabaseAdmin
+          .from("newsletter_subscribers")
+          .update({ unsubscribed_at: new Date().toISOString() })
+          .eq("id", sub.id)
+          .is("unsubscribed_at", null);
+        if (updError) throw updError;
+      }
+      return new Response(JSON.stringify({ success: true, alreadyUnsubscribed: !!sub.unsubscribed_at }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // CAMPANHA DE NEWSLETTER (emailType: 'newsletter') — só admin com a permissão
+    // `manage_newsletter` (ou `super_admin`) dispara, a mesma regra da rota /admin/newsletter.
+    // O HTML foi montado pelo próprio admin no construtor, então é confiado como conteúdo
+    // institucional — mas o link de descadastro nunca vem do corpo: é sempre trocado aqui pelo
+    // token real de cada assinante.
+    if (emailType === "newsletter") {
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+      const { campaignId } = payload;
+      if (!campaignId) return json({ error: "campaignId é obrigatório." }, 400);
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      // Sem chave, sendMail cai no modo demo e "envia" sem mandar nada: é exatamente o envio
+      // fingido que esta rota existe para acabar, então aqui é erro, não simulação.
+      if (!RESEND_API_KEY) return json({ error: "RESEND_API_KEY não configurada: envio de newsletter desligado." }, 500);
+
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+      const caller = await getCaller(req);
+      if (!caller) return json({ error: "Não autenticado." }, 401);
+      const { data: callerProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("role, admin_permissions")
+        .eq("id", caller.id)
+        .maybeSingle();
+      const perms: string[] = callerProfile?.admin_permissions || [];
+      if (callerProfile?.role !== "admin" || !(perms.includes("manage_newsletter") || perms.includes("super_admin"))) {
+        return json({ error: "Sem permissão para disparar campanhas (manage_newsletter)." }, 403);
+      }
+
+      // ponytail: envio sequencial, 1 chamada à Resend por assinante; ~150 s de limite da Edge
+      // Function dá folga até uns 300. Acima disso, recusa em vez de cortar a base calada —
+      // trocar pelo endpoint de lote da Resend quando a base crescer.
+      const SEND_LIMIT = 300;
+      const { count: activeCount, error: countError } = await supabaseAdmin
+        .from("newsletter_subscribers")
+        .select("id", { count: "exact", head: true })
+        .is("unsubscribed_at", null);
+      if (countError) throw countError;
+      if ((activeCount ?? 0) > SEND_LIMIT) {
+        return json({ error: `A base tem ${activeCount} assinantes ativos, acima do limite de ${SEND_LIMIT} do envio atual. É preciso implementar o envio em lote antes de disparar.` }, 400);
+      }
+      if (!activeCount) return json({ error: "Nenhum assinante ativo para receber a campanha." }, 400);
+
+      // Reserva atômica: só um disparo passa do draft para sent. Sem isso, duas abas (ou um
+      // novo clique depois de um 504) liam 'draft' ao mesmo tempo e mandavam a campanha 2x.
+      const { data: campaign, error: reserveError } = await supabaseAdmin
+        .from("newsletters")
+        // recipient_count null = "em andamento": se a função morrer no meio do laço, a tela
+        // mostra envio interrompido em vez de "enviado para 0"
+        .update({ status: "sent", sent_at: new Date().toISOString(), recipient_count: null })
+        .eq("id", campaignId)
+        .eq("status", "draft")
+        .select("id, title, content")
+        .maybeSingle();
+      if (reserveError) throw reserveError;
+      if (!campaign) return json({ error: "Campanha não encontrada ou já enviada." }, 409);
+
+      const { data: subscribers, error: subsError } = await supabaseAdmin
+        .from("newsletter_subscribers")
+        .select("email, unsubscribe_token")
+        .is("unsubscribed_at", null)
+        .order("created_at", { ascending: true })
+        .limit(SEND_LIMIT);
+      if (subsError) {
+        await supabaseAdmin.from("newsletters").update({ status: "draft", sent_at: null }).eq("id", campaignId);
+        throw subsError;
+      }
+
+      // Rede de segurança para linhas antigas com o mesmo e-mail em caixas diferentes
+      // (o índice em lower(email) passa a impedir novas)
+      const vistos = new Set<string>();
+      let sentCount = 0;
+      const falhas: string[] = [];
+      for (const sub of (subscribers || [])) {
+        const chave = String(sub.email).trim().toLowerCase();
+        if (vistos.has(chave)) continue;
+        vistos.add(chave);
+
+        const unsubscribeUrl = `${APP_URL}/newsletter/sair?token=${sub.unsubscribe_token}`;
+        const personalizedHtml = campaign.content.includes("%%UNSUBSCRIBE_URL%%")
+          ? campaign.content.replaceAll("%%UNSUBSCRIBE_URL%%", unsubscribeUrl)
+          : `${campaign.content}<p style="text-align:center;font-size:11px;color:#8e7a72;margin-top:16px;"><a href="${unsubscribeUrl}" style="color:#8e7a72;">Descadastrar-se</a></p>`;
+        try {
+          await sendMail(chave, campaign.title, personalizedHtml, from);
+          sentCount++;
+        } catch (e) {
+          falhas.push(chave);
+          console.error(`[newsletter] falha ao enviar para ${chave}:`, e.message);
+        }
+      }
+
+      // Nenhum envio saiu (cota da Resend, chave inválida...): devolve a campanha a rascunho em
+      // vez de deixá-la "enviada" para sempre sem ninguém ter recebido
+      if (sentCount === 0) {
+        await supabaseAdmin.from("newsletters").update({ status: "draft", sent_at: null }).eq("id", campaignId);
+        return json({ error: "Nenhum e-mail foi enviado (a Resend recusou todos). A campanha voltou a rascunho." }, 502);
+      }
+
+      const { error: finalError } = await supabaseAdmin
+        .from("newsletters")
+        .update({ recipient_count: sentCount })
+        .eq("id", campaignId);
+      if (finalError) console.error("[newsletter] envio feito, mas recipient_count não gravou:", finalError.message);
+
+      return json({ success: true, sentCount, total: vistos.size, failed: falhas.length });
     }
 
     // ENVIO TRANSACIONAL UNITÁRIO MANUAL (orderId + emailType)
