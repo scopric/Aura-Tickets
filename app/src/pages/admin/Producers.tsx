@@ -76,6 +76,33 @@ export default function AdminProducers() {
     }
   }
 
+  // 8 de 9 produtores não têm linha em producer_profiles (o cadastro pelo site não cria).
+  // A regra de INSERT do admin (docs/sql/20260928_admin_policies.sql) permite criar a linha
+  // faltante; o produtor preenche CNPJ e dados bancários depois, em Configurações.
+  const createProfile = async (p: Producer) => {
+    const company = window.prompt(
+      `Criar o cadastro de empresa de ${p.full_name || p.email}?\n\nInforme o nome da empresa (deixe em branco para usar o nome do cadastro).`,
+      p.full_name || ''
+    )
+    if (company === null) return
+    setSavingId(p.id)
+    try {
+      // cnpj é NOT NULL UNIQUE no banco: string vazia colide a partir do 2º cadastro
+      // (já existe 1 linha com cnpj='' em produção). Placeholder único até o produtor preencher.
+      const { error } = await supabase
+        .from('producer_profiles')
+        .insert({ id: p.id, company_name: company.trim() || p.full_name || 'Minha Empresa', cnpj: `PENDENTE-${p.id}` })
+        .select('id')
+      if (error) throw error
+      toast.success('Cadastro criado. O produtor pode completar CNPJ e dados em Configurações.')
+      await loadData()
+    } catch (err: any) {
+      toast.error('Não foi possível criar o cadastro: ' + (err?.message || 'erro desconhecido'))
+    } finally {
+      setSavingId(null)
+    }
+  }
+
   const q = search.trim().toLowerCase()
   const filtered = q
     ? producers.filter(p => [p.full_name, p.email, p.company?.company_name].some(v => v?.toLowerCase().includes(q)))
@@ -166,7 +193,7 @@ export default function AdminProducers() {
                         {c ? (
                           <div>
                             <div className="text-sm text-foreground">{c.company_name}</div>
-                            <div className="text-[11px] text-muted-foreground">CNPJ {c.cnpj}</div>
+                            <div className="text-[11px] text-muted-foreground">CNPJ {c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
                           </div>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">cadastro incompleto</span>
@@ -184,14 +211,25 @@ export default function AdminProducers() {
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => setVerified(p, !c?.is_verified)}
-                          disabled={!c || saving}
-                          title={!c ? 'Produtor ainda não completou o cadastro de empresa' : undefined}
-                          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-foreground disabled:hover:border-border"
-                        >
-                          {saving ? 'Gravando…' : c?.is_verified ? 'Remover verificação' : 'Verificar'}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {!c && (
+                            <button
+                              onClick={() => createProfile(p)}
+                              disabled={saving}
+                              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                              {saving ? 'Gravando…' : 'Completar cadastro'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setVerified(p, !c?.is_verified)}
+                            disabled={!c || saving}
+                            title={!c ? 'Crie o cadastro de empresa primeiro' : undefined}
+                            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-foreground disabled:hover:border-border"
+                          >
+                            {saving ? 'Gravando…' : c?.is_verified ? 'Remover verificação' : 'Verificar'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

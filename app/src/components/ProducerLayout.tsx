@@ -423,7 +423,11 @@ export default function ProducerLayout() {
           <Outlet />
         </ErrorBoundary>
       </div>
-      <OnboardingTour role="producer" onComplete={() => {}} />
+      {/* O tour só abre no painel: antes ele aparecia em toda rota do produtor e cobria
+          /producer/events/new, bloqueando o botão "Criar Evento" atrás do overlay. */}
+      {(location.pathname === '/producer' || location.pathname === '/producer/dashboard') && (
+        <OnboardingTour role="producer" onComplete={() => {}} />
+      )}
     </div>
   )
 }

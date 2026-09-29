@@ -1,149 +1,124 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  TrendingUp, TrendingDown, CreditCard, ArrowUpRight, ArrowDownRight, 
-  Wallet, BarChart3, Search, DollarSign, Check, X, Clock, 
-  Building2, Filter, AlertCircle, RefreshCw, Settings, ArrowRight
+import {
+  TrendingUp, CreditCard, ArrowUpRight, ArrowDownRight,
+  Wallet, BarChart3, Search, DollarSign, Clock,
+  Building2, AlertCircle, RefreshCw, Settings, ArrowRight, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import { supabase } from '../../lib/supabase'
+import { useAdminFinance } from '../../hooks/useAdminFinance'
+import { downloadCsv, toCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
 
-interface Transaction {
-  id: string
-  desc: string
-  producer: string
-  amount: number
-  type: 'in' | 'out' | 'fee' // in = venda de ingresso, out = repasse/saque produtor, fee = comissão evokaa
-  date: string
-  paymentMethod: 'pix' | 'cartao' | 'boleto'
+// Mapa de apresentação: a coluna `type` do banco (income/expense/withdrawal/refund/fee) para
+// os três pesos que a tela soma (entrada, saída, comissão).
+const typeSinal: Record<string, { sinal: '+' | '-' | ''; label: string; cls: string }> = {
+  income: { sinal: '+', label: 'Venda', cls: 'text-green-600' },
+  withdrawal: { sinal: '-', label: 'Repasse', cls: 'text-red-500' },
+  fee: { sinal: '', label: 'Comissão', cls: 'text-plum' },
+  refund: { sinal: '-', label: 'Reembolso', cls: 'text-red-500' },
+  expense: { sinal: '-', label: 'Despesa', cls: 'text-red-500' },
 }
 
-interface WithdrawRequest {
-  id: string
-  producer: string
-  email: string
-  amount: number
-  bankName: string
-  pixKey: string
-  status: 'pending' | 'approved' | 'rejected'
-  date: string
+const withdrawStatus: Record<string, { label: string; cls: string }> = {
+  pending: { label: 'Pendente', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
+  processing: { label: 'Em processamento', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
+  completed: { label: 'Pago', cls: 'bg-green-50 text-green-600 border-green-100' },
+  failed: { label: 'Falhou', cls: 'bg-red-50 text-red-500 border-red-100' },
 }
 
-const initialTransactions: Transaction[] = [
-  { id: 'tx-001', desc: 'Ingresso VIP - Festival Sunset Evokaa', producer: 'Joao Eventos', amount: 280, type: 'in', date: '27 Mai 2026, 14:30', paymentMethod: 'pix' },
-  { id: 'tx-002', desc: 'Mesa Coletiva - Gastronomia Gourmet', producer: 'Elisa Nakamura', amount: 160, type: 'in', date: '27 Mai 2026, 13:45', paymentMethod: 'cartao' },
-  { id: 'tx-003', desc: 'Repasse Automático - Show Rock', producer: 'Lucas Festas', amount: 12500, type: 'out', date: '26 Mai 2026, 10:00', paymentMethod: 'pix' },
-  { id: 'tx-004', desc: 'Ingresso Geral - Jazz & Blues', producer: 'Bruno Costa', amount: 80, type: 'in', date: '25 Mai 2026, 09:15', paymentMethod: 'pix' },
-  { id: 'tx-005', desc: 'Taxa Evokaa (Comissão 10%) - Jazz & Blues', producer: 'Bruno Costa', amount: 8, type: 'fee', date: '25 Mai 2026, 09:15', paymentMethod: 'pix' },
-  { id: 'tx-006', desc: 'Ingresso VIP - Stand Up Comedy', producer: 'Mariana Costa', amount: 180, type: 'in', date: '25 Mai 2026, 18:20', paymentMethod: 'cartao' },
-  { id: 'tx-007', desc: 'Repasse Efetuado - Teatro Central', producer: 'Teatro Central', amount: 4800, type: 'out', date: '24 Mai 2026, 17:00', paymentMethod: 'pix' },
-  { id: 'tx-008', desc: 'Ingresso Geral - Festival Sunset Evokaa', producer: 'Joao Eventos', amount: 120, type: 'in', date: '24 Mai 2026, 12:10', paymentMethod: 'boleto' },
-]
-
-const initialWithdrawRequests: WithdrawRequest[] = [
-  { id: 'w-001', producer: 'Joao Eventos', email: 'joao@eventos.com.br', amount: 4500, bankName: 'Itaú Unibanco', pixKey: 'joao@eventos.com.br', status: 'pending', date: '27 Mai 2026, 08:30' },
-  { id: 'w-002', producer: 'Elisa Nakamura', email: 'elisa@nakamura.com.br', amount: 8200, bankName: 'Nubank S.A.', pixKey: '098.765.432-11', status: 'pending', date: '26 Mai 2026, 15:20' },
-  { id: 'w-003', producer: 'Bruno Costa', email: 'bruno@costa.com.br', amount: 1250, bankName: 'Banco do Brasil', pixKey: 'bruno@costa.com.br', status: 'approved', date: '25 Mai 2026, 11:00' },
-  { id: 'w-004', producer: 'Lucas Festas', email: 'lucas@festas.com.br', amount: 12500, bankName: 'Bradesco', pixKey: '44.555.666/0001-22', status: 'approved', date: '25 Mai 2026, 09:30' },
-]
+const brl = (n: number) => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const quando = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+const nomeProdutor = (p: { full_name: string | null; email: string | null } | null) =>
+  p?.full_name || p?.email || 'Produtor sem perfil'
 
 export default function AdminFinance() {
   const containerRef = useRef<HTMLDivElement>(null)
-  
-  // Navigation tabs
+  const { data, isLoading, isError, error } = useAdminFinance()
+
   const [activeTab, setActiveTab] = useState<'overview' | 'transactions' | 'withdraws' | 'tools'>('overview')
-  
-  // States
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions)
-  const [withdraws, setWithdraws] = useState<WithdrawRequest[]>(initialWithdrawRequests)
-  
+
   // Filters
   const [txSearch, setTxSearch] = useState('')
-  const [txFilterType, setTxFilterType] = useState<'all' | 'in' | 'out' | 'fee'>('all')
-  const [txFilterMethod, setTxFilterMethod] = useState<'all' | 'pix' | 'cartao' | 'boleto'>('all')
+  const [txFilterType, setTxFilterType] = useState<string>('all')
 
   // Tools states
   const [platformCommission, setPlatformCommission] = useState(10.0) // 10%
   const [payoutPixDays, setPayoutPixDays] = useState(0) // D+0
   const [payoutCardDays, setPayoutCardDays] = useState(14) // D+14
   const [payoutBoletoDays, setPayoutBoletoDays] = useState(2) // D+2
-  const [savingSettings, setSavingSettings] = useState(false)
 
-  const handleSaveSettings = () => {
-    setSavingSettings(true)
-    setTimeout(() => {
-      setSavingSettings(false)
-      toast.success('Configurações financeiras e taxas atualizadas com sucesso!')
-    }, 800)
-  }
+  const orders = data?.orders ?? []
+  const transactions = data?.transactions ?? []
+  const withdrawals = data?.withdrawals ?? []
 
-  const handleExportCSV = (type: 'transactions' | 'fees' | 'withdrawals') => {
-    toast.loading(`Gerando relatório de ${type === 'transactions' ? 'transações' : type === 'fees' ? 'taxas e comissões' : 'repasses'}...`)
-    setTimeout(() => {
-      toast.dismiss()
-      toast.success(`Relatório exportado com sucesso! O download do arquivo .csv foi iniciado.`)
-    }, 1200)
+  const handleExportCSV = async (tabela: 'orders' | 'transactions' | 'withdrawals') => {
+    const colunas: Record<string, string[]> = {
+      orders: ['id', 'created_at', 'status', 'payment_method', 'total', 'customer_name', 'customer_email'],
+      transactions: ['id', 'created_at', 'type', 'status', 'amount', 'description'],
+      withdrawals: ['id', 'created_at', 'status', 'amount', 'pix_key', 'processed_at'],
+    }
+    try {
+      const linhas = await fetchAllRows<Record<string, unknown>>((from, to) =>
+        supabase.from(tabela).select('*').order('id').range(from, to)
+      )
+      if (linhas.length === 0) {
+        toast.info('Não há registros para exportar nesta tabela.')
+        return
+      }
+      downloadCsv(csvFilename(tabela), toCsv(linhas, colunas[tabela]))
+      toast.success(`${linhas.length} linha(s) exportada(s).`)
+    } catch (e: unknown) {
+      toast.error('Falha ao exportar: ' + ((e as { message?: string } | null)?.message || 'erro desconhecido'))
+    }
   }
 
   useEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.fromTo('.fin-anim', 
-        { y: 15, opacity: 0 }, 
+      gsap.fromTo('.fin-anim',
+        { y: 15, opacity: 0 },
         { y: 0, opacity: 1, duration: 0.4, stagger: 0.04, ease: 'power2.out' }
       )
     }, containerRef)
     return () => ctx.revert()
   }, [activeTab])
 
-  // Calculations
-  const grossSalesVolume = transactions.filter(t => t.type === 'in').reduce((sum, t) => sum + t.amount, 0)
-  const totalPayouts = transactions.filter(t => t.type === 'out').reduce((sum, t) => sum + t.amount, 0)
-  const platformRevenue = transactions.filter(t => t.type === 'fee').reduce((sum, t) => sum + t.amount, 0)
-  const netPlatformBalance = platformRevenue // Lucro líquido da plataforma são as comissões
-  
-  // Withdraw Payout Handlers
-  const handleApproveWithdraw = (id: string, producer: string, amount: number) => {
-    const confirm = window.confirm(`Deseja aprovar o repasse de R$ ${amount.toLocaleString('pt-BR')} para ${producer}? O pagamento será simulado.`)
-    if (!confirm) return
+  // Calculations — só o que está gravado no banco
+  const pedidosPagos = orders.filter(o => o.status === 'paid')
+  const grossSalesVolume = pedidosPagos.reduce((s, o) => s + Number(o.total || 0), 0)
+  const totalPayouts = withdrawals.filter(w => w.status === 'completed').reduce((s, w) => s + Number(w.amount || 0), 0)
+  const platformRevenue = transactions.filter(t => t.type === 'fee').reduce((s, t) => s + Number(t.amount || 0), 0)
+  const pendingWithdrawals = withdrawals.filter(w => w.status === 'pending')
+  const comissoes = transactions.filter(t => t.type === 'fee')
 
-    setWithdraws(prev => prev.map(w => w.id === id ? { ...w, status: 'approved' } : w))
-    
-    // Adicionar transação de repasse
-    const newTx: Transaction = {
-      id: `tx-out-${Math.random().toString().slice(2, 6)}`,
-      desc: `Repasse de Saque Aprovado - ${producer}`,
-      producer,
-      amount,
-      type: 'out',
-      date: new Date().toLocaleDateString('pt-BR', {day: 'numeric', month: 'short', year: 'numeric'}) + ', ' + new Date().toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}),
-      paymentMethod: 'pix'
-    }
-    setTransactions([newTx, ...transactions])
-    
-    toast.success(`Repasse de R$ ${amount.toLocaleString('pt-BR')} aprovado e enviado com sucesso!`)
-  }
-
-  const handleRejectWithdraw = (id: string, producer: string) => {
-    const reason = window.prompt('Por favor, informe a justificativa para a rejeição do saque:')
-    if (reason === null) return
-    if (!reason.trim()) {
-      toast.error('É obrigatório informar uma justificativa para rejeitar o saque.')
-      return
-    }
-
-    setWithdraws(prev => prev.map(w => w.id === id ? { ...w, status: 'rejected' } : w))
-    toast.success(`Solicitação de saque de ${producer} rejeitada com sucesso.`)
-  }
+  // Métodos de pagamento: contagem real dos pedidos pagos
+  const metodos = ['pix', 'credit_card', 'boleto'].map(m => ({
+    key: m,
+    label: m === 'pix' ? 'PIX' : m === 'credit_card' ? 'Cartão de Crédito' : 'Boleto / Outros',
+    count: pedidosPagos.filter(o => o.payment_method === m).length,
+  }))
+  const totalMetodos = pedidosPagos.length
 
   // Filter Transaction Extrato
   const filteredTransactions = transactions
-    .filter(t => !txSearch || t.desc.toLowerCase().includes(txSearch.toLowerCase()) || t.producer.toLowerCase().includes(txSearch.toLowerCase()))
+    .filter(t => !txSearch
+      || (t.description || '').toLowerCase().includes(txSearch.toLowerCase())
+      || nomeProdutor(t.profiles).toLowerCase().includes(txSearch.toLowerCase()))
     .filter(t => txFilterType === 'all' || t.type === txFilterType)
-    .filter(t => txFilterMethod === 'all' || t.paymentMethod === txFilterMethod)
 
-  // Payment methods distribution metrics
-  const pixPercentage = 74
-  const creditCardPercentage = 20
-  const otherPercentage = 6
+  const aviso = (
+    <div className="fin-anim mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-3.5 items-start">
+      <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+      <div>
+        <h4 className="text-xs font-bold text-amber-800">Cobrança e repasses desativados até a Fase 4</h4>
+        <p className="text-[10px] text-amber-700 leading-normal mt-0.5">
+          A Evokaa ainda não tem gateway de pagamento. Saques, reembolsos e comissão não podem ser executados
+          por aqui: aprovar um saque aqui só mudaria o texto na tela, sem mover dinheiro. Estes números são
+          <strong> reais</strong> — o que estiver zerado é porque ainda não houve venda confirmada.
+        </p>
+      </div>
+    </div>
+  )
 
   return (
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
@@ -184,7 +159,7 @@ export default function AdminFinance() {
                 : 'text-espresso/60 hover:text-espresso'
             }`}
           >
-            <Clock className="w-3.5 h-3.5" /> Repasses / Saques ({withdraws.filter(w => w.status === 'pending').length})
+            <Clock className="w-3.5 h-3.5" /> Repasses / Saques ({pendingWithdrawals.length})
           </button>
           <button 
             onClick={() => setActiveTab('tools')}
@@ -199,13 +174,28 @@ export default function AdminFinance() {
         </div>
       </div>
 
+      {isError && (
+        <div role="alert" className="fin-anim mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+          Não foi possível carregar os dados financeiros: {(error as Error)?.message || 'erro desconhecido'}
+        </div>
+      )}
+
+      {aviso}
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-plum animate-spin" />
+        </div>
+      )}
+
       {/* Financial KPIs */}
+      {!isLoading && (
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Volume Geral de Vendas (GMV)', value: `R$ ${grossSalesVolume.toLocaleString('pt-BR')}`, icon: TrendingUp, change: '+14% este mês', color: 'text-emerald-600', bg: 'bg-emerald-50 border-emerald-100' },
-          { label: 'Receita Líquida (Plataforma)', value: `R$ ${netPlatformBalance.toLocaleString('pt-BR')}`, icon: CreditCard, change: '+10% comissão', color: 'text-plum', bg: 'bg-plum/5 border-plum/10' },
-          { label: 'Repasses Efetuados (Saques)', value: `R$ ${totalPayouts.toLocaleString('pt-BR')}`, icon: Wallet, change: 'Enviado a produtores', color: 'text-rose-500', bg: 'bg-rose-50 border-rose-100' },
-          { label: 'Repasses Pendentes', value: `R$ ${withdraws.filter(w => w.status === 'pending').reduce((s, w) => s + w.amount, 0).toLocaleString('pt-BR')}`, icon: Clock, change: 'Aguardando auditoria', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
+          { label: 'Volume Geral de Vendas (GMV)', value: brl(grossSalesVolume), icon: TrendingUp, change: `${pedidosPagos.length} pedido(s) pago(s)`, color: 'text-emerald-600' },
+          { label: 'Receita Líquida (Plataforma)', value: brl(platformRevenue), icon: CreditCard, change: 'Comissões lançadas', color: 'text-plum' },
+          { label: 'Repasses Efetuados (Saques)', value: brl(totalPayouts), icon: Wallet, change: 'Saques concluídos', color: 'text-rose-500' },
+          { label: 'Repasses Pendentes', value: brl(pendingWithdrawals.reduce((s, w) => s + Number(w.amount || 0), 0)), icon: Clock, change: `${pendingWithdrawals.length} pedido(s)`, color: 'text-amber-600' },
         ].map(k => (
           <div key={k.label} className="fin-anim p-5 rounded-2xl bg-white/60 border border-white/60 shadow-sm flex flex-col justify-between">
             <div className="flex items-center justify-between mb-3">
@@ -219,58 +209,67 @@ export default function AdminFinance() {
           </div>
         ))}
       </div>
+      )}
 
-      {activeTab === 'overview' && (
+      {activeTab === 'overview' && !isLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Revenue chart (Weekly distribution mockup) */}
+          {/* Pedidos pagos — a curva só existe depois que o gateway confirmar venda */}
           <div className="lg:col-span-2 space-y-6">
             <div className="fin-anim p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm">
               <div className="flex justify-between items-center mb-6">
                 <div>
-                  <h3 className="text-sm font-semibold text-espresso">Receita de Vendas diária (Últimos 7 dias)</h3>
-                  <p className="text-[10px] text-espresso/40">Faturamento bruto transacionado nas bilheterias.</p>
+                  <h3 className="text-sm font-semibold text-espresso">Pedidos pagos</h3>
+                  <p className="text-[10px] text-espresso/40">Pedidos com status <span className="font-mono">paid</span> no banco.</p>
                 </div>
                 <div className="text-xs font-bold text-plum bg-plum/5 border border-plum/10 px-2.5 py-1 rounded-lg">
-                  Semana Corrente
+                  {pedidosPagos.length} no total
                 </div>
               </div>
 
-              <div className="flex items-end gap-3 h-32 pt-4">
-                {[
-                  { day: 'Seg', val: 400, percentage: 30 },
-                  { day: 'Ter', val: 950, percentage: 65 },
-                  { day: 'Qua', val: 600, percentage: 45 },
-                  { day: 'Qui', val: 1200, percentage: 80 },
-                  { day: 'Sex', val: 1450, percentage: 100 },
-                  { day: 'Sab', val: 1100, percentage: 75 },
-                  { day: 'Dom', val: 800, percentage: 55 },
-                ].map(d => (
-                  <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group">
-                    <div className="text-[9px] font-bold text-plum opacity-0 group-hover:opacity-100 transition-opacity">
-                      R$ {d.val}
-                    </div>
-                    <div className="w-full bg-plum/5 rounded-t-lg relative" style={{ height: '70%' }}>
-                      <div 
-                        className="absolute bottom-0 left-0 right-0 bg-plum rounded-t-lg transition-all" 
-                        style={{ height: `${d.percentage}%` }}
-                      />
-                    </div>
-                    <span className="text-[9.5px] font-semibold text-espresso/40">{d.day}</span>
-                  </div>
-                ))}
-              </div>
+              {pedidosPagos.length === 0 ? (
+                <p className="py-12 text-center text-xs text-espresso/40 italic">
+                  Nenhum pedido pago até agora. Enquanto o gateway não estiver publicado, todo pedido nasce
+                  <span className="font-mono"> pending</span> e nenhum valor entra aqui.
+                </p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-espresso/5">
+                        <th className="px-2 py-2 text-[10px] font-bold text-espresso/40 uppercase">Pedido</th>
+                        <th className="px-2 py-2 text-[10px] font-bold text-espresso/40 uppercase hidden sm:table-cell">Evento</th>
+                        <th className="px-2 py-2 text-[10px] font-bold text-espresso/40 uppercase">Comprador</th>
+                        <th className="px-2 py-2 text-[10px] font-bold text-espresso/40 uppercase text-right">Valor</th>
+                        <th className="px-2 py-2 text-[10px] font-bold text-espresso/40 uppercase text-right">Quando</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-espresso/3">
+                      {pedidosPagos.map(o => (
+                        <tr key={o.id} className="hover:bg-white/40 transition-colors">
+                          <td className="px-2 py-2.5 font-mono text-[10px] text-espresso/50">{o.id.slice(0, 8)}</td>
+                          <td className="px-2 py-2.5 text-xs text-espresso/70 hidden sm:table-cell">{o.events?.title || '—'}</td>
+                          <td className="px-2 py-2.5 text-xs text-espresso/70">{o.customer_name || o.customer_email || '—'}</td>
+                          <td className="px-2 py-2.5 text-right text-xs font-bold text-espresso">{brl(o.total)}</td>
+                          <td className="px-2 py-2.5 text-right text-xs text-espresso/40">{quando(o.created_at)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
             {/* Withdraw review warning */}
-            {withdraws.some(w => w.status === 'pending') && (
+            {pendingWithdrawals.length > 0 && (
               <div className="fin-anim p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-3.5 items-start">
                 <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h4 className="text-xs font-bold text-amber-800">Solicitações de Repasse Pendentes</h4>
+                  <h4 className="text-xs font-bold text-amber-800">{pendingWithdrawals.length} Solicitação(ões) de Repasse Pendente(s)</h4>
                   <p className="text-[10px] text-amber-700 leading-normal mt-0.5">
-                    Existem produtores solicitando resgates bancários da plataforma. Acesse a aba **Repasses / Saques** para analisar as contas bancárias, chaves Pix e auditar o pagamento.
+                    Produtores pediram resgate de {brl(pendingWithdrawals.reduce((s, w) => s + Number(w.amount || 0), 0))}.
+                    A liberação bancária está desligada até a Fase 4; a aba Repasses mostra a fila para conference.
                   </p>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('withdraws')}
                     className="text-[10px] font-bold text-plum hover:underline mt-2 flex items-center gap-0.5"
                   >
@@ -288,26 +287,33 @@ export default function AdminFinance() {
               <h3 className="text-xs font-bold text-espresso/50 uppercase tracking-wider mb-5">Meios de Pagamento Utilizados</h3>
               
               <div className="space-y-4">
-                {[
-                  { name: 'PIX Instantâneo', share: pixPercentage, color: 'bg-emerald-500', text: 'text-emerald-600', bg: 'bg-emerald-50' },
-                  { name: 'Cartão de Crédito', share: creditCardPercentage, color: 'bg-plum', text: 'text-plum', bg: 'bg-plum/5' },
-                  { name: 'Boleto Bancário / Outros', share: otherPercentage, color: 'bg-blue-500', text: 'text-blue-600', bg: 'bg-blue-50' },
-                ].map(method => (
-                  <div key={method.name} className="flex justify-between items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs font-bold text-espresso/70 flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${method.color}`} />
-                        {method.name}
+                {metodos.map(m => {
+                  const share = totalMetodos > 0 ? Math.round((m.count / totalMetodos) * 100) : 0
+                  const cor = m.key === 'pix' ? 'bg-emerald-500' : m.key === 'credit_card' ? 'bg-plum' : 'bg-blue-500'
+                  const txt = m.key === 'pix' ? 'text-emerald-600' : m.key === 'credit_card' ? 'text-plum' : 'text-blue-600'
+                  return (
+                    <div key={m.key} className="flex justify-between items-center gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold text-espresso/70 flex items-center gap-1.5">
+                          <span className={`w-2 h-2 rounded-full ${cor}`} />
+                          {m.label}
+                        </div>
+                        <div className="w-full h-1.5 bg-canvas rounded-full mt-2 overflow-hidden">
+                          <div className={`h-full rounded-full ${cor}`} style={{ width: `${share}%` }} />
+                        </div>
                       </div>
-                      <div className="w-full h-1.5 bg-canvas rounded-full mt-2 overflow-hidden">
-                        <div className={`h-full rounded-full ${method.color}`} style={{ width: `${method.share}%` }} />
+                      <div className="text-right">
+                        <span className={`text-xs font-bold ${txt}`}>{share}%</span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className={`text-xs font-bold ${method.text}`}>{method.share}%</span>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
+                {totalMetodos === 0 && (
+                  <p className="pt-2 text-[10px] text-espresso/40 italic leading-relaxed">
+                    Sem pedidos pagos ainda, não há distribuição por meio de pagamento. A leitura vem de
+                    <span className="font-mono"> orders.status = 'paid'</span>.
+                  </p>
+                )}
               </div>
             </div>
 
@@ -315,48 +321,39 @@ export default function AdminFinance() {
             <div className="fin-anim p-5 rounded-2xl border border-white bg-white/40 shadow-sm space-y-3">
               <h3 className="text-xs font-bold text-espresso/50 uppercase tracking-wider flex items-center gap-1"><RefreshCw className="w-3.5 h-3.5" /> Política de Taxação</h3>
               <p className="text-[10px] text-espresso/60 leading-relaxed">
-                A comissão ativa da Evokaa é configurada em **10.0%** retidos de forma síncrona a cada compra finalizada por participantes. O processamento Pix é isento de taxas de intermediário, gerando faturamento integral.
+                Comissão e prazos de repasse são configurados na aba <strong>Ferramentas &amp; Taxas</strong>.
+                Nenhum valor é retido hoje: a comissão passa a ser lançada em <span className="font-mono">transactions</span>
+                quando o gateway confirmar o pagamento, na Fase 4.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {activeTab === 'transactions' && (
+      {activeTab === 'transactions' && !isLoading && (
         <div className="fin-anim bg-white/60 border border-white/60 rounded-2xl overflow-hidden shadow-sm">
           {/* Filters Bar */}
           <div className="p-4 border-b border-espresso/5 flex flex-col md:flex-row items-center justify-between gap-4 bg-white/40">
             <div className="relative w-full md:max-w-xs">
               <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-espresso/30" />
-              <input 
+              <input
                 type="text"
-                placeholder="Buscar por transação ou produtor..."
+                placeholder="Buscar por descrição ou produtor..."
                 value={txSearch}
                 onChange={e => setTxSearch(e.target.value)}
                 className="w-full pl-9 pr-4 py-2 bg-white border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum text-espresso placeholder:text-espresso/30"
               />
             </div>
-            
+
             <div className="flex flex-wrap gap-2 w-full md:w-auto justify-end">
-              <select 
+              <select
                 value={txFilterType}
-                onChange={e => setTxFilterType(e.target.value as any)}
+                onChange={e => setTxFilterType(e.target.value)}
+                aria-label="Filtrar por tipo de operação"
                 className="px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs text-espresso/60 focus:outline-none"
               >
                 <option value="all">Todas Operações</option>
-                <option value="in">Venda de Ingressos (Entradas)</option>
-                <option value="out">Repasses/Saques (Saídas)</option>
-                <option value="fee">Comissões da Plataforma</option>
-              </select>
-              <select 
-                value={txFilterMethod}
-                onChange={e => setTxFilterMethod(e.target.value as any)}
-                className="px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs text-espresso/60 focus:outline-none"
-              >
-                <option value="all">Todos Pagamentos</option>
-                <option value="pix">PIX</option>
-                <option value="cartao">Cartão de Crédito</option>
-                <option value="boleto">Boleto</option>
+                {Object.entries(typeSinal).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
               </select>
             </div>
           </div>
@@ -368,8 +365,8 @@ export default function AdminFinance() {
                 <tr className="border-b border-espresso/5 text-left bg-white/40">
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Código</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Operação</th>
-                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase hidden sm:table-cell">Produtor Associado</th>
-                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase hidden md:table-cell">Método</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase hidden sm:table-cell">Produtor</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase hidden md:table-cell">Situação</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Data/Hora</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase text-right">Valor</th>
                 </tr>
@@ -377,38 +374,41 @@ export default function AdminFinance() {
               <tbody className="divide-y divide-espresso/3">
                 {filteredTransactions.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-xs text-espresso/30 italic">
-                      Nenhuma transação encontrada para os filtros selecionados.
+                    <td colSpan={6} className="px-4 py-16 text-center text-xs text-espresso/30 italic">
+                      {transactions.length === 0
+                        ? 'Nenhum lançamento em transactions. A comissão e os repasses passam a ser gravados aqui quando o gateway for publicado (Fase 4).'
+                        : 'Nenhum lançamento encontrado para os filtros selecionados.'}
                     </td>
                   </tr>
                 ) : (
-                  filteredTransactions.map(tx => (
-                    <tr key={tx.id} className="hover:bg-white/40 transition-colors">
-                      <td className="px-4 py-3 font-mono text-[10px] text-espresso/50">{tx.id}</td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
-                            tx.type === 'in' ? 'bg-green-50 text-green-600' : tx.type === 'out' ? 'bg-red-50 text-red-500' : 'bg-violet-50 text-plum'
-                          }`}>
-                            {tx.type === 'in' ? <ArrowUpRight className="w-3.5 h-3.5" /> : tx.type === 'out' ? <ArrowDownRight className="w-3.5 h-3.5" /> : <CreditCard className="w-3.5 h-3.5" />}
+                  filteredTransactions.map(tx => {
+                    const cfg = typeSinal[tx.type] || { sinal: '', label: tx.type, cls: 'text-espresso/60' }
+                    const Icon = tx.type === 'income' ? ArrowUpRight : tx.type === 'fee' ? CreditCard : ArrowDownRight
+                    return (
+                      <tr key={tx.id} className="hover:bg-white/40 transition-colors">
+                        <td className="px-4 py-3 font-mono text-[10px] text-espresso/50">{tx.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center bg-canvas ${cfg.cls}`}>
+                              <Icon className="w-3.5 h-3.5" />
+                            </div>
+                            <div>
+                              <span className="text-xs font-bold text-espresso">{tx.description || cfg.label}</span>
+                              <div className="text-[10px] text-espresso/30">{cfg.label}</div>
+                            </div>
                           </div>
-                          <div>
-                            <span className="text-xs font-bold text-espresso">{tx.desc}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-espresso/50 hidden sm:table-cell">{tx.producer}</td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="px-2 py-0.5 rounded bg-canvas text-espresso/50 text-[9px] font-bold uppercase">{tx.paymentMethod}</span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-espresso/40">{tx.date}</td>
-                      <td className={`px-4 py-3 text-right text-xs font-bold ${
-                        tx.type === 'in' ? 'text-green-600' : tx.type === 'out' ? 'text-red-500' : 'text-plum'
-                      }`}>
-                        {tx.type === 'in' ? '+' : tx.type === 'out' ? '-' : ''}R$ {tx.amount.toLocaleString('pt-BR', {minimumFractionDigits: 2})}
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="px-4 py-3 text-xs text-espresso/50 hidden sm:table-cell">{nomeProdutor(tx.profiles)}</td>
+                        <td className="px-4 py-3 hidden md:table-cell">
+                          <span className="px-2 py-0.5 rounded bg-canvas text-espresso/50 text-[9px] font-bold uppercase">{tx.status}</span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-espresso/40">{quando(tx.created_at)}</td>
+                        <td className={`px-4 py-3 text-right text-xs font-bold ${cfg.cls}`}>
+                          {cfg.sinal}{brl(tx.amount)}
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -416,11 +416,11 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {activeTab === 'withdraws' && (
+      {activeTab === 'withdraws' && !isLoading && (
         <div className="fin-anim bg-white/60 border border-white/60 rounded-2xl overflow-hidden shadow-sm">
           <div className="p-4 border-b border-espresso/5 bg-white/40">
             <h3 className="text-sm font-semibold text-espresso">Solicitações Bancárias de Repasses</h3>
-            <p className="text-[10px] text-espresso/40">Aprove saques de produtores após verificar chaves e saldos retidos correspondentes.</p>
+            <p className="text-[10px] text-espresso/40">Fila real de saques pedidos pelos produtores. A liberação Pix fica desligada até a Fase 4.</p>
           </div>
 
           <div className="overflow-x-auto">
@@ -428,70 +428,53 @@ export default function AdminFinance() {
               <thead>
                 <tr className="border-b border-espresso/5 bg-white/40">
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Produtor / Contato</th>
-                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Banco / Chave Pix</th>
-                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Data da Solicitacão</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Chave Pix</th>
+                  <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Data da Solicitação</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase">Status</th>
                   <th className="px-4 py-3 text-[10px] font-bold text-espresso/40 uppercase text-right">Valor</th>
                   <th className="px-4 py-3 text-right"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-espresso/3">
-                {withdraws.length === 0 ? (
+                {withdrawals.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-xs text-espresso/30 italic">
-                      Nenhuma solicitação de saque registrada.
+                    <td colSpan={6} className="px-4 py-16 text-center text-xs text-espresso/30 italic">
+                      Nenhuma solicitação de saque registrada na plataforma.
                     </td>
                   </tr>
                 ) : (
-                  withdraws.map(w => (
-                    <tr key={w.id} className="hover:bg-white/40 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="text-xs font-bold text-espresso">{w.producer}</div>
-                        <div className="text-[10px] text-espresso/30">{w.email}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs font-semibold text-espresso/70 flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5 text-espresso/40" /> {w.bankName}
-                        </div>
-                        <div className="text-[10px] text-espresso/40">Pix: {w.pixKey}</div>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-espresso/40">{w.date}</td>
-                      <td className="px-4 py-3">
-                        <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${
-                          w.status === 'pending'
-                            ? 'bg-amber-50 text-amber-600 border-amber-100'
-                            : w.status === 'approved'
-                            ? 'bg-green-50 text-green-600 border-green-100'
-                            : 'bg-red-50 text-red-500 border-red-100'
-                        }`}>
-                          {w.status === 'pending' ? 'Pendente' : w.status === 'approved' ? 'Pago' : 'Rejeitado'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right font-serif text-sm font-bold text-espresso">
-                        R$ {w.amount.toLocaleString('pt-BR')}
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        {w.status === 'pending' && (
-                          <div className="flex gap-1.5 justify-end">
-                            <button
-                              onClick={() => handleApproveWithdraw(w.id, w.producer, w.amount)}
-                              className="p-1.5 bg-green-500/10 hover:bg-green-500/20 text-green-600 rounded-lg transition-colors"
-                              title="Aprovar e Liberar Repasse"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleRejectWithdraw(w.id, w.producer)}
-                              className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-lg transition-colors"
-                              title="Rejeitar Repasse"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
+                  withdrawals.map(w => {
+                    const sc = withdrawStatus[w.status] || { label: w.status, cls: 'bg-canvas text-espresso/50 border-espresso/10' }
+                    const banco = (w.bank_account?.bank_name || w.bank_account?.bankName) as string | undefined
+                    return (
+                      <tr key={w.id} className="hover:bg-white/40 transition-colors">
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-bold text-espresso">{nomeProdutor(w.profiles)}</div>
+                          <div className="text-[10px] text-espresso/30">{w.profiles?.email || '—'}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs font-semibold text-espresso/70 flex items-center gap-1">
+                            <Building2 className="w-3.5 h-3.5 text-espresso/40" /> {w.pix_key || 'Chave não informada'}
                           </div>
-                        )}
-                      </td>
-                    </tr>
-                  ))
+                          {banco && <div className="text-[10px] text-espresso/40">{banco}</div>}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-espresso/40">{quando(w.created_at)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-bold border ${sc.cls}`}>{sc.label}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-serif text-sm font-bold text-espresso">{brl(w.amount)}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            disabled
+                            className="px-2.5 py-1 text-[11px] font-medium bg-canvas text-espresso/40 rounded-lg cursor-not-allowed border border-espresso/10"
+                            title="Aprovação e rejeição de saque só serão liberadas com o gateway de pagamento (Fase 4)"
+                          >
+                            Liberação manual desligada
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -499,31 +482,33 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {activeTab === 'tools' && (
+      {activeTab === 'tools' && !isLoading && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 fin-anim animate-fadeIn">
           {/* Painel de Configuração de Comissões e Taxas */}
           <div className="lg:col-span-2 space-y-6">
             <div className="p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm space-y-6">
               <div>
                 <h3 className="text-sm font-semibold text-espresso">Configurações de Comissão & Taxas</h3>
-                <p className="text-[10px] text-espresso/40">Defina a taxa operacional padrão retida pela Evokaa e regras de resgate.</p>
+                <p className="text-[10px] text-espresso/40">Taxa operacional padrão retida pela Evokaa e regras de resgate.</p>
               </div>
 
-              <div className="space-y-4">
+              <div className="space-y-4 opacity-60">
                 {/* Comissão Slider */}
                 <div className="space-y-2">
                   <div className="flex justify-between items-center text-xs font-semibold text-espresso/80">
                     <span className="flex items-center gap-1.5"><DollarSign className="w-3.5 h-3.5 text-plum" /> Taxa de Comissão da Plataforma</span>
                     <span className="text-plum font-serif text-sm font-bold">{platformCommission.toFixed(1)}%</span>
                   </div>
-                  <input 
-                    type="range" 
-                    min="0" 
-                    max="25" 
+                  <input
+                    type="range"
+                    min="0"
+                    max="25"
                     step="0.5"
-                    value={platformCommission} 
+                    value={platformCommission}
+                    disabled
+                    aria-label="Taxa de comissão (desativada)"
                     onChange={e => setPlatformCommission(parseFloat(e.target.value))}
-                    className="w-full accent-plum"
+                    className="w-full accent-plum cursor-not-allowed"
                   />
                   <div className="flex justify-between text-[9px] text-espresso/40 uppercase font-semibold">
                     <span>0% (Taxa Zero)</span>
@@ -541,13 +526,15 @@ export default function AdminFinance() {
                     <div className="p-3.5 rounded-xl bg-white/40 border border-espresso/5 space-y-1">
                       <span className="text-[9px] text-espresso/40 font-bold uppercase">PIX</span>
                       <div className="flex items-center gap-1">
-                        <input 
-                          type="number" 
-                          min="0" 
+                        <input
+                          type="number"
+                          min="0"
                           max="30"
-                          value={payoutPixDays} 
+                          value={payoutPixDays}
+                          disabled
+                          aria-label="Prazo Pix em dias (desativado)"
                           onChange={e => setPayoutPixDays(parseInt(e.target.value) || 0)}
-                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs focus:outline-none focus:border-plum text-espresso"
+                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs text-espresso cursor-not-allowed"
                         />
                         <span className="text-xs text-espresso/70 font-semibold">dias (D+{payoutPixDays})</span>
                       </div>
@@ -556,13 +543,15 @@ export default function AdminFinance() {
                     <div className="p-3.5 rounded-xl bg-white/40 border border-espresso/5 space-y-1">
                       <span className="text-[9px] text-espresso/40 font-bold uppercase">Cartão de Crédito</span>
                       <div className="flex items-center gap-1">
-                        <input 
-                          type="number" 
-                          min="0" 
+                        <input
+                          type="number"
+                          min="0"
                           max="60"
-                          value={payoutCardDays} 
+                          value={payoutCardDays}
+                          disabled
+                          aria-label="Prazo de cartão em dias (desativado)"
                           onChange={e => setPayoutCardDays(parseInt(e.target.value) || 0)}
-                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs focus:outline-none focus:border-plum text-espresso"
+                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs text-espresso cursor-not-allowed"
                         />
                         <span className="text-xs text-espresso/70 font-semibold">dias (D+{payoutCardDays})</span>
                       </div>
@@ -571,13 +560,15 @@ export default function AdminFinance() {
                     <div className="p-3.5 rounded-xl bg-white/40 border border-espresso/5 space-y-1">
                       <span className="text-[9px] text-espresso/40 font-bold uppercase">Boleto Bancário</span>
                       <div className="flex items-center gap-1">
-                        <input 
-                          type="number" 
-                          min="0" 
+                        <input
+                          type="number"
+                          min="0"
                           max="30"
-                          value={payoutBoletoDays} 
+                          value={payoutBoletoDays}
+                          disabled
+                          aria-label="Prazo de boleto em dias (desativado)"
                           onChange={e => setPayoutBoletoDays(parseInt(e.target.value) || 0)}
-                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs focus:outline-none focus:border-plum text-espresso"
+                          className="w-12 px-2 py-0.5 bg-white border border-espresso/10 rounded font-bold text-xs text-espresso cursor-not-allowed"
                         />
                         <span className="text-xs text-espresso/70 font-semibold">dias (D+{payoutBoletoDays})</span>
                       </div>
@@ -587,61 +578,57 @@ export default function AdminFinance() {
 
                 <div className="flex justify-end pt-2">
                   <button
-                    onClick={handleSaveSettings}
-                    disabled={savingSettings}
-                    className="px-4 py-2 bg-plum hover:bg-plum/90 disabled:bg-plum/50 text-cream rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+                    disabled
+                    className="px-4 py-2 bg-plum/50 text-cream rounded-xl text-xs font-semibold flex items-center gap-2 transition-all shadow-sm cursor-not-allowed"
                   >
-                    {savingSettings ? (
-                      <>
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                        <span>Salvando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        <span>Salvar Alterações</span>
-                      </>
-                    )}
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Salvar indisponível até a Fase 4</span>
                   </button>
                 </div>
+                <p className="text-[10px] text-espresso/40 leading-relaxed">
+                  A comissão precisa ser cobrada pelo gateway e registrada em <span className="font-mono">transactions</span>;
+                  salvar um valor aqui não mudaria nada no repasse real.
+                </p>
               </div>
             </div>
 
-            {/* Demonstrativo Financeiro de comissões acumuladas */}
+            {/* Comissões: só o que está lançado no banco */}
             <div className="p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm space-y-4">
               <div>
-                <h3 className="text-sm font-semibold text-espresso">Demonstrativo de Comissões e Taxas Coletadas</h3>
-                <p className="text-[10px] text-espresso/40">Detalhamento dos saldos retidos e comissões da Evokaa no mês atual.</p>
+                <h3 className="text-sm font-semibold text-espresso">Demonstrativo de Comissões Coletadas</h3>
+                <p className="text-[10px] text-espresso/40">Lançamentos de tipo <span className="font-mono">fee</span> em <span className="font-mono">transactions</span>.</p>
               </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
                     <tr className="border-b border-espresso/5 text-espresso/40 text-[9px] uppercase tracking-wider bg-white/30">
-                      <th className="px-3 py-2 font-bold">Categoria de Repasse</th>
-                      <th className="px-3 py-2 font-bold text-right">Volume Processado</th>
-                      <th className="px-3 py-2 font-bold text-right">Comissões Evokaa</th>
-                      <th className="px-3 py-2 font-bold text-right">Saldo Produtores</th>
+                      <th className="px-3 py-2 font-bold">Comissão</th>
+                      <th className="px-3 py-2 font-bold hidden sm:table-cell">Produtor</th>
+                      <th className="px-3 py-2 font-bold">Lançamento</th>
+                      <th className="px-3 py-2 font-bold text-right">Valor</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-espresso/3 text-xs">
-                    {[
-                      { channel: 'PIX Instantâneo', volume: grossSalesVolume * 0.74, fee: (grossSalesVolume * 0.74) * (platformCommission/100), net: (grossSalesVolume * 0.74) * (1 - platformCommission/100) },
-                      { channel: 'Cartão de Crédito', volume: grossSalesVolume * 0.20, fee: (grossSalesVolume * 0.20) * (platformCommission/100), net: (grossSalesVolume * 0.20) * (1 - platformCommission/100) },
-                      { channel: 'Boleto Bancário / Outros', volume: grossSalesVolume * 0.06, fee: (grossSalesVolume * 0.06) * (platformCommission/100), net: (grossSalesVolume * 0.06) * (1 - platformCommission/100) },
-                    ].map(row => (
-                      <tr key={row.channel} className="hover:bg-white/40 transition-colors">
-                        <td className="px-3 py-2.5 font-bold text-espresso">{row.channel}</td>
-                        <td className="px-3 py-2.5 text-right text-espresso/80">R$ {row.volume.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td className="px-3 py-2.5 text-right font-bold text-plum">R$ {row.fee.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                        <td className="px-3 py-2.5 text-right text-emerald-600 font-semibold">R$ {row.net.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                    {comissoes.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-3 py-10 text-center text-xs text-espresso/30 italic">
+                          Nenhuma comissão lançada. Elas passam a existir quando o gateway confirmar um pagamento.
+                        </td>
                       </tr>
-                    ))}
+                    ) : (
+                      comissoes.map(c => (
+                        <tr key={c.id} className="hover:bg-white/40 transition-colors">
+                          <td className="px-3 py-2.5 font-bold text-espresso font-mono">{c.id.slice(0, 8)}</td>
+                          <td className="px-3 py-2.5 text-espresso/80 hidden sm:table-cell">{nomeProdutor(c.profiles)}</td>
+                          <td className="px-3 py-2.5 text-espresso/60">{quando(c.created_at)}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-plum">{brl(c.amount)}</td>
+                        </tr>
+                      ))
+                    )}
                     <tr className="bg-espresso/5 font-bold border-t border-espresso/10">
-                      <td className="px-3 py-2.5 text-espresso">Total Consolidado</td>
-                      <td className="px-3 py-2.5 text-right text-espresso">R$ {grossSalesVolume.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="px-3 py-2.5 text-right text-plum">R$ {platformRevenue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
-                      <td className="px-3 py-2.5 text-right text-emerald-600">R$ {(grossSalesVolume - platformRevenue).toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                      <td className="px-3 py-2.5 text-espresso" colSpan={3}>Total em comissões</td>
+                      <td className="px-3 py-2.5 text-right text-plum">{brl(platformRevenue)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -653,30 +640,23 @@ export default function AdminFinance() {
           <div className="space-y-6">
             <div className="p-6 rounded-2xl bg-white/60 border border-white/60 shadow-sm space-y-4">
               <h3 className="text-xs font-bold text-espresso/50 uppercase tracking-wider">Exportar Relatórios</h3>
-              <p className="text-[10px] text-espresso/40 leading-normal">Selecione o formato de relatório para exportar as planilhas financeiras da plataforma.</p>
-              
+              <p className="text-[10px] text-espresso/40 leading-normal">Baixa o CSV direto do banco, com todas as linhas da tabela.</p>
+
               <div className="space-y-2 pt-2">
-                <button 
-                  onClick={() => handleExportCSV('transactions')}
-                  className="w-full py-2.5 px-4 bg-white border border-espresso/10 rounded-xl text-xs font-bold text-espresso/70 hover:bg-espresso/5 flex items-center justify-between transition-all"
-                >
-                  <span>Relatório de Transações (.csv)</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-espresso/40" />
-                </button>
-                <button 
-                  onClick={() => handleExportCSV('fees')}
-                  className="w-full py-2.5 px-4 bg-white border border-espresso/10 rounded-xl text-xs font-bold text-espresso/70 hover:bg-espresso/5 flex items-center justify-between transition-all"
-                >
-                  <span>Relatório de Taxas Coletadas (.csv)</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-espresso/40" />
-                </button>
-                <button 
-                  onClick={() => handleExportCSV('withdrawals')}
-                  className="w-full py-2.5 px-4 bg-white border border-espresso/10 rounded-xl text-xs font-bold text-espresso/70 hover:bg-espresso/5 flex items-center justify-between transition-all"
-                >
-                  <span>Relatório de Repasses (.csv)</span>
-                  <ArrowUpRight className="w-3.5 h-3.5 text-espresso/40" />
-                </button>
+                {([
+                  ['orders', 'Relatório de Pedidos (.csv)'],
+                  ['transactions', 'Relatório de Transações (.csv)'],
+                  ['withdrawals', 'Relatório de Saques (.csv)'],
+                ] as const).map(([tabela, label]) => (
+                  <button
+                    key={tabela}
+                    onClick={() => handleExportCSV(tabela)}
+                    className="w-full py-2.5 px-4 bg-white border border-espresso/10 rounded-xl text-xs font-bold text-espresso/70 hover:bg-espresso/5 flex items-center justify-between transition-all"
+                  >
+                    <span>{label}</span>
+                    <ArrowUpRight className="w-3.5 h-3.5 text-espresso/40" />
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -685,7 +665,8 @@ export default function AdminFinance() {
                 <AlertCircle className="w-3.5 h-3.5 text-amber-500" /> Compliance de Saques
               </h3>
               <p className="text-[10px] text-espresso/60 leading-relaxed font-semibold">
-                Todos os saques em processamento acima de **R$ 10.000,00** exigem auditoria manual de faturamento do produtor e validação de documentos fiscais anexados antes da liberação Pix no painel de repasses.
+                Regra operacional: saques em processamento acima de {brl(10000)} exigem auditoria manual do
+                faturamento do produtor e validação de documentos fiscais antes da liberação Pix.
               </p>
             </div>
           </div>

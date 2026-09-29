@@ -621,23 +621,43 @@ export function useFeaturedEvents() {
 export function useApproveEvent() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ eventId, status, rejectionReason }: { eventId: string; status: 'approved' | 'rejected'; rejectionReason?: string }) => {
+    // 'pending' = suspender: devolve o evento à fila de moderação (usado para revogar uma aprovação já concedida)
+    mutationFn: async ({ eventId, status, rejectionReason }: { eventId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string }) => {
       const { data: session } = await supabase.auth.getSession()
       const adminId = session.session?.user.id
 
+      const updatePayload: any = {
+        approval_status: status,
+        approved_at: status === 'approved' ? new Date().toISOString() : null,
+        approved_by: status === 'approved' ? adminId : null,
+        rejection_reason: status === 'rejected' ? rejectionReason || null : null
+      }
+      // qualquer decisão que não seja aprovação tira o evento dos destaques
+      if (status !== 'approved') updatePayload.featured_carousel = false
+
       const { data, error } = await supabase
         .from('events')
-        .update({
-          approval_status: status,
-          approved_at: status === 'approved' ? new Date().toISOString() : null,
-          approved_by: status === 'approved' ? adminId : null,
-          rejection_reason: status === 'rejected' ? rejectionReason || null : null
-        })
+        .update(updatePayload)
         .eq('id', eventId)
         .select()
         .single()
 
       if (error) throw error
+
+      // só despublica o que ESTIVER 'published' no momento do update (condição no WHERE, sem
+      // janela de leitura-e-grava): 'cancelled'/'ended' são decisão do produtor e não se perdem
+      if (status !== 'approved') {
+        const { data: despublicado, error: despublicarErro } = await supabase
+          .from('events')
+          .update({ status: 'draft' })
+          .eq('id', eventId)
+          .eq('status', 'published')
+          .select()
+          .maybeSingle()
+        if (despublicarErro) throw despublicarErro
+        if (despublicado) return despublicado
+      }
+
       return data
     },
     onSuccess: () => {

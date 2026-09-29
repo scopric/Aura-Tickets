@@ -47,9 +47,10 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
   useEffect(() => {
     const key = `aura_tour_${role}_v1`
     const seen = localStorage.getItem(key)
-    if (!seen) {
-      setTimeout(() => setShow(true), 800)
-    }
+    if (seen) return
+    // o layout só monta este componente na home do papel; ao sair da rota o timer é cancelado
+    const t = setTimeout(() => setShow(true), 800)
+    return () => clearTimeout(t)
   }, [role])
 
   const complete = () => {
