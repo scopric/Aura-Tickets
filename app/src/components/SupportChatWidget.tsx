@@ -400,7 +400,7 @@ export default function SupportChatWidget() {
               </div>
               <div>
                 <h3 className="font-semibold text-white text-sm">Suporte Evokaa</h3>
-                <p className="text-xs text-cream/60 flex items-center gap-1.5">
+                <p className="text-xs text-cream/70 flex items-center gap-1.5">
                   Estamos online para te ajudar!
                 </p>
               </div>
@@ -428,7 +428,7 @@ export default function SupportChatWidget() {
         
         {/* Badge de mensagens não lidas */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-bold w-5.5 h-5.5 flex items-center justify-center rounded-full ring-2 ring-void animate-bounce">
+          <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[11px] font-bold w-[22px] h-[22px] flex items-center justify-center rounded-full ring-2 ring-void animate-bounce">
             {unreadCount}
           </span>
         )}

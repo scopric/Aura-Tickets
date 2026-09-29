@@ -38,7 +38,7 @@ export default function FeatureGuard({ featureKey, children }: FeatureGuardProps
         <h2 className="font-serif text-2xl text-espresso mb-3">Funcionalidade Exclusiva</h2>
         
         {/* Desc */}
-        <p className="text-sm text-espresso/50 leading-relaxed mb-6">
+        <p className="text-sm text-espresso/70 leading-relaxed mb-6">
           A ferramenta correspondente ao código <code className="bg-slate-100 dark:bg-white/5 px-2 py-1 rounded text-xs text-plum font-semibold">{featureKey}</code> não está habilitada na sua conta no momento.
         </p>
 
@@ -57,7 +57,7 @@ export default function FeatureGuard({ featureKey, children }: FeatureGuardProps
         <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
           <Link 
             to="/producer/dashboard"
-            className="w-full sm:w-auto px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-espresso text-xs font-semibold rounded-full transition-all"
+            className="w-full sm:w-auto px-6 py-2.5 bg-white dark:bg-white/5 border border-slate-200 hover:bg-slate-50 text-espresso text-xs font-semibold rounded-full transition-all"
           >
             Voltar ao Dashboard
           </Link>

@@ -38,11 +38,11 @@ export default class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
           <div className="text-center max-w-md">
-            <div className="font-serif text-6xl text-plum/20 mb-4">Ops</div>
+            <div className="font-serif text-6xl text-plum/70 mb-4">Ops</div>
             <h1 className="font-serif text-2xl text-espresso mb-2">
               Algo deu errado
             </h1>
-            <p className="text-espresso/50 text-sm mb-8">
+            <p className="text-espresso/70 text-sm mb-8">
               Ocorreu um erro inesperado. Tente recarregar a pagina ou volte para o inicio.
             </p>
             {import.meta.env.DEV && this.state.error && (

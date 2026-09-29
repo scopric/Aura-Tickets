@@ -270,7 +270,7 @@ export default function AuthLogin() {
             <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">{isAdminMode ? 'Acesso administrativo' : 'Bem-vindo de volta'}</h1>
-          {!isAdminMode && <p className="text-sm text-espresso/50 mt-1">Escolha seu perfil e entre</p>}
+          {!isAdminMode && <p className="text-sm text-espresso/70 mt-1">Escolha seu perfil e entre</p>}
         </div>
 
         {/* Role Selection: alpha.* só Administrador; demais hosts só Participante e Produtor */}
@@ -289,7 +289,7 @@ export default function AuthLogin() {
                     : r.value === 'producer'
                     ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                     : 'bg-plum text-cream shadow-lg shadow-plum/20'
-                  : 'text-espresso/40 hover:text-espresso/70'
+                  : 'text-espresso/70 hover:text-espresso/70'
               }`}
             >
               <r.icon className="w-3.5 h-3.5" />
@@ -313,7 +313,7 @@ export default function AuthLogin() {
 
         {/* Error */}
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">{error}</div>
+          <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">{error}</div>
         )}
 
         {/* Form */}
@@ -323,13 +323,13 @@ export default function AuthLogin() {
               <p className="text-sm text-espresso font-medium">
                 Esta conta está protegida por <strong>Autenticação de Dois Fatores (2FA)</strong>.
               </p>
-              <p className="text-xs text-espresso/50 mt-1.5">
+              <p className="text-xs text-espresso/70 mt-1.5">
                 Insira abaixo o código de 6 dígitos gerado pelo seu aplicativo Google Authenticator ou similar.
               </p>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Código de Autenticação</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Código de Autenticação</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -339,7 +339,7 @@ export default function AuthLogin() {
                 onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="000000"
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-center text-xl font-mono tracking-[0.5em] text-espresso placeholder:text-espresso/20 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-center text-xl font-mono tracking-[0.5em] text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
               />
             </div>
 
@@ -374,7 +374,7 @@ export default function AuthLogin() {
                 setMfaChallenge(null)
                 setMfaCode('')
               }}
-              className="w-full py-2.5 px-4 text-espresso/50 hover:text-espresso text-xs font-medium rounded-full hover:bg-espresso/5 transition-all text-center"
+              className="w-full py-2.5 px-4 text-espresso/70 hover:text-espresso text-xs font-medium rounded-full hover:bg-espresso/5 transition-all text-center"
             >
               Voltar para a tela de login
             </button>
@@ -382,7 +382,7 @@ export default function AuthLogin() {
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">E-mail</label>
               <input
                 type="email"
                 autoComplete="email"
@@ -390,11 +390,11 @@ export default function AuthLogin() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Senha</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Senha</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -403,12 +403,12 @@ export default function AuthLogin() {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Sua senha"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors"
                   disabled={isSubmitting}
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -417,7 +417,7 @@ export default function AuthLogin() {
             </div>
 
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-espresso/50 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-espresso/70 cursor-pointer">
                 <input type="checkbox" className="accent-plum" disabled={isSubmitting} />
                 Lembrar-me
               </label>
@@ -454,13 +454,13 @@ export default function AuthLogin() {
                 <div className="w-full border-t border-espresso/5" />
               </div>
               <div className="relative flex justify-center">
-                <span className="px-3 bg-canvas text-xs text-espresso/30">ou entrar com</span>
+                <span className="px-3 bg-canvas text-xs text-espresso/70">ou entrar com</span>
               </div>
             </div>
 
             <div className="space-y-2.5">
               {/* Quem entra por provedor não passa pelo cadastro: aceite explícito aqui; record-access grava no 1º login */}
-              <label className="flex items-start gap-2 text-[11px] text-espresso/60 mb-3 cursor-pointer">
+              <label className="flex items-start gap-2 text-[11px] text-espresso/70 mb-3 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={socialConsent}
@@ -490,14 +490,14 @@ export default function AuthLogin() {
         )}
 
         {!isAdminMode && (<>
-        <p className="text-center text-xs text-espresso/40 mt-6">
+        <p className="text-center text-xs text-espresso/70 mt-6">
           Não tem conta?{' '}
           <Link to="/auth/register" className="text-plum hover:underline">Criar conta</Link>
         </p>
 
         {/* App download hint */}
         <div className="mt-8 p-4 rounded-2xl bg-void text-cream text-center">
-          <p className="text-xs text-cream/50 mb-2">Baixe o app para uma experiência completa</p>
+          <p className="text-xs text-cream/70 mb-2">Baixe o app para uma experiência completa</p>
           <Link
             to="/app/download"
             className="text-xs text-plum hover:text-cream transition-colors inline-flex items-center gap-1"

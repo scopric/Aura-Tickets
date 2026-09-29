@@ -187,7 +187,7 @@ function CountdownUnit({ value, label }: { value: number; label: string }) {
           {String(value).padStart(2, '0')}
         </span>
       </div>
-      <span className="text-[9px] sm:text-[10px] text-cream/30 mt-1 uppercase tracking-wider">{label}</span>
+      <span className="text-[9px] sm:text-[10px] text-cream/70 mt-1 uppercase tracking-wider">{label}</span>
     </div>
   )
 }
@@ -376,7 +376,7 @@ export default function YourTable({ eventId }: YourTableProps) {
           </div>
           <div className="space-y-2">
             <h3 className="font-serif text-2xl text-cream">Nossa IA está montando sua mesa perfeita</h3>
-            <p className="text-sm text-cream/40 max-w-xs mx-auto">
+            <p className="text-sm text-cream/70 max-w-xs mx-auto">
               Analisando afinidades, temperamentos e vibes para criar uma experiência inesquecível.
             </p>
           </div>
@@ -485,7 +485,7 @@ export default function YourTable({ eventId }: YourTableProps) {
         <div className="text-center mb-8 sm:mb-10">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-4">
             <Crown className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[11px] text-cream/60 uppercase tracking-widest font-medium">Sua Mesa Coletiva</span>
+            <span className="text-[11px] text-cream/70 uppercase tracking-widest font-medium">Sua Mesa Coletiva</span>
           </div>
         </div>
 
@@ -503,7 +503,7 @@ export default function YourTable({ eventId }: YourTableProps) {
               >
                 <Sparkles className="w-4 h-4 text-plum mb-1 opacity-70" />
                 <span className="font-serif text-xl sm:text-2xl text-cream leading-tight">{effectiveTable.name}</span>
-                <span className="text-[10px] sm:text-xs text-cream/40 mt-0.5">{effectiveTable.theme}</span>
+                <span className="text-[10px] sm:text-xs text-cream/70 mt-0.5">{effectiveTable.theme}</span>
               </div>
               {/* Anel orbital sutil */}
               <div
@@ -517,12 +517,12 @@ export default function YourTable({ eventId }: YourTableProps) {
 
             {/* Score */}
             <div className="flex flex-col items-center">
-              <span className="text-[10px] text-cream/30 uppercase tracking-widest mb-1">Compatibilidade</span>
+              <span className="text-[10px] text-cream/70 uppercase tracking-widest mb-1">Compatibilidade</span>
               <div className="flex items-baseline gap-1">
                 <span ref={scoreRef} className="font-serif text-3xl sm:text-4xl text-plum">
                   {displayedScore}
                 </span>
-                <span className="text-sm text-plum/60">%</span>
+                <span className="text-sm text-plum/70">%</span>
               </div>
               <div className="w-24 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
                 <div
@@ -588,7 +588,7 @@ export default function YourTable({ eventId }: YourTableProps) {
                       <MemberAvatar member={member} size={32} />
                       <div>
                         <span className="block text-xs text-cream font-medium">{member.name}</span>
-                        <span className="block text-[10px] text-cream/40">{member.role}</span>
+                        <span className="block text-[10px] text-cream/70">{member.role}</span>
                       </div>
                     </div>
                     {member.interests.length > 0 && (
@@ -596,7 +596,7 @@ export default function YourTable({ eventId }: YourTableProps) {
                         {member.interests.map((interest) => (
                           <span
                             key={interest}
-                            className="px-1.5 py-0.5 bg-white/5 text-cream/50 text-[9px] rounded-full border border-white/5"
+                            className="px-1.5 py-0.5 bg-white/5 text-cream/70 text-[9px] rounded-full border border-white/5"
                           >
                             {interest}
                           </span>
@@ -626,17 +626,17 @@ export default function YourTable({ eventId }: YourTableProps) {
         {/* ---- Contador Regressivo ---- */}
         {!countdown.isExpired && (
           <div className="cinematic-card flex flex-col items-center mt-2 mb-8">
-            <div className="flex items-center gap-2 mb-3 text-cream/40">
+            <div className="flex items-center gap-2 mb-3 text-cream/70">
               <Clock className="w-3.5 h-3.5" />
               <span className="text-[10px] uppercase tracking-widest">Contagem regressiva</span>
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <CountdownUnit value={countdown.days} label="Dias" />
-              <span className="text-cream/20 text-lg -mt-4">:</span>
+              <span className="text-cream/70 text-lg -mt-4">:</span>
               <CountdownUnit value={countdown.hours} label="Horas" />
-              <span className="text-cream/20 text-lg -mt-4">:</span>
+              <span className="text-cream/70 text-lg -mt-4">:</span>
               <CountdownUnit value={countdown.minutes} label="Min" />
-              <span className="text-cream/20 text-lg -mt-4">:</span>
+              <span className="text-cream/70 text-lg -mt-4">:</span>
               <CountdownUnit value={countdown.seconds} label="Seg" />
             </div>
           </div>
@@ -652,14 +652,14 @@ export default function YourTable({ eventId }: YourTableProps) {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-cream">Quebra-Gelo</h3>
-                <span className="text-[10px] text-cream/30">Comece a conversa</span>
+                <span className="text-[10px] text-cream/70">Comece a conversa</span>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-              <span className="block text-xs text-cream/50 mb-2">Pergunta exclusiva da mesa</span>
+              <span className="block text-xs text-cream/70 mb-2">Pergunta exclusiva da mesa</span>
               <p className="text-sm text-cream/80 leading-relaxed">{icebreaker}</p>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-plum/60">
+            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-plum/70">
               <Sparkles className="w-3 h-3" />
               <span>Gerada pela IA com base nos perfis da mesa</span>
             </div>
@@ -673,7 +673,7 @@ export default function YourTable({ eventId }: YourTableProps) {
               </div>
               <div>
                 <h3 className="text-sm font-medium text-cream">Missão da Mesa</h3>
-                <span className="text-[10px] text-cream/30">Desafio social</span>
+                <span className="text-[10px] text-cream/70">Desafio social</span>
               </div>
             </div>
             <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/5 to-transparent border border-amber-500/10">
@@ -683,11 +683,11 @@ export default function YourTable({ eventId }: YourTableProps) {
                 </div>
                 <div>
                   <span className="block text-sm font-medium text-cream mb-1">{mission.title}</span>
-                  <p className="text-xs text-cream/50 leading-relaxed">{mission.desc}</p>
+                  <p className="text-xs text-cream/70 leading-relaxed">{mission.desc}</p>
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-cream/30">
+            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-cream/70">
               <Zap className="w-3 h-3" />
               <span>Complete e ganhe pontos de experiência</span>
             </div>
@@ -700,7 +700,7 @@ export default function YourTable({ eventId }: YourTableProps) {
             (tag) => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-cream/50 text-[10px] rounded-full border border-white/10"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-cream/70 text-[10px] rounded-full border border-white/10"
               >
                 <Sparkles className="w-3 h-3 text-plum" />
                 <span>{tag}</span>
@@ -710,7 +710,7 @@ export default function YourTable({ eventId }: YourTableProps) {
         </div>
 
         {/* ---- Info do evento ---- */}
-        <div className="cinematic-card flex items-center justify-center gap-4 mt-6 text-[10px] text-cream/25">
+        <div className="cinematic-card flex items-center justify-center gap-4 mt-6 text-[10px] text-cream/70">
           <div className="flex items-center gap-1">
             <MapPin className="w-3 h-3" />
             <span>Evento: {eventId.replace(/-/g, ' ')}</span>

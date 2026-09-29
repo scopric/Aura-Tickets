@@ -266,14 +266,14 @@ export default function ProducerAffiliates() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Afiliados</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie a equipe de comissões, vendas e cupons</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie a equipe de comissões, vendas e cupons</p>
           {/* Decisão 36 (27/09/2026): não prometer na tela o que o sistema ainda não processa */}
           <p className="text-xs text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mt-3 max-w-xl">
             <strong>Fase beta.</strong> A venda feita pelo link ainda não é atribuída automaticamente ao afiliado: confira as vendas e acerte a comissão diretamente com ele. O rastreamento automático (janela de 30 dias, último clique) entra com a integração de pagamentos.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowRanking(!showRanking)} className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full hover:bg-white transition-all">
+          <button onClick={() => setShowRanking(!showRanking)} className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full hover:bg-white dark:hover:bg-white/10 transition-all">
             <Award className="w-4 h-4" /> Ranking
           </button>
           <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
@@ -301,7 +301,7 @@ export default function ProducerAffiliates() {
             <div key={k.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
               <k.icon className={`w-4 h-4 ${k.color} mx-auto mb-1.5`} />
               <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-              <div className="text-[10px] text-espresso/40 mt-0.5 font-semibold">{k.label}</div>
+              <div className="text-[10px] text-espresso/70 mt-0.5 font-semibold">{k.label}</div>
             </div>
           ))}
         </div>
@@ -317,15 +317,15 @@ export default function ProducerAffiliates() {
               const Li = lc.icon
               return (
                 <div key={a.id} className="flex items-center gap-4 p-3 rounded-xl bg-white/60 border border-white/60">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-amber-100 text-amber-600' : i === 1 ? 'bg-gray-100 text-gray-500' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-canvas text-espresso/30'}`}>{i + 1}</div>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${i === 0 ? 'bg-amber-100 text-amber-600' : i === 1 ? 'bg-gray-100 text-gray-500' : i === 2 ? 'bg-orange-100 text-orange-600' : 'bg-canvas text-espresso/70'}`}>{i + 1}</div>
                   <img src={a.avatar} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-canvas" />
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-espresso font-medium">{a.name}</div>
-                    <div className="text-[10px] text-espresso/30 flex items-center gap-1"><Li className={`w-3 h-3 ${lc.color}`} /> {lc.label} · {a.ticketsSold} ingressos · Conv. {a.conversionRate}%</div>
+                    <div className="text-[10px] text-espresso/70 flex items-center gap-1"><Li className={`w-3 h-3 ${lc.color}`} /> {lc.label} · {a.ticketsSold} ingressos · Conv. {a.conversionRate}%</div>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-serif text-green-600">R$ {a.totalSales.toLocaleString()}</div>
-                    <div className="text-[10px] text-espresso/30">R$ {a.commission.toFixed(0)} comissão</div>
+                    <div className="text-[10px] text-espresso/70">R$ {a.commission.toFixed(0)} comissão</div>
                   </div>
                 </div>
               )
@@ -336,10 +336,10 @@ export default function ProducerAffiliates() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar afiliado..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" /></div>
+        <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar afiliado..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" /></div>
         <div className="flex items-center gap-2">
           {(['all', 'ativo', 'pausado', 'pendente'] as const).map(s => (
-            <button key={s} type="button" onClick={() => setFilterStatus(s)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/50 hover:text-espresso/70'}`}>{s === 'all' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            <button key={s} type="button" onClick={() => setFilterStatus(s)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso/70'}`}>{s === 'all' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
           ))}
         </div>
       </div>
@@ -357,29 +357,29 @@ export default function ProducerAffiliates() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Afiliado</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Código</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Limite Vendas</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Conv.</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Afiliado</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Código</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Limite Vendas</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Conv.</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Status</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map(a => (
-                  <tr key={a.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                  <tr key={a.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <img src={a.avatar} alt="" className="w-9 h-9 rounded-full object-cover ring-2 ring-canvas" />
                         <div className="min-w-0">
                           <div className="text-sm text-espresso font-medium">{a.name}</div>
-                          <div className="text-[10px] text-espresso/30">{a.ticketsSold} vendidos · R$ {a.totalSales.toLocaleString()}</div>
+                          <div className="text-[10px] text-espresso/70">{a.ticketsSold} vendidos · R$ {a.totalSales.toLocaleString()}</div>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
                       <div className="flex items-center gap-2">
-                        <button onClick={() => copyCode(a.code, a.id)} className="flex items-center gap-1 px-2 py-1 bg-canvas rounded-lg text-[10px] text-espresso/50 hover:text-plum transition-colors">
+                        <button onClick={() => copyCode(a.code, a.id)} className="flex items-center gap-1 px-2 py-1 bg-canvas rounded-lg text-[10px] text-espresso/70 hover:text-plum transition-colors">
                           <QrCode className="w-3 h-3" /> {a.code} {copied === a.id ? <Check className="w-3 h-3 text-green-500" /> : <Copy className="w-3 h-3" />}
                         </button>
                       </div>
@@ -391,15 +391,15 @@ export default function ProducerAffiliates() {
                       </div>
                     </td>
                     <td className="px-4 py-3 hidden md:table-cell">
-                      <span className="text-xs text-espresso/60">{a.conversionRate}%</span>
+                      <span className="text-xs text-espresso/70">{a.conversionRate}%</span>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => toggleStatus(a.id, a.status)} className={`px-2.5 py-1 text-[10px] font-medium rounded-full border transition-all ${a.status === 'ativo' ? 'bg-green-50 border-green-100 text-green-600' : a.status === 'pausado' ? 'bg-amber-50 border-amber-100 text-amber-600' : 'bg-blue-50 border-blue-100 text-blue-600'}`}>{a.status.charAt(0).toUpperCase() + a.status.slice(1)}</button>
+                      <button onClick={() => toggleStatus(a.id, a.status)} className={`px-2.5 py-1 text-[10px] font-medium rounded-full border transition-all ${a.status === 'ativo' ? 'bg-green-50 border-green-100 text-green-700' : a.status === 'pausado' ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-blue-50 border-blue-100 text-blue-700'}`}>{a.status.charAt(0).toUpperCase() + a.status.slice(1)}</button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setSelected(a)} aria-label="Ver detalhes e editar" title="Editar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => copyCode(a.code, a.id)} aria-label="Compartilhar link de afiliado" title="Compartilhar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setSelected(a)} aria-label="Ver detalhes e editar" title="Editar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => copyCode(a.code, a.id)} aria-label="Compartilhar link de afiliado" title="Compartilhar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>
                   </tr>
@@ -415,19 +415,19 @@ export default function ProducerAffiliates() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
           <div className="glass-panel relative w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6"><h3 className="font-serif text-xl text-espresso">Novo Afiliado</h3><button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button></div>
+            <div className="flex items-center justify-between mb-6"><h3 className="font-serif text-xl text-espresso">Novo Afiliado</h3><button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button></div>
             <div className="space-y-3">
-              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nome completo *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Email *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Telefone" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={form.pixKey} onChange={e => setForm({ ...form, pixKey: e.target.value })} placeholder="Chave PIX" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nome completo *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="Email *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} placeholder="Telefone" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={form.pixKey} onChange={e => setForm({ ...form, pixKey: e.target.value })} placeholder="Chave PIX" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <div className="grid grid-cols-2 gap-3">
-                <input type="number" value={form.commissionRate} onChange={e => setForm({ ...form, commissionRate: e.target.value })} placeholder="% Comissão" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none" />
-                <input type="number" value={form.ticketLimit} onChange={e => setForm({ ...form, ticketLimit: e.target.value })} placeholder="Limite vendas" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none" />
+                <input type="number" value={form.commissionRate} onChange={e => setForm({ ...form, commissionRate: e.target.value })} placeholder="% Comissão" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none" />
+                <input type="number" value={form.ticketLimit} onChange={e => setForm({ ...form, ticketLimit: e.target.value })} placeholder="Limite vendas" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none" />
               </div>
             </div>
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-espresso/5">
-              <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/50 hover:text-espresso transition-colors">Cancelar</button>
+              <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
               <button onClick={addAffiliate} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Adicionar Afiliado</button>
             </div>
           </div>
@@ -450,41 +450,41 @@ export default function ProducerAffiliates() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => deleteAffiliate(selected.id)} aria-label="Excluir afiliado" title="Excluir" className="p-2 rounded-full hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                  <button onClick={() => setSelected(null)} aria-label="Fechar detalhes" title="Fechar" className="p-2 rounded-full bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
+                  <button onClick={() => deleteAffiliate(selected.id)} aria-label="Excluir afiliado" title="Excluir" className="p-2 rounded-full hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                  <button onClick={() => setSelected(null)} aria-label="Fechar detalhes" title="Fechar" className="p-2 rounded-full bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
                 </div>
               </div>
 
               {/* Contact */}
               <div className="space-y-2 mb-6">
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><Mail className="w-4 h-4 text-espresso/30" />{selected.email}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><Phone className="w-4 h-4 text-espresso/30" />{selected.phone}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/50"><QrCode className="w-4 h-4 text-espresso/30" />Link Ref: {selected.code}</div>
-                {selected.pixKey && <div className="flex items-center gap-2 text-sm text-espresso/50"><DollarSign className="w-4 h-4 text-espresso/30" />PIX: {selected.pixKey}</div>}
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><Mail className="w-4 h-4 text-espresso/30" />{selected.email}</div>
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><Phone className="w-4 h-4 text-espresso/30" />{selected.phone}</div>
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><QrCode className="w-4 h-4 text-espresso/30" />Link Ref: {selected.code}</div>
+                {selected.pixKey && <div className="flex items-center gap-2 text-sm text-espresso/70"><DollarSign className="w-4 h-4 text-espresso/30" />PIX: {selected.pixKey}</div>}
               </div>
 
               {/* KPIs */}
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-espresso">{selected.ticketsSold}<span className="text-xs text-espresso/30">/{selected.ticketLimit}</span></div>
-                  <div className="text-[10px] text-espresso/30">Vendas Realizadas</div>
+                  <div className="font-serif text-xl text-espresso">{selected.ticketsSold}<span className="text-xs text-espresso/70">/{selected.ticketLimit}</span></div>
+                  <div className="text-[10px] text-espresso/70">Vendas Realizadas</div>
                   <div className="w-full h-1.5 bg-canvas rounded-full overflow-hidden mt-1.5"><div className={`h-full rounded-full ${selected.ticketsSold >= selected.ticketLimit ? 'bg-red-400' : 'bg-plum'}`} style={{ width: `${Math.min((selected.ticketsSold / selected.ticketLimit) * 100, 100)}%` }} /></div>
                 </div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-green-600">R$ {selected.totalSales.toLocaleString()}</div><div className="text-[10px] text-espresso/30">Volume Total</div></div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-plum">R$ {selected.commission.toFixed(2)}</div><div className="text-[10px] text-espresso/30">Comissão total</div></div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-violet-600">{selected.conversionRate}%</div><div className="text-[10px] text-espresso/30">Conversão Média</div></div>
+                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-green-600">R$ {selected.totalSales.toLocaleString()}</div><div className="text-[10px] text-espresso/70">Volume Total</div></div>
+                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-plum">R$ {selected.commission.toFixed(2)}</div><div className="text-[10px] text-espresso/70">Comissão total</div></div>
+                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center"><div className="font-serif text-xl text-violet-600">{selected.conversionRate}%</div><div className="text-[10px] text-espresso/70">Conversão Média</div></div>
               </div>
 
               {/* Sales Chart */}
               {selected.salesHistory.length > 0 && (
                 <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                  <h4 className="text-xs font-medium text-espresso/40 uppercase tracking-wider mb-3 flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5" /> Histórico Recente</h4>
+                  <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-3 flex items-center gap-2"><BarChart3 className="w-3.5 h-3.5" /> Histórico Recente</h4>
                   <div className="flex items-end gap-2 h-28 pt-2">
                     {selected.salesHistory.map((h, i) => (
                       <div key={i} className="flex-1 flex flex-col items-center gap-1">
-                        <span className="text-[8px] text-espresso/40">R$ {h.value}</span>
+                        <span className="text-[8px] text-espresso/70">R$ {h.value}</span>
                         <div className="w-full bg-plum/20 rounded-t-lg transition-all hover:bg-plum/40" style={{ height: `${(h.value / maxHistoryVal) * 60}px` }} />
-                        <span className="text-[8px] text-espresso/30">{h.date}</span>
+                        <span className="text-[8px] text-espresso/70">{h.date}</span>
                       </div>
                     ))}
                   </div>
@@ -493,8 +493,8 @@ export default function ProducerAffiliates() {
 
               {/* Level Progress */}
               <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                <h4 className="text-xs font-medium text-espresso/40 uppercase tracking-wider mb-2">Progresso do Ranking</h4>
-                <div className="flex items-center justify-between text-[10px] text-espresso/30 mb-1">
+                <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-2">Progresso do Ranking</h4>
+                <div className="flex items-center justify-between text-[10px] text-espresso/70 mb-1">
                   <span>{levelConfig[selected.level]?.label || 'Bronze'}</span>
                   <span>{selected.ticketsSold} / {levelConfig[selected.level]?.next || 25} ingressos</span>
                 </div>

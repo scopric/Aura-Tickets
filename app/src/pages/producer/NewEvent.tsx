@@ -109,12 +109,12 @@ export default function ProducerNewEvent() {
     <div className="p-6 lg:p-10 max-w-4xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/events" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/events" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
           <h1 className="font-serif text-3xl text-espresso">Novo Evento</h1>
-          <p className="text-sm text-espresso/50 mt-1">Crie um novo evento em poucos passos</p>
+          <p className="text-sm text-espresso/70 mt-1">Crie um novo evento em poucos passos</p>
         </div>
       </div>
 
@@ -132,12 +132,12 @@ export default function ProducerNewEvent() {
               className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
                 step === s.num ? 'bg-plum text-cream shadow-glow' :
                 step > s.num ? 'bg-plum/20 text-plum' :
-                'bg-white/40 text-espresso/30'
+                'bg-white/40 text-espresso/70'
               }`}
             >
               {step > s.num ? '✓' : s.num}
             </button>
-            <span className={`text-xs font-medium hidden sm:block ${step === s.num ? 'text-plum' : 'text-espresso/30'}`}>{s.label}</span>
+            <span className={`text-xs font-medium hidden sm:block ${step === s.num ? 'text-plum' : 'text-espresso/70'}`}>{s.label}</span>
             {i < steps.length - 1 && <div className={`flex-1 h-px ${step > s.num ? 'bg-plum/30' : 'bg-espresso/5'}`} />}
           </div>
         ))}
@@ -156,7 +156,7 @@ export default function ProducerNewEvent() {
                   value={formData.title}
                   onChange={e => handleInputChange('title', e.target.value)}
                   placeholder="Ex: Noite Eletro 2025"
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                 />
               </div>
               <div>
@@ -166,7 +166,7 @@ export default function ProducerNewEvent() {
                   value={formData.description}
                   onChange={e => handleInputChange('description', e.target.value)}
                   placeholder="Descreva seu evento..."
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none"
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -198,7 +198,7 @@ export default function ProducerNewEvent() {
                   value={formData.location}
                   onChange={e => handleInputChange('location', e.target.value)}
                   placeholder="Endereço ou nome do espaço"
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                 />
               </div>
               {/* Tipo de Evento */}
@@ -216,7 +216,7 @@ export default function ProducerNewEvent() {
                       className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
                         (eventType === tag)
                           ? 'bg-plum/10 text-plum border-plum/30'
-                          : 'bg-white/40 border-white/60 text-espresso/60 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
+                          : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
                       }`}
                     >
                       {tag}
@@ -228,7 +228,7 @@ export default function ProducerNewEvent() {
                     className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
                       eventType === 'Outro'
                         ? 'bg-plum/10 text-plum border-plum/30'
-                        : 'bg-white/40 border-white/60 text-espresso/60 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
+                        : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
                     }`}
                   >
                     + Outro
@@ -240,7 +240,7 @@ export default function ProducerNewEvent() {
                     value={customType}
                     onChange={e => setCustomType(e.target.value)}
                     placeholder="Digite o tipo do seu evento..."
-                    className="w-full px-4 py-3 bg-white/60 border border-plum/20 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/40"
+                    className="w-full px-4 py-3 bg-white/60 border border-plum/20 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40"
                   />
                 )}
               </div>
@@ -267,46 +267,46 @@ export default function ProducerNewEvent() {
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-espresso">Ingresso {i + 1}</h3>
                     {tickets.length > 1 && (
-                      <button onClick={() => removeTicket(ticket.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
+                      <button onClick={() => removeTicket(ticket.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                         <X className="w-4 h-4" />
                       </button>
                     )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Nome *</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">Nome *</label>
                       <input
                         type="text"
                         value={ticket.name}
                         onChange={e => updateTicket(ticket.id, 'name', e.target.value)}
                         placeholder="Ex: VIP"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Preço (R$) *</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">Preço (R$) *</label>
                       <input
                         type="number"
                         value={ticket.price}
                         onChange={e => updateTicket(ticket.id, 'price', e.target.value)}
                         placeholder="0.00"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Capacidade *</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">Capacidade *</label>
                       <input
                         type="number"
                         value={ticket.capacity}
                         onChange={e => updateTicket(ticket.id, 'capacity', e.target.value)}
                         placeholder="Quantidade"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                       />
                     </div>
                   </div>
                 </div>
               ))}
-              <button onClick={addTicket} className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/40 hover:text-plum hover:border-plum/30 transition-all w-full justify-center">
+              <button onClick={addTicket} className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all w-full justify-center">
                 <Plus className="w-4 h-4" />
                 Adicionar Ingresso
               </button>
@@ -345,8 +345,8 @@ export default function ProducerNewEvent() {
                   <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto">
                     <Upload className="w-6 h-6 text-plum" />
                   </div>
-                  <p className="text-sm text-espresso/60">Selecione uma imagem de capa</p>
-                  <p className="text-xs text-espresso/30">PNG, JPG até 5MB</p>
+                  <p className="text-sm text-espresso/70">Selecione uma imagem de capa</p>
+                  <p className="text-xs text-espresso/70">PNG, JPG até 5MB</p>
                   <label className="inline-block px-6 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all cursor-pointer">
                     Selecionar Arquivos
                     <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
@@ -373,21 +373,21 @@ export default function ProducerNewEvent() {
             <h2 className="font-serif text-xl text-espresso mb-6">Revisão</h2>
             <div className="space-y-4 text-sm">
               <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/50">Título</span>
+                <span className="text-espresso/70">Título</span>
                 <span className="text-espresso font-medium">{formData.title || '-'}</span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/50">Data</span>
+                <span className="text-espresso/70">Data</span>
                 <span className="text-espresso font-medium">
                   {formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
                 </span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/50">Local</span>
+                <span className="text-espresso/70">Local</span>
                 <span className="text-espresso font-medium">{formData.location || '-'}</span>
               </div>
               <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/50">Ingressos</span>
+                <span className="text-espresso/70">Ingressos</span>
                 <span className="text-espresso font-medium">{tickets.length} tipo(s)</span>
               </div>
             </div>

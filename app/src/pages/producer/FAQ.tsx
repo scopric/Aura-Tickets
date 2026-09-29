@@ -34,15 +34,15 @@ export default function ProducerFAQ() {
       {/* Header */}
       <div className="text-center mb-8">
         <h1 className="font-serif text-3xl text-espresso">Perguntas Frequentes</h1>
-        <p className="text-sm text-espresso/50 mt-2">Tire suas duvidas sobre a plataforma</p>
+        <p className="text-sm text-espresso/70 mt-2">Tire suas duvidas sobre a plataforma</p>
       </div>
 
       {/* Tabs */}
       <div className="flex items-center justify-center gap-2 mb-10">
-        <button onClick={() => setTab('producer')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'producer' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/50'}`}>
+        <button onClick={() => setTab('producer')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'producer' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70'}`}>
           <Building className="w-4 h-4" /> Para Produtores
         </button>
-        <button onClick={() => setTab('affiliate')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'affiliate' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/50'}`}>
+        <button onClick={() => setTab('affiliate')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'affiliate' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70'}`}>
           <Users className="w-4 h-4" /> Para Afiliados
         </button>
       </div>

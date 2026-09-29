@@ -211,17 +211,17 @@ export default function ProducerSubscription() {
 
         {/* Billing Toggle */}
         <div className="flex items-center justify-center gap-3 mt-6">
-          <span className={`text-sm ${billingPeriod === 'mensal' ? 'text-espresso font-medium' : 'text-espresso/30'}`}>Mensal</span>
+          <span className={`text-sm ${billingPeriod === 'mensal' ? 'text-espresso font-medium' : 'text-espresso/70'}`}>Mensal</span>
           <button 
             onClick={() => setBillingPeriod(billingPeriod === 'mensal' ? 'anual' : 'mensal')} 
             aria-label="Alternar período de cobrança"
             className="w-14 h-7 rounded-full p-0.5 transition-colors" 
-            style={{ background: billingPeriod === 'anual' ? 'var(--plum)' : 'var(--void-30)' }}
+            style={{ background: billingPeriod === 'anual' ? 'var(--plum)' : 'rgb(var(--void-rgb) / 0.3)' }}
           >
             <div className={`w-6 h-6 rounded-full bg-cream shadow-sm transition-transform ${billingPeriod === 'anual' ? 'translate-x-7' : 'translate-x-0'}`} />
           </button>
-          <span className={`text-sm ${billingPeriod === 'anual' ? 'text-espresso font-medium' : 'text-espresso/30'}`}>Anual</span>
-          {billingPeriod === 'anual' && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-600">Economize 20%</span>}
+          <span className={`text-sm ${billingPeriod === 'anual' ? 'text-espresso font-medium' : 'text-espresso/70'}`}>Anual</span>
+          {billingPeriod === 'anual' && <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-green-50 text-green-700">Economize 20%</span>}
         </div>
       </div>
 
@@ -251,7 +251,7 @@ export default function ProducerSubscription() {
               </div>
             </div>
           </div>
-          <button className="px-4 py-2 rounded-full text-xs font-medium border transition-all hover:bg-plum/10" style={{ borderColor: 'var(--plum-30)', color: 'var(--plum)' }}>
+          <button className="px-4 py-2 rounded-full text-xs font-medium border transition-all hover:bg-plum/10" style={{ borderColor: 'rgb(var(--plum-rgb) / 0.3)', color: 'var(--plum)' }}>
             Gerenciar Assinatura
           </button>
         </div>
@@ -297,13 +297,13 @@ export default function ProducerSubscription() {
               </div>
               
               {hasCustomPrice && (
-                <div className="text-[10px] mb-3 px-2 py-1 rounded bg-green-50 text-green-600 font-semibold inline-block">
+                <div className="text-[10px] mb-3 px-2 py-1 rounded bg-green-50 text-green-700 font-semibold inline-block">
                   Preço Customizado pelo Admin!
                 </div>
               )}
 
               {billingPeriod === 'anual' && !hasCustomPrice && (
-                <div className="text-[10px] mb-3 px-2 py-1 rounded-full bg-green-50 text-green-600 inline-block">
+                <div className="text-[10px] mb-3 px-2 py-1 rounded-full bg-green-50 text-green-700 inline-block">
                   R$ {price * 12}/ano · 20% OFF
                 </div>
               )}
@@ -366,7 +366,7 @@ export default function ProducerSubscription() {
               const price = billingPeriod === 'anual' ? Math.round(basePrice * 0.8) : basePrice
               
               return (
-                <p className="text-sm text-espresso/50 text-center mb-5">
+                <p className="text-sm text-espresso/70 text-center mb-5">
                   Voce esta assinando o plano <strong style={{ color: 'var(--plum)' }}>{currentPlan?.name}</strong> por <strong>R$ {price}/mes</strong>.
                 </p>
               )
@@ -388,7 +388,7 @@ export default function ProducerSubscription() {
                   <span>Confirmar e Pagar</span>
                 )}
               </button>
-              <button onClick={() => setShowConfirm(false)} disabled={isSubscribing} className="w-full py-3 text-sm text-espresso/40 hover:text-espresso transition-colors">Cancelar</button>
+              <button onClick={() => setShowConfirm(false)} disabled={isSubscribing} className="w-full py-3 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
             </div>
           </div>
         </div>

@@ -250,7 +250,7 @@ export default function UserSettings() {
     <div className="p-6 lg:p-10 max-w-6xl">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Configuracoes</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie seu perfil e preferencias</p>
+        <p className="text-sm text-espresso/70 mt-1">Gerencie seu perfil e preferencias</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -258,7 +258,7 @@ export default function UserSettings() {
         <div className="lg:w-56 flex-shrink-0">
           <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
             {sidebarItems.map(item => (
-              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-plum/10 text-plum font-medium' : 'text-espresso/40 hover:text-espresso hover:bg-white/40'}`}>
+              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-plum/10 text-plum font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
                 <item.icon className="w-4 h-4" />{item.label}
               </button>
             ))}
@@ -277,33 +277,33 @@ export default function UserSettings() {
                 <img src={profile.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-canvas" />
                 <div>
                   <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={triggerAvatarUpload}>Alterar foto</button>
-                  <p className="text-[10px] text-espresso/30 mt-1">JPG, PNG. Max 2MB</p>
+                  <p className="text-[10px] text-espresso/70 mt-1">JPG, PNG. Max 2MB</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Nome</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Nome</label>
                   <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">E-mail</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
                   <input value={profile.email} onChange={e => setProfile({ ...profile, email: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Telefone</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Telefone</label>
                   <input value={profile.phone} onChange={e => setProfile({ ...profile, phone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><MapPin className="w-3 h-3" />Cidade</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><MapPin className="w-3 h-3" />Cidade</label>
                   <input value={profile.city} onChange={e => setProfile({ ...profile, city: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Data de Nascimento</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Data de Nascimento</label>
                   <input type="date" value={profile.birthDate} onChange={e => setProfile({ ...profile, birthDate: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/40 mb-1 block">Bio</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Bio</label>
                   <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
                 </div>
               </div>
@@ -315,7 +315,7 @@ export default function UserSettings() {
                   {genreOptions.map(g => {
                     const selected = preferences.genres.includes(g.id)
                     return (
-                      <button key={g.id} onClick={() => setPreferences({ ...preferences, genres: selected ? preferences.genres.filter(x => x !== g.id) : [...preferences.genres, g.id] })} className={`px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1 ${selected ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/50'}`}>
+                      <button key={g.id} onClick={() => setPreferences({ ...preferences, genres: selected ? preferences.genres.filter(x => x !== g.id) : [...preferences.genres, g.id] })} className={`px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1 ${selected ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/70'}`}>
                         {selected && <Star className="w-3 h-3" />}{g.label}
                       </button>
                     )
@@ -329,7 +329,7 @@ export default function UserSettings() {
                   {eventTypeOptions.map(t => {
                     const selected = preferences.eventTypes.includes(t.id)
                     return (
-                      <button key={t.id} onClick={() => setPreferences({ ...preferences, eventTypes: selected ? preferences.eventTypes.filter(x => x !== t.id) : [...preferences.eventTypes, t.id] })} className={`px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1 ${selected ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/50'}`}>
+                      <button key={t.id} onClick={() => setPreferences({ ...preferences, eventTypes: selected ? preferences.eventTypes.filter(x => x !== t.id) : [...preferences.eventTypes, t.id] })} className={`px-3 py-1.5 rounded-full text-xs transition-all flex items-center gap-1 ${selected ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/70'}`}>
                         {selected && <Star className="w-3 h-3" />}{t.label}
                       </button>
                     )
@@ -338,7 +338,7 @@ export default function UserSettings() {
               </div>
 
               <div className="border-t border-espresso/5 pt-4">
-                <label className="text-xs text-espresso/40 mb-2 block">Distancia Maxima (km)</label>
+                <label className="text-xs text-espresso/70 mb-2 block">Distancia Maxima (km)</label>
                 <div className="flex items-center gap-3">
                   <input type="range" min="5" max="200" value={preferences.maxDistance} onChange={e => setPreferences({ ...preferences, maxDistance: e.target.value })} className="flex-1 accent-plum" />
                   <span className="text-sm text-espresso font-medium w-16">{preferences.maxDistance}km</span>
@@ -361,16 +361,16 @@ export default function UserSettings() {
                 <div className="space-y-4 max-w-md">
                   {['current', 'new', 'confirm'].map(field => (
                     <div key={field}>
-                      <label className="text-xs text-espresso/40 mb-1 block">
+                      <label className="text-xs text-espresso/70 mb-1 block">
                         {field === 'current' ? 'Senha atual' : field === 'new' ? 'Nova senha' : 'Confirmar'}
                       </label>
                       <div className="relative">
                         <input type={showPw[field] ? 'text' : 'password'} value={password[field as keyof typeof password]} onChange={e => setPassword({ ...password, [field]: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso pr-10 focus:outline-none focus:border-plum/30" />
-                        <button onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30">
+                        <button onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70">
                           {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      {field === 'new' && <p className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>}
+                      {field === 'new' && <p className="text-[10px] text-espresso/70 mt-1">{PASSWORD_HINT}</p>}
                     </div>
                   ))}
                   <button onClick={handlePassword} disabled={savingPw} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">{savingPw ? 'Salvando…' : 'Atualizar senha'}</button>
@@ -382,7 +382,7 @@ export default function UserSettings() {
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
                     <div className="text-sm text-espresso">Autenticação 2FA (Google Authenticator)</div>
-                    <div className="text-[10px] text-espresso/30">
+                    <div className="text-[10px] text-espresso/70">
                       {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Seu login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
                     </div>
                   </div>
@@ -402,7 +402,7 @@ export default function UserSettings() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <div className="text-sm text-espresso">Excluir conta</div>
-                      <div className="text-[10px] text-espresso/30">Todos os dados serao perdidos</div>
+                      <div className="text-[10px] text-espresso/70">Todos os dados serao perdidos</div>
                     </div>
                   </div>
                   <button onClick={handleDeleteAccount} className="w-full py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all">Excluir minha conta</button>
@@ -424,17 +424,17 @@ export default function UserSettings() {
                     </div>
                     <div className="flex-1">
                       <div className="text-sm text-espresso font-medium">{card.brand} ****{card.last4}</div>
-                      <div className="text-[10px] text-espresso/30">Expira {card.expiry}</div>
+                      <div className="text-[10px] text-espresso/70">Expira {card.expiry}</div>
                     </div>
                     {card.default && <span className="px-2 py-0.5 bg-plum/10 text-plum text-[10px] rounded-full">Padrao</span>}
-                    <button onClick={() => { setCards(cards.filter(c => c.id !== card.id)); toast.success('Cartao removido') }} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors">
+                    <button onClick={() => { setCards(cards.filter(c => c.id !== card.id)); toast.success('Cartao removido') }} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
               </div>
 
-              <button className="w-full py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/30 hover:text-plum hover:border-plum/30 transition-all flex items-center justify-center gap-2">
+              <button className="w-full py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all flex items-center justify-center gap-2">
                 <CreditCard className="w-4 h-4" /> Adicionar cartao
               </button>
 
@@ -451,7 +451,7 @@ export default function UserSettings() {
                         <Ticket className="w-4 h-4 text-plum" />
                         <div>
                           <div className="text-sm text-espresso">{p.event}</div>
-                          <div className="text-[10px] text-espresso/30">{p.ticket} · {p.date}</div>
+                          <div className="text-[10px] text-espresso/70">{p.ticket} · {p.date}</div>
                         </div>
                       </div>
                       <div className="text-sm font-medium text-espresso">R$ {p.amount}</div>
@@ -480,7 +480,7 @@ export default function UserSettings() {
                       <item.icon className="w-4 h-4 text-plum" />
                       <div>
                         <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -514,7 +514,7 @@ export default function UserSettings() {
                       <item.icon className="w-4 h-4 text-plum" />
                       <div>
                         <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -542,7 +542,7 @@ export default function UserSettings() {
             <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
               <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
             </h3>
-            <p className="text-xs text-espresso/60 mb-4">
+            <p className="text-xs text-espresso/70 mb-4">
               Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
             </p>
 
@@ -554,21 +554,21 @@ export default function UserSettings() {
             )}
 
             <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
+              <span className="text-[10px] text-espresso/70 block mb-1">Chave Manual (se o QR Code falhar)</span>
               <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-plum">
                 {enrollData.secret}
               </code>
             </div>
 
             {mfaError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">
                 {mfaError}
               </div>
             )}
 
             <form onSubmit={handleVerifyEnroll} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1 block">Código de Verificação</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -590,7 +590,7 @@ export default function UserSettings() {
                     setShowMfaModal(false)
                     setEnrollData(null)
                   }}
-                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
+                  className="px-4 py-2 text-xs text-espresso/70 hover:text-espresso transition-colors"
                 >
                   Cancelar
                 </button>

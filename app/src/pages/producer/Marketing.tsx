@@ -88,12 +88,12 @@ export default function Marketing() {
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
           <h1 className="font-serif text-3xl text-espresso">Marketing Integrado</h1>
-          <p className="text-sm text-espresso/50 mt-1">Pixels, UTM, WhatsApp e QR Code para divulgar seu evento</p>
+          <p className="text-sm text-espresso/70 mt-1">Pixels, UTM, WhatsApp e QR Code para divulgar seu evento</p>
         </div>
       </div>
 
@@ -108,7 +108,7 @@ export default function Marketing() {
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 text-plum mb-3" />
             <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -126,15 +126,15 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Google Analytics 4</span>
                 </div>
                 <button onClick={() => setGoogleAnalytics({ ...googleAnalytics, enabled: !googleAnalytics.enabled })} className="transition-all">
-                  {googleAnalytics.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {googleAnalytics.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {googleAnalytics.enabled && (
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Measurement ID</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Measurement ID</label>
                   <input value={googleAnalytics.id} onChange={e => setGoogleAnalytics({ ...googleAnalytics, id: e.target.value })}
                     placeholder="G-XXXXXXXXXX" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                  <p className="text-[10px] text-espresso/30 mt-1">Acompanhe visitas, conversoes e comportamento</p>
+                  <p className="text-[10px] text-espresso/70 mt-1">Acompanhe visitas, conversoes e comportamento</p>
                 </div>
               )}
             </div>
@@ -146,15 +146,15 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Meta Pixel (Facebook)</span>
                 </div>
                 <button onClick={() => setFacebookPixel({ ...facebookPixel, enabled: !facebookPixel.enabled })} className="transition-all">
-                  {facebookPixel.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {facebookPixel.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {facebookPixel.enabled && (
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Pixel ID</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Pixel ID</label>
                   <input value={facebookPixel.id} onChange={e => setFacebookPixel({ ...facebookPixel, id: e.target.value })}
                     placeholder="1234567890" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                  <p className="text-[10px] text-espresso/30 mt-1">Rastreie conversões e crie públicos personalizados</p>
+                  <p className="text-[10px] text-espresso/70 mt-1">Rastreie conversões e crie públicos personalizados</p>
                 </div>
               )}
             </div>
@@ -166,12 +166,12 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Google Ads Conversion</span>
                 </div>
                 <button onClick={() => setGoogleAds({ ...googleAds, enabled: !googleAds.enabled })} className="transition-all">
-                  {googleAds.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {googleAds.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {googleAds.enabled && (
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Conversion ID</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Conversion ID</label>
                   <input value={googleAds.id} onChange={e => setGoogleAds({ ...googleAds, id: e.target.value })}
                     placeholder="AW-XXXXXXXXX" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
@@ -191,11 +191,11 @@ export default function Marketing() {
 
           {showUTMForm && (
             <div className="mb-4 p-4 bg-white/40 rounded-xl space-y-3">
-              <input value={utmName} onChange={e => setUtmName(e.target.value)} placeholder="Nome do link" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input value={utmName} onChange={e => setUtmName(e.target.value)} placeholder="Nome do link" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <div className="grid grid-cols-3 gap-2">
-                <input value={utmSource} onChange={e => setUtmSource(e.target.value)} placeholder="Fonte (instagram)" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-                <input value={utmMedium} onChange={e => setUtmMedium(e.target.value)} placeholder="Meio (social)" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-                <input value={utmCampaign} onChange={e => setUtmCampaign(e.target.value)} placeholder="Campanha" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <input value={utmSource} onChange={e => setUtmSource(e.target.value)} placeholder="Fonte (instagram)" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+                <input value={utmMedium} onChange={e => setUtmMedium(e.target.value)} placeholder="Meio (social)" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+                <input value={utmCampaign} onChange={e => setUtmCampaign(e.target.value)} placeholder="Campanha" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               </div>
               <button onClick={generateUTM} className="w-full py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
                 <LinkIcon className="w-3.5 h-3.5" /> Gerar Link UTM
@@ -208,10 +208,10 @@ export default function Marketing() {
               <div key={link.id} className="flex items-center gap-3 p-3 bg-white/40 rounded-xl">
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-medium text-espresso truncate">{link.name}</div>
-                  <div className="text-[10px] text-espresso/30 truncate">{link.url}?utm_source={link.source}&utm_medium={link.medium}</div>
+                  <div className="text-[10px] text-espresso/70 truncate">{link.url}?utm_source={link.source}&utm_medium={link.medium}</div>
                 </div>
                 <div className="text-xs text-plum font-medium">{link.clicks}</div>
-                <button onClick={() => copyLink(`${link.url}?utm_source=${link.source}&utm_medium=${link.medium}&utm_campaign=${link.campaign}`)} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum transition-colors">
+                <button onClick={() => copyLink(`${link.url}?utm_source=${link.source}&utm_medium=${link.medium}&utm_campaign=${link.campaign}`)} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors">
                   <Copy className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -224,12 +224,12 @@ export default function Marketing() {
           <h2 className="font-serif text-lg text-espresso mb-4 flex items-center gap-2"><MessageCircle className="w-5 h-5 text-green-500" /> Gerador WhatsApp</h2>
           <div className="space-y-3">
             <div>
-              <label className="text-xs text-espresso/50 mb-1 block">Mensagem</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Mensagem</label>
               <textarea value={waMessage} onChange={e => setWaMessage(e.target.value)} rows={3}
                 className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
             </div>
             <div>
-              <label className="text-xs text-espresso/50 mb-1 block">Link do evento</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Link do evento</label>
               <input value={waLink} onChange={e => setWaLink(e.target.value)}
                 className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
             </div>
@@ -240,7 +240,7 @@ export default function Marketing() {
               <div className="p-3 bg-green-50 rounded-xl">
                 <div className="text-[10px] text-green-700 mb-1">Link gerado:</div>
                 <div className="flex items-center gap-2">
-                  <input value={waGenerated} readOnly className="flex-1 px-2 py-1.5 bg-white border border-green-200 rounded text-[10px] text-green-800" />
+                  <input value={waGenerated} readOnly className="flex-1 px-2 py-1.5 bg-white dark:bg-white/5 border border-green-200 rounded text-[10px] text-green-800" />
                   <button onClick={() => copyLink(waGenerated)} className="p-1.5 rounded-lg hover:bg-green-100 text-green-600 transition-colors">
                     <Copy className="w-3.5 h-3.5" />
                   </button>
@@ -250,14 +250,14 @@ export default function Marketing() {
 
             {/* Templates */}
             <div className="mt-4">
-              <div className="text-xs text-espresso/50 mb-2">Templates salvos</div>
+              <div className="text-xs text-espresso/70 mb-2">Templates salvos</div>
               <div className="space-y-2">
                 {waTemplates.map(t => (
                   <button key={t.id} onClick={() => setWaMessage(t.message)}
                     className="w-full text-left p-3 bg-white/40 rounded-xl hover:bg-white/60 transition-colors">
                     <div className="text-xs font-medium text-espresso">{t.name}</div>
-                    <div className="text-[10px] text-espresso/30 truncate">{t.message}</div>
-                    <div className="text-[10px] text-espresso/20 mt-0.5">Usado {t.used}x</div>
+                    <div className="text-[10px] text-espresso/70 truncate">{t.message}</div>
+                    <div className="text-[10px] text-espresso/70 mt-0.5">Usado {t.used}x</div>
                   </button>
                 ))}
               </div>
@@ -270,16 +270,16 @@ export default function Marketing() {
           <h2 className="font-serif text-lg text-espresso mb-4 flex items-center gap-2"><QrCode className="w-5 h-5 text-plum" /> QR Code do Evento</h2>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-espresso/50 mb-1 block">Evento</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Evento</label>
               <input value={qrEvent} onChange={e => setQrEvent(e.target.value)}
                 className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
             </div>
             <div>
-              <label className="text-xs text-espresso/50 mb-1 block">Tamanho</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Tamanho</label>
               <div className="flex gap-2">
                 {(['small', 'medium', 'large'] as const).map(s => (
                   <button key={s} onClick={() => setQrSize(s)}
-                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${qrSize === s ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/40'}`}>
+                    className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${qrSize === s ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70'}`}>
                     {s === 'small' ? 'Pequeno' : s === 'medium' ? 'Medio' : 'Grande'}
                   </button>
                 ))}
@@ -296,7 +296,7 @@ export default function Marketing() {
                   <div className="absolute bottom-2 left-2 w-6 h-6 border-2 border-white rounded" />
                   <QrCode className="w-8 h-8 text-cream/50" />
                 </div>
-                <p className="text-[10px] text-center text-espresso/30 mt-2 break-all">{siteUrl(`/event/${qrEvent}`)}</p>
+                <p className="text-[10px] text-center text-[#475569] mt-2 break-all">{siteUrl(`/event/${qrEvent}`)}</p>
               </div>
             </div>
             <div className="flex gap-2">

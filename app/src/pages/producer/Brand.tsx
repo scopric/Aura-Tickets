@@ -56,7 +56,7 @@ export default function ProducerBrand() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Brand Studio</h1>
-          <p className="text-sm text-espresso/50 mt-1">Personalize a identidade visual do seu evento</p>
+          <p className="text-sm text-espresso/70 mt-1">Personalize a identidade visual do seu evento</p>
         </div>
         <button onClick={() => toast.success('Todas as alteracoes foram salvas!')} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
           <Sparkles className="w-4 h-4" /> Publicar Marca
@@ -78,9 +78,9 @@ export default function ProducerBrand() {
               ))}
             </div>
             <div className="flex items-center gap-3">
-              <label className="text-xs text-espresso/40">Cor Principal</label>
+              <label className="text-xs text-espresso/70">Cor Principal</label>
               <input type="color" value={primaryColor} onChange={e => setPrimaryColor(e.target.value)} className="w-8 h-8 rounded-full overflow-hidden cursor-pointer" />
-              <span className="text-xs font-mono text-espresso/40">{primaryColor}</span>
+              <span className="text-xs font-mono text-espresso/70">{primaryColor}</span>
             </div>
           </div>
 
@@ -91,7 +91,7 @@ export default function ProducerBrand() {
               {fonts.map((fn, i) => (
                 <button key={fn.name} onClick={() => setFont(i)} className={`w-full p-3 rounded-xl border text-left transition-all ${font === i ? 'border-plum/30 bg-plum/5' : 'border-transparent hover:bg-canvas'}`}>
                   <div className="text-sm font-medium" style={{ fontFamily: fn.family }}>{fn.name}</div>
-                  <div className="text-xs text-espresso/30 mt-0.5" style={{ fontFamily: fn.family }}>{fn.sample}</div>
+                  <div className="text-xs text-espresso/70 mt-0.5" style={{ fontFamily: fn.family }}>{fn.sample}</div>
                 </button>
               ))}
             </div>
@@ -108,7 +108,7 @@ export default function ProducerBrand() {
             ) : (
               <button onClick={() => setLogo('/images/logo-evokaa.png')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
                 <Upload className="w-6 h-6 mx-auto mb-2 text-espresso/20" />
-                <p className="text-xs text-espresso/40">Clique para carregar logo</p>
+                <p className="text-xs text-espresso/70">Clique para carregar logo</p>
               </button>
             )}
           </div>
@@ -124,7 +124,7 @@ export default function ProducerBrand() {
             ) : (
               <button onClick={() => setCoverImage('/images/hero-bg.jpg')} className="w-full py-8 border-2 border-dashed border-espresso/10 rounded-2xl text-center hover:border-plum/30 transition-colors">
                 <Upload className="w-6 h-6 mx-auto mb-2 text-espresso/20" />
-                <p className="text-xs text-espresso/40">Clique para carregar capa</p>
+                <p className="text-xs text-espresso/70">Clique para carregar capa</p>
               </button>
             )}
           </div>
@@ -150,7 +150,7 @@ export default function ProducerBrand() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-medium text-espresso">{t.name}</div>
-                    <div className="text-[10px] text-espresso/30">{t.platform} · {t.size}</div>
+                    <div className="text-[10px] text-espresso/70">{t.platform} · {t.size}</div>
                   </div>
                   <Download className="w-3.5 h-3.5 text-espresso/20" />
                 </button>
@@ -164,7 +164,7 @@ export default function ProducerBrand() {
             <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center">
               <QrCode className="w-16 h-16 text-espresso/20" />
             </div>
-            <button onClick={() => copyLink(siteUrl('/event/noite-eletro-2025'))} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/50 hover:text-plum transition-colors flex items-center justify-center gap-2">
+            <button onClick={() => copyLink(siteUrl('/event/noite-eletro-2025'))} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/70 hover:text-plum transition-colors flex items-center justify-center gap-2">
               <Copy className="w-3.5 h-3.5" /> Copiar Link
             </button>
           </div>
@@ -174,9 +174,9 @@ export default function ProducerBrand() {
         <div className="lg:col-span-8">
           {/* Device Toggle */}
           <div className="flex items-center justify-center gap-2 mb-4">
-            <button onClick={() => setPreviewDevice('desktop')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'desktop' ? 'bg-plum/10 text-plum' : 'text-espresso/30'}`}><Monitor className="w-4 h-4" /></button>
-            <button onClick={() => setPreviewDevice('tablet')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'tablet' ? 'bg-plum/10 text-plum' : 'text-espresso/30'}`}><Tablet className="w-4 h-4" /></button>
-            <button onClick={() => setPreviewDevice('mobile')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'mobile' ? 'bg-plum/10 text-plum' : 'text-espresso/30'}`}><Smartphone className="w-4 h-4" /></button>
+            <button onClick={() => setPreviewDevice('desktop')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'desktop' ? 'bg-plum/10 text-plum' : 'text-espresso/70'}`}><Monitor className="w-4 h-4" /></button>
+            <button onClick={() => setPreviewDevice('tablet')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'tablet' ? 'bg-plum/10 text-plum' : 'text-espresso/70'}`}><Tablet className="w-4 h-4" /></button>
+            <button onClick={() => setPreviewDevice('mobile')} className={`p-2 rounded-lg transition-colors ${previewDevice === 'mobile' ? 'bg-plum/10 text-plum' : 'text-espresso/70'}`}><Smartphone className="w-4 h-4" /></button>
           </div>
 
           {/* Preview Panel */}
@@ -238,7 +238,7 @@ export default function ProducerBrand() {
               <div key={a.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
                 {a.sample && <div className="w-8 h-8 rounded-full mx-auto mb-2" style={{ background: a.value }} />}
                 <div className="text-xs font-medium text-espresso">{a.value}</div>
-                <div className="text-[10px] text-espresso/30 mt-0.5">{a.label}</div>
+                <div className="text-[10px] text-espresso/70 mt-0.5">{a.label}</div>
               </div>
             ))}
           </div>

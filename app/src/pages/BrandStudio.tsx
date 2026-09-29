@@ -155,7 +155,7 @@ export default function BrandStudio() {
             <h1 className="font-serif text-4xl lg:text-5xl text-espresso mb-2">
               Brand <span className="italic text-plum">Studio</span>
             </h1>
-            <p className="text-espresso/60">
+            <p className="text-espresso/70">
               Personalize a aparência da página do seu evento
             </p>
           </div>
@@ -186,7 +186,7 @@ export default function BrandStudio() {
           <div className="lg:col-span-4 space-y-6">
             {/* Presets */}
             <div className="studio-panel p-6 rounded-3xl bg-white/50 border border-white/60 backdrop-blur-sm">
-              <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
+              <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70 mb-4">
                 Temas Prontos
               </h3>
               <div className="grid grid-cols-2 gap-3">
@@ -216,7 +216,7 @@ export default function BrandStudio() {
             <div className="studio-panel p-6 rounded-3xl bg-white/50 border border-white/60 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Palette className="w-4 h-4 text-plum" />
-                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40">
+                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70">
                   Cores
                 </h3>
               </div>
@@ -230,7 +230,7 @@ export default function BrandStudio() {
                       onChange={(e) => updateSetting('primaryColor', e.target.value)}
                       className="w-12 h-12 rounded-xl border border-espresso/10 cursor-pointer"
                     />
-                    <span className="text-sm text-espresso/50 font-mono">{settings.primaryColor}</span>
+                    <span className="text-sm text-espresso/70 font-mono">{settings.primaryColor}</span>
                   </div>
                 </div>
                 <div>
@@ -242,7 +242,7 @@ export default function BrandStudio() {
                       onChange={(e) => updateSetting('secondaryColor', e.target.value)}
                       className="w-12 h-12 rounded-xl border border-espresso/10 cursor-pointer"
                     />
-                    <span className="text-sm text-espresso/50 font-mono">{settings.secondaryColor}</span>
+                    <span className="text-sm text-espresso/70 font-mono">{settings.secondaryColor}</span>
                   </div>
                 </div>
                 <div>
@@ -254,7 +254,7 @@ export default function BrandStudio() {
                       onChange={(e) => updateSetting('accentColor', e.target.value)}
                       className="w-12 h-12 rounded-xl border border-espresso/10 cursor-pointer"
                     />
-                    <span className="text-sm text-espresso/50 font-mono">{settings.accentColor}</span>
+                    <span className="text-sm text-espresso/70 font-mono">{settings.accentColor}</span>
                   </div>
                 </div>
               </div>
@@ -264,7 +264,7 @@ export default function BrandStudio() {
             <div className="studio-panel p-6 rounded-3xl bg-white/50 border border-white/60 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Type className="w-4 h-4 text-plum" />
-                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40">
+                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70">
                   Tipografia
                 </h3>
               </div>
@@ -274,7 +274,7 @@ export default function BrandStudio() {
                   <select
                     value={settings.fontFamily}
                     onChange={(e) => updateSetting('fontFamily', e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-espresso/10 bg-white text-sm text-espresso focus:outline-none focus:border-plum/30"
+                    className="w-full px-4 py-3 rounded-xl border border-espresso/10 bg-white dark:bg-white/5 text-sm text-espresso focus:outline-none focus:border-plum/30"
                   >
                     <option value="Instrument Serif">Instrument Serif</option>
                     <option value="Inter">Inter</option>
@@ -289,7 +289,7 @@ export default function BrandStudio() {
             <div className="studio-panel p-6 rounded-3xl bg-white/50 border border-white/60 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Layout className="w-4 h-4 text-plum" />
-                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40">
+                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70">
                   Componentes
                 </h3>
               </div>
@@ -304,7 +304,7 @@ export default function BrandStudio() {
                         className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
                           settings.cardStyle === style
                             ? 'border-plum bg-plum/10 text-plum'
-                            : 'border-espresso/10 text-espresso/50 hover:border-espresso/20'
+                            : 'border-espresso/10 text-espresso/70 hover:border-espresso/20'
                         }`}
                       >
                         {style === 'glass' ? 'Vidro' : style === 'solid' ? 'Sólido' : 'Minimal'}
@@ -322,7 +322,7 @@ export default function BrandStudio() {
                         className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
                           settings.buttonStyle === style
                             ? 'border-plum bg-plum/10 text-plum'
-                            : 'border-espresso/10 text-espresso/50 hover:border-espresso/20'
+                            : 'border-espresso/10 text-espresso/70 hover:border-espresso/20'
                         }`}
                       >
                         {style === 'pill' ? 'Pílula' : style === 'rounded' ? 'Arredondado' : 'Quadrado'}
@@ -340,7 +340,7 @@ export default function BrandStudio() {
                     onChange={(e) => updateSetting('borderRadius', parseInt(e.target.value))}
                     className="w-full accent-plum"
                   />
-                  <span className="text-xs text-espresso/40">{settings.borderRadius}px</span>
+                  <span className="text-xs text-espresso/70">{settings.borderRadius}px</span>
                 </div>
               </div>
             </div>
@@ -349,7 +349,7 @@ export default function BrandStudio() {
             <div className="studio-panel p-6 rounded-3xl bg-white/50 border border-white/60 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-4">
                 <Image className="w-4 h-4 text-plum" />
-                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40">
+                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70">
                   Fundo
                 </h3>
               </div>
@@ -365,7 +365,7 @@ export default function BrandStudio() {
                     className={`px-3 py-2 text-xs font-medium rounded-lg border transition-all ${
                       settings.backgroundPattern === pattern.value
                         ? 'border-plum bg-plum/10 text-plum'
-                        : 'border-espresso/10 text-espresso/50 hover:border-espresso/20'
+                        : 'border-espresso/10 text-espresso/70 hover:border-espresso/20'
                     }`}
                   >
                     {pattern.label}
@@ -380,7 +380,7 @@ export default function BrandStudio() {
             <div className="preview-area sticky top-24">
               <div className="flex items-center gap-2 mb-4">
                 <Eye className="w-4 h-4 text-plum" />
-                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/40">
+                <h3 className="text-xs font-medium uppercase tracking-widest text-espresso/70">
                   Pré-visualização
                 </h3>
               </div>
@@ -527,7 +527,7 @@ export default function BrandStudio() {
 
               {/* Apply CTA */}
               <div className="mt-6 flex items-center justify-between">
-                <p className="text-sm text-espresso/50">
+                <p className="text-sm text-espresso/70">
                   As alterações serão aplicadas à página do evento
                 </p>
                 <Link

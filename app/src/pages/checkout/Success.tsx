@@ -38,9 +38,9 @@ export default function CheckoutSuccess() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center">
+      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando confirmação de compra...</p>
+        <p className="text-espresso/70 text-sm">Carregando confirmação de compra...</p>
       </div>
     )
   }
@@ -61,7 +61,7 @@ export default function CheckoutSuccess() {
   }, {} as Record<string, number>)
 
   return (
-    <div ref={ref} className="min-h-screen bg-canvas pt-24 pb-16">
+    <div ref={ref} className="min-h-screen glass-canvas pt-24 pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-10">
@@ -74,7 +74,7 @@ export default function CheckoutSuccess() {
           <h1 className="success-text font-serif text-3xl text-espresso mb-2">
             {ticketsActive ? 'Pagamento confirmado!' : 'Pedido registrado!'}
           </h1>
-          <p className="success-text text-espresso/50">
+          <p className="success-text text-espresso/70">
             {ticketsActive
               ? 'Seus ingressos já estão em "Meus ingressos".'
               : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos em "Meus ingressos".'}
@@ -96,7 +96,7 @@ export default function CheckoutSuccess() {
                         </div>
                         <div>
                           <div className="text-sm font-medium">{t.events?.title || event?.title || 'Evento'}</div>
-                          <div className="text-xs text-cream/40">{t.ticket_types?.name || 'Ingresso'}</div>
+                          <div className="text-xs text-cream/70">{t.ticket_types?.name || 'Ingresso'}</div>
                         </div>
                       </div>
 
@@ -105,19 +105,19 @@ export default function CheckoutSuccess() {
                         {t.status === 'active' ? (
                           <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="rounded-lg flex-shrink-0" />
                         ) : (
-                          <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-white/5 border border-white/10 flex items-center justify-center text-[9px] text-cream/40 text-center px-1">
+                          <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-white/5 border border-white/10 flex items-center justify-center text-[9px] text-cream/70 text-center px-1">
                             Aguardando pagamento
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="text-[10px] text-cream/30">Código do Ingresso</div>
+                          <div className="text-[10px] text-cream/70">Código do Ingresso</div>
                           <div className="text-xs font-mono text-cream/70 truncate">{t.qr_code || t.code}</div>
-                          <div className="text-[10px] text-cream/30 mt-1">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
+                          <div className="text-[10px] text-cream/70 mt-1">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
                         </div>
                       </div>
 
                       {totalAmount && (
-                        <div className="flex items-center gap-2 text-xs text-cream/40">
+                        <div className="flex items-center gap-2 text-xs text-cream/70">
                           <span className="text-plum font-semibold">Valor:</span>
                           <span>R$ {(t.ticket_types?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
@@ -133,21 +133,21 @@ export default function CheckoutSuccess() {
                     </div>
                     <div>
                       <div className="text-sm font-medium">{event.title}</div>
-                      <div className="text-xs text-cream/40">
+                      <div className="text-xs text-cream/70">
                         {Object.entries(ticketSummary).map(([name, qty]) => `${name} x${qty}`).join(', ')}
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-cream/40 mb-2">
+                  <div className="flex items-center gap-2 text-xs text-cream/70 mb-2">
                     <Calendar className="w-3 h-3 text-plum" />
                     {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
                   </div>
-                  <div className="flex items-center gap-2 text-xs text-cream/40 mb-2">
+                  <div className="flex items-center gap-2 text-xs text-cream/70 mb-2">
                     <Ticket className="w-3 h-3 text-plum" />
                     Código do Pedido: <span className="font-mono text-cream/70">#{orderId?.substring(0, 8).toUpperCase()}</span>
                   </div>
                   {totalAmount && (
-                    <div className="flex items-center gap-2 text-xs text-cream/40">
+                    <div className="flex items-center gap-2 text-xs text-cream/70">
                       <span className="text-plum font-semibold">Total Pago:</span>
                       <span>R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     </div>
@@ -187,7 +187,7 @@ export default function CheckoutSuccess() {
                 {event && (
                   <Link
                     to={`/event/${event.id}`}
-                    className="block w-full py-3 text-sm text-espresso/50 hover:text-plum transition-colors text-center"
+                    className="block w-full py-3 text-sm text-espresso/70 hover:text-plum transition-colors text-center"
                   >
                     Voltar ao evento
                   </Link>
@@ -207,20 +207,20 @@ export default function CheckoutSuccess() {
                     <Users className="w-8 h-8 text-plum" />
                   </div>
                   <h3 className="font-serif text-2xl mb-2">Sua Mesa Está Sendo Montada</h3>
-                  <p className="text-sm text-cream/50 mb-6 max-w-sm">
+                  <p className="text-sm text-cream/70 mb-6 max-w-sm">
                     Nosso algoritmo está analisando perfis de compatibilidade para formar 
                     o grupo ideal para você. Em 48h você recebe seus colegas de mesa.
                   </p>
                   <div className="flex items-center gap-3 mb-6">
                     {['Temperamento', 'Interesses', 'Vibe'].map((tag) => (
-                      <span key={tag} className="px-3 py-1.5 bg-white/5 text-cream/50 text-xs rounded-full border border-white/10 flex items-center gap-1">
+                      <span key={tag} className="px-3 py-1.5 bg-white/5 text-cream/70 text-xs rounded-full border border-white/10 flex items-center gap-1">
                         <Sparkles className="w-3 h-3 text-plum" />
                         {tag}
                       </span>
                     ))}
                   </div>
                   <div className="w-full max-w-xs">
-                    <div className="flex items-center justify-between text-xs text-cream/30 mb-2">
+                    <div className="flex items-center justify-between text-xs text-cream/70 mb-2">
                       <span>Analisando perfis</span>
                       <span>85%</span>
                     </div>
@@ -245,7 +245,7 @@ export default function CheckoutSuccess() {
                 <h3 className="font-serif text-2xl text-espresso mb-2">
                   {ticketsActive ? 'Ingressos Emitidos com Sucesso!' : 'Pedido Registrado!'}
                 </h3>
-                <p className="text-sm text-espresso/60 mb-6 max-w-sm">
+                <p className="text-sm text-espresso/70 mb-6 max-w-sm">
                   {ticketsActive
                     ? 'Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Evokaa ou no aplicativo do Participante.'
                     : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos e disponíveis pelo Hub Evokaa.'}

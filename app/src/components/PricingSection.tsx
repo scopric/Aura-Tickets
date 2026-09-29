@@ -600,7 +600,7 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
             {plan.feeMin > 0 ? (
               <span className="text-[10px] text-slate-600 font-medium">R$ {plan.feeMin}</span>
             ) : (
-              <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider bg-green-50 px-1.5 py-0.5 rounded">Isento</span>
+              <span className="text-[10px] text-green-700 font-bold uppercase tracking-wider bg-green-50 px-1.5 py-0.5 rounded">Isento</span>
             )}
           </div>
         </div>
@@ -1305,7 +1305,7 @@ export default function PricingSection() {
                       key={oIdx}
                       type="button"
                       onClick={() => handleSelectQuizOption(opt.value)}
-                      className="w-full p-3.5 text-left text-xs text-slate-600 hover:text-[#8f33f5] bg-slate-50/50 hover:bg-[#8f33f5]/5 border border-slate-200/50 hover:border-[#8f33f5]/30 rounded-xl transition-all duration-300 flex items-center justify-between font-medium group"
+                      className="w-full p-3.5 text-left text-xs text-slate-700 hover:text-[#8f33f5] bg-slate-50/50 hover:bg-[#8f33f5]/5 border border-slate-200/50 hover:border-[#8f33f5]/30 rounded-xl transition-all duration-300 flex items-center justify-between font-medium group"
                     >
                       <span>{opt.label}</span>
                       <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center group-hover:border-[#8f33f5] transition-all duration-300">

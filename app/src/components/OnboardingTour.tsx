@@ -85,17 +85,17 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               {role === 'producer' ? <Building className="w-4 h-4 text-plum" /> : <User className="w-4 h-4 text-plum" />}
-              <span className="text-[10px] font-medium text-espresso/30 uppercase tracking-wider">
+              <span className="text-[10px] font-medium text-espresso/70 uppercase tracking-wider">
                 {role === 'producer' ? 'Tour do Produtor' : 'Tour do Participante'}
               </span>
             </div>
-            <button onClick={skip} className="p-1.5 rounded-full hover:bg-canvas text-espresso/30 hover:text-espresso transition-colors">
+            <button onClick={skip} className="p-1.5 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
 
           {/* Step counter */}
-          <div className="text-[10px] text-espresso/30 mb-4">Passo {step + 1} de {steps.length}</div>
+          <div className="text-[10px] text-espresso/70 mb-4">Passo {step + 1} de {steps.length}</div>
 
           {/* Icon */}
           <div className="w-14 h-14 rounded-2xl bg-plum/10 flex items-center justify-center mb-5">
@@ -108,13 +108,13 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
 
           {/* Content */}
           <h3 className="font-serif text-xl text-espresso mb-2">{s.title}</h3>
-          <p className="text-sm text-espresso/50 leading-relaxed mb-6">{s.description}</p>
+          <p className="text-sm text-espresso/70 leading-relaxed mb-6">{s.description}</p>
 
           {/* Navigation */}
           <div className="flex items-center justify-between">
             <button
               onClick={() => step > 0 && setStep(step - 1)}
-              className={`flex items-center gap-1 px-4 py-2 text-sm rounded-full transition-all ${step > 0 ? 'text-espresso/50 hover:text-espresso hover:bg-canvas' : 'text-espresso/15 cursor-not-allowed'}`}
+              className={`flex items-center gap-1 px-4 py-2 text-sm rounded-full transition-all ${step > 0 ? 'text-espresso/70 hover:text-espresso hover:bg-canvas' : 'text-espresso/15 cursor-not-allowed'}`}
               disabled={step === 0}
             >
               <ChevronLeft className="w-4 h-4" /> Anterior

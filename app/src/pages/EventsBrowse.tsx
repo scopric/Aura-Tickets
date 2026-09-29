@@ -90,7 +90,7 @@ export default function EventsBrowse() {
       <div className="max-w-6xl mx-auto px-6">
         <div className="mb-12">
           <h1 className="font-serif text-4xl text-espresso">Catálogo de <em className="text-rose-500">Eventos</em></h1>
-          <p className="text-sm text-espresso/50 mt-1">Explore e garanta seu ingresso para as melhores experiências da plataforma</p>
+          <p className="text-sm text-espresso/70 mt-1">Explore e garanta seu ingresso para as melhores experiências da plataforma</p>
         </div>
 
         {/* Barra de Busca e Filtros */}
@@ -103,7 +103,7 @@ export default function EventsBrowse() {
                 placeholder="Buscar por nome, atração ou cidade..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 transition-all text-espresso placeholder:text-espresso/30"
+                className="w-full pl-12 pr-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 transition-all text-espresso placeholder:text-espresso/70"
               />
             </div>
             
@@ -153,7 +153,7 @@ export default function EventsBrowse() {
                     className="px-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 text-espresso/80 font-medium"
                     aria-label="Data inicial"
                   />
-                  <span className="text-xs text-espresso/40">até</span>
+                  <span className="text-xs text-espresso/70">até</span>
                   <input
                     type="date"
                     value={endDate}
@@ -177,7 +177,7 @@ export default function EventsBrowse() {
               className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                 category === cat
                   ? 'bg-rose-500 text-white border-rose-500'
-                  : 'bg-white/40 border-white/60 text-espresso/60 hover:border-rose-500/20 hover:text-rose-500'
+                  : 'bg-white/40 border-white/60 text-espresso/70 hover:border-rose-500/20 hover:text-rose-500'
               }`}
             >
               {cat}
@@ -194,7 +194,7 @@ export default function EventsBrowse() {
           </div>
         ) : events.length === 0 ? (
           <div className="text-center py-20 bg-white/30 border border-dashed border-white/60 rounded-3xl">
-            <p className="text-sm text-espresso/60">Nenhum evento publicado para estes filtros.</p>
+            <p className="text-sm text-espresso/70">Nenhum evento publicado para estes filtros.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -209,14 +209,14 @@ export default function EventsBrowse() {
                 
                 <div className="p-6 flex-1 flex flex-col">
                   <h3 className="font-serif text-lg text-espresso mb-2 line-clamp-1">{evt.title}</h3>
-                  <p className="text-xs text-espresso/50 mb-4 line-clamp-2 flex-1">{evt.short_description || evt.description}</p>
+                  <p className="text-xs text-espresso/70 mb-4 line-clamp-2 flex-1">{evt.short_description || evt.description}</p>
                   
                   <div className="space-y-2 mb-6">
-                    <div className="flex items-center gap-2 text-xs text-espresso/40">
+                    <div className="flex items-center gap-2 text-xs text-espresso/70">
                       <Calendar className="w-3.5 h-3.5 text-rose-400" />
                       {evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'A combinar'}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-espresso/40">
+                    <div className="flex items-center gap-2 text-xs text-espresso/70">
                       <MapPin className="w-3.5 h-3.5 text-rose-400" />
                       {evt.venue_name || 'Local não definido'}
                     </div>

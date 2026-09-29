@@ -18,7 +18,7 @@ export default function ThemeToggle({ className, collapsed = false }: ThemeToggl
           'w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-300',
           theme === 'dark' 
             ? 'bg-slate-900/80 text-amber-400 border border-amber-500/20 hover:bg-slate-800' 
-            : 'bg-white text-indigo-500 border border-slate-200 hover:bg-slate-50 shadow-sm',
+            : 'bg-white dark:bg-white/5 text-indigo-500 border border-slate-200 hover:bg-slate-50 shadow-sm',
           className
         )}
         title={theme === 'dark' ? 'Mudar para Modo Claro' : 'Mudar para Modo Escuro'}
@@ -49,7 +49,7 @@ export default function ThemeToggle({ className, collapsed = false }: ThemeToggl
       <button
         onClick={toggleTheme}
         className={clsx(
-          'relative w-12 h-6.5 rounded-full p-0.5 transition-all duration-300 focus:outline-none flex items-center',
+          'relative w-12 h-[26px] rounded-full p-0.5 transition-all duration-300 focus:outline-none flex items-center',
           theme === 'dark' ? 'bg-slate-800 border border-white/5' : 'bg-slate-200 border border-slate-300'
         )}
         title={theme === 'dark' ? 'Mudar para Modo Claro' : 'Mudar para Modo Escuro'}

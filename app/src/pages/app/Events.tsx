@@ -72,7 +72,7 @@ export default function AppEvents() {
     return (
       <div className="flex flex-col items-center justify-center py-32">
         <Loader2 className="w-12 h-12 text-plum animate-spin mb-6" />
-        <p className="text-espresso/50 text-base">Carregando eventos...</p>
+        <p className="text-espresso/70 text-base">Carregando eventos...</p>
       </div>
     )
   }

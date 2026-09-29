@@ -351,7 +351,7 @@ export default function AdminSettingsPage() {
     <div className="p-6 lg:p-10 max-w-6xl">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Configuracoes</h1>
-        <p className="text-sm text-espresso/50 mt-1">Administracao da plataforma</p>
+        <p className="text-sm text-espresso/70 mt-1">Administracao da plataforma</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -359,7 +359,7 @@ export default function AdminSettingsPage() {
         <div className="lg:w-56 flex-shrink-0">
           <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
             {sidebarItems.map(item => (
-              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-rose-500/10 text-rose-500 font-medium' : 'text-espresso/40 hover:text-espresso hover:bg-white/40'}`}>
+              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-rose-500/10 text-rose-500 font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
                 <item.icon className="w-4 h-4" />{item.label}
               </button>
             ))}
@@ -379,7 +379,7 @@ export default function AdminSettingsPage() {
                   <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'} alt="Avatar Admin" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-rose-500/10" />
                   <div>
                     <button onClick={triggerAvatarUpload} className="px-4 py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all">Alterar foto</button>
-                    <p className="text-[10px] text-espresso/30 mt-1">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>
+                    <p className="text-[10px] text-espresso/70 mt-1">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>
                   </div>
                 </div>
               </div>
@@ -388,21 +388,21 @@ export default function AdminSettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="platformName" className="text-xs text-espresso/40 mb-1 block">Nome da Plataforma</label>
+                  <label htmlFor="platformName" className="text-xs text-espresso/70 mb-1 block">Nome da Plataforma</label>
                   <input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label htmlFor="tagline" className="text-xs text-espresso/40 mb-1 block">Tagline</label>
+                  <label htmlFor="tagline" className="text-xs text-espresso/70 mb-1 block">Tagline</label>
                   <input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label htmlFor="timezone" className="text-xs text-espresso/40 mb-1 block">Timezone</label>
+                  <label htmlFor="timezone" className="text-xs text-espresso/70 mb-1 block">Timezone</label>
                   <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option>America/Sao_Paulo</option><option>America/Recife</option><option>America/Manaus</option>
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="currency" className="text-xs text-espresso/40 mb-1 block">Moeda</label>
+                  <label htmlFor="currency" className="text-xs text-espresso/70 mb-1 block">Moeda</label>
                   <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
                   </select>
@@ -421,7 +421,7 @@ export default function AdminSettingsPage() {
                     <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                       <div>
                         <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
                       </div>
                       <label htmlFor={`general-${item.key}`} className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id={`general-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateGeneralValue(item.key, e.target.checked)} className="sr-only peer" />
@@ -484,9 +484,9 @@ export default function AdminSettingsPage() {
               <h2 className="text-lg font-medium text-espresso">Moderacao</h2>
 
               <div>
-                <label htmlFor="bannedWords" className="text-xs text-espresso/40 mb-1 block">Palavras Proibidas</label>
+                <label htmlFor="bannedWords" className="text-xs text-espresso/70 mb-1 block">Palavras Proibidas</label>
                 <textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-                <p className="text-[10px] text-espresso/30 mt-1">Separadas por virgula</p>
+                <p className="text-[10px] text-espresso/70 mt-1">Separadas por virgula</p>
               </div>
 
               <div className="space-y-3">
@@ -499,7 +499,7 @@ export default function AdminSettingsPage() {
                     <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                       <div>
                         <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
                       </div>
                       <label htmlFor={`moderation-${item.key}`} className="relative inline-flex items-center cursor-pointer">
                         <input type="checkbox" id={`moderation-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateModerationValue(item.key, e.target.checked)} className="sr-only peer" />
@@ -513,7 +513,7 @@ export default function AdminSettingsPage() {
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
                     <label htmlFor="reportThreshold" className="text-sm text-espresso">Limite de denuncias</label>
-                    <div className="text-[10px] text-espresso/30">Bloquear automaticamente apos X denuncias</div>
+                    <div className="text-[10px] text-espresso/70">Bloquear automaticamente apos X denuncias</div>
                   </div>
                   <input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-16 px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-sm text-espresso text-center focus:outline-none focus:border-plum/30" />
                 </div>
@@ -596,7 +596,7 @@ export default function AdminSettingsPage() {
                       {activities.map(log => (
                         <tr key={log.id} className="border-b border-border last:border-0 hover:bg-white/40 transition-colors">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-600 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-espresso/5 text-espresso/60 border-espresso/10'}`}>
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-700 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
                               {LOG_LABEL[log.event_type] || log.event_type}
                             </span>
                           </td>
@@ -624,7 +624,7 @@ export default function AdminSettingsPage() {
               <div className="p-4 rounded-xl bg-white/60 border border-white/60 flex items-center justify-between">
                 <div>
                   <div className="text-sm font-medium text-espresso">Minha Autenticação de Dois Fatores (2FA)</div>
-                  <div className="text-[10px] text-espresso/30">
+                  <div className="text-[10px] text-espresso/70">
                     {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
                   </div>
                 </div>
@@ -650,7 +650,7 @@ export default function AdminSettingsPage() {
             <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
               <Shield className="w-5 h-5 text-rose-500" /> Configurar Autenticador (2FA)
             </h3>
-            <p className="text-xs text-espresso/60 mb-4">
+            <p className="text-xs text-espresso/70 mb-4">
               Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
             </p>
 
@@ -662,21 +662,21 @@ export default function AdminSettingsPage() {
             )}
 
             <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
+              <span className="text-[10px] text-espresso/70 block mb-1">Chave Manual (se o QR Code falhar)</span>
               <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-rose-600">
                 {enrollData.secret}
               </code>
             </div>
 
             {mfaError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">
                 {mfaError}
               </div>
             )}
 
             <form onSubmit={handleVerifyEnroll} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1 block">Código de Verificação</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -695,7 +695,7 @@ export default function AdminSettingsPage() {
                   type="button"
                   disabled={isVerifyingMfa}
                   onClick={handleCancelEnroll}
-                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
+                  className="px-4 py-2 text-xs text-espresso/70 hover:text-espresso transition-colors"
                 >
                   Cancelar
                 </button>

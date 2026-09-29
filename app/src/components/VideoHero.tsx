@@ -250,7 +250,7 @@ export default function VideoHero() {
             </div>
 
             {/* Subtitle */}
-            <p className="vh-desc text-lg sm:text-xl text-cream/50 max-w-lg mb-10 leading-relaxed font-light">
+            <p className="vh-desc text-lg sm:text-xl text-cream/70 max-w-lg mb-10 leading-relaxed font-light">
               A plataforma definitiva para criadores de experiencias. 
               Crie, gerencie e venda ingressos para eventos que deixam marcas.
             </p>
@@ -286,7 +286,7 @@ export default function VideoHero() {
               ].map((stat) => (
                 <div key={stat.label} className="text-left">
                   <div className="font-serif text-2xl text-plum">{stat.value}</div>
-                  <div className="text-[10px] text-cream/40 uppercase tracking-[0.15em] mt-1">{stat.label}</div>
+                  <div className="text-[10px] text-cream/70 uppercase tracking-[0.15em] mt-1">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -297,7 +297,7 @@ export default function VideoHero() {
 
       {/* Scroll indicator */}
       <div className="vh-scroll absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3">
-        <span className="text-[10px] text-cream/30 uppercase tracking-[0.2em]">Rolar</span>
+        <span className="text-[10px] text-cream/70 uppercase tracking-[0.2em]">Rolar</span>
         <div className="w-px h-10 bg-gradient-to-b from-cream/30 to-transparent relative overflow-hidden">
           <div 
             className="absolute top-0 left-0 w-full bg-plum/80" 

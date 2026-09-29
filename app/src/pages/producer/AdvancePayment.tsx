@@ -79,7 +79,7 @@ export default function AdvancePayment() {
     return (
       <div className="p-6 lg:p-10 max-w-4xl mx-auto flex flex-col items-center justify-center py-20">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando dados...</p>
+        <p className="text-espresso/70 text-sm">Carregando dados...</p>
       </div>
     )
   }
@@ -87,12 +87,12 @@ export default function AdvancePayment() {
   return (
     <div className="p-6 lg:p-10 max-w-4xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div>
           <h1 className="font-serif text-3xl text-espresso">Antecipacao de Receita</h1>
-          <p className="text-sm text-espresso/50 mt-1">Receba o dinheiro dos seus ingressos vendidos antes do evento</p>
+          <p className="text-sm text-espresso/70 mt-1">Receba o dinheiro dos seus ingressos vendidos antes do evento</p>
         </div>
       </div>
 
@@ -104,10 +104,10 @@ export default function AdvancePayment() {
           { icon: DollarSign, step: '03', title: 'Receba na conta', desc: 'Dinheiro cai em ate 24h' },
         ].map(s => (
           <div key={s.step} className="p-5 rounded-2xl bg-white/60 border border-white/60 text-center">
-            <div className="font-serif text-3xl text-plum/20 mb-2">{s.step}</div>
+            <div className="font-serif text-3xl text-plum/70 mb-2">{s.step}</div>
             <s.icon className="w-5 h-5 text-plum mx-auto mb-2" />
             <div className="text-sm font-medium text-espresso mb-1">{s.title}</div>
-            <div className="text-xs text-espresso/40">{s.desc}</div>
+            <div className="text-xs text-espresso/70">{s.desc}</div>
           </div>
         ))}
       </div>
@@ -123,7 +123,7 @@ export default function AdvancePayment() {
               className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${selectedEventId === e.id ? 'bg-plum/5 border border-plum/20' : 'bg-white/40 border border-white/60 hover:bg-white/60'}`}>
               <div className="text-left">
                 <div className="text-sm font-medium text-espresso">{e.title}</div>
-                <div className="text-xs text-espresso/40">{e.date ? new Date(e.date).toLocaleDateString('pt-BR') : 'Sem data'}</div>
+                <div className="text-xs text-espresso/70">{e.date ? new Date(e.date).toLocaleDateString('pt-BR') : 'Sem data'}</div>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-espresso">R$ {eventRevenue.revenue.toLocaleString('pt-BR')}</div>
@@ -143,9 +143,9 @@ export default function AdvancePayment() {
           {advanceOptions.map(opt => (
             <button key={opt.id} onClick={() => setSelectedOption(opt.id)}
               className={`p-4 rounded-xl border transition-all text-center ${selectedOption === opt.id ? 'border-plum bg-plum/5' : 'border-white/60 bg-white/40 hover:bg-white/60'}`}>
-              <opt.icon className={`w-5 h-5 mx-auto mb-2 ${selectedOption === opt.id ? 'text-plum' : 'text-espresso/30'}`} />
+              <opt.icon className={`w-5 h-5 mx-auto mb-2 ${selectedOption === opt.id ? 'text-plum' : 'text-espresso/70'}`} />
               <div className={`text-sm font-medium ${selectedOption === opt.id ? 'text-plum' : 'text-espresso'}`}>{opt.label}</div>
-              <div className="text-xs text-espresso/40">{opt.fee}% taxa</div>
+              <div className="text-xs text-espresso/70">{opt.fee}% taxa</div>
             </button>
           ))}
         </div>
@@ -156,26 +156,26 @@ export default function AdvancePayment() {
         <h2 className="text-sm font-medium text-espresso mb-4">Resumo da Operacao</h2>
         <div className="space-y-3">
           <div className="flex justify-between py-2 border-b border-white/60">
-            <span className="text-sm text-espresso/60">Valor bruto disponivel</span>
+            <span className="text-sm text-espresso/70">Valor bruto disponivel</span>
             <span className="text-sm font-medium text-espresso">R$ {advanceAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="flex justify-between py-2 border-b border-white/60">
-            <span className="text-sm text-espresso/60">Taxa de antecipacao ({option.fee}%)</span>
+            <span className="text-sm text-espresso/70">Taxa de antecipacao ({option.fee}%)</span>
             <span className="text-sm font-medium text-red-500">- R$ {feeAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </div>
           <div className="flex justify-between py-2 border-b border-white/60">
-            <span className="text-sm text-espresso/60">IOF (0.0041% ao dia x {option.days} dias)</span>
+            <span className="text-sm text-espresso/70">IOF (0.0041% ao dia x {option.days} dias)</span>
             <span className="text-sm font-medium text-red-500">- R$ {iofAmount.toFixed(2)}</span>
           </div>
           <div className="flex justify-between py-3 border-t-2 border-plum/20">
             <span className="text-sm font-medium text-espresso">Voce recebe</span>
             <span className="text-lg font-medium text-plum">R$ {netAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </div>
-          <div className="flex justify-between text-xs text-espresso/30">
+          <div className="flex justify-between text-xs text-espresso/70">
             <span>Data da solicitacao</span>
             <span>{new Date().toLocaleDateString('pt-BR')}</span>
           </div>
-          <div className="flex justify-between text-xs text-espresso/30">
+          <div className="flex justify-between text-xs text-espresso/70">
             <span>Previsao de repasse</span>
             <span>{new Date(Date.now() + option.days * 86400000).toLocaleDateString('pt-BR')}</span>
           </div>
@@ -186,7 +186,7 @@ export default function AdvancePayment() {
       <div className="p-4 bg-amber-50/50 border border-amber-200/40 rounded-2xl mb-6">
         <div className="flex items-start gap-3">
           <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-          <div className="text-xs text-espresso/60 leading-relaxed">
+          <div className="text-xs text-espresso/70 leading-relaxed">
             A antecipacao de receita e um servico de adiantamento de valores. O valor sera descontado automaticamente das vendas do evento.
             Taxa minima de R$ 5,00. Em caso de cancelamento do evento, o valor antecipado devera ser reembolsado integralmente.
           </div>
@@ -197,7 +197,7 @@ export default function AdvancePayment() {
               ? <CheckCircle2 className="w-5 h-5 text-plum" />
               : <div className="w-5 h-5 rounded-full border-2 border-espresso/20" />}
           </button>
-          <span className="text-xs text-espresso/50">Li e aceito os termos de antecipacao de receita</span>
+          <span className="text-xs text-espresso/70">Li e aceito os termos de antecipacao de receita</span>
         </div>
       </div>
 

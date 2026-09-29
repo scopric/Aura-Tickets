@@ -574,12 +574,12 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
           <h2 className="font-serif text-3xl md:text-4xl text-cream mb-3 tracking-tight">
             Analisando seu perfil...
           </h2>
-          <p className="text-cream/40 text-sm md:text-base max-w-sm">
+          <p className="text-cream/70 text-sm md:text-base max-w-sm">
             Nosso algoritmo está cruzando temperamentos, vibes e energias para
             encontrar sua mesa perfeita
           </p>
 
-          <div className="mt-10 flex items-center gap-3 text-cream/30 text-xs uppercase tracking-widest">
+          <div className="mt-10 flex items-center gap-3 text-cream/70 text-xs uppercase tracking-widest">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             <span>Processando matchmaking</span>
           </div>
@@ -619,10 +619,10 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
               <Sparkles className="w-5 h-5 text-plum" />
             </div>
             <div>
-              <span className="text-[10px] uppercase tracking-[0.2em] text-cream/30 font-medium">
+              <span className="text-[10px] uppercase tracking-[0.2em] text-cream/70 font-medium">
                 Mesa Coletiva
               </span>
-              <div className="text-cream/60 text-xs font-medium">
+              <div className="text-cream/70 text-xs font-medium">
                 Matchmaking por afinidade
               </div>
             </div>
@@ -640,10 +640,10 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
         {/* Progress */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-cream/30 font-medium">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-cream/70 font-medium">
               Progresso
             </span>
-            <span className="text-[10px] uppercase tracking-[0.2em] text-cream/30 font-medium">
+            <span className="text-[10px] uppercase tracking-[0.2em] text-cream/70 font-medium">
               <span className="text-plum">{step + 1}</span>
               <span className="mx-1">/</span>
               <span>{totalSteps}</span>
@@ -668,7 +668,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
           <h2 className="font-serif text-3xl md:text-4xl text-cream mb-2 leading-tight">
             {currentStep.question}
           </h2>
-          <p className="text-cream/30 text-sm mb-8">{currentStep.subtitle}</p>
+          <p className="text-cream/70 text-sm mb-8">{currentStep.subtitle}</p>
 
           {/* Options */}
           <div ref={optionsRef} className="space-y-3">
@@ -700,7 +700,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
                       ${
                         isSelected
                           ? 'bg-plum/20 text-plum'
-                          : 'bg-white/5 text-cream/30'
+                          : 'bg-white/5 text-cream/70'
                       }
                     `}
                   >
@@ -712,7 +712,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
                     <div className="text-cream font-medium text-base md:text-lg mb-0.5">
                       {option.label}
                     </div>
-                    <div className="text-cream/30 text-sm leading-relaxed">
+                    <div className="text-cream/70 text-sm leading-relaxed">
                       {option.description}
                     </div>
                   </div>
@@ -747,7 +747,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
                 ${
                   step === 0
                     ? 'text-cream/10 cursor-not-allowed'
-                    : 'text-cream/40 hover:text-cream hover:bg-white/5'
+                    : 'text-cream/70 hover:text-cream hover:bg-white/5'
                 }
               `}
             >
@@ -788,7 +788,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
 
         {/* Bottom hint */}
         <div className="mt-10 text-center">
-          <p className="text-cream/[0.15] text-xs">
+          <p className="text-cream/70 text-xs">
             Suas respostas definem sua mesa ideal — seja você mesmo
           </p>
         </div>

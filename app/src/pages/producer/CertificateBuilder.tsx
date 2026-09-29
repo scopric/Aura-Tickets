@@ -226,12 +226,12 @@ export default function CertificateBuilder() {
     <div className="p-6 lg:p-10 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-6">
-        <Link to="/producer/certificados" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/certificados" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">Editor de Certificados</h1>
-          <p className="text-sm text-espresso/50 mt-1">Crie modelos personalizados com seu logo e assinatura</p>
+          <p className="text-sm text-espresso/70 mt-1">Crie modelos personalizados com seu logo e assinatura</p>
         </div>
         <div className="flex gap-2">
           <button onClick={() => setShowPreview(!showPreview)} className="px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-plum hover:text-cream transition-all flex items-center gap-2">
@@ -252,7 +252,7 @@ export default function CertificateBuilder() {
               className={`p-4 rounded-xl border-2 transition-all text-center ${selectedTemplate === t.id ? 'border-plum bg-plum/5' : 'border-white/60 bg-white/40 hover:border-plum/20'}`}>
               <div className="w-12 h-16 mx-auto rounded mb-2 border" style={{ background: t.bgColor, borderColor: t.accentColor }} />
               <div className="text-xs font-medium text-espresso">{t.name}</div>
-              <div className="text-[9px] text-espresso/30">{t.preview}</div>
+              <div className="text-[9px] text-espresso/70">{t.preview}</div>
             </button>
           ))}
         </div>
@@ -266,22 +266,22 @@ export default function CertificateBuilder() {
             <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Image className="w-4 h-4 text-plum" /> Identidade Visual</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="upload-logo-input" className="text-xs text-espresso/50 mb-1 block">Logo do Evento</label>
+                <label htmlFor="upload-logo-input" className="text-xs text-espresso/70 mb-1 block">Logo do Evento</label>
                 <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de logo do evento" className="hidden" onChange={e => handleFileChange(e, 'logo')} />
-                <button onClick={handleLogoUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/50 hover:text-plum hover:border-plum/30 transition-all">
+                <button onClick={handleLogoUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/70 hover:text-plum hover:border-plum/30 transition-all">
                   {logoUrl ? <img src={logoUrl} alt="Logo do Evento" className="h-8 object-contain" /> : <><Upload className="w-4 h-4" /> Upload</>}
                 </button>
               </div>
               <div>
-                <label htmlFor="upload-sig-input" className="text-xs text-espresso/50 mb-1 block">Assinatura</label>
+                <label htmlFor="upload-sig-input" className="text-xs text-espresso/70 mb-1 block">Assinatura</label>
                 <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de assinatura" className="hidden" onChange={e => handleFileChange(e, 'sig')} />
-                <button onClick={handleSigUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/50 hover:text-plum hover:border-plum/30 transition-all">
+                <button onClick={handleSigUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/70 hover:text-plum hover:border-plum/30 transition-all">
                   {sigUrl ? <img src={sigUrl} alt="Assinatura do Produtor" className="h-8 object-contain" /> : <><Signature className="w-4 h-4" /> Upload</>}
                 </button>
               </div>
             </div>
             <div className="mt-3">
-              <label className="text-xs text-espresso/50 mb-1 block">Cor de Destaque</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Cor de Destaque</label>
               <div className="flex gap-2">
                 {['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2'].map(c => (
                   <button key={c} onClick={() => setAccentColor(c)} title={`Cor ${c}`} aria-label={`Selecionar cor de destaque ${c}`} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
@@ -306,22 +306,22 @@ export default function CertificateBuilder() {
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-medium text-espresso flex items-center gap-2"><Grid3x3 className="w-4 h-4 text-plum" /> Campos ({fields.length})</h2>
               <div className="flex gap-1">
-                <button onClick={() => addField('text')} title="Adicionar campo de texto" aria-label="Adicionar campo de texto" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Type className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('qrcode')} title="Adicionar QR Code" aria-label="Adicionar QR Code" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><QrCode className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('text')} title="Adicionar novo campo" aria-label="Adicionar novo campo" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/30 hover:text-plum"><Plus className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('text')} title="Adicionar campo de texto" aria-label="Adicionar campo de texto" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><Type className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('qrcode')} title="Adicionar QR Code" aria-label="Adicionar QR Code" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><QrCode className="w-3.5 h-3.5" /></button>
+                <button onClick={() => addField('text')} title="Adicionar novo campo" aria-label="Adicionar novo campo" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><Plus className="w-3.5 h-3.5" /></button>
               </div>
             </div>
             <div className="space-y-1.5 max-h-48 overflow-y-auto sidebar-dark-scroll pr-1">
               {fields.map(f => (
                 <div key={f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${selectedField === f.id ? 'bg-plum/10 text-plum' : 'text-espresso/50 hover:bg-white/40'}`}>
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${selectedField === f.id ? 'bg-plum/10 text-plum' : 'text-espresso/70 hover:bg-white/40'}`}>
                   {f.type === 'text' && <Type className="w-3.5 h-3.5" />}
                   {f.type === 'logo' && <Image className="w-3.5 h-3.5" />}
                   {f.type === 'signature' && <Signature className="w-3.5 h-3.5" />}
                   {f.type === 'qrcode' && <QrCode className="w-3.5 h-3.5" />}
                   {f.type === 'date' && <CalendarDays className="w-3.5 h-3.5" />}
                   <span className="flex-1 truncate">{f.label}</span>
-                  <button onClick={e => { e.stopPropagation(); removeField(f.id) }} title="Remover campo" aria-label="Remover campo" className="p-0.5 rounded hover:bg-red-50 text-espresso/20 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                  <button onClick={e => { e.stopPropagation(); removeField(f.id) }} title="Remover campo" aria-label="Remover campo" className="p-0.5 rounded hover:bg-red-50 text-espresso/70 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
                 </div>
               ))}
             </div>
@@ -335,18 +335,18 @@ export default function CertificateBuilder() {
                 {selected.type === 'text' && (
                   <>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Texto/Variavel</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">Texto/Variavel</label>
                       <input value={selected.value} onChange={e => updateField(selected.id, { value: e.target.value })}
                         placeholder="Use {{NOME}}, {{EVENTO}}, {{DATA}}, {{HORAS}}" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div>
-                        <label htmlFor="selected-field-font-size" className="text-xs text-espresso/50 mb-1 block">Tamanho (px)</label>
+                        <label htmlFor="selected-field-font-size" className="text-xs text-espresso/70 mb-1 block">Tamanho (px)</label>
                         <input id="selected-field-font-size" type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })}
                           className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                       </div>
                       <div>
-                        <label htmlFor="selected-field-color" className="text-xs text-espresso/50 mb-1 block">Cor</label>
+                        <label htmlFor="selected-field-color" className="text-xs text-espresso/70 mb-1 block">Cor</label>
                         <input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })}
                           className="w-full h-9 bg-white/50 border border-white/60 rounded-lg cursor-pointer" />
                       </div>
@@ -355,12 +355,12 @@ export default function CertificateBuilder() {
                 )}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="selected-field-pos-x" className="text-xs text-espresso/50 mb-1 block">Pos X (%)</label>
+                    <label htmlFor="selected-field-pos-x" className="text-xs text-espresso/70 mb-1 block">Pos X (%)</label>
                     <input id="selected-field-pos-x" type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })}
                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                   </div>
                   <div>
-                    <label htmlFor="selected-field-pos-y" className="text-xs text-espresso/50 mb-1 block">Pos Y (%)</label>
+                    <label htmlFor="selected-field-pos-y" className="text-xs text-espresso/70 mb-1 block">Pos Y (%)</label>
                     <input id="selected-field-pos-y" type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })}
                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
                   </div>
@@ -415,7 +415,7 @@ export default function CertificateBuilder() {
                     width: `${field.width}%`,
                   }}>
                   {field.type === 'logo' && logoUrl && <img src={logoUrl} alt="Logo do Evento no Certificado" className="max-h-16 object-contain mx-auto" />}
-                  {field.type === 'logo' && !logoUrl && <div className="text-xs text-espresso/20">LOGO</div>}
+                  {field.type === 'logo' && !logoUrl && <div className="text-xs text-espresso/70">LOGO</div>}
                   {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do Produtor no Certificado" className="max-h-10 object-contain mx-auto" />}
                   {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
                   {field.type === 'qrcode' && <QrCode className="w-12 h-12 text-cream" />}

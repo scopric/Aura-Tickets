@@ -196,7 +196,7 @@ export default function AdminFeedback() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Feedback</h1>
-          <p className="text-sm text-espresso/50 mt-1">Sugestões, bugs e mensagens de contato recebidos pelo site</p>
+          <p className="text-sm text-espresso/70 mt-1">Sugestões, bugs e mensagens de contato recebidos pelo site</p>
         </div>
       </div>
 
@@ -218,7 +218,7 @@ export default function AdminFeedback() {
           <div key={k.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm text-center">
             <k.icon className={`w-4 h-4 ${k.color} mx-auto mb-2`} />
             <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-0.5">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-0.5">{k.label}</div>
           </div>
         ))}
       </div>
@@ -230,11 +230,11 @@ export default function AdminFeedback() {
             <h3 className="text-sm font-medium text-espresso flex items-center gap-2">
               <Inbox className="w-4 h-4 text-plum" /> Mensagens de contato
             </h3>
-            <p className="text-[10px] text-espresso/40 mt-0.5">
+            <p className="text-[10px] text-espresso/70 mt-0.5">
               Tabela <span className="font-mono">contact_messages</span> — o que chegou pelo formulário <span className="font-mono">/contato</span> e pelo rodapé.
             </p>
           </div>
-          <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-espresso/10 text-espresso/50">{contatos.length}</span>
+          <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-espresso/10 text-espresso/70">{contatos.length}</span>
         </div>
 
         {data?.contatosErro && (
@@ -246,7 +246,7 @@ export default function AdminFeedback() {
         {isLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
         ) : contatos.length === 0 ? (
-          <p className="py-8 text-center text-xs text-espresso/30 italic">
+          <p className="py-8 text-center text-xs text-espresso/70 italic">
             Nenhuma mensagem de contato registrada.
           </p>
         ) : (
@@ -257,10 +257,10 @@ export default function AdminFeedback() {
                   <div>
                     <span className="text-xs font-bold text-espresso">{c.name}</span>
                     <a href={`mailto:${c.email}`} className="text-[11px] text-plum hover:underline ml-2">{c.email}</a>
-                    {c.phone && <span className="text-[11px] text-espresso/40 ml-2">{c.phone}</span>}
+                    {c.phone && <span className="text-[11px] text-espresso/70 ml-2">{c.phone}</span>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-espresso/40">{dataBr(c.createdAt)}</span>
+                    <span className="text-[10px] text-espresso/70">{dataBr(c.createdAt)}</span>
                     <button
                       onClick={() => {
                         if (!window.confirm(`Excluir a mensagem de ${c.name}? Esta ação não pode ser desfeita.`)) return
@@ -268,15 +268,15 @@ export default function AdminFeedback() {
                       }}
                       disabled={deleteContact.isPending}
                       aria-label={`Excluir mensagem de ${c.name}`}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors disabled:opacity-40"
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-40"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
-                {c.subject && <div className="text-[11px] font-semibold text-espresso/60 mb-1">{c.subject}</div>}
+                {c.subject && <div className="text-[11px] font-semibold text-espresso/70 mb-1">{c.subject}</div>}
                 <p className="text-xs text-espresso/70 leading-relaxed whitespace-pre-line">{c.message}</p>
-                {c.page && <div className="text-[10px] text-espresso/30 mt-1.5 font-mono">{c.page}</div>}
+                {c.page && <div className="text-[10px] text-espresso/70 mt-1.5 font-mono">{c.page}</div>}
               </div>
             ))}
           </div>
@@ -293,10 +293,10 @@ export default function AdminFeedback() {
               const max = Math.max(...Object.keys(typeConfig).map(k => items.filter(i => i.type === k).length), 1)
               return (
                 <div key={key} className="flex items-center gap-3">
-                  <span className="text-xs text-espresso/60 w-24 flex items-center gap-1.5"><cfg.icon className={`w-3.5 h-3.5 ${cfg.color}`} /> {cfg.label}</span>
+                  <span className="text-xs text-espresso/70 w-24 flex items-center gap-1.5"><cfg.icon className={`w-3.5 h-3.5 ${cfg.color}`} /> {cfg.label}</span>
                   <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
                     <div className={`h-full ${cfg.bg.split(' ')[0]} rounded-lg flex items-center px-2 transition-all`} style={{ width: `${(count / max) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-espresso/60">{count}</span>
+                      <span className="text-[10px] font-medium text-espresso/70">{count}</span>
                     </div>
                   </div>
                 </div>
@@ -313,18 +313,18 @@ export default function AdminFeedback() {
               const max = Math.max(...[5, 4, 3, 2, 1].map(k => notas.filter(i => i.rating === k).length), 1)
               return (
                 <div key={n} className="flex items-center gap-3">
-                  <span className="text-xs text-espresso/60 w-24 flex items-center gap-1">
+                  <span className="text-xs text-espresso/70 w-24 flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> {n} {n === 1 ? 'estrela' : 'estrelas'}
                   </span>
                   <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
                     <div className="h-full bg-amber-400/70 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(count / max) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-espresso/60">{count}</span>
+                      <span className="text-[10px] font-medium text-espresso/70">{count}</span>
                     </div>
                   </div>
                 </div>
               )
             })}
-            {notas.length === 0 && <p className="text-[10px] text-espresso/40 italic pt-1">Ninguém avaliou ainda.</p>}
+            {notas.length === 0 && <p className="text-[10px] text-espresso/70 italic pt-1">Ninguém avaliou ainda.</p>}
           </div>
         </div>
       </div>
@@ -333,14 +333,14 @@ export default function AdminFeedback() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem ou e-mail..." aria-label="Buscar feedback" className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem ou e-mail..." aria-label="Buscar feedback" className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
         </div>
         <div className="flex items-center gap-2">
-          <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
+          <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/70 focus:outline-none">
             <option value="all">Todos tipos</option>
             {Object.entries(typeConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterStatus} aria-label="Filtrar por status" onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/60 focus:outline-none">
+          <select value={filterStatus} aria-label="Filtrar por status" onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/70 focus:outline-none">
             <option value="all">Todos status</option>
             {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -353,12 +353,12 @@ export default function AdminFeedback() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-espresso/5">
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Tipo</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Mensagem</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Contato</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Página</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
-                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase"></th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Tipo</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Mensagem</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Contato</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Página</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Status</th>
+                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase"></th>
               </tr>
             </thead>
             <tbody>
@@ -368,7 +368,7 @@ export default function AdminFeedback() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center text-xs text-espresso/30 italic">
+                  <td colSpan={6} className="px-4 py-16 text-center text-xs text-espresso/70 italic">
                     {items.length === 0
                       ? 'Nenhum feedback recebido ainda.'
                       : 'Nenhum feedback encontrado para os filtros selecionados.'}
@@ -380,7 +380,7 @@ export default function AdminFeedback() {
                   const sc = getStatusConfig(item.status)
                   const TIcon = tc.icon
                   return (
-                    <tr key={item.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                    <tr key={item.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${tc.bg} ${tc.color}`}>
                           <TIcon className="w-3 h-3" /> {tc.label}
@@ -391,24 +391,24 @@ export default function AdminFeedback() {
                         {item.rating ? (
                           <div className="flex items-center gap-0.5 mt-1">
                             {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className={`w-3 h-3 ${i < item.rating! ? 'text-amber-400 fill-amber-400' : 'text-espresso/10'}`} />
+                              <Star key={i} className={`w-3 h-3 ${i < item.rating! ? 'text-amber-400 fill-amber-400' : 'text-espresso/50'}`} />
                             ))}
                           </div>
                         ) : null}
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <div className="text-xs text-espresso font-medium">{item.email || 'Anônimo'}</div>
-                        <div className="text-[10px] text-espresso/30">{dataBr(item.createdAt)}</div>
+                        <div className="text-[10px] text-espresso/70">{dataBr(item.createdAt)}</div>
                       </td>
                       <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className="text-[10px] text-espresso/30 bg-canvas px-2 py-0.5 rounded-md font-mono">{item.page || '—'}</span>
+                        <span className="text-[10px] text-espresso/70 bg-canvas px-2 py-0.5 rounded-md font-mono">{item.page || '—'}</span>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${sc.bg} ${sc.color}`}>{sc.label}</span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 justify-end">
-                          <button onClick={() => setSelected(item)} aria-label="Visualizar feedback" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setSelected(item)} aria-label="Visualizar feedback" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                           <button
                             onClick={() => {
                               if (!window.confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return
@@ -416,7 +416,7 @@ export default function AdminFeedback() {
                             }}
                             disabled={deleteItem.isPending}
                             aria-label="Excluir feedback"
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors disabled:opacity-40"
+                            className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-40"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -448,26 +448,26 @@ export default function AdminFeedback() {
                       </div>
                       <div>
                         <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${tc.bg} ${tc.color}`}>{tc.label}</span>
-                        <p className="text-[10px] text-espresso/30 mt-0.5">{dataBr(selected.createdAt)}</p>
+                        <p className="text-[10px] text-espresso/70 mt-0.5">{dataBr(selected.createdAt)}</p>
                       </div>
                     </div>
                   )
                 })()}
-                <button onClick={() => setSelected(null)} aria-label="Fechar modal" className="p-2 rounded-full bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
+                <button onClick={() => setSelected(null)} aria-label="Fechar modal" className="p-2 rounded-full bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
               </div>
 
               <div className="mb-6">
-                <h4 className="text-xs font-medium text-espresso/40 uppercase tracking-wider mb-2">Mensagem</h4>
+                <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-2">Mensagem</h4>
                 <p className="text-sm text-espresso/70 leading-relaxed p-4 bg-white/60 border border-white/60 rounded-xl whitespace-pre-line">{selected.message}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="p-3 bg-white/60 border border-white/60 rounded-xl">
-                  <div className="text-[10px] text-espresso/30 mb-0.5">Contato</div>
+                  <div className="text-[10px] text-espresso/70 mb-0.5">Contato</div>
                   <div className="text-xs text-espresso font-medium break-all">{selected.email || 'Anônimo'}</div>
                 </div>
                 <div className="p-3 bg-white/60 border border-white/60 rounded-xl">
-                  <div className="text-[10px] text-espresso/30 mb-0.5">Origem</div>
+                  <div className="text-[10px] text-espresso/70 mb-0.5">Origem</div>
                   <div className="text-xs text-espresso font-medium font-mono break-all">{selected.page || '—'}</div>
                 </div>
               </div>
@@ -485,7 +485,7 @@ export default function AdminFeedback() {
               ) : null}
 
               <div className="mb-6">
-                <h4 className="text-xs font-medium text-espresso/40 uppercase tracking-wider mb-2">Alterar Status</h4>
+                <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-2">Alterar Status</h4>
                 <div className="grid grid-cols-4 gap-2">
                   {(Object.entries(statusConfig) as [FeedbackStatus, typeof statusConfig['novo']][]).map(([key, cfg]) => {
                     const busy = updateStatus.isPending && updateStatus.variables?.status === key
@@ -494,7 +494,7 @@ export default function AdminFeedback() {
                         key={key}
                         onClick={() => updateStatus.mutate({ id: selected.id, status: key })}
                         disabled={updateStatus.isPending}
-                        className={`px-2 py-2 rounded-xl text-[10px] font-medium border transition-all disabled:opacity-40 ${selected.status === key ? cfg.bg + ' ' + cfg.color : 'bg-white/40 border-white/60 text-espresso/40 hover:text-espresso/60'}`}
+                        className={`px-2 py-2 rounded-xl text-[10px] font-medium border transition-all disabled:opacity-40 ${selected.status === key ? cfg.bg + ' ' + cfg.color : 'bg-white/40 border-white/60 text-espresso/70 hover:text-espresso/70'}`}
                       >
                         <span className="flex items-center justify-center gap-1">
                           {busy && <Loader2 className="w-3 h-3 animate-spin" />}

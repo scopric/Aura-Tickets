@@ -32,7 +32,7 @@ export default function NewsletterUnsubscribe() {
 
   return (
     <div className="min-h-[70vh] flex items-center justify-center px-4 py-16">
-      <div className="max-w-md w-full text-center p-8 rounded-2xl bg-white/70 border border-espresso/10">
+      <div className="max-w-md w-full text-center p-8 rounded-2xl bg-white/70 dark:bg-white/5 border border-espresso/10">
         {estado === 'feito' ? (
           <div role="status">
             <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto mb-4" aria-hidden="true" />

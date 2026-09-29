@@ -175,7 +175,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, onExpand, 
         {/* Tooltip submenu */}
         <div className="absolute left-full top-0 ml-2 w-48 py-2 rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-50"
           style={{ background: '#2a1a24', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/30 mb-1">{group.label}</div>
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/60 mb-1">{group.label}</div>
           {group.items.map(item => (
             <Link key={item.to} to={item.to}
               className={cn(
@@ -297,7 +297,7 @@ export default function ProducerLayout() {
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>
               <span
                 className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(143,51,245,0.15)', color: '#a78bfa', border: '1px solid rgba(143,51,245,0.25)' }}
+                style={{ background: 'rgba(143,51,245,0.1)', color: 'var(--plum-light)', border: '1px solid rgba(143,51,245,0.25)' }}
               >
                 Prod
               </span>
@@ -369,7 +369,7 @@ export default function ProducerLayout() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] text-white/80 font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
-                  <div className="text-[9px] text-white/20 truncate">{user.email}</div>
+                  <div className="text-[9px] text-white/60 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
@@ -393,7 +393,7 @@ export default function ProducerLayout() {
           <button
             onClick={handleLogout}
             className={cn(
-              'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
+              'flex items-center gap-3 rounded-lg transition-all w-full text-white/60 hover:text-red-400/80 hover:bg-red-500/[0.06]',
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
