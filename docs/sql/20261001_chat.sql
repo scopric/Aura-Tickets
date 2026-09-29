@@ -856,9 +856,9 @@ create policy chat_settings_select on public.chat_settings
 
 -- 5. Storage: bucket privado chat-anexos (10 MB; jpeg, png, webp, pdf) --------
 --    Ler: quem tem vínculo com a conversa do caminho. Enviar: idem, com a conversa aberta e até
---    20 arquivos por conversa (chat_can_upload). bucket_id na regra: sem ele, ela valeria para
+--    20 arquivos por pessoa em cada conversa (chat_can_upload). bucket_id na regra: sem ele, ela valeria para
 --    qualquer bucket futuro. Sem UPDATE/DELETE.
---    ponytail: arquivo enviado e nunca anexado fica no bucket (até 20 por conversa); a exclusão
+--    ponytail: arquivo enviado e nunca anexado fica no bucket (até 20 por pessoa em cada conversa); a exclusão
 --    de conta apaga os da pessoa; limpeza periódica se houver abuso.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('chat-anexos', 'chat-anexos', false, 10485760,
