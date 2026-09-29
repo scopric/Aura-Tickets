@@ -78,7 +78,7 @@ export default function AdminLayout() {
     // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
 
-  // Contador de conversas abertas ao lado de "Atendimento" (ponytail: polling de 60 s; o Realtime fica só na tela)
+  // Contador de conversas abertas ao lado de "Atendimento": o canal abaixo atualiza na hora; o polling de 60 s é reserva
   const podeAtender = !!user?.admin_permissions?.some((p) => p === 'manage_support' || p === 'super_admin')
   const { data: abertas } = useQuery({
     queryKey: ['chat-abertas'],

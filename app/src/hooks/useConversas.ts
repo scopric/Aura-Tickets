@@ -318,10 +318,17 @@ export function useMinhasConversas(ouvir = false) {
 
   useEffect(() => {
     if (!ouvir || !uid) return
+    // última resposta que já tocou, por conversa: a 1ª resposta a uma conversa sem dono chega em
+    // dois UPDATEs seguidos (gatilho + atribuição), antes de o cache recarregar
+    const tocou = new Map<string, string>()
     const aoMudar = ({ new: nova }: { new: Partial<Conversa> }) => {
       const antes = qc.getQueryData<Conversa[]>(['chat-minhas', uid])?.find((c) => c.id === nova.id)
+      const base = (nova.id && tocou.get(nova.id)) || antes?.last_reply_at
       // resposta nova da equipe (a mensagem do próprio cliente não mexe em last_reply_at)
-      if (depois(nova.last_reply_at, antes?.last_reply_at)) bipe()
+      if (nova.id && nova.last_reply_at && depois(nova.last_reply_at, base)) {
+        tocou.set(nova.id, nova.last_reply_at)
+        bipe()
+      }
       qc.invalidateQueries({ queryKey: ['chat-minhas', uid] })
       if (nova.id) qc.invalidateQueries({ queryKey: ['chat-mensagens', nova.id] })
     }
