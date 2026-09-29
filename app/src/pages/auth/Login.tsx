@@ -70,32 +70,30 @@ export default function AuthLogin() {
   const [mfaChallenge, setMfaChallenge] = useState<{ factorId: string; challengeId: string } | null>(null)
   const [mfaCode, setMfaCode] = useState('')
 
+  // Conta com 2FA e sessão ainda sem o código (aal1): abre o passo do código e devolve true.
+  // Enquanto isso o banco não entrega nada da conta (docs/sql/20260930_2fa_no_banco.sql): o papel
+  // lido no login ainda é o provisório, por isso nada de bloqueio por papel antes do código.
+  async function startMfaIfNeeded() {
+    try {
+      const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      if (error || data?.currentLevel !== 'aal1' || data?.nextLevel !== 'aal2') return false
+      const factors = await supabase.auth.mfa.listFactors()
+      const totpFactor = factors.data?.totp?.[0]
+      if (!totpFactor) return false
+      const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
+      if (!challenge.data) return false
+      setMfaChallenge({ factorId: totpFactor.id, challengeId: challenge.data.id })
+      setStep('mfa')
+      return true
+    } catch (err) {
+      console.error('[Login MFA] Erro ao abrir o passo do código:', err)
+      return false
+    }
+  }
+
   // Intercepta se o ProtectedRoute exigir MFA direta para uma sessao aal1 ativa
   useEffect(() => {
-    async function checkRequiredMfa() {
-      if (location.state?.mfaRequired) {
-        try {
-          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (!error && data && data.nextLevel === 'aal2' && data.currentLevel === 'aal1') {
-            const factors = await supabase.auth.mfa.listFactors()
-            const totpFactor = factors.data?.totp?.[0]
-            if (totpFactor) {
-              const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
-              if (challenge.data) {
-                setMfaChallenge({
-                  factorId: totpFactor.id,
-                  challengeId: challenge.data.id
-                })
-                setStep('mfa')
-              }
-            }
-          }
-        } catch (err) {
-          console.error('[Login MFA Check] Erro ao carregar challenge:', err)
-        }
-      }
-    }
-    checkRequiredMfa()
+    if (location.state?.mfaRequired) startMfaIfNeeded()
   }, [location.state])
 
   // Login social. Volta ao próprio /auth/login: o useEffect "já autenticado" abaixo decide o
@@ -129,21 +127,27 @@ export default function AuthLogin() {
   // Redirect if already authenticated
   // Não age durante o envio: ali o papel no store ainda é o provisório ('user') e quem decide é o handleLogin.
   useEffect(() => {
-    // mfaRequired: quem decide é o checkRequiredMfa (senão vira loop com o ProtectedRoute)
+    // mfaRequired: quem decide é o efeito acima (senão vira loop com o ProtectedRoute).
+    // Volta do Google e sessão restaurada: primeiro o código do 2FA, depois o papel.
     if (isAuthenticated && currentRoleContext && step === 'credentials' && !isSubmitting && !location.state?.mfaRequired) {
-      const blocked = blockedMessage(currentRoleContext)
-      if (blocked) {
-        setError(blocked)
-        clearSession()
-        return
-      }
-      // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
-      const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
-      if (pendingCheckout && currentRoleContext === 'user') {
-        navigate('/checkout')
-        return
-      }
-      navigate(panelFor(currentRoleContext))
+      let cancelado = false
+      ;(async () => {
+        if (await startMfaIfNeeded() || cancelado) return
+        const blocked = blockedMessage(currentRoleContext)
+        if (blocked) {
+          setError(blocked)
+          clearSession()
+          return
+        }
+        // Se veio do checkout com carrinho pendente, redirecionar de volta para o checkout
+        const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
+        if (pendingCheckout && currentRoleContext === 'user') {
+          navigate('/checkout')
+          return
+        }
+        navigate(panelFor(currentRoleContext))
+      })()
+      return () => { cancelado = true }
     }
   }, [isAuthenticated, currentRoleContext, navigate, step, isSubmitting, location.state])
 
@@ -162,6 +166,8 @@ export default function AuthLogin() {
     try {
       const success = await login(cleanEmail, cleanPassword)
       if (success) {
+        if (await startMfaIfNeeded()) return
+
         // Papel real: profiles.role, carregado pelo fetchProfile dentro do login()
         const realRole = useAuthStore.getState().user?.role
         const blocked = realRole && blockedMessage(realRole)
@@ -173,25 +179,6 @@ export default function AuthLogin() {
 
         // Registrar log de login no Supabase
         trackEvent('login', location.pathname)
-
-        // Checar se o usuário tem 2FA configurado
-        const { data: mfaData, error: mfaError } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-        if (!mfaError && mfaData && mfaData.nextLevel === 'aal2' && mfaData.currentLevel === 'aal1') {
-          const factors = await supabase.auth.mfa.listFactors()
-          const totpFactor = factors.data?.totp?.[0]
-          if (totpFactor) {
-            const challenge = await supabase.auth.mfa.challenge({ factorId: totpFactor.id })
-            if (challenge.data) {
-              setMfaChallenge({
-                factorId: totpFactor.id,
-                challengeId: challenge.data.id
-              })
-              setStep('mfa')
-              setIsSubmitting(false)
-              return
-            }
-          }
-        }
 
         toast.success(`Bem-vindo de volta!`)
         // Se veio do checkout, redirecionar para lá após login bem-sucedido; senão, painel do papel real
@@ -235,8 +222,19 @@ export default function AuthLogin() {
         throw new Error(verify.error.message || 'Código incorreto. Tente novamente.')
       }
 
+      // Só agora (aal2) o banco entrega o perfil: papel real e bloqueio por endereço
+      await useAuthStore.getState().fetchProfile()
+      const realRole = useAuthStore.getState().user?.role ?? 'user'
+      const blocked = blockedMessage(realRole)
+      if (blocked) {
+        await clearSession()
+        setStep('credentials')
+        setError(blocked)
+        return
+      }
+      trackEvent('login', location.pathname)
       toast.success('Autenticação multifator bem-sucedida!')
-      
+
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
       if (fromCheckout && pendingCheckout) {
         navigate('/checkout')
@@ -244,7 +242,7 @@ export default function AuthLogin() {
       }
 
       // Redireciona pelo papel do perfil (profiles.role), nunca por user_metadata (editável pelo usuário)
-      navigate(panelFor(useAuthStore.getState().user?.role ?? 'user'))
+      navigate(panelFor(realRole))
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
       setError(err.message || 'Erro ao verificar código de 2FA')

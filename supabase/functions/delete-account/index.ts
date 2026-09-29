@@ -18,6 +18,7 @@
 // (text[]), producer_profiles.company_name, cnpj (único), bank_account e notification_settings
 // (jsonb), tickets.buyer_email. Por isso valores vazios, não nulos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
+import { mfaOk } from "../_shared/mfa.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -38,6 +39,8 @@ Deno.serve(async (req) => {
   const admin = createClient(url, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
   const { data: { user }, error: userError } = await admin.auth.getUser(token)
   if (userError || !user) return json(401, { error: 'Não autenticado' })
+  // Conta com 2FA: só com o código confirmado nesta sessão (quem tem só a senha não exclui a conta)
+  if (!(await mfaOk(req))) return json(403, { error: 'Confirme o código do 2FA (saia e entre de novo) para excluir a conta.' })
   const uid = user.id
   const anonEmail = `removido-${uid}@anonimo.evokaa.com.br`
 
