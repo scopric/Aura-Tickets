@@ -7,6 +7,7 @@ import {
   Shield, Smartphone, Mail, Trash2, AlertTriangle, Loader2
 } from 'lucide-react'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
+import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
@@ -59,119 +60,7 @@ export default function ProducerSettings() {
   const [password, setPassword] = useState({ current: '', new: '', confirm: '' })
   const [showPw, setShowPw] = useState<Record<string, boolean>>({})
   
-  // Estados do MFA (2FA) Real
-  const [twoFA, setTwoFA] = useState(false)
-  const [mfaFactors, setMfaFactors] = useState<any[]>([])
-  const [loadingMfa, setLoadingMfa] = useState(true)
-  
-  const [showMfaModal, setShowMfaModal] = useState(false)
-  const [enrollData, setEnrollData] = useState<{ id: string; qrCodeSvg: string; secret: string } | null>(null)
-  const [verifyCode, setVerifyCode] = useState('')
-  const [mfaError, setMfaError] = useState('')
-  const [isVerifyingMfa, setIsVerifyingMfa] = useState(false)
-
-  // Carrega os fatores de MFA da conta do usuário no Supabase
-  useEffect(() => {
-    async function loadFactors() {
-      try {
-        const { data: factorsRes, error } = await supabase.auth.mfa.listFactors()
-        if (!error && factorsRes) {
-          const activeFactors = factorsRes.totp || []
-          setMfaFactors(activeFactors)
-          setTwoFA(activeFactors.length > 0)
-        }
-      } catch (err) {
-        console.error('[MFA Factors] Erro ao carregar:', err)
-      } finally {
-        setLoadingMfa(false)
-      }
-    }
-    loadFactors()
-  }, [])
-
-  const handleStartEnroll = async () => {
-    setMfaError('')
-    setVerifyCode('')
-    setIsVerifyingMfa(false)
-    try {
-      const { data: enrollRes, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        issuer: 'Evokaa Tickets',
-        friendlyName: data?.profile?.email || 'Evokaa Account'
-      })
-
-      if (error) throw error
-
-      if (enrollRes) {
-        setEnrollData({
-          id: enrollRes.id,
-          qrCodeSvg: enrollRes.totp.qr_code || '',
-          secret: enrollRes.totp.secret || ''
-        })
-        setShowMfaModal(true)
-      }
-    } catch (err: any) {
-      console.error('[MFA Enroll] Erro ao iniciar:', err)
-      toast.error(err.message || 'Erro ao iniciar ativação de 2FA')
-    }
-  }
-
-  const handleVerifyEnroll = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMfaError('')
-    if (!verifyCode || verifyCode.length !== 6) {
-      setMfaError('Digite o código de 6 dígitos do aplicativo')
-      return
-    }
-    if (!enrollData) return
-
-    setIsVerifyingMfa(true)
-    try {
-      const challenge = await supabase.auth.mfa.challenge({ factorId: enrollData.id })
-      if (challenge.error) throw challenge.error
-
-      const verify = await supabase.auth.mfa.verify({
-        factorId: enrollData.id,
-        challengeId: challenge.data.id,
-        code: verifyCode.trim()
-      })
-
-      if (verify.error) throw verify.error
-
-      toast.success('Autenticação de dois fatores (2FA) ativada com sucesso!')
-      setTwoFA(true)
-      
-      const factorsRes = await supabase.auth.mfa.listFactors()
-      setMfaFactors(factorsRes.data?.totp || [])
-      setShowMfaModal(false)
-      setEnrollData(null)
-    } catch (err: any) {
-      console.error('[MFA Verify] Erro:', err)
-      setMfaError(err.message || 'Código inválido. Verifique o app e tente novamente.')
-    } finally {
-      setIsVerifyingMfa(false)
-    }
-  }
-
-  const handleDisableMfa = async () => {
-    if (!window.confirm('Tem certeza que deseja desativar a autenticação em duas etapas (2FA)? Sua conta ficará menos protegida.')) {
-      return
-    }
-    
-    try {
-      for (const factor of mfaFactors) {
-        const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
-        if (error) throw error
-      }
-
-      toast.success('2FA desativado com sucesso.')
-      setTwoFA(false)
-      setMfaFactors([])
-    } catch (err: any) {
-      console.error('[MFA Unenroll] Erro:', err)
-      toast.error(err.message || 'Erro ao desativar o 2FA')
-    }
-  }
+  const mfa = useTwoFactor()
 
   const [payment, setPayment] = useState({
     bankName: 'Itau', accountType: 'corrente', agency: '', account: '', holder: '', pixKey: ''
@@ -510,15 +399,17 @@ export default function ProducerSettings() {
                   <div>
                     <div className="text-sm text-espresso">Autenticação 2FA (Google Authenticator)</div>
                     <div className="text-[10px] text-espresso/30">
-                      {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
+                      {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativo — Login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
                     </div>
                   </div>
                   <button 
-                    disabled={loadingMfa}
-                    onClick={twoFA ? handleDisableMfa : handleStartEnroll} 
-                    className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-plum' : 'bg-espresso/10'} disabled:opacity-55`}
+                    disabled={mfa.loading}
+                    aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
+                    aria-pressed={mfa.enabled}
+                    onClick={mfa.toggle} 
+                    className={`relative w-11 h-6 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-espresso/10'} disabled:opacity-55`}
                   >
-                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twoFA ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
               </div>
@@ -686,84 +577,7 @@ export default function ProducerSettings() {
         </div>
       </div>
 
-      {/* Modal do 2FA */}
-      {showMfaModal && enrollData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
-            <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
-            </h3>
-            <p className="text-xs text-espresso/60 mb-4">
-              Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
-            </p>
-
-            {enrollData.qrCodeSvg && (
-              <div 
-                className="w-48 h-48 mx-auto my-6 bg-white p-3 rounded-xl flex items-center justify-center shadow-inner border border-espresso/10"
-                dangerouslySetInnerHTML={{ __html: enrollData.qrCodeSvg }}
-              />
-            )}
-
-            <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
-              <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-plum">
-                {enrollData.secret}
-              </code>
-            </div>
-
-            {mfaError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
-                {mfaError}
-              </div>
-            )}
-
-            <form onSubmit={handleVerifyEnroll} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={verifyCode}
-                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  disabled={isVerifyingMfa}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/60 border border-slate-200 dark:border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  disabled={isVerifyingMfa}
-                  onClick={() => {
-                    setShowMfaModal(false)
-                    setEnrollData(null)
-                  }}
-                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isVerifyingMfa}
-                  className="px-5 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {isVerifyingMfa ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verificando...</span>
-                    </>
-                  ) : (
-                    <span>Ativar 2FA</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {mfa.modal}
 
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

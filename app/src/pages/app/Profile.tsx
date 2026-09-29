@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
+import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { useAuthStore } from '../../stores/authStore'
 import { useUserTickets } from '../../hooks/useUserTickets'
 import { useUserOrders } from '../../hooks/useUserOrders'
@@ -13,6 +14,7 @@ import { formatCurrency } from '../../lib/formatters'
 
 export default function ParticipantProfile() {
   const { user } = useAuth()
+  const mfa = useTwoFactor()
   const [editing, setEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [profile, setProfile] = useState({
@@ -363,12 +365,23 @@ export default function ParticipantProfile() {
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-cream">Autenticação de dois fatores</div>
-              <div className="text-xs text-white/30">Adicione segurança extra</div>
+              <div className="text-xs text-white/30">
+                {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativa — o login pede o código do aplicativo autenticador' : 'Adicione segurança extra com um aplicativo autenticador'}
+              </div>
             </div>
-            <button disabled aria-label="Autenticação de dois fatores: em breve" className="px-4 py-2 text-xs text-white/30 rounded-full cursor-not-allowed">Em breve</button>
+            <button
+              disabled={mfa.loading}
+              aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
+              aria-pressed={mfa.enabled}
+              onClick={mfa.toggle}
+              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-white/10'} disabled:opacity-55`}
+            >
+              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </button>
           </div>
         </div>
       </div>
+      {mfa.modal}
     </div>
   )
 }
