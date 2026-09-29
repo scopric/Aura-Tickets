@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   } catch {
     // corpo inválido cai no 400 abaixo
   }
-  if (!qrCode || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) return json(400, { error: 'Informe o código do ingresso e o evento.' })
+  if (!qrCode || qrCode.length > 100 || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) return json(400, { error: 'Informe o código do ingresso e o evento.' })
 
   // Quem pode operar a portaria deste evento
   // Falha do banco vira "tente de novo" (500), nunca "sem permissão" ou "não encontrado"
