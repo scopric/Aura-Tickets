@@ -78,9 +78,9 @@ export function useScanTicket() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ qrCode, eventId, operatorId }: { qrCode: string; eventId: string; operatorId?: string }) => {
+    mutationFn: async ({ qrCode, eventId }: { qrCode: string; eventId: string }) => {
       const { data, error } = await supabase.functions.invoke('check-in-validate', {
-        body: { qrCode: qrCode.trim(), eventId, operatorId },
+        body: { qrCode: qrCode.trim(), eventId },
       })
 
       if (error) throw error
