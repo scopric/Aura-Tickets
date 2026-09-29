@@ -285,7 +285,7 @@ export default function ModernHero() {
           </div>
 
           {/* Subtitle */}
-          <p className="mh-desc text-lg sm:text-xl text-white/40 max-w-lg mb-10 leading-relaxed font-light">
+          <p className="mh-desc text-lg sm:text-xl text-white/70 max-w-lg mb-10 leading-relaxed font-light">
             A plataforma definitiva para criadores de experiências. 
             Crie, gerencie e venda ingressos para eventos que deixam marcas.
           </p>
@@ -312,7 +312,7 @@ export default function ModernHero() {
 
       {/* Scroll indicator */}
       <div className="mh-scroll absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3">
-        <span className="text-[10px] text-white/25 uppercase tracking-[0.2em]">Rolar</span>
+        <span className="text-[10px] text-white/60 uppercase tracking-[0.2em]">Rolar</span>
         <div className="w-px h-10 bg-gradient-to-b from-white/25 to-transparent relative overflow-hidden">
           <div 
             className="absolute top-0 left-0 w-full bg-plum/80" 

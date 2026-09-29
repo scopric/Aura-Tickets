@@ -53,7 +53,7 @@ export default function ContactSection() {
   ]
 
   const labelClasses = (field: string) => `text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-    focusedField === field ? 'text-[#1d68c4] translate-x-0.5' : 'text-slate-400'
+    focusedField === field ? 'text-[#1d68c4] translate-x-0.5' : 'text-slate-600'
   }`
 
   const inputWrapperClasses = (field: string) => `relative border-b transition-all duration-300 py-1.5 ${
@@ -101,7 +101,7 @@ export default function ContactSection() {
                 {/* Título interno do painel */}
                 <div>
                   <h3 className="text-lg font-bold text-slate-800 font-serif">Canais de Atendimento</h3>
-                  <p className="text-xs text-slate-400 font-light mt-1">Escolha o canal de sua preferência para nos contatar.</p>
+                  <p className="text-xs text-slate-600 font-light mt-1">Escolha o canal de sua preferência para nos contatar.</p>
                 </div>
 
                 {/* Lista compacta de canais com divisórias horizontais */}
@@ -120,7 +120,7 @@ export default function ContactSection() {
                           <item.icon className="w-4 h-4 transition-transform duration-300 group-hover/item:scale-110" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-[9px] font-bold text-slate-450 uppercase tracking-widest">{item.label}</div>
+                          <div className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">{item.label}</div>
                           <div className="text-sm font-semibold text-slate-800 mt-1 break-words group-hover/item:text-[#1d68c4] transition-colors">{item.value}</div>
                         </div>
                       </a>
@@ -131,7 +131,7 @@ export default function ContactSection() {
 
               {/* Redes Sociais integradas no rodapé do painel */}
               <div className="pt-6 border-t border-slate-100/80 mt-8">
-                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-450 block mb-3">Redes Sociais</span>
+                <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600 block mb-3">Redes Sociais</span>
                 <div className="flex items-center gap-2">
                   {[
                     { icon: Instagram, label: 'Instagram', href: '#', color: '#e1306c' },
@@ -141,7 +141,7 @@ export default function ContactSection() {
                     <a
                       key={social.label}
                       href={social.href}
-                      className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 hover:shadow-sm transition-all duration-300"
+                      className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 hover:shadow-sm transition-all duration-300"
                       onMouseEnter={(e) => {
                         e.currentTarget.style.color = social.color
                         e.currentTarget.style.backgroundColor = `${social.color}08`
@@ -195,7 +195,7 @@ export default function ContactSection() {
                           onFocus={() => setFocusedField('sec-name')}
                           onBlur={() => setFocusedField(null)}
                           placeholder="Seu nome"
-                          className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-450 font-medium"
+                          className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-500 font-medium"
                         />
                       </div>
                     </div>
@@ -262,7 +262,7 @@ export default function ContactSection() {
                           <option value="Proposta comercial ou parcerias">Proposta de parceria</option>
                           <option value="Outro assunto">Outro assunto</option>
                         </select>
-                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                        <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                           <ChevronDown className="w-3.5 h-3.5" />
                         </div>
                       </div>
@@ -301,7 +301,7 @@ export default function ContactSection() {
                     </button>
                   </div>
 
-                  <p className="text-[10px] text-slate-400 text-center font-light leading-relaxed">
+                  <p className="text-[10px] text-slate-600 text-center font-light leading-relaxed">
                     Ao enviar, você concorda com a nossa política de privacidade.
                   </p>
                 </form>

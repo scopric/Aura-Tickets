@@ -74,7 +74,7 @@ export default function PrivacyPage() {
               <li>Revogar consentimento a qualquer momento</li>
               <li>Solicitar portabilidade dos dados</li>
             </ul>
-            <p className="mt-2">Para exercer seus direitos, entre em contato pelo formulário em <Link to="/contato" className="text-plum hover:underline">/contato</Link>.</p>
+            <p className="mt-2">Para exercer seus direitos, entre em contato pelo formulário em <Link to="/contato" className="text-plum-light hover:underline">/contato</Link>.</p>
           </section>
 
           <section>
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-medium text-espresso mb-2">10. Contato</h2>
             <p>Controladora: Evoka Soluções Ltda, CNPJ 68.076.437/0001-42.</p>
             <p>Encarregado de Dados (DPO): dpo@evokaa.com.br</p>
-            <p>Formulário de contato: <Link to="/contato" className="text-plum hover:underline">/contato</Link></p>
+            <p>Formulário de contato: <Link to="/contato" className="text-plum-light hover:underline">/contato</Link></p>
           </section>
         </div>
       </div>

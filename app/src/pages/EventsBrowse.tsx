@@ -176,7 +176,7 @@ export default function EventsBrowse() {
               onClick={() => setCategory(cat)}
               className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
                 category === cat
-                  ? 'bg-rose-500 text-white border-rose-500'
+                  ? 'bg-rose-600 text-white border-rose-600'
                   : 'bg-white/40 border-white/60 text-espresso/70 hover:border-rose-500/20 hover:text-rose-500'
               }`}
             >
