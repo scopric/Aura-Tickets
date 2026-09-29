@@ -10,6 +10,7 @@ import Footer from './components/Footer'
 import PageLoading from './components/PageLoading'
 import CookieBanner from './components/CookieBanner'
 import SupportChatWidget from './components/SupportChatWidget'
+import AvisoPolitica from './components/AvisoPolitica'
 import { supabase } from './lib/supabase'
 import { Loader2 } from 'lucide-react'
 import { Analytics, type BeforeSend } from '@vercel/analytics/react'
@@ -388,6 +389,7 @@ function Layout() {
       {!hideLayout && <Footer />}
       <Toaster />
       {!temEvo && <FeedbackButton />}
+      {temEvo && <AvisoPolitica />}
       <CookieBanner />
       {!hideLayout && <SupportChatWidget />}
     </div>
