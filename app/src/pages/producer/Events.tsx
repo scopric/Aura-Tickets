@@ -58,7 +58,7 @@ export default function ProducerEvents() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Eventos</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie todos os seus eventos</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie todos os seus eventos</p>
         </div>
         <Link
           to="/producer/planner"
@@ -78,7 +78,7 @@ export default function ProducerEvents() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar eventos..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-full text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-full text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -89,7 +89,7 @@ export default function ProducerEvents() {
               className={`px-4 py-2 text-xs font-medium rounded-full transition-all ${
                 filter === f
                   ? 'bg-plum text-cream'
-                  : 'bg-white/40 text-espresso/50 hover:bg-white/60'
+                  : 'bg-white/40 text-espresso/70 hover:bg-white/60'
               }`}
             >
               {f === 'all' ? 'Todos' : f === 'upcoming' ? 'Ativos' : f === 'ongoing' ? 'Rascunhos' : 'Passados/Cancelados'}
@@ -132,7 +132,7 @@ export default function ProducerEvents() {
             <Calendar className="w-8 h-8 text-plum" />
           </div>
           <h3 className="font-serif text-xl text-espresso mb-2">Nenhum evento encontrado</h3>
-          <p className="text-sm text-espresso/50 max-w-sm mx-auto mb-6">
+          <p className="text-sm text-espresso/70 max-w-sm mx-auto mb-6">
             Você ainda não possui eventos cadastrados nesta categoria ou a sua busca não retornou resultados.
           </p>
           <Link
@@ -152,11 +152,11 @@ export default function ProducerEvents() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-espresso/5">
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/40 uppercase tracking-wider">Evento</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/40 uppercase tracking-wider">Data</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/40 uppercase tracking-wider">Ingressos</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/40 uppercase tracking-wider">Vendas</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/40 uppercase tracking-wider">Status</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Evento</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Data</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Ingressos</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Vendas</th>
+                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4"></th>
                 </tr>
               </thead>
@@ -176,11 +176,11 @@ export default function ProducerEvents() {
                           </div>
                           <div>
                             <div className="text-sm font-medium text-espresso">{event.title}</div>
-                            <div className="text-xs text-espresso/40">{event.venue_name || 'Sem local cadastrado'}</div>
+                            <div className="text-xs text-espresso/70">{event.venue_name || 'Sem local cadastrado'}</div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-espresso/60">{formatDate(event.date)}</td>
+                      <td className="px-6 py-4 text-sm text-espresso/70">{formatDate(event.date)}</td>
                       <td className="px-6 py-4">
                         <div className="text-sm text-espresso">
                           {totalSold} {totalCap > 0 ? `/ ${totalCap}` : ''}
@@ -196,7 +196,7 @@ export default function ProducerEvents() {
                         <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                           event.status === 'published' ? 'bg-green-100 text-green-600' :
                           event.status === 'draft' ? 'bg-amber-100 text-amber-600' :
-                          'bg-espresso/5 text-espresso/40'
+                          'bg-espresso/5 text-espresso/70'
                         }`}>
                           {event.status === 'published' ? 'Ativo' :
                            event.status === 'draft' ? 'Rascunho' :
@@ -205,19 +205,19 @@ export default function ProducerEvents() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">
-                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Ver">
+                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Ver">
                             <Eye className="w-4 h-4" />
                           </button>
-                          <Link to={`/producer/events/${event.id}/edit`} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Editar">
+                          <Link to={`/producer/events/${event.id}/edit`} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Editar">
                             <Pencil className="w-4 h-4" />
                           </Link>
-                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors" title="Duplicar">
+                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Duplicar">
                             <Copy className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(event.id, event.title)}
                             disabled={deleteMutation.isPending}
-                            className="p-2 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors disabled:opacity-50"
+                            className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-50"
                             title="Excluir"
                           >
                             <Trash2 className="w-4 h-4" />

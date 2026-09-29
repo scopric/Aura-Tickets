@@ -69,7 +69,7 @@ export default function ResetPassword() {
       <div className="min-h-screen bg-canvas flex items-center justify-center px-4">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-4" />
-          <p className="text-sm text-espresso/60">Validando link de recuperação...</p>
+          <p className="text-sm text-espresso/70">Validando link de recuperação...</p>
         </div>
       </div>
     )
@@ -84,7 +84,7 @@ export default function ResetPassword() {
           </Link>
           <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
             <h1 className="font-serif text-xl text-espresso mb-2">Link inválido ou expirado</h1>
-            <p className="text-sm text-espresso/50 mb-4">
+            <p className="text-sm text-espresso/70 mb-4">
               Solicite um novo link de recuperação de senha.
             </p>
             <Link
@@ -107,7 +107,7 @@ export default function ResetPassword() {
             <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Nova senha</h1>
-          <p className="text-sm text-espresso/50 mt-1">
+          <p className="text-sm text-espresso/70 mt-1">
             {done ? 'Sua senha foi atualizada' : 'Crie uma nova senha para sua conta'}
           </p>
         </div>
@@ -119,7 +119,7 @@ export default function ResetPassword() {
             </div>
             <div>
               <h2 className="text-sm font-medium text-espresso mb-1">Senha alterada!</h2>
-              <p className="text-xs text-espresso/50">
+              <p className="text-xs text-espresso/70">
                 Sua senha foi atualizada com sucesso. Faça login novamente.
               </p>
             </div>
@@ -133,7 +133,7 @@ export default function ResetPassword() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Nova senha</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nova senha</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -143,21 +143,21 @@ export default function ResetPassword() {
                   placeholder="Nova senha"
                   aria-describedby="password-hint"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <p id="password-hint" className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>
+              <p id="password-hint" className="text-[10px] text-espresso/70 mt-1">{PASSWORD_HINT}</p>
             </div>
 
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Confirmar nova senha</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Confirmar nova senha</label>
               <div className="relative">
                 <input
                   type={showConfirm ? 'text' : 'password'}
@@ -166,12 +166,12 @@ export default function ResetPassword() {
                   onChange={e => setConfirmPassword(e.target.value)}
                   placeholder="Repita a nova senha"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors"
                 >
                   {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -196,7 +196,7 @@ export default function ResetPassword() {
               )}
             </button>
 
-            <p className="text-center text-xs text-espresso/40 mt-6">
+            <p className="text-center text-xs text-espresso/70 mt-6">
               <Link to="/auth/login" className="text-plum hover:underline inline-flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" /> Voltar para o login
               </Link>

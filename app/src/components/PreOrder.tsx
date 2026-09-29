@@ -76,7 +76,7 @@ export default function PreOrder({ eventId }: Props) {
       <div className="flex items-center justify-between">
         <div>
           <h3 className="font-serif text-xl text-cream mb-1">Comanda Digital</h3>
-          <p className="text-xs text-cream/40">Compre antecipado e retire no evento</p>
+          <p className="text-xs text-cream/70">Compre antecipado e retire no evento</p>
         </div>
         {cartCount > 0 && (
           <button
@@ -93,7 +93,7 @@ export default function PreOrder({ eventId }: Props) {
       <div className="flex items-center gap-2 overflow-x-auto pb-2">
         <button
           onClick={() => setActiveCategory('all')}
-          className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all ${activeCategory === 'all' ? 'bg-cream text-void' : 'bg-white/5 text-cream/40 hover:bg-white/10'}`}
+          className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all ${activeCategory === 'all' ? 'bg-cream text-void' : 'bg-white/5 text-cream/70 hover:bg-white/10'}`}
         >
           Todos
         </button>
@@ -103,7 +103,7 @@ export default function PreOrder({ eventId }: Props) {
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all flex items-center gap-1.5 ${activeCategory === cat ? 'bg-cream text-void' : 'bg-white/5 text-cream/40 hover:bg-white/10'}`}
+              className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all flex items-center gap-1.5 ${activeCategory === cat ? 'bg-cream text-void' : 'bg-white/5 text-cream/70 hover:bg-white/10'}`}
             >
               <Icon className="w-3 h-3" />
               {categoryLabels[cat] || cat}
@@ -125,11 +125,11 @@ export default function PreOrder({ eventId }: Props) {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
                   <h4 className="text-sm font-medium text-cream">{item.name}</h4>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${categoryColors[item.category] || 'bg-white/5 text-cream/40'}`}>
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${categoryColors[item.category] || 'bg-white/5 text-cream/70'}`}>
                     {categoryLabels[item.category]}
                   </span>
                 </div>
-                <p className="text-xs text-cream/40 line-clamp-1">{item.description}</p>
+                <p className="text-xs text-cream/70 line-clamp-1">{item.description}</p>
               </div>
               <div className="text-right flex-shrink-0">
                 <div className="font-serif text-lg text-cream">R$ {item.price}</div>
@@ -190,7 +190,7 @@ export default function PreOrder({ eventId }: Props) {
 
           {/* Pickup time */}
           <div className="mb-4">
-            <label className="text-xs text-cream/40 mb-2 block flex items-center gap-1">
+            <label className="text-xs text-cream/70 mb-2 block flex items-center gap-1">
               <Clock className="w-3 h-3" />
               Horario de retirada
             </label>
@@ -223,7 +223,7 @@ export default function PreOrder({ eventId }: Props) {
               Confirmar Comanda · R$ {cartTotal}
             </button>
           )}
-          <button onClick={() => setShowCart(false)} className="w-full py-2 text-xs text-cream/30 hover:text-cream/60 transition-colors mt-2">
+          <button onClick={() => setShowCart(false)} className="w-full py-2 text-xs text-cream/70 hover:text-cream/70 transition-colors mt-2">
             Continuar comprando
           </button>
         </div>

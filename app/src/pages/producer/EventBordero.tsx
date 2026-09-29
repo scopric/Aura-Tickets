@@ -81,12 +81,12 @@ export default function EventBordero() {
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/event-manager" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/event-manager" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">Bordero Financeiro</h1>
-          <p className="text-sm text-espresso/50 mt-1">{borderoMock.eventName} — {borderoMock.eventDate}</p>
+          <p className="text-sm text-espresso/70 mt-1">{borderoMock.eventName} — {borderoMock.eventDate}</p>
         </div>
         <div className="flex gap-2">
           <button onClick={handleDownload} className="px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-plum hover:text-cream hover:border-plum transition-all flex items-center gap-2">
@@ -109,10 +109,10 @@ export default function EventBordero() {
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <div className="flex items-center justify-between mb-2">
               <k.icon className="w-4 h-4" style={{ color: k.color }} />
-              {k.trend && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-600 flex items-center gap-0.5"><TrendingUp className="w-3 h-3" />{k.trend}</span>}
+              {k.trend && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-green-50 text-green-700 flex items-center gap-0.5"><TrendingUp className="w-3 h-3" />{k.trend}</span>}
             </div>
             <div className="font-serif text-xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -123,19 +123,19 @@ export default function EventBordero() {
           <h3 className="text-sm font-medium text-espresso mb-4">Detalhamento</h3>
           <div className="space-y-3">
             <div className="flex justify-between py-2 border-b border-white/60">
-              <span className="text-sm text-espresso/60">Receita Bruta (vendas)</span>
+              <span className="text-sm text-espresso/70">Receita Bruta (vendas)</span>
               <span className="text-sm font-medium text-green-600">+ R$ {borderoMock.grossRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-white/60">
-              <span className="text-sm text-espresso/60">Taxa de servico Evokaa ({borderoMock.serviceFee / borderoMock.grossRevenue * 100}%)</span>
+              <span className="text-sm text-espresso/70">Taxa de servico Evokaa ({borderoMock.serviceFee / borderoMock.grossRevenue * 100}%)</span>
               <span className="text-sm font-medium text-red-500">- R$ {borderoMock.serviceFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-white/60">
-              <span className="text-sm text-espresso/60">Taxa de processamento</span>
+              <span className="text-sm text-espresso/70">Taxa de processamento</span>
               <span className="text-sm font-medium text-red-500">- R$ {borderoMock.processingFee.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-2 border-b border-white/60">
-              <span className="text-sm text-espresso/60">Reembolsos</span>
+              <span className="text-sm text-espresso/70">Reembolsos</span>
               <span className="text-sm font-medium text-red-500">- R$ {borderoMock.refunds.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between py-3 border-t-2 border-plum/20">
@@ -149,9 +149,9 @@ export default function EventBordero() {
             <Calendar className="w-5 h-5 text-plum" />
             <div className="flex-1">
               <div className="text-sm font-medium text-espresso">Repasse programado</div>
-              <div className="text-xs text-espresso/40">{borderoMock.payoutDate} via {borderoMock.paymentMethod}</div>
+              <div className="text-xs text-espresso/70">{borderoMock.payoutDate} via {borderoMock.paymentMethod}</div>
             </div>
-            <span className={`px-3 py-1 rounded-full text-[10px] font-medium ${borderoMock.payoutStatus === 'completed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+            <span className={`px-3 py-1 rounded-full text-[10px] font-medium ${borderoMock.payoutStatus === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
               {borderoMock.payoutStatus === 'completed' ? 'Concluido' : 'Pendente'}
             </span>
           </div>
@@ -164,22 +164,22 @@ export default function EventBordero() {
             {borderoMock.salesByMethod.map(m => (
               <div key={m.method}>
                 <div className="flex justify-between mb-1">
-                  <span className="text-xs text-espresso/60">{m.method}</span>
+                  <span className="text-xs text-espresso/70">{m.method}</span>
                   <span className="text-xs font-medium text-espresso">{m.count} vendas</span>
                 </div>
                 <div className="w-full h-2 bg-canvas rounded-full overflow-hidden mb-1">
                   <div className="h-full rounded-full transition-all" style={{ width: `${(m.amount / borderoMock.grossRevenue) * 100}%`, background: m.color }} />
                 </div>
-                <div className="text-[10px] text-espresso/30">R$ {m.amount.toLocaleString('pt-BR')} ({((m.amount / borderoMock.grossRevenue) * 100).toFixed(1)}%)</div>
+                <div className="text-[10px] text-espresso/70">R$ {m.amount.toLocaleString('pt-BR')} ({((m.amount / borderoMock.grossRevenue) * 100).toFixed(1)}%)</div>
               </div>
             ))}
           </div>
           <div className="mt-4 pt-4 border-t border-white/60">
-            <div className="text-[10px] text-espresso/30 mb-2">Taxas de processamento:</div>
+            <div className="text-[10px] text-espresso/70 mb-2">Taxas de processamento:</div>
             <div className="space-y-1">
-              <div className="flex justify-between text-xs"><span className="text-espresso/40">PIX</span><span className="text-espresso/60">{borderoMock.pixRate}%</span></div>
-              <div className="flex justify-between text-xs"><span className="text-espresso/40">Cartao</span><span className="text-espresso/60">{borderoMock.cardRate}%</span></div>
-              <div className="flex justify-between text-xs"><span className="text-espresso/40">Boleto</span><span className="text-espresso/60">{borderoMock.boletoRate}%</span></div>
+              <div className="flex justify-between text-xs"><span className="text-espresso/70">PIX</span><span className="text-espresso/70">{borderoMock.pixRate}%</span></div>
+              <div className="flex justify-between text-xs"><span className="text-espresso/70">Cartao</span><span className="text-espresso/70">{borderoMock.cardRate}%</span></div>
+              <div className="flex justify-between text-xs"><span className="text-espresso/70">Boleto</span><span className="text-espresso/70">{borderoMock.boletoRate}%</span></div>
             </div>
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function EventBordero() {
                   R$ {d.amount.toLocaleString()}
                 </div>
               </div>
-              <span className="text-[8px] text-espresso/30">{d.day}</span>
+              <span className="text-[8px] text-espresso/70">{d.day}</span>
             </div>
           ))}
         </div>
@@ -209,7 +209,7 @@ export default function EventBordero() {
           <div className="flex gap-1">
             {(['all', 'income', 'fee', 'refund'] as const).map(f => (
               <button key={f} onClick={() => setFilter(f)}
-                className={`px-3 py-1 rounded-full text-[10px] font-medium transition-all ${filter === f ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/40 hover:text-espresso'}`}>
+                className={`px-3 py-1 rounded-full text-[10px] font-medium transition-all ${filter === f ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70 hover:text-espresso'}`}>
                 {f === 'all' ? 'Todas' : f === 'income' ? 'Receitas' : f === 'fee' ? 'Taxas' : 'Reembolsos'}
               </button>
             ))}
@@ -223,12 +223,12 @@ export default function EventBordero() {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-medium text-espresso truncate">{t.description}</div>
-                <div className="text-[10px] text-espresso/30">{t.date}</div>
+                <div className="text-[10px] text-espresso/70">{t.date}</div>
               </div>
               <div className={`text-sm font-medium ${t.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>
                 {t.type === 'income' ? '+' : '-'} R$ {Math.abs(t.amount).toFixed(2)}
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${t.status === 'completed' ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+              <span className={`px-2 py-0.5 rounded-full text-[9px] font-medium ${t.status === 'completed' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                 {t.status === 'completed' ? 'OK' : t.status === 'pending' ? 'Pendente' : 'Cancelada'}
               </span>
             </div>

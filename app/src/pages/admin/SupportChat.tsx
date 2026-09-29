@@ -409,7 +409,7 @@ export default function SupportChat() {
     <div className="h-[calc(100vh-4rem)] flex bg-void/50 border border-white/[0.05] rounded-3xl overflow-hidden shadow-2xl">
       
       {/* 1. PAINEL ESQUERDO: Lista de Atendimentos */}
-      <div className="w-80 border-r border-white/[0.05] bg-[#07080c]/50 flex flex-col h-full">
+      <div className="w-80 border-r border-white/[0.05] bg-void/50 flex flex-col h-full">
         <div className="p-4 border-b border-white/[0.05]">
           <h1 className="text-lg font-bold text-white flex items-center gap-2">
             <Inbox className="w-5 h-5 text-purple-400" />
@@ -480,11 +480,11 @@ export default function SupportChat() {
       </div>
 
       {/* 2. PAINEL CENTRAL: Área da Conversa */}
-      <div className="flex-1 flex flex-col h-full bg-[#07080c]/20">
+      <div className="flex-1 flex flex-col h-full bg-void/20">
         {activeSessionId ? (
           <>
             {/* Header da conversa */}
-            <div className="p-4 border-b border-white/[0.05] bg-[#07080c]/40 flex items-center justify-between">
+            <div className="p-4 border-b border-white/[0.05] bg-void/40 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-300">
                   <User className="w-5 h-5" />
@@ -567,7 +567,7 @@ export default function SupportChat() {
             {/* Input para envio */}
             <form
               onSubmit={handleSendMessage}
-              className="p-4 bg-[#07080c]/50 border-t border-white/[0.05] flex items-center gap-2"
+              className="p-4 bg-void/50 border-t border-white/[0.05] flex items-center gap-2"
             >
               <input
                 type="text"
@@ -606,7 +606,7 @@ export default function SupportChat() {
 
       {/* 3. PAINEL DIREITO: Informações Adicionais */}
       {activeSessionId && activeSession && (
-        <div className="w-72 border-l border-white/[0.05] bg-[#07080c]/50 p-4 space-y-6 hidden xl:block">
+        <div className="w-72 border-l border-white/[0.05] bg-void/50 p-4 space-y-6 hidden xl:block">
           <div>
             <h4 className="text-xs font-semibold text-white/40 uppercase tracking-wider mb-3">
               Detalhes da Sessão

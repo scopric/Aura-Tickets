@@ -14,8 +14,8 @@ function publicEventUrl(idOrSlug: string, loc: Pick<Location, 'hostname' | 'prot
 }
 
 const statusCfg: Record<string, { label: string, cls: string }> = {
-  published: { label: 'Publicado', cls: 'bg-green-50 text-green-600 border-green-100' },
-  draft: { label: 'Rascunho', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
+  published: { label: 'Publicado', cls: 'bg-green-50 text-green-700 border-green-100' },
+  draft: { label: 'Rascunho', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
   cancelled: { label: 'Cancelado', cls: 'bg-red-50 text-red-500 border-red-100' },
   ended: { label: 'Finalizado', cls: 'bg-gray-50 text-gray-500 border-gray-100' },
 }
@@ -122,7 +122,7 @@ export default function AdminEvents() {
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Eventos</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie e modere todos os eventos da plataforma</p>
+        <p className="text-sm text-espresso/70 mt-1">Gerencie e modere todos os eventos da plataforma</p>
       </div>
 
       {/* Stats */}
@@ -136,7 +136,7 @@ export default function AdminEvents() {
           <div key={k.label} className="evt-card p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 text-plum mb-3" />
             <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -150,7 +150,7 @@ export default function AdminEvents() {
             className={`px-4 py-2 text-xs font-semibold capitalize border-b-2 transition-all ${
               activeTab === tab 
                 ? 'border-plum text-plum font-bold' 
-                : 'border-transparent text-espresso/50 hover:text-espresso'
+                : 'border-transparent text-espresso/70 hover:text-espresso'
             }`}
           >
             {tab === 'all' ? 'Todos' : tab === 'pending' ? 'Pendentes' : tab === 'approved' ? 'Aprovados' : 'Rejeitados'}
@@ -179,20 +179,20 @@ export default function AdminEvents() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Evento</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Data</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Produtor</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Publicação</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Moderação</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Destaque</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden lg:table-cell">Receita</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Evento</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Data</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Produtor</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Publicação</th>
+                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Moderação</th>
+                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Destaque</th>
+                  <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Receita</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
                 {filteredEvents.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-espresso/30 italic">
+                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-espresso/70 italic">
                       Nenhum evento nesta categoria.
                     </td>
                   </tr>
@@ -206,7 +206,7 @@ export default function AdminEvents() {
                       : 'Data a definir'
 
                     return (
-                      <tr key={e.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                      <tr key={e.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
@@ -214,15 +214,15 @@ export default function AdminEvents() {
                             </div>
                             <div>
                               <div className="text-sm text-espresso font-medium">{e.title}</div>
-                              <div className="text-[10px] text-espresso/30">{e.venue_city || e.venue_name || 'Local a definir'}</div>
+                              <div className="text-[10px] text-espresso/70">{e.venue_city || e.venue_name || 'Local a definir'}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-4 py-3 hidden md:table-cell">
-                          <div className="text-xs text-espresso/50">{formattedDate}</div>
+                          <div className="text-xs text-espresso/70">{formattedDate}</div>
                         </td>
                         <td className="px-4 py-3 hidden lg:table-cell">
-                          <div className="text-xs text-espresso/50">{e.profiles?.full_name || '—'}</div>
+                          <div className="text-xs text-espresso/70">{e.profiles?.full_name || '—'}</div>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
@@ -239,7 +239,7 @@ export default function AdminEvents() {
                                 ? 'opacity-30 cursor-not-allowed'
                                 : e.featured_carousel
                                 ? 'text-amber-500 hover:bg-amber-500/10'
-                                : 'text-espresso/20 hover:text-amber-500 hover:bg-amber-500/10'
+                                : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-500/10'
                             }`}
                             title={e.featured_carousel ? "Remover do carrossel" : "Destacar no carrossel"}
                           >
@@ -310,7 +310,7 @@ export default function AdminEvents() {
                                 href={publicEventUrl(e.slug || e.id)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/30 hover:text-espresso/60 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"
                                 title="Ver página pública"
                                 aria-label="Ver página pública"
                               >

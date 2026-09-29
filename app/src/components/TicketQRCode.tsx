@@ -34,7 +34,7 @@ export default function TicketQRCode({ code, size = 200, className = '' }: Ticke
       {error ? (
         <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-xl p-4">
           <QrCode className="w-10 h-10 text-espresso/20 mb-2" />
-          <span className="text-[10px] text-espresso/40 text-center font-mono break-all">{code}</span>
+          <span className="text-[10px] text-espresso/70 text-center font-mono break-all">{code}</span>
         </div>
       ) : (
         <img

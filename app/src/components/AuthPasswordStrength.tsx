@@ -26,7 +26,7 @@ export default function AuthPasswordStrength({ password, confirmPassword }: Pass
       {password.length > 0 && (
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-espresso/40 uppercase tracking-wider">Força da senha</span>
+            <span className="text-[10px] text-espresso/70 uppercase tracking-wider">Força da senha</span>
             <span className={`text-[10px] font-medium ${strength === 5 ? 'text-plum' : strength >= 3 ? 'text-emerald-600' : 'text-red-500'}`}>
               {strengthLabel}
             </span>
@@ -51,11 +51,11 @@ export default function AuthPasswordStrength({ password, confirmPassword }: Pass
           return (
             <div key={req.key} className="flex items-center gap-2">
               <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300 ${
-                met ? 'bg-emerald-100 text-emerald-600' : 'bg-espresso/5 text-espresso/20'
+                met ? 'bg-emerald-100 text-emerald-600' : 'bg-espresso/5 text-espresso/70'
               }`}>
                 {met ? <Check className="w-2.5 h-2.5" /> : <X className="w-2.5 h-2.5" />}
               </div>
-              <span className={`text-[11px] transition-colors duration-300 ${met ? 'text-emerald-700' : 'text-espresso/40'}`}>
+              <span className={`text-[11px] transition-colors duration-300 ${met ? 'text-emerald-700' : 'text-espresso/70'}`}>
                 {req.label}
               </span>
             </div>

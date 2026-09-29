@@ -398,7 +398,7 @@ export default function ProducerSettings() {
     <div className="p-6 lg:p-10 max-w-6xl">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Configuracoes</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie sua conta e preferencias</p>
+        <p className="text-sm text-espresso/70 mt-1">Gerencie sua conta e preferencias</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -406,7 +406,7 @@ export default function ProducerSettings() {
         <div className="lg:w-56 flex-shrink-0">
           <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
             {sidebarItems.map(item => (
-              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-plum/10 text-plum font-medium' : 'text-espresso/40 hover:text-espresso hover:bg-white/40'}`}>
+              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-plum/10 text-plum font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
                 <item.icon className="w-4 h-4" />{item.label}
               </button>
             ))}
@@ -426,58 +426,58 @@ export default function ProducerSettings() {
                 <img src={profile.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-canvas" />
                 <div>
                   <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={triggerAvatarUpload}>Alterar foto</button>
-                  <p className="text-[10px] text-espresso/30 mt-1">JPG, PNG. Max 2MB</p>
+                  <p className="text-[10px] text-espresso/70 mt-1">JPG, PNG. Max 2MB</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Nome</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Nome</label>
                   <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">E-mail</label>
-                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 border border-white/60 rounded-xl text-sm text-espresso/50 focus:outline-none cursor-not-allowed" />
+                  <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
+                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 dark:bg-white/5 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none cursor-not-allowed" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/40 mb-1 block">Telefone</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Telefone</label>
                   <PhoneInput value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Empresa (Razão Social)</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Empresa (Razão Social)</label>
                   <input value={profile.company} onChange={e => setProfile({ ...profile, company: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">CNPJ</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">CNPJ</label>
                   <input value={profile.cnpj} placeholder="00.000.000/0000-00" onChange={e => setProfile({ ...profile, cnpj: formatCNPJ(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/40 mb-1 block">Bio</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Bio</label>
                   <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />Website</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />Website</label>
                   <input value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Instagram className="w-3 h-3" />Instagram</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Instagram className="w-3 h-3" />Instagram</label>
                   <input value={profile.instagram} onChange={e => setProfile({ ...profile, instagram: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />TikTok</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />TikTok</label>
                   <input value={profile.tiktok} onChange={e => setProfile({ ...profile, tiktok: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />LinkedIn</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />LinkedIn</label>
                   <input value={profile.linkedin} onChange={e => setProfile({ ...profile, linkedin: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
               </div>
 
               <div className="flex justify-end gap-3">
-                <button onClick={handleSaveCompany} disabled={isSaving} className="px-6 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-white transition-all flex items-center gap-2">
+                <button onClick={handleSaveCompany} disabled={isSaving} className="px-6 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-white dark:hover:bg-white/10 transition-all flex items-center gap-2">
                   <Save className="w-4 h-4" />Salvar Empresa
                 </button>
                 <button onClick={handleSaveProfile} disabled={isSaving} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
@@ -495,7 +495,7 @@ export default function ProducerSettings() {
                 <div className="space-y-4 max-w-md">
                   {['current', 'new', 'confirm'].map((field) => (
                     <div key={field}>
-                      <label className="text-xs text-espresso/40 mb-1 block">
+                      <label className="text-xs text-espresso/70 mb-1 block">
                         {field === 'current' ? 'Senha atual' : field === 'new' ? 'Nova senha' : 'Confirmar nova senha'}
                       </label>
                       <div className="relative">
@@ -505,11 +505,11 @@ export default function ProducerSettings() {
                           onChange={e => setPassword({ ...password, [field]: e.target.value })}
                           className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso pr-10 focus:outline-none focus:border-plum/30"
                         />
-                        <button onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30">
+                        <button onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70">
                           {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
-                      {field === 'new' && <p className="text-[10px] text-espresso/50 mt-1">{PASSWORD_HINT}</p>}
+                      {field === 'new' && <p className="text-[10px] text-espresso/70 mt-1">{PASSWORD_HINT}</p>}
                     </div>
                   ))}
                   <button onClick={handlePassword} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Atualizar senha</button>
@@ -521,7 +521,7 @@ export default function ProducerSettings() {
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
                     <div className="text-sm text-espresso">Autenticação 2FA (Google Authenticator)</div>
-                    <div className="text-[10px] text-espresso/30">
+                    <div className="text-[10px] text-espresso/70">
                       {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
                     </div>
                   </div>
@@ -541,7 +541,7 @@ export default function ProducerSettings() {
                   <div className="flex items-center justify-between">
                     <div>
                       <div className="text-sm text-espresso">Excluir conta</div>
-                      <div className="text-[10px] text-espresso/30">Esta acao nao pode ser desfeita</div>
+                      <div className="text-[10px] text-espresso/70">Esta acao nao pode ser desfeita</div>
                     </div>
                     <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={() => { setDeleteConfirm(''); setShowDelete(true) }}>Excluir</button>
                   </div>
@@ -556,31 +556,31 @@ export default function ProducerSettings() {
               <h2 className="text-lg font-medium text-espresso">Dados Bancarios</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Banco</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Banco</label>
                   <select value={payment.bankName} onChange={e => setPayment({ ...payment, bankName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option>Itau</option><option>Bradesco</option><option>Nubank</option><option>Santander</option><option>Inter</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Tipo de Conta</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Tipo de Conta</label>
                   <select value={payment.accountType} onChange={e => setPayment({ ...payment, accountType: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                     <option value="corrente">Conta Corrente</option><option value="poupanca">Poupanca</option>
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Agencia</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Agencia</label>
                   <input value={payment.agency} onChange={e => setPayment({ ...payment, agency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/40 mb-1 block">Conta</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Conta</label>
                   <input value={payment.account} onChange={e => setPayment({ ...payment, account: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/40 mb-1 block">Titular</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Titular</label>
                   <input value={payment.holder} onChange={e => setPayment({ ...payment, holder: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/40 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />Chave Pix</label>
+                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />Chave Pix</label>
                   <input value={payment.pixKey} onChange={e => setPayment({ ...payment, pixKey: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
               </div>
@@ -610,7 +610,7 @@ export default function ProducerSettings() {
                       <item.icon className="w-4 h-4 text-plum" />
                       <div>
                         <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/30">{item.desc}</div>
+                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
                       </div>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
@@ -656,9 +656,9 @@ export default function ProducerSettings() {
               <h2 className="text-lg font-medium text-espresso">Equipe</h2>
 
               <div className="p-4 rounded-xl bg-canvas/50 space-y-3">
-                <label className="text-xs text-espresso/40 block">Convidar membro</label>
+                <label className="text-xs text-espresso/70 block">Convidar membro</label>
                 <div className="flex gap-2">
-                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
                   <button onClick={handleInvite} disabled={isTeamActionPending} className="px-4 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
                     {isTeamActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Convidar'}
                   </button>
@@ -673,21 +673,21 @@ export default function ProducerSettings() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-espresso font-medium">{member.name}</div>
-                      <div className="text-[10px] text-espresso/30">{member.email}</div>
+                      <div className="text-[10px] text-espresso/70">{member.email}</div>
                     </div>
                     <select value={member.role} onChange={e => handleRoleChange(member.id, e.target.value)} className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
                       <option>Admin</option><option>Editor</option><option>Visualizador</option>
                     </select>
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                       {member.status === 'active' ? 'Ativo' : 'Pendente'}
                     </span>
-                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors">
+                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 ))}
                 {team.length === 0 && (
-                  <div className="py-8 text-center text-xs text-espresso/30">Nenhum membro na equipe ainda.</div>
+                  <div className="py-8 text-center text-xs text-espresso/70">Nenhum membro na equipe ainda.</div>
                 )}
               </div>
             </div>
@@ -700,9 +700,9 @@ export default function ProducerSettings() {
 
               <div className="space-y-4">
                 <div className="p-5 rounded-xl bg-white/60 border border-white/60">
-                  <label className="text-xs text-espresso/40 mb-2 block flex items-center gap-1"><Briefcase className="w-3 h-3" />API Key</label>
+                  <label className="text-xs text-espresso/70 mb-2 block flex items-center gap-1"><Briefcase className="w-3 h-3" />API Key</label>
                   <div className="flex gap-2">
-                    <div className="flex-1 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/40 font-mono truncate">{integrations.apiKey}</div>
+                    <div className="flex-1 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/70 font-mono truncate">{integrations.apiKey}</div>
                     <button onClick={() => handleCopy(integrations.apiKey)} className="px-3 py-2.5 bg-plum text-cream rounded-xl hover:shadow-glow transition-all">
                       <Copy className="w-4 h-4" />
                     </button>
@@ -724,7 +724,7 @@ export default function ProducerSettings() {
             <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
               <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
             </h3>
-            <p className="text-xs text-espresso/60 mb-4">
+            <p className="text-xs text-espresso/70 mb-4">
               Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
             </p>
 
@@ -736,21 +736,21 @@ export default function ProducerSettings() {
             )}
 
             <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-              <span className="text-[10px] text-espresso/40 block mb-1">Chave Manual (se o QR Code falhar)</span>
+              <span className="text-[10px] text-espresso/70 block mb-1">Chave Manual (se o QR Code falhar)</span>
               <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-plum">
                 {enrollData.secret}
               </code>
             </div>
 
             {mfaError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">
                 {mfaError}
               </div>
             )}
 
             <form onSubmit={handleVerifyEnroll} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1 block">Código de Verificação</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1 block">Código de Verificação</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -772,7 +772,7 @@ export default function ProducerSettings() {
                     setShowMfaModal(false)
                     setEnrollData(null)
                   }}
-                  className="px-4 py-2 text-xs text-espresso/50 hover:text-espresso transition-colors"
+                  className="px-4 py-2 text-xs text-espresso/70 hover:text-espresso transition-colors"
                 >
                   Cancelar
                 </button>
@@ -802,14 +802,14 @@ export default function ProducerSettings() {
           <div className="glass-panel relative w-full max-w-sm p-6">
             <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-500" /></div>
             <h3 className="font-serif text-xl text-espresso text-center mb-2">Excluir conta</h3>
-            <p className="text-xs text-espresso/50 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>
+            <p className="text-xs text-espresso/70 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>
             <div className="p-3 rounded-xl bg-red-50 border border-red-100 mb-4">
               <p className="text-xs text-red-500 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
+              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
             </div>
             <div className="space-y-2">
               <button onClick={handleDeleteAccount} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
-              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-espresso/40 hover:text-espresso transition-colors">Voltar</button>
+              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-espresso/70 hover:text-espresso transition-colors">Voltar</button>
             </div>
           </div>
         </div>

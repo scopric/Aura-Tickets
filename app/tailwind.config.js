@@ -4,15 +4,6 @@ module.exports = {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
-      // ponytail: texto das cores da marca segue sem opacidade (text-espresso/30 herda a cor cheia, como antes);
-      // ligar aqui derruba text-espresso/30…/50 abaixo de 4,5:1 no claro — o PR de tema troca por cores com piso de contraste
-      textColor: {
-        canvas: "var(--canvas)",
-        void: "var(--void)",
-        plum: "var(--plum)",
-        espresso: "var(--espresso)",
-        cream: "var(--cream)",
-      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

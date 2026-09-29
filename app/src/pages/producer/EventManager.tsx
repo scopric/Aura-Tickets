@@ -17,9 +17,9 @@ const profileColors: Record<string, string> = {
 }
 
 const statusLabels: Record<string, { label: string; cls: string }> = {
-  draft: { label: 'Planejando', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
-  published: { label: 'Vendendo', cls: 'bg-green-50 text-green-600 border-green-100' },
-  ready: { label: 'Pronto', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
+  draft: { label: 'Planejando', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
+  published: { label: 'Vendendo', cls: 'bg-green-50 text-green-700 border-green-100' },
+  ready: { label: 'Pronto', cls: 'bg-blue-50 text-blue-700 border-blue-100' },
   happening: { label: 'Acontecendo', cls: 'bg-plum/10 text-plum border-plum/20' },
   ended: { label: 'Finalizado', cls: 'bg-slate-100 text-slate-500 border-slate-200' },
   cancelled: { label: 'Cancelado', cls: 'bg-red-50 text-red-500 border-red-100' },
@@ -171,7 +171,7 @@ export default function EventManager() {
       <div className="p-6 lg:p-10 max-w-7xl flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-4" />
-          <p className="text-sm text-espresso/50">Carregando seus eventos...</p>
+          <p className="text-sm text-espresso/70">Carregando seus eventos...</p>
         </div>
       </div>
     )
@@ -182,7 +182,7 @@ export default function EventManager() {
       <div className="p-6 lg:p-10 max-w-7xl flex items-center justify-center min-h-[60vh]">
         <div className="text-center">
           <p className="text-sm text-red-500 mb-2">Erro ao carregar eventos</p>
-          <p className="text-xs text-espresso/40">{(error as Error).message}</p>
+          <p className="text-xs text-espresso/70">{(error as Error).message}</p>
         </div>
       </div>
     )
@@ -194,7 +194,7 @@ export default function EventManager() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Gestor de Festas</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie todos os seus eventos em um so lugar</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie todos os seus eventos em um so lugar</p>
         </div>
         <Link to="/producer/events/new" className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">
           <Plus className="w-4 h-4" /> Planejar Evento
@@ -212,7 +212,7 @@ export default function EventManager() {
           <div key={k.label} className="event-card p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 text-plum mb-3" />
             <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -221,7 +221,7 @@ export default function EventManager() {
       <div className="event-card flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-6">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar eventos..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar eventos..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {[
@@ -231,7 +231,7 @@ export default function EventManager() {
             { key: 'ended', label: 'Finalizado' },
             { key: 'cancelled', label: 'Cancelado' },
           ].map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)} className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all ${filter === f.key ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/60 hover:text-espresso'}`}>
+            <button key={f.key} onClick={() => setFilter(f.key)} className={`px-3 py-1.5 text-xs font-medium rounded-full whitespace-nowrap transition-all ${filter === f.key ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
               {f.label}
             </button>
           ))}
@@ -242,7 +242,7 @@ export default function EventManager() {
       {filtered.length === 0 ? (
         <div className="text-center py-20">
           <FolderOpen className="w-12 h-12 text-espresso/10 mx-auto mb-4" />
-          <p className="text-espresso/30 text-sm">Nenhum evento encontrado</p>
+          <p className="text-espresso/70 text-sm">Nenhum evento encontrado</p>
           {processedEvents.length === 0 && (
             <Link to="/producer/events/new" className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all">
               <Plus className="w-3.5 h-3.5" /> Criar primeiro evento
@@ -268,13 +268,13 @@ export default function EventManager() {
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-medium text-espresso truncate">{event.title}</div>
-                      <div className="text-[10px] text-espresso/30 truncate">{event.category || 'Evento'} · {formatDate(event.date)}</div>
+                      <div className="text-[10px] text-espresso/70 truncate">{event.category || 'Evento'} · {formatDate(event.date)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${status.cls}`}>{status.label}</span>
                     <div className="relative">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenu(actionMenu === event.id ? null : event.id) }} className="p-1 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors">
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenu(actionMenu === event.id ? null : event.id) }} className="p-1 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors">
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
                       {actionMenu === event.id && (
@@ -306,8 +306,8 @@ export default function EventManager() {
                 {/* Progress */}
                 <div className="mb-4">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[10px] text-espresso/30">Vendas</span>
-                    <span className="text-[10px] text-espresso/50">{event.sold}/{event.capacity}</span>
+                    <span className="text-[10px] text-espresso/70">Vendas</span>
+                    <span className="text-[10px] text-espresso/70">{event.sold}/{event.capacity}</span>
                   </div>
                   <div className="w-full h-1.5 bg-canvas rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(progress, 100)}%`, backgroundColor: color }} />
@@ -318,15 +318,15 @@ export default function EventManager() {
                 <div className="grid grid-cols-3 gap-2 mb-4">
                   <div className="p-2 rounded-lg bg-canvas text-center">
                     <div className="text-xs font-medium text-espresso">R$ {(event.ticketRevenue / 1000).toFixed(1)}K</div>
-                    <div className="text-[9px] text-espresso/30">Receita</div>
+                    <div className="text-[9px] text-espresso/70">Receita</div>
                   </div>
                   <div className="p-2 rounded-lg bg-canvas text-center">
                     <div className="text-xs font-medium text-green-600">R$ 0K</div>
-                    <div className="text-[9px] text-espresso/30">Lucro</div>
+                    <div className="text-[9px] text-espresso/70">Lucro</div>
                   </div>
                   <div className="p-2 rounded-lg bg-canvas text-center">
                     <div className="text-xs font-medium text-espresso">0%</div>
-                    <div className="text-[9px] text-espresso/30">Orcamento</div>
+                    <div className="text-[9px] text-espresso/70">Orcamento</div>
                   </div>
                 </div>
 
@@ -338,7 +338,7 @@ export default function EventManager() {
                         <span className="text-[8px] text-plum font-medium">V</span>
                       </div>
                     </div>
-                    <span className="text-[10px] text-espresso/30">{location}</span>
+                    <span className="text-[10px] text-espresso/70">{location}</span>
                   </div>
                   <Link to={`/producer/event/${event.id}`} className="flex items-center gap-1 text-[10px] text-plum hover:underline">
                     Ver detalhes <ArrowRight className="w-3 h-3" />
