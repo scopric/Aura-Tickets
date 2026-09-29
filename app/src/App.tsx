@@ -105,6 +105,7 @@ const AdminFeedback = lazy(() => import('./pages/admin/Feedback'))
 const AdminNewsletter = lazy(() => import('./pages/admin/Newsletter'))
 const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
 const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
+const AdminAiSettings = lazy(() => import('./pages/admin/AiSettings'))
 const SupportChatAdmin = lazy(() => import('./pages/admin/SupportChat'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
@@ -255,6 +256,7 @@ function Layout() {
                 <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
                 <Route path="/admin/coupons" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_coupons"><AdminCoupons /></ProtectedRoute>} />
                 <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
+                <Route path="/admin/ia" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminAiSettings /></ProtectedRoute>} />
               </Route>
 
               <Route path="*" element={<RootRedirect />} />
@@ -272,6 +274,13 @@ function Layout() {
     location.pathname.startsWith('/auth') ||
     location.pathname.startsWith('/checkout') ||
     location.pathname.startsWith('/app')
+
+  // Onde há ProducerLayout/AppLayout o Evo ocupa o canto inferior e o feedback fica no ícone do topo.
+  // Estas rotas ficam sob os mesmos prefixos mas fora desses layouts: mantêm o botão flutuante.
+  const rota = location.pathname.replace(/\/+$/, '')
+  const temEvo =
+    (rota.startsWith('/producer') || rota.startsWith('/app')) &&
+    !['/app/download', '/producer/lugar-marcado'].includes(rota)
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -380,7 +389,7 @@ function Layout() {
       </main>
       {!hideLayout && <Footer />}
       <Toaster />
-      <FeedbackButton />
+      {!temEvo && <FeedbackButton />}
       <CookieBanner />
       {!hideLayout && <SupportChatWidget />}
     </div>
