@@ -36,20 +36,28 @@ Deno.serve(async (req) => {
   } catch {
     // corpo inválido cai no 400 abaixo
   }
-  if (!qrCode || !/^[0-9a-f-]{36}$/i.test(eventId)) return json(400, { error: 'Informe o código do ingresso e o evento.' })
+  if (!qrCode || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) return json(400, { error: 'Informe o código do ingresso e o evento.' })
 
   // Quem pode operar a portaria deste evento
-  const { data: evento } = await admin.from('events').select('producer_id').eq('id', eventId).maybeSingle()
+  // Falha do banco vira "tente de novo" (500), nunca "sem permissão" ou "não encontrado"
+  const falhou = (etapa: string, msg: string) => {
+    console.error(`[check-in-validate] ${etapa}:`, msg)
+    return json(500, { error: 'Não foi possível conferir agora. Tente de novo.' })
+  }
+  const { data: evento, error: eventoError } = await admin.from('events').select('producer_id').eq('id', eventId).maybeSingle()
+  if (eventoError) return falhou('evento', eventoError.message)
   if (!evento) return json(404, { valid: false, message: 'Evento não encontrado.' })
   let pode = evento.producer_id === user.id
   if (!pode) {
-    const { data: membro } = await admin.from('team_members').select('id')
+    const { data: membro, error: membroError } = await admin.from('team_members').select('id')
       .eq('producer_id', evento.producer_id).eq('user_id', user.id)
       .in('role', ['admin', 'editor']).not('accepted_at', 'is', null).limit(1)
+    if (membroError) return falhou('equipe', membroError.message)
     pode = !!membro?.length
   }
   if (!pode) {
-    const { data: perfil } = await admin.from('profiles').select('role, admin_permissions').eq('id', user.id).maybeSingle()
+    const { data: perfil, error: perfilError } = await admin.from('profiles').select('role, admin_permissions').eq('id', user.id).maybeSingle()
+    if (perfilError) return falhou('perfil', perfilError.message)
     const perms: string[] = perfil?.admin_permissions ?? []
     // mesma regra do gf_admin_can('manage_tickets') no banco
     pode = perfil?.role === 'admin' && (perms.includes('super_admin') || perms.includes('manage_tickets'))
@@ -59,10 +67,7 @@ Deno.serve(async (req) => {
   const { data: ticket, error: ticketError } = await admin.from('tickets')
     .select('id, user_id, status, checked_in_at, buyer_name, ticket_types(name)')
     .eq('qr_code', qrCode).eq('event_id', eventId).maybeSingle()
-  if (ticketError) {
-    console.error('[check-in-validate] busca do ingresso:', ticketError.message)
-    return json(500, { error: 'Não foi possível conferir o ingresso. Tente de novo.' })
-  }
+  if (ticketError) return falhou('ingresso', ticketError.message)
   if (!ticket) return json(404, { valid: false, message: 'Ingresso não encontrado ou inválido para este evento' })
 
   if (ticket.status === 'used') {
@@ -78,10 +83,7 @@ Deno.serve(async (req) => {
     .update({ status: 'used', checked_in_at: agora, checked_in_by: user.id })
     .eq('id', ticket.id).eq('status', 'active')
     .select('id').maybeSingle()
-  if (updateError) {
-    console.error('[check-in-validate] update:', updateError.message)
-    return json(500, { error: 'Não foi possível registrar o check-in. Tente de novo.' })
-  }
+  if (updateError) return falhou('update', updateError.message)
   if (!marcado) return json(200, { valid: false, message: 'Ingresso já foi utilizado!' })
 
   const { error: logError } = await admin.from('check_ins')

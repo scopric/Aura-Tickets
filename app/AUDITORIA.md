@@ -178,12 +178,9 @@ Em produção, estas páginas mostram estado vazio. Em desenvolvimento, mantêm 
 
 | Edge Function | Implementada? | Requer Config? |
 |---------------|---------------|----------------|
-| `stripe-create-payment` | ✅ Sim | `STRIPE_SECRET_KEY` |
-| `stripe-webhook` | ✅ Sim | `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` |
-| `woovi-create-pix` | ✅ Sim | `WOOVI_API_KEY` |
-| `woovi-webhook` | ⚠️ Verificar | `WOOVI_API_KEY` |
+| `stripe-create-payment`, `stripe-webhook`, `woovi-create-pix`, `woovi-webhook` | ❌ Removidas em 30/09/2026 (nunca publicadas; cobravam o valor mandado pelo navegador; gateway em aberto) | Fase 4: preço calculado no servidor |
 | `send-email` | ⚠️ Verificar | — |
-| `check-in-validate` | ⚠️ Verificar | — |
+| `check-in-validate` | ✅ Exige login, 2FA e permissão no evento (30/09/2026) | publicar depois do SQL do 2FA |
 
 ---
 
