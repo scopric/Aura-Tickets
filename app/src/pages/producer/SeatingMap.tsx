@@ -4647,7 +4647,7 @@ export default function SeatingMap() {
 
       {/* MODAL IA READER */}
       {aiReaderOpen && (
-        <div className="fixed inset-0 bg-espresso/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-stone-200 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl animate-float-in text-espresso">
             <div className="flex justify-between items-center px-5 py-4 border-b border-stone-100 bg-stone-50/50">
               <h3 className="font-serif text-base font-bold flex items-center gap-2">
@@ -4810,7 +4810,7 @@ export default function SeatingMap() {
 
       {/* MODAL GERADOR DE LAYOUT INTELIGENTE */}
       {autoLayoutModalOpen && (
-        <div className="fixed inset-0 bg-espresso/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-stone-200 rounded-2xl w-full max-w-lg overflow-hidden shadow-2xl animate-float-in text-espresso">
             <div className="flex justify-between items-center px-5 py-4 border-b border-stone-100 bg-stone-50/50">
               <h3 className="font-serif text-base font-bold flex items-center gap-2">
@@ -5154,7 +5154,7 @@ export default function SeatingMap() {
 
       {/* DIÁLOGO DE CALIBRAÇÃO */}
       {showCalibrationDialog && (
-        <div className="fixed inset-0 bg-espresso/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
           <div className="bg-white border border-stone-200 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-5 text-espresso">
             <h3 className="font-serif text-base font-bold mb-2 flex items-center gap-2">
               <Scale className="w-5 h-5 text-plum" />

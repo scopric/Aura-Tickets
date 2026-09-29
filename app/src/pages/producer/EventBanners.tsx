@@ -113,7 +113,7 @@ export default function ProducerEventBanners() {
                 </button>
               </div>
               <div className="absolute top-3 left-3">
-                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${banner.active ? 'bg-green-500 text-white' : 'bg-espresso/60 text-white'}`}>
+                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full ${banner.active ? 'bg-green-500 text-white' : 'bg-black/50 text-white'}`}>
                   {banner.active ? 'Ativo' : 'Inativo'}
                 </span>
               </div>
@@ -153,7 +153,7 @@ export default function ProducerEventBanners() {
       {/* New Banner Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-espresso/20 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
           <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Novo Banner</h3>
