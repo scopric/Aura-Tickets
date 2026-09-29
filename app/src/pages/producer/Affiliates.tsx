@@ -413,7 +413,7 @@ export default function ProducerAffiliates() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-espresso/20 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
           <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6"><h3 className="font-serif text-xl text-espresso">Novo Afiliado</h3><button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button></div>
             <div className="space-y-3">

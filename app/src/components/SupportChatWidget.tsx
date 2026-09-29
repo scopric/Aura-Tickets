@@ -389,7 +389,7 @@ export default function SupportChatWidget() {
         <div className="mb-4 w-[360px] max-w-[calc(100vw-2rem)] h-[480px] bg-void/90 backdrop-blur-xl border border-cream/10 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-300">
           
           {/* Header */}
-          <div className="p-4 bg-gradient-to-r from-plum/60 to-espresso/80 border-b border-cream/10 flex items-center justify-between">
+          <div className="p-4 bg-gradient-to-r from-plum/60 to-void/80 border-b border-cream/10 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="relative">
                 <div className="w-10 h-10 rounded-full bg-plum/40 border border-cream/20 flex items-center justify-center text-cream">

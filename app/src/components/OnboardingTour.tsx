@@ -73,7 +73,7 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-espresso/30 backdrop-blur-sm" onClick={skip} />
+      <div className="absolute inset-0 glass-backdrop" onClick={skip} />
       <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden">
         {/* Progress bar */}
         <div className="w-full h-1 bg-canvas">

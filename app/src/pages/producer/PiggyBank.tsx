@@ -201,7 +201,7 @@ export default function ProducerPiggyBank() {
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-espresso/20 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
           <div className="relative w-full max-w-md bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Nova Caixinha</h3>

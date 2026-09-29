@@ -51,14 +51,19 @@
     --border-subtle: rgba(255, 255, 255, 0.06);
     
     /* Legacy compat - Invertidos para tema escuro */
-    --canvas: #0a0b10;         /* Fundo da plataforma (escuro) */
+    --canvas-rgb: 10 11 16;         /* Fundo da plataforma (escuro) */
+    --canvas: rgb(var(--canvas-rgb));
     --canvas-deep: #07080c;    /* Fundo mais profundo */
-    --void: #07080c;           /* Barra lateral profunda */
-    --plum: #8f33f5;           /* Roxo principal */
+    --void-rgb: 7 8 12;           /* Barra lateral profunda */
+    --void: rgb(var(--void-rgb));
+    --plum-rgb: 143 51 245;           /* Roxo principal */
+    --plum: rgb(var(--plum-rgb));
     --plum-light: #a78bfa;
     --plum-muted: rgba(143, 51, 245, 0.1);
-    --cream: #f8fafc;          /* Creme claro para contraste */
-    --espresso: #f8fafc;       /* Espresso agora é CLARO para contraste! */
+    --cream-rgb: 248 250 252;          /* Creme claro para contraste */
+    --cream: rgb(var(--cream-rgb));
+    --espresso-rgb: 248 250 252;       /* Espresso agora é CLARO para contraste! */
+    --espresso: rgb(var(--espresso-rgb));
     --ink: #f8fafc;            /* Tinta agora é CLARA! */
     --ink-light: #cbd5e1;
     --ink-faint: #64748b;
@@ -103,14 +108,13 @@
     --border-subtle: rgba(15, 23, 42, 0.08);
 
     /* Legacy compat no tema claro */
-    --canvas: #f8fafc;
+    --canvas-rgb: 248 250 252;
     --canvas-deep: #ffffff;
-    --void: #ffffff;
-    --plum: #8f33f5;
+    --void-rgb: 255 255 255;
     --plum-light: #7c3aed;
     --plum-muted: rgba(143, 51, 245, 0.05);
-    --cream: #1e293b;          /* Cream vira escuro no tema claro */
-    --espresso: #2d2522;       /* Espresso vira marrom escuro */
+    --cream-rgb: 30 41 59;          /* Cream vira escuro no tema claro */
+    --espresso-rgb: 45 37 34;       /* Espresso vira marrom escuro */
     --ink: #1e293b;            /* Ink vira escuro */
     --ink-light: #475569;
     --ink-faint: #94a3b8;
