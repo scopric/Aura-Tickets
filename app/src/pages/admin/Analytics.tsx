@@ -508,6 +508,7 @@ export default function AdminAnalytics() {
                                 cursor={{ fill: 'rgba(128,128,128,0.12)' }}
                                 contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
                                 labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                itemStyle={{ color: 'hsl(var(--foreground))' }}
                               />
                               <Bar dataKey="paginas" fill="#8f33f5" radius={[4, 4, 0, 0]} />
                               <Bar dataKey="visitantes" fill="#c084fc" radius={[4, 4, 0, 0]} />
