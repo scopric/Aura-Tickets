@@ -6,8 +6,8 @@ import { Dialog, DialogClose, DialogDescription, DialogOverlay, DialogPortal, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useAuth } from '../hooks/useAuth'
-import { useMinhasConversas } from '../hooks/useConversas'
-import { SupportChatPanel } from './SupportChatWidget'
+import { publicoDoPapel, useMinhasConversas } from '../hooks/useConversas'
+import { JanelaSuporte, SupportChatPanel } from './SupportChatWidget'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
 import type { CamposPlanejar } from './evo/EvoPlanejar'
 
@@ -58,6 +58,7 @@ export default function EvoHub() {
   const [balao, setBalao] = useState<Balao>(null)
   const [pulando, setPulando] = useState(false)
   const abertoRef = useRef(aberto)
+  const mascoteRef = useRef<HTMLButtonElement>(null)
   const { pathname } = useLocation()
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
   // Respostas da equipe não lidas (a aba "Falar com a Evokaa"); o canal do Realtime fica aqui porque o EvoHub não desmonta
@@ -113,7 +114,8 @@ export default function EvoHub() {
       setFormPlanejar(null)
       setNaoLidas(0)
     }
-    setAberto(false)
+    // o painel do participante é não modal: segue aberto ao navegar (só fecha ao trocar de conta)
+    if (podeEvo || visto.dono !== user?.id) setAberto(false)
     setVisto({ pathname, dono: user?.id })
   }
 
@@ -132,7 +134,19 @@ export default function EvoHub() {
   }
 
   return (
-    <Dialog open={aberto} onOpenChange={mudarAberto}>
+    // Produtor/admin: modal central com as abas Evo e "Falar com a Evokaa". Participante: janela
+    // flutuante não modal (estilo Intercom) acima do mascote; a página segue rolável e clicável.
+    <Dialog open={podeEvo && aberto} onOpenChange={mudarAberto}>
+      {!podeEvo && aberto && (
+        <JanelaSuporte
+          publico={publicoDoPapel(user?.role)}
+          aoFechar={() => {
+            mudarAberto(false)
+            mascoteRef.current?.focus()
+          }}
+          posicao="bottom-36 h-[min(620px,calc(100dvh-10rem))]"
+        />
+      )}
       <div className="fixed bottom-6 right-6 z-50">
         <p className="sr-only" role="status" aria-live="polite">{anuncio}</p>
 
@@ -177,8 +191,18 @@ export default function EvoHub() {
             <TooltipTrigger asChild>
               <DialogTrigger asChild>
                 <button
+                  ref={mascoteRef}
                   type="button"
                   aria-label={rotulo}
+                  // participante: o clique alterna a janela flutuante; preventDefault impede o DialogTrigger de abrir o modal
+                  {...(!podeEvo && {
+                    'aria-expanded': aberto,
+                    'aria-controls': undefined,
+                    onClick: (e: React.MouseEvent) => {
+                      e.preventDefault()
+                      mudarAberto(!aberto)
+                    },
+                  })}
                   // Sem caixa no foco (o Radix devolve o foco aqui ao fechar e o anel desenhava uma moldura):
                   // o foco de teclado é o contorno no próprio Evo (group-focus-visible na <img>)
                   className="group relative block outline-none transition-transform duration-200 motion-safe:hover:[transform:rotateX(10deg)_rotateY(-10deg)_scale(1.08)] motion-safe:focus-visible:[transform:rotateX(10deg)_rotateY(-10deg)_scale(1.08)] motion-reduce:transition-none"
@@ -221,48 +245,42 @@ export default function EvoHub() {
             className="glass-panel relative flex h-full w-full max-w-2xl flex-col overflow-hidden outline-none duration-200 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.96] data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.96] motion-reduce:animate-none sm:h-[min(82vh,760px)]"
           >
             <div className="flex items-center justify-between px-5 pb-3 pt-4">
-              <DialogTitle className="text-base font-semibold">{podeEvo ? 'Central do Evo' : 'Falar com a Evokaa'}</DialogTitle>
+              <DialogTitle className="text-base font-semibold">Central do Evo</DialogTitle>
               <DialogDescription className="sr-only">
-                {podeEvo ? 'Assistente de IA e conversa com a equipe da Evokaa' : 'Conversa com a equipe da Evokaa'}
+                Assistente de IA e conversa com a equipe da Evokaa
               </DialogDescription>
               <DialogClose
-                aria-label={podeEvo ? 'Fechar central do Evo' : 'Fechar ajuda do Evo'}
+                aria-label="Fechar central do Evo"
                 className="rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
               </DialogClose>
             </div>
 
-            {podeEvo ? (
-              <Tabs defaultValue="evo" className="min-h-0 flex-1 gap-0">
-                <TabsList className="mx-5 mb-3 h-auto w-auto justify-start gap-1 overflow-x-auto rounded-xl bg-slate-900/5 p-1 dark:bg-white/[0.05]">
-                  <TabsTrigger value="evo" className={aba}>Evo</TabsTrigger>
-                  <TabsTrigger value="suporte" className={aba}>Falar com a Evokaa</TabsTrigger>
-                </TabsList>
+            <Tabs defaultValue="evo" className="min-h-0 flex-1 gap-0">
+              <TabsList className="mx-5 mb-3 h-auto w-auto justify-start gap-1 overflow-x-auto rounded-xl bg-slate-900/5 p-1 dark:bg-white/[0.05]">
+                <TabsTrigger value="evo" className={aba}>Evo</TabsTrigger>
+                <TabsTrigger value="suporte" className={aba}>Falar com a Evokaa</TabsTrigger>
+              </TabsList>
 
-                {/* forceMount + hidden: trocar de aba não apaga o que foi digitado (o suporte já guarda tudo no banco) */}
-                <TabsContent value="evo" forceMount className="min-h-0 flex-col data-[state=active]:flex data-[state=inactive]:hidden">
-                  <EvoChat
-                    mensagens={mensagens}
-                    setMensagens={setMensagens}
-                    texto={texto}
-                    setTexto={setTexto}
-                    pensando={pensando}
-                    setPensando={setPensando}
-                    formPlanejar={formPlanejar}
-                    setFormPlanejar={setFormPlanejar}
-                    onResposta={aoResponder}
-                  />
-                </TabsContent>
-                <TabsContent value="suporte" className="min-h-0 flex-col border-t border-slate-900/10 dark:border-white/10 data-[state=active]:flex data-[state=inactive]:hidden">
-                  <SupportChatPanel />
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <div className="flex min-h-0 flex-1 flex-col border-t border-slate-900/10 dark:border-white/10">
+              {/* forceMount + hidden: trocar de aba não apaga o que foi digitado (o suporte já guarda tudo no banco) */}
+              <TabsContent value="evo" forceMount className="min-h-0 flex-col data-[state=active]:flex data-[state=inactive]:hidden">
+                <EvoChat
+                  mensagens={mensagens}
+                  setMensagens={setMensagens}
+                  texto={texto}
+                  setTexto={setTexto}
+                  pensando={pensando}
+                  setPensando={setPensando}
+                  formPlanejar={formPlanejar}
+                  setFormPlanejar={setFormPlanejar}
+                  onResposta={aoResponder}
+                />
+              </TabsContent>
+              <TabsContent value="suporte" className="min-h-0 flex-col border-t border-slate-900/10 dark:border-white/10 data-[state=active]:flex data-[state=inactive]:hidden">
                 <SupportChatPanel />
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
           </DialogPrimitive.Content>
         </DialogOverlay>
       </DialogPortal>

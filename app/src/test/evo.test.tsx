@@ -114,13 +114,28 @@ describe('EvoHub: painel, chat e rascunho', () => {
     expect(supabase.functions.invoke).toHaveBeenCalledTimes(1)
     vi.mocked(supabase.functions.invoke).mockReset()
   })
-  it('participante: abre direto no "Falar com a Evokaa", sem abas', async () => {
+  it('participante: janela flutuante não modal (sem véu, sem abas); o mascote alterna e Esc fecha', async () => {
     role = 'user'
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
     montar()
-    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
-    expect(await screen.findByRole('heading', { name: 'Falar com a Evokaa' })).toBeInTheDocument()
+    const mascote = screen.getByRole('button', { name: 'Falar com o Evo' })
+    expect(mascote).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(mascote)
+    const janela = await screen.findByRole('dialog', { name: 'Falar com a Evokaa' })
+    expect(janela).toHaveAttribute('aria-modal', 'false')
+    expect(mascote).toHaveAttribute('aria-expanded', 'true')
+    expect(document.querySelector('.glass-backdrop')).toBeNull() // sem véu: a página segue clicável
+    expect(document.body.style.pointerEvents).not.toBe('none')
     expect(screen.queryByRole('tab')).toBeNull()
     expect(screen.queryByLabelText('Mensagem para o Evo')).toBeNull()
+    await waitFor(() => expect(janela).toContainElement(document.activeElement as HTMLElement)) // foco no título, dentro da janela
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(mascote).toHaveFocus()
+    fireEvent.click(mascote) // abre de novo
+    expect(await screen.findByRole('dialog', { name: 'Falar com a Evokaa' })).toBeInTheDocument()
+    fireEvent.click(mascote) // e o mesmo clique fecha
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
   it('planejar: envia form, mostra proposta editável e cria rascunho só no clique', async () => {
     role = 'producer'

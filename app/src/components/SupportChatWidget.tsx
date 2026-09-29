@@ -409,9 +409,35 @@ export function SupportChatPanel() {
   return <Suporte key={user?.id ?? 'anon'} publico={publicoDoPapel(user?.role)} />
 }
 
+/**
+ * Janela flutuante NÃO modal (estilo Intercom): sem véu, a página segue rolável e clicável; clique
+ * fora não fecha; Esc fecha (quem abriu devolve o foco). Usada pelo balão do site e, para o
+ * participante, pelo mascote do Evo. `posicao` traz bottom/right/altura de cada uso.
+ */
+export function JanelaSuporte({ publico, aoFechar, posicao }: { publico: Publico; aoFechar: () => void; posicao: string }) {
+  const { user } = useAuth()
+  return (
+    <div
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="suporte-titulo"
+      onKeyDown={(e) => e.key === 'Escape' && aoFechar()}
+      className={`glass-panel fixed right-6 z-50 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden max-sm:inset-x-2 max-sm:w-auto max-sm:max-w-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 ${posicao}`}
+      style={{ borderRadius: 28 }}
+    >
+      <div className="flex items-center justify-between px-5 pb-1 pt-4">
+        <h2 id="suporte-titulo" className="text-base font-semibold">Falar com a Evokaa</h2>
+        <button type="button" onClick={aoFechar} aria-label="Fechar chat com a Evokaa" className={`rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 ${foco}`}>
+          <X className="h-5 w-5" aria-hidden="true" />
+        </button>
+      </div>
+      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir />
+    </div>
+  )
+}
+
 /** Balão do site (fora dos painéis do app): assuntos do site. */
 export default function SupportChatWidget() {
-  const { user } = useAuth()
   const [aberto, setAberto] = useState(false)
   const botao = useRef<HTMLButtonElement>(null)
   const { naoLidas } = useMinhasConversas(true)
@@ -422,31 +448,15 @@ export default function SupportChatWidget() {
   const rotuloBotao = aberto ? 'Fechar chat com a Evokaa' : naoLidas > 0 ? `Falar com a Evokaa (${naoLidas} ${naoLidas === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com a Evokaa'
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-      {aberto && (
-        <div
-          role="dialog"
-          aria-labelledby="suporte-titulo"
-          onKeyDown={(e) => e.key === 'Escape' && fechar()}
-          className="glass-panel mb-4 flex h-[min(620px,calc(100dvh-7rem))] w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4"
-          style={{ borderRadius: 28 }}
-        >
-          <div className="flex items-center justify-between px-5 pb-1 pt-4">
-            <h2 id="suporte-titulo" className="text-base font-semibold">Falar com a Evokaa</h2>
-            <button type="button" onClick={fechar} aria-label="Fechar chat com a Evokaa" className={`rounded-lg p-1.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 ${foco}`}>
-              <X className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-          <Suporte key={user?.id ?? 'anon'} publico="site" focarAoAbrir />
-        </div>
-      )}
+    <>
+      {aberto && <JanelaSuporte publico="site" aoFechar={fechar} posicao="bottom-24 max-sm:bottom-20 h-[min(620px,calc(100dvh-8rem))]" />}
       <button
         ref={botao}
         type="button"
         onClick={() => setAberto((a) => !a)}
         aria-label={rotuloBotao}
         aria-expanded={aberto}
-        className="relative grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-[#fff] shadow-[0_6px_30px_rgba(74,96,227,0.45)] transition-transform motion-safe:hover:scale-105 motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 dark:focus-visible:ring-violet-300"
+        className="fixed bottom-6 right-6 z-50 grid h-14 w-14 place-items-center rounded-full bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-[#fff] shadow-[0_6px_30px_rgba(74,96,227,0.45)] transition-transform motion-safe:hover:scale-105 motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 dark:focus-visible:ring-violet-300"
       >
         {aberto ? <X className="h-6 w-6" aria-hidden="true" /> : <MessageCircle className="h-6 w-6" aria-hidden="true" />}
         {naoLidas > 0 && !aberto && (
@@ -455,6 +465,6 @@ export default function SupportChatWidget() {
           </span>
         )}
       </button>
-    </div>
+    </>
   )
 }
