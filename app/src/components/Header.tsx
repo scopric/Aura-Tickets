@@ -37,8 +37,9 @@ export default function Header() {
       className={cn(
         'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out',
         isProducerRoute && 'hidden',
-        isScrolled
-          ? 'bg-white/80 backdrop-blur-xl shadow-sm'
+        // ponytail: /contato é a única página pública com topo claro; ali o cabeçalho já nasce escuro
+        isScrolled || location.pathname === '/contato'
+          ? 'bg-void/80 backdrop-blur-xl shadow-sm' // site sempre escuro: fundo escuro explícito
           : 'bg-transparent'
       )}
     >
@@ -57,7 +58,7 @@ export default function Header() {
               )}
             />
             {!isScrolled && (
-              <span className="text-[10px] font-medium text-white/40 tracking-widest uppercase hidden sm:block">
+              <span className="text-[10px] font-medium text-white/60 tracking-widest uppercase hidden sm:block">
                 Plataforma
               </span>
             )}
@@ -82,14 +83,14 @@ export default function Header() {
                 className={cn(
                   'relative px-4 py-2 text-[13px] font-medium transition-colors duration-300 rounded-full',
                   isActive(link.href)
-                    ? isScrolled ? 'text-blue-500' : 'text-cyan-400'
-                    : isScrolled ? 'text-slate-500 hover:text-slate-900' : 'text-white/60 hover:text-white'
+                    ? 'text-cyan-400'
+                    : 'text-white/60 hover:text-white'
                 )}
               >
                 {isActive(link.href) && (
                   <span className={cn(
                     'absolute inset-0 rounded-full',
-                    isScrolled ? 'bg-blue-500/[0.07]' : 'bg-white/[0.07]'
+                    'bg-white/[0.07]'
                   )} />
                 )}
                 <span className="relative">{link.label}</span>
@@ -105,7 +106,7 @@ export default function Header() {
                   onClick={() => setShowUserMenu(!showUserMenu)}
                   className={cn(
                     'flex items-center gap-2 pl-1 pr-2 py-1 rounded-full transition-colors',
-                    isScrolled ? 'hover:bg-slate-100' : 'hover:bg-white/5'
+                    'hover:bg-white/5'
                   )}
                 >
                   <img
@@ -115,14 +116,14 @@ export default function Header() {
                   />
                   <span className={cn(
                     'text-[13px] font-medium max-w-[120px] truncate',
-                    isScrolled ? 'text-slate-700' : 'text-white'
+                    'text-white'
                   )}>
                     {user.full_name || user.email}
                   </span>
                   <ChevronDown className={cn(
                     'w-3.5 h-3.5 transition-transform',
                     showUserMenu && 'rotate-180',
-                    isScrolled ? 'text-slate-400' : 'text-white/40'
+                    'text-white/60'
                   )} />
                 </button>
 
@@ -130,7 +131,7 @@ export default function Header() {
                   <div className="absolute right-0 top-full mt-2 w-52 bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-2xl shadow-xl py-2 z-50">
                     <div className="px-4 py-2 border-b border-slate-100 mb-1">
                       <p className="text-xs font-medium text-slate-900 truncate">{user.full_name || user.email}</p>
-                      <p className="text-[10px] text-slate-400 capitalize">{role === 'producer' ? 'Produtor' : role === 'admin' ? 'Admin' : 'Participante'}</p>
+                      <p className="text-[10px] text-slate-600 capitalize">{role === 'producer' ? 'Produtor' : role === 'admin' ? 'Admin' : 'Participante'}</p>
                     </div>
                     <Link
                       to={role === 'admin' ? '/admin/dashboard' : role === 'producer' ? '/producer/dashboard' : '/app/hub'}
@@ -141,7 +142,7 @@ export default function Header() {
                     </Link>
                     <button
                       onClick={() => { setShowUserMenu(false); logout() }}
-                      className="flex items-center gap-2 px-4 py-2 text-[13px] text-red-500 hover:bg-red-50 transition-colors w-full text-left"
+                      className="flex items-center gap-2 px-4 py-2 text-[13px] text-red-600 hover:bg-red-50 transition-colors w-full text-left"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       Sair
@@ -155,9 +156,7 @@ export default function Header() {
                   to={appUrl('/auth/login')}
                   className={cn(
                     'text-[13px] py-2.5 px-5 font-medium rounded-full transition-all duration-300',
-                    isScrolled 
-                      ? 'text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300' 
-                      : 'text-white/80 border border-white/15 hover:bg-white/5 hover:border-white/25'
+                    'text-white/80 border border-white/15 hover:bg-white/5 hover:border-white/25'
                   )}
                 >
                   Entrar
@@ -185,7 +184,7 @@ export default function Header() {
             aria-expanded={isMobileMenuOpen}
             className={cn(
               'md:hidden p-2',
-              isScrolled ? 'text-slate-700' : 'text-white'
+              'text-white'
             )}
           >
             {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -214,7 +213,7 @@ export default function Header() {
               className={cn(
                 'flex items-center px-4 py-3 rounded-xl text-sm font-medium transition-colors',
                 isActive(link.href)
-                  ? 'bg-blue-500/[0.07] text-blue-500'
+                  ? 'bg-blue-500/[0.07] text-blue-600'
                   : 'text-slate-500 hover:bg-slate-50'
               )}
             >
@@ -234,7 +233,7 @@ export default function Header() {
                 </Link>
                 <button
                   onClick={() => { setIsMobileMenuOpen(false); logout() }}
-                  className="flex-1 flex items-center justify-center py-3 text-sm font-medium text-red-500 border border-red-200 rounded-full hover:bg-red-50 transition-all"
+                  className="flex-1 flex items-center justify-center py-3 text-sm font-medium text-red-600 border border-red-200 rounded-full hover:bg-red-50 transition-all"
                 >
                   <LogOut className="w-4 h-4 mr-1" />
                   Sair
