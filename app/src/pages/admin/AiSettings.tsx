@@ -379,7 +379,7 @@ export default function AdminAiSettings() {
             <h2 id="ia-limites" className="text-lg font-semibold text-foreground">Limites e créditos</h2>
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold text-foreground">Créditos por plano</legend>
-              <p className="text-xs text-muted-foreground">Free = amostra única (conta todo o uso). Demais planos = por mês.</p>
+              <p className="text-xs text-muted-foreground">Todos os planos renovam no dia 1º e não acumulam para o mês seguinte.</p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {PLANS.map(p => (
                   <label key={p.id} className="space-y-1">

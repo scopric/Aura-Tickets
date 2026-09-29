@@ -23,7 +23,7 @@ export interface Mensagem {
   criando?: boolean
 }
 
-type Saldo = { habilitado: boolean; plano: string; cota: number; concedido: number; usado: number; restante: number; periodo: 'total' | 'mes' }
+type Saldo = { habilitado: boolean; plano: string; cota: number; concedido: number; usado: number; restante: number; periodo: 'mes' }
 type Resposta =
   | { ok: true; reply_md: string; proposal?: EventProposal; usage_id: string; restante: number }
   | { ok: false; motivo: string; message?: string; custo?: number; restante?: number }
@@ -186,9 +186,7 @@ export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pens
     } else {
       const aviso = r.motivo === 'sem_credito' && typeof r.custo === 'number' && typeof r.restante === 'number'
         ? `Este pedido custa ${creditos(r.custo)} e você tem ${r.restante}.`
-        : r.motivo === 'sem_credito' && saldo?.periodo === 'total'
-          ? 'Seus créditos de amostra do Evo acabaram.'
-          : RECUSAS[r.motivo] ?? r.message ?? RECUSAS.erro_ia
+        : RECUSAS[r.motivo] ?? r.message ?? RECUSAS.erro_ia
       setMensagens((m) => [
         ...m.map((x) => (x.id === idPergunta ? { ...x, aviso: true } : x)),
         { id: crypto.randomUUID(), role: 'model', text: aviso, aviso: true },
@@ -236,7 +234,6 @@ export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pens
             {erroSaldo ? (funcaoInexistente(erroSaldo) ? RECUSAS.indisponivel : 'Não consegui ver seus créditos agora.')
               : !saldo ? 'Carregando seus créditos…'
               : desligado ? RECUSAS.desligado
-              : saldo.periodo === 'total' ? `${creditos(saldo.restante)} de amostra`
               : `${creditos(saldo.restante)} ${saldo.restante === 1 ? 'restante' : 'restantes'} este mês`}
           </p>
         </div>

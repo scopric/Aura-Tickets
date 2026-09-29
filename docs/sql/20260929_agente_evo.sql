@@ -146,7 +146,7 @@ begin
   plano := coalesce(plano, 'free');
   cota := coalesce((v_quotas->>plano)::int, 0);
 
-  -- módulo "agent" liberado e não vencido: sobe a cota até a do pro e passa a contar por mês
+  -- módulo "agent" liberado e não vencido: sobe a cota até a do pro
   v_modulo := exists (
     select 1 from public.user_custom_features f
     where f.user_id = p_user
@@ -157,22 +157,21 @@ begin
     cota := (v_quotas->>'pro')::int;
   end if;
 
-  -- free sem módulo é amostra: conta o uso de todo o tempo; os demais, o mês corrente
-  periodo := case when plano = 'free' and not v_modulo then 'total' else 'mes' end;
+  -- todos os planos, Free incluído, renovam no dia 1º e não acumulam (Ricardo, 29/09/2026);
+  -- concedido pelo admin vale só no mês da concessão
+  periodo := 'mes';
 
-  -- concedido segue o mesmo período do usado (senão, no "total", o saldo ficaria negativo para
-  -- sempre depois da virada do mês)
   select coalesce(sum(g.amount), 0) into concedido
   from public.ai_credit_grants g
   where g.user_id = p_user
-    and (periodo = 'total' or g.created_at >= v_mes);
+    and g.created_at >= v_mes;
 
   -- erro não gasta crédito do produtor (a pergunta que falhou não conta)
   select coalesce(sum(u.credits), 0) into usado
   from public.ai_usage u
   where u.user_id = p_user
     and u.status <> 'erro'
-    and (periodo = 'total' or u.created_at >= v_mes);
+    and u.created_at >= v_mes;
 
   return next;
 end;
@@ -823,7 +822,7 @@ commit;
 --   insert into public.ai_usage (user_id, mode, tier, credits, status, created_at)
 --   values (u, 'chat', 'simples', 4, 'ok', date_trunc('month', now(), 'America/Sao_Paulo') - interval '1 day');
 --   b := public.ai_balance();
---   assert b->>'periodo' = 'total' and (b->>'usado')::int = 4, format('free sem módulo: %s', b);
+--   assert b->>'periodo' = 'mes' and (b->>'usado')::int = 0, format('free: uso do mês passado não conta: %s', b);
 --   insert into public.user_custom_features (user_id, feature_key, expires_at)
 --   values (u, 'agent', now() + interval '30 days');
 --   b := public.ai_balance();
