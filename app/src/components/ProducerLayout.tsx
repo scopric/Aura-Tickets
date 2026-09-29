@@ -119,7 +119,7 @@ const menuGroups: MenuGroup[] = [
     id: 'ops', icon: Shield, label: 'Operacao', color: '#3b82f6',
     items: [
       { to: '/producer/tarefas', icon: CheckSquare, label: 'Tarefas' },
-      { to: '/producer/comunicacao', icon: Mail, label: 'Comunicacao' },
+      { to: '/producer/comunicacao', icon: Mail, label: 'Comunicacao', comingSoon: true }, // sem tabela nem envio: vira o produto de e-mail do produtor (N2)
       { to: '/producer/parceiros', icon: Handshake, label: 'Parceiros' },
       { to: '/producer/team', icon: Shield, label: 'Equipe' },
       { to: '/producer/checkin', icon: ScanLine, label: 'Check-in' },
