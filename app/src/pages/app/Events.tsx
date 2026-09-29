@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Search, Calendar, MapPin, Heart, Loader2, Star,
+  Search, Calendar, MapPin, Loader2, Star,
   Filter, ArrowRight, Clock, Ticket
 } from 'lucide-react'
 import { usePublicEvents } from '../../hooks/useEvents'
@@ -40,17 +40,7 @@ function getMinPrice(ticketTypes: any[]) {
 export default function AppEvents() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
-  const [favorites, setFavorites] = useState<Set<string>>(new Set())
   const { data: events = [], isLoading } = usePublicEvents()
-
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
 
   const filtered = useMemo(() => {
     return events.filter((e) => {
@@ -160,17 +150,6 @@ export default function AppEvents() {
                 Ver detalhes
                 <ArrowRight className="w-4 h-4" />
               </Link>
-              <button
-                onClick={() => toggleFavorite(featured.id)}
-                className={cn(
-                  'p-3 rounded-full backdrop-blur transition-all',
-                  favorites.has(featured.id)
-                    ? 'bg-red-500/80 text-white'
-                    : 'bg-white/[0.05] text-white/60 hover:bg-white/[0.1]'
-                )}
-              >
-                <Heart className={cn('w-5 h-5', favorites.has(featured.id) && 'fill-current')} />
-              </button>
             </div>
           </div>
         </div>
@@ -216,20 +195,6 @@ export default function AppEvents() {
                       {event.category || 'Evento'}
                     </span>
                   </div>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault()
-                      toggleFavorite(event.id)
-                    }}
-                    className={cn(
-                      'absolute top-3 right-3 p-2 rounded-full backdrop-blur transition-all',
-                      favorites.has(event.id)
-                        ? 'bg-red-500/90 text-white'
-                        : 'bg-white/[0.05] text-white/40 hover:text-red-400'
-                    )}
-                  >
-                    <Heart className={cn('w-4 h-4', favorites.has(event.id) && 'fill-current')} />
-                  </button>
                   {getMinPrice(event.ticket_types) && (
                     <div className="absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-plum/90 text-cream text-sm font-semibold">
                       {getMinPrice(event.ticket_types)}

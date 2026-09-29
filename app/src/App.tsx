@@ -114,7 +114,6 @@ const AppHub = lazy(() => import('./pages/app/Hub'))
 const AppTickets = lazy(() => import('./pages/app/Tickets'))
 const AppEvents = lazy(() => import('./pages/app/Events'))
 const AppOrders = lazy(() => import('./pages/app/Orders'))
-const AppFavorites = lazy(() => import('./pages/app/Favorites'))
 const AppChat = lazy(() => import('./pages/app/Chat'))
 const AppNotifications = lazy(() => import('./pages/app/Notifications'))
 const AppProfile = lazy(() => import('./pages/app/Profile'))
@@ -370,7 +369,6 @@ function Layout() {
               <Route path="/app/tickets" element={<AppTickets />} />
               <Route path="/app/events" element={<AppEvents />} />
               <Route path="/app/orders" element={<AppOrders />} />
-              <Route path="/app/favorites" element={<AppFavorites />} />
               <Route path="/app/chat" element={<AppChat />} />
               <Route path="/app/notifications" element={<AppNotifications />} />
               <Route path="/app/profile" element={<AppProfile />} />

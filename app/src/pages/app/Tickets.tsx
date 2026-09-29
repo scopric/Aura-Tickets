@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { siteUrl } from '../../lib/appHost'
 import {
   Ticket, QrCode, Calendar, MapPin, Clock, CheckCircle2, XCircle,
-  AlertTriangle, Share2, Download, Loader2
+  AlertTriangle, Share2, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUserTickets, type DbTicket } from '../../hooks/useUserTickets'
@@ -44,12 +45,6 @@ export default function ParticipantTickets() {
     if (!eventId) { toast.error('Evento indisponível para compartilhar.'); return }
     navigator.clipboard.writeText(siteUrl(`/event/${eventId}`))
     toast.success('Link do evento copiado!')
-  }
-  const handleCancel = (_id: string) => {
-    toast.success('Solicitacao de cancelamento enviada. Reembolso em ate 7 dias.')
-  }
-  const handleDownload = () => {
-    toast.success('Ingresso PDF baixado!')
   }
 
   return (
@@ -133,7 +128,6 @@ export default function ParticipantTickets() {
                     <div className="flex items-center gap-2">
                       <button onClick={() => setSelected(t)} className="flex-1 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> Ver QR</button>
                       <button onClick={() => handleShare(t.events?.id)} title="Copiar link do evento" aria-label="Copiar link do evento" className="p-2 rounded-xl bg-white/[0.05] text-white/40 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
-                      <button onClick={handleDownload} className="p-2 rounded-xl bg-white/[0.05] text-white/40 hover:text-plum transition-colors"><Download className="w-3.5 h-3.5" /></button>
                     </div>
                   </>
                 )}
@@ -167,10 +161,7 @@ export default function ParticipantTickets() {
                 <TicketQRCode code={selected.code} size={192} className="rounded-2xl" />
               </div>
               <div className="text-xs font-mono text-white/30 mb-4">{selected.code}</div>
-              <div className="flex items-center gap-2">
-                <button onClick={handleDownload} className="flex-1 py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-1"><Download className="w-3.5 h-3.5" /> Baixar PDF</button>
-                <button onClick={() => handleCancel(selected.id)} className="flex-1 py-2.5 bg-red-500/10 text-red-400 text-xs rounded-full hover:bg-red-500/20 transition-all">Cancelar</button>
-              </div>
+              <p className="text-xs text-white/40">Para cancelar, fale com o <Link to="/contato" className="text-plum-light hover:underline">suporte</Link>.</p>
             </div>
           </div>
         </div>

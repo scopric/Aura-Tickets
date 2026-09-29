@@ -29,7 +29,6 @@ const buyerSteps: TourStep[] = [
   { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague via PIX ou cartao.' },
   { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in. Funciona sem internet!' },
   { title: 'Pre-Order', description: 'Compre bebidas e comidas antecipadamente pelo Pre-Order. Evite filas e ganhe descontos exclusivos.' },
-  { title: 'Favoritos', description: 'Salve eventos que voce curtiu. Receba notificacoes quando novos ingressos forem liberados.' },
   { title: 'Voce esta pronto!', description: 'Explore o app e encontre seu proximo evento. Duvidas? O FAQ esta no menu "Ajuda".' },
 ]
 

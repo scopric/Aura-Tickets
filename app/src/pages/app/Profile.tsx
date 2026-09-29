@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Star, Ticket, Heart, DollarSign, Shield, Loader2, Search } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { useAuthStore } from '../../stores/authStore'
@@ -160,10 +161,6 @@ export default function ParticipantProfile() {
           <div className="flex-1">
             <h2 className="font-serif text-2xl text-cream">{profile.name || 'Usuário'}</h2>
             <p className="text-xs text-white/40">{profile.email}</p>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="px-2 py-0.5 text-[10px] font-medium rounded-full bg-plum/20 text-plum-light border border-plum/30">Plano Gratuito</span>
-              <span className="flex items-center gap-1 text-[10px] text-amber-400"><Star className="w-3 h-3 fill-amber-400 text-amber-400" /> 4.8</span>
-            </div>
           </div>
           <button 
             disabled={isSaving}
@@ -182,10 +179,9 @@ export default function ParticipantProfile() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
         {[
           { label: 'Eventos', value: isLoading ? '-' : eventCount.toString(), icon: Calendar },
-          { label: 'Favoritos', value: '0', icon: Heart },
           { label: 'Ingressos', value: isLoading ? '-' : activeTickets.toString(), icon: Ticket },
           { label: 'Gasto Total', value: isLoading ? '-' : formatCurrency(totalSpent, 'BRL'), icon: DollarSign },
         ].map(s => (
@@ -362,14 +358,14 @@ export default function ParticipantProfile() {
               <div className="text-sm text-cream">Senha</div>
               <div className="text-xs text-white/30">Altere sua senha periodicamente</div>
             </div>
-            <button onClick={() => toast.success('E-mail de recuperação enviado!')} className="px-4 py-2 text-xs text-plum-light hover:bg-plum/10 rounded-full transition-colors">Alterar</button>
+            <Link to="/auth/forgot" className="px-4 py-2 text-xs text-plum-light hover:bg-plum/10 rounded-full transition-colors">Alterar</Link>
           </div>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-cream">Autenticação de dois fatores</div>
               <div className="text-xs text-white/30">Adicione segurança extra</div>
             </div>
-            <button onClick={() => toast.success('Configuração iniciada!')} className="px-4 py-2 text-xs text-plum-light hover:bg-plum/10 rounded-full transition-colors">Ativar</button>
+            <button disabled aria-label="Autenticação de dois fatores: em breve" className="px-4 py-2 text-xs text-white/30 rounded-full cursor-not-allowed">Em breve</button>
           </div>
         </div>
       </div>
