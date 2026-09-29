@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Se a sessao atual salva no Zustand for mock, nao devemos limpar a autenticacao
           // O Supabase real sempre disparara INITIAL_SESSION com session: null se nao houver login real
           const currentSession = useAuthStore.getState().session
-          if (currentSession?.access_token && currentSession.access_token.startsWith('mock-token-')) {
+          if (import.meta.env.DEV && currentSession?.access_token && currentSession.access_token.startsWith('mock-token-')) {
             setLoading(false)
             return
           }
