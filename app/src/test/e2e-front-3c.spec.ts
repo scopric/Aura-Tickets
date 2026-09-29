@@ -26,6 +26,13 @@ test('App do Organizador sem nota nem recursos inventados', async ({ page }) => 
   await expect(page.getByText(/4\.9 estrelas|Funciona offline|Notificacoes Push/i)).toHaveCount(0)
 })
 
+test('Configurações do produtor sem a aba Integrações nem "API Key" (Decisão 37)', async ({ page }) => {
+  await entrarProdutor(page)
+  await page.goto('/producer/settings')
+  await expect(page.getByRole('button', { name: 'Equipe' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Integra/ })).toHaveCount(0)
+})
+
 test('Home sem "Ver Demo" e sem números inventados (10K+, 500K+, 98%)', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('link', { name: /Começar Agora/ }).first()).toBeVisible()
