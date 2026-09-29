@@ -4,6 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuthStore, type User } from '../stores/authStore'
 import { toast } from 'sonner'
+import { clearAffiliateRef } from '../lib/affiliateRef'
 
 export interface ExtendedUser extends User {
   name?: string
@@ -218,7 +219,7 @@ export function useAuth() {
 
   const register = async (
     name: string, email: string, password: string, role: 'user' | 'producer' | 'admin',
-    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean; howDidYouHear?: string; referralEmail?: string }
+    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean; howDidYouHear?: string; referralEmail?: string; affiliateCode?: string; affiliateRefSeenAt?: string; affiliateLink?: string }
   ): Promise<boolean> => {
     try {
       // O aceite vai nos metadados do usuário (prova de aceite, LGPD art. 8º, § 2º); a função
@@ -240,6 +241,19 @@ export function useAuth() {
         await supabase.from('profiles').update({ full_name: name }).eq('id', data.user.id).catch(() => {})
       }
       
+      // Afiliado Evokaa (Decisão 64): vincula o produtor ao afiliado do código. O banco confere
+      // tudo (papel, código ativo, autoindicação, vínculo existente) e recusa em silêncio;
+      // best-effort: não trava o cadastro se falhar.
+      if (role === 'producer' && data.session && consent?.affiliateCode?.trim()) {
+        const { error: refError } = await supabase.rpc('link_me_to_affiliate', {
+          p_code: consent.affiliateCode.trim().toUpperCase(),
+          p_ref_first_seen_at: consent.affiliateRefSeenAt ?? null,
+          p_link: consent.affiliateLink ?? null,
+        } as never)
+        if (refError) console.error('[Afiliado] vínculo não gravado:', refError.message)
+        else clearAffiliateRef()
+      }
+
       // mailer_autoconfirm está ligado: não existe e-mail de confirmação para verificar.
       toast.success('Cadastro realizado! Bem-vindo(a) à Evokaa.')
       return true

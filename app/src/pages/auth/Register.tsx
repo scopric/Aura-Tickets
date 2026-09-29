@@ -8,6 +8,7 @@ import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import AuthLGPDConsent from '../../components/AuthLGPDConsent'
 import AuthAcquisitionSelector from '../../components/AuthAcquisitionSelector'
 import AuthPasswordStrength from '../../components/AuthPasswordStrength'
+import { captureAffiliateRef, getAffiliateRef } from '../../lib/affiliateRef'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
@@ -30,6 +31,10 @@ export default function AuthRegister() {
   const [dataSharingConsent, setDataSharingConsent] = useState(false)
   const [howDidYouHear, setHowDidYouHear] = useState('')
   const [referralEmail, setReferralEmail] = useState('')
+  // Código do Afiliado Evokaa: vem do link (?ref=) quando houver; o produtor também pode digitar
+  // lê o ?ref= do próprio endereço antes: o código chega do site (www) nesta mesma carga
+  const [refGuardado] = useState(() => { captureAffiliateRef(window.location.search); return getAffiliateRef() })
+  const [affiliateCode, setAffiliateCode] = useState(refGuardado?.code ?? '')
 
   const handleBack = () => {
     if (step === 2) {
@@ -103,7 +108,11 @@ export default function AuthRegister() {
       marketingConsent,
       dataSharingConsent,
       howDidYouHear,
-      referralEmail
+      referralEmail,
+      affiliateCode: type === 'producer' ? affiliateCode : '',
+      // a data do link só vale se o código não foi trocado à mão
+      affiliateRefSeenAt: refGuardado && refGuardado.code === affiliateCode.trim().toUpperCase() ? refGuardado.firstSeenAt : undefined,
+      affiliateLink: refGuardado && refGuardado.code === affiliateCode.trim().toUpperCase() ? refGuardado.link : undefined,
     })
     
     if (success) {
@@ -254,6 +263,21 @@ export default function AuthRegister() {
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
+            {type === 'producer' && (
+              <div className="space-y-1">
+                <label htmlFor="affiliate-code" className="text-xs font-medium text-espresso/60 block">Código de indicação (opcional)</label>
+                <input
+                  id="affiliate-code"
+                  type="text"
+                  value={affiliateCode}
+                  onChange={e => setAffiliateCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30))}
+                  placeholder="Se um consultor Evokaa indicou você"
+                  className="w-full px-4 py-3 bg-white border border-espresso/10 rounded-xl text-sm font-mono uppercase focus:outline-none focus:border-plum"
+                  autoComplete="off"
+                />
+              </div>
+            )}
+
             {/* Componente de Canal de Aquisição */}
             <div className="space-y-1">
               <label className="text-xs font-medium text-espresso/60 block">Como nos conheceu?</label>

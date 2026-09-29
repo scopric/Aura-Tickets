@@ -10,6 +10,7 @@ import FAQSection from '../components/FAQSection'
 import ContactSection from '../components/ContactSection'
 import PricingSection from '../components/PricingSection'
 import EventCarousel from '../components/EventCarousel'
+import { registerUrl } from '../lib/affiliateRef'
 
 
 gsap.registerPlugin(ScrollTrigger)
@@ -847,7 +848,7 @@ export default function Home() {
 
                 <div className="relative z-10 mt-auto">
                   <Link
-                    to={appUrl('/auth/register')}
+                    to={registerUrl(appUrl)}
                     className="w-full py-3 bg-white text-slate-950 hover:bg-slate-100 active:scale-[0.98] text-xs font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-wider"
                   >
                     <span>Criar Plataforma</span>
@@ -943,7 +944,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to={appUrl('/auth/register')}
+                to={registerUrl(appUrl)}
                 className="btn-primary flex items-center gap-2"
               >
                 Criar Meu Evento
