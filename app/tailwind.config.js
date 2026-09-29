@@ -13,6 +13,7 @@ module.exports = {
         canvas: "rgb(var(--canvas-rgb) / <alpha-value>)",
         void: "rgb(var(--void-rgb) / <alpha-value>)",
         plum: "rgb(var(--plum-rgb) / <alpha-value>)",
+        "plum-light": "var(--plum-light)", // roxo que passa nos dois temas (usado como text-plum-light)
         espresso: "rgb(var(--espresso-rgb) / <alpha-value>)",
         cream: "rgb(var(--cream-rgb) / <alpha-value>)",
         primary: {

@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { siteUrl } from '../../lib/appHost'
 import {
-  Ticket, Heart, MessageSquare, QrCode, Clock, MapPin, Calendar,
-  ChevronRight, Star, Share2, Download, Wine, UtensilsCrossed,
+  Ticket, MessageSquare, QrCode, Clock, MapPin, Calendar,
+  ChevronRight, Star, Share2, Wine, UtensilsCrossed,
   Package, Send, User, Bell, Search, Sparkles,
   ShoppingCart, Minus, Plus, Image as ImageIcon, Loader2
 } from 'lucide-react'
@@ -18,7 +19,6 @@ import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
-  const [favorites, setFavorites] = useState<Record<string, boolean>>({})
   const [showQR, setShowQR] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
   const [chatMessage, setChatMessage] = useState('')
@@ -56,8 +56,6 @@ export default function AppHub() {
     }
   }, [activeTab, activeEventId])
 
-  const toggleFav = (id: string) => setFavorites(prev => ({ ...prev, [id]: !prev[id] }))
-
   // Mapear tickets do DB para o formato do layout
   const myTickets = (dbTickets || []).map(t => {
     const eventDate = t.events?.date
@@ -74,7 +72,7 @@ export default function AppHub() {
       seat: t.seat_info || 'Livre',
       price: t.ticket_types?.price || 0,
       qr: t.code || t.qr_code || '',
-      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'ativo',
+      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'transferido',
     }
   })
 
@@ -96,23 +94,18 @@ export default function AppHub() {
     { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length > 0 ? myTickets.length : undefined },
     { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
     { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
-    { id: 'chat' as const, label: 'Chat', icon: MessageSquare, count: 1 },
+    { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
   ]
 
   const filteredEvents = dbEvents.filter(e => 
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (e.venue_name || e.location || '').toLowerCase().includes(searchTerm.toLowerCase())
   )  const renderStats = () => (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-2 gap-3">
       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
         <Ticket className="w-4 h-4 text-plum mx-auto mb-1" />
         <div className="font-serif text-xl text-cream">{isLoadingTickets ? '...' : myTickets.length}</div>
         <div className="text-[10px] text-cream/70">Ingressos</div>
-      </div>
-      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
-        <Heart className="w-4 h-4 text-rose-400 mx-auto mb-1" />
-        <div className="font-serif text-xl text-cream">{Object.values(favorites).filter(Boolean).length}</div>
-        <div className="text-[10px] text-cream/70">Favoritos</div>
       </div>
       <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
         <Calendar className="w-4 h-4 text-amber-400 mx-auto mb-1" />
@@ -155,7 +148,7 @@ export default function AppHub() {
                   </div>
                 </div>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === 'ativo' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                  {ticket.status === 'ativo' ? 'Ativo' : 'Usado'}
+                  {{ ativo: 'Ativo', usado: 'Usado', cancelado: 'Cancelado', transferido: 'Transferido' }[ticket.status]}
                 </span>
               </div>
               <div className="flex items-center gap-4 text-[11px] text-cream/70 mb-3 overflow-x-auto pb-1">
@@ -172,11 +165,8 @@ export default function AppHub() {
                 <button onClick={() => setShowQR(ticket.qr)} className="flex-1 py-2 bg-plum text-cream text-xs font-medium rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5">
                   <QrCode className="w-3.5 h-3.5" /> Ver QR Code
                 </button>
-                <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/70 hover:text-cream transition-colors">
+                <button onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label="Copiar link do evento" title="Copiar link do evento" className="p-2.5 rounded-xl bg-white/[0.05] text-cream/70 hover:text-cream transition-colors">
                   <Share2 className="w-4 h-4" />
-                </button>
-                <button className="p-2.5 rounded-xl bg-white/[0.05] text-cream/70 hover:text-cream transition-colors">
-                  <Download className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -239,7 +229,6 @@ export default function AppHub() {
           ))
         ) : filteredEvents.length > 0 ? (
           filteredEvents.map(event => {
-            const isFav = favorites[event.id]
             const formattedDate = event.date 
               ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
               : 'Data a definir'
@@ -250,9 +239,6 @@ export default function AppHub() {
                 <div className="relative h-44">
                   <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-transparent to-transparent" />
-                  <button onClick={() => toggleFav(event.id)} className="absolute top-3 right-3 w-9 h-9 rounded-full bg-black/40 backdrop-blur flex items-center justify-center transition-transform hover:scale-105 active:scale-95">
-                    <Heart className={`w-4 h-4 ${isFav ? 'text-rose-500 fill-rose-500' : 'text-cream/70'}`} />
-                  </button>
                   <div className="absolute bottom-3 left-4 right-4">
                     <h3 className="font-serif text-base text-cream">{event.title}</h3>
                     <p className="text-[10px] text-cream/70">{formattedDate} · {event.venue_name || event.location || 'Local a definir'}</p>
@@ -364,8 +350,8 @@ export default function AppHub() {
             <span className="text-xs text-cream/70">{cartCount} itens</span>
             <span className="font-serif text-base text-cream">R$ {cartTotal}</span>
           </div>
-          <button className="w-full py-1.5 bg-cream text-plum text-xs font-semibold rounded-lg hover:bg-cream/90 transition-all">
-            Confirmar Pedido
+          <button disabled className="w-full py-1.5 bg-cream/60 text-plum text-xs font-semibold rounded-lg cursor-not-allowed">
+            Pedidos em breve
           </button>
         </div>
       )}

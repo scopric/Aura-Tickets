@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { useAuthStore } from '../stores/authStore'
 import { supabase } from '@/lib/supabase'
 
@@ -162,4 +162,21 @@ describe('authStore', () => {
     expect(state.session).toBeNull()
     expect(state.isAuthenticated).toBe(false)
   })
+
+  it('fora de desenvolvimento, sessão "mock-token-admin" gravada no navegador não vira admin (PR 3D)', async () => {
+    vi.stubEnv('DEV', false)
+    vi.mocked(supabase.auth.getUser).mockResolvedValueOnce({
+      data: { user: null },
+      error: null,
+    })
+
+    useAuthStore.getState().setSession({ access_token: 'mock-token-admin' })
+    await useAuthStore.getState().fetchProfile()
+
+    const state = useAuthStore.getState()
+    expect(state.user).toBeNull()
+    expect(state.isAuthenticated).toBe(false)
+  })
+
+  afterEach(() => vi.unstubAllEnvs()) // o stub de DEV não vaza se uma asserção falhar
 })

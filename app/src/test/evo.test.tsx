@@ -21,7 +21,7 @@ vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect()
 const mem: Record<string, string> = {}
 vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
 
-const SALDO_OK = { data: { habilitado: true, plano: 'free', cota: 5, concedido: 0, usado: 1, restante: 4, periodo: 'total' }, error: null }
+const SALDO_OK = { data: { habilitado: true, plano: 'free', cota: 5, concedido: 0, usado: 1, restante: 4, periodo: 'mes' }, error: null }
 function montar(saldo: unknown = SALDO_OK) {
   ;(supabase as unknown as { rpc: unknown }).rpc = vi.fn(() => Promise.resolve(saldo))
   return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><EvoHub /></MemoryRouter></QueryClientProvider>)
@@ -62,16 +62,16 @@ describe('EvoHub: painel, chat e rascunho', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument()
     expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Evo', 'Falar com a Evokaa'])
     expect(screen.getByText(/Não cole dados de compradores \(CPF, e-mail, telefone\)\. As conversas são processadas pelo Google Gemini\./)).toBeInTheDocument()
-    expect(await screen.findByText('4 créditos de amostra')).toBeInTheDocument()
+    expect(await screen.findByText('4 créditos restantes este mês')).toBeInTheDocument()
     const caixa = screen.getByLabelText('Mensagem para o Evo')
     fireEvent.change(caixa, { target: { value: 'Oi Evo' } })
     fireEvent.keyDown(caixa, { key: 'Enter' })
     expect(await screen.findByRole('heading', { name: 'Oi' })).toBeInTheDocument()
     expect(supabase.functions.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'chat', message: 'Oi Evo', history: [] } })
-    expect(await screen.findByText('3 créditos de amostra')).toBeInTheDocument()
+    expect(await screen.findByText('3 créditos restantes este mês')).toBeInTheDocument()
     fireEvent.change(caixa, { target: { value: 'De novo' } })
     fireEvent.keyDown(caixa, { key: 'Enter' })
-    expect(await screen.findByText('Seus créditos de amostra do Evo acabaram.')).toBeInTheDocument()
+    expect(await screen.findByText('Seus créditos do Evo acabaram este mês.')).toBeInTheDocument()
     const hist = (vi.mocked(supabase.functions.invoke).mock.calls[1][1] as { body: { history: unknown } }).body.history
     expect(hist).toEqual([{ role: 'user', text: 'Oi Evo' }, { role: 'model', text: '## Oi\n- **um**' }])
     fireEvent.change(caixa, { target: { value: 'Planeje tudo' } })

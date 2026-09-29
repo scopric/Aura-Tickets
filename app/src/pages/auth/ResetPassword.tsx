@@ -14,6 +14,9 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false)
   const [validating, setValidating] = useState(true)
   const [valid, setValid] = useState(false)
+  // Conta com 2FA: o Supabase só troca a senha numa sessão aal2, e o link de recuperação abre em aal1
+  const [mfaCode, setMfaCode] = useState('')
+  const [needsCode, setNeedsCode] = useState(false)
 
   // Só aceita a sessão criada pelo link de recuperação (#…&type=recovery). Link com erro
   // (expirado/já usado) ou uma sessão comum já aberta (ex.: admin logado) não trocam senha aqui.
@@ -25,8 +28,13 @@ export default function ResetPassword() {
     }
     // getSession aguarda o supabase-js terminar de processar o link. Se o link falhar, a sessão
     // antiga (ex.: admin logado) é mantida — por isso exige que seja a sessão criada pelo link.
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setValid(!!session && session.access_token === initialAuthHash.get('access_token'))
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      const ok = !!session && session.access_token === initialAuthHash.get('access_token')
+      if (ok) {
+        const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+        setNeedsCode(data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2')
+      }
+      setValid(ok)
       setValidating(false)
     })
   }, [])
@@ -48,8 +56,22 @@ export default function ResetPassword() {
       return
     }
 
+    if (needsCode && mfaCode.length !== 6) {
+      toast.error('Digite o código de 6 dígitos do aplicativo autenticador')
+      return
+    }
+
     setIsSubmitting(true)
     try {
+      if (needsCode) {
+        const { data: factors, error: listError } = await supabase.auth.mfa.listFactors()
+        if (listError) throw listError
+        const factorId = factors.totp[0]?.id
+        if (!factorId) throw new Error('Não encontramos o autenticador desta conta. Fale com o suporte.')
+        const { error: codeError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code: mfaCode })
+        if (codeError) throw new Error('Código do autenticador inválido. Confira o aplicativo e tente de novo.')
+        setNeedsCode(false)
+      }
       const { error } = await supabase.auth.updateUser({ password })
       if (error) throw error
 
@@ -58,6 +80,11 @@ export default function ResetPassword() {
       // Desloga para forçar login com a nova senha
       await supabase.auth.signOut()
     } catch (err: any) {
+      if (err?.code === 'insufficient_aal') {
+        setNeedsCode(true)
+        toast.error('Digite também o código do aplicativo autenticador')
+        return
+      }
       toast.error(err.message || 'Erro ao alterar senha')
     } finally {
       setIsSubmitting(false)
@@ -177,6 +204,24 @@ export default function ResetPassword() {
                 </button>
               </div>
             </div>
+
+            {needsCode && (
+              <div>
+                <label htmlFor="reset-mfa" className="text-xs font-medium text-espresso/70 mb-1.5 block">Código do aplicativo autenticador (2FA)</label>
+                <input
+                  id="reset-mfa"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaCode}
+                  onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="000000"
+                  disabled={isSubmitting}
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                />
+              </div>
+            )}
 
             <button
               type="submit"

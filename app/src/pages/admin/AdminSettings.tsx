@@ -6,6 +6,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
+import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import { supabase } from '../../lib/supabase'
 import { Button } from '../../components/ui/button'
@@ -44,133 +45,7 @@ export default function AdminSettingsPage() {
     avatarInputRef.current?.click()
   }
 
-  // Estados do MFA (2FA) Pessoal do Administrador
-  const [twoFA, setTwoFA] = useState(false)
-  const [mfaFactors, setMfaFactors] = useState<any[]>([])
-  const [loadingMfa, setLoadingMfa] = useState(true)
-  
-  const [showMfaModal, setShowMfaModal] = useState(false)
-  const [enrollData, setEnrollData] = useState<{ id: string; qrCodeSvg: string; secret: string } | null>(null)
-  const [verifyCode, setVerifyCode] = useState('')
-  const [mfaError, setMfaError] = useState('')
-  const [isVerifyingMfa, setIsVerifyingMfa] = useState(false)
-
-  // Carrega os fatores de MFA da conta do administrador no Supabase
-  useEffect(() => {
-    async function loadFactors() {
-      try {
-        const { data: factorsRes, error } = await supabase.auth.mfa.listFactors()
-        if (!error && factorsRes) {
-          const activeFactors = factorsRes.totp || []
-          setMfaFactors(activeFactors)
-          setTwoFA(activeFactors.length > 0)
-        }
-      } catch (err) {
-        console.error('[MFA Factors Admin] Erro ao carregar:', err)
-      } finally {
-        setLoadingMfa(false)
-      }
-    }
-    loadFactors()
-  }, [])
-
-  const handleStartEnroll = async () => {
-    setMfaError('')
-    setVerifyCode('')
-    setIsVerifyingMfa(false)
-    try {
-      const { data: enrollRes, error } = await supabase.auth.mfa.enroll({
-        factorType: 'totp',
-        issuer: 'Evokaa Tickets',
-        friendlyName: user?.email || 'Evokaa Admin'
-      })
-
-      if (error) throw error
-
-      if (enrollRes) {
-        setEnrollData({
-          id: enrollRes.id,
-          qrCodeSvg: enrollRes.totp.qr_code || '',
-          secret: enrollRes.totp.secret || ''
-        })
-        setShowMfaModal(true)
-      }
-    } catch (err: any) {
-      console.error('[MFA Enroll Admin] Erro ao iniciar:', err)
-      toast.error(err.message || 'Erro ao iniciar ativação de 2FA')
-    }
-  }
-
-  const handleVerifyEnroll = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setMfaError('')
-    if (!verifyCode || verifyCode.length !== 6) {
-      setMfaError('Digite o código de 6 dígitos do aplicativo')
-      return
-    }
-    if (!enrollData) return
-
-    setIsVerifyingMfa(true)
-    try {
-      const challenge = await supabase.auth.mfa.challenge({ factorId: enrollData.id })
-      if (challenge.error) throw challenge.error
-
-      const verify = await supabase.auth.mfa.verify({
-        factorId: enrollData.id,
-        challengeId: challenge.data.id,
-        code: verifyCode.trim()
-      })
-
-      if (verify.error) throw verify.error
-
-      toast.success('Autenticação de dois fatores (2FA) ativada com sucesso!')
-      setTwoFA(true)
-      
-      const factorsRes = await supabase.auth.mfa.listFactors()
-      setMfaFactors(factorsRes.data?.totp || [])
-      setShowMfaModal(false)
-      setEnrollData(null)
-    } catch (err: any) {
-      console.error('[MFA Verify Admin] Erro:', err)
-      setMfaError(err.message || 'Código inválido. Verifique o app e tente novamente.')
-    } finally {
-      setIsVerifyingMfa(false)
-    }
-  }
-
-  const handleDisableMfa = async () => {
-    if (!window.confirm('Tem certeza que deseja desativar a autenticação em duas etapas (2FA)? Sua conta ficará menos protegida.')) {
-      return
-    }
-    
-    try {
-      for (const factor of mfaFactors) {
-        const { error } = await supabase.auth.mfa.unenroll({ factorId: factor.id })
-        if (error) throw error
-      }
-
-      toast.success('2FA desativado com sucesso.')
-      setTwoFA(false)
-      setMfaFactors([])
-    } catch (err: any) {
-      console.error('[MFA Unenroll Admin] Erro:', err)
-      // O Supabase só remove um fator verificado numa sessão AAL2 (login feito com o código)
-      const msg = /aal2/i.test(err?.message || '')
-        ? 'Saia e entre de novo com o código para desativar o 2FA'
-        : err.message || 'Erro ao desativar o 2FA'
-      toast.error(msg)
-    }
-  }
-
-  // Cancelar o cadastro antes de verificar: remove o fator para não ficar órfão na conta
-  const handleCancelEnroll = async () => {
-    const factorId = enrollData?.id
-    setShowMfaModal(false)
-    setEnrollData(null)
-    if (!factorId) return
-    const { error } = await supabase.auth.mfa.unenroll({ factorId })
-    if (error) console.error('[MFA Enroll Admin] Erro ao descartar fator não verificado:', error)
-  }
+  const mfa = useTwoFactor()
 
   const [general, setGeneral] = useState({
     platformName: 'Evokaa',
@@ -596,7 +471,7 @@ export default function AdminSettingsPage() {
                       {activities.map(log => (
                         <tr key={log.id} className="border-b border-border last:border-0 hover:bg-white/40 transition-colors">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-700 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-600 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
                               {LOG_LABEL[log.event_type] || log.event_type}
                             </span>
                           </td>
@@ -625,17 +500,17 @@ export default function AdminSettingsPage() {
                 <div>
                   <div className="text-sm font-medium text-espresso">Minha Autenticação de Dois Fatores (2FA)</div>
                   <div className="text-[10px] text-espresso/70">
-                    {loadingMfa ? 'Carregando status...' : twoFA ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
+                    {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
                   </div>
                 </div>
                 <button 
-                  disabled={loadingMfa}
-                  aria-label={twoFA ? 'Desativar 2FA' : 'Ativar 2FA'}
-                  aria-pressed={twoFA}
-                  onClick={twoFA ? handleDisableMfa : handleStartEnroll} 
-                  className={`relative w-11 h-6 rounded-full transition-colors ${twoFA ? 'bg-rose-500' : 'bg-espresso/10'} disabled:opacity-55`}
+                  disabled={mfa.loading}
+                  aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
+                  aria-pressed={mfa.enabled}
+                  onClick={mfa.toggle} 
+                  className={`relative w-11 h-6 rounded-full transition-colors ${mfa.enabled ? 'bg-rose-500' : 'bg-espresso/10'} disabled:opacity-55`}
                 >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${twoFA ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
             </div>
@@ -643,81 +518,7 @@ export default function AdminSettingsPage() {
         </div>
       </div>
 
-      {/* Modal do 2FA */}
-      {showMfaModal && enrollData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
-          <div className="glass-panel w-full max-w-md p-6 relative text-espresso">
-            <h3 className="font-serif text-xl mb-2 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-rose-500" /> Configurar Autenticador (2FA)
-            </h3>
-            <p className="text-xs text-espresso/70 mb-4">
-              Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
-            </p>
-
-            {enrollData.qrCodeSvg && (
-              <div 
-                className="w-48 h-48 mx-auto my-6 bg-white p-3 rounded-xl flex items-center justify-center shadow-inner border border-espresso/10"
-                dangerouslySetInnerHTML={{ __html: enrollData.qrCodeSvg }}
-              />
-            )}
-
-            <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-              <span className="text-[10px] text-espresso/70 block mb-1">Chave Manual (se o QR Code falhar)</span>
-              <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-rose-600">
-                {enrollData.secret}
-              </code>
-            </div>
-
-            {mfaError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">
-                {mfaError}
-              </div>
-            )}
-
-            <form onSubmit={handleVerifyEnroll} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1 block">Código de Verificação</label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  maxLength={6}
-                  value={verifyCode}
-                  onChange={e => setVerifyCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="000000"
-                  disabled={isVerifyingMfa}
-                  className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/60 border border-slate-200 dark:border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
-                />
-              </div>
-
-              <div className="flex gap-2 justify-end pt-2">
-                <button
-                  type="button"
-                  disabled={isVerifyingMfa}
-                  onClick={handleCancelEnroll}
-                  className="px-4 py-2 text-xs text-espresso/70 hover:text-espresso transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={isVerifyingMfa}
-                  className="px-5 py-2 bg-rose-500 text-white text-xs font-medium rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {isVerifyingMfa ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Verificando...</span>
-                    </>
-                  ) : (
-                    <span>Ativar 2FA</span>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {mfa.modal}
     </div>
   )
 }

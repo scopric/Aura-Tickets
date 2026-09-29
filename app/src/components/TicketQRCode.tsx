@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Loader2, QrCode } from 'lucide-react'
+import { QrCode } from 'lucide-react'
+import { QRCodeSVG } from 'qrcode.react'
 
 interface TicketQRCodeProps {
   code: string
@@ -7,12 +7,8 @@ interface TicketQRCodeProps {
   className?: string
 }
 
+// Gerado no navegador: o código do ingresso é a credencial de check-in e não sai para serviço de terceiros.
 export default function TicketQRCode({ code, size = 200, className = '' }: TicketQRCodeProps) {
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(code)}`
-
   if (!code) {
     return (
       <div
@@ -25,26 +21,6 @@ export default function TicketQRCode({ code, size = 200, className = '' }: Ticke
   }
 
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size }}>
-      {loading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-canvas rounded-xl">
-          <Loader2 className="w-6 h-6 text-plum animate-spin" />
-        </div>
-      )}
-      {error ? (
-        <div className="w-full h-full flex flex-col items-center justify-center bg-canvas rounded-xl p-4">
-          <QrCode className="w-10 h-10 text-espresso/20 mb-2" />
-          <span className="text-[10px] text-espresso/70 text-center font-mono break-all">{code}</span>
-        </div>
-      ) : (
-        <img
-          src={qrUrl}
-          alt={`QR Code: ${code}`}
-          className="w-full h-full object-contain rounded-xl"
-          onLoad={() => setLoading(false)}
-          onError={() => { setLoading(false); setError(true) }}
-        />
-      )}
-    </div>
+    <QRCodeSVG value={code} size={size} marginSize={4} title={`QR Code do ingresso ${code}`} className={className} />
   )
 }

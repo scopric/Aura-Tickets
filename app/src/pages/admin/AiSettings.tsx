@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Loader2, PlugZap, Info, Search, Gift, Save } from 'lucide-react'
+import { KeyRound, Loader2, PlugZap, Info, Search, Gift, Save, Mail } from 'lucide-react'
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
@@ -66,6 +66,35 @@ const numInput = (v: number) => (Number.isNaN(v) ? '' : String(v))
 const lerNum = (s: string) => (s.trim() === '' ? NaN : Number(s.replace(',', '.')))
 const inteiroEntre = (v: number, min: number, max: number) => Number.isInteger(v) && v >= min && v <= max
 
+// Aviso da Política de Privacidade por e-mail: supabase/functions/aviso-politica + docs/sql/20260929_aviso_politica.sql
+interface AvisoResp { ok: boolean; motivo?: string; destinatarios?: number; enviados?: number; falhas?: number; restantes?: number }
+const AVISO_ERROS: Record<string, string> = {
+  nao_autorizado: 'Sem permissão: o envio exige super_admin ou manage_settings.',
+  sem_resend: 'O envio de e-mails não está configurado (falta o segredo RESEND_API_KEY nas funções do Supabase).',
+  entrada_invalida: 'Pedido inválido. Recarregue a página e tente de novo.',
+  erro_banco: 'Não foi possível ler os destinatários no banco (falta aplicar docs/sql/20260929_aviso_politica.sql?).',
+}
+async function chamarAviso(body: { mode: 'contar' | 'enviar'; confirmacao?: string }): Promise<AvisoResp> {
+  const { data, error } = await supabase.functions.invoke('aviso-politica', { body })
+  if (error) {
+    const ctx = (error as { context?: unknown }).context
+    if (ctx instanceof Response) {
+      if (ctx.status === 404) throw new Error('Função de aviso ainda não publicada.')
+      if (ctx.status === 401) throw new Error('Sua sessão expirou. Entre de novo.')
+      throw new Error(`A função de aviso respondeu com erro ${ctx.status}.`)
+    }
+    // sem Response: função não publicada (o preflight dá 404 e o navegador acusa CORS) ou sem conexão;
+    // no envio, a resposta pode ter se perdido depois de parte dos e-mails sair
+    throw new Error(body.mode === 'enviar'
+      ? 'Não houve resposta; parte pode ter sido enviada. Clique em "Contar destinatários" antes de repetir.'
+      : 'Função de aviso ainda não publicada (ou sem conexão).')
+  }
+  const r = data as AvisoResp | null
+  if (!r?.ok) throw new Error(AVISO_ERROS[r?.motivo ?? ''] ?? 'Resposta inesperada da função de aviso.')
+  return r
+}
+const pessoas = (n: number) => `${n} ${n === 1 ? 'pessoa' : 'pessoas'}`
+
 function inicioDe(p: Periodo): Date {
   const agora = new Date()
   if (p === 'hoje') return new Date(agora.getFullYear(), agora.getMonth(), agora.getDate())
@@ -102,6 +131,8 @@ export default function AdminAiSettings() {
   const [escolhido, setEscolhido] = useState<Produtor | null>(null)
   const [qtd, setQtd] = useState('')
   const [nota, setNota] = useState('')
+  const [avisoN, setAvisoN] = useState<number | null>(null)
+  const [avisoConfirma, setAvisoConfirma] = useState('')
 
   const status = useQuery<KeyStatus>({
     queryKey: ['ai-key-status'],
@@ -265,6 +296,19 @@ export default function AdminAiSettings() {
     conceder.mutate({ p: escolhido, amount: n, note: nota.trim() })
   }
 
+  const contarAviso = useMutation({
+    mutationFn: () => chamarAviso({ mode: 'contar' }),
+    onSuccess: r => setAvisoN(r.destinatarios ?? 0),
+    onError: () => setAvisoN(null),
+  })
+  const enviarAviso = useMutation({
+    mutationFn: () => chamarAviso({ mode: 'enviar', confirmacao: 'ENVIAR' }),
+    // quem falhou ou ficou para depois continua pendente no banco
+    onSuccess: r => setAvisoN((r.falhas ?? 0) + (r.restantes ?? 0)),
+    onError: () => setAvisoN(null),
+  })
+  const podeEnviarAviso = avisoConfirma === 'ENVIAR' && (avisoN ?? 0) > 0 && !enviarAviso.isPending
+
   const r = resumo.data
   const reais = (v: number) => (cfg ? brl(v * cfg.usd_brl) : '—')
   const inputCls = 'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary'
@@ -379,7 +423,7 @@ export default function AdminAiSettings() {
             <h2 id="ia-limites" className="text-lg font-semibold text-foreground">Limites e créditos</h2>
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold text-foreground">Créditos por plano</legend>
-              <p className="text-xs text-muted-foreground">Free = amostra única (conta todo o uso). Demais planos = por mês.</p>
+              <p className="text-xs text-muted-foreground">Todos os planos renovam no dia 1º e não acumulam para o mês seguinte.</p>
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {PLANS.map(p => (
                   <label key={p.id} className="space-y-1">
@@ -606,6 +650,37 @@ export default function AdminAiSettings() {
             </label>
             <button type="submit" disabled={conceder.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
               {conceder.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Conceder a {escolhido.email}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* 7. Aviso da Política de Privacidade por e-mail */}
+      <section className={cardCls} aria-labelledby="ia-aviso">
+        <h2 id="ia-aviso" className="text-lg font-semibold text-foreground flex items-center gap-2"><Mail className="w-5 h-5 text-primary" aria-hidden="true" /> Aviso da Política de Privacidade (29/09/2026)</h2>
+        <p className="text-xs text-muted-foreground">Envio único: quem já recebeu não recebe de novo.</p>
+        <button type="button" onClick={() => contarAviso.mutate()} disabled={contarAviso.isPending} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground flex items-center gap-2 disabled:opacity-50">
+          {contarAviso.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Contar destinatários
+        </button>
+        <div aria-live="polite" className="text-sm space-y-1">
+          {contarAviso.isError && <p className="text-red-600" role="alert">{erroDe(contarAviso.error)}</p>}
+          {avisoN !== null && <p className="text-foreground">{pessoas(avisoN)} {avisoN === 1 ? 'vai' : 'vão'} receber</p>}
+          {enviarAviso.isError && <p className="text-red-600" role="alert">{erroDe(enviarAviso.error)}</p>}
+          {enviarAviso.data && (
+            <p className="text-foreground">
+              Enviados: {enviarAviso.data.enviados ?? 0} · Falhas: {enviarAviso.data.falhas ?? 0} · Restantes: {enviarAviso.data.restantes ?? 0}
+              {(enviarAviso.data.restantes ?? 0) > 0 && <span className="block text-amber-700">Clique de novo para continuar.</span>}
+            </p>
+          )}
+        </div>
+        {avisoN !== null && (
+          <form onSubmit={e => { e.preventDefault(); if (podeEnviarAviso) enviarAviso.mutate() }} className="flex flex-col sm:flex-row gap-2 sm:items-end">
+            <label className="space-y-1">
+              <span className="text-xs font-semibold text-muted-foreground">Digite ENVIAR para confirmar</span>
+              <input className={inputCls} value={avisoConfirma} onChange={e => setAvisoConfirma(e.target.value)} autoComplete="off" spellCheck={false} maxLength={20} />
+            </label>
+            <button type="submit" disabled={!podeEnviarAviso} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
+              {enviarAviso.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Enviar para {pessoas(avisoN)}
             </button>
           </form>
         )}

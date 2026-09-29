@@ -67,11 +67,11 @@ export default function AppDownload() {
 
         {/* Download buttons */}
         <div className="space-y-3">
-          <button className="w-full py-3.5 bg-void text-cream font-medium rounded-2xl hover:bg-void/80 transition-all flex items-center justify-center gap-3">
+          <button disabled className="w-full py-3.5 bg-void text-cream font-medium rounded-2xl opacity-50 cursor-not-allowed flex items-center justify-center gap-3">
             <Apple className="w-5 h-5" />
             Download para iOS
           </button>
-          <button className="w-full py-3.5 bg-void text-cream font-medium rounded-2xl hover:bg-void/80 transition-all flex items-center justify-center gap-3">
+          <button disabled className="w-full py-3.5 bg-void text-cream font-medium rounded-2xl opacity-50 cursor-not-allowed flex items-center justify-center gap-3">
             <Smartphone className="w-5 h-5" />
             Download para Android
           </button>

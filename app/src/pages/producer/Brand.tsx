@@ -6,6 +6,8 @@ import {
   Smartphone, Monitor, Tablet
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { QRCodeSVG } from 'qrcode.react'
+import { useProducerEvents } from '../../hooks/useEvents'
 
 interface BrandPreset {
   name: string; bg: string; text: string; accent: string; card: string;
@@ -48,6 +50,9 @@ export default function ProducerBrand() {
   
   const p = presets[preset]
   const f = fonts[font]
+
+  const { data: myEvents = [] } = useProducerEvents()
+  const eventUrl = myEvents[0] ? siteUrl(`/event/${myEvents[0].id}`) : ''
 
   const copyLink = (url: string) => { navigator.clipboard.writeText(url); toast.success('Copiado!') }
 
@@ -161,10 +166,15 @@ export default function ProducerBrand() {
           {/* QR Code */}
           <div className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <h3 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><QrCode className="w-4 h-4 text-plum" /> QR Code do Evento</h3>
-            <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center">
-              <QrCode className="w-16 h-16 text-espresso/20" />
-            </div>
-            <button onClick={() => copyLink(siteUrl('/event/noite-eletro-2025'))} className="w-full py-2 bg-canvas rounded-xl text-xs text-espresso/70 hover:text-plum transition-colors flex items-center justify-center gap-2">
+            {/* Evento mais recente do produtor; escolher outro e baixar o PNG fica em Marketing */}
+            {eventUrl ? (
+              <QRCodeSVG value={eventUrl} marginSize={4} title={`QR Code de ${eventUrl}`} className="w-32 h-32 mx-auto mb-3 rounded-xl" />
+            ) : (
+              <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center text-center p-3 text-[10px] text-espresso/60">
+                Crie um evento para gerar o QR
+              </div>
+            )}
+            <button onClick={() => copyLink(eventUrl)} disabled={!eventUrl} className="disabled:opacity-50 w-full py-2 bg-canvas rounded-xl text-xs text-espresso/70 hover:text-plum transition-colors flex items-center justify-center gap-2">
               <Copy className="w-3.5 h-3.5" /> Copiar Link
             </button>
           </div>

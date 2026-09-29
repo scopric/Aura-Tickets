@@ -37,8 +37,10 @@ interface AuthState {
   fetchProfile: () => Promise<void>
 }
 
+// Sessão de demonstração só em desenvolvimento: em produção um `mock-token-` gravado no
+// localStorage não pode virar interface de admin/produtor (os dados já eram barrados pelo RLS).
 function isMockSession(session: any): boolean {
-  return session?.access_token?.startsWith('mock-token-')
+  return import.meta.env.DEV && !!session?.access_token?.startsWith('mock-token-')
 }
 
 let activeProfilePromise: Promise<void> | null = null

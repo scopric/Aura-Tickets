@@ -78,9 +78,27 @@ Deno.serve(async (req) => {
     ['withdrawals', () => admin.from('withdrawals').update({ pix_key: null, bank_account: {} }).eq('producer_id', uid)],
     // CRM do produtor: ficha do participante sem base fiscal
     ['customers', () => admin.from('customers').update({ name: 'Usuário removido', email: anonEmail, phone: null, notes: null }).eq('user_id', uid)],
-    // Conteúdo escrito pelo usuário (chat entre usuários e chat de suporte)
+    // Conteúdo escrito pelo usuário (chat entre usuários, chat de atendimento e chat de suporte antigo)
     ['event_reviews', () => admin.from('event_reviews').update({ comment: null }).eq('user_id', uid)],
     ['messages', () => admin.from('messages').delete().eq('sender_id', uid)],
+    // Chat de atendimento (conversations): só o que a pessoa escreveu como CLIENTE sai; se ela
+    // atendeu (admin/produtor), as respostas dela nas conversas dos outros ficam. Arquivos: só os
+    // que ELA subiu (owner) — anexos das mensagens dela de cliente e os nunca anexados
+    // (chat_arquivos_a_apagar); arquivo de outra pessoa nunca é removido.
+    // ponytail: remove() numa chamada só; em lotes se alguém passar de centenas de arquivos.
+    ['chat_anexos', async () => {
+      const { data, error } = await admin.rpc('chat_arquivos_a_apagar', { p_user: uid })
+      if (error) return { error }
+      const paths = (data ?? []) as string[]
+      if (!paths.length) return { error: null }
+      const { error: storageError } = await admin.storage.from('chat-anexos').remove(paths)
+      return { error: storageError }
+    }],
+    ['conversation_messages', () => admin.from('conversation_messages').delete().eq('sender_id', uid).eq('sender_role', 'customer')],
+    ['conversations', () => admin.from('conversations').update({ last_message_preview: null }).eq('user_id', uid)],
+    ['chat_contacts', () => admin.from('chat_contacts').update({
+      name: 'Usuário removido', email: anonEmail, phone: null, marketing_opt_in: false, marketing_opt_in_at: null,
+    }).eq('user_id', uid)],
     ['support_messages', () => admin.from('support_messages').delete().eq('sender_id', uid)],
     ['support_sessions', () => admin.from('support_sessions').update({ user_id: null }).eq('user_id', uid)],
     // Tabelas só pessoais, sem valor fiscal
