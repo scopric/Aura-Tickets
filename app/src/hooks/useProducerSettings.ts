@@ -38,8 +38,6 @@ export interface ProducerSettingsData {
       pushEnabled?: boolean
       smsEnabled?: boolean
     }
-    api_key: string | null
-    webhook_url: string | null
   } | null
   team: Array<{
     id: string
@@ -71,7 +69,7 @@ export function useProducerSettings() {
       // 2. Carregar producer_profile
       const { data: producerProfile, error: producerError } = await supabase
         .from('producer_profiles')
-        .select('id, company_name, cnpj, bank_account, pix_key, notification_settings, api_key, webhook_url')
+        .select('id, company_name, cnpj, bank_account, pix_key, notification_settings')
         .eq('id', user.id)
         .single()
 

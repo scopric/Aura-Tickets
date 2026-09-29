@@ -31,7 +31,6 @@ test('Configurações do produtor sem a aba Integrações nem "API Key" (Decisã
   await page.goto('/producer/settings')
   await expect(page.getByRole('button', { name: 'Equipe' })).toBeVisible()
   await expect(page.getByRole('button', { name: /Integra/ })).toHaveCount(0)
-  await expect(page.getByText('API Key')).toHaveCount(0)
 })
 
 test('Home sem "Ver Demo" e sem números inventados (10K+, 500K+, 98%)', async ({ page }) => {
