@@ -89,6 +89,8 @@ create table if not exists public.conversations (
   team_alerted_at timestamptz,
   -- envios que falharam seguidos (chat-notify); em 5 a conversa sai da fila e não trava as outras
   notify_failures int not null default 0,
+  -- reserva da chat-notify: linha devolvida por chat_notify_due fica fora da fila até esta hora
+  notify_claimed_until timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -674,52 +676,70 @@ $$;
 --            de 5 min sem leitura; no máximo 1 alerta por conversa a cada 30 min. A chat-notify
 --            junta as linhas "equipe" num único e-mail-resumo por rodada.
 --   Conversa com 5 falhas seguidas de envio (notify_failures) sai da fila, para não travar as outras.
--- A chat-notify marca o resultado por chat_notify_mark, só depois de tentar enviar.
+-- Reserva contra envio duplicado (duas chamadas juntas ou segredo vazado): as linhas devolvidas
+-- ficam travadas (for update skip locked) e reservadas por 2 min (notify_claimed_until) no mesmo
+-- comando; chamada seguinte não as vê. A chat-notify marca o resultado por chat_notify_mark,
+-- que solta a reserva; se a função cair antes, a reserva vence sozinha em 2 min.
 create or replace function public.chat_notify_due()
 returns table (
   tipo text, conversation_id uuid, email text, nome text, assunto text, urgente boolean, previa text
 )
 language sql
-stable
+volatile
 security definer
 set search_path = ''
 as $$
-  (select 'cliente'::text, c.id, u.email::text,
-          coalesce(ct.name, 'cliente'), coalesce(t.label, 'Atendimento'),
-          c.priority = 'urgent', null::text
-   from public.conversations c
-   join auth.users u on u.id = c.user_id
-   left join public.chat_contacts ct on ct.id = c.contact_id
-   left join public.chat_topics t on t.id = c.topic_id
-   where c.last_reply_at < now() - interval '5 minutes'
-     and c.last_reply_at > greatest(coalesce(c.customer_last_read_at, '-infinity'),
-                                    coalesce(c.customer_emailed_at, '-infinity'))
-     and u.email is not null
-     and u.deleted_at is null
-     and c.notify_failures < 5
-   order by c.priority = 'urgent' desc, c.last_reply_at
-   limit 50)
+  with cli as (
+    select 'cliente'::text as tipo, c.id, u.email::text as email,
+           coalesce(ct.name, 'cliente') as nome, coalesce(t.label, 'Atendimento') as assunto,
+           c.priority = 'urgent' as urgente, null::text as previa
+    from public.conversations c
+    join auth.users u on u.id = c.user_id
+    left join public.chat_contacts ct on ct.id = c.contact_id
+    left join public.chat_topics t on t.id = c.topic_id
+    where c.last_reply_at < now() - interval '5 minutes'
+      and c.last_reply_at > greatest(coalesce(c.customer_last_read_at, '-infinity'),
+                                     coalesce(c.customer_emailed_at, '-infinity'))
+      and u.email is not null
+      and u.deleted_at is null
+      and c.notify_failures < 5
+      and (c.notify_claimed_until is null or c.notify_claimed_until < now())
+    order by c.priority = 'urgent' desc, c.last_reply_at
+    limit 50
+    for update of c skip locked
+  ),
+  eq as (
+    select 'equipe'::text as tipo, c.id, s.team_email as email,
+           coalesce(ct.name, 'Sem nome') as nome, coalesce(t.label, 'Sem assunto') as assunto,
+           c.priority = 'urgent' as urgente, c.last_message_preview as previa
+    from public.conversations c
+    join public.chat_settings s on s.id = 1
+    left join public.chat_contacts ct on ct.id = c.contact_id
+    left join public.chat_topics t on t.id = c.topic_id
+    where c.status = 'open'
+      and c.kind = 'evokaa'
+      and c.last_customer_message_at > greatest(coalesce(c.agent_last_read_at, '-infinity'),
+                                                coalesce(c.team_alerted_at, '-infinity'))
+      and (c.team_alerted_at is null or c.team_alerted_at < now() - interval '30 minutes')
+      and (c.team_alerted_at is null or c.priority = 'urgent'
+           or c.last_customer_message_at < now() - interval '5 minutes')
+      and c.notify_failures < 5
+      and (c.notify_claimed_until is null or c.notify_claimed_until < now())
+    order by c.priority = 'urgent' desc, c.last_customer_message_at
+    limit 50
+    for update of c skip locked
+  ),
+  reserva as (
+    update public.conversations c
+    set notify_claimed_until = now() + interval '2 minutes'
+    where c.id in (select cli.id from cli union select eq.id from eq)
+  )
+  select cli.tipo, cli.id, cli.email, cli.nome, cli.assunto, cli.urgente, cli.previa from cli
   union all
-  (select 'equipe', c.id, s.team_email,
-          coalesce(ct.name, 'Sem nome'), coalesce(t.label, 'Sem assunto'),
-          c.priority = 'urgent', c.last_message_preview
-   from public.conversations c
-   join public.chat_settings s on s.id = 1
-   left join public.chat_contacts ct on ct.id = c.contact_id
-   left join public.chat_topics t on t.id = c.topic_id
-   where c.status = 'open'
-     and c.kind = 'evokaa'
-     and c.last_customer_message_at > greatest(coalesce(c.agent_last_read_at, '-infinity'),
-                                               coalesce(c.team_alerted_at, '-infinity'))
-     and (c.team_alerted_at is null or c.team_alerted_at < now() - interval '30 minutes')
-     and (c.team_alerted_at is null or c.priority = 'urgent'
-          or c.last_customer_message_at < now() - interval '5 minutes')
-     and c.notify_failures < 5
-   order by c.priority = 'urgent' desc, c.last_customer_message_at
-   limit 50);
+  select eq.tipo, eq.id, eq.email, eq.nome, eq.assunto, eq.urgente, eq.previa from eq;
 $$;
 
--- Resultado do envio: sucesso grava a data do tipo e zera as falhas; falha soma 1.
+-- Resultado do envio: sucesso grava a data do tipo e zera as falhas; falha soma 1. Os dois soltam a reserva.
 create or replace function public.chat_notify_mark(p_ids uuid[], p_tipo text, p_ok boolean)
 returns int
 language plpgsql
@@ -735,7 +755,8 @@ begin
   update public.conversations c set
     customer_emailed_at = case when p_ok and p_tipo = 'cliente' then now() else c.customer_emailed_at end,
     team_alerted_at = case when p_ok and p_tipo = 'equipe' then now() else c.team_alerted_at end,
-    notify_failures = case when p_ok then 0 else c.notify_failures + 1 end
+    notify_failures = case when p_ok then 0 else c.notify_failures + 1 end,
+    notify_claimed_until = null
   where c.id = any(p_ids);
   get diagnostics v_n = row_count;
   return v_n;
@@ -878,23 +899,11 @@ select cron.schedule('chat_notify', '*/2 * * * *', $cron$
   );
 $cron$);
 
--- 7b. Fila do pg_net: o Supabase deixa anon e authenticated lerem net.http_request_queue e
---     net._http_response (conferido em produção em 29/09). A fila guarda os cabeçalhos do pedido
---     enquanto ele não sai, ou seja, o x-chat-secret deste cron; a resposta guarda o corpo que a
---     função devolve. Ninguém do navegador precisa ler nenhuma das duas.
---     ATENÇÃO: só quem deu a permissão consegue tirá-la. Na imagem supabase/postgres ela foi dada
---     por supabase_admin a PUBLIC, e este revoke rodado como postgres não tem efeito (só WARNING).
---     O bloco abaixo avisa se a fila continuar legível; aí vira pendência (suporte da Supabase).
-revoke select on net.http_request_queue, net._http_response from anon, authenticated;
-do $$
-begin
-  if has_table_privilege('anon', 'net.http_request_queue', 'select')
-     or has_table_privilege('authenticated', 'net.http_request_queue', 'select')
-     or has_table_privilege('anon', 'net._http_response', 'select')
-     or has_table_privilege('authenticated', 'net._http_response', 'select') then
-    raise warning 'A fila do pg_net continua legível por anon/authenticated: o revoke não teve efeito (permissão dada por outro papel). Registrar como pendência.';
-  end if;
-end $$;
+-- 7b. Limite conhecido, fila do pg_net: net.http_request_queue e net._http_response têm grant da
+--     plataforma (supabase_admin) a PUBLIC, e o SQL Editor roda como postgres, que não consegue
+--     revogar (conferido em produção em 29/09). O schema net não é exposto pela API por padrão, e
+--     o x-chat-secret fica na fila menos de 0,5 s (até o pg_net enviar). Mitigação: a reserva em
+--     chat_notify_due impede envio duplicado mesmo com o segredo vazado.
 
 -- 8. Quem executa o quê (o Supabase dá EXECUTE a anon/authenticated por padrão) --
 revoke all on function public.chat_role(uuid) from public, anon, authenticated, service_role;
@@ -1018,6 +1027,12 @@ commit;
 -- end $f$;
 -- create function pg_temp.erro(q text) returns text language plpgsql as $f$
 -- begin execute q; return 'ok'; exception when others then return sqlstate; end $f$;
+-- -- fila sem as reservas das leituras anteriores (cada chamada de chat_notify_due reserva o que devolve)
+-- create function pg_temp.fila() returns table (tipo text, conversation_id uuid, email text, nome text,
+--   assunto text, urgente boolean, previa text) language sql as $f$
+--   update public.conversations set notify_claimed_until = null where notify_claimed_until is not null;
+--   select * from public.chat_notify_due();
+-- $f$;
 -- create function pg_temp.topico(p_aud text, p_label text) returns uuid language sql as $f$
 --   select id from public.chat_topics where audience = p_aud and label = p_label $f$;
 --
@@ -1372,39 +1387,39 @@ commit;
 -- begin
 --   -- conversa nova (nunca alertada) aparece para a equipe; conversa de produtor não
 --   update public.conversations set agent_last_read_at = null, team_alerted_at = null where id = ca;
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca), 'nova sem alerta';
---   assert not exists (select 1 from public.chat_notify_due() where conversation_id = cp and tipo = 'equipe'), 'conversa de produtor alertou a equipe';
---   assert (select email from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca) = 'contato@evokaa.com.br', 'destino da equipe';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = ca), 'nova sem alerta';
+--   assert not exists (select 1 from pg_temp.fila() where conversation_id = cp and tipo = 'equipe'), 'conversa de produtor alertou a equipe';
+--   assert (select email from pg_temp.fila() where tipo = 'equipe' and conversation_id = ca) = 'contato@evokaa.com.br', 'destino da equipe';
 --   -- alertada há 10 min: nada (30 min); há 31 min com mensagem de 1 min: só urgente
 --   update public.conversations set team_alerted_at = now() - interval '10 minutes', last_customer_message_at = now(),
 --     agent_last_read_at = null where id in (ca, cu);
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id in (ca, cu)), 'alertou antes de 30 min';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id in (ca, cu)), 'alertou antes de 30 min';
 --   update public.conversations set team_alerted_at = now() - interval '31 minutes',
 --     last_customer_message_at = now() - interval '1 minute' where id in (ca, cu);
 --   update public.conversations set priority = 'normal' where id = ca;
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cu and urgente), 'urgente não alertou';
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca), 'normal alertou antes de 5 min';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = cu and urgente), 'urgente não alertou';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = ca), 'normal alertou antes de 5 min';
 --   update public.conversations set last_customer_message_at = now() - interval '6 minutes' where id = ca;
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca), 'normal não alertou depois de 5 min';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = ca), 'normal não alertou depois de 5 min';
 --   update public.conversations set agent_last_read_at = now() where id = ca;
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = ca), 'alertou conversa lida';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = ca), 'alertou conversa lida';
 --   -- cliente: resposta de 6 min, não lida, não avisada → e-mail da conta
 --   update public.conversations set last_reply_at = now() - interval '6 minutes', customer_last_read_at = null, customer_emailed_at = null where id = ca;
---   assert (select email from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca) = 'Ana.Teste@teste.evokaa.invalid', 'e-mail do cliente';
---   assert (select previa from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca) is null, 'e-mail ao cliente leva texto';
+--   assert (select email from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca) = 'Ana.Teste@teste.evokaa.invalid', 'e-mail do cliente';
+--   assert (select previa from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca) is null, 'e-mail ao cliente leva texto';
 --   update public.conversations set last_reply_at = now() - interval '2 minutes' where id = ca;
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou antes de 5 min';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca), 'avisou antes de 5 min';
 --   update public.conversations set last_reply_at = now() - interval '6 minutes', customer_emailed_at = now() - interval '1 minute' where id = ca;
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou 2 vezes';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca), 'avisou 2 vezes';
 --   update public.conversations set customer_emailed_at = null, customer_last_read_at = now() where id = ca;
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou resposta lida';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca), 'avisou resposta lida';
 --   -- migrada sem mensagem nova depois da migração não aparece
---   assert not exists (select 1 from public.chat_notify_due() d
+--   assert not exists (select 1 from pg_temp.fila() d
 --                      join public.support_sessions s on s.id = d.conversation_id
 --                      join public.conversations c on c.id = d.conversation_id
 --                      where not exists (select 1 from public.conversation_messages m
 --                                        where m.conversation_id = c.id and m.created_at > c.team_alerted_at)), 'migrada gerou aviso';
---   assert (select count(*) from public.chat_notify_due() where tipo = 'equipe') <= 50, 'mais de 50';
+--   assert (select count(*) from pg_temp.fila() where tipo = 'equipe') <= 50, 'mais de 50';
 --   raise notice 'T14 OK: regras de aviso ao cliente e à equipe';
 -- end $t$;
 --
@@ -1442,14 +1457,14 @@ commit;
 --   values (cv, ad, 'agent', 'Alice', 'resposta', t0 + interval '1 minute');
 --   select * into c from public.conversations where id = cv;
 --   assert c.customer_last_read_at = t0 and c.agent_last_read_at = t0 + interval '1 minute', format('ordem 1: %s', c);
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'equipe respondeu e ainda alerta';
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = cv), 'resposta não lida não avisa o cliente';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = cv), 'equipe respondeu e ainda alerta';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = cv), 'resposta não lida não avisa o cliente';
 --   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
 --   values (cv, a, 'customer', 'Ana', 'réplica', t0 + interval '2 minutes');
 --   select * into c from public.conversations where id = cv;
 --   assert c.customer_last_read_at = t0 + interval '2 minutes', format('ordem 2: %s', c);
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = cv), 'cliente escreveu depois e ainda recebe e-mail';
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'réplica do cliente não alerta a equipe';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = cv), 'cliente escreveu depois e ainda recebe e-mail';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = cv), 'réplica do cliente não alerta a equipe';
 --   -- mensagem com data anterior não faz a leitura voltar
 --   insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
 --   values (cv, ad, 'agent', 'Alice', 'atrasada', t0);
@@ -1503,14 +1518,14 @@ commit;
 -- begin
 --   update public.conversations set last_reply_at = now() - interval '6 minutes', customer_last_read_at = null,
 --     customer_emailed_at = null, notify_failures = 0 where id = ca;
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'preparo';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca), 'preparo';
 --   update auth.users set deleted_at = now() where id = a;
---   assert not exists (select 1 from public.chat_notify_due() where tipo = 'cliente' and conversation_id = ca), 'avisou conta excluída';
+--   assert not exists (select 1 from pg_temp.fila() where tipo = 'cliente' and conversation_id = ca), 'avisou conta excluída';
 --   update auth.users set deleted_at = null where id = a;
 --   update public.conversations set notify_failures = 4 where id = ca;
 --   n := public.chat_notify_mark(array[ca], 'cliente', false);
 --   assert n = 1 and (select notify_failures from public.conversations where id = ca) = 5, 'falha não somou';
---   assert not exists (select 1 from public.chat_notify_due() where conversation_id = ca), 'conversa com 5 falhas continua na fila';
+--   assert not exists (select 1 from pg_temp.fila() where conversation_id = ca), 'conversa com 5 falhas continua na fila';
 --   n := public.chat_notify_mark(array[ca], 'cliente', true);
 --   assert (select notify_failures = 0 and customer_emailed_at = now() and team_alerted_at is distinct from now()
 --           from public.conversations where id = ca), 'sucesso não zerou nem gravou só a data do tipo';
@@ -1533,23 +1548,33 @@ commit;
 --     return;
 --   end if;
 --   assert (select last_customer_message_at > agent_last_read_at from public.conversations where id = cv), 'ficou como lida';
---   assert not exists (select 1 from public.chat_notify_due() where conversation_id = cv), 'alertou antes de 30 min da migração';
+--   assert not exists (select 1 from pg_temp.fila() where conversation_id = cv), 'alertou antes de 30 min da migração';
 --   -- simula 31 minutos passados: todas as datas da conversa andam juntas para trás
 --   update public.conversations set team_alerted_at = team_alerted_at - interval '31 minutes',
 --     agent_last_read_at = agent_last_read_at - interval '31 minutes',
 --     customer_last_read_at = customer_last_read_at - interval '31 minutes',
 --     last_customer_message_at = last_customer_message_at - interval '31 minutes' where id = cv;
---   assert exists (select 1 from public.chat_notify_due() where tipo = 'equipe' and conversation_id = cv), 'não entrou na fila';
+--   assert exists (select 1 from pg_temp.fila() where tipo = 'equipe' and conversation_id = cv), 'não entrou na fila';
 --   raise notice 'T21 OK: mensagem da 2ª rodada fica não lida e entra no chat_notify_due';
 -- end $t$;
 --
--- -- T18. Fila do pg_net fechada para anon e authenticated (último: se falhar, os outros já rodaram)
+-- -- T22. Reserva: 2ª leitura seguida não devolve as mesmas linhas; vencida a reserva, voltam;
+-- --      chat_notify_mark solta a reserva
 -- do $t$
+-- declare a uuid := 'a0000000-0000-4000-8000-000000000001'; cv uuid; ids1 uuid[]; ids2 uuid[]; ids3 uuid[];
 -- begin
---   assert not has_table_privilege('anon', 'net.http_request_queue', 'select')
---      and not has_table_privilege('authenticated', 'net.http_request_queue', 'select')
---      and not has_table_privilege('anon', 'net._http_response', 'select')
---      and not has_table_privilege('authenticated', 'net._http_response', 'select'), 'fila do pg_net legível';
---   raise notice 'T18 OK: anon e authenticated não leem net.http_request_queue nem net._http_response';
+--   insert into public.conversations (user_id, kind, last_customer_message_at) values (a, 'evokaa', now()) returning id into cv;
+--   update public.conversations set notify_claimed_until = null;
+--   select array_agg(conversation_id) into ids1 from public.chat_notify_due();
+--   assert cv = any(ids1), 'preparo: conversa nova fora da fila';
+--   select coalesce(array_agg(conversation_id), '{}') into ids2 from public.chat_notify_due();
+--   assert not (ids2 && ids1), format('2ª leitura devolveu linha reservada: %s', ids2);
+--   assert (select notify_claimed_until = now() + interval '2 minutes' from public.conversations where id = cv), 'reserva de 2 min';
+--   update public.conversations set notify_claimed_until = notify_claimed_until - interval '3 minutes' where id = any(ids1);
+--   select coalesce(array_agg(conversation_id), '{}') into ids3 from public.chat_notify_due();
+--   assert cv = any(ids3), 'reserva vencida não voltou à fila';
+--   perform public.chat_notify_mark(array[cv], 'equipe', false);
+--   assert (select notify_claimed_until is null and notify_failures = 1 from public.conversations where id = cv), 'mark não soltou a reserva';
+--   raise notice 'T22 OK: reserva de 2 min contra envio duplicado; mark solta';
 -- end $t$;
 -- rollback;
