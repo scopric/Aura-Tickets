@@ -389,8 +389,15 @@ export default function YourTable({ eventId }: YourTableProps) {
     )
   }
 
-  // Sem mesa real (e sem mock fora de DEV): nada a mostrar
-  if (!effectiveTable) return null
+  // Sem mesa real (e sem mock fora de DEV): avisa em vez de deixar a coluna vazia
+  if (!effectiveTable) {
+    return (
+      <div className="bg-void text-cream rounded-3xl p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
+        <h3 className="font-serif text-xl mb-2">Sua mesa ainda não foi formada</h3>
+        <p className="text-sm text-cream/50 max-w-sm">Avisaremos quando o grupo estiver pronto.</p>
+      </div>
+    )
+  }
 
   /* ==========================================================
      Render Principal

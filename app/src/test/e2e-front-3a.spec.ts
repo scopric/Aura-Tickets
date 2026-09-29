@@ -31,7 +31,7 @@ test('/checkout/success de um pedido Pix: sem "Pague com Pix" falso; "Ver meus i
   await expect(page).toHaveURL(/\/checkout\/success$/)
   await expect(page.getByRole('link', { name: 'Ver meus ingressos' })).toHaveAttribute('href', '/app/tickets')
   await expect(page.getByText(/Pague com Pix|Copiar Código Pix|Enviar por E-mail|Baixar Ingresso/)).toHaveCount(0)
-  // o pedido chega aqui já pago: nada de "Pedido Reservado" nem "Realize o pagamento"
-  await expect(page.getByRole('heading', { name: 'Pagamento confirmado!' })).toBeVisible()
+  // pedido sem ingresso ativo (Decisão 57: nasce pendente) → "Pedido registrado!"; nada de "Pedido Reservado" nem "Realize o pagamento"
+  await expect(page.getByRole('heading', { name: 'Pedido registrado!', level: 1 })).toBeVisible()
   await expect(page.getByText(/Pedido Reservado|Realize o pagamento|Enviamos os detalhes/)).toHaveCount(0)
 })

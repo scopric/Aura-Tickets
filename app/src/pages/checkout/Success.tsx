@@ -208,8 +208,8 @@ export default function CheckoutSuccess() {
                   </div>
                   <h3 className="font-serif text-2xl mb-2">Sua Mesa Está Sendo Montada</h3>
                   <p className="text-sm text-cream/70 mb-6 max-w-sm">
-                    Nosso algoritmo está analisando perfis de compatibilidade para formar 
-                    o grupo ideal para você. Em 48h você recebe seus colegas de mesa.
+                    Vamos formar o grupo com as respostas do questionário de afinidade.
+                    Avisaremos quando sua mesa estiver formada.
                   </p>
                   <div className="flex items-center gap-3 mb-6">
                     {['Temperamento', 'Interesses', 'Vibe'].map((tag) => (
@@ -218,15 +218,6 @@ export default function CheckoutSuccess() {
                         {tag}
                       </span>
                     ))}
-                  </div>
-                  <div className="w-full max-w-xs">
-                    <div className="flex items-center justify-between text-xs text-cream/70 mb-2">
-                      <span>Analisando perfis</span>
-                      <span>85%</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-plum rounded-full animate-pulse" style={{ width: '85%' }} />
-                    </div>
                   </div>
                   <button
                     onClick={() => setShowTable(true)}

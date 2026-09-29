@@ -269,6 +269,7 @@ export default function AppHub() {
   const renderCardapio = () => (
     <div className="space-y-4">
       <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><ShoppingCart className="w-4 h-4 text-plum" /> Cardápio do Evento</h2>
+      <p className="text-[11px] text-amber-400/80 mb-2">Pedidos pelo app em breve: por enquanto, o cardápio é só para consulta.</p>
       {activeEventId ? (
         <>
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20">

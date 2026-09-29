@@ -13,7 +13,7 @@ const producerSteps: TourStep[] = [
   { title: 'Bem-vindo ao Evokaa!', description: 'Esta e a sua central de comandos. Aqui voce gerencia todos os seus eventos, vendas e equipe em um so lugar.' },
   { title: 'Criar Evento', description: 'Comece clicando em "Nova Festa". Escolha o tipo, configure ingressos, preços e publique em minutos.' },
   { title: 'Afiliados', description: 'Cadastre vendedores que divulgarao seu evento. Cada um tem codigo unico, cupom e limite de ingressos. Acompanhe em tempo real.' },
-  { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido, funciona offline e atualiza em tempo real.' },
+  { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido e atualiza em tempo real.' },
   { title: 'Financeiro', description: 'Controle receitas e despesas com formas de pagamento (PIX, cartao, boleto). Veja saldo, pendentes e atrasados.' },
   { title: 'Caixinha', description: 'Separe dinheiro por categoria: Marketing, Decoracao, Emergencia. Defina metas e acompanhe o progresso.' },
   { title: 'Comunicacao', description: 'Envie emails, SMS e push para seus participantes. Use templates prontos e agende envios automaticos.' },
@@ -27,8 +27,8 @@ const buyerSteps: TourStep[] = [
   { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e localidade.' },
   { title: 'Mesa Coletiva', description: 'Nao tem grupo? A Mesa Coletiva une 6 pessoas por afinidade. Responda o questionario e deixe o resto conosco!' },
   { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague via PIX ou cartao.' },
-  { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in. Funciona sem internet!' },
-  { title: 'Pre-Order', description: 'Compre bebidas e comidas antecipadamente pelo Pre-Order. Evite filas e ganhe descontos exclusivos.' },
+  { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in.' },
+  { title: 'Cardapio', description: 'Veja as bebidas e comidas do evento no Hub. Pedidos pelo app chegam em breve.' },
   { title: 'Voce esta pronto!', description: 'Explore o app e encontre seu proximo evento. Duvidas? O FAQ esta no menu "Ajuda".' },
 ]
 

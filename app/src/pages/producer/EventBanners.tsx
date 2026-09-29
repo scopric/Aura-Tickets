@@ -181,10 +181,8 @@ export default function ProducerEventBanners() {
                 ) : (
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
-                    <p className="text-sm text-espresso/70">Cole a URL da imagem ou use o exemplo</p>
-                    <button onClick={() => setPreviewImage('/images/hero-bg.jpg')} className="px-5 py-2 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">
-                      Usar imagem de exemplo
-                    </button>
+                    <p className="text-sm text-espresso/70">Cole o endereço (https://) da imagem</p>
+                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." onChange={e => { const v = e.target.value.trim(); if (v.startsWith('https://')) setPreviewImage(v) }} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
                   </div>
                 )}
               </div>
