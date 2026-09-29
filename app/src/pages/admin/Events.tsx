@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState } from 'react'
-import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye, Info } from 'lucide-react'
+import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye, Info, Undo2 } from 'lucide-react'
 import gsap from 'gsap'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
@@ -81,6 +81,17 @@ export default function AdminEvents() {
       toast.success('Evento rejeitado com sucesso.')
     } catch (err: any) {
       toast.error('Erro ao rejeitar evento: ' + err.message)
+    }
+  }
+
+  const handleSuspend = async (eventId: string, title: string) => {
+    if (!window.confirm(`Revogar a aprovação de "${title}"?\n\nO evento sai do ar, dos destaques e volta para a fila de pendentes. Se for aprovado de novo, o produtor precisa republicá-lo — a aprovação não coloca o evento no ar sozinha.`)) return
+
+    try {
+      await approveMutation.mutateAsync({ eventId, status: 'pending' })
+      toast.success('Aprovação revogada. O evento voltou para pendentes.')
+    } catch (err: any) {
+      toast.error('Erro ao revogar aprovação: ' + err.message)
     }
   }
 
@@ -254,15 +265,41 @@ export default function AdminEvents() {
                               <>
                                 <button
                                   onClick={() => handleApprove(e.id)}
-                                  className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors"
+                                  disabled={approveMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors disabled:opacity-40"
                                   title="Aprovar"
+                                  aria-label="Aprovar evento"
                                 >
                                   <Check className="w-3.5 h-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleReject(e.id)}
-                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors"
+                                  disabled={approveMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors disabled:opacity-40"
                                   title="Rejeitar"
+                                  aria-label="Rejeitar evento"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            {e.approval_status === 'approved' && (
+                              <>
+                                <button
+                                  onClick={() => handleSuspend(e.id, e.title)}
+                                  disabled={approveMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 transition-colors disabled:opacity-40"
+                                  title="Revogar aprovação (suspender)"
+                                  aria-label="Revogar aprovação do evento"
+                                >
+                                  <Undo2 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleReject(e.id)}
+                                  disabled={approveMutation.isPending}
+                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors disabled:opacity-40"
+                                  title="Rejeitar"
+                                  aria-label="Rejeitar evento"
                                 >
                                   <X className="w-3.5 h-3.5" />
                                 </button>
@@ -382,10 +419,20 @@ export default function AdminEvents() {
               <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
                 {(detail.approval_status === 'pending' || !detail.approval_status) && (
                   <>
-                    <button onClick={() => handleApprove(detail.id)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 transition-colors">
+                    <button onClick={() => handleApprove(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 transition-colors disabled:opacity-40">
                       <Check className="w-3.5 h-3.5" /> Aprovar
                     </button>
-                    <button onClick={() => handleReject(detail.id)} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors">
+                    <button onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors disabled:opacity-40">
+                      <X className="w-3.5 h-3.5" /> Rejeitar
+                    </button>
+                  </>
+                )}
+                {detail.approval_status === 'approved' && (
+                  <>
+                    <button onClick={() => handleSuspend(detail.id, detail.title)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition-colors disabled:opacity-40">
+                      <Undo2 className="w-3.5 h-3.5" /> Revogar aprovação
+                    </button>
+                    <button onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors disabled:opacity-40">
                       <X className="w-3.5 h-3.5" /> Rejeitar
                     </button>
                   </>
