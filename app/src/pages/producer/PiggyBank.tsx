@@ -177,7 +177,7 @@ export default function ProducerPiggyBank() {
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleTransaction(box.id, 'deposit')} className="flex-1 py-1.5 bg-green-500 text-white text-[11px] font-medium rounded-lg hover:bg-green-600 transition-colors">Depositar</button>
                     <button onClick={() => handleTransaction(box.id, 'withdraw')} className="flex-1 py-1.5 bg-red-400 text-white text-[11px] font-medium rounded-lg hover:bg-red-500 transition-colors">Sacar</button>
-                    <button onClick={() => { setDepositBox(null); setDepositAmount('') }} className="px-2 py-1.5 bg-canvas text-espresso/70 text-[11px] rounded-lg hover:text-espresso/70 transition-colors">X</button>
+                    <button onClick={() => { setDepositBox(null); setDepositAmount('') }} className="px-2 py-1.5 bg-canvas text-espresso/70 text-[11px] rounded-lg hover:text-espresso transition-colors">X</button>
                   </div>
                 </div>
               ) : (
