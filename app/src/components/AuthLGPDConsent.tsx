@@ -36,7 +36,7 @@ export default function AuthLGPDConsent({
           </div>
           <div>
             <h3 className="text-sm font-medium text-espresso">Seus dados, suas regras</h3>
-            <p className="text-[11px] text-espresso/50 mt-0.5">
+            <p className="text-[11px] text-espresso/70 mt-0.5">
               A Evokaa respeita sua privacidade. Você está no controle.
             </p>
           </div>
@@ -44,7 +44,7 @@ export default function AuthLGPDConsent({
 
         {/* Termos obrigatórios */}
         <div className="space-y-3">
-          <label className="flex items-start gap-3 p-3 rounded-xl bg-white/60 border border-white/60 cursor-pointer hover:bg-white transition-colors group">
+          <label className="flex items-start gap-3 p-3 rounded-xl bg-white/60 border border-white/60 cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-colors group">
             <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
               acceptedTerms ? 'bg-plum border-plum' : 'border-espresso/20 group-hover:border-plum/40'
             }`}>
@@ -61,13 +61,13 @@ export default function AuthLGPDConsent({
                 <FileText className="w-3 h-3 text-espresso/30" />
                 Aceito os Termos de Uso <span className="text-red-500">*</span>
               </p>
-              <p className="text-[10px] text-espresso/40 mt-0.5">
+              <p className="text-[10px] text-espresso/70 mt-0.5">
                 Leia os <Link to="/termos" target="_blank" className="text-plum hover:underline">Termos de Uso</Link> completos.
               </p>
             </div>
           </label>
 
-          <label className="flex items-start gap-3 p-3 rounded-xl bg-white/60 border border-white/60 cursor-pointer hover:bg-white transition-colors group">
+          <label className="flex items-start gap-3 p-3 rounded-xl bg-white/60 border border-white/60 cursor-pointer hover:bg-white dark:hover:bg-white/10 transition-colors group">
             <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all ${
               acceptedPrivacy ? 'bg-plum border-plum' : 'border-espresso/20 group-hover:border-plum/40'
             }`}>
@@ -84,7 +84,7 @@ export default function AuthLGPDConsent({
                 <Shield className="w-3 h-3 text-espresso/30" />
                 Aceito a Política de Privacidade <span className="text-red-500">*</span>
               </p>
-              <p className="text-[10px] text-espresso/40 mt-0.5">
+              <p className="text-[10px] text-espresso/70 mt-0.5">
                 Leia a <Link to="/privacidade" target="_blank" className="text-plum hover:underline">Política de Privacidade</Link> completa.
               </p>
             </div>
@@ -127,7 +127,7 @@ export default function AuthLGPDConsent({
                   <Mail className="w-3 h-3 text-espresso/30" />
                   Comunicações de marketing
                 </p>
-                <p className="text-[10px] text-espresso/40 mt-0.5">
+                <p className="text-[10px] text-espresso/70 mt-0.5">
                   Aceito receber e-mails sobre eventos, promoções e novidades da Evokaa.
                 </p>
               </div>
@@ -150,7 +150,7 @@ export default function AuthLGPDConsent({
                   <Share2 className="w-3 h-3 text-espresso/30" />
                   Personalização de experiência
                 </p>
-                <p className="text-[10px] text-espresso/40 mt-0.5">
+                <p className="text-[10px] text-espresso/70 mt-0.5">
                   Aceito que a Evokaa use meus dados para recomendar eventos e melhorar minha experiência.
                 </p>
               </div>

@@ -102,7 +102,7 @@ function WizardWidget() {
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-full border border-blue-500 bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold relative">
+        <div className="w-5 h-5 rounded-full border border-blue-500 bg-blue-50 flex items-center justify-center text-blue-700 text-[10px] font-bold relative">
           <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping absolute" />
           <span className="w-1.5 h-1.5 bg-blue-500 rounded-full relative" />
         </div>
@@ -261,7 +261,7 @@ function SocialWidget() {
 
       {/* Pop-up de Comprovação */}
       <div className="w-full bg-[#8F33F5]/[0.01] border border-[#8F33F5]/10 rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm group-hover:bg-[#8F33F5]/5 transition-all duration-500">
-        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-green-700 shrink-0">
           <CheckCircle2 className="w-3.5 h-3.5 fill-current" />
         </div>
         <div className="flex-1 text-left">
@@ -282,7 +282,7 @@ function ChartWidget() {
         <h3 className="text-xl font-extrabold tracking-tight font-serif text-slate-900 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 transition-all duration-500">
           R$ 84.192,00
         </h3>
-        <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
           +18.4% esta semana
         </span>
       </div>

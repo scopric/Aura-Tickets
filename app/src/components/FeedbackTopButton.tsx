@@ -6,7 +6,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useIsMobile } from '../hooks/use-mobile'
 import { FeedbackForm } from './FeedbackButton'
 
-const caixa = 'bg-canvas border border-white/60 rounded-2xl shadow-xl p-4'
+const caixa = 'rounded-2xl p-4' // vidro vem do padrão do Dialog/Popover
 
 /** Ícone de feedback das barras de topo (produtor e participante): Popover no desktop, Dialog no celular. */
 export default function FeedbackTopButton({ className }: { className: string }) {

@@ -538,7 +538,7 @@ export default function AdminNewsletter() {
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Newsletter Evokaa</h1>
-          <p className="text-sm text-espresso/50 mt-1">Crie campanhas de e-mail profissionais de mercado com construtores visuais e gerencie inscritos.</p>
+          <p className="text-sm text-espresso/70 mt-1">Crie campanhas de e-mail profissionais de mercado com construtores visuais e gerencie inscritos.</p>
         </div>
         <div className="flex bg-white/60 p-1 border border-white/60 rounded-xl">
           <button 
@@ -546,7 +546,7 @@ export default function AdminNewsletter() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
               activeTab === 'campaigns' 
                 ? 'bg-plum text-cream shadow-md' 
-                : 'text-espresso/60 hover:text-espresso'
+                : 'text-espresso/70 hover:text-espresso'
             }`}
           >
             <Layout className="w-3.5 h-3.5" /> Construtor de Campanhas
@@ -556,7 +556,7 @@ export default function AdminNewsletter() {
             className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
               activeTab === 'subscribers' 
                 ? 'bg-plum text-cream shadow-md' 
-                : 'text-espresso/60 hover:text-espresso'
+                : 'text-espresso/70 hover:text-espresso'
             }`}
           >
             <Users className="w-3.5 h-3.5" /> Base de Inscritos ({subscribers.length})
@@ -597,9 +597,9 @@ export default function AdminNewsletter() {
               <k.icon className={`w-5 h-5 ${k.color}`} />
             </div>
             <div>
-              <div className="text-[10px] text-espresso/40 font-bold uppercase tracking-wider leading-none">{k.label}</div>
+              <div className="text-[10px] text-espresso/70 font-bold uppercase tracking-wider leading-none">{k.label}</div>
               <div className="font-serif text-2xl text-espresso mt-1 leading-none">{k.value}</div>
-              <div className="text-[9px] text-espresso/50 mt-1 leading-none">{k.detail}</div>
+              <div className="text-[9px] text-espresso/70 mt-1 leading-none">{k.detail}</div>
             </div>
           </div>
         ))}
@@ -615,7 +615,7 @@ export default function AdminNewsletter() {
                   <h2 className="font-serif text-xl text-espresso">
                     {editingCampaignId ? 'Editar Campanha' : 'Novo E-mail Promocional'}
                   </h2>
-                  <p className="text-[10px] text-espresso/40 mt-0.5">Monte um layout visual e preencha as variáveis em tempo real.</p>
+                  <p className="text-[10px] text-espresso/70 mt-0.5">Monte um layout visual e preencha as variáveis em tempo real.</p>
                 </div>
                 
                 {/* Switch visual vs code */}
@@ -624,7 +624,7 @@ export default function AdminNewsletter() {
                     type="button"
                     onClick={() => setEditorMode('visual')}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all ${
-                      editorMode === 'visual' ? 'bg-white text-plum shadow-sm' : 'text-espresso/55 hover:text-espresso'
+                      editorMode === 'visual' ? 'bg-white dark:bg-white/5 text-plum shadow-sm' : 'text-espresso/70 hover:text-espresso'
                     }`}
                   >
                     <Layout className="w-3 h-3" /> Visual
@@ -633,7 +633,7 @@ export default function AdminNewsletter() {
                     type="button"
                     onClick={() => setEditorMode('code')}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all ${
-                      editorMode === 'code' ? 'bg-white text-plum shadow-sm' : 'text-espresso/55 hover:text-espresso'
+                      editorMode === 'code' ? 'bg-white dark:bg-white/5 text-plum shadow-sm' : 'text-espresso/70 hover:text-espresso'
                     }`}
                   >
                     <Code className="w-3 h-3" /> Código
@@ -651,21 +651,21 @@ export default function AdminNewsletter() {
                     <button 
                       type="button"
                       onClick={() => handleApplyTemplate('destaques')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
+                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
                     >
                       🎪 Destaques da Semana
                     </button>
                     <button 
                       type="button"
                       onClick={() => handleApplyTemplate('pre-venda')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
+                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
                     >
                       🚀 Pré-Venda Exclusiva
                     </button>
                     <button 
                       type="button"
                       onClick={() => handleApplyTemplate('institucional')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
+                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
                     >
                       📣 Informativo Evokaa
                     </button>
@@ -676,14 +676,14 @@ export default function AdminNewsletter() {
               {/* Editor Fields */}
               <form onSubmit={handleSaveCampaign} className="space-y-5">
                 <div>
-                  <label htmlFor="email-subject" className="text-xs font-bold text-espresso/60 block mb-1">Assunto da Campanha (Subject)</label>
+                  <label htmlFor="email-subject" className="text-xs font-bold text-espresso/70 block mb-1">Assunto da Campanha (Subject)</label>
                   <input 
                     id="email-subject"
                     type="text" 
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="Ex: Últimos ingressos para o festival!"
-                    className="w-full px-4 py-2.5 bg-white border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum text-espresso font-semibold"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum text-espresso font-semibold"
                     required
                   />
                 </div>
@@ -693,7 +693,7 @@ export default function AdminNewsletter() {
                     {/* Visual Brand Settings */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-canvas/40 border border-espresso/5 rounded-xl">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-espresso/50 uppercase tracking-wider block">Logotipo</label>
+                        <label className="text-[10px] font-bold text-espresso/70 uppercase tracking-wider block">Logotipo</label>
                         <div className="flex items-center gap-3">
                           <input 
                             type="checkbox" 
@@ -707,7 +707,7 @@ export default function AdminNewsletter() {
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-espresso/50 uppercase tracking-wider block">Cor de Destaque (Brand Color)</label>
+                        <label className="text-[10px] font-bold text-espresso/70 uppercase tracking-wider block">Cor de Destaque (Brand Color)</label>
                         <div className="flex gap-2.5">
                           {BRAND_COLORS.map(color => (
                             <button
@@ -730,36 +730,36 @@ export default function AdminNewsletter() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label htmlFor="main-heading" className="text-xs font-semibold text-espresso/60 block mb-1">Título do Cabeçalho (Heading)</label>
+                          <label htmlFor="main-heading" className="text-xs font-semibold text-espresso/70 block mb-1">Título do Cabeçalho (Heading)</label>
                           <input 
                             id="main-heading"
                             type="text"
                             value={heading}
                             onChange={e => setHeading(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
+                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                             required
                           />
                         </div>
                         <div>
-                          <label htmlFor="main-subtitle" className="text-xs font-semibold text-espresso/60 block mb-1">Subtítulo (Subtitle)</label>
+                          <label htmlFor="main-subtitle" className="text-xs font-semibold text-espresso/70 block mb-1">Subtítulo (Subtitle)</label>
                           <input 
                             id="main-subtitle"
                             type="text"
                             value={subtitle}
                             onChange={e => setSubtitle(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
+                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label htmlFor="email-body" className="text-xs font-semibold text-espresso/60 block mb-1">Mensagem de Texto do E-mail</label>
+                        <label htmlFor="email-body" className="text-xs font-semibold text-espresso/70 block mb-1">Mensagem de Texto do E-mail</label>
                         <textarea 
                           id="email-body"
                           value={bodyText}
                           onChange={e => setBodyText(e.target.value)}
                           rows={6}
-                          className="w-full px-3 py-2 bg-white border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum leading-relaxed"
+                          className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum leading-relaxed"
                           required
                         />
                       </div>
@@ -767,9 +767,9 @@ export default function AdminNewsletter() {
 
                     {/* Select Approved Events */}
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-espresso/60 block">Selecionar Eventos Recomendados (Máximo 3)</label>
+                      <label className="text-xs font-semibold text-espresso/70 block">Selecionar Eventos Recomendados (Máximo 3)</label>
                       {availableEvents.length === 0 ? (
-                        <div className="text-xs italic text-espresso/40 p-3 bg-canvas/30 rounded-xl border border-dashed border-espresso/10">
+                        <div className="text-xs italic text-espresso/70 p-3 bg-canvas/30 rounded-xl border border-dashed border-espresso/10">
                           Nenhum evento publicado/aprovado para selecionar.
                         </div>
                       ) : (
@@ -784,7 +784,7 @@ export default function AdminNewsletter() {
                                 className={`p-2.5 rounded-xl border transition-all text-left flex items-center gap-3 ${
                                   isSelected 
                                     ? 'bg-plum/5 border-plum text-plum' 
-                                    : 'bg-white border-espresso/5 hover:bg-canvas/50 text-espresso/70'
+                                    : 'bg-white dark:bg-white/5 border-espresso/5 hover:bg-canvas/50 text-espresso/70'
                                 }`}
                               >
                                 <input 
@@ -824,33 +824,33 @@ export default function AdminNewsletter() {
                       {includeCoupon && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1.5 anim-fade">
                           <div className="md:col-span-1">
-                            <label htmlFor="coupon-code" className="text-[10px] font-semibold text-espresso/50 block mb-1">Código</label>
+                            <label htmlFor="coupon-code" className="text-[10px] font-semibold text-espresso/70 block mb-1">Código</label>
                             <input 
                               id="coupon-code"
                               type="text" 
                               value={couponCode}
                               onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                              className="w-full px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs uppercase"
+                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs uppercase"
                             />
                           </div>
                           <div className="md:col-span-2">
-                            <label htmlFor="coupon-title" className="text-[10px] font-semibold text-espresso/50 block mb-1">Título do Bloco</label>
+                            <label htmlFor="coupon-title" className="text-[10px] font-semibold text-espresso/70 block mb-1">Título do Bloco</label>
                             <input 
                               id="coupon-title"
                               type="text" 
                               value={couponTitle}
                               onChange={e => setCouponTitle(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs"
+                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                           <div className="md:col-span-3">
-                            <label htmlFor="coupon-desc" className="text-[10px] font-semibold text-espresso/50 block mb-1">Instruções de Desconto</label>
+                            <label htmlFor="coupon-desc" className="text-[10px] font-semibold text-espresso/70 block mb-1">Instruções de Desconto</label>
                             <input 
                               id="coupon-desc"
                               type="text" 
                               value={couponDesc}
                               onChange={e => setCouponDesc(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs"
+                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                         </div>
@@ -875,23 +875,23 @@ export default function AdminNewsletter() {
                       {includeCta && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1.5 anim-fade">
                           <div>
-                            <label htmlFor="cta-text" className="text-[10px] font-semibold text-espresso/50 block mb-1">Texto do Botão</label>
+                            <label htmlFor="cta-text" className="text-[10px] font-semibold text-espresso/70 block mb-1">Texto do Botão</label>
                             <input 
                               id="cta-text"
                               type="text" 
                               value={ctaText}
                               onChange={e => setCtaText(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs"
+                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                           <div>
-                            <label htmlFor="cta-url" className="text-[10px] font-semibold text-espresso/50 block mb-1">Link de Destino (URL)</label>
+                            <label htmlFor="cta-url" className="text-[10px] font-semibold text-espresso/70 block mb-1">Link de Destino (URL)</label>
                             <input 
                               id="cta-url"
                               type="text" 
                               value={ctaUrl}
                               onChange={e => setCtaUrl(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white border border-espresso/10 rounded-xl text-xs"
+                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                         </div>
@@ -901,14 +901,14 @@ export default function AdminNewsletter() {
                 ) : (
                   /* Custom Code HTML Editor Mode */
                   <div>
-                    <label htmlFor="code-textarea" className="text-xs font-semibold text-espresso/60 block mb-1">Escrever HTML Customizado</label>
+                    <label htmlFor="code-textarea" className="text-xs font-semibold text-espresso/70 block mb-1">Escrever HTML Customizado</label>
                     <textarea 
                       id="code-textarea"
                       value={codeContent}
                       onChange={e => setCodeContent(e.target.value)}
                       rows={18}
                       placeholder="<body><p>Conteúdo HTML customizado do e-mail...</p></body>"
-                      className="w-full px-4 py-3 bg-white border border-espresso/10 rounded-xl text-xs font-mono focus:outline-none focus:border-plum"
+                      className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs font-mono focus:outline-none focus:border-plum"
                       required
                     />
                   </div>
@@ -934,7 +934,7 @@ export default function AdminNewsletter() {
                     <button 
                       type="button" 
                       onClick={handleCancelEdit}
-                      className="px-5 py-2.5 bg-transparent border border-espresso/10 text-espresso/60 hover:bg-espresso/5 rounded-full text-xs font-medium transition-all"
+                      className="px-5 py-2.5 bg-transparent border border-espresso/10 text-espresso/70 hover:bg-espresso/5 rounded-full text-xs font-medium transition-all"
                     >
                       Cancelar Edição
                     </button>
@@ -952,13 +952,13 @@ export default function AdminNewsletter() {
                 <h3 className="font-serif text-sm text-espresso flex items-center gap-1.5">
                   <Eye className="w-4 h-4 text-plum animate-pulse" /> Live Preview (Tempo Real)
                 </h3>
-                <span className="text-[9px] text-espresso/30 bg-espresso/5 px-2 py-0.5 rounded-full font-bold">Evokaa Mail</span>
+                <span className="text-[9px] text-espresso/70 bg-espresso/5 px-2 py-0.5 rounded-full font-bold">Evokaa Mail</span>
               </div>
               
               {/* Mail client headers mock */}
               <div className="mb-4 p-3 bg-canvas/30 rounded-xl border border-espresso/5 text-[10px] space-y-1">
-                <div><span className="text-espresso/40">Remetente:</span> <span className="text-espresso font-semibold">Evokaa Eventos &lt;news@evokaa.com.br&gt;</span></div>
-                <div><span className="text-espresso/40">Assunto:</span> <span className="text-espresso font-bold">{title || '(Sem assunto)'}</span></div>
+                <div><span className="text-espresso/70">Remetente:</span> <span className="text-espresso font-semibold">Evokaa Eventos &lt;news@evokaa.com.br&gt;</span></div>
+                <div><span className="text-espresso/70">Assunto:</span> <span className="text-espresso font-bold">{title || '(Sem assunto)'}</span></div>
               </div>
 
               {/* Iframe for Isolated CSS Rendering */}
@@ -989,7 +989,7 @@ export default function AdminNewsletter() {
                   <Loader2 className="w-5 h-5 text-plum animate-spin" />
                 </div>
               ) : campaigns.length === 0 ? (
-                <div className="text-center py-8 text-espresso/40 text-xs italic">
+                <div className="text-center py-8 text-espresso/70 text-xs italic">
                   Nenhuma campanha criada ainda.
                 </div>
               ) : (
@@ -997,18 +997,18 @@ export default function AdminNewsletter() {
                   {campaigns.map(camp => (
                     <div 
                       key={camp.id} 
-                      className="p-3.5 rounded-xl border border-white bg-white/40 hover:bg-white/70 transition-all flex flex-col justify-between gap-3 shadow-sm"
+                      className="p-3.5 rounded-xl border border-white bg-white/40 hover:bg-white/70 dark:hover:bg-white/10 dark:bg-white/5 transition-all flex flex-col justify-between gap-3 shadow-sm"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-1">
                           <span className={`px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider border ${
                             camp.status === 'sent' 
-                              ? 'bg-green-50 text-green-600 border-green-100' 
-                              : 'bg-amber-50 text-amber-600 border-amber-100'
+                              ? 'bg-green-50 text-green-700 border-green-100' 
+                              : 'bg-amber-50 text-amber-700 border-amber-100'
                           }`}>
                             {camp.status === 'sent' ? 'Enviada' : 'Rascunho'}
                           </span>
-                          <span className="text-[9px] text-espresso/30 flex items-center gap-1">
+                          <span className="text-[9px] text-espresso/70 flex items-center gap-1">
                             <Calendar className="w-3 h-3" />
                             {new Date(camp.created_at).toLocaleDateString('pt-BR')}
                           </span>
@@ -1017,7 +1017,7 @@ export default function AdminNewsletter() {
                       </div>
 
                       {camp.status === 'sent' ? (
-                        <div className="text-[9px] text-espresso/50 border-t border-espresso/5 pt-2 flex items-center justify-between">
+                        <div className="text-[9px] text-espresso/70 border-t border-espresso/5 pt-2 flex items-center justify-between">
                           {camp.recipient_count == null ? (
                             <span className="text-amber-600">Envio em andamento ou interrompido — confira antes de reenviar</span>
                           ) : (
@@ -1032,13 +1032,13 @@ export default function AdminNewsletter() {
                           <div className="flex gap-1">
                             <button 
                               onClick={() => handleEditCampaign(camp)}
-                              className="px-2.5 py-1 bg-canvas hover:bg-espresso/5 text-espresso/60 hover:text-espresso rounded-lg text-[9px] font-medium transition-all"
+                              className="px-2.5 py-1 bg-canvas hover:bg-espresso/5 text-espresso/70 hover:text-espresso rounded-lg text-[9px] font-medium transition-all"
                             >
                               Carregar
                             </button>
                             <button 
                               onClick={() => handleDeleteCampaign(camp.id)}
-                              className="p-1 text-espresso/30 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
+                              className="p-1 text-espresso/70 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
                               title="Excluir"
                             >
                               <Trash2 className="w-3 h-3" />
@@ -1075,14 +1075,14 @@ export default function AdminNewsletter() {
               <h2 className="font-serif text-xl text-espresso mb-4">Inscrição Manual</h2>
               <form onSubmit={handleAddSubscriber} className="space-y-4">
                 <div>
-                  <label htmlFor="new-sub-email" className="text-xs font-semibold text-espresso/60 block mb-1">E-mail do Assinante</label>
+                  <label htmlFor="new-sub-email" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail do Assinante</label>
                   <input 
                     id="new-sub-email"
                     type="email" 
                     value={newEmail}
                     onChange={e => setNewEmail(e.target.value)}
                     placeholder="Ex: participante@email.com"
-                    className="w-full px-4 py-2.5 bg-white border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum"
                     required
                   />
                 </div>
@@ -1105,7 +1105,7 @@ export default function AdminNewsletter() {
               <div className="mt-8 p-4 rounded-xl bg-plum/5 border border-plum/10 text-center">
                 <span className="text-[10px] text-plum font-semibold uppercase tracking-wider block mb-1">Base Ativa de Newsletter</span>
                 <span className="font-serif text-3xl text-espresso">{activeSubscriberCount}</span>
-                <p className="text-[10px] text-espresso/40 mt-1">E-mails que receberão as próximas campanhas ({subscribers.length} cadastrados no total).</p>
+                <p className="text-[10px] text-espresso/70 mt-1">E-mails que receberão as próximas campanhas ({subscribers.length} cadastrados no total).</p>
               </div>
             </div>
           </div>
@@ -1124,7 +1124,7 @@ export default function AdminNewsletter() {
                     value={subSearch}
                     onChange={e => setSubSearch(e.target.value)}
                     placeholder="Buscar e-mail..." 
-                    className="w-full pl-10 pr-4 py-2 bg-white border border-espresso/10 rounded-xl text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" 
+                    className="w-full pl-10 pr-4 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" 
                   />
                 </div>
               </div>
@@ -1140,7 +1140,7 @@ export default function AdminNewsletter() {
                   <Loader2 className="w-8 h-8 text-plum animate-spin" />
                 </div>
               ) : filteredSubscribers.length === 0 ? (
-                <div className="text-center py-20 text-espresso/30 italic text-sm">
+                <div className="text-center py-20 text-espresso/70 italic text-sm">
                   Nenhum assinante encontrado.
                 </div>
               ) : (
@@ -1149,22 +1149,22 @@ export default function AdminNewsletter() {
                     <table className="w-full text-left border-collapse">
                       <thead>
                         <tr className="border-b border-espresso/5 bg-white/40">
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/40 uppercase">E-mail</th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/40 uppercase hidden sm:table-cell">Data de Inscrição</th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/40 uppercase text-right">Ações</th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase">E-mail</th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase hidden sm:table-cell">Data de Inscrição</th>
+                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase text-right">Ações</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredSubscribers.map(sub => (
-                          <tr key={sub.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                          <tr key={sub.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
                             <td className="px-4 py-3 flex items-center gap-2">
                               <Mail className="w-3.5 h-3.5 text-espresso/30" />
                               <span className="text-xs font-medium text-espresso">{sub.email}</span>
                               {sub.unsubscribed_at && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-espresso/5 text-espresso/40 border border-espresso/10">Descadastrado</span>
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-espresso/5 text-espresso/70 border border-espresso/10">Descadastrado</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-xs text-espresso/50 hidden sm:table-cell">
+                            <td className="px-4 py-3 text-xs text-espresso/70 hidden sm:table-cell">
                               {new Date(sub.created_at).toLocaleDateString('pt-BR', {
                                 day: 'numeric',
                                 month: 'short',
@@ -1179,7 +1179,7 @@ export default function AdminNewsletter() {
                               {!sub.unsubscribed_at && (
                                 <button
                                   onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
-                                  className="p-1.5 text-espresso/30 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
+                                  className="p-1.5 text-espresso/70 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
                                   title="Remover assinante"
                                   aria-label={`Remover ${sub.email}`}
                                 >

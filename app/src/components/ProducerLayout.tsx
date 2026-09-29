@@ -24,7 +24,7 @@ import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
 import NotificationsTopButton from './NotificationsTopButton'
 
-const botaoTopo = 'rounded-xl p-2 text-espresso hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
+const botaoTopo = 'rounded-full p-2 text-espresso hover:bg-slate-500/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum'
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -175,7 +175,7 @@ function SubMenuGroup({ group, collapsed, expandedGroup, toggleGroup, onExpand, 
         {/* Tooltip submenu */}
         <div className="absolute left-full top-0 ml-2 w-48 py-2 rounded-xl opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all duration-200 z-50"
           style={{ background: '#2a1a24', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/30 mb-1">{group.label}</div>
+          <div className="px-3 py-1.5 text-[10px] uppercase tracking-wider text-white/60 mb-1">{group.label}</div>
           {group.items.map(item => (
             <Link key={item.to} to={item.to}
               className={cn(
@@ -272,18 +272,13 @@ export default function ProducerLayout() {
   }
 
   return (
-    <div className="flex min-h-screen" style={{ background: 'var(--canvas)' }}>
+    <div className="flex min-h-screen glass-canvas">
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40 flex flex-col transition-all duration-300 ease-out',
+          'fixed left-0 top-0 bottom-0 z-40 flex flex-col glass-bar border-r transition-all duration-300 ease-out',
           collapsed ? 'w-[68px]' : 'w-[232px]'
         )}
-        style={{ 
-          background: 'rgba(7, 8, 12, 0.75)', 
-          backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-        }}
       >
         {/* Logo area */}
         <div className={cn(
@@ -302,7 +297,7 @@ export default function ProducerLayout() {
               <span className="text-xs font-semibold text-white/90 tracking-wide">Painel</span>
               <span
                 className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
-                style={{ background: 'rgba(143,51,245,0.15)', color: '#a78bfa', border: '1px solid rgba(143,51,245,0.25)' }}
+                style={{ background: 'rgba(143,51,245,0.1)', color: 'var(--plum-light)', border: '1px solid rgba(143,51,245,0.25)' }}
               >
                 Prod
               </span>
@@ -374,7 +369,7 @@ export default function ProducerLayout() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-[11px] text-white/80 font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
-                  <div className="text-[9px] text-white/20 truncate">{user.email}</div>
+                  <div className="text-[9px] text-white/60 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
@@ -398,7 +393,7 @@ export default function ProducerLayout() {
           <button
             onClick={handleLogout}
             className={cn(
-              'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
+              'flex items-center gap-3 rounded-lg transition-all w-full text-white/60 hover:text-red-400/80 hover:bg-red-500/[0.06]',
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
@@ -426,9 +421,11 @@ export default function ProducerLayout() {
       >
         {/* Barra invisível do topo: só ícones à direita, numa faixa própria de 40 px (não cobre
             botões do cabeçalho das páginas, como "Novo Evento" do painel) */}
-        <div className="flex h-10 items-center justify-end gap-1 px-4 pt-1">
-          <NotificationsTopButton className={botaoTopo} />
-          <FeedbackTopButton className={botaoTopo} />
+        <div className="sticky top-0 z-30 flex h-10 items-center justify-end px-4 pointer-events-none">
+          <div className="glass-bar pointer-events-auto flex items-center gap-1 rounded-full border">
+            <NotificationsTopButton className={botaoTopo} />
+            <FeedbackTopButton className={botaoTopo} />
+          </div>
         </div>
         <ErrorBoundary resetKey={location.pathname}>
           <Outlet />

@@ -219,7 +219,7 @@ export default function ProducerCheckIn() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Check-in</h1>
-          <p className="text-sm text-espresso/50 mt-1">Validação de ingressos e portaria em tempo real</p>
+          <p className="text-sm text-espresso/70 mt-1">Validação de ingressos e portaria em tempo real</p>
         </div>
         
         {/* Selector Dropdown */}
@@ -246,13 +246,13 @@ export default function ProducerCheckIn() {
           <div className="flex items-center gap-1 bg-white/40 border border-white/60 rounded-full p-1">
             <button 
               onClick={() => setMode('scanner')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'scanner' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/50 hover:text-espresso'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'scanner' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/70 hover:text-espresso'}`}
             >
               <ScanLine className="w-3.5 h-3.5" /> Scanner
             </button>
             <button 
               onClick={() => setMode('list')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'list' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/50 hover:text-espresso'}`}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'list' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/70 hover:text-espresso'}`}
             >
               <Users className="w-3.5 h-3.5" /> Lista
             </button>
@@ -270,7 +270,7 @@ export default function ProducerCheckIn() {
             <AlertTriangle className="w-8 h-8 text-plum" />
           </div>
           <h3 className="font-serif text-xl text-espresso mb-2">Nenhum evento ativo</h3>
-          <p className="text-sm text-espresso/50 max-w-sm mx-auto">
+          <p className="text-sm text-espresso/70 max-w-sm mx-auto">
             Você precisa ter pelo menos um evento publicado para gerenciar a portaria e check-in.
           </p>
         </div>
@@ -287,7 +287,7 @@ export default function ProducerCheckIn() {
               <div key={k.label} className={`p-4 rounded-2xl bg-white/60 border border-white/60 text-center ${k.bg}`}>
                 <k.icon className={`w-4 h-4 ${k.color} mx-auto mb-1.5`} />
                 <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-                <div className="text-[10px] text-espresso/40 mt-0.5">{k.label}</div>
+                <div className="text-[10px] text-espresso/70 mt-0.5">{k.label}</div>
               </div>
             ))}
           </div>
@@ -295,7 +295,7 @@ export default function ProducerCheckIn() {
           {/* Progress */}
           <div className="mb-8 p-4 rounded-2xl bg-white/60 border border-white/60">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-espresso/50">Progresso do check-in</span>
+              <span className="text-xs text-espresso/70">Progresso do check-in</span>
               <span className="text-xs font-medium text-plum">
                 {isLoadingTickets ? 'Carregando...' : `${progress.toFixed(0)}% · ${checked}/${total}`}
               </span>
@@ -312,7 +312,7 @@ export default function ProducerCheckIn() {
                 <div className="w-20 h-20 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
                   <ScanLine className="w-10 h-10 text-plum" />
                 </div>
-                <p className="text-sm text-espresso/60 mb-4">Posicione o leitor ou digite o código do ingresso</p>
+                <p className="text-sm text-espresso/70 mb-4">Posicione o leitor ou digite o código do ingresso</p>
                 <input
                   ref={inputRef}
                   type="text"
@@ -332,7 +332,7 @@ export default function ProducerCheckIn() {
                     } 
                   }}
                   placeholder="Código do ingresso (ex: AUR-XXXX-001)..."
-                  className="w-full max-w-sm mx-auto px-6 py-4 bg-white/60 border border-white/60 rounded-full text-center text-lg text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 font-mono tracking-wider"
+                  className="w-full max-w-sm mx-auto px-6 py-4 bg-white/60 border border-white/60 rounded-full text-center text-lg text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 font-mono tracking-wider"
                 />
               </div>
 
@@ -352,7 +352,7 @@ export default function ProducerCheckIn() {
                         {lastScan.success ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /> : lastScan.ticket.status === 'usado' ? <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
                         <h3 className="text-base font-serif text-espresso truncate">{lastScan.ticket.name}</h3>
                       </div>
-                      <p className="text-xs text-espresso/50 mt-0.5 truncate">
+                      <p className="text-xs text-espresso/70 mt-0.5 truncate">
                         {lastScan.ticket.ticketType} · {lastScan.ticket.ticketCode}
                       </p>
                       <p className="text-[10px] font-medium mt-1">
@@ -375,7 +375,7 @@ export default function ProducerCheckIn() {
             <div className="space-y-3">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por participante ou código do ingresso..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por participante ou código do ingresso..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               </div>
               
               {isLoadingTickets ? (
@@ -391,7 +391,7 @@ export default function ProducerCheckIn() {
                       <img src={t.avatar} alt="" className="w-11 h-11 rounded-full object-cover ring-2 ring-canvas flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-espresso font-medium truncate">{t.name}</div>
-                        <div className="text-[10px] text-espresso/40">
+                        <div className="text-[10px] text-espresso/70">
                           {t.ticketType} · {t.ticketCode}
                         </div>
                       </div>
@@ -414,7 +414,7 @@ export default function ProducerCheckIn() {
                     </div>
                   ))}
                   {filtered.length === 0 && (
-                    <div className="py-12 text-center text-xs text-espresso/30">Nenhum participante encontrado nesta busca.</div>
+                    <div className="py-12 text-center text-xs text-espresso/70">Nenhum participante encontrado nesta busca.</div>
                   )}
                 </div>
               )}

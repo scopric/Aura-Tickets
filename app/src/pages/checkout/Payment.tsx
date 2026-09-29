@@ -267,14 +267,14 @@ export default function CheckoutPayment() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas pt-24 pb-16">
+    <div className="min-h-screen glass-canvas pt-24 pb-16">
       <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => navigate(-1)}
             aria-label="Voltar para a página anterior"
             title="Voltar"
-            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors"
+            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -298,7 +298,7 @@ export default function CheckoutPayment() {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-sm font-medium text-espresso">Cartão de Crédito</h2>
-                  <p className="text-xs text-espresso/40">Pagamento seguro com formulário genérico</p>
+                  <p className="text-xs text-espresso/70">Pagamento seguro com formulário genérico</p>
                 </div>
                 <input
                   type="radio"
@@ -314,44 +314,44 @@ export default function CheckoutPayment() {
               {paymentMethod === 'credit_card' && (
                 <div className="space-y-4 pt-2 border-t border-espresso/5 animate-fade-in">
                   <div>
-                    <label className="text-xs text-espresso/50 mb-1 block">Número do Cartão</label>
+                    <label className="text-xs text-espresso/70 mb-1 block">Número do Cartão</label>
                     <input
                       type="text"
                       placeholder="0000 0000 0000 0000"
                       value={cardNumber}
                       onChange={e => setCardNumber(e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-espresso/50 mb-1 block">Nome no Cartão</label>
+                    <label className="text-xs text-espresso/70 mb-1 block">Nome no Cartão</label>
                     <input
                       type="text"
                       placeholder="Nome completo"
                       value={cardName}
                       onChange={e => setCardName(e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">Validade</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">Validade</label>
                       <input
                         type="text"
                         placeholder="MM/AA"
                         value={cardExpiry}
                         onChange={e => setCardExpiry(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                       />
                     </div>
                     <div>
-                      <label className="text-xs text-espresso/50 mb-1 block">CVV</label>
+                      <label className="text-xs text-espresso/70 mb-1 block">CVV</label>
                       <input
                         type="text"
                         placeholder="123"
                         value={cardCvv}
                         onChange={e => setCardCvv(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                       />
                     </div>
                   </div>
@@ -376,7 +376,7 @@ export default function CheckoutPayment() {
                 </div>
                 <div className="flex-1">
                   <h2 className="text-sm font-medium text-espresso">Pagar com Pix</h2>
-                  <p className="text-xs text-espresso/40">Aprovação em segundos</p>
+                  <p className="text-xs text-espresso/70">Aprovação em segundos</p>
                 </div>
                 <input
                   type="radio"
@@ -389,7 +389,7 @@ export default function CheckoutPayment() {
                 />
               </div>
               {paymentMethod === 'pix' && (
-                <p className="text-xs text-espresso/50 mt-4 pt-3 border-t border-espresso/5 animate-fade-in">
+                <p className="text-xs text-espresso/70 mt-4 pt-3 border-t border-espresso/5 animate-fade-in">
                   Ao clicar em "Pagar Agora", geraremos o código Pix Copia e Cola. O pedido será confirmado instantaneamente após o pagamento.
                 </p>
               )}
@@ -408,7 +408,7 @@ export default function CheckoutPayment() {
                 />
               </div>
               <div>
-                <label htmlFor="pix-copia-cola" className="text-xs text-espresso/50 block mb-1">Código Copia e Cola:</label>
+                <label htmlFor="pix-copia-cola" className="text-xs text-espresso/70 block mb-1">Código Copia e Cola:</label>
                 <textarea
                   id="pix-copia-cola"
                   readOnly
@@ -421,7 +421,7 @@ export default function CheckoutPayment() {
                   className="w-full p-2 bg-white/50 border border-white/60 rounded-xl text-xs font-mono text-espresso text-center h-16 resize-none focus:outline-none"
                 />
               </div>
-              <p className="text-xs text-espresso/40">Aguardando confirmação de pagamento do banco...</p>
+              <p className="text-xs text-espresso/70">Aguardando confirmação de pagamento do banco...</p>
               <div className="flex justify-center items-center gap-2 text-xs text-plum font-semibold">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Sincronizando Pix...
@@ -432,12 +432,12 @@ export default function CheckoutPayment() {
           {/* Summary */}
           <div className="p-6 rounded-2xl bg-void text-cream">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-cream/50">Total a pagar</span>
+              <span className="text-cream/70">Total a pagar</span>
               <span className="font-serif text-2xl">
                 {formatCurrency(totalAmount, currency)}
               </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-cream/30 mb-4">
+            <div className="flex items-center gap-2 text-xs text-cream/70 mb-4">
               <Shield className="w-3 h-3" />
               Pagamento seguro e criptografado
             </div>

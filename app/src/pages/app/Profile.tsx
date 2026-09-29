@@ -374,7 +374,7 @@ export default function ParticipantProfile() {
               aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
               aria-pressed={mfa.enabled}
               onClick={mfa.toggle}
-              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-white/10'} disabled:opacity-55`}
+              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-espresso/50'} disabled:opacity-55`}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>

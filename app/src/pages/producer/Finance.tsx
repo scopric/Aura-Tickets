@@ -96,8 +96,8 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg surface-elevated p-6 max-h-[90vh] overflow-y-auto text-white">
+      <div className="absolute inset-0 glass-backdrop" onClick={onClose} />
+      <div className="glass-panel relative w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto text-white">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-serif text-xl text-white">{tx ? 'Editar' : 'Nova'} Transação</h3>
           <button onClick={onClose} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-white/[0.06] text-white/40 hover:text-white transition-colors">
@@ -117,7 +117,7 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
 
           <div>
             <label className="text-xs font-medium text-white/60 mb-1.5 block">Vincular a Evento</label>
-            <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Vincular a Evento" title="Vincular a Evento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
+            <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Vincular a Evento" title="Vincular a Evento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
               <option value="">Geral (Sem evento específico)</option>
               {events.map(e => (
                 <option key={e.id} value={e.id}>{e.title}</option>
@@ -137,7 +137,7 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
             </div>
             <div>
               <label className="text-xs font-medium text-white/60 mb-1.5 block">Categoria</label>
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} aria-label="Selecionar Categoria" title="Selecionar Categoria" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
+              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} aria-label="Selecionar Categoria" title="Selecionar Categoria" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
                 {categories[form.type].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
@@ -171,11 +171,11 @@ function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | n
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-white/60 mb-1.5 block">Data Lançamento</label>
-              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} aria-label="Data de Lançamento" title="Data de Lançamento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
+              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} aria-label="Data de Lançamento" title="Data de Lançamento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
             </div>
             <div>
               <label className="text-xs font-medium text-white/60 mb-1.5 block">Vencimento</label>
-              <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} aria-label="Data de Vencimento" title="Data de Vencimento" className="w-full px-4 py-2.5 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
+              <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} aria-label="Data de Vencimento" title="Data de Vencimento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
             </div>
           </div>
         </div>
@@ -360,7 +360,7 @@ export default function ProducerFinance() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Financeiro</h1>
-          <p className="text-sm text-espresso/50 mt-1">Dashboard com dados reais do banco, fluxo de caixa e conciliação</p>
+          <p className="text-sm text-espresso/70 mt-1">Dashboard com dados reais do banco, fluxo de caixa e conciliação</p>
         </div>
         <div className="flex items-center gap-3">
           <button disabled className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
@@ -607,7 +607,7 @@ export default function ProducerFinance() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar transações..." className="pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30 w-48" />
           </div>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as PaymentStatus | 'all')} aria-label="Filtrar por Status" title="Filtrar por Status" className="px-3 py-2 bg-[#07080c] border border-white/[0.06] rounded-xl text-sm text-white/60 focus:outline-none focus:border-purple-500/30">
+          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as PaymentStatus | 'all')} aria-label="Filtrar por Status" title="Filtrar por Status" className="px-3 py-2 bg-void border border-white/[0.06] rounded-xl text-sm text-white/60 focus:outline-none focus:border-purple-500/30">
             <option value="all">Todos Status</option>
             <option value="pago">Pago</option>
             <option value="pendente">Pendente</option>

@@ -163,12 +163,12 @@ export default function EventTicketConfig() {
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/event-manager" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/event-manager" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">Ingressos Avancados</h1>
-          <p className="text-sm text-espresso/50 mt-1">{eventMock.title} — Configure grupos, lotes, meia-entrada, formularios e taxas</p>
+          <p className="text-sm text-espresso/70 mt-1">{eventMock.title} — Configure grupos, lotes, meia-entrada, formularios e taxas</p>
         </div>
         <button onClick={handleSave} className="px-6 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">
           <Save className="w-4 h-4" /> Salvar
@@ -180,7 +180,7 @@ export default function EventTicketConfig() {
         <div className="flex items-center gap-3 mb-4">
           <Tag className="w-5 h-5 text-plum" />
           <h2 className="font-serif text-xl text-espresso">Grupos de Ingressos</h2>
-          <span className="text-xs text-espresso/30">{groups.length} grupo(s)</span>
+          <span className="text-xs text-espresso/70">{groups.length} grupo(s)</span>
         </div>
 
         {groups.map(group => {
@@ -200,7 +200,7 @@ export default function EventTicketConfig() {
                   value={group.description}
                   onChange={e => setGroups(groups.map(g => g.id === group.id ? { ...g, description: e.target.value } : g))}
                   placeholder="Descricao do grupo..."
-                  className="hidden sm:block w-48 bg-white/40 border border-white/60 rounded-lg px-3 py-1.5 text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30"
+                  className="hidden sm:block w-48 bg-white/40 border border-white/60 rounded-lg px-3 py-1.5 text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
                 />
                 <div className="flex items-center gap-1">
                   {colorOptions.map(c => (
@@ -213,7 +213,7 @@ export default function EventTicketConfig() {
                   {isExpanded ? <ChevronUp className="w-4 h-4 text-espresso/40" /> : <ChevronDown className="w-4 h-4 text-espresso/40" />}
                 </button>
                 {groups.length > 1 && (
-                  <button onClick={() => removeGroup(group.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
+                  <button onClick={() => removeGroup(group.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 )}
@@ -234,7 +234,7 @@ export default function EventTicketConfig() {
                             onChange={e => updateTicket(ticket.id, { name: e.target.value })}
                             placeholder="Nome do ingresso" className="flex-1 bg-transparent text-sm font-medium text-espresso focus:outline-none" />
                           <div className="flex items-center gap-2">
-                            <span className="text-xs text-espresso/30">R$</span>
+                            <span className="text-xs text-espresso/70">R$</span>
                             <input type="number" value={ticket.price || ''}
                               onChange={e => updateTicket(ticket.id, { price: Number(e.target.value) })}
                               placeholder="0,00" className="w-20 bg-white/40 border border-white/60 rounded-lg px-2 py-1.5 text-sm text-espresso text-right focus:outline-none focus:border-plum/30" />
@@ -249,11 +249,11 @@ export default function EventTicketConfig() {
                             className="p-1.5 rounded-lg hover:bg-white/60 transition-colors">
                             {isTicketExpanded ? <ChevronUp className="w-4 h-4 text-espresso/40" /> : <ChevronDown className="w-4 h-4 text-espresso/40" />}
                           </button>
-                          <button onClick={() => duplicateTicket(ticket)} className="p-1.5 rounded-lg hover:bg-white/60 text-espresso/30 hover:text-plum transition-colors">
+                          <button onClick={() => duplicateTicket(ticket)} className="p-1.5 rounded-lg hover:bg-white/60 text-espresso/70 hover:text-plum transition-colors">
                             <Copy className="w-4 h-4" />
                           </button>
                           {tickets.length > 1 && (
-                            <button onClick={() => removeTicket(ticket.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
+                            <button onClick={() => removeTicket(ticket.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                               <X className="w-4 h-4" />
                             </button>
                           )}
@@ -271,21 +271,21 @@ export default function EventTicketConfig() {
                                   </h4>
                                   <button onClick={() => updateTicket(ticket.id, { halfPrice: !ticket.halfPrice })}
                                     className="transition-all">
-                                    {ticket.halfPrice ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                                    {ticket.halfPrice ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                                   </button>
                                 </div>
                                 {ticket.halfPrice && (
                                   <div className="space-y-3">
                                     <div>
-                                      <label className="text-xs text-espresso/50 mb-1 block">Valor da Meia</label>
+                                      <label className="text-xs text-espresso/70 mb-1 block">Valor da Meia</label>
                                       <div className="flex items-center gap-2">
-                                        <span className="text-xs text-espresso/30">R$</span>
+                                        <span className="text-xs text-espresso/70">R$</span>
                                         <input type="number" value={ticket.halfPriceValue || ''}
                                           onChange={e => updateTicket(ticket.id, { halfPriceValue: Number(e.target.value) })}
                                           className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                                       </div>
                                       {ticket.price > 0 && ticket.halfPriceValue > 0 && (
-                                        <p className="text-[10px] text-espresso/30 mt-1">
+                                        <p className="text-[10px] text-espresso/70 mt-1">
                                           Desconto: {Math.round((1 - ticket.halfPriceValue / ticket.price) * 100)}%
                                         </p>
                                       )}
@@ -301,23 +301,23 @@ export default function EventTicketConfig() {
                                 </h4>
                                 <div className="grid grid-cols-2 gap-3">
                                   <div>
-                                    <label className="text-xs text-espresso/50 mb-1 block">Minimo</label>
+                                    <label className="text-xs text-espresso/70 mb-1 block">Minimo</label>
                                     <input type="number" value={ticket.minPerOrder}
                                       onChange={e => updateTicket(ticket.id, { minPerOrder: Number(e.target.value) })}
                                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                                   </div>
                                   <div>
-                                    <label className="text-xs text-espresso/50 mb-1 block">Maximo</label>
+                                    <label className="text-xs text-espresso/70 mb-1 block">Maximo</label>
                                     <input type="number" value={ticket.maxPerOrder}
                                       onChange={e => updateTicket(ticket.id, { maxPerOrder: Number(e.target.value) })}
                                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                                   </div>
                                   <div className="col-span-2">
-                                    <label className="text-xs text-espresso/50 mb-1 block">Limite por CPF</label>
+                                    <label className="text-xs text-espresso/70 mb-1 block">Limite por CPF</label>
                                     <input type="number" value={ticket.limitPerCpf}
                                       onChange={e => updateTicket(ticket.id, { limitPerCpf: Number(e.target.value) })}
                                       className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                                    <p className="text-[10px] text-espresso/30 mt-1">Quantos ingressos deste tipo uma pessoa pode comprar no total</p>
+                                    <p className="text-[10px] text-espresso/70 mt-1">Quantos ingressos deste tipo uma pessoa pode comprar no total</p>
                                   </div>
                                 </div>
                               </div>
@@ -330,13 +330,13 @@ export default function EventTicketConfig() {
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-2 gap-3">
                                     <div>
-                                      <label className="text-xs text-espresso/50 mb-1 block">Inicio</label>
+                                      <label className="text-xs text-espresso/70 mb-1 block">Inicio</label>
                                       <input type="date" value={ticket.startDate}
                                         onChange={e => updateTicket(ticket.id, { startDate: e.target.value })}
                                         className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                                     </div>
                                     <div>
-                                      <label className="text-xs text-espresso/50 mb-1 block">Fim</label>
+                                      <label className="text-xs text-espresso/70 mb-1 block">Fim</label>
                                       <input type="date" value={ticket.endDate}
                                         onChange={e => updateTicket(ticket.id, { endDate: e.target.value })}
                                         className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
@@ -345,9 +345,9 @@ export default function EventTicketConfig() {
                                   <div className="flex items-center gap-2">
                                     <button onClick={() => updateTicket(ticket.id, { autoClose: !ticket.autoClose })}
                                       className="transition-all">
-                                      {ticket.autoClose ? <ToggleRight className="w-5 h-5 text-plum" /> : <ToggleLeft className="w-5 h-5 text-espresso/30" />}
+                                      {ticket.autoClose ? <ToggleRight className="w-5 h-5 text-plum" /> : <ToggleLeft className="w-5 h-5 text-espresso/70" />}
                                     </button>
-                                    <span className="text-xs text-espresso/50">Encerrar automaticamente ao atingir capacidade</span>
+                                    <span className="text-xs text-espresso/70">Encerrar automaticamente ao atingir capacidade</span>
                                   </div>
                                 </div>
                               </div>
@@ -361,7 +361,7 @@ export default function EventTicketConfig() {
                                   onChange={e => updateTicket(ticket.id, { description: e.target.value })}
                                   placeholder="O que este ingresso inclui..."
                                   rows={4}
-                                  className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
+                                  className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none" />
                               </div>
                             </div>
 
@@ -376,46 +376,46 @@ export default function EventTicketConfig() {
                                 </button>
                               </div>
                               {ticketLots.length === 0 && (
-                                <p className="text-xs text-espresso/30 py-2">Sem lotes configurados. O ingresso usara o preco padrao.</p>
+                                <p className="text-xs text-espresso/70 py-2">Sem lotes configurados. O ingresso usara o preco padrao.</p>
                               )}
                               {ticketLots.map((lot, li) => (
                                 <div key={lot.id} className="grid grid-cols-12 gap-2 mb-2 items-end">
                                   <div className="col-span-2">
-                                    <label className="text-[10px] text-espresso/50 mb-1 block">Nome</label>
+                                    <label className="text-[10px] text-espresso/70 mb-1 block">Nome</label>
                                     <input value={lot.name} onChange={e => updateLot(lot.id, { name: e.target.value })}
                                       className="w-full px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none" />
                                   </div>
                                   <div className="col-span-2">
-                                    <label className="text-[10px] text-espresso/50 mb-1 block">Preco R$</label>
+                                    <label className="text-[10px] text-espresso/70 mb-1 block">Preco R$</label>
                                     <input type="number" value={lot.price || ''} onChange={e => updateLot(lot.id, { price: Number(e.target.value) })}
                                       className="w-full px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none" />
                                   </div>
                                   <div className="col-span-2">
-                                    <label className="text-[10px] text-espresso/50 mb-1 block">Qtd</label>
+                                    <label className="text-[10px] text-espresso/70 mb-1 block">Qtd</label>
                                     <input type="number" value={lot.capacity || ''} onChange={e => updateLot(lot.id, { capacity: Number(e.target.value) })}
                                       className="w-full px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none" />
                                   </div>
                                   <div className="col-span-2">
-                                    <label className="text-[10px] text-espresso/50 mb-1 block">Inicio</label>
+                                    <label className="text-[10px] text-espresso/70 mb-1 block">Inicio</label>
                                     <input type="date" value={lot.startDate} onChange={e => updateLot(lot.id, { startDate: e.target.value })}
                                       className="w-full px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none" />
                                   </div>
                                   <div className="col-span-2">
-                                    <label className="text-[10px] text-espresso/50 mb-1 block">Fim</label>
+                                    <label className="text-[10px] text-espresso/70 mb-1 block">Fim</label>
                                     <input type="date" value={lot.endDate} onChange={e => updateLot(lot.id, { endDate: e.target.value })}
                                       className="w-full px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none" />
                                   </div>
                                   <div className="col-span-1 flex items-center gap-1">
                                     <button onClick={() => updateLot(lot.id, { autoSwitch: !lot.autoSwitch })}
                                       title="Virada automatica" className="transition-all">
-                                      {lot.autoSwitch ? <ToggleRight className="w-5 h-5 text-plum" /> : <ToggleLeft className="w-5 h-5 text-espresso/30" />}
+                                      {lot.autoSwitch ? <ToggleRight className="w-5 h-5 text-plum" /> : <ToggleLeft className="w-5 h-5 text-espresso/70" />}
                                     </button>
-                                    <button onClick={() => removeLot(lot.id)} className="p-1 rounded hover:bg-red-50 text-espresso/30 hover:text-red-500">
+                                    <button onClick={() => removeLot(lot.id)} className="p-1 rounded hover:bg-red-50 text-espresso/70 hover:text-red-500">
                                       <X className="w-3.5 h-3.5" />
                                     </button>
                                   </div>
                                   <div className="col-span-12 flex items-center gap-2">
-                                    <span className="text-[10px] text-espresso/30">{li + 1}o lote — {lot.autoSwitch ? 'Virada automatica ativa' : 'Virada manual'}</span>
+                                    <span className="text-[10px] text-espresso/70">{li + 1}o lote — {lot.autoSwitch ? 'Virada automatica ativa' : 'Virada manual'}</span>
                                   </div>
                                 </div>
                               ))}
@@ -426,7 +426,7 @@ export default function EventTicketConfig() {
                     )
                   })}
                   <button onClick={() => addTicket(group.id)}
-                    className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/40 hover:text-plum hover:border-plum/30 transition-all w-full justify-center">
+                    className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all w-full justify-center">
                     <Plus className="w-4 h-4" /> Adicionar Ingresso
                   </button>
                 </div>
@@ -445,16 +445,16 @@ export default function EventTicketConfig() {
         <div className="flex items-center gap-3 mb-4">
           <FileText className="w-5 h-5 text-plum" />
           <h2 className="font-serif text-xl text-espresso">Formularios Personalizados</h2>
-          <span className="text-xs text-espresso/30">{customFields.length} campo(s)</span>
+          <span className="text-xs text-espresso/70">{customFields.length} campo(s)</span>
         </div>
-        <p className="text-xs text-espresso/40 mb-4">Capture informacoes adicionais dos participantes durante a compra</p>
+        <p className="text-xs text-espresso/70 mb-4">Capture informacoes adicionais dos participantes durante a compra</p>
 
         {customFields.map((field, i) => (
           <div key={field.id} className="flex items-center gap-3 mb-3 p-3 bg-white/40 border border-white/60 rounded-xl">
-            <span className="text-xs text-espresso/20 w-5">{i + 1}</span>
+            <span className="text-xs text-espresso/70 w-5">{i + 1}</span>
             <input value={field.label}
               onChange={e => updateField(field.id, { label: e.target.value })}
-              placeholder="Nome do campo" className="flex-1 px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              placeholder="Nome do campo" className="flex-1 px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <select value={field.type}
               onChange={e => updateField(field.id, { type: e.target.value as CustomField['type'] })}
               className="px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30">
@@ -468,19 +468,19 @@ export default function EventTicketConfig() {
             {(field.type === 'select') && (
               <input value={field.options}
                 onChange={e => updateField(field.id, { options: e.target.value })}
-                placeholder="Op1, Op2, Op3" className="w-32 px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                placeholder="Op1, Op2, Op3" className="w-32 px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             )}
             <button onClick={() => updateField(field.id, { required: !field.required })}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${field.required ? 'bg-plum/10 text-plum' : 'bg-white/40 text-espresso/30'}`}>
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${field.required ? 'bg-plum/10 text-plum' : 'bg-white/40 text-espresso/70'}`}>
               {field.required ? 'Obrigatorio' : 'Opcional'}
             </button>
-            <button onClick={() => removeCustomField(field.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors">
+            <button onClick={() => removeCustomField(field.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
         ))}
         <button onClick={addCustomField}
-          className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/40 hover:text-plum hover:border-plum/30 transition-all">
+          className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all">
           <Plus className="w-4 h-4" /> Adicionar Campo
         </button>
       </div>
@@ -496,33 +496,33 @@ export default function EventTicketConfig() {
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-medium text-espresso">Taxa de Servico</h4>
               <button onClick={() => setTax({ ...tax, enabled: !tax.enabled })} className="transition-all">
-                {tax.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                {tax.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
               </button>
             </div>
             {tax.enabled && (
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Percentual (%)</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Percentual (%)</label>
                   <input type="number" value={tax.percentage}
                     onChange={e => setTax({ ...tax, percentage: Number(e.target.value) })}
                     className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Valor Minimo (R$)</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Valor Minimo (R$)</label>
                   <input type="number" value={tax.minAmount}
                     onChange={e => setTax({ ...tax, minAmount: Number(e.target.value) })}
                     className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                  <p className="text-[10px] text-espresso/30 mt-1">Para ingressos com valor baixo, aplica o minimo</p>
+                  <p className="text-[10px] text-espresso/70 mt-1">Para ingressos com valor baixo, aplica o minimo</p>
                 </div>
                 <div>
-                  <label className="text-xs text-espresso/50 mb-1 block">Quem paga a taxa?</label>
+                  <label className="text-xs text-espresso/70 mb-1 block">Quem paga a taxa?</label>
                   <div className="flex gap-2 mt-1">
                     <button onClick={() => setTax({ ...tax, absorb: true })}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${tax.absorb ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/40'}`}>
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${tax.absorb ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70'}`}>
                       Produtor (absorve)
                     </button>
                     <button onClick={() => setTax({ ...tax, absorb: false })}
-                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${!tax.absorb ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/40'}`}>
+                      className={`flex-1 py-2 rounded-lg text-xs font-medium transition-all ${!tax.absorb ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70'}`}>
                       Comprador (repassa)
                     </button>
                   </div>
@@ -540,9 +540,9 @@ export default function EventTicketConfig() {
               const finalPrice = tax.absorb ? t.price : t.price + fee
               return (
                 <div key={t.id} className="flex items-center justify-between py-2 border-b border-white/60 last:border-0">
-                  <span className="text-xs text-espresso/60">{t.name || 'Ingresso'}</span>
+                  <span className="text-xs text-espresso/70">{t.name || 'Ingresso'}</span>
                   <div className="flex items-center gap-4">
-                    <span className="text-xs text-espresso/30">Base: R$ {t.price.toFixed(2)}</span>
+                    <span className="text-xs text-espresso/70">Base: R$ {t.price.toFixed(2)}</span>
                     <span className="text-xs text-plum">Taxa: R$ {fee.toFixed(2)}</span>
                     <span className="text-xs font-medium text-espresso">
                       {tax.absorb ? 'Produtor recebe' : 'Comprador paga'}: R$ {finalPrice.toFixed(2)}

@@ -69,11 +69,11 @@ export default function AppLayout() {
     location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex min-h-screen glass-canvas">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -84,13 +84,9 @@ export default function AppLayout() {
           'fixed left-0 top-0 bottom-0 z-50 flex flex-col transition-all duration-300 ease-out',
           'lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          collapsed ? 'w-[72px]' : 'w-[250px]'
+          collapsed ? 'w-[72px]' : 'w-[250px]',
+          'glass-bar border-r'
         )}
-        style={{
-          background: 'rgba(7, 8, 12, 0.75)',
-          backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-        }}
       >
         {/* Logo */}
         <div
@@ -111,8 +107,8 @@ export default function AppLayout() {
               <span
                 className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
                 style={{
-                  background: 'rgba(143,51,245,0.15)',
-                  color: '#a78bfa',
+                  background: 'rgba(143, 51, 245, 0.1)',
+                  color: 'var(--plum-light)',
                   border: '1px solid rgba(143,51,245,0.25)',
                 }}
               >
@@ -212,7 +208,7 @@ export default function AppLayout() {
           <button
             onClick={logout}
             className={cn(
-              'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
+              'flex items-center gap-3 rounded-lg transition-all w-full text-white/60 hover:text-red-400/80 hover:bg-red-500/[0.06]',
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
@@ -246,12 +242,7 @@ export default function AppLayout() {
       >
         {/* Header */}
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b"
-          style={{
-            background: 'rgba(7, 8, 12, 0.75)',
-            backdropFilter: 'blur(20px)',
-            borderColor: 'rgba(255, 255, 255, 0.05)',
-          }}
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b glass-bar"
         >
           <div className="flex items-center gap-4">
             {/* Mobile menu button */}
@@ -301,7 +292,7 @@ export default function AppLayout() {
 
               {/* Notifications Dropdown */}
               {showNotifs && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-slate-950/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-96 glass-panel rounded-2xl overflow-hidden z-50">
                   <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-white">Notificações</h3>
                     <button

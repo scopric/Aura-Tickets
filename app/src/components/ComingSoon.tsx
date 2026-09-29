@@ -25,7 +25,7 @@ export default function ComingSoon({ title = 'Esta ferramenta', backTo = '/produ
 
         <h2 className="font-serif text-2xl text-espresso mb-3">Em construção</h2>
 
-        <p className="text-sm text-espresso/50 leading-relaxed mb-8">
+        <p className="text-sm text-espresso/70 leading-relaxed mb-8">
           <strong className="text-espresso/70">{title}</strong> está sendo finalizada e ficará
           disponível em breve. Estamos trabalhando para entregá-la com dados reais e totalmente
           funcional.

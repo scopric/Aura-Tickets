@@ -450,7 +450,7 @@ export default function AdminUsers() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Gestão de Usuários</h1>
-          <p className="text-sm text-espresso/50 mt-1">Autorização de acessos, precificação e liberação de recursos do Supabase</p>
+          <p className="text-sm text-espresso/70 mt-1">Autorização de acessos, precificação e liberação de recursos do Supabase</p>
         </div>
       </div>
 
@@ -467,7 +467,7 @@ export default function AdminUsers() {
               <k.icon className={`w-5 h-5 ${k.color}`} />
             </div>
             <div className={`font-serif text-2xl text-espresso`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -480,7 +480,7 @@ export default function AdminUsers() {
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Buscar por nome, e-mail ou telefone..." 
-            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors" 
+            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors" 
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -552,7 +552,7 @@ export default function AdminUsers() {
                         </div>
                       </td>
                       <td className="hidden md:table-cell">
-                        <div className="space-y-0.5 text-xs text-espresso/50">
+                        <div className="space-y-0.5 text-xs text-espresso/70">
                           <div className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 opacity-55" />{p.email}</div>
                           {p.phone && <div className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 opacity-55" />{p.phone}</div>}
                         </div>
@@ -561,34 +561,34 @@ export default function AdminUsers() {
                         {sub ? (
                           <div className="text-xs">
                             <span className="font-semibold text-plum capitalize">{sub.plan}</span>
-                            <div className="text-[10px] text-espresso/40 mt-0.5">
+                            <div className="text-[10px] text-espresso/70 mt-0.5">
                               <span>Preço do plano</span>
                             </div>
                             {sub.expires_at && (
-                              <div className="text-[9px] text-espresso/30 flex items-center gap-1 mt-0.5">
+                              <div className="text-[9px] text-espresso/70 flex items-center gap-1 mt-0.5">
                                 <Clock className="w-3 h-3" /> Expira: {new Date(sub.expires_at).toLocaleDateString('pt-BR')}
                               </div>
                             )}
                           </div>
                         ) : (
-                          <span className="text-xs text-espresso/35">Nenhuma</span>
+                          <span className="text-xs text-espresso/70">Nenhuma</span>
                         )}
                       </td>
                       <td className="hidden lg:table-cell">
                         {customFeats.length > 0 ? (
                           <div className="flex flex-wrap gap-1 max-w-[200px]">
                             {customFeats.map(f => (
-                              <span key={f.feature_key} className="text-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-espresso/60 px-1.5 py-0.5 rounded" title={f.expires_at ? `Expira em ${new Date(f.expires_at).toLocaleDateString('pt-BR')}` : 'Tempo ilimitado'}>
+                              <span key={f.feature_key} className="text-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-espresso/70 px-1.5 py-0.5 rounded" title={f.expires_at ? `Expira em ${new Date(f.expires_at).toLocaleDateString('pt-BR')}` : 'Tempo ilimitado'}>
                                 {f.feature_key}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-[10px] text-espresso/35">—</span>
+                          <span className="text-[10px] text-espresso/70">—</span>
                         )}
                       </td>
                       <td>
-                        <span className="text-xs text-espresso/50" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                        <span className="text-xs text-espresso/70" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
                       </td>
                       <td>
                         <button 
@@ -604,7 +604,7 @@ export default function AdminUsers() {
                 })}
                 {filteredProfiles.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm text-espresso/30 italic">
+                    <td colSpan={6} className="py-12 text-center text-sm text-espresso/70 italic">
                       Nenhum usuário encontrado com as configurações de busca.
                     </td>
                   </tr>
@@ -618,8 +618,8 @@ export default function AdminUsers() {
       {/* Drawer Lateral de Gerenciamento do Usuário */}
       {selectedProfile && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setSelectedProfile(null)} />
-          <div className="relative w-full max-w-lg bg-canvas border-l border-slate-200/60 dark:border-white/5 h-full shadow-2xl flex flex-col justify-between overflow-y-auto">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedProfile(null)} />
+          <div className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0">
             {/* Top Header */}
             <div className="p-6 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -630,12 +630,12 @@ export default function AdminUsers() {
                 />
                 <div>
                   <h3 className="font-serif text-lg text-espresso">{selectedProfile.full_name || 'Sem nome'}</h3>
-                  <div className="text-xs text-espresso/45">{selectedProfile.email}</div>
+                  <div className="text-xs text-espresso/70">{selectedProfile.email}</div>
                 </div>
               </div>
               <button 
                 onClick={() => setSelectedProfile(null)}
-                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-espresso/40 hover:text-espresso"
+                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-espresso/70 hover:text-espresso"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -649,7 +649,7 @@ export default function AdminUsers() {
                 className={`py-3 text-xs font-semibold border-b-2 transition-all ${
                   drawerTab === 'config' 
                     ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/40 hover:text-espresso/60'
+                    : 'border-transparent text-espresso/70 hover:text-espresso'
                 }`}
               >
                 Configurações RLS
@@ -660,7 +660,7 @@ export default function AdminUsers() {
                 className={`py-3 text-xs font-semibold border-b-2 transition-all ${
                   drawerTab === 'history' 
                     ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/40 hover:text-espresso/60'
+                    : 'border-transparent text-espresso/70 hover:text-espresso'
                 }`}
               >
                 Histórico & Comportamento
@@ -677,7 +677,7 @@ export default function AdminUsers() {
                   <div className="grid grid-cols-2 gap-4">
                     {/* Select Role */}
                     <div>
-                      <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Papel do Usuário</label>
+                      <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Papel do Usuário</label>
                       <select 
                         value={editRole}
                         onChange={e => setEditRole(e.target.value as Profile['role'])}
@@ -702,7 +702,7 @@ export default function AdminUsers() {
                   <div className="space-y-3">
                     {/* Select Plan */}
                     <div>
-                      <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Alterar Plano</label>
+                      <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Alterar Plano</label>
                       <select 
                         value={editPlan}
                         onChange={e => setEditPlan(e.target.value as Subscription['plan'])}
@@ -718,14 +718,14 @@ export default function AdminUsers() {
                       <div className="grid grid-cols-2 gap-4">
                         {/* Tempo de Gratuidade / Expiração */}
                         <div>
-                          <label className="text-xs font-semibold text-espresso/60 mb-1.5 block">Vencimento / Expiração</label>
+                          <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Vencimento / Expiração</label>
                           <input
                             type="date"
                             value={editExpiresAt}
                             onChange={e => setEditExpiresAt(e.target.value)}
                             className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
                           />
-                          <span className="text-[9px] text-espresso/35 mt-1 block">Data limite da gratuidade ou assinatura.</span>
+                          <span className="text-[9px] text-espresso/70 mt-1 block">Data limite da gratuidade ou assinatura.</span>
                         </div>
                       </div>
                     )}
@@ -745,13 +745,13 @@ export default function AdminUsers() {
                   
                   {editRole === 'user' || editRole === 'customer' ? (
                     <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-center">
-                      <p className="text-[11px] text-amber-700 dark:text-amber-450 font-medium leading-relaxed">
+                      <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
                         Este usuário é um <strong>Participante</strong>. Ferramentas de produtor não se aplicam a contas de participante comuns, a menos que você altere o papel dele para Produtor ou Editor no painel acima.
                       </p>
                     </div>
                   ) : (
                     <>
-                      <p className="text-[10px] text-espresso/45 leading-relaxed">
+                      <p className="text-[10px] text-espresso/70 leading-relaxed">
                         Ferramentas nativas do plano <strong className="capitalize">{editPlan}</strong> são liberadas automaticamente. Ative individualmente (Bypass) os recursos adicionais desejados.
                       </p>
                       
@@ -774,7 +774,7 @@ export default function AdminUsers() {
                               <div className="flex items-start justify-between gap-2">
                                 <div>
                                   <div className="text-[11px] font-bold text-espresso">{feat.name}</div>
-                                  <div className="text-[9px] text-espresso/40 mt-0.5 leading-snug">{feat.desc}</div>
+                                  <div className="text-[9px] text-espresso/70 mt-0.5 leading-snug">{feat.desc}</div>
                                 </div>
                                 
                                 {inPlan ? (
@@ -801,7 +801,7 @@ export default function AdminUsers() {
                               
                               {!inPlan && tempFeat.active && (
                                 <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-plum/10">
-                                  <div className="flex items-center justify-between gap-1 text-[9px] text-espresso/50">
+                                  <div className="flex items-center justify-between gap-1 text-[9px] text-espresso/70">
                                     <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" /> Expira em:</span>
                                     <button
                                       type="button"
@@ -825,7 +825,7 @@ export default function AdminUsers() {
                                         ...prev,
                                         [feat.key]: { ...prev[feat.key], expires_at: e.target.value }
                                       }))}
-                                      className="w-full px-2 py-1 bg-white/85 dark:bg-zinc-850 dark:border-zinc-700 border border-slate-200 rounded-md text-[9px] text-espresso focus:outline-none"
+                                      className="w-full px-2 py-1 bg-white/85 dark:bg-zinc-800 dark:border-zinc-700 border border-slate-200 rounded-md text-[9px] text-espresso focus:outline-none"
                                     />
                                   ) : (
                                     <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">Acesso Vitalício</span>
@@ -845,7 +845,7 @@ export default function AdminUsers() {
                 {userHistoryLoading ? (
                   <div className="py-20 text-center">
                     <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-3" />
-                    <p className="text-xs text-espresso/50">Carregando histórico e métricas...</p>
+                    <p className="text-xs text-espresso/70">Carregando histórico e métricas...</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -857,15 +857,15 @@ export default function AdminUsers() {
                     {/* Status da Conta */}
                     <div className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border border-white/60 dark:bg-white/5 dark:border-white/5">
                       <div>
-                        <div className="text-xs text-espresso/40">Status do Usuário</div>
+                        <div className="text-xs text-espresso/70">Status do Usuário</div>
                         <div className="text-sm font-bold text-espresso mt-0.5">Tempo de Atividade & Assinatura</div>
                       </div>
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border ${
                         userHistoryMetrics?.accountStatus === 'Ativo' 
-                          ? 'bg-green-50 text-green-600 border-green-100 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' 
+                          ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' 
                           : userHistoryMetrics?.accountStatus === 'Inativo'
-                          ? 'bg-slate-55 border-slate-200 text-slate-500 dark:bg-zinc-700/50 dark:text-zinc-400 dark:border-zinc-650'
-                          : 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
+                          ? 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-zinc-700/50 dark:text-zinc-400 dark:border-zinc-600'
+                          : 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
                       }`}>
                         <div className={`w-2.5 h-2.5 rounded-full ${
                           userHistoryMetrics?.accountStatus === 'Ativo' 
@@ -891,8 +891,8 @@ export default function AdminUsers() {
                             <m.icon className={`w-4 h-4 ${m.color}`} />
                           </div>
                           <div className="text-sm font-bold text-espresso">{m.value}</div>
-                          <div className="text-[10px] text-espresso/40 font-medium mt-0.5">{m.label}</div>
-                          <div className="text-[9px] text-espresso/30 mt-1">{m.desc}</div>
+                          <div className="text-[10px] text-espresso/70 font-medium mt-0.5">{m.label}</div>
+                          <div className="text-[9px] text-espresso/70 mt-1">{m.desc}</div>
                         </div>
                       ))}
                     </div>
@@ -902,10 +902,10 @@ export default function AdminUsers() {
                       <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5">
                         <ArrowUpRight className="w-4 h-4" /> Carrinho Abandonado (Visualizados sem Compra)
                       </h4>
-                      <p className="text-[10px] text-espresso/45">Eventos cujos detalhes foram visualizados, mas para os quais nenhum ingresso foi adquirido ainda.</p>
+                      <p className="text-[10px] text-espresso/70">Eventos cujos detalhes foram visualizados, mas para os quais nenhum ingresso foi adquirido ainda.</p>
                       
                       {abandonedEvents.length === 0 ? (
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/40 italic">
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/70 italic">
                           Nenhum interesse abandonado registrado.
                         </div>
                       ) : (
@@ -914,7 +914,7 @@ export default function AdminUsers() {
                             <div key={ev.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start justify-between gap-3">
                               <div>
                                 <div className="text-xs font-bold text-espresso">{ev.title}</div>
-                                <div className="text-[9.5px] text-espresso/40 mt-1">
+                                <div className="text-[9.5px] text-espresso/70 mt-1">
                                   {new Date(ev.date).toLocaleDateString('pt-BR')} · {ev.time} · {ev.venue}
                                 </div>
                               </div>
@@ -932,10 +932,10 @@ export default function AdminUsers() {
                       <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5">
                         <Activity className="w-4 h-4" /> Histórico de Navegação Recente
                       </h4>
-                      <p className="text-[10px] text-espresso/45">Últimas 15 ações registradas para esta conta de acordo com a telemetria do app.</p>
+                      <p className="text-[10px] text-espresso/70">Últimas 15 ações registradas para esta conta de acordo com a telemetria do app.</p>
                       
                       {recentNavigation.length === 0 ? (
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/40 italic">
+                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/70 italic">
                           Nenhuma atividade recente registrada.
                         </div>
                       ) : (
@@ -959,15 +959,15 @@ export default function AdminUsers() {
                                      log.event_type === 'session_start' ? 'Iniciou Sessão' :
                                      log.event_type}
                                   </span>
-                                  <span className="text-[9.5px] text-espresso/35 font-mono">
+                                  <span className="text-[9.5px] text-espresso/70 font-mono">
                                     {date.toLocaleDateString('pt-BR')} {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
-                                <div className="text-[9.5px] text-espresso/40 font-mono mt-0.5 break-all">
+                                <div className="text-[9.5px] text-espresso/70 font-mono mt-0.5 break-all">
                                   {log.path || '/'}
                                 </div>
                                 {log.metadata && (
-                                  <div className="text-[8px] text-espresso/30 mt-0.5 font-mono">
+                                  <div className="text-[8px] text-espresso/70 mt-0.5 font-mono">
                                     Device: {log.metadata.device || 'Desconhecido'}{log.metadata.userAgent ? ` · Agent: ${String(log.metadata.userAgent).slice(0, 40)}…` : ''}
                                   </div>
                                 )}
@@ -986,7 +986,7 @@ export default function AdminUsers() {
             <div className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-3">
               <button 
                 onClick={() => setSelectedProfile(null)}
-                className="px-6 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-espresso text-xs font-semibold rounded-full transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700"
+                className="px-6 py-2.5 bg-white dark:bg-white/5 border border-slate-200 hover:bg-slate-50 text-espresso text-xs font-semibold rounded-full transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700"
               >
                 Cancelar
               </button>

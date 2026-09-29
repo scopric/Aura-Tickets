@@ -50,11 +50,12 @@ test.describe('admin — configurações (conta demo, DEV)', () => {
     await expect(page.getByText('Revogar')).toHaveCount(0)
   })
 
-  test('alpha sem aviso de cookies nem botão de feedback', async ({ page }) => {
+  test('alpha sem aviso de cookies; feedback só na barra do topo', async ({ page }) => {
     await page.goto(`${ALPHA}/admin/dashboard`)
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {})
     await expect(page.getByText('Sua privacidade importa')).toHaveCount(0)
-    await expect(page.getByRole('button', { name: 'Enviar feedback' })).toHaveCount(0) // botão flutuante de feedback
+    // Decisão 69 (substitui a 46 nesse ponto): feedback na barra fixa do topo, sem o botão flutuante antigo
+    await expect(page.getByRole('button', { name: 'Enviar feedback' })).toHaveCount(1)
   })
 
   test('equipe sem admin inventado', async ({ page }) => {

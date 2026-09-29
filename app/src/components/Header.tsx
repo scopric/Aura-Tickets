@@ -38,7 +38,7 @@ export default function Header() {
         'fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out',
         isProducerRoute && 'hidden',
         isScrolled
-          ? 'bg-white/80 backdrop-blur-xl border-b border-slate-200/60 shadow-sm'
+          ? 'bg-white/80 backdrop-blur-xl shadow-sm'
           : 'bg-transparent'
       )}
     >
@@ -156,7 +156,7 @@ export default function Header() {
                   className={cn(
                     'text-[13px] py-2.5 px-5 font-medium rounded-full transition-all duration-300',
                     isScrolled 
-                      ? 'text-slate-600 border border-slate-200 hover:bg-slate-50 hover:border-slate-300' 
+                      ? 'text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300' 
                       : 'text-white/80 border border-white/15 hover:bg-white/5 hover:border-white/25'
                   )}
                 >
@@ -227,7 +227,7 @@ export default function Header() {
                 <Link
                   to={role === 'admin' ? '/admin/dashboard' : role === 'producer' ? '/producer/dashboard' : '/app/hub'}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-slate-600 border border-slate-200 rounded-full hover:bg-slate-50 transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-slate-700 border border-slate-200 rounded-full hover:bg-slate-50 transition-all"
                 >
                   <LayoutDashboard className="w-4 h-4" />
                   Meu Painel
@@ -245,7 +245,7 @@ export default function Header() {
                 <Link
                   to={appUrl('/auth/login')}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex-1 flex items-center justify-center py-3 text-sm font-medium text-slate-600 border border-slate-200 rounded-full hover:bg-slate-50 transition-all"
+                  className="flex-1 flex items-center justify-center py-3 text-sm font-medium text-slate-700 border border-slate-200 rounded-full hover:bg-slate-50 transition-all"
                 >
                   Entrar
                 </Link>

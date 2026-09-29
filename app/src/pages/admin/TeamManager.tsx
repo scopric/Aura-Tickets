@@ -255,7 +255,7 @@ export default function AdminTeamManager() {
       {/* Title */}
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Equipe Administrativa</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie os membros da equipe de moderação e ajuste as permissões de controle (RBAC).</p>
+        <p className="text-sm text-espresso/70 mt-1">Gerencie os membros da equipe de moderação e ajuste as permissões de controle (RBAC).</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -276,7 +276,7 @@ export default function AdminTeamManager() {
                 <Loader2 className="w-8 h-8 text-plum animate-spin" />
               </div>
             ) : admins.length === 0 ? (
-              <div className="text-center py-20 text-espresso/30 italic text-sm">
+              <div className="text-center py-20 text-espresso/70 italic text-sm">
                 Nenhum administrador cadastrado.
               </div>
             ) : (
@@ -292,7 +292,7 @@ export default function AdminTeamManager() {
                       className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
                         selectedAdmin?.id === admin.id
                           ? 'border-plum bg-plum/5 shadow-md'
-                          : 'border-white bg-white/40 hover:bg-white/70 shadow-sm'
+                          : 'border-white bg-white/40 hover:bg-white/70 dark:hover:bg-white/10 shadow-sm'
                       }`}
                     >
                       <div className="flex items-center gap-3">
@@ -310,7 +310,7 @@ export default function AdminTeamManager() {
                               <Award className="w-3.5 h-3.5 text-amber-500 fill-amber-500" title="Super Admin" />
                             )}
                           </div>
-                          <div className="text-[10px] text-espresso/40 flex items-center gap-1 mt-0.5">
+                          <div className="text-[10px] text-espresso/70 flex items-center gap-1 mt-0.5">
                             <span>
                               {isSuper 
                                 ? 'Acesso Total' 
@@ -329,7 +329,7 @@ export default function AdminTeamManager() {
                             <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-semibold">Super Admin</span>
                           ) : (
                             admin.admin_permissions?.slice(0, 3).map(p => (
-                              <span key={p} className="px-2 py-0.5 rounded bg-espresso/5 text-espresso/60 text-[9px] font-semibold border border-espresso/10">
+                              <span key={p} className="px-2 py-0.5 rounded bg-espresso/5 text-espresso/70 text-[9px] font-semibold border border-espresso/10">
                                 {p.replace('manage_', '').replace('view_', '')}
                               </span>
                             ))
@@ -357,7 +357,7 @@ export default function AdminTeamManager() {
             <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm relative">
               <button 
                 onClick={() => setSelectedAdmin(null)}
-                className="absolute top-4 right-4 p-1.5 text-espresso/30 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all"
+                className="absolute top-4 right-4 p-1.5 text-espresso/70 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all"
                 title="Fechar"
               >
                 <X className="w-4 h-4" />
@@ -366,7 +366,7 @@ export default function AdminTeamManager() {
               <div className="mb-6">
                 <div className="text-[10px] text-plum font-semibold uppercase tracking-wider">Ajustar Acesso</div>
                 <h3 className="font-serif text-lg text-espresso mt-0.5 leading-snug">{selectedAdmin.full_name || 'Administrador'}</h3>
-                <p className="text-[10px] text-espresso/40 mt-1">Selecione quais áreas do painel administrativo este membro pode acessar.</p>
+                <p className="text-[10px] text-espresso/70 mt-1">Selecione quais áreas do painel administrativo este membro pode acessar.</p>
               </div>
 
               {/* Permissions list */}
@@ -379,7 +379,7 @@ export default function AdminTeamManager() {
                       className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
                         isChecked 
                           ? 'bg-plum/5 border-plum/20' 
-                          : 'bg-white/40 border-transparent hover:bg-white/70'
+                          : 'bg-white/40 border-transparent hover:bg-white/70 dark:hover:bg-white/10'
                       }`}
                     >
                       <input 
@@ -390,7 +390,7 @@ export default function AdminTeamManager() {
                       />
                       <div>
                         <div className="text-xs font-bold text-espresso">{perm.label}</div>
-                        <div className="text-[10px] text-espresso/50 mt-0.5 leading-snug">{perm.desc}</div>
+                        <div className="text-[10px] text-espresso/70 mt-0.5 leading-snug">{perm.desc}</div>
                       </div>
                     </label>
                   )
@@ -426,13 +426,13 @@ export default function AdminTeamManager() {
               <h3 className="font-serif text-xl text-espresso mb-1.5 flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-plum" /> Promover conta existente
               </h3>
-              <p className="text-[10px] text-espresso/40 mb-5 leading-normal">
+              <p className="text-[10px] text-espresso/70 mb-5 leading-normal">
                 A pessoa precisa já ter conta na Evokaa (cadastro pelo site ou app). Informe o e-mail dessa conta para promovê-la a administrador.
               </p>
 
               <form onSubmit={handleSearchUser} className="space-y-4 mb-6">
                 <div>
-                  <label htmlFor="search-email-input" className="text-xs font-semibold text-espresso/60 block mb-1">E-mail do Usuário</label>
+                  <label htmlFor="search-email-input" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail do Usuário</label>
                   <div className="flex gap-2">
                     <input 
                       id="search-email-input"
@@ -440,7 +440,7 @@ export default function AdminTeamManager() {
                       value={searchEmail}
                       onChange={e => setSearchEmail(e.target.value)}
                       placeholder="usuario@email.com"
-                      className="flex-1 px-3 py-2 bg-white border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
+                      className="flex-1 px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                       required
                     />
                     <button 
@@ -462,7 +462,7 @@ export default function AdminTeamManager() {
                     </div>
                     <div>
                       <div className="text-xs font-bold text-espresso">{foundUser.full_name || foundUser.email}</div>
-                      <div className="text-[10px] text-espresso/40">{foundUser.email} · Cargo atual: <span className="capitalize">{foundUser.role}</span></div>
+                      <div className="text-[10px] text-espresso/70">{foundUser.email} · Cargo atual: <span className="capitalize">{foundUser.role}</span></div>
                     </div>
                   </div>
                   
@@ -482,7 +482,7 @@ export default function AdminTeamManager() {
                     </button>
                     <button 
                       onClick={() => setFoundUser(null)}
-                      className="p-2 bg-transparent text-espresso/40 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all text-[10px]"
+                      className="p-2 bg-transparent text-espresso/70 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all text-[10px]"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

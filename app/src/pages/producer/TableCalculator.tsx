@@ -46,7 +46,7 @@ export default function TableCalculator() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Calculadora de Mesas</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie mesas, assentos e precificacao</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie mesas, assentos e precificacao</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -68,21 +68,21 @@ export default function TableCalculator() {
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/40 uppercase tracking-wider">Mesas</span>
+            <span className="text-xs text-espresso/70 uppercase tracking-wider">Mesas</span>
           </div>
           <div className="font-serif text-3xl text-espresso">{tables.length}</div>
         </div>
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <Users className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/40 uppercase tracking-wider">Lugares</span>
+            <span className="text-xs text-espresso/70 uppercase tracking-wider">Lugares</span>
           </div>
           <div className="font-serif text-3xl text-espresso">{totalFilled}/{totalSeats}</div>
         </div>
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
             <Calculator className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/40 uppercase tracking-wider">Ocupacao</span>
+            <span className="text-xs text-espresso/70 uppercase tracking-wider">Ocupacao</span>
           </div>
           <div className="font-serif text-3xl text-espresso">{occupancyRate}%</div>
           <div className="w-full h-2 bg-espresso/5 rounded-full mt-2">
@@ -91,15 +91,15 @@ export default function TableCalculator() {
         </div>
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-espresso/40 uppercase tracking-wider">Receita</span>
+            <span className="text-xs text-espresso/70 uppercase tracking-wider">Receita</span>
           </div>
           <div className="font-serif text-3xl text-plum">R$ {totalRevenue.toLocaleString()}</div>
-          <div className="text-xs text-espresso/40 mt-1">de R$ {maxRevenue.toLocaleString()} max.</div>
+          <div className="text-xs text-espresso/70 mt-1">de R$ {maxRevenue.toLocaleString()} max.</div>
         </div>
       </div>
 
       {tables.length === 0 && (
-        <p className="text-sm text-espresso/50 text-center py-8">Nenhuma mesa ainda. Clique em Nova Mesa</p>
+        <p className="text-sm text-espresso/70 text-center py-8">Nenhuma mesa ainda. Clique em Nova Mesa</p>
       )}
 
       {/* Tables Grid */}
@@ -120,14 +120,14 @@ export default function TableCalculator() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => duplicateTable(table)}
-                    className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-espresso transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors"
                     title="Duplicar"
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={() => removeTable(table.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/30 hover:text-red-500 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors"
                     title="Remover"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -137,7 +137,7 @@ export default function TableCalculator() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-[10px] text-espresso/40 uppercase tracking-wider mb-1 block">Capacidade</label>
+                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Capacidade</label>
                   <input
                     type="number"
                     value={table.capacity}
@@ -146,7 +146,7 @@ export default function TableCalculator() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-espresso/40 uppercase tracking-wider mb-1 block">Preco por Lugar (R$)</label>
+                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Preco por Lugar (R$)</label>
                   <input
                     type="number"
                     value={table.pricePerSeat}
@@ -155,7 +155,7 @@ export default function TableCalculator() {
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] text-espresso/40 uppercase tracking-wider mb-1 block">Preenchidos</label>
+                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Preenchidos</label>
                   <div className="flex items-center gap-2">
                     <input
                       type="range"
@@ -179,7 +179,7 @@ export default function TableCalculator() {
 
               <div className="mt-4 pt-4 border-t border-espresso/5">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-espresso/40">Ocupacao</span>
+                  <span className="text-xs text-espresso/70">Ocupacao</span>
                   <span className="text-xs font-medium text-espresso">{fillPercent}%</span>
                 </div>
                 <div className="w-full h-1.5 bg-espresso/5 rounded-full overflow-hidden">
@@ -191,7 +191,7 @@ export default function TableCalculator() {
                   />
                 </div>
                 <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs text-espresso/40">Receita</span>
+                  <span className="text-xs text-espresso/70">Receita</span>
                   <span className="font-serif text-lg text-plum">R$ {tableRevenue.toLocaleString()}</span>
                 </div>
               </div>
@@ -203,7 +203,7 @@ export default function TableCalculator() {
       {/* Add button */}
       <button
         onClick={addTable}
-        className="w-full py-4 border-2 border-dashed border-espresso/10 rounded-2xl text-sm text-espresso/40 hover:text-plum hover:border-plum/30 transition-all flex items-center justify-center gap-2"
+        className="w-full py-4 border-2 border-dashed border-espresso/10 rounded-2xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all flex items-center justify-center gap-2"
       >
         <Plus className="w-4 h-4" />
         Adicionar Mesa

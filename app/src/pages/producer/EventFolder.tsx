@@ -42,7 +42,7 @@ export default function EventFolder() {
       <div className="p-10 flex items-center justify-center">
         <div className="text-center">
           <div className="text-4xl font-serif text-espresso/10 mb-2">?</div>
-          <p className="text-espresso/30">Evento nao encontrado</p>
+          <p className="text-espresso/70">Evento nao encontrado</p>
           <Link to="/producer/event-manager" className="text-plum text-sm hover:underline mt-2 inline-block">Voltar</Link>
         </div>
       </div>
@@ -73,28 +73,28 @@ export default function EventFolder() {
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/producer/event-manager" className="inline-flex items-center gap-1 text-xs text-espresso/40 hover:text-plum transition-colors mb-4">
+        <Link to="/producer/event-manager" className="inline-flex items-center gap-1 text-xs text-espresso/70 hover:text-plum transition-colors mb-4">
           <ArrowLeft className="w-3 h-3" /> Gestor de Festas
         </Link>
         <div className="flex items-start justify-between">
           <div>
             <h1 className="font-serif text-3xl text-espresso">{event.title}</h1>
-            <div className="flex items-center gap-4 mt-2 text-xs text-espresso/40">
+            <div className="flex items-center gap-4 mt-2 text-xs text-espresso/70">
               <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{event.date} · {event.time}</span>
               <span>{event.location}</span>
               <span className="px-2 py-0.5 rounded-full bg-plum/10 text-plum text-[10px] font-medium capitalize">{event.profile}</span>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${event.status === 'selling' ? 'bg-green-50 text-green-600 border-green-100' : event.status === 'planning' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{event.status === 'selling' ? 'Vendendo' : event.status === 'planning' ? 'Planejando' : event.status === 'ready' ? 'Pronto' : 'Finalizado'}</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${event.status === 'selling' ? 'bg-green-50 text-green-700 border-green-100' : event.status === 'planning' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>{event.status === 'selling' ? 'Vendendo' : event.status === 'planning' ? 'Planejando' : event.status === 'ready' ? 'Pronto' : 'Finalizado'}</span>
             </div>
           </div>
           <div className="text-right hidden lg:block">
             <div className={`font-serif text-2xl ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>R$ {profit.toLocaleString()}</div>
-            <div className="text-[10px] text-espresso/30">Lucro estimado</div>
+            <div className="text-[10px] text-espresso/70">Lucro estimado</div>
           </div>
         </div>
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-espresso/30">Capacidade: {event.sold} / {event.capacity}</span>
-            <span className="text-xs text-espresso/50">{progress}%</span>
+            <span className="text-xs text-espresso/70">Capacidade: {event.sold} / {event.capacity}</span>
+            <span className="text-xs text-espresso/70">{progress}%</span>
           </div>
           <div className="w-full h-2 bg-canvas rounded-full overflow-hidden">
             <div className="h-full bg-plum rounded-full transition-all duration-700" style={{ width: `${progress}%` }} />
@@ -105,7 +105,7 @@ export default function EventFolder() {
       {/* Tabs */}
       <div className="flex items-center gap-1 mb-6 overflow-x-auto pb-2">
         {tabs.map(t => (
-          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/40 hover:text-espresso hover:bg-white/40'}`}>
+          <button key={t.id} onClick={() => setActiveTab(t.id)} className={`px-4 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
             {t.label}
           </button>
         ))}
@@ -150,7 +150,7 @@ function EditInfoTab({ eventInfo, setEventInfo, editing, setEditing, onSave }: a
           { label: 'Capacidade', key: 'capacity', type: 'number' },
         ].map(field => (
           <div key={field.key}>
-            <label className="text-xs text-espresso/40 mb-1 block">{field.label}</label>
+            <label className="text-xs text-espresso/70 mb-1 block">{field.label}</label>
             {editing ? (
               <input type={field.type} value={eventInfo[field.key]} onChange={e => setEventInfo({ ...eventInfo, [field.key]: field.type === 'number' ? Number(e.target.value) : e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
             ) : (
@@ -177,7 +177,7 @@ function DashboardTab({ event, totalRev, totalAct, profit, breakEven, tasksDone 
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className={`w-4 h-4 mb-3 ${k.color}`} />
             <div className={`font-serif text-2xl ${k.color}`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/30 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -193,7 +193,7 @@ function DashboardTab({ event, totalRev, totalAct, profit, breakEven, tasksDone 
             ].map(item => (
               <div key={item.label}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs text-espresso/50">{item.label}</span>
+                  <span className="text-xs text-espresso/70">{item.label}</span>
                   <span className="text-xs text-espresso">R$ {item.value.toLocaleString()}</span>
                 </div>
                 <div className="w-full h-3 bg-canvas rounded-full overflow-hidden">
@@ -213,7 +213,7 @@ function DashboardTab({ event, totalRev, totalAct, profit, breakEven, tasksDone 
             { label: 'Equipe', current: event.team.filter(t => t.status === 'confirmed').length, total: event.team.length, unit: 'confirmados' },
           ].map(s => (
             <div key={s.label} className="flex items-center justify-between">
-              <span className="text-xs text-espresso/50">{s.label}</span>
+              <span className="text-xs text-espresso/70">{s.label}</span>
               <div className="flex items-center gap-2">
                 <div className="w-24 h-1.5 bg-canvas rounded-full overflow-hidden">
                   <div className="h-full bg-plum rounded-full" style={{ width: `${(s.current / s.total) * 100}%` }} />
@@ -273,7 +273,7 @@ function OrcamentoTab({ budget, setEvent, totalEst, totalAct, totalPaid }: { bud
         ].map(k => (
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/30 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -295,13 +295,13 @@ function OrcamentoTab({ budget, setEvent, totalEst, totalAct, totalPaid }: { bud
         {showAdd && (
           <div className="p-4 border-b border-espresso/5 bg-canvas/50 space-y-2">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
-              <input value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={newItem.item} onChange={e => setNewItem({ ...newItem, item: e.target.value })} placeholder="Item" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={newItem.estimated} onChange={e => setNewItem({ ...newItem, estimated: e.target.value })} placeholder="Orcado" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={newItem.actual} onChange={e => setNewItem({ ...newItem, actual: e.target.value })} placeholder="Real" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input value={newItem.category} onChange={e => setNewItem({ ...newItem, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={newItem.item} onChange={e => setNewItem({ ...newItem, item: e.target.value })} placeholder="Item" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={newItem.estimated} onChange={e => setNewItem({ ...newItem, estimated: e.target.value })} placeholder="Orcado" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={newItem.actual} onChange={e => setNewItem({ ...newItem, actual: e.target.value })} placeholder="Real" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <div className="flex gap-1">
                 <button onClick={handleAdd} className="flex-1 py-2 bg-plum text-cream text-xs rounded-lg hover:shadow-glow transition-all flex items-center justify-center gap-1"><Save className="w-3 h-3" /> Salvar</button>
-                <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/40"><X className="w-3 h-3" /></button>
+                <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/70"><X className="w-3 h-3" /></button>
               </div>
             </div>
           </div>
@@ -311,18 +311,18 @@ function OrcamentoTab({ budget, setEvent, totalEst, totalAct, totalPaid }: { bud
           <table className="w-full">
             <thead>
               <tr className="border-b border-espresso/5">
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Categoria</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Item</th>
-                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Orcado</th>
-                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Real</th>
-                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Pago</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Status</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Categoria</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Item</th>
+                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Orcado</th>
+                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Real</th>
+                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Pago</th>
+                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Status</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {items.map(item => (
-                <tr key={item.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
+                <tr key={item.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
                   <td className="px-4 py-3">
                     {editingId === item.id ? (
                       <input value={item.category} onChange={e => handleEdit(item.id, 'category', e.target.value)} className="w-full px-2 py-1 bg-white/60 border border-white/60 rounded text-xs text-espresso focus:outline-none focus:border-plum/30" />
@@ -357,8 +357,8 @@ function OrcamentoTab({ budget, setEvent, totalEst, totalAct, totalPaid }: { bud
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setEditingId(editingId === item.id ? null : item.id)} className="p-1 rounded hover:bg-plum/10 text-espresso/20 hover:text-plum transition-colors"><Pencil className="w-3 h-3" /></button>
-                      <button onClick={() => handleDelete(item.id)} className="p-1 rounded hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
+                      <button onClick={() => setEditingId(editingId === item.id ? null : item.id)} className="p-1 rounded hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors"><Pencil className="w-3 h-3" /></button>
+                      <button onClick={() => handleDelete(item.id)} className="p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </td>
                 </tr>
@@ -378,9 +378,9 @@ function FornecedoresTab({ vendors, setEvent }: { vendors: EventVendor[]; setEve
   const [newV, setNewV] = useState({ name: '', category: '', contact: '', email: '', price: '', notes: '' })
 
   const statusCfg: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: 'Confirmado', cls: 'bg-green-50 text-green-600 border-green-100' },
-    negotiating: { label: 'Negociando', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
-    contacted: { label: 'Contactado', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
+    confirmed: { label: 'Confirmado', cls: 'bg-green-50 text-green-700 border-green-100' },
+    negotiating: { label: 'Negociando', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
+    contacted: { label: 'Contactado', cls: 'bg-blue-50 text-blue-700 border-blue-100' },
     cancelled: { label: 'Cancelado', cls: 'bg-red-50 text-red-500 border-red-100' },
   }
 
@@ -417,17 +417,17 @@ function FornecedoresTab({ vendors, setEvent }: { vendors: EventVendor[]; setEve
       {showAdd && (
         <div className="p-4 rounded-xl bg-canvas/50 space-y-2">
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-2">
-            <input value={newV.name} onChange={e => setNewV({ ...newV, name: e.target.value })} placeholder="Nome" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newV.category} onChange={e => setNewV({ ...newV, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newV.contact} onChange={e => setNewV({ ...newV, contact: e.target.value })} placeholder="Telefone" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newV.email} onChange={e => setNewV({ ...newV, email: e.target.value })} placeholder="E-mail" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newV.price} onChange={e => setNewV({ ...newV, price: e.target.value })} placeholder="Preco (R$)" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={newV.name} onChange={e => setNewV({ ...newV, name: e.target.value })} placeholder="Nome" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newV.category} onChange={e => setNewV({ ...newV, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newV.contact} onChange={e => setNewV({ ...newV, contact: e.target.value })} placeholder="Telefone" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newV.email} onChange={e => setNewV({ ...newV, email: e.target.value })} placeholder="E-mail" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newV.price} onChange={e => setNewV({ ...newV, price: e.target.value })} placeholder="Preco (R$)" type="number" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <div className="flex gap-1">
               <button onClick={handleAdd} className="flex-1 py-2 bg-plum text-cream text-xs rounded-lg hover:shadow-glow transition-all"><Save className="w-3 h-3 inline mr-1" />Salvar</button>
-              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/40"><X className="w-3 h-3" /></button>
+              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/70"><X className="w-3 h-3" /></button>
             </div>
           </div>
-          <input value={newV.notes} onChange={e => setNewV({ ...newV, notes: e.target.value })} placeholder="Notas" className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+          <input value={newV.notes} onChange={e => setNewV({ ...newV, notes: e.target.value })} placeholder="Notas" className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
         </div>
       )}
 
@@ -437,7 +437,7 @@ function FornecedoresTab({ vendors, setEvent }: { vendors: EventVendor[]; setEve
             <div className="flex items-start justify-between mb-3">
               <div>
                 <div className="text-sm font-medium text-espresso">{v.name}</div>
-                <div className="text-[10px] text-espresso/30">{v.category}</div>
+                <div className="text-[10px] text-espresso/70">{v.category}</div>
               </div>
               <div className="flex items-center gap-1">
                 <select value={v.status} onChange={e => updateStatus(v.id, e.target.value)} className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${statusCfg[v.status].cls} bg-transparent`}>
@@ -446,24 +446,24 @@ function FornecedoresTab({ vendors, setEvent }: { vendors: EventVendor[]; setEve
                   <option value="confirmed">Confirmado</option>
                   <option value="cancelled">Cancelado</option>
                 </select>
-                <button onClick={() => remove(v.id)} className="p-1 rounded hover:bg-red-50 text-espresso/10 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                <button onClick={() => remove(v.id)} className="p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
               </div>
             </div>
             <div className="space-y-1.5 mb-3">
-              <div className="flex items-center gap-1.5 text-[11px] text-espresso/40"><Phone className="w-3 h-3" />{v.contact || '-'}</div>
-              <div className="flex items-center gap-1.5 text-[11px] text-espresso/40"><Briefcase className="w-3 h-3" />{v.email || '-'}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-espresso/70"><Phone className="w-3 h-3" />{v.contact || '-'}</div>
+              <div className="flex items-center gap-1.5 text-[11px] text-espresso/70"><Briefcase className="w-3 h-3" />{v.email || '-'}</div>
               {v.rating > 0 && <div className="flex items-center gap-1 text-[10px] text-amber-500"><Star className="w-3 h-3 fill-amber-500" />{v.rating}</div>}
             </div>
             <div className="flex items-center justify-between pt-3 border-t border-espresso/5">
               <div className="font-serif text-sm text-espresso">R$ {v.price.toLocaleString()}</div>
-              <div className="text-[10px] text-espresso/30">{v.notes}</div>
+              <div className="text-[10px] text-espresso/70">{v.notes}</div>
             </div>
           </div>
         ))}
         {items.length === 0 && (
           <div className="col-span-full text-center py-12">
             <Briefcase className="w-8 h-8 text-espresso/10 mx-auto mb-2" />
-            <p className="text-xs text-espresso/30">Nenhum fornecedor</p>
+            <p className="text-xs text-espresso/70">Nenhum fornecedor</p>
           </div>
         )}
       </div>
@@ -515,7 +515,7 @@ function ChecklistTab({ tasks, setEvent }: { tasks: EventTask[]; setEvent: any }
           <div className="w-32 h-2 bg-canvas rounded-full overflow-hidden">
             <div className="h-full bg-green-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
           </div>
-          <span className="text-xs text-espresso/50">{pct}% concluido</span>
+          <span className="text-xs text-espresso/70">{pct}% concluido</span>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} className="px-3 py-1.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center gap-1"><Plus className="w-3 h-3" /> Nova</button>
       </div>
@@ -523,12 +523,12 @@ function ChecklistTab({ tasks, setEvent }: { tasks: EventTask[]; setEvent: any }
       {showAdd && (
         <div className="p-4 rounded-xl bg-canvas/50 space-y-2">
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-2">
-            <input value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} placeholder="Titulo" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newTask.category} onChange={e => setNewTask({ ...newTask, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={newTask.title} onChange={e => setNewTask({ ...newTask, title: e.target.value })} placeholder="Titulo" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newTask.category} onChange={e => setNewTask({ ...newTask, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <input type="date" value={newTask.deadline} onChange={e => setNewTask({ ...newTask, deadline: e.target.value })} className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
             <div className="flex gap-1">
               <button onClick={handleAdd} className="flex-1 py-2 bg-plum text-cream text-xs rounded-lg hover:shadow-glow transition-all"><Save className="w-3 h-3 inline mr-1" />Salvar</button>
-              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/40"><X className="w-3 h-3" /></button>
+              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/70"><X className="w-3 h-3" /></button>
             </div>
           </div>
         </div>
@@ -536,7 +536,7 @@ function ChecklistTab({ tasks, setEvent }: { tasks: EventTask[]; setEvent: any }
 
       {(['todo', 'doing', 'done'] as const).map(status => (
         <div key={status}>
-          <h4 className="text-xs font-medium text-espresso/40 uppercase tracking-wider mb-3">{status === 'todo' ? 'A Fazer' : status === 'doing' ? 'Em Andamento' : 'Concluido'} ({grouped[status].length})</h4>
+          <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-3">{status === 'todo' ? 'A Fazer' : status === 'doing' ? 'Em Andamento' : 'Concluido'} ({grouped[status].length})</h4>
           <div className="space-y-2">
             {grouped[status].map(t => (
               <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/60 border border-white/60 hover:bg-white/80 transition-all group">
@@ -544,14 +544,14 @@ function ChecklistTab({ tasks, setEvent }: { tasks: EventTask[]; setEvent: any }
                   {t.status === 'done' && <CheckCircle2 className="w-3 h-3 text-white" />}
                 </button>
                 <div className="flex-1 min-w-0">
-                  <div className={`text-sm ${t.status === 'done' ? 'text-espresso/30 line-through' : 'text-espresso'}`}>{t.title}</div>
+                  <div className={`text-sm ${t.status === 'done' ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{t.title}</div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[10px] text-espresso/30">{t.category}</span>
-                    {t.deadline && <span className="text-[10px] text-espresso/20 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{t.deadline}</span>}
+                    <span className="text-[10px] text-espresso/70">{t.category}</span>
+                    {t.deadline && <span className="text-[10px] text-espresso/70 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{t.deadline}</span>}
                   </div>
                 </div>
-                <span className={`px-1.5 py-0.5 text-[9px] rounded border ${t.priority === 'high' ? 'bg-red-50 text-red-500 border-red-100' : t.priority === 'medium' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>{t.priority}</span>
-                <button onClick={() => removeTask(t.id)} className="p-1 rounded hover:bg-red-50 text-espresso/10 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button>
+                <span className={`px-1.5 py-0.5 text-[9px] rounded border ${t.priority === 'high' ? 'bg-red-50 text-red-500 border-red-100' : t.priority === 'medium' ? 'bg-amber-50 text-amber-700 border-amber-100' : 'bg-blue-50 text-blue-700 border-blue-100'}`}>{t.priority}</span>
+                <button onClick={() => removeTask(t.id)} className="p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button>
               </div>
             ))}
           </div>
@@ -600,14 +600,14 @@ function CronogramaTab({ timeline, setEvent }: { timeline: EventTimeline[]; setE
         <div className="p-4 rounded-xl bg-canvas/50 space-y-2">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             <input type="time" value={newItem.time} onChange={e => setNewItem({ ...newItem, time: e.target.value })} className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
-            <input value={newItem.title} onChange={e => setNewItem({ ...newItem, title: e.target.value })} placeholder="Titulo" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newItem.responsible} onChange={e => setNewItem({ ...newItem, responsible: e.target.value })} placeholder="Responsavel" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={newItem.title} onChange={e => setNewItem({ ...newItem, title: e.target.value })} placeholder="Titulo" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newItem.responsible} onChange={e => setNewItem({ ...newItem, responsible: e.target.value })} placeholder="Responsavel" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <div className="flex gap-1">
               <button onClick={handleAdd} className="flex-1 py-2 bg-plum text-cream text-xs rounded-lg hover:shadow-glow transition-all"><Save className="w-3 h-3 inline mr-1" />Salvar</button>
-              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/40"><X className="w-3 h-3" /></button>
+              <button onClick={() => setShowAdd(false)} className="px-2 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso/70"><X className="w-3 h-3" /></button>
             </div>
           </div>
-          <input value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} placeholder="Descricao" className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+          <input value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} placeholder="Descricao" className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
         </div>
       )}
 
@@ -621,16 +621,16 @@ function CronogramaTab({ timeline, setEvent }: { timeline: EventTimeline[]; setE
             <div className={`p-4 rounded-xl border transition-all ${item.status === 'done' ? 'bg-green-50/50 border-green-100' : 'bg-white/60 border-white/60'}`}>
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-medium text-plum">{item.time}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${item.status === 'done' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>{item.status === 'done' ? 'Concluido' : 'Pendente'}</span>
-                <button onClick={() => remove(item.id)} className="ml-auto p-1 rounded hover:bg-red-50 text-espresso/10 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded border ${item.status === 'done' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>{item.status === 'done' ? 'Concluido' : 'Pendente'}</span>
+                <button onClick={() => remove(item.id)} className="ml-auto p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><Trash2 className="w-3 h-3" /></button>
               </div>
-              <div className={`text-sm font-medium ${item.status === 'done' ? 'text-espresso/40 line-through' : 'text-espresso'}`}>{item.title}</div>
-              <p className="text-[11px] text-espresso/30 mt-1">{item.description}</p>
-              <p className="text-[10px] text-espresso/20 mt-1">{item.responsible}</p>
+              <div className={`text-sm font-medium ${item.status === 'done' ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{item.title}</div>
+              <p className="text-[11px] text-espresso/70 mt-1">{item.description}</p>
+              <p className="text-[10px] text-espresso/70 mt-1">{item.responsible}</p>
             </div>
           </div>
         ))}
-        {items.length === 0 && <p className="text-xs text-espresso/30 py-8 text-center">Nenhuma etapa no cronograma</p>}
+        {items.length === 0 && <p className="text-xs text-espresso/70 py-8 text-center">Nenhuma etapa no cronograma</p>}
       </div>
     </div>
   )
@@ -643,8 +643,8 @@ function EquipeTab({ team, setEvent }: { team: EventTeam[]; setEvent: any }) {
   const [newM, setNewM] = useState({ name: '', role: '', contact: '', payment: '' })
 
   const statusCfg: Record<string, { label: string; cls: string }> = {
-    confirmed: { label: 'Confirmado', cls: 'bg-green-50 text-green-600 border-green-100' },
-    invited: { label: 'Convidado', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
+    confirmed: { label: 'Confirmado', cls: 'bg-green-50 text-green-700 border-green-100' },
+    invited: { label: 'Convidado', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
     declined: { label: 'Recusado', cls: 'bg-red-50 text-red-500 border-red-100' },
   }
 
@@ -679,7 +679,7 @@ function EquipeTab({ team, setEvent }: { team: EventTeam[]; setEvent: any }) {
       <div className="flex items-center justify-between">
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60">
           <div className="font-serif text-2xl text-espresso">R$ {totalCost.toLocaleString()}</div>
-          <div className="text-[10px] text-espresso/30 mt-1 uppercase tracking-wider">Custo total da equipe</div>
+          <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">Custo total da equipe</div>
         </div>
         <button onClick={() => setShowAdd(!showAdd)} className="px-3 py-1.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center gap-1"><Plus className="w-3 h-3" /> Membro</button>
       </div>
@@ -687,11 +687,11 @@ function EquipeTab({ team, setEvent }: { team: EventTeam[]; setEvent: any }) {
       {showAdd && (
         <div className="p-4 rounded-xl bg-canvas/50 space-y-2">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-            <input value={newM.name} onChange={e => setNewM({ ...newM, name: e.target.value })} placeholder="Nome" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newM.role} onChange={e => setNewM({ ...newM, role: e.target.value })} placeholder="Funcao" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-            <input value={newM.contact} onChange={e => setNewM({ ...newM, contact: e.target.value })} placeholder="Contato" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={newM.name} onChange={e => setNewM({ ...newM, name: e.target.value })} placeholder="Nome" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newM.role} onChange={e => setNewM({ ...newM, role: e.target.value })} placeholder="Funcao" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <input value={newM.contact} onChange={e => setNewM({ ...newM, contact: e.target.value })} placeholder="Contato" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <div className="flex gap-1">
-              <input value={newM.payment} onChange={e => setNewM({ ...newM, payment: e.target.value })} placeholder="Pagamento" type="number" className="flex-1 px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input value={newM.payment} onChange={e => setNewM({ ...newM, payment: e.target.value })} placeholder="Pagamento" type="number" className="flex-1 px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <button onClick={handleAdd} className="px-3 py-2 bg-plum text-cream rounded-lg hover:shadow-glow transition-all"><Save className="w-3 h-3" /></button>
             </div>
           </div>
@@ -706,8 +706,8 @@ function EquipeTab({ team, setEvent }: { team: EventTeam[]; setEvent: any }) {
             </div>
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium text-espresso">{m.name}</div>
-              <div className="text-[10px] text-espresso/30">{m.role}</div>
-              <div className="text-[10px] text-espresso/20">{m.contact}</div>
+              <div className="text-[10px] text-espresso/70">{m.role}</div>
+              <div className="text-[10px] text-espresso/70">{m.contact}</div>
             </div>
             <div className="text-right flex-shrink-0">
               {m.payment > 0 && <div className="text-xs text-espresso">R$ {m.payment.toLocaleString()}</div>}
@@ -717,10 +717,10 @@ function EquipeTab({ team, setEvent }: { team: EventTeam[]; setEvent: any }) {
                 <option value="declined">Recusado</option>
               </select>
             </div>
-            <button onClick={() => remove(m.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button onClick={() => remove(m.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors flex-shrink-0"><Trash2 className="w-3.5 h-3.5" /></button>
           </div>
         ))}
-        {items.length === 0 && <p className="col-span-full text-center py-8 text-xs text-espresso/30">Nenhum membro na equipe</p>}
+        {items.length === 0 && <p className="col-span-full text-center py-8 text-xs text-espresso/70">Nenhum membro na equipe</p>}
       </div>
     </div>
   )
@@ -772,7 +772,7 @@ function FluxoTab({ cashFlow, setEvent }: { cashFlow: EventCashFlow[]; setEvent:
         </div>
         <div className="p-5 rounded-2xl bg-white/60 border border-white/60">
           <div className={`font-serif text-xl ${balance >= 0 ? 'text-espresso' : 'text-red-500'}`}>R$ {balance.toLocaleString()}</div>
-          <div className="text-[10px] text-espresso/30 mt-1 uppercase tracking-wider">Saldo</div>
+          <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">Saldo</div>
         </div>
       </div>
 
@@ -784,13 +784,13 @@ function FluxoTab({ cashFlow, setEvent }: { cashFlow: EventCashFlow[]; setEvent:
         <div className="p-4 rounded-xl bg-canvas/50 space-y-2">
           <div className="grid grid-cols-1 lg:grid-cols-6 gap-2">
             <input type="date" value={newEntry.date} onChange={e => setNewEntry({ ...newEntry, date: e.target.value })} className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
-            <input value={newEntry.description} onChange={e => setNewEntry({ ...newEntry, description: e.target.value })} placeholder="Descricao" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 lg:col-span-2" />
+            <input value={newEntry.description} onChange={e => setNewEntry({ ...newEntry, description: e.target.value })} placeholder="Descricao" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 lg:col-span-2" />
             <select value={newEntry.type} onChange={e => setNewEntry({ ...newEntry, type: e.target.value as 'income' | 'expense' })} className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30">
               <option value="income">Entrada</option><option value="expense">Saida</option>
             </select>
-            <input value={newEntry.category} onChange={e => setNewEntry({ ...newEntry, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={newEntry.category} onChange={e => setNewEntry({ ...newEntry, category: e.target.value })} placeholder="Categoria" className="px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
             <div className="flex gap-1">
-              <input type="number" value={newEntry.amount} onChange={e => setNewEntry({ ...newEntry, amount: e.target.value })} placeholder="Valor" className="flex-1 px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input type="number" value={newEntry.amount} onChange={e => setNewEntry({ ...newEntry, amount: e.target.value })} placeholder="Valor" className="flex-1 px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <button onClick={handleAdd} className="px-3 py-2 bg-plum text-cream rounded-lg hover:shadow-glow transition-all"><Save className="w-3 h-3" /></button>
             </div>
           </div>
@@ -801,23 +801,23 @@ function FluxoTab({ cashFlow, setEvent }: { cashFlow: EventCashFlow[]; setEvent:
         <table className="w-full">
           <thead>
             <tr className="border-b border-espresso/5">
-              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Data</th>
-              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Descricao</th>
-              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Categoria</th>
-              <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase">Valor</th>
-              <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/30 uppercase hidden md:table-cell">Saldo</th>
+              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Data</th>
+              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Descricao</th>
+              <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Categoria</th>
+              <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Valor</th>
+              <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Saldo</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody>
             {items.map(item => (
-              <tr key={item.id} className="border-b border-espresso/3 last:border-0 hover:bg-white/40 transition-colors">
-                <td className="px-4 py-3 text-xs text-espresso/50">{item.date}</td>
+              <tr key={item.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
+                <td className="px-4 py-3 text-xs text-espresso/70">{item.date}</td>
                 <td className="px-4 py-3 text-xs text-espresso">{item.description}</td>
-                <td className="px-4 py-3 text-xs text-espresso/30 hidden md:table-cell">{item.category}</td>
+                <td className="px-4 py-3 text-xs text-espresso/70 hidden md:table-cell">{item.category}</td>
                 <td className={`px-4 py-3 text-right text-xs font-medium ${item.type === 'income' ? 'text-green-600' : 'text-red-500'}`}>{item.type === 'income' ? '+' : ''}R$ {Math.abs(item.amount).toLocaleString()}</td>
                 <td className={`px-4 py-3 text-right text-xs hidden md:table-cell ${item.balance >= 0 ? 'text-espresso' : 'text-red-500'}`}>R$ {item.balance.toLocaleString()}</td>
-                <td className="px-4 py-3"><button onClick={() => remove(item.id)} className="p-1 rounded hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button></td>
+                <td className="px-4 py-3"><button onClick={() => remove(item.id)} className="p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors"><Trash2 className="w-3 h-3" /></button></td>
               </tr>
             ))}
           </tbody>

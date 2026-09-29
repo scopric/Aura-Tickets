@@ -328,12 +328,12 @@ export default function ProducerCRM() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">CRM</h1>
-          <p className="text-sm text-espresso/50 mt-1">Pipeline, leads e comunicação integrada</p>
+          <p className="text-sm text-espresso/70 mt-1">Pipeline, leads e comunicação integrada</p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
           <div className="relative max-w-xs w-full flex-1 sm:flex-none">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads..." className="w-full pl-9 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads..." className="w-full pl-9 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
           </div>
           <button 
             onClick={() => setIsAddModalOpen(true)}
@@ -370,7 +370,7 @@ export default function ProducerCRM() {
             <div key={s.label} className={`p-4 rounded-2xl ${s.bg} border border-white/60 text-center`}>
               <s.icon className={`w-4 h-4 ${s.color} mx-auto mb-1.5`} />
               <div className={`font-serif text-lg ${s.color}`}>{s.value}</div>
-              <div className="text-[10px] text-espresso/40 mt-0.5">{s.label}</div>
+              <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
             </div>
           ))}
         </div>
@@ -380,7 +380,7 @@ export default function ProducerCRM() {
       {isLoading ? (
         <div className="flex gap-4 overflow-x-auto pb-4">
           {columns.map(col => (
-            <div key={col.key} className="flex-shrink-0 w-72 rounded-2xl p-4 bg-white/20 border border-white/40 space-y-4">
+            <div key={col.key} className="flex-shrink-0 w-72 rounded-2xl p-4 bg-white/20 dark:bg-white/5 border border-white/40 space-y-4">
               <div className="h-5 bg-espresso/5 rounded w-20 animate-pulse" />
               {[1, 2].map(n => (
                 <div key={n} className="p-3 bg-white/40 border border-white/40 rounded-xl space-y-2 h-[100px] animate-pulse" />
@@ -396,7 +396,7 @@ export default function ProducerCRM() {
             return (
               <div
                 key={col.key}
-                className={`flex-shrink-0 w-72 rounded-2xl bg-white/30 border border-white/60 transition-all ${isOver ? 'ring-2 ring-plum/30 scale-[1.02]' : ''}`}
+                className={`flex-shrink-0 w-72 rounded-2xl bg-white/30 dark:bg-white/5 border border-white/60 transition-all ${isOver ? 'ring-2 ring-plum/30 scale-[1.02]' : ''}`}
                 onDragOver={e => handleDragOver(e, col.key)}
                 onDragLeave={handleDragLeave}
                 onDrop={() => handleDrop(col.key)}
@@ -405,7 +405,7 @@ export default function ProducerCRM() {
                   <div className="flex items-center gap-2">
                     <col.icon className="w-3.5 h-3.5" />
                     <span className="text-xs font-medium text-espresso">{col.label}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas text-espresso/40">{colLeads.length}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas text-espresso/70">{colLeads.length}</span>
                   </div>
                 </div>
                 <div className="p-2 space-y-2 max-h-[500px] overflow-y-auto">
@@ -419,7 +419,7 @@ export default function ProducerCRM() {
                     >
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDeleteLead(l.id, l.name) }}
-                        className="absolute top-2 right-2 p-1 rounded-md text-espresso/10 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
+                        className="absolute top-2 right-2 p-1 rounded-md text-espresso/50 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
                         title="Excluir Lead"
                       >
                         <Trash2 className="w-3 h-3" />
@@ -428,21 +428,21 @@ export default function ProducerCRM() {
                         <img src={l.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
                         <div className="min-w-0 flex-1">
                           <div className="text-xs font-medium text-espresso truncate">{l.name}</div>
-                          <div className="text-[9px] text-espresso/30">{l.source}</div>
+                          <div className="text-[9px] text-espresso/70">{l.source}</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-1 mb-1.5">
                         <Star className="w-3 h-3 text-amber-400" />
-                        <span className="text-[10px] text-espresso/50">{l.score}</span>
+                        <span className="text-[10px] text-espresso/70">{l.score}</span>
                         <span className="text-[10px] text-plum ml-auto">R$ {l.value.toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between mt-1 pt-1 border-t border-espresso/5">
-                        <span className="text-[9px] text-espresso/25 truncate max-w-[150px]">{l.eventInterest || 'Interesse geral'}</span>
-                        <span className="text-[8px] text-espresso/30 font-medium">{l.lastContact}</span>
+                        <span className="text-[9px] text-espresso/70 truncate max-w-[150px]">{l.eventInterest || 'Interesse geral'}</span>
+                        <span className="text-[8px] text-espresso/70 font-medium">{l.lastContact}</span>
                       </div>
                     </div>
                   ))}
-                  {colLeads.length === 0 && <div className="py-8 text-center text-[10px] text-espresso/15">Arraste leads aqui</div>}
+                  {colLeads.length === 0 && <div className="py-8 text-center text-[10px] text-espresso/70">Arraste leads aqui</div>}
                 </div>
               </div>
             )
@@ -453,20 +453,20 @@ export default function ProducerCRM() {
       {/* Modal: Novo Lead */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)} />
-          <div className="relative w-full max-w-md bg-canvas border border-white/60 rounded-3xl p-6 shadow-2xl backdrop-blur-md">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setIsAddModalOpen(false)} />
+          <div className="glass-panel relative w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso flex items-center gap-2">
                 <Users className="w-5 h-5 text-plum" />
                 Adicionar Novo Lead
               </h3>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Fechar modal" title="Fechar" className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/40">
+              <button onClick={() => setIsAddModalOpen(false)} aria-label="Fechar modal" title="Fechar" className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <form onSubmit={handleAddLead} className="space-y-4">
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Nome Completo *</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nome Completo *</label>
                 <input 
                   type="text" 
                   required 
@@ -478,7 +478,7 @@ export default function ProducerCRM() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
+                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">E-mail</label>
                   <input 
                     type="email" 
                     value={newLeadEmail} 
@@ -488,7 +488,7 @@ export default function ProducerCRM() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Telefone</label>
+                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Telefone</label>
                   <input 
                     type="text" 
                     value={newLeadPhone} 
@@ -500,7 +500,7 @@ export default function ProducerCRM() {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Origem do Lead</label>
+                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Origem do Lead</label>
                   <select 
                     value={newLeadSource} 
                     onChange={e => setNewLeadSource(e.target.value)} 
@@ -518,7 +518,7 @@ export default function ProducerCRM() {
                   </select>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Valor Estimado (R$)</label>
+                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Valor Estimado (R$)</label>
                   <input 
                     type="number" 
                     value={newLeadValue} 
@@ -529,7 +529,7 @@ export default function ProducerCRM() {
                 </div>
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Evento de Interesse</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Evento de Interesse</label>
                 <input 
                   type="text" 
                   value={newLeadInterest} 
@@ -539,13 +539,13 @@ export default function ProducerCRM() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Notas Iniciais</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Notas Iniciais</label>
                 <textarea 
                   value={newLeadNotes} 
                   onChange={e => setNewLeadNotes(e.target.value)} 
                   rows={3} 
                   placeholder="Observações ou necessidades do lead..." 
-                  className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" 
+                  className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none" 
                 />
               </div>
               <button 
@@ -563,8 +563,8 @@ export default function ProducerCRM() {
       {/* Detail Drawer */}
       {selected && (
         <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setSelected(null)} />
-          <div className="relative w-full max-w-md bg-canvas border-l border-espresso/10 h-full overflow-y-auto shadow-2xl flex flex-col justify-between">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
+          <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto flex flex-col justify-between rounded-r-none border-y-0 border-r-0">
             <div className="p-6 overflow-y-auto flex-1">
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -575,43 +575,43 @@ export default function ProducerCRM() {
                       <span className={`text-[10px] px-2 py-0.5 rounded-full ${columns.find(c => c.key === selected.status)?.color}`}>
                         {columns.find(c => c.key === selected.status)?.label}
                       </span>
-                      <span className="text-[10px] text-espresso/40">Score: {selected.score}</span>
+                      <span className="text-[10px] text-espresso/70">Score: {selected.score}</span>
                     </div>
                   </div>
                 </div>
-                <button onClick={() => setSelected(null)} aria-label="Fechar detalhes" title="Fechar" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/40 hover:text-espresso">
+                <button onClick={() => setSelected(null)} aria-label="Fechar detalhes" title="Fechar" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso">
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Informações de contato */}
               <div className="space-y-2.5 mb-6 p-4 rounded-xl bg-white/40 border border-white/60">
-                <div className="flex items-center gap-2 text-sm text-espresso/60"><Mail className="w-4 h-4 text-espresso/30" />{selected.email || 'Sem e-mail'}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/60"><Phone className="w-4 h-4 text-espresso/30" />{selected.phone || 'Sem telefone'}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/60"><Calendar className="w-4 h-4 text-espresso/30" />Contato: {selected.lastContact}</div>
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><Mail className="w-4 h-4 text-espresso/30" />{selected.email || 'Sem e-mail'}</div>
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><Phone className="w-4 h-4 text-espresso/30" />{selected.phone || 'Sem telefone'}</div>
+                <div className="flex items-center gap-2 text-sm text-espresso/70"><Calendar className="w-4 h-4 text-espresso/30" />Contato: {selected.lastContact}</div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 mb-6">
                 <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
                   <div className="font-serif text-xl text-plum">{selected.score}</div>
-                  <div className="text-[10px] text-espresso/30">Score de Interesse</div>
+                  <div className="text-[10px] text-espresso/70">Score de Interesse</div>
                 </div>
                 <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
                   <div className="font-serif text-xl text-green-600">R$ {selected.value.toLocaleString()}</div>
-                  <div className="text-[10px] text-espresso/30">Valor Estimado</div>
+                  <div className="text-[10px] text-espresso/70">Valor Estimado</div>
                 </div>
               </div>
 
               {selected.notes && (
                 <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                  <div className="text-[10px] text-espresso/30 uppercase mb-1">Notas Principais</div>
+                  <div className="text-[10px] text-espresso/70 uppercase mb-1">Notas Principais</div>
                   <div className="text-xs text-espresso/70 leading-relaxed whitespace-pre-wrap">{selected.notes}</div>
                 </div>
               )}
 
               {/* Formulário: Registrar Interação */}
               <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                <h4 className="text-xs font-semibold text-espresso/60 uppercase mb-3">Registrar Contato / Nota</h4>
+                <h4 className="text-xs font-semibold text-espresso/70 uppercase mb-3">Registrar Contato / Nota</h4>
                 <form onSubmit={handleAddInteraction} className="space-y-3">
                   <div className="flex gap-2">
                     {['Nota', 'WhatsApp', 'Ligação', 'Email', 'Reunião'].map(type => (
@@ -622,7 +622,7 @@ export default function ProducerCRM() {
                         className={`flex-1 py-1 rounded-lg text-[10px] font-medium transition-all border ${
                           newIntType === type 
                             ? 'bg-plum text-cream border-plum' 
-                            : 'bg-white/40 border-white/60 text-espresso/60 hover:bg-white/70'
+                            : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-white/70 dark:hover:bg-white/10'
                         }`}
                       >
                         {type}
@@ -635,7 +635,7 @@ export default function ProducerCRM() {
                     onChange={e => setNewIntContent(e.target.value)}
                     rows={2}
                     placeholder={`Conteúdo do contato ou anotação para o ${newIntType}...`}
-                    className="w-full px-3 py-2 bg-white border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30 resize-none"
+                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30 resize-none"
                   />
                   <button
                     type="submit"
@@ -648,7 +648,7 @@ export default function ProducerCRM() {
               </div>
 
               {/* Histórico de interações */}
-              <h4 className="text-xs font-semibold text-espresso/40 uppercase mb-3">Histórico de Interações</h4>
+              <h4 className="text-xs font-semibold text-espresso/70 uppercase mb-3">Histórico de Interações</h4>
               <div className="space-y-2">
                 {selected.interactions.map((int, i) => (
                   <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/40 border border-white/20">
@@ -658,14 +658,14 @@ export default function ProducerCRM() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-medium text-espresso">{int.type}</span>
-                        <span className="text-[9px] text-espresso/30">{int.date}</span>
+                        <span className="text-[9px] text-espresso/70">{int.date}</span>
                       </div>
-                      <p className="text-xs text-espresso/60 leading-relaxed mt-0.5 break-words">{int.content}</p>
+                      <p className="text-xs text-espresso/70 leading-relaxed mt-0.5 break-words">{int.content}</p>
                     </div>
                   </div>
                 ))}
                 {selected.interactions.length === 0 && (
-                  <div className="text-center py-6 text-xs text-espresso/30">Nenhum contato registrado ainda.</div>
+                  <div className="text-center py-6 text-xs text-espresso/70">Nenhum contato registrado ainda.</div>
                 )}
               </div>
             </div>
