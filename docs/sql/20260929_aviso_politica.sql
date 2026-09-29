@@ -86,25 +86,32 @@ commit;
 --        has_function_privilege('service_role', 'public.aviso_politica_destinatarios(text)', 'execute') as srv_dest,       -- true
 --        has_function_privilege('service_role', 'public.aviso_politica_registrar(uuid, text)', 'execute') as srv_reg;      -- true
 --
--- T2. Destinatários excluem deletado, não confirmado, anonimizado e já avisado; registrar é idempotente.
+-- T2. Destinatários excluem deletado, não confirmado, anonimizado (no login ou só no perfil), domínios de
+--     teste e já avisado; registrar é idempotente. (e-mails de teste em domínio que PASSA no filtro)
 -- begin;
 -- do $$
 -- declare
 --   ok uuid := gen_random_uuid(); del uuid := gen_random_uuid(); nc uuid := gen_random_uuid();
---   an uuid := gen_random_uuid(); av uuid := gen_random_uuid();
+--   an uuid := gen_random_uuid(); av uuid := gen_random_uuid(); pa uuid := gen_random_uuid();
+--   at uuid := gen_random_uuid(); ac uuid := gen_random_uuid(); tl uuid := gen_random_uuid();
 --   lista uuid[];
 -- begin
 --   insert into auth.users (id, email, email_confirmed_at, deleted_at, created_at) values
---     (ok,  't-ok@teste.invalid',  now(), null,  now()),
---     (del, 't-del@teste.invalid', now(), now(), now()),
---     (nc,  't-nc@teste.invalid',  null,  null,  now()),
+--     (ok,  't-ok@evokaa-teste.com.br',  now(), null,  now()),
+--     (del, 't-del@evokaa-teste.com.br', now(), now(), now()),
+--     (nc,  't-nc@evokaa-teste.com.br',  null,  null,  now()),
 --     (an,  'removido-' || an || '@ANONIMO.evokaa.com.br', now(), null, now()),
---     (av,  't-av@teste.invalid',  now(), null,  now());
+--     (av,  't-av@evokaa-teste.com.br',  now(), null,  now()),
+--     (pa,  't-pa@evokaa-teste.com.br',  now(), null,  now()),   -- exclusão parou no meio: perfil anonimizado
+--     (at,  'produtor@aura.teste',       now(), null,  now()),
+--     (ac,  'admin@aura.com',            now(), null,  now()),
+--     (tl,  't-tl@alguma.invalid',       now(), null,  now());
+--   insert into public.profiles (id, email) values (pa, 'removido-' || pa || '@anonimo.evokaa.com.br');
 --   perform public.aviso_politica_registrar(av, 'teste-v1');
 --   perform public.aviso_politica_registrar(av, 'teste-v1');  -- 2ª vez: sem erro, sem duplicar
 --   assert (select count(*) from public.policy_notices where user_id = av) = 1, 'registrar duplicou';
 --   select array_agg(d.user_id) into lista from public.aviso_politica_destinatarios('teste-v1') d
---   where d.user_id in (ok, del, nc, an, av);
+--   where d.user_id in (ok, del, nc, an, av, pa, at, ac, tl);
 --   assert lista = array[ok], format('esperado só ok, veio %s', lista);
 --   -- outra versão: quem foi avisado da teste-v1 volta a ser destinatário
 --   assert exists (select 1 from public.aviso_politica_destinatarios('teste-v2') d where d.user_id = av), 'versão não separa';
