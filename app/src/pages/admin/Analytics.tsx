@@ -1,9 +1,62 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink
+import {
+  Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw
 } from 'lucide-react'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import gsap from 'gsap'
+
+type ItemTop = { nome: string; visitantes: number; paginas: number }
+interface Trafego {
+  periodo: '7d' | '30d'
+  totais: { visitantes: number; paginas: number }
+  porDia: { dia: string; visitantes: number; paginas: number }[]
+  paginas: ItemTop[]
+  origens: ItemTop[]
+  paises: ItemTop[]
+  aparelhos: ItemTop[]
+}
+
+const MOTIVOS_VERCEL: Record<string, string> = {
+  nao_autorizado: 'sua conta não tem a permissão de ver Analytics.',
+  sem_chave: 'a chave da Vercel ainda não foi configurada no servidor.',
+  token_invalido: 'a chave da Vercel venceu ou perdeu o acesso ao projeto. Crie uma nova e troque no Supabase.',
+  limite: 'a Vercel limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
+  vercel_erro: 'a Vercel não respondeu. Tente de novo em instantes.',
+  entrada_invalida: 'período inválido.',
+}
+
+// Nomes que a Vercel devolve vazios ou em inglês
+const nomeOrigem = (n: string) => n || 'Acesso direto'
+const nomeAparelho = (n: string) => ({ desktop: 'Computador', mobile: 'Celular', tablet: 'Tablet' } as Record<string, string>)[n] || n || 'Outro'
+const nomePais = (n: string) => {
+  if (!n) return 'Desconhecido'
+  try {
+    return new Intl.DisplayNames(['pt-BR'], { type: 'region' }).of(n) || n
+  } catch {
+    return n
+  }
+}
+
+function ListaTop({ titulo, itens, rotulo }: { titulo: string; itens: ItemTop[]; rotulo: (n: string) => string }) {
+  return (
+    <div className="p-5 rounded-2xl bg-card border border-border shadow-sm">
+      <h4 className="text-xs font-semibold text-foreground mb-3">{titulo}</h4>
+      {itens.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">Sem dados no período.</p>
+      ) : (
+        <ul className="space-y-2">
+          {itens.map(i => (
+            <li key={i.nome} className="flex items-center justify-between gap-3 text-xs">
+              <span className="text-foreground truncate min-w-0" title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
+              <span className="text-muted-foreground tabular-nums flex-shrink-0">{i.visitantes} vis. · {i.paginas} pág.</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
 
 interface ActivityLog {
   id: string
@@ -154,6 +207,38 @@ export default function AdminAnalytics() {
   useEffect(() => {
     loadAnalyticsData()
   }, [period])
+
+  // Vercel: busca só com a aba Tráfego aberta; o plano Hobby guarda 1 mês, então "Todo período" = 30 dias
+  const [trafego, setTrafego] = useState<Trafego | null>(null)
+  const [trafegoErro, setTrafegoErro] = useState<string | null>(null)
+  const [trafegoCarregando, setTrafegoCarregando] = useState(false)
+  const [trafegoHora, setTrafegoHora] = useState<Date | null>(null)
+  const pedidoTrafego = useRef(0)
+  const periodoVercel = period === '7d' ? '7d' : '30d'
+  // números de outro período não ficam na tela enquanto o novo carrega
+  const trafegoAtual = trafego?.periodo === periodoVercel ? trafego : null
+
+  const loadTrafego = async () => {
+    const pedido = ++pedidoTrafego.current
+    setTrafegoCarregando(true)
+    setTrafegoErro(null)
+    const { data, error } = await supabase.functions.invoke('vercel-analytics', {
+      body: { periodo: periodoVercel },
+    })
+    if (pedido !== pedidoTrafego.current) return // resposta de um período antigo
+    if (error || !data?.ok) {
+      setTrafego(null)
+      setTrafegoErro(MOTIVOS_VERCEL[data?.motivo] ?? 'não foi possível falar com o servidor.')
+    } else {
+      setTrafego({ ...data, periodo: periodoVercel })
+      setTrafegoHora(new Date())
+    }
+    setTrafegoCarregando(false)
+  }
+
+  useEffect(() => {
+    if (activeSubTab === 'traffic') loadTrafego()
+  }, [activeSubTab, period])
 
   useEffect(() => {
     if (!isLoading) {
@@ -355,31 +440,95 @@ export default function AdminAnalytics() {
           )}
 
           {activeSubTab === 'traffic' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 an-anim">
-              {/* Card Vercel Web Analytics */}
-              <div className="p-6 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sem Cookies · 100% dos Visitantes</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/10 text-green-700 dark:text-green-300 border border-green-500/20">Ativo</span>
+            <div className="space-y-6 an-anim">
+              {/* Vercel Web Analytics: números pela função vercel-analytics */}
+              <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sem cookies · todos os visitantes</span>
+                    <h3 className="font-serif text-xl text-foreground mt-1">Vercel Web Analytics</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
+                      {trafegoAtual && trafegoHora && ` · atualizado às ${trafegoHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+                    </p>
                   </div>
-                  <h3 className="font-serif text-xl text-foreground">Vercel Web Analytics</h3>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Mede visualizações de página, referrers de tráfego, países e dispositivos de todos os acessos sem gravar cookies e sem identificação de pessoas (plenamente aderente à LGPD).
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={loadTrafego}
+                      disabled={trafegoCarregando}
+                      className="py-2 px-3 bg-background border border-border text-foreground hover:bg-muted rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-60"
+                    >
+                      <RefreshCw className={`w-3.5 h-3.5 ${trafegoCarregando ? 'animate-spin' : ''}`} /> Atualizar
+                    </button>
+                    <a
+                      href="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5"
+                    >
+                      Painel completo <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
                 </div>
 
-                <div className="pt-4 border-t border-border">
-                  <a
-                    href="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-xl text-xs font-semibold flex items-center justify-center gap-2 hover:bg-primary/90 transition-all shadow-sm"
-                  >
-                    Abrir Painel Vercel Analytics <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
+                {trafegoErro ? (
+                  <div role="alert" className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
+                    Não foi possível carregar os dados da Vercel: {trafegoErro}
+                  </div>
+                ) : !trafegoAtual ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 gap-4">
+                      {[
+                        ['Visitantes', trafegoAtual.totais.visitantes],
+                        ['Páginas vistas', trafegoAtual.totais.paginas],
+                      ].map(([l, v]) => (
+                        <div key={l} className="p-4 rounded-xl bg-muted/40 border border-border">
+                          <div className="text-xs text-muted-foreground">{l}</div>
+                          <div className="font-serif text-2xl text-foreground mt-1">{v}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {trafegoAtual.totais.paginas === 0 ? (
+                      <p className="text-xs text-muted-foreground italic py-6 text-center">Nenhuma visita no período.</p>
+                    ) : (
+                      <div>
+                        <div className="h-56" role="img" aria-label="Gráfico de visitantes e páginas vistas por dia">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={trafegoAtual.porDia.map(d => ({ ...d, rotulo: d.dia.slice(8, 10) + '/' + d.dia.slice(5, 7) }))}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
+                              <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip
+                                formatter={(v: number, nome: string) => [v, nome === 'paginas' ? 'Páginas vistas' : 'Visitantes']}
+                                cursor={{ fill: 'rgba(128,128,128,0.12)' }}
+                                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
+                                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                              />
+                              <Bar dataKey="paginas" fill="#8f33f5" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="visitantes" fill="#c084fc" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1">Barras escuras: páginas vistas · claras: visitantes. Dias contados no horário UTC (3 h à frente de Brasília).</p>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
+
+              {trafegoAtual && !trafegoErro && trafegoAtual.totais.paginas > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <ListaTop titulo="Páginas mais vistas" itens={trafegoAtual.paginas} rotulo={n => n || '/'} />
+                  <ListaTop titulo="De onde vêm" itens={trafegoAtual.origens} rotulo={nomeOrigem} />
+                  <ListaTop titulo="Países" itens={trafegoAtual.paises} rotulo={nomePais} />
+                  <ListaTop titulo="Aparelhos" itens={trafegoAtual.aparelhos} rotulo={nomeAparelho} />
+                </div>
+              )}
 
               {/* Card Google Analytics 4 */}
               <div className="p-6 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-4">
