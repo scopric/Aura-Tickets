@@ -24,8 +24,6 @@ interface TeamMember {
   role: 'admin' | 'editor' | 'viewer'
   status: 'active' | 'pending' | 'blocked'
   permissions: Record<string, Permission>
-  assignedTasks: number
-  completedTasks: number
   lastActive: string
   joinedAt: string
   avatar: string
@@ -92,8 +90,6 @@ export default function TeamManager() {
       role: (dbMember.role || 'viewer') as TeamMember['role'],
       status: status,
       permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
-      assignedTasks: 0, // sem tabela de tarefas: não inventar número
-      completedTasks: 0,
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`
@@ -300,8 +296,8 @@ export default function TeamManager() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[1, 2, 3, 4].map(n => (
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {[1, 2].map(n => (
             <div key={n} className="p-5 rounded-2xl bg-white/40 border border-white/60 animate-pulse h-[98px]" />
           ))}
         </div>
@@ -442,15 +438,7 @@ export default function TeamManager() {
                     )}
 
                     {/* Stats */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 rounded-xl bg-canvas text-center">
-                        <div className="text-sm font-semibold text-espresso">{member.assignedTasks}</div>
-                        <div className="text-[9px] text-espresso/70">Atribuídas</div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-canvas text-center">
-                        <div className="text-sm font-semibold text-green-600">{member.completedTasks}</div>
-                        <div className="text-[9px] text-espresso/70">Concluídas</div>
-                      </div>
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="p-3 rounded-xl bg-canvas text-center">
                         <div className="text-sm font-semibold text-espresso">{member.joinedAt}</div>
                         <div className="text-[9px] text-espresso/70">Entrou em</div>

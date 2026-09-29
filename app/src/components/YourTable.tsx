@@ -375,7 +375,7 @@ export default function YourTable({ eventId }: YourTableProps) {
             <div className="absolute inset-0 rounded-full border-2 border-plum/10 animate-ping" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-serif text-2xl text-cream">Nossa IA está montando sua mesa perfeita</h3>
+            <h3 className="font-serif text-2xl text-cream">Carregando sua mesa</h3>
             <p className="text-sm text-cream/70 max-w-xs mx-auto">
               Analisando afinidades, temperamentos e vibes para criar uma experiência inesquecível.
             </p>
@@ -394,7 +394,7 @@ export default function YourTable({ eventId }: YourTableProps) {
     return (
       <div className="bg-void text-cream rounded-3xl p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
         <h3 className="font-serif text-xl mb-2">Sua mesa ainda não foi formada</h3>
-        <p className="text-sm text-cream/50 max-w-sm">Avisaremos quando o grupo estiver pronto.</p>
+        <p className="text-sm text-cream/70 max-w-sm">A formação automática das mesas ainda não está disponível.</p>
       </div>
     )
   }

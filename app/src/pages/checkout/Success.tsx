@@ -157,7 +157,7 @@ export default function CheckoutSuccess() {
                     <div className="mt-4 p-3 rounded-xl bg-plum/10 border border-plum/20">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-plum" />
-                        <span className="text-xs text-cream/70">Seu matchmaking está em andamento</span>
+                        <span className="text-xs text-cream/70">Ingresso de mesa coletiva</span>
                       </div>
                     </div>
                   )}
@@ -206,25 +206,17 @@ export default function CheckoutSuccess() {
                   <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">
                     <Users className="w-8 h-8 text-plum" />
                   </div>
-                  <h3 className="font-serif text-2xl mb-2">Sua Mesa Está Sendo Montada</h3>
+                  <h3 className="font-serif text-2xl mb-2">Mesa coletiva</h3>
                   <p className="text-sm text-cream/70 mb-6 max-w-sm">
-                    Vamos formar o grupo com as respostas do questionário de afinidade.
-                    Avisaremos quando sua mesa estiver formada.
+                    A formação automática das mesas ainda não está disponível.
+                    Seu ingresso vale normalmente no evento.
                   </p>
-                  <div className="flex items-center gap-3 mb-6">
-                    {['Temperamento', 'Interesses', 'Vibe'].map((tag) => (
-                      <span key={tag} className="px-3 py-1.5 bg-white/5 text-cream/70 text-xs rounded-full border border-white/10 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-plum" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
                   <button
                     onClick={() => setShowTable(true)}
                     className="mt-6 text-sm text-plum hover:text-cream transition-colors flex items-center gap-1"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Ver preview da minha mesa
+                    Ver minha mesa
                   </button>
                 </div>
               )

@@ -20,7 +20,7 @@ const methodIcons: Record<string, typeof CreditCard> = {
 const statusLabels: Record<string, { label: string; color: string }> = {
   pending: { label: 'Pendente', color: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
   paid: { label: 'Pago', color: 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/20' },
-  completed: { label: 'Concluído', color: 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/20' },
+  failed: { label: 'Falhou', color: 'text-rose-400 bg-rose-400/10 border border-rose-400/20' },
   cancelled: { label: 'Cancelado', color: 'text-rose-400 bg-rose-400/10 border border-rose-400/20' },
   refunded: { label: 'Reembolsado', color: 'text-slate-400 bg-slate-400/10 border border-slate-400/20' },
 }

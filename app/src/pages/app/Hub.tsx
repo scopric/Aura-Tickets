@@ -276,7 +276,7 @@ export default function AppHub() {
             <h3 className="text-xs font-semibold text-cream mb-0.5 truncate">
               {activeEventName}
             </h3>
-            <p className="text-[10px] text-cream/70">Compre antecipado e retire no local</p>
+            <p className="text-[10px] text-cream/70">Consulte os itens e preços do evento</p>
           </div>
 
           {/* Categories */}

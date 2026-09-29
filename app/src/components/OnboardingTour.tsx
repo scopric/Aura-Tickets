@@ -16,7 +16,7 @@ const producerSteps: TourStep[] = [
   { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido e atualiza em tempo real.' },
   { title: 'Financeiro', description: 'Controle receitas e despesas com formas de pagamento (PIX, cartao, boleto). Veja saldo, pendentes e atrasados.' },
   { title: 'Caixinha', description: 'Separe dinheiro por categoria: Marketing, Decoracao, Emergencia. Defina metas e acompanhe o progresso.' },
-  { title: 'Comunicacao', description: 'Envie emails, SMS e push para seus participantes. Use templates prontos e agende envios automaticos.' },
+  { title: 'Comunicacao', description: 'Organize as mensagens e campanhas para seus participantes. O envio automatico chega em breve.' },
   { title: 'Cupons', description: 'Crie cupons de desconto para impulsionar vendas. Percentual ou valor fixo, com limite de usos e validade.' },
   { title: 'Cronograma', description: 'Monte a timeline do evento: soundcheck, abertura, shows, encerramento. Marque itens como concluidos.' },
   { title: 'Voce esta pronto!', description: 'Explore o menu lateral para descobrir todas as ferramentas. Precisa de ajuda? O FAQ esta no menu "Ajuda".' },
@@ -25,7 +25,7 @@ const producerSteps: TourStep[] = [
 const buyerSteps: TourStep[] = [
   { title: 'Bem-vindo ao Evokaa!', description: 'Aqui voce descobre os melhores eventos, compra ingressos e vive experiencias unicas.' },
   { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e localidade.' },
-  { title: 'Mesa Coletiva', description: 'Nao tem grupo? A Mesa Coletiva une 6 pessoas por afinidade. Responda o questionario e deixe o resto conosco!' },
+  { title: 'Mesa Coletiva', description: 'Nao tem grupo? Com o ingresso de Mesa Coletiva voce senta com outras pessoas no evento. A formacao automatica por afinidade chega em breve.' },
   { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague via PIX ou cartao.' },
   { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in.' },
   { title: 'Cardapio', description: 'Veja as bebidas e comidas do evento no Hub. Pedidos pelo app chegam em breve.' },
