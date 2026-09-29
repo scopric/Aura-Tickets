@@ -170,7 +170,7 @@ export default function ProducerBrand() {
             {eventUrl ? (
               <QRCodeSVG value={eventUrl} marginSize={4} title={`QR Code de ${eventUrl}`} className="w-32 h-32 mx-auto mb-3 rounded-xl" />
             ) : (
-              <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center text-center p-3 text-[10px] text-espresso/60">
+              <div className="w-32 h-32 bg-canvas rounded-xl mx-auto mb-3 flex items-center justify-center text-center p-3 text-[10px] text-espresso/70">
                 Crie um evento para gerar o QR
               </div>
             )}

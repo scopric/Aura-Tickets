@@ -649,7 +649,7 @@ export default function AdminUsers() {
                 className={`py-3 text-xs font-semibold border-b-2 transition-all ${
                   drawerTab === 'config' 
                     ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/70 hover:text-espresso/70'
+                    : 'border-transparent text-espresso/70 hover:text-espresso'
                 }`}
               >
                 Configurações RLS
@@ -660,7 +660,7 @@ export default function AdminUsers() {
                 className={`py-3 text-xs font-semibold border-b-2 transition-all ${
                   drawerTab === 'history' 
                     ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/70 hover:text-espresso/70'
+                    : 'border-transparent text-espresso/70 hover:text-espresso'
                 }`}
               >
                 Histórico & Comportamento

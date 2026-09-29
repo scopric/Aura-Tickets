@@ -471,7 +471,7 @@ export default function AdminSettingsPage() {
                       {activities.map(log => (
                         <tr key={log.id} className="border-b border-border last:border-0 hover:bg-white/40 transition-colors">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-600 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
+                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-700 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
                               {LOG_LABEL[log.event_type] || log.event_type}
                             </span>
                           </td>

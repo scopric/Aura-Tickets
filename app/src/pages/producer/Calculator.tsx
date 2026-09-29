@@ -80,7 +80,7 @@ function MarkupCalc() {
           </div>
         )}
 
-        <button onClick={reset} className="flex items-center gap-2 text-xs text-espresso/70 hover:text-espresso/70 transition-colors mx-auto">
+        <button onClick={reset} className="flex items-center gap-2 text-xs text-espresso/70 hover:text-espresso transition-colors mx-auto">
           <RotateCcw className="w-3 h-3" /> Limpar
         </button>
       </div>

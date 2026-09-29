@@ -289,7 +289,7 @@ export default function AuthLogin() {
                     : r.value === 'producer'
                     ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20'
                     : 'bg-plum text-cream shadow-lg shadow-plum/20'
-                  : 'text-espresso/70 hover:text-espresso/70'
+                  : 'text-espresso/70 hover:text-espresso'
               }`}
             >
               <r.icon className="w-3.5 h-3.5" />

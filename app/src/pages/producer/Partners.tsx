@@ -123,7 +123,7 @@ export default function ProducerPartners() {
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {partnerTypes.map(type => (
-            <button key={type} onClick={() => setActiveTab(type)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${activeTab === type ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>{type}</button>
+            <button key={type} onClick={() => setActiveTab(type)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${activeTab === type ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{type}</button>
           ))}
         </div>
         <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-white/60 border border-white/60 rounded-full px-3 py-1.5 text-[11px] text-espresso focus:outline-none">

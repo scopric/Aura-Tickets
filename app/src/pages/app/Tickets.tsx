@@ -156,7 +156,7 @@ export default function ParticipantTickets() {
           <div className="glass-panel relative w-full max-w-sm p-6">
             <div className="text-center">
               <h3 className="font-serif text-xl text-cream mb-1">{selected.events?.title || 'Evento'}</h3>
-              <p className="text-xs text-white/40">{formatDate(selected.events?.date || null)} · {selected.events?.time || '--:--'}</p>
+              <p className="text-xs text-white/60">{formatDate(selected.events?.date || null)} · {selected.events?.time || '--:--'}</p>
               <div className="w-48 h-48 mx-auto my-6">
                 <TicketQRCode code={selected.code} size={192} className="rounded-2xl" />
               </div>

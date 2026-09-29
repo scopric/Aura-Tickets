@@ -339,7 +339,7 @@ export default function ProducerAffiliates() {
         <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar afiliado..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" /></div>
         <div className="flex items-center gap-2">
           {(['all', 'ativo', 'pausado', 'pendente'] as const).map(s => (
-            <button key={s} type="button" onClick={() => setFilterStatus(s)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso/70'}`}>{s === 'all' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
+            <button key={s} type="button" onClick={() => setFilterStatus(s)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>{s === 'all' ? 'Todos' : s.charAt(0).toUpperCase() + s.slice(1)}</button>
           ))}
         </div>
       </div>
@@ -398,7 +398,7 @@ export default function ProducerAffiliates() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
-                        <button onClick={() => setSelected(a)} aria-label="Ver detalhes e editar" title="Editar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setSelected(a)} aria-label="Ver detalhes e editar" title="Editar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><Edit3 className="w-3.5 h-3.5" /></button>
                         <button onClick={() => copyCode(a.code, a.id)} aria-label="Compartilhar link de afiliado" title="Compartilhar" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </td>

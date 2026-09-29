@@ -132,7 +132,7 @@ export function useTwoFactor() {
         </div>
 
         {error && (
-          <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">{error}</div>
+          <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">{error}</div>
         )}
 
         <form onSubmit={verify} className="space-y-4">

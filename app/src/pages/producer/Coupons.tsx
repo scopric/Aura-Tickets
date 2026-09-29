@@ -129,12 +129,12 @@ export default function ProducerCoupons() {
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {statusOptions.map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>{s}</button>
+            <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{s}</button>
           ))}
         </div>
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {typeOptions.map(t => (
-            <button key={t} onClick={() => setFilterType(t)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterType === t ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>{t}</button>
+            <button key={t} onClick={() => setFilterType(t)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterType === t ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{t}</button>
           ))}
         </div>
       </div>

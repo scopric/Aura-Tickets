@@ -178,7 +178,7 @@ export default function ProducerTasks() {
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {(['Todos', ...categories] as const).map(cat => (
-            <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterCategory === cat ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>{cat}</button>
+            <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterCategory === cat ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{cat}</button>
           ))}
         </div>
         {allTags.length > 0 && (

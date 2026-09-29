@@ -257,7 +257,7 @@ export default function ProducerCommunications() {
             { id: 'sms' as const, label: 'SMS', icon: MessageSquare },
             { id: 'push' as const, label: 'Push', icon: Bell },
           ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <t.icon className="w-3.5 h-3.5" /> {t.label}
             </button>
           ))}
@@ -304,7 +304,7 @@ export default function ProducerCommunications() {
                   </div>
                 )}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => { setForm({ ...form, name: `Cópia - ${c.name}`, type: c.type, subject: c.subject, audience: c.audience }); setShowForm(true); toast.success('Modelo copiado para edição!') }} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors" title="Duplicar Campanha"><Copy className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => { setForm({ ...form, name: `Cópia - ${c.name}`, type: c.type, subject: c.subject, audience: c.audience }); setShowForm(true); toast.success('Modelo copiado para edição!') }} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors" title="Duplicar Campanha"><Copy className="w-3.5 h-3.5" /></button>
                   <button onClick={() => deleteCampaign(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors" title="Excluir Campanha"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>

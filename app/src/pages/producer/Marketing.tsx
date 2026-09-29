@@ -139,7 +139,7 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Google Analytics 4</span>
                 </div>
                 <button onClick={() => setGoogleAnalytics({ ...googleAnalytics, enabled: !googleAnalytics.enabled })} className="transition-all">
-                  {googleAnalytics.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {googleAnalytics.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {googleAnalytics.enabled && (
@@ -159,7 +159,7 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Meta Pixel (Facebook)</span>
                 </div>
                 <button onClick={() => setFacebookPixel({ ...facebookPixel, enabled: !facebookPixel.enabled })} className="transition-all">
-                  {facebookPixel.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {facebookPixel.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {facebookPixel.enabled && (
@@ -179,7 +179,7 @@ export default function Marketing() {
                   <span className="text-sm font-medium text-espresso">Google Ads Conversion</span>
                 </div>
                 <button onClick={() => setGoogleAds({ ...googleAds, enabled: !googleAds.enabled })} className="transition-all">
-                  {googleAds.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/30" />}
+                  {googleAds.enabled ? <ToggleRight className="w-6 h-6 text-plum" /> : <ToggleLeft className="w-6 h-6 text-espresso/70" />}
                 </button>
               </div>
               {googleAds.enabled && (

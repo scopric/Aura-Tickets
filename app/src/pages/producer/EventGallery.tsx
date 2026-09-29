@@ -84,10 +84,10 @@ export default function ProducerEventGallery() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
-            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>
+            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <Grid3X3 className="w-4 h-4" />
             </button>
-            <button onClick={() => setViewMode('list')} className={`p-2 rounded-full transition-all ${viewMode === 'list' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso/70'}`}>
+            <button onClick={() => setViewMode('list')} className={`p-2 rounded-full transition-all ${viewMode === 'list' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <List className="w-4 h-4" />
             </button>
           </div>
@@ -99,11 +99,11 @@ export default function ProducerEventGallery() {
 
       {/* Event filter */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <button onClick={() => setActiveEvent('Todos')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === 'Todos' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso/70'}`}>
+        <button onClick={() => setActiveEvent('Todos')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === 'Todos' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
           Todos ({photos.length})
         </button>
         {events.map(e => (
-          <button key={e} onClick={() => setActiveEvent(e)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === e ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso/70'}`}>
+          <button key={e} onClick={() => setActiveEvent(e)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === e ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
             {e} ({photos.filter(p => p.event_name === e).length})
           </button>
         ))}
@@ -155,7 +155,7 @@ export default function ProducerEventGallery() {
                 <button onClick={() => toggleFeatured(photo)} className={`p-2 rounded-lg transition-colors ${photo.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-50'}`} title={photo.featured ? 'Remover destaque' : 'Destacar'}>
                   <Check className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setSelectedPhoto(photo) }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors">
+                <button onClick={() => { setSelectedPhoto(photo) }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
                   <Eye className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => handleDelete(photo.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
@@ -232,7 +232,7 @@ export default function ProducerEventGallery() {
                   <button onClick={() => toggleFeatured(selectedPhoto)} className={`p-2 rounded-lg transition-colors ${selectedPhoto.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500'}`} title="Destacar">
                     <Check className="w-4 h-4" />
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('URL copiada!') }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors">
+                  <button onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('URL copiada!') }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
                     <Download className="w-4 h-4" />
                   </button>
                   <button onClick={() => handleDelete(selectedPhoto.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">

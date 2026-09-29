@@ -408,7 +408,7 @@ export default function AdminFeedback() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1 justify-end">
-                          <button onClick={() => setSelected(item)} aria-label="Visualizar feedback" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"><Eye className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setSelected(item)} aria-label="Visualizar feedback" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><Eye className="w-3.5 h-3.5" /></button>
                           <button
                             onClick={() => {
                               if (!window.confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return
@@ -494,7 +494,7 @@ export default function AdminFeedback() {
                         key={key}
                         onClick={() => updateStatus.mutate({ id: selected.id, status: key })}
                         disabled={updateStatus.isPending}
-                        className={`px-2 py-2 rounded-xl text-[10px] font-medium border transition-all disabled:opacity-40 ${selected.status === key ? cfg.bg + ' ' + cfg.color : 'bg-white/40 border-white/60 text-espresso/70 hover:text-espresso/70'}`}
+                        className={`px-2 py-2 rounded-xl text-[10px] font-medium border transition-all disabled:opacity-40 ${selected.status === key ? cfg.bg + ' ' + cfg.color : 'bg-white/40 border-white/60 text-espresso/70 hover:text-espresso'}`}
                       >
                         <span className="flex items-center justify-center gap-1">
                           {busy && <Loader2 className="w-3 h-3 animate-spin" />}

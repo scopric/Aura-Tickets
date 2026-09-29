@@ -310,7 +310,7 @@ export default function AdminEvents() {
                                 href={publicEventUrl(e.slug || e.id)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors"
+                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"
                                 title="Ver página pública"
                                 aria-label="Ver página pública"
                               >

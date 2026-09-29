@@ -274,7 +274,7 @@ export default function EventManager() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${status.cls}`}>{status.label}</span>
                     <div className="relative">
-                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenu(actionMenu === event.id ? null : event.id) }} className="p-1 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso/70 transition-colors">
+                      <button onClick={(e) => { e.preventDefault(); e.stopPropagation(); setActionMenu(actionMenu === event.id ? null : event.id) }} className="p-1 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
                         <MoreHorizontal className="w-4 h-4" />
                       </button>
                       {actionMenu === event.id && (

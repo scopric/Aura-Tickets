@@ -314,7 +314,7 @@ export default function ProducerSettings() {
                 </div>
                 <div>
                   <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
-                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none cursor-not-allowed" />
+                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 dark:bg-white/5 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none cursor-not-allowed" />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs text-espresso/70 mb-1 block">Telefone</label>
@@ -557,10 +557,10 @@ export default function ProducerSettings() {
                     <select value={member.role} onChange={e => handleRoleChange(member.id, e.target.value)} className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
                       <option>Admin</option><option>Editor</option><option>Visualizador</option>
                     </select>
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-600 border-green-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
+                    <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
                       {member.status === 'active' ? 'Ativo' : 'Pendente'}
                     </span>
-                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/10 hover:text-red-500 transition-colors">
+                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>

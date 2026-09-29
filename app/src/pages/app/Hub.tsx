@@ -466,7 +466,7 @@ export default function AppHub() {
                 key={t.id}
                 onClick={() => setActiveTab(t.id)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-medium transition-all ${
-                  activeTab === t.id ? 'bg-plum text-cream shadow-lg shadow-plum/20' : 'text-cream/70 hover:text-cream/70'
+                  activeTab === t.id ? 'bg-plum text-cream shadow-lg shadow-plum/20' : 'text-cream/70 hover:text-cream'
                 }`}
               >
                 <t.icon className="w-3.5 h-3.5" />

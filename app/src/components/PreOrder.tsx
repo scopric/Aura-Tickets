@@ -223,7 +223,7 @@ export default function PreOrder({ eventId }: Props) {
               Confirmar Comanda · R$ {cartTotal}
             </button>
           )}
-          <button onClick={() => setShowCart(false)} className="w-full py-2 text-xs text-cream/70 hover:text-cream/70 transition-colors mt-2">
+          <button onClick={() => setShowCart(false)} className="w-full py-2 text-xs text-cream/70 hover:text-cream transition-colors mt-2">
             Continuar comprando
           </button>
         </div>
