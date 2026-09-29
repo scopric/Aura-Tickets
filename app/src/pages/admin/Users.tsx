@@ -8,9 +8,10 @@ import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import { PLANS, type PlanId } from '../../lib/plans'
 
 interface Subscription {
-  plan: 'free' | 'starter' | 'pro' | 'enterprise' // CHECK do banco: não existe 'plus'
+  plan: PlanId
   expires_at: string | null
   is_active: boolean
 }
@@ -51,6 +52,7 @@ const roleColors: Record<string, string> = {
 const PLAN_FEATURES: Record<string, string[]> = {
   free: [],
   starter: ['support', 'caixinha', 'calculator'],
+  plus: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons'],
   pro: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables'],
   enterprise: ['support', 'caixinha', 'calculator', 'crm', 'affiliates', 'communications', 'coupons', 'seating_map', 'banners', 'checkin', 'collective_tables', 'api_access']
 }
@@ -706,10 +708,9 @@ export default function AdminUsers() {
                         onChange={e => setEditPlan(e.target.value as Subscription['plan'])}
                         className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
                       >
-                        <option value="free">Sem Plano (Gratuito/Participante)</option>
-                        <option value="starter">Evokaa Starter (R$ 49/mês)</option>
-                        <option value="pro">Evokaa Pro (R$ 149/mês)</option>
-                        <option value="enterprise">Evokaa Enterprise (R$ 349/mês)</option>
+                        {PLANS.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}{p.monthlyPrice ? ` (R$ ${p.monthlyPrice}/mês)` : ' (gratuito)'}</option>
+                        ))}
                       </select>
                     </div>
 

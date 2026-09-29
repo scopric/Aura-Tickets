@@ -1,5 +1,8 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Crown, Check, X, Sparkles, Shield, Zap, Star, Gift, TrendingUp, Calculator, ChevronDown, ChevronUp } from 'lucide-react'
+import { appUrl } from '../lib/appHost'
+import { affiliateRefQuery } from '../lib/affiliateRef'
+import { planName, planPrice } from '../lib/plans'
 
 // ================= COMPONENTE TRUST CARD COM SPOTLIGHT DE MOUSE =================
 
@@ -480,6 +483,14 @@ interface PlanCardProps {
   period: 'mensal' | 'trimestral' | 'semestral' | 'anual'
 }
 
+// Botões dos planos: cadastro de produtor no app, levando o código do Afiliado Evokaa quando
+// a pessoa chegou pelo link dele (www e app não compartilham o que o navegador guardou)
+function irParaCadastro(planoId: string) {
+  const q = new URLSearchParams(affiliateRefQuery())
+  q.set('plano', planoId)
+  window.location.href = appUrl(`/auth/register?${q.toString()}`)
+}
+
 function PlanCard({ plan, isBest, period }: PlanCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -605,6 +616,8 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
       </div>
 
       <button 
+        type="button"
+        onClick={() => irParaCadastro(plan.id)}
         className={`w-full py-3 text-xs font-bold rounded-full transition-all duration-300 focus:outline-none ${
           plan.free 
             ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-lg' 
@@ -712,9 +725,9 @@ interface Plan {
 const pricingPlans: Plan[] = [
   {
     id: 'free',
-    name: 'Gratuito',
+    name: planName('free'),
     tagline: 'Perfeito para começar sem custos fixos',
-    monthlyPrice: 0,
+    monthlyPrice: planPrice('free'),
     color: '#10b981', // Verde
     free: true,
     fee: 12,
@@ -729,9 +742,9 @@ const pricingPlans: Plan[] = [
   },
   {
     id: 'starter',
-    name: 'Starter',
+    name: planName('starter'),
     tagline: 'Ideal para produtores iniciantes',
-    monthlyPrice: 49,
+    monthlyPrice: planPrice('starter'),
     color: '#8f33f5', // Roxo Evokaa
     fee: 8,
     feeMin: 2.99,
@@ -746,9 +759,9 @@ const pricingPlans: Plan[] = [
   },
   {
     id: 'plus',
-    name: 'Plus',
+    name: planName('plus'),
     tagline: 'Melhor alcance e vendas ampliadas',
-    monthlyPrice: 99,
+    monthlyPrice: planPrice('plus'),
     color: '#1d68c4', // Azul Royal Evokaa
     popular: true,
     fee: 6,
@@ -764,9 +777,9 @@ const pricingPlans: Plan[] = [
   },
   {
     id: 'pro',
-    name: 'Pro',
+    name: planName('pro'),
     tagline: 'Liberdade e recursos para escalar',
-    monthlyPrice: 199,
+    monthlyPrice: planPrice('pro'),
     color: '#4a60e3', // Azul Violeta
     fee: 4,
     feeMin: 0,
@@ -781,9 +794,9 @@ const pricingPlans: Plan[] = [
   },
   {
     id: 'enterprise',
-    name: 'Enterprise',
+    name: planName('enterprise'),
     tagline: 'Solução sob medida para grandes marcas',
-    monthlyPrice: 499,
+    monthlyPrice: planPrice('enterprise'),
     color: '#0c2340', // Navy profundo
     fee: 2.5,
     feeMin: 0,
@@ -842,6 +855,13 @@ const comparisonCategories = [
 ]
 
 export default function PricingSection() {
+  // chegada por link de afiliado (/p/CODIGO/link → /#planos): rola até os planos
+  useEffect(() => {
+    if (window.location.hash === '#planos') {
+      requestAnimationFrame(() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' }))
+    }
+  }, [])
+
   const [period, setPeriod] = useState<'mensal' | 'trimestral' | 'semestral' | 'anual'>('mensal')
   const [showComparison, setShowComparison] = useState(false)
 
@@ -990,7 +1010,7 @@ export default function PricingSection() {
   const savingsAmount = Math.max(0, starterCost - bestPlanTotalCost)
 
   return (
-    <section className="py-24 bg-slate-50 relative overflow-hidden font-sans">
+    <section id="planos" className="py-24 bg-slate-50 relative overflow-hidden font-sans scroll-mt-20">
       {/* Background Glows */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-20 left-0 w-[500px] h-[500px] bg-[#1d68c4]/[0.03] rounded-full blur-3xl" />

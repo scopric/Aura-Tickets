@@ -6,6 +6,7 @@ import {
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { planName, planPrice } from '../../lib/plans'
 
 interface PlanFeature { name: string; included: boolean }
 
@@ -18,9 +19,9 @@ interface Plan {
 const plans: Plan[] = [
   { 
     id: 'starter', 
-    name: 'Starter', 
+    name: planName('starter'), 
     tagline: 'Para começar', 
-    price: 49, 
+    price: planPrice('starter'), 
     period: '/mes', 
     color: '#8b5cf6', 
     bg: 'bg-violet-50/60', 
@@ -41,9 +42,9 @@ const plans: Plan[] = [
   },
   { 
     id: 'plus', 
-    name: 'Plus', 
+    name: planName('plus'), 
     tagline: 'Mais alcance', 
-    price: 99, 
+    price: planPrice('plus'), 
     period: '/mes', 
     color: '#d97706', 
     bg: 'bg-amber-50/60', 
@@ -64,9 +65,9 @@ const plans: Plan[] = [
   },
   { 
     id: 'pro', 
-    name: 'Pro', 
+    name: planName('pro'), 
     tagline: 'Sem limites', 
-    price: 149, 
+    price: planPrice('pro'), 
     period: '/mes', 
     color: '#7a3b69', 
     bg: 'bg-plum/5', 
@@ -88,9 +89,9 @@ const plans: Plan[] = [
   },
   { 
     id: 'enterprise', 
-    name: 'Enterprise', 
+    name: planName('enterprise'), 
     tagline: 'Para empresas', 
-    price: 349, 
+    price: planPrice('enterprise'), 
     period: '/mes', 
     color: '#1a0e14', 
     bg: 'bg-espresso/5', 

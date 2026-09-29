@@ -22,7 +22,8 @@ create table if not exists public.platform_affiliates (
 create unique index if not exists platform_affiliates_code_upper_idx
   on public.platform_affiliates (upper(referral_code));
 
--- Carteira: cada produtor pertence a no máximo UM afiliado (chave primária = produtor),
+-- Produtores indicados ("carteira" é outra coisa: o dinheiro dos eventos do produtor).
+-- Cada produtor pertence a no máximo UM afiliado (chave primária = produtor),
 -- senão duas pessoas receberiam a recorrência do mesmo cliente.
 create table if not exists public.platform_affiliate_producers (
   producer_id uuid primary key references public.profiles(id),
@@ -45,20 +46,20 @@ create policy "Admin gerencia afiliados evokaa" on public.platform_affiliates
   using ((select public.gf_is_admin()))
   with check ((select public.gf_is_admin()));
 
-drop policy if exists "Admin gerencia carteira de afiliados" on public.platform_affiliate_producers;
-create policy "Admin gerencia carteira de afiliados" on public.platform_affiliate_producers
+drop policy if exists "Admin gerencia indicados de afiliados" on public.platform_affiliate_producers;
+create policy "Admin gerencia indicados de afiliados" on public.platform_affiliate_producers
   for all to authenticated
   using ((select public.gf_is_admin()))
   with check ((select public.gf_is_admin()));
 
--- O afiliado só LÊ o próprio cadastro e a própria carteira (área dele vem numa etapa seguinte)
+-- O afiliado só LÊ o próprio cadastro e os próprios indicados (área dele vem numa etapa seguinte)
 drop policy if exists "Afiliado le o proprio cadastro" on public.platform_affiliates;
 create policy "Afiliado le o proprio cadastro" on public.platform_affiliates
   for select to authenticated
   using (user_id = (select auth.uid()));
 
-drop policy if exists "Afiliado le a propria carteira" on public.platform_affiliate_producers;
-create policy "Afiliado le a propria carteira" on public.platform_affiliate_producers
+drop policy if exists "Afiliado le os proprios indicados" on public.platform_affiliate_producers;
+create policy "Afiliado le os proprios indicados" on public.platform_affiliate_producers
   for select to authenticated
   using (affiliate_id in (select id from public.platform_affiliates where user_id = (select auth.uid())));
 

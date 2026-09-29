@@ -21,6 +21,7 @@ import AppLayout from './components/AppLayout'
 import FeatureGuard from './components/FeatureGuard'
 import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent } from './lib/tracking'
+import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
 
 // O host não muda durante a sessão do SPA
@@ -40,6 +41,8 @@ const ContactPage = lazy(() => import('./pages/Contact'))
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
 const NewsletterUnsubscribe = lazy(() => import('./pages/NewsletterUnsubscribe'))
+const AffiliateArea = lazy(() => import('./pages/AffiliateArea'))
+const AffiliateLanding = lazy(() => import('./pages/AffiliateLanding'))
 const AuthLogin = lazy(() => import('./pages/auth/Login'))
 const AuthRegister = lazy(() => import('./pages/auth/Register'))
 const AuthForgot = lazy(() => import('./pages/auth/ForgotPassword'))
@@ -121,7 +124,7 @@ const Checkout = lazy(() => import('./pages/checkout/Checkout'))
 const CheckoutPayment = lazy(() => import('./pages/checkout/Payment'))
 const CheckoutSuccess = lazy(() => import('./pages/checkout/Success'))
 
-type AllowedRole = 'user' | 'producer' | 'admin' | 'editor'
+type AllowedRole = 'user' | 'producer' | 'admin' | 'editor' | 'customer'
 
 function ProtectedRoute({ 
   children, 
@@ -219,6 +222,11 @@ function Layout() {
     trackPageView(location.pathname)
   }, [location.pathname])
 
+  // Link do Afiliado Evokaa (?ref=CODIGO) em qualquer página do site/app
+  useEffect(() => {
+    if (appMode !== 'admin') captureAffiliateRef(location.search)
+  }, [location.search])
+
   // alpha.*: só o login administrativo e o painel /admin/* (sem site institucional)
   if (appMode === 'admin') {
     return (
@@ -280,6 +288,8 @@ function Layout() {
             <Route path="/termos" element={<TermsPage />} />
             <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/newsletter/sair" element={<NewsletterUnsubscribe />} />
+            <Route path="/p/:code/:link?" element={<AffiliateLanding />} />
+            <Route path="/afiliado" element={<ProtectedRoute allowedRoles={['user', 'customer', 'producer', 'editor', 'admin']}><AffiliateArea /></ProtectedRoute>} />
             <Route path="/auth/login" element={<AuthLogin />} />
             <Route path="/auth/register" element={<AuthRegister />} />
             <Route path="/auth/forgot" element={<AuthForgot />} />
