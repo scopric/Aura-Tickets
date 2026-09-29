@@ -28,6 +28,7 @@ const PERMISSIONS = [
   { id: 'manage_settings', label: 'Configurações do Sistema', desc: 'Acesso às taxas de serviço da plataforma, regras de negócio e integrações.' },
   { id: 'manage_feedback', label: 'Moderar Feedbacks', desc: 'Visualização e moderação das mensagens de contato e melhorias.' },
   { id: 'manage_newsletter', label: 'Campanhas de Newsletter', desc: 'Criar, editar e disparar informativos para a base de e-mails.' },
+  { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
   { id: 'manage_team', label: 'Gerenciar Equipe Admin', desc: 'Permite adicionar novos membros e alterar permissões de outros admins.' },
 ]
 
