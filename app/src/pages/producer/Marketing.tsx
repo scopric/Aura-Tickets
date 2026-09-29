@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { QRCodeCanvas } from 'qrcode.react'
 import { siteUrl } from '../../lib/appHost'
 import { Link } from 'react-router-dom'
 import {
@@ -7,6 +8,7 @@ import {
   Megaphone, Target, TrendingUp, Eye, QrCode, Smartphone, Download
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useProducerEvents } from '../../hooks/useEvents'
 
 interface PixelConfig {
   enabled: boolean
@@ -59,7 +61,18 @@ export default function Marketing() {
     { id: '3', name: 'Grupo', message: 'Galera, organizei um evento sensacional! Bora? 😎', used: 12 },
   ])
 
-  const [qrEvent, setQrEvent] = useState('noite-eletro-2025')
+  const { data: myEvents = [] } = useProducerEvents()
+  const [qrPick, setQrPick] = useState('')
+  const qrEvent = qrPick || myEvents[0]?.id || ''
+  const qrUrl = qrEvent ? siteUrl(`/event/${qrEvent}`) : ''
+  const qrCanvas = useRef<HTMLCanvasElement>(null)
+  const downloadQr = () => {
+    if (!qrCanvas.current) return
+    const a = document.createElement('a')
+    a.href = qrCanvas.current.toDataURL('image/png')
+    a.download = `qr-evento-${qrEvent}.png`
+    a.click()
+  }
   const [qrSize, setQrSize] = useState<'small' | 'medium' | 'large'>('medium')
 
   const generateUTM = () => {
@@ -270,9 +283,12 @@ export default function Marketing() {
           <h2 className="font-serif text-lg text-espresso mb-4 flex items-center gap-2"><QrCode className="w-5 h-5 text-plum" /> QR Code do Evento</h2>
           <div className="space-y-4">
             <div>
-              <label className="text-xs text-espresso/50 mb-1 block">Evento</label>
-              <input value={qrEvent} onChange={e => setQrEvent(e.target.value)}
-                className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <label htmlFor="qr-event" className="text-xs text-espresso/50 mb-1 block">Evento</label>
+              <select id="qr-event" value={qrEvent} onChange={e => setQrPick(e.target.value)} disabled={!myEvents.length}
+                className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30">
+                {!myEvents.length && <option value="">Crie um evento para gerar o QR</option>}
+                {myEvents.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </select>
             </div>
             <div>
               <label className="text-xs text-espresso/50 mb-1 block">Tamanho</label>
@@ -287,23 +303,19 @@ export default function Marketing() {
             </div>
             <div className="flex justify-center">
               <div className={`bg-white p-4 rounded-2xl border border-white/60 ${qrSize === 'small' ? 'w-32' : qrSize === 'medium' ? 'w-48' : 'w-64'}`}>
-                {/* Mock QR */}
-                <div className="aspect-square bg-void rounded-xl flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-2 border-2 border-white/30 rounded-lg" />
-                  <div className="absolute inset-4 border border-white/20 rounded" />
-                  <div className="absolute top-2 left-2 w-6 h-6 border-2 border-white rounded" />
-                  <div className="absolute top-2 right-2 w-6 h-6 border-2 border-white rounded" />
-                  <div className="absolute bottom-2 left-2 w-6 h-6 border-2 border-white rounded" />
-                  <QrCode className="w-8 h-8 text-cream/50" />
-                </div>
-                <p className="text-[10px] text-center text-espresso/30 mt-2 break-all">{siteUrl(`/event/${qrEvent}`)}</p>
+                {qrUrl ? (
+                  <QRCodeCanvas ref={qrCanvas} value={qrUrl} size={512} marginSize={4} title={`QR Code de ${qrUrl}`} style={{ width: '100%', height: 'auto' }} className="rounded-xl" />
+                ) : (
+                  <div className="aspect-square bg-canvas rounded-xl flex items-center justify-center"><QrCode className="w-8 h-8 text-espresso/20" /></div>
+                )}
+                <p className="text-[10px] text-center text-espresso/30 mt-2 break-all">{qrUrl || 'Nenhum evento ainda'}</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => toast.success('QR Code baixado!')} className="flex-1 py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
+              <button onClick={downloadQr} disabled={!qrUrl} className="flex-1 py-2.5 disabled:opacity-50 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2">
                 <Download className="w-3.5 h-3.5" /> Baixar PNG
               </button>
-              <button onClick={() => copyLink(siteUrl(`/event/${qrEvent}`))} className="px-4 py-2.5 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">
+              <button onClick={() => copyLink(qrUrl)} disabled={!qrUrl} aria-label="Copiar link do evento" className="disabled:opacity-50 px-4 py-2.5 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">
                 <Copy className="w-3.5 h-3.5" />
               </button>
             </div>
