@@ -53,6 +53,12 @@
 -- 5. Tamanho: feedback.message já tem limite de 2000 na regra gf_feedback_insert (não duplicado aqui); entram
 --    page (2048, igual a user_activities.path), user_agent (1024) e admin_notes (5000). user_activities já tem
 --    CHECK de path, session_id, metadata e event_type no baseline: nada novo.
+-- 6. As regras de admin da newsletter (newsletters."Apenas admins leem e gerenciam campanhas" e
+--    newsletter_subscribers."Apenas admins gerenciam subscribers") conferiam profiles.role = 'admin' direto: sem a
+--    permissão manage_newsletter (a mesma da rota /admin/newsletter e do disparo na send-email) e sem passar pelo
+--    2FA do admin (gf_mfa_ok). Passam a usar gf_admin_can('manage_newsletter') (super_admin também passa), só para
+--    authenticated. Efeito colateral: admin sem manage_newsletter deixa de ver o contador "Inscritos na
+--    newsletter" do painel (o card mostra erro), como já acontece com as outras áreas restritas.
 begin;
 
 -- Conferência dos dados: aborta com a contagem antes de criar qualquer CHECK.
@@ -80,6 +86,16 @@ $$;
 drop policy if exists gf_contact_insert on public.contact_messages;
 drop policy if exists "Qualquer pessoa pode se inscrever" on public.newsletter_subscribers;
 revoke insert on public.contact_messages, public.newsletter_subscribers from anon;
+
+-- Admin da newsletter passa pela permissão e pelo 2FA (decisão 6)
+drop policy if exists "Apenas admins leem e gerenciam campanhas" on public.newsletters;
+create policy "Apenas admins leem e gerenciam campanhas" on public.newsletters as permissive for all to authenticated
+  using ((select public.gf_admin_can('manage_newsletter')))
+  with check ((select public.gf_admin_can('manage_newsletter')));
+drop policy if exists "Apenas admins gerenciam subscribers" on public.newsletter_subscribers;
+create policy "Apenas admins gerenciam subscribers" on public.newsletter_subscribers as permissive for all to authenticated
+  using ((select public.gf_admin_can('manage_newsletter')))
+  with check ((select public.gf_admin_can('manage_newsletter')));
 
 -- 3. Valores não negativos
 alter table public.ticket_types drop constraint if exists ticket_types_valores_chk;
@@ -130,6 +146,19 @@ begin
              and coalesce(with_check, qual) = 'true') then
     raise exception 'há regra aberta (true) de gravação em contact_messages/newsletter_subscribers';
   end if;
+  -- admin da newsletter só por gf_admin_can (permissão + 2FA), nunca por role = 'admin' direto
+  if exists (select 1 from pg_policies where schemaname = 'public'
+             and tablename in ('newsletters', 'newsletter_subscribers')
+             and (coalesce(qual, '') ~ 'role\s*=\s*''admin''' or coalesce(with_check, '') ~ 'role\s*=\s*''admin''')) then
+    raise exception 'regra de newsletters/newsletter_subscribers ainda confere role = admin direto';
+  end if;
+  if (select count(*) from pg_policies where schemaname = 'public'
+        and ((tablename = 'newsletters' and policyname = 'Apenas admins leem e gerenciam campanhas')
+             or (tablename = 'newsletter_subscribers' and policyname = 'Apenas admins gerenciam subscribers'))
+        and roles = array['authenticated']::name[]
+        and qual ~ 'gf_admin_can\(''manage_newsletter''' and with_check ~ 'gf_admin_can\(''manage_newsletter''') <> 2 then
+    raise exception 'regras de admin da newsletter não usam gf_admin_can(manage_newsletter)';
+  end if;
   if (select count(*) from pg_constraint where conname in ('ticket_types_valores_chk', 'orders_valores_chk',
         'order_items_valores_chk', 'event_photos_url_chk', 'event_banners_image_url_chk', 'feedback_tamanhos_chk')
         and convalidated) <> 6 then
@@ -157,6 +186,14 @@ commit;
 -- create policy gf_contact_insert on public.contact_messages as permissive for insert to public with check (true);
 -- create policy "Qualquer pessoa pode se inscrever" on public.newsletter_subscribers as permissive for insert to public
 --   with check (true);
+-- drop policy if exists "Apenas admins leem e gerenciam campanhas" on public.newsletters;
+-- create policy "Apenas admins leem e gerenciam campanhas" on public.newsletters as permissive for all to public
+--   using ((exists (select 1 from public.profiles
+--     where ((profiles.id = (select auth.uid() as uid)) and (profiles.role = 'admin'::text)))));
+-- drop policy if exists "Apenas admins gerenciam subscribers" on public.newsletter_subscribers;
+-- create policy "Apenas admins gerenciam subscribers" on public.newsletter_subscribers as permissive for all to public
+--   using ((exists (select 1 from public.profiles
+--     where ((profiles.id = (select auth.uid() as uid)) and (profiles.role = 'admin'::text)))));
 -- commit;
 -- (Só desfazer as regras junto com a volta da send-email e do front antigos: a função nova grava por conta própria
 -- e não precisa delas.)
@@ -168,15 +205,15 @@ commit;
 -- JWT, como o PostgREST.
 -- =============================================================================
 -- begin;
--- create function pg_temp.como(p_role text, p uuid default null) returns void language plpgsql as $f$
+-- create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void language plpgsql as $f$
 -- begin
 --   perform set_config('request.jwt.claims', case when p_role = 'postgres' then '' else json_strip_nulls(json_build_object(
---     'role', p_role, 'sub', p, 'aal', case when p is not null then 'aal1' end))::text end, true);
+--     'role', p_role, 'sub', p, 'aal', case when p is not null then p_aal end))::text end, true);
 --   perform set_config('role', p_role, true);
 -- end $f$;
 -- create function pg_temp.erro(q text) returns text language plpgsql as $f$
 -- begin execute q; return 'ok'; exception when others then return sqlstate || ' ' || sqlerrm; end $f$;
--- grant execute on function pg_temp.como(text, uuid), pg_temp.erro(text) to anon, authenticated, service_role;
+-- grant execute on function pg_temp.como(text, uuid, text), pg_temp.erro(text) to anon, authenticated, service_role;
 --
 -- -- T0. Dados: produtor, evento, tipo de ingresso, pedido.
 -- insert into auth.users (id, email, raw_user_meta_data) values
@@ -242,5 +279,49 @@ commit;
 --   assert pg_temp.erro(format($q$insert into public.feedback (type, message, user_agent) values ('bug', 'oi', %L)$q$, repeat('u', 1025))) like '23514%', 'user_agent longo passou';
 --   perform pg_temp.como('postgres');
 --   raise notice 'T4 OK: tamanhos do feedback';
+-- end $t$;
+--
+-- -- T5. Newsletter: admin só com manage_newsletter (ou super_admin) e com 2FA; admin de outra área, logado comum
+-- -- e visitante não leem; job de limpeza agendado.
+-- insert into auth.users (id, email) values
+--   ('5e500000-0000-4000-8000-000000000002', 'admin-news@teste-seg5.evokaa.invalid'),
+--   ('5e500000-0000-4000-8000-000000000003', 'admin-eventos@teste-seg5.evokaa.invalid'),
+--   ('5e500000-0000-4000-8000-000000000004', 'comum@teste-seg5.evokaa.invalid');
+-- update public.profiles set role = 'admin', admin_permissions = '{manage_newsletter}' where id = '5e500000-0000-4000-8000-000000000002';
+-- update public.profiles set role = 'admin', admin_permissions = '{manage_events}' where id = '5e500000-0000-4000-8000-000000000003';
+-- insert into public.newsletters (title, content) values ('Seg5', 'oi');
+-- do $t$ declare n int; begin
+--   perform pg_temp.como('authenticated', '5e500000-0000-4000-8000-000000000002');
+--   select count(*) into n from public.newsletter_subscribers where email = 'seg5@b.co';
+--   assert n = 1, 'admin com manage_newsletter não lê inscritos';
+--   select count(*) into n from public.newsletters where title = 'Seg5';
+--   assert n = 1, 'admin com manage_newsletter não lê campanhas';
+--   assert pg_temp.erro($q$insert into public.newsletter_subscribers (email) values ('admin-seg5@b.co')$q$) = 'ok', 'admin com manage_newsletter não grava inscrito';
+--   perform pg_temp.como('authenticated', '5e500000-0000-4000-8000-000000000003');
+--   select count(*) into n from public.newsletter_subscribers;
+--   assert n = 0, 'admin sem manage_newsletter lê inscritos';
+--   select count(*) into n from public.newsletters;
+--   assert n = 0, 'admin sem manage_newsletter lê campanhas';
+--   perform pg_temp.como('authenticated', '5e500000-0000-4000-8000-000000000004');
+--   select count(*) into n from public.newsletter_subscribers;
+--   assert n = 0, 'logado comum lê inscritos';
+--   perform pg_temp.como('anon');
+--   assert pg_temp.erro($q$select 1 from public.newsletter_subscribers$q$) = 'ok', 'select anon mudou de comportamento';
+--   select count(*) into n from public.newsletter_subscribers;
+--   assert n = 0, 'anon lê inscritos';
+--   assert pg_temp.erro($q$insert into public.newsletter_subscribers (email) values ('anon-seg5@b.co')$q$) like '42501%', 'anon grava newsletter';
+--   perform pg_temp.como('postgres');
+--   -- com 2FA cadastrado, o admin em sessão aal1 fica de fora; em aal2 entra
+--   insert into auth.mfa_factors (id, user_id, factor_type, status, created_at, updated_at)
+--     values (gen_random_uuid(), '5e500000-0000-4000-8000-000000000002', 'totp', 'verified', now(), now());
+--   perform pg_temp.como('authenticated', '5e500000-0000-4000-8000-000000000002');
+--   select count(*) into n from public.newsletter_subscribers;
+--   assert n = 0, 'admin com 2FA em aal1 lê inscritos';
+--   perform pg_temp.como('authenticated', '5e500000-0000-4000-8000-000000000002', 'aal2');
+--   select count(*) into n from public.newsletter_subscribers where email = 'seg5@b.co';
+--   assert n = 1, 'admin com 2FA em aal2 não lê inscritos';
+--   perform pg_temp.como('postgres');
+--   assert exists (select 1 from cron.job where jobname = 'limpar_contact_rate_limit_hits' and schedule = '23 * * * *'), 'job de limpeza não agendado';
+--   raise notice 'T5 OK: newsletter só com manage_newsletter e 2FA';
 -- end $t$;
 -- rollback;

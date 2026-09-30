@@ -531,7 +531,7 @@ serve(async (req) => {
         console.error("[newsletter_subscribe] contagem do teto falhou:", tetoError.message);
         return json({ error: "Não foi possível concluir a inscrição. Tente de novo." }, 500);
       }
-      if ((naHora ?? 0) > 50) {
+      if ((naHora ?? 0) >= 50) {
         console.warn(`[newsletter_subscribe] teto global: ${naHora} inscrições na última hora`);
         return json({ error: "Muitas inscrições agora. Tente mais tarde." }, 429);
       }
