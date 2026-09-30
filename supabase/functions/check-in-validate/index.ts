@@ -3,12 +3,13 @@
 // Chamada: POST com o JWT de quem opera a portaria (supabase.functions.invoke('check-in-validate')),
 // corpo { qrCode, eventId }. Quem registra o check-in é sempre o dono do token (checked_in_by).
 // Pode operar: o produtor do evento, membro aceito da equipe dele com papel admin ou editor
-// (team_members) ou admin da plataforma com manage_tickets. Conta com 2FA: só com o código.
+// (team_members) ou admin da plataforma com manage_tickets (gf_admin_can: admin só com 2FA e o código).
+// Conta com 2FA: só com o código.
 // Respostas: 200 { valid, message, ... } (inclusive "já utilizado"); 404 ingresso não encontrado;
 // 400 corpo inválido; 401 sem login; 403 sem permissão ou sem o código do 2FA.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { corsHeaders } from '../_shared/cors.ts'
-import { mfaOk } from '../_shared/mfa.ts'
+import { adminCan, mfaOk } from '../_shared/mfa.ts'
 
 Deno.serve(async (req) => {
   const cors = corsHeaders(req)
@@ -53,11 +54,10 @@ Deno.serve(async (req) => {
     pode = !!membro?.length
   }
   if (!pode) {
-    const { data: perfil, error: perfilError } = await admin.from('profiles').select('role, admin_permissions').eq('id', user.id).maybeSingle()
-    if (perfilError) return falhou('perfil', perfilError.message)
-    const perms: string[] = perfil?.admin_permissions ?? []
-    // mesma regra do gf_admin_can('manage_tickets') no banco
-    pode = perfil?.role === 'admin' && (perms.includes('super_admin') || perms.includes('manage_tickets'))
+    // admin da plataforma: o banco decide (exige 2FA com o código, Decisão 99)
+    const r = await adminCan(req, 'manage_tickets')
+    if (r === null) return falhou('admin', 'gf_admin_can')
+    pode = r
   }
   if (!pode) return json(403, { error: 'Você não tem permissão para fazer check-in neste evento.' })
 

@@ -12,7 +12,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, dataPassada, AVISO_NORMAS } from '../_shared/planejar.ts'
 import { resumir } from '../_shared/mascara.ts'
-import { mfaOk } from '../_shared/mfa.ts'
+import { adminCan, mfaOk } from '../_shared/mfa.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -287,7 +287,7 @@ async function atender(req: Request): Promise<Response> {
   if (!(await mfaOk(req))) return json(403, { ok: false, motivo: 'nao_autorizado', message: 'Confirme o código do 2FA (saia e entre de novo).' })
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const { data: perfil } = await admin.from('profiles').select('role, admin_permissions').eq('id', caller.id).maybeSingle()
+  const { data: perfil } = await admin.from('profiles').select('role').eq('id', caller.id).maybeSingle()
   const role = perfil?.role
   if (role !== 'producer' && role !== 'admin') return recusa('nao_autorizado')
 
@@ -299,9 +299,10 @@ async function atender(req: Request): Promise<Response> {
   }
   if (!corpo) return recusa('entrada_invalida')
   const { mode, message, history, form } = corpo
-  // mesma regra do gf_admin_can('manage_settings') no banco: só quem pode mexer nas configurações da IA
-  const perms: string[] = perfil?.admin_permissions ?? []
-  if (mode === 'ping' && !(role === 'admin' && (perms.includes('super_admin') || perms.includes('manage_settings')))) return recusa('nao_autorizado')
+  // Admin: o banco decide (gf_is_admin/gf_admin_can, só com 2FA e o código, Decisão 99).
+  // ping: só quem pode mexer nas configurações da IA (manage_settings)
+  if (mode === 'ping' ? (await adminCan(req, 'manage_settings')) !== true
+    : role === 'admin' && (await adminCan(req)) !== true) return recusa('nao_autorizado')
 
   const { data: cfg, error: cfgError } = await admin.from('ai_settings').select('*').eq('id', 1).maybeSingle()
   if (cfgError || !cfg) {

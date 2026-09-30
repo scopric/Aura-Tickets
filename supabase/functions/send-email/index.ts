@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { chaveIp, validarContato, validarEmail } from "../_shared/validar.ts";
+import { adminCan } from "../_shared/mfa.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -618,14 +619,9 @@ serve(async (req) => {
 
       const caller = await getCaller(req);
       if (!caller) return json({ error: "Não autenticado." }, 401);
-      const { data: callerProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("role, admin_permissions")
-        .eq("id", caller.id)
-        .maybeSingle();
-      const perms: string[] = callerProfile?.admin_permissions || [];
-      if (callerProfile?.role !== "admin" || !(perms.includes("manage_newsletter") || perms.includes("super_admin"))) {
-        return json({ error: "Sem permissão para disparar campanhas (manage_newsletter)." }, 403);
+      // o banco decide (gf_admin_can: admin só com 2FA e o código, Decisão 99)
+      if ((await adminCan(req, "manage_newsletter")) !== true) {
+        return json({ error: "Sem permissão para disparar campanhas (manage_newsletter). Entre com o código do 2FA." }, 403);
       }
 
       // ponytail: envio sequencial, 1 chamada à Resend por assinante; ~150 s de limite da Edge

@@ -9,6 +9,8 @@
 -- REAPLICAR ESTE ARQUIVO depois de rodar de novo qualquer SQL que recrie gf_is_admin, gf_admin_can,
 -- chat_role, chat_start, affiliate_my_producers, link_me_to_affiliate, ai_balance ou rls_auto_enable
 -- (hardening de 27/09, agente_evo, afiliados_v2, chat): eles voltam sem a checagem do 2FA.
+-- DEPOIS DESTE, rodar de novo docs/sql/20261001_seg4_2fa_admin.sql: este arquivo recria gf_is_admin e
+-- gf_admin_can sem a exigência de 2FA para admin (Decisão 99).
 begin;
 
 -- 1. Regra única: aal2 no token OU nenhum fator confirmado. SECURITY DEFINER porque o usuário
