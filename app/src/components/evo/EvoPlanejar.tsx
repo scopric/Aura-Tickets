@@ -48,8 +48,8 @@ const inteiroEntre = (v: string, min: number, max: number) => {
   const n = Number(v)
   return Number.isInteger(n) && n >= min && n <= max ? n : null
 }
-// AAAA-MM-DD no fuso do navegador (o mesmo formato do <input type="date">)
-const hojeLocal = () => new Date().toLocaleDateString('en-CA')
+// AAAA-MM-DD no fuso do navegador (o mesmo formato do <input type="date">; sv-SE formata em ISO)
+const hojeLocal = () => new Intl.DateTimeFormat('sv-SE').format(new Date())
 const opcionalNaoNegativo =(v: string) => (v.trim() === '' ? undefined : Number(v) >= 0 ? Number(v) : null)
 
 export const FORM_PLANEJAR_VAZIO = { genero: '', publico: '', cidade: '', uf: '', data: '', duracao: '', preco: '', orcamento: '', layout: 'em_pe' }
