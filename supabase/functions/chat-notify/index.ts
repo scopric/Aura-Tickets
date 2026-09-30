@@ -34,7 +34,7 @@ async function mesmoSegredo(a: string, b: string) {
   return d === 0
 }
 
-// ---------- copiado de app/supabase/functions/send-email/index.ts ----------
+// ---------- copiado de supabase/functions/send-email/index.ts ----------
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))

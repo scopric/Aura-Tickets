@@ -7,7 +7,7 @@
 -- support_messages via Realtime (postgres_changes), e a tela do admin
 -- (app/src/pages/admin/SupportChat.tsx) assina support_sessions para listar sessões novas.
 -- Nenhuma das duas estava na publicação supabase_realtime (a migration
--- app/supabase/migrations/20260604000000_create_support_chat.sql nunca foi aplicada), então
+-- docs/archive/migrations-antigas/app/20260604000000_create_support_chat.sql nunca foi aplicada), então
 -- a resposta do atendente só aparecia ao fechar e abrir o chat, e o admin só via sessão nova
 -- ao recarregar. O Realtime respeita o RLS: cada usuário só recebe as próprias linhas.
 -- Idempotente. Não altera dados.

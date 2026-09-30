@@ -83,4 +83,4 @@ em `app/src/types/database.ts` e devem ser mantidos em sincronia com o schema.
   e Google Analytics 4 (`VITE_GA_MEASUREMENT_ID` só em Production; carrega apenas após o consentimento
   de cookies analíticos, com `page_view` manual por rota — na medição aprimorada do GA4, desligue
   "alterações de página com base em eventos do histórico do navegador" para não contar em dobro).
-- `app/vercel.json` já contém os rewrites de SPA. Detalhes em `app/DEPLOY.md`.
+- `app/vercel.json` já contém os rewrites de SPA. A Vercel publica sozinha a cada merge no `main` (integração do Git).
