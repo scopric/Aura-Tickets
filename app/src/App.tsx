@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useEffect } from 'react'
+import { Suspense, lazy, useState, useEffect, useCallback } from 'react'
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
@@ -25,6 +25,7 @@ import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
+import { useTwoFactor } from './hooks/useTwoFactor'
 
 // O host não muda durante a sessão do SPA
 const appMode = getAppMode()
@@ -128,7 +129,27 @@ const CheckoutSuccess = lazy(() => import('./pages/checkout/Success'))
 
 type AllowedRole = 'user' | 'producer' | 'admin' | 'editor' | 'customer'
 
-function ProtectedRoute({ 
+// Decisão 99: admin sem 2FA não usa o painel (o banco já nega tudo de admin). Cadastra aqui, com o mesmo
+// fluxo do Perfil; o código confirmado deixa a sessão em aal2 e a rota confere de novo.
+function AdminTwoFactorSetup({ onDone }: { onDone: () => void }) {
+  const { enabled, loading, toggle, modal } = useTwoFactor()
+  const { logout } = useAuth()
+  useEffect(() => { if (enabled) onDone() }, [enabled, onDone])
+  return (
+    <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-6 text-center">
+      <p className="text-espresso">Para usar o painel de administração, ative a verificação em duas etapas.</p>
+      <button onClick={toggle} disabled={loading} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
+        Ativar verificação em duas etapas
+      </button>
+      <button onClick={logout} className="text-sm text-espresso underline">
+        Sair
+      </button>
+      {modal}
+    </div>
+  )
+}
+
+export function ProtectedRoute({ 
   children, 
   allowedRoles,
   requiredPermission
@@ -140,25 +161,36 @@ function ProtectedRoute({
   const { isAuthenticated, isLoading, role, user } = useAuth()
   const location = useLocation()
   // Fecha em erro: sem confirmar o nível do 2FA a rota não abre.
-  const [mfa, setMfa] = useState<'checking' | 'ok' | 'required' | 'error'>('checking')
+  const [mfa, setMfa] = useState<'checking' | 'ok' | 'required' | 'enroll' | 'error'>('checking')
   const [mfaAttempt, setMfaAttempt] = useState(0)
+  // Papel da última conferência: o papel provisório ('user') vira 'admin' depois do perfil; até conferir de novo, espera
+  const [mfaRole, setMfaRole] = useState(role)
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return
     // Sessão demo (só DEV) não existe no Supabase: sem isto os testes e2e com as contas demo parariam aqui.
-    if (isMockSession(useAuthStore.getState().session)) { setMfa('ok'); return }
+    if (isMockSession(useAuthStore.getState().session)) { setMfa('ok'); setMfaRole(role); return }
     let cancelled = false
     supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-      .then(({ data, error }) => {
+      .then(async ({ data, error }) => {
         if (error || !data?.currentLevel) throw error ?? new Error('Nível de autenticação indisponível')
-        if (!cancelled) setMfa(data.nextLevel === 'aal2' && data.currentLevel === 'aal1' ? 'required' : 'ok')
+        if (data.nextLevel === 'aal2' && data.currentLevel === 'aal1') return 'required' as const
+        // aal2 já implica fator confirmado (o banco confere o resto): só admin em aal1 lista os fatores
+        if (role !== 'admin' || data.currentLevel === 'aal2') return 'ok' as const
+        // Admin precisa de 2FA cadastrado (Decisão 99)
+        const { data: fatores, error: fatoresError } = await supabase.auth.mfa.listFactors()
+        if (fatoresError) throw fatoresError
+        return fatores.totp.some((f) => f.status === 'verified') ? 'ok' as const : 'enroll' as const
       })
+      .then((estado) => { if (!cancelled) { setMfa(estado); setMfaRole(role) } })
       .catch((err) => {
         console.error('[ProtectedRoute] Erro ao verificar MFA:', err)
-        if (!cancelled) setMfa('error')
+        if (!cancelled) { setMfa('error'); setMfaRole(role) }
       })
     return () => { cancelled = true }
-  }, [isLoading, isAuthenticated, mfaAttempt])
+  }, [isLoading, isAuthenticated, role, mfaAttempt])
+
+  const retryMfa = useCallback(() => { setMfa('checking'); setMfaAttempt((n) => n + 1) }, [])
 
   const spinner = (
     <div className="min-h-screen bg-canvas flex items-center justify-center">
@@ -172,14 +204,14 @@ function ProtectedRoute({
     return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
   }
 
-  if (mfa === 'checking') return spinner
+  if (mfa === 'checking' || mfaRole !== role) return spinner
 
   // Sem redirecionar: mandar para o login aqui já causou loop.
   if (mfa === 'error') {
     return (
       <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-espresso">Não foi possível confirmar sua sessão.</p>
-        <button onClick={() => { setMfa('checking'); setMfaAttempt((n) => n + 1) }} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
+        <button onClick={retryMfa} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
           Tentar de novo
         </button>
       </div>
@@ -189,6 +221,8 @@ function ProtectedRoute({
   if (mfa === 'required') {
     return <Navigate to="/auth/login" state={{ from: location.pathname, mfaRequired: true }} replace />
   }
+
+  if (mfa === 'enroll') return <AdminTwoFactorSetup onDone={retryMfa} />
 
   // Papel nulo nega. Vai para o login (que não age sem papel), e não para o /app/hub: com papel nulo o
   // /app/hub negaria de novo e redirecionaria para si mesmo (loop).
