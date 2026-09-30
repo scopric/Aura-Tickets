@@ -147,7 +147,7 @@ function ProtectedRoute({
     let cancelled = false
     supabase.auth.mfa.getAuthenticatorAssuranceLevel()
       .then(({ data, error }) => {
-        if (error || !data) throw error ?? new Error('Nível de autenticação indisponível')
+        if (error || !data?.currentLevel) throw error ?? new Error('Nível de autenticação indisponível')
         if (!cancelled) setMfa(data.nextLevel === 'aal2' && data.currentLevel === 'aal1' ? 'required' : 'ok')
       })
       .catch((err) => {

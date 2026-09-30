@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { PASSWORD_HINT } from '../lib/password'
 import { useAuthStore, type User } from '../stores/authStore'
 import { toast } from 'sonner'
 import { clearAffiliateRef } from '../lib/affiliateRef'
@@ -149,6 +150,7 @@ export function useAuth() {
         if (error.message.includes('already registered') || error.message.includes('User already registered')) {
           throw new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.')
         }
+        if (error.code === 'weak_password') throw new Error(`A senha não atende às regras. ${PASSWORD_HINT}.`)
         throw error
       }
       return data

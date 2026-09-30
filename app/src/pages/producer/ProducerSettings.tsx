@@ -188,20 +188,26 @@ export default function ProducerSettings() {
       return
     }
     try {
-      // O servidor confere a senha atual sem novo login (um signInWithPassword trocaria a sessão aal2
-      // por aal1 e o banco bloquearia tudo). Só vale com "update_password_require_current_password"
-      // ligado no Supabase; desligado, o servidor ignora o campo.
+      // O servidor confere a senha atual sem novo login nas primeiras 24 h da sessão; depois pede
+      // reautenticação (um signInWithPassword trocaria a sessão aal2 por aal1 e o banco bloquearia tudo).
+      // Só vale com "update_password_require_current_password" ligado no Supabase; desligado, o servidor ignora o campo.
       const { error } = await supabase.auth.updateUser({ password: password.new, current_password: password.current })
       if (error?.code === 'current_password_invalid') {
         toast.error('Senha atual incorreta')
         return
       }
+      if (error?.code === 'reauthentication_needed') {
+        toast.error('Por segurança, saia e entre de novo na sua conta para trocar a senha.')
+        return
+      }
+      if (error?.code === 'weak_password') {
+        toast.error(`A senha não atende às regras. ${PASSWORD_HINT}.`)
+        return
+      }
       if (error) throw error
       setPassword({ current: '', new: '', confirm: '' })
       toast.success('Senha alterada!')
-      // Derruba as sessões dos outros aparelhos; esta continua aberta.
-      const { error: outrasError } = await supabase.auth.signOut({ scope: 'others' })
-      if (outrasError) toast.error('Senha alterada, mas não foi possível encerrar as outras sessões')
+      // O servidor já encerra as outras sessões ao trocar a senha; o token de acesso delas vale até 1 h.
     } catch (err: any) {
       toast.error(err.message || 'Erro ao alterar senha')
     }

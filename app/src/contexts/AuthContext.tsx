@@ -38,7 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Sempre relê o perfil ao carregar: o papel salvo no navegador pode estar desatualizado.
           fetchProfile()
         } else {
-          // Sem sessão no Supabase não há o que restaurar: o token não é copiado de outro lugar.
+          // Sem sessão no Supabase não há o que restaurar: o token não é copiado de outro lugar. Limpa o
+          // store persistido já aqui, senão ele libera a rota até o INITIAL_SESSION chegar (demo só em DEV).
+          const currentSession = useAuthStore.getState().session
+          if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
+            setSession(null)
+            setUser(null)
+          }
           setLoading(false)
         }
       })
@@ -63,9 +69,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(session)
           const sid = loginSessionId(session.access_token)
           if (event === 'SIGNED_IN' && (!sid || sid !== useAuthStore.getState().loginSessionId)) {
-            useAuthStore.setState({ loginSessionId: sid })
+            // Marca a sessão como registrada só depois do sucesso: se falhar, a próxima carga tenta de novo.
             supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
-              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+              .then(({ error }) => {
+                if (error) console.warn('[AuthContext] record-access:', error.message)
+                else useAuthStore.setState({ loginSessionId: sid })
+              })
               .catch((err) => console.warn('[AuthContext] record-access:', err))
           }
 

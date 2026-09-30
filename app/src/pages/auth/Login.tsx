@@ -160,8 +160,8 @@ export default function AuthLogin() {
     e.preventDefault()
     setError('')
     const cleanEmail = email.trim()
-    const cleanPassword = password.trim()
-    if (!cleanEmail || !cleanPassword) {
+    // A senha vai como foi digitada: o cadastro não corta espaços, então cortar aqui barraria quem os usou.
+    if (!cleanEmail || !password) {
       setError('Preencha e-mail e senha')
       return
     }
@@ -169,7 +169,7 @@ export default function AuthLogin() {
     setIsSubmitting(true)
     let redirected = false
     try {
-      const success = await login(cleanEmail, cleanPassword)
+      const success = await login(cleanEmail, password)
       if (success) {
         if (await startMfaIfNeeded()) return
 
@@ -230,8 +230,9 @@ export default function AuthLogin() {
 
       // Só agora (aal2) o banco entrega o perfil: papel real e bloqueio por endereço
       await useAuthStore.getState().fetchProfile({ force: true })
-      const realRole = useAuthStore.getState().user?.role ?? 'user'
-      const blocked = blockedMessage(realRole)
+      const realRole = useAuthStore.getState().user?.role
+      // Sem papel (perfil não carregou) não entra: fecha em erro, como no login sem 2FA
+      const blocked = realRole ? blockedMessage(realRole) : 'Não foi possível confirmar o acesso desta conta. Tente de novo.'
       if (blocked) {
         await clearSession()
         setStep('credentials')
@@ -248,7 +249,7 @@ export default function AuthLogin() {
       }
 
       // Redireciona pelo papel do perfil (profiles.role), nunca por user_metadata (editável pelo usuário)
-      navigate(panelFor(realRole))
+      navigate(panelFor(realRole!)) // papel nulo já foi barrado acima (blocked)
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
       setError(err.message || 'Erro ao verificar código de 2FA')
