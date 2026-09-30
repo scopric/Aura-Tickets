@@ -919,11 +919,7 @@ git push origin main
 ```
 O Vercel detecta o push e faz deploy automaticamente.
 
-**Deploy manual via CLI:**
-```bash
-cd app/
-npx vercel --prod
-```
+**Deploy:** a Vercel publica sozinha a cada merge no `main` (integração do Git). Não há deploy manual pela linha de comando.
 
 ### Projetos antigos para excluir
 
