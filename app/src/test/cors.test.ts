@@ -6,8 +6,7 @@ const origem = (o?: string) =>
 
 describe('corsHeaders das Edge Functions', () => {
   it('origem da lista volta ela mesma', () => {
-    for (const o of ['https://evokaa.com.br', 'https://www.evokaa.com.br', 'https://app.evokaa.com.br', 'https://alpha.evokaa.com.br',
-      'https://aura-tickets-pypy.vercel.app', 'https://aura-tickets-pypy-git-feat-x-scoprics-projects.vercel.app', 'https://aura-tickets-pypy-scoprics-projects.vercel.app'])
+    for (const o of ['https://evokaa.com.br', 'https://www.evokaa.com.br', 'https://app.evokaa.com.br', 'https://alpha.evokaa.com.br'])
       expect(origem(o)).toBe(o)
   })
 
@@ -18,6 +17,7 @@ describe('corsHeaders das Edge Functions', () => {
 
   it('origem estranha não volta: recebe a do site', () => {
     for (const o of ['https://evil.com', 'https://evokaa.com.br.evil.com', 'https://aura-tickets-pypy-x-outro.vercel.app',
+      'https://aura-tickets-pypy-evil-scoprics-projects.vercel.app', 'https://aura-tickets-pypy.vercel.app',
       'http://localhost.evil.com', 'https://localhost:5173', 'null', undefined])
       expect(origem(o)).toBe('https://www.evokaa.com.br')
   })
