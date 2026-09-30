@@ -13,17 +13,14 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, dataPassada, AVISO_NORMAS } from '../_shared/planejar.ts'
 import { resumir } from '../_shared/mascara.ts'
 import { mfaOk } from '../_shared/mfa.ts'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
 
 const MENSAGENS: Record<string, string> = {
   desligado: 'O Evo está desligado no momento.',
@@ -264,19 +261,24 @@ function validarProposta(a: any) {
 
 // ---------- servidor ----------
 
-// Qualquer exceção fora do fluxo vira recusa erro_ia com CORS (nunca 500 cru)
+// Qualquer exceção fora do fluxo vira recusa erro_ia com CORS (nunca 500 cru).
+// O CORS entra aqui, uma vez por requisição, em toda resposta de atender() e da recusa.
 Deno.serve(async (req) => {
+  const cors = corsHeaders(req)
+  let res: Response
   try {
-    return await atender(req)
+    res = await atender(req)
   } catch (e) {
     console.error('[agent] exceção não tratada:', e instanceof Error ? e.message : 'desconhecida')
-    return recusa('erro_ia')
+    res = recusa('erro_ia')
   }
+  for (const [k, v] of Object.entries(cors)) res.headers.set(k, v)
+  return res
 })
 
 async function atender(req: Request): Promise<Response> {
   const prazo = Date.now() + PRAZO_MS
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok')
   if (req.method !== 'POST') return json(405, { ok: false, motivo: 'entrada_invalida', message: MENSAGENS.entrada_invalida })
 
   const caller = await getCaller(req)

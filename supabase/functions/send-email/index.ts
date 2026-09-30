@@ -1,14 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
+import { corsHeaders } from "../_shared/cors.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const TEAM_EMAIL = "contato@evokaa.com.br";
 
@@ -305,14 +301,15 @@ async function sendMail(to: string, subject: string, html: string, from: string)
 }
 
 serve(async (req) => {
+  const cors = corsHeaders(req);
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   if (req.method !== "POST") {
     return new Response(JSON.stringify({ error: "Method not allowed" }), {
       status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 
@@ -355,7 +352,7 @@ serve(async (req) => {
       if (!caller) {
         return new Response(JSON.stringify({ error: "Não autenticado." }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -368,12 +365,12 @@ serve(async (req) => {
       if (userError || !userData?.user) {
         return new Response(JSON.stringify({ error: "Não foi possível confirmar a conta." }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
       if (userData.user.app_metadata?.[sentFlag]) {
         return new Response(JSON.stringify({ success: true, message: "Já enviado para esta conta." }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -387,7 +384,7 @@ serve(async (req) => {
       if (markError) {
         return new Response(JSON.stringify({ error: "Não foi possível reservar o envio." }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -408,7 +405,7 @@ serve(async (req) => {
           : await sendMail(TEAM_EMAIL, `[Novo cadastro] ${name} (${role === "producer" ? "Produtor" : "Participante"})`, getSignupNotificationHtml(name, caller.email, role), from);
 
         return new Response(JSON.stringify({ success: true, ...mailRes }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       } catch (e) {
         // Não desmarca a flag: reservar-enviar-desmarcar-se-falhar tem a mesma janela de
@@ -417,7 +414,7 @@ serve(async (req) => {
         // não é reenviado — aceitável para um e-mail de cortesia.
         return new Response(JSON.stringify({ error: e.message }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
     }
@@ -430,7 +427,7 @@ serve(async (req) => {
       if (!name || !email || !message) {
         return new Response(JSON.stringify({ error: "Nome, e-mail e mensagem são obrigatórios." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -451,7 +448,7 @@ serve(async (req) => {
         if ((count ?? 0) >= 5) {
           return new Response(JSON.stringify({ error: "Muitas mensagens enviadas. Tente de novo em alguns minutos." }), {
             status: 429,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
+            headers: { ...cors, "Content-Type": "application/json" },
           });
         }
         await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
@@ -465,12 +462,12 @@ serve(async (req) => {
           from
         );
         return new Response(JSON.stringify({ success: true, ...mailRes }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       } catch (e) {
         return new Response(JSON.stringify({ error: e.message }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
     }
@@ -485,7 +482,7 @@ serve(async (req) => {
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token)) {
         return new Response(JSON.stringify({ error: "Link de descadastro inválido." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
@@ -501,7 +498,7 @@ serve(async (req) => {
       if (!sub) {
         return new Response(JSON.stringify({ error: "Link de descadastro inválido." }), {
           status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
       // 2º clique no mesmo link não sobrescreve o carimbo original (registro LGPD do opt-out)
@@ -514,7 +511,7 @@ serve(async (req) => {
         if (updError) throw updError;
       }
       return new Response(JSON.stringify({ success: true, alreadyUnsubscribed: !!sub.unsubscribed_at }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
@@ -525,7 +522,7 @@ serve(async (req) => {
     // token real de cada assinante.
     if (emailType === "newsletter") {
       const json = (body: unknown, status = 200) =>
-        new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
       const { campaignId } = payload;
       if (!campaignId) return json({ error: "campaignId é obrigatório." }, 400);
@@ -642,7 +639,7 @@ serve(async (req) => {
       if (!caller) {
         return new Response(JSON.stringify({ error: "Não autenticado." }), {
           status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -658,7 +655,7 @@ serve(async (req) => {
       if (orderError || !order || order.user_id !== caller.id) {
         return new Response(JSON.stringify({ error: "Você não tem acesso a este pedido." }), {
           status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -667,7 +664,7 @@ serve(async (req) => {
       if (order.status !== "paid") {
         return new Response(JSON.stringify({ error: "Este pedido ainda não está pago." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -683,7 +680,7 @@ serve(async (req) => {
       if (existingEmail) {
         return new Response(JSON.stringify({ success: true, message: "E-mail já enviado anteriormente para este pedido." }), {
           status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       }
 
@@ -739,7 +736,7 @@ serve(async (req) => {
         });
 
         return new Response(JSON.stringify({ success: true, message: "E-mail enviado.", resendId: mailRes.id }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...cors, "Content-Type": "application/json" },
         });
       } catch (e) {
         await supabaseAdmin.from("email_logs").insert({
@@ -757,7 +754,7 @@ serve(async (req) => {
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 });

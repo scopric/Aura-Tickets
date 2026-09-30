@@ -10,6 +10,7 @@
 // Assunto e texto são fixos aqui: o admin não escolhe conteúdo nem destinatário.
 // O log leva só user_id e status HTTP: nunca o e-mail nem a chave.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { corsHeaders } from '../_shared/cors.ts'
 import { mfaOk } from '../_shared/mfa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -23,13 +24,6 @@ const REMETENTE = 'Evokaa <contato@evokaa.com.br>'
 const PRAZO_MS = 110_000
 // Resend: 2 pedidos por segundo por padrão (skill resend, references/sending/overview.md).
 const PAUSA_MS = 600
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
 // Mesmo padrão da função agent: quem chama é o dono do token, validado no GoTrue.
 async function getCaller(req: Request) {
@@ -81,7 +75,10 @@ const HTML = `<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe
 const pausa = (ms: number) => new Promise(r => setTimeout(r, ms))
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { ok: false, motivo: 'entrada_invalida' })
 
   const caller = await getCaller(req)
