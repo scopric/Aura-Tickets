@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -26,6 +26,12 @@ jobs:
         run: |
           cd app
           npm ci --legacy-peer-deps
+
+      # Portão de segurança (decisão 101): barra dependência de produção com falha alta ou crítica.
+      - name: Audit Production Dependencies
+        run: |
+          cd app
+          npm audit --omit=dev --audit-level=high
 
       - name: Run Lint Check
         run: |

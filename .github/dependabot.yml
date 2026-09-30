@@ -1,0 +1,18 @@
+# Decisão 101: versões exatas, sem atualização automática de versão.
+# open-pull-requests-limit: 0 desliga os PRs de atualização de versão.
+# Os PRs de correção de SEGURANÇA continuam: vêm de "Dependabot security updates",
+# ligado no painel do GitHub (Settings > Code security), e não obedecem a este limite.
+# Nenhum PR é mesclado sozinho: quem mescla é o Ricardo.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0
