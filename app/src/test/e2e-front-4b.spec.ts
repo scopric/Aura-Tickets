@@ -5,5 +5,8 @@ test('busca de eventos aceita vírgula, parênteses e aspas sem erro', async ({ 
   await page.goto('/events')
   const resposta = page.waitForResponse(r => r.url().includes('/rest/v1/events') && decodeURIComponent(r.url()).includes('rock'))
   await page.getByPlaceholder('Buscar por nome, atração ou cidade...').fill('rock, (ao "vivo")')
-  expect((await resposta).status()).toBe(200)
+  const r = await resposta
+  expect(r.status()).toBe(200)
+  // separadores viram curinga: sem espaço duplo que nunca casa com o título
+  expect(decodeURIComponent(r.url())).toContain('title.ilike.%rock%ao%vivo%')
 })
