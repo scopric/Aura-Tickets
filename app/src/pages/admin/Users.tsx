@@ -409,7 +409,8 @@ export default function AdminUsers() {
       if (roleChanged) {
         const { data: alterado, error: profileError } = await supabase
           .from('profiles')
-          .update({ role: editRole })
+          // sair de admin zera as permissões: voltar a admin depois não recupera as antigas
+          .update(selectedProfile.role === 'admin' && editRole !== 'admin' ? { role: editRole, admin_permissions: [] } : { role: editRole })
           .eq('id', selectedProfile.id)
           .select('id')
         if (profileError) throw profileError

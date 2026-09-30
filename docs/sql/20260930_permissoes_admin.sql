@@ -13,7 +13,11 @@ language plpgsql
 set search_path to ''
 as $$
 begin
-  -- Nunca sobrar zero super_admin (vale para todos, inclusive a chave de serviço do delete-account)
+  -- Nunca sobrar zero super_admin (vale para todos, inclusive a chave de serviço do delete-account).
+  -- A trava serializa dois super_admins que se rebaixam ao mesmo tempo (senão os dois passariam).
+  if old.role = 'admin' and 'super_admin' = any(coalesce(old.admin_permissions, '{}')) then
+    perform pg_advisory_xact_lock(hashtext('gf_super_admin'));
+  end if;
   if old.role = 'admin' and 'super_admin' = any(coalesce(old.admin_permissions, '{}'))
      and not (new.role = 'admin' and 'super_admin' = any(coalesce(new.admin_permissions, '{}')))
      and not exists (select 1 from public.profiles p
@@ -25,6 +29,11 @@ begin
   if not (current_user in ('anon', 'authenticated')
           or coalesce(auth.jwt() ->> 'role', '') in ('anon', 'authenticated')) then
     return new;
+  end if;
+
+  -- Trocar o id "moveria" o perfil (com papel e permissões) para outro login
+  if new.id is distinct from old.id then
+    raise exception 'O id do perfil não pode ser alterado' using errcode = '42501';
   end if;
 
   if new.admin_permissions is distinct from old.admin_permissions
@@ -42,6 +51,7 @@ begin
     end if;
   end if;
 
+  -- Na linha de outra pessoa a regra de acesso já exige manage_users; aqui fica o piso de "é admin"
   if (new.is_verified is distinct from old.is_verified
       or new.stripe_customer_id is distinct from old.stripe_customer_id)
      and not public.gf_is_admin() then
@@ -84,6 +94,15 @@ begin
   end if;
   if not exists (select 1 from public.profiles where role = 'admin' and 'super_admin' = any(admin_permissions)) then
     raise exception 'nenhum super_admin na plataforma';
+  end if;
+  -- Nenhuma outra regra de escrita em profiles/events além das conhecidas (conferido em produção em 30/09)
+  if exists (select 1 from pg_policies
+             where schemaname = 'public' and tablename in ('profiles', 'events') and permissive = 'PERMISSIVE'
+               and cmd in ('INSERT', 'UPDATE', 'DELETE', 'ALL')
+               and policyname not in ('Usuários modificam próprio perfil', 'gf_profiles_admin_update',
+                                      'Produtor gerencia eventos', 'Produtores gerenciam próprios eventos',
+                                      'gf_events_admin_write')) then
+    raise exception 'há regra de escrita desconhecida em profiles/events: conferir antes de aplicar';
   end if;
 end;
 $$;
