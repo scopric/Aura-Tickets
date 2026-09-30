@@ -32,6 +32,8 @@ export interface Conversa {
   assignee_name: string | null
   /** com o assistente ou com a equipe (20261003_chat_bot.sql) */
   bot_state: 'bot' | 'humano'
+  /** resolvida no "Sim" do assistente (selo); fechada pelo cron ou pela equipe fica falso */
+  bot_resolveu: boolean
   chat_topics: { label: string } | null
 }
 
@@ -322,7 +324,7 @@ export function useMinhasConversas(ouvir = false) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('conversations' as never)
-        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, assignee_name, bot_state, chat_topics(label)')
+        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, assignee_name, bot_state, bot_resolveu, chat_topics(label)')
         .eq('user_id', uid!)
         .order('last_message_at', { ascending: false })
         .limit(50)

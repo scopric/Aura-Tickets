@@ -485,6 +485,11 @@ export default function AdminConhecimento() {
               </h2>
               <button type="button" onClick={() => setForm(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Fechar"><X className="w-4 h-4" aria-hidden="true" /></button>
             </div>
+            {!form.id && form.origin === 'atendente' && (
+              <div role="note" className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+                Antes de salvar, tire nome, telefone, e-mail, documento e qualquer dado do cliente.
+              </div>
+            )}
             {form.review_note && (
               <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
                 <strong>Motivo do rascunho:</strong> {form.review_note}

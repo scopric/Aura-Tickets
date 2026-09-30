@@ -93,6 +93,7 @@ describe('conhecimento: artigos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar artigo' }))
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Não foi possível salvar: Nada foi gravado (sem permissão ou artigo inexistente).'))
     expect(screen.getByRole('dialog', { name: 'Novo artigo' })).toBeInTheDocument()
+    expect(screen.queryByRole('note')).toBeNull()  // o aviso de dados do cliente é só do "Virar artigo"
   })
 
   it('título curto não chama o banco', async () => {
@@ -132,6 +133,7 @@ describe('conhecimento: artigos', () => {
     montar('/admin/conhecimento?mensagem=m1')
     const dialogo = await screen.findByRole('dialog', { name: 'Artigo a partir da resposta do atendente' })
     expect(within(dialogo).getByLabelText(/Resposta/)).toHaveValue('O ingresso aparece em Meus Ingressos.')
+    expect(within(dialogo).getByRole('note')).toHaveTextContent('Antes de salvar, tire nome, telefone, e-mail, documento e qualquer dado do cliente.')
     fireEvent.change(within(dialogo).getByLabelText(/Título/), { target: { value: 'Onde fica meu ingresso?' } })
     fireEvent.click(within(dialogo).getByRole('button', { name: 'Criar artigo' }))
     await waitFor(() => expect(de('kb_articles', 'insert')[0]?.args[0]).toMatchObject({ origin: 'atendente', source_conversation_id: 'c7', status: 'draft' }))

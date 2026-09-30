@@ -137,7 +137,7 @@ describe('assistente: widget do cliente', () => {
   const conversa = (extra: Record<string, unknown>) => ({
     id: 'c9', status: 'open', priority: 'normal', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'oi', last_reply_at: null,
     customer_last_read_at: null, agent_last_read_at: null, rating: null, created_at: '2026-09-30T12:00:00Z', assignee_name: null,
-    bot_state: 'bot', chat_topics: { label: 'Minha conta e acesso' }, ...extra,
+    bot_state: 'bot', bot_resolveu: false, chat_topics: { label: 'Minha conta e acesso' }, ...extra,
   })
 
   it('com o assistente: cabeçalho "Assistente Evokaa" e "Falar com um atendente" chama chat_handoff', async () => {
@@ -150,12 +150,13 @@ describe('assistente: widget do cliente', () => {
     expect(screen.getByLabelText('Mensagem para o assistente Evokaa')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Falar com um atendente' }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_handoff', { p_conv: 'c9' }))
-    expect(chamadas.some((c) => c.tabela === 'conversations' && c.metodo === 'select' && String(c.args[0]).includes('bot_state'))).toBe(true)
+    expect(chamadas.some((c) => c.tabela === 'conversations' && c.metodo === 'select' && String(c.args[0]).includes('bot_state')
+      && String(c.args[0]).includes('bot_resolveu'))).toBe(true)
   })
 
   it('resolvida pelo assistente: sem avaliação de 1 a 3 e sem o botão de atendente', async () => {
     role = 'user'
-    respostas.conversations = [conversa({ status: 'resolved' })]
+    respostas.conversations = [conversa({ status: 'resolved', bot_resolveu: true })]
     montar(<SupportChatPanel />)
     expect(await screen.findByText('Resolvida pelo assistente')).toBeInTheDocument() // selo na lista
     fireEvent.click(screen.getByRole('button', { name: /Minha conta e acesso/ }))
@@ -163,6 +164,16 @@ describe('assistente: widget do cliente', () => {
     expect(screen.getAllByText('Resolvida pelo assistente').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: 'Ótimo' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Falar com um atendente' })).toBeNull()
+  })
+
+  it('do assistente, fechada pelo cron ou pela equipe (sem o "Sim"): sem selo e sem avaliação', async () => {
+    role = 'user'
+    respostas.conversations = [conversa({ status: 'resolved' })]
+    montar(<SupportChatPanel />)
+    fireEvent.click(await screen.findByRole('button', { name: /Minha conta e acesso/ }))
+    expect(await screen.findByRole('heading', { name: 'Equipe Evokaa' })).toBeInTheDocument()
+    expect(screen.queryByText('Resolvida pelo assistente')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Ótimo' })).toBeNull()
   })
 
   it('com a equipe: cabeçalho de sempre, sem o botão de atendente', async () => {

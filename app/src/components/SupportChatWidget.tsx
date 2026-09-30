@@ -65,7 +65,7 @@ function ItemConversa({ c, onClick }: { c: Conversa; onClick: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className={`truncate text-sm ${naoLida ? 'font-semibold' : 'font-medium'}`}>{c.chat_topics?.label ?? 'Conversa'}</span>
-            {c.status === 'resolved' && <span className="shrink-0 rounded-full bg-emerald-600/10 px-1.5 py-px text-[10px] font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">{c.bot_state === 'bot' ? 'Resolvida pelo assistente' : 'Resolvida'}</span>}
+            {c.status === 'resolved' && <span className="shrink-0 rounded-full bg-emerald-600/10 px-1.5 py-px text-[10px] font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">{c.bot_resolveu ? 'Resolvida pelo assistente' : 'Resolvida'}</span>}
           </span>
           <span className={`block truncate text-xs ${suave}`}>{c.last_message_preview ?? ''}</span>
         </span>
@@ -426,7 +426,8 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
         </div>
       </Voltar>
       {comAssistente && <FalarComAtendente id={id} atualizar={atualizar} />}
-      {c?.status === 'resolved' && (c.bot_state === 'bot' ? <ResolvidaPeloAssistente /> : <Avaliacao c={c} atualizar={atualizar} />)}
+      {/* do assistente: selo só no "Sim"; fechada pelo cron ou pela equipe, sem selo e sem nota de 1 a 3 */}
+      {c?.status === 'resolved' && (c.bot_state === 'bot' ? c.bot_resolveu && <ResolvidaPeloAssistente /> : <Avaliacao c={c} atualizar={atualizar} />)}
       <ChatThread
         key={id}
         conversaId={id}
