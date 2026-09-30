@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
     // Cadastro de produtor: dados bancários e chaves fora (0 linhas se não for produtor)
     ['producer_profiles', () => admin.from('producer_profiles').update({
       company_name: 'Removido', cnpj: `REMOVIDO-${uid}`, stripe_account_id: null, woovi_account_id: null,
-      bank_account: {}, pix_key: null, api_key: null, webhook_url: null, notification_settings: {}, is_verified: false,
+      bank_account: {}, pix_key: null, webhook_url: null, notification_settings: {}, is_verified: false,
     }).eq('id', uid)],
     // Compras: nome e CPF ficam (fisco); e-mail e telefone não são exigência fiscal
     ['orders', () => admin.from('orders').update({ customer_email: anonEmail, customer_phone: null }).eq('user_id', uid)],

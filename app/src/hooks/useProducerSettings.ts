@@ -85,7 +85,7 @@ export function useProducerSettings() {
             bank_account: {},
             pix_key: '',
             notification_settings: {},
-            // api_key e webhook_url ficam NULL: não há API nem webhook para produtores (Decisão 37, 27/09/2026)
+            // webhook_url fica NULL: não há webhook para produtores (Decisão 37, 27/09/2026; api_key apagada no seg-6)
           })
           .select()
           .single()

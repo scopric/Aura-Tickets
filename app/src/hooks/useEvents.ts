@@ -52,7 +52,6 @@ export interface DbEvent {
   end_date: string | null
   status: 'draft' | 'published' | 'cancelled' | 'ended'
   visibility: 'public' | 'private' | 'unlisted' | 'password'
-  password: string | null
   capacity: number | null
   branding: any
   settings: any
@@ -96,7 +95,6 @@ const MOCK_EVENTS: DbEvent[] = [
     end_date: '2026-12-16T04:00:00',
     status: 'published',
     visibility: 'public',
-    password: null,
     capacity: 5000,
     branding: {},
     settings: {},
@@ -136,7 +134,6 @@ const MOCK_EVENTS: DbEvent[] = [
     end_date: '2026-11-20T18:00:00',
     status: 'published',
     visibility: 'public',
-    password: null,
     capacity: 200,
     branding: {},
     settings: {},
@@ -175,7 +172,6 @@ const MOCK_EVENTS: DbEvent[] = [
     end_date: '2026-12-10T23:00:00',
     status: 'published',
     visibility: 'public',
-    password: null,
     capacity: 100,
     branding: {},
     settings: {},
