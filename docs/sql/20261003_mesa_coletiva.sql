@@ -1764,8 +1764,20 @@ grant execute on function public.mesa_travas_do_evento(uuid) to authenticated;
 grant execute on function public.mesa_destravar(uuid, uuid) to authenticated;
 grant execute on function public.meus_avisos_mesa() to authenticated;
 grant execute on function public.marcar_avisos_lidos() to authenticated;
--- mesa_tags_ok, mesa_compat, evento_momento, mesa_termo_versao, mesa_foto_formato e mesa_foto_hash são puras (não leem tabela): ficam com o grant
--- padrão, porque o CHECK de tags roda com a permissão de quem grava o perfil.
+-- REGRA (seg-6, #85: função nova do postgres nasce sem EXECUTE para PUBLIC e anon): grant explícito só
+-- para função chamada fora de SECURITY DEFINER do dono (CHECK, policy, default de coluna, front).
+-- Aqui só mesa_tags_ok, que o CHECK user_profiles_ext_tags_chk roda com o papel de quem grava o perfil
+-- (authenticated no questionário, service_role nas Edge Functions). As outras puras (mesa_compat,
+-- evento_momento, mesa_termo_versao, mesa_foto_formato, mesa_foto_hash) só rodam dentro das funções
+-- SECURITY DEFINER e do cron (postgres): ficam fechadas. Função de gatilho não precisa de EXECUTE de
+-- quem dispara o gatilho (conferido no teste T21).
+revoke all on function public.mesa_tags_ok(jsonb) from public, anon;
+grant execute on function public.mesa_tags_ok(jsonb) to authenticated, service_role;
+revoke all on function public.mesa_compat(jsonb, jsonb) from public, anon, authenticated;
+revoke all on function public.evento_momento(public.events) from public, anon, authenticated;
+revoke all on function public.mesa_termo_versao() from public, anon, authenticated;
+revoke all on function public.mesa_foto_formato(text) from public, anon, authenticated;
+revoke all on function public.mesa_foto_hash(text) from public, anon, authenticated;
 
 -- 8. Cron. formar_mesas a cada 15 min, nas 24 h antes do evento; cada evento num bloco próprio,
 --    para um erro não derrubar os outros. apagar_mesas_antigas todo dia às 04:37 UTC (mesas,

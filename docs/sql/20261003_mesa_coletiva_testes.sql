@@ -3,19 +3,20 @@
 -- produção). Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código: são dois blocos,
 -- cada um num begin … rollback (nada fica gravado), mas mexem em gatilhos e no cron dentro da
 -- transação.
--- T0–T20: formação, perfil, consentimento, idade. E0–E27: escolha, troca, denúncia e triagem,
+-- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E27: escolha, troca, denúncia e triagem,
 -- faixa de idade, rede social, moderação da foto, avisos, remoção e trava, numeração, conflitos
 -- de interesse do moderador.
 -- Contas de teste com ids fixos (b0000000-…); e-mails *.invalid. Cada teste termina com
 -- "NOTICE: Tn OK" ou "NOTICE: En OK"; falha = ERROR com o valor recebido.
--- Rodado em 30/09/2026 (código aplicado duas vezes): T1–T20 e E1–E27 OK.
+-- Rodado em 30/09/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E27 OK.
 -- Stubs usados no Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório:
 -- profiles/events/ticket_types/tickets/user_profiles_ext/collective_tables/table_members com as
 -- colunas, CHECKs, FKs, RLS e GRANTs de produção (compatibility_score numeric(3,1),
 -- table_members.user_id NOT NULL, events.start_date NOT NULL DEFAULT now(), tickets.order_id
 -- NOT NULL), auth.jwt(), auth.mfa_factors, orders/order_items, e gf_mfa_ok/gf_is_admin copiadas
 -- de 20260930_2fa_no_banco.sql; team_members, profiles.admin_permissions/is_verified/
--- stripe_customer_id, gf_admin_can e o gatilho gf_protect_profile_privileges como no repositório.
+-- stripe_customer_id, gf_admin_can e o gatilho gf_protect_profile_privileges como no repositório; e os
+-- alter default privileges e revoke de 20261001_seg6_menor_privilegio.sql (#85).
 -- Em produção, events e orders podem ter outras colunas obrigatórias: se o insert de pg_temp.ingresso,
 -- do T0 ou do T16 falhar, complete-o.
 -- As corridas entre duas sessões (trava mesa_conta; trava por evento em escolher_mesa) não cabem
@@ -23,6 +24,13 @@
 -- E25 confere a ordem das checagens no código.
 -- =============================================================================
 begin;
+-- seg-6 (#85): função nova do postgres fora do schema public nasce só com EXECUTE do dono; os auxiliares
+-- pg_temp.* também rodam como authenticated/anon, então ganham EXECUTE (só nesta transação)
+create temp table seg6_marco ();
+do $$ begin
+  execute format('alter default privileges for role postgres in schema %s grant execute on functions to public',
+                 pg_my_temp_schema()::regnamespace);
+end $$;
 -- p = usuário (null = postgres); aal = nível da sessão no JWT
 create function pg_temp.como(p uuid, aal text default 'aal1') returns void language plpgsql as $f$
 begin
@@ -508,7 +516,7 @@ begin
 end $t$;
 -- T20. Reativação, check-in, troca de pedido, troca de tipo e consentimento de menor
 do $t$
-declare o45 uuid; o62 uuid; item uuid;
+declare o45 uuid; o62 uuid; item uuid; v_versao text := public.mesa_termo_versao();  -- lida como postgres (função fechada)
 begin
   -- reativação duplicada: 1700 cancelado, 1701 ativo; voltar 1700 para active → 22023
   perform pg_temp.ingresso(1700, 914, 904, 49);
@@ -534,9 +542,43 @@ begin
   assert pg_temp.erro(format('update public.ticket_types set name = %L where id = %L', 'Mesa Tinder', pg_temp.u(914))) = 'ok', 'renomear barrado';
   -- mesa_consentir de menor → 22023
   perform pg_temp.como(pg_temp.u(62));
-  assert pg_temp.erro(format('select public.mesa_consentir(%L)', public.mesa_termo_versao())) = '22023', 'menor consentiu';
+  assert pg_temp.erro(format('select public.mesa_consentir(%L)', v_versao)) = '22023', 'menor consentiu';
   perform pg_temp.como(null);
   raise notice 'T20 OK: reativação duplicada barrada; check-in livre; pedido de menor; tipo travado após venda; menor não consente';
+end $t$;
+-- T21. seg-6 (#85): mesa_tags_ok executável por authenticated e service_role (o CHECK do questionário
+--      roda com o papel de quem grava); as outras puras e as funções de gatilho fechadas; os gatilhos
+--      de user_profiles_ext, profiles, tickets, order_items e ticket_types disparam para authenticated
+--      sem EXECUTE (o erro é o da regra, nunca 42501)
+do $t$
+declare f text;
+begin
+  assert has_function_privilege('authenticated', 'public.mesa_tags_ok(jsonb)', 'execute')
+     and has_function_privilege('service_role', 'public.mesa_tags_ok(jsonb)', 'execute')
+     and not has_function_privilege('anon', 'public.mesa_tags_ok(jsonb)', 'execute'), 'grant de mesa_tags_ok';
+  foreach f in array array['public.mesa_compat(jsonb, jsonb)', 'public.evento_momento(public.events)', 'public.mesa_termo_versao()',
+      'public.mesa_foto_formato(text)', 'public.mesa_foto_hash(text)', 'public.mesa_consent_guard()', 'public.mesa_avatar_guard()',
+      'public.mesa_idade_guard()', 'public.mesa_pedido_guard()', 'public.mesa_tipo_guard()', 'public.mesa_passagem()'] loop
+    assert not has_function_privilege('authenticated', f, 'execute') and not has_function_privilege('anon', f, 'execute'), 'aberta: ' || f;
+  end loop;
+  perform pg_temp.como(pg_temp.u(58));
+  -- upsert do questionário: mesa_consent_guard e o CHECK com mesa_tags_ok
+  assert pg_temp.erro(format($q$insert into public.user_profiles_ext (user_id, tags) values (%L, '{"musica": ["rock"]}')
+                               on conflict (user_id) do update set tags = excluded.tags$q$, pg_temp.u(58))) = 'ok', 'upsert válido';
+  assert pg_temp.erro(format($q$insert into public.user_profiles_ext (user_id, tags) values (%L, '{"musica": ["axe_inexistente"]}')
+                               on conflict (user_id) do update set tags = excluded.tags$q$, pg_temp.u(58))) = '23514', 'upsert inválido';
+  -- profiles: gf_protect_profile_privileges e mesa_avatar_guard
+  assert pg_temp.erro(format($q$update public.profiles set avatar_url = 'data:image/jpeg;base64,Zm90bw==' where id = %L$q$, pg_temp.u(58))) = 'ok', 'profiles';
+  -- tickets (mesa_idade_guard): o 58 já tem ingresso coletivo no E2 → 22023
+  assert pg_temp.erro('select pg_temp.ingresso(1900, 912, 902, 58)') = '22023', 'tickets';
+  -- order_items (mesa_pedido_guard): coletiva com quantidade 2 → 22023
+  assert pg_temp.erro(format('with o as (insert into public.orders (user_id, event_id, status) values (%L, %L, %L) returning id)
+                              insert into public.order_items (order_id, ticket_type_id, quantity) select o.id, %L, 2 from o',
+                             pg_temp.u(58), pg_temp.u(902), 'pending', pg_temp.u(912))) = '22023', 'order_items';
+  -- ticket_types (mesa_tipo_guard): tipo vendido não muda → 22023
+  assert pg_temp.erro(format('update public.ticket_types set type = %L where id = %L', 'individual', pg_temp.u(912))) = '22023', 'ticket_types';
+  perform pg_temp.como(null);
+  raise notice 'T21 OK: mesa_tags_ok aberta a authenticated/service_role; internas fechadas; gatilhos disparam sem EXECUTE';
 end $t$;
 rollback;
 
@@ -544,6 +586,13 @@ rollback;
 -- TESTES — escolha da mesa, denúncia, rede social, moderação da foto (bloco próprio, com rollback)
 -- ---------------------------------------------------------------------------
 begin;
+-- seg-6 (#85): função nova do postgres fora do schema public nasce só com EXECUTE do dono; os auxiliares
+-- pg_temp.* também rodam como authenticated/anon, então ganham EXECUTE (só nesta transação)
+create temp table seg6_marco ();
+do $$ begin
+  execute format('alter default privileges for role postgres in schema %s grant execute on functions to public',
+                 pg_my_temp_schema()::regnamespace);
+end $$;
 create function pg_temp.como(p uuid, aal text default 'aal1') returns void language plpgsql as $f$
 begin
   perform set_config('request.jwt.claim.sub', coalesce(p::text, ''), true);
