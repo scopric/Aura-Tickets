@@ -18,19 +18,6 @@ export function useResetPasswordRequest() {
 }
 
 // ============================================
-// Update Password
-// ============================================
-export function useUpdatePassword() {
-  return useMutation({
-    mutationFn: async (password: string) => {
-      const { error } = await supabase.auth.updateUser({ password })
-      if (error) throw error
-      return true
-    },
-  })
-}
-
-// ============================================
 // Sign Out
 // ============================================
 export function useSignOut() {

@@ -12,6 +12,16 @@ export interface UserProfile {
   plan?: string
 }
 
+// session_id do JWT do Supabase (claim obrigatória): o mesmo em recargas e renovações, novo a cada login.
+// Ilegível → null, e o login é registrado (melhor registrar a mais que perder o registro).
+function loginSessionId(accessToken: string): string | null {
+  try {
+    return JSON.parse(atob(accessToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).session_id ?? null
+  } catch {
+    return null
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchProfile = useAuthStore((state) => state.fetchProfile)
   const setSession = useAuthStore((state) => state.setSession)
@@ -28,24 +38,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Sempre relê o perfil ao carregar: o papel salvo no navegador pode estar desatualizado.
           fetchProfile()
         } else {
-          const activeSession = useAuthStore.getState().session
-          if (activeSession?.access_token && !activeSession.access_token.startsWith('mock-token-')) {
-            // Se o Supabase não tem sessão mas o Zustand tem (ex: após reload da página),
-            // restaura a sessão no Supabase client
-            supabase.auth.setSession({
-              access_token: activeSession.access_token,
-              refresh_token: activeSession.refresh_token,
-            })
-              .then(() => {
-                fetchProfile()
-              })
-              .catch((err) => {
-                console.error('[AuthContext] Erro ao restaurar sessão:', err)
-                setLoading(false)
-              })
-          } else {
-            setLoading(false)
+          // Sem sessão no Supabase não há o que restaurar: o token não é copiado de outro lugar. Limpa o
+          // store persistido já aqui, senão ele libera a rota até o INITIAL_SESSION chegar (demo só em DEV).
+          const currentSession = useAuthStore.getState().session
+          if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
+            setSession(null)
+            setUser(null)
           }
+          setLoading(false)
         }
       })
       .catch((err) => {
@@ -61,15 +61,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // (regra gf_mfa_aal2) não entregaria nada até o próximo refresh (~1 h).
         if (event === 'MFA_CHALLENGE_VERIFIED' && session) supabase.realtime.setAuth(session.access_token)
         if (session) {
-          // Login de verdade traz token NOVO (senha, login social, retorno do provedor); recarga e
-          // troca de aba reemitem SIGNED_IN com o token que a memória já tem. Só o novo é registrado:
-          // o servidor grava data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos.
+          // Login de verdade abre sessão NOVA no Supabase (senha, login social, retorno do provedor); recarga e
+          // troca de aba reemitem SIGNED_IN da mesma sessão. Só a nova é registrada: o servidor grava
+          // data/hora + IP (Marco Civil, art. 15) e, no 1º login, o aceite dos termos. A comparação usa o
+          // session_id do token (guardado no store, não é credencial), que não muda com a renovação do token.
           // Fica antes da trava abaixo porque o `user` pode estar persistido de uma sessão antiga.
-          const prevToken = useAuthStore.getState().session?.access_token
           setSession(session)
-          if (event === 'SIGNED_IN' && session.access_token !== prevToken) {
+          const sid = loginSessionId(session.access_token)
+          if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && (!sid || sid !== useAuthStore.getState().loginSessionId)) {
+            // Marca a sessão como registrada só depois do sucesso: se falhar, a próxima carga (INITIAL_SESSION) tenta de novo.
             supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
-              .then(({ error }) => { if (error) console.warn('[AuthContext] record-access:', error.message) })
+              .then(({ error }) => {
+                if (error) console.warn('[AuthContext] record-access:', error.message)
+                else useAuthStore.setState({ loginSessionId: sid })
+              })
               .catch((err) => console.warn('[AuthContext] record-access:', err))
           }
 

@@ -29,6 +29,7 @@ export interface ProducerProfile {
 interface AuthState {
   user: User | null
   session: any | null
+  loginSessionId: string | null // session_id do último login registrado (record-access); não é credencial
   isLoading: boolean
   isAuthenticated: boolean
   setUser: (user: User | null) => void
@@ -39,7 +40,7 @@ interface AuthState {
 
 // Sessão de demonstração só em desenvolvimento: em produção um `mock-token-` gravado no
 // localStorage não pode virar interface de admin/produtor (os dados já eram barrados pelo RLS).
-function isMockSession(session: any): boolean {
+export function isMockSession(session: any): boolean {
   return import.meta.env.DEV && !!session?.access_token?.startsWith('mock-token-')
 }
 
@@ -50,6 +51,7 @@ export const useAuthStore = create<AuthState>()(
     (set, get) => ({
       user: null,
       session: null,
+      loginSessionId: null,
       isLoading: true,
       isAuthenticated: false,
 
@@ -221,8 +223,11 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         // dados pessoais (telefone, cidade, bio, nascimento) não ficam no localStorage: o fetchProfile de cada carregamento repõe
         user: state.user && (Object.fromEntries(Object.entries(state.user).filter(([k]) => !['phone', 'city', 'bio', 'birth_date'].includes(k))) as User),
-        session: state.session,
+        // Token real não fica no localStorage do Zustand: a fonte da sessão é o supabase.auth. Só a sessão
+        // de demonstração (desenvolvimento) é guardada, para sobreviver à recarga.
+        ...(isMockSession(state.session) ? { session: state.session } : {}),
         isAuthenticated: state.isAuthenticated,
+        loginSessionId: state.loginSessionId,
       }),
     }
   )

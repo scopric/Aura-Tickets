@@ -3,6 +3,8 @@
 // confere pertencimento literal ao conjunto: acento, espaço e emoji NÃO contam). O mínimo de 8 é nosso.
 // Fonte única da regra: o hook usePasswordValidation e as telas de senha leem daqui.
 // Se a regra do painel mudar, mudar aqui, senão a tela avisa uma coisa e o servidor recusa outra.
+// Composição mantida porque o bloqueio de senha vazada (HIBP) exige Supabase Pro; quando ligar,
+// trocar por mínimo 8 + lista de senhas comuns (ASVS 5.0 6.2.4/6.2.5).
 export const PASSWORD_MIN = 8
 export const PASSWORD_SYMBOLS = /[!@#$%^&*()_+\-=[\]{};':"|<>?,./`~]/
 export const PASSWORD_HINT = `Pelo menos ${PASSWORD_MIN} caracteres, com letra maiúscula, minúscula, número e símbolo do teclado (ex.: !@#$); acento e espaço não contam`

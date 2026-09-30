@@ -85,6 +85,14 @@ export default function ResetPassword() {
         toast.error('Digite também o código do aplicativo autenticador')
         return
       }
+      if (err?.code === 'same_password') {
+        toast.error('A nova senha deve ser diferente da atual.')
+        return
+      }
+      if (err?.code === 'weak_password') {
+        toast.error(`A senha não atende às regras. ${PASSWORD_HINT}.`)
+        return
+      }
       toast.error(err.message || 'Erro ao alterar senha')
     } finally {
       setIsSubmitting(false)

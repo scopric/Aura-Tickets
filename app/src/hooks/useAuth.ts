@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { PASSWORD_HINT } from '../lib/password'
 import { useAuthStore, type User } from '../stores/authStore'
 import { toast } from 'sonner'
 import { clearAffiliateRef } from '../lib/affiliateRef'
@@ -14,13 +15,15 @@ export interface ExtendedUser extends User {
 // Flag para forçar modo demo mesmo com Supabase configurado
 const FORCE_DEMO = false
 
+// Contas de demonstração só em desenvolvimento: fora dele a lista é vazia e o Vite tira as senhas do build.
+const DEMO_ACCOUNTS = import.meta.env.DEV ? [
+  { email: 'produtor@aura.teste', password: 'senha123', role: 'producer' as const, name: 'Produtor Teste', id: 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' },
+  { email: 'admin@aura.teste', password: 'senha123', role: 'admin' as const, name: 'Admin Teste', id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' },
+  { email: 'user@aura.teste', password: 'senha123', role: 'user' as const, name: 'Usuario Teste', id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012' },
+] : []
+
 function isDemoUser(email: string, password: string) {
-  const demoAccounts = [
-    { email: 'produtor@aura.teste', password: 'senha123', role: 'producer' as const, name: 'Produtor Teste', id: 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' },
-    { email: 'admin@aura.teste', password: 'senha123', role: 'admin' as const, name: 'Admin Teste', id: 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d' },
-    { email: 'user@aura.teste', password: 'senha123', role: 'user' as const, name: 'Usuario Teste', id: 'b2c3d4e5-f6a7-8901-bcde-f23456789012' },
-  ]
-  return demoAccounts.find(a => a.email === email && a.password === password)
+  return DEMO_ACCOUNTS.find(a => a.email === email && a.password === password)
 }
 
 function createMockSession(user: any) {
@@ -71,7 +74,7 @@ export function useAuth() {
                           supabaseUrl !== 'undefined'
 
       if (!hasValidEnv) {
-        throw new Error('Serviço de autenticação (Supabase) não configurado. Para testar localmente, utilize uma conta de demonstração (ex: produtor@aura.teste / senha123) ou configure o arquivo .env.local com credenciais válidas do Supabase.')
+        throw new Error('Serviço de autenticação (Supabase) não configurado.')
       }
 
       // 2. Login real via Supabase JS client (API oficial)
@@ -147,6 +150,7 @@ export function useAuth() {
         if (error.message.includes('already registered') || error.message.includes('User already registered')) {
           throw new Error('Este e-mail já está cadastrado. Faça login ou use outro e-mail.')
         }
+        if (error.code === 'weak_password') throw new Error(`A senha não atende às regras. ${PASSWORD_HINT}.`)
         throw error
       }
       return data
