@@ -1,7 +1,12 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info } from 'lucide-react'
+import { toast } from 'sonner'
 import type { Ticket } from '../data/mockData'
 import ProfileQuiz from './ProfileQuiz'
+import { useAuth } from '../hooks/useAuth'
+import { useMatchmakingProfile, useMesaConsentir, useMesaRede, consentimentoVigente } from '../hooks/useMatchmaking'
+import { appUrl } from '../lib/appHost'
 
 interface Props {
   ticket: Ticket
@@ -14,33 +19,24 @@ interface Props {
 export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, onQuantityChange }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
-  const [quizCompleted, setQuizCompleted] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
-  const [consented, setConsented] = useState(false)
+  const { user } = useAuth()
+  const { profile } = useMatchmakingProfile()
 
   const fillPercent = (ticket.sold / ticket.capacity) * 100
 
+  // O aceite e o questionário são opcionais para comprar (a compra exige só a data de nascimento, no
+  // checkout). Sem login não há como aceitar: o convite volta em "Sua mesa".
   const handleAdd = () => {
-    if (!quizCompleted) {
-      setShowQuiz(true)
+    if (!user || consentimentoVigente(profile)) {
+      onAdd()
       return
     }
-    if (!consented) {
-      setShowConsent(true)
-      return
-    }
-    onAdd()
-  }
-
-  const handleQuizComplete = () => {
-    setQuizCompleted(true)
-    setShowQuiz(false)
     setShowConsent(true)
   }
 
-  const handleConsent = () => {
-    setConsented(true)
-    setShowConsent(false)
+  const fecharQuiz = () => {
+    setShowQuiz(false)
     onAdd()
   }
 
@@ -131,44 +127,118 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               className="w-full py-3 bg-plum text-cream font-medium rounded-full transition-all duration-300 hover:shadow-glow flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              {quizCompleted ? (consented ? 'Adicionar ao Carrinho' : 'Aceitar Termos') : 'Responder questionário'}
+              Adicionar ao Carrinho
             </button>
           )}
         </div>
       </div>
 
       {/* Quiz Modal */}
-      {showQuiz && (
-        <ProfileQuiz onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} />
-      )}
+      {/* portal: o cartão fica numa seção com z-index própria, que prenderia o modal atrás das seguintes */}
+      {showQuiz && createPortal(<ProfileQuiz onComplete={fecharQuiz} onCancel={fecharQuiz} />, document.body)}
 
       {/* Consent Modal */}
       {showConsent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
-          <div className="glass-panel p-8 max-w-md w-full">
-            <div className="w-12 h-12 rounded-2xl bg-plum/20 flex items-center justify-center mx-auto mb-4">
-              <Users className="w-6 h-6 text-plum" />
-            </div>
-            <h3 className="font-serif text-xl text-cream text-center mb-2">Mesa Coletiva</h3>
-            <p className="text-sm text-cream/70 text-center mb-6 leading-relaxed">
-              Ao comprar este ingresso, você concorda em compartilhar uma mesa com outras pessoas 
-              selecionadas por nosso algoritmo de afinidade. Seus dados de perfil serão usados 
-              exclusivamente para formar grupos compatíveis.
-            </p>
-            <div className="space-y-3">
-              <label className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
-                <input type="checkbox" className="mt-1 accent-plum" onChange={(e) => e.target.checked && handleConsent()} />
-                <span className="text-sm text-cream/70">
-                  Entendo que os lugares serão compartilhados e concordo em participar da experiência de matchmaking social.
-                </span>
-              </label>
-              <button onClick={() => setShowConsent(false)} className="w-full py-2.5 text-sm text-cream/70 hover:text-cream transition-colors">
-                Voltar
-              </button>
-            </div>
-          </div>
-        </div>
+        <MesaTermoModal
+          onAceito={() => { setShowConsent(false); setShowQuiz(true) }}
+          onPular={() => { setShowConsent(false); onAdd() }}
+          onFechar={() => setShowConsent(false)}
+        />
       )}
     </>
+  )
+}
+
+// Termo do Match de Mesa: grava o aceite por mesa_consentir (nunca direto na tabela) e, numa caixa
+// separada, o segundo aceite da rede social (mesa_mostrar_rede). Usado aqui e em "Sua mesa".
+export function MesaTermoModal({ onAceito, onFechar, onPular }: { onAceito: () => void; onFechar: () => void; onPular?: () => void }) {
+  const [li, setLi] = useState(false)
+  const [rede, setRede] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const consentir = useMesaConsentir()
+  const mostrarRede = useMesaRede()
+  const salvando = consentir.isPending || mostrarRede.isPending
+
+  const aceitar = async () => {
+    setErro(null)
+    try {
+      await consentir.mutateAsync()
+    } catch (e) {
+      setErro((e as Error).message)
+      return
+    }
+    if (rede) {
+      try {
+        await mostrarRede.mutateAsync(true)
+      } catch (e) {
+        toast.error(`Aceite registrado, mas a rede social não foi liberada: ${(e as Error).message}`)
+      }
+    }
+    toast.success('Aceite registrado.')
+    onAceito()
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="mesa-termo-titulo" style={{ paddingBottom: 'calc(var(--cookie-banner-h, 0px) + 1rem)' }}>
+      <div className="glass-panel p-6 sm:p-8 max-w-md w-full max-h-full overflow-y-auto">
+        <div className="w-12 h-12 rounded-2xl bg-plum/20 flex items-center justify-center mx-auto mb-4">
+          <Users className="w-6 h-6 text-plum" />
+        </div>
+        <h3 id="mesa-termo-titulo" className="font-serif text-xl text-cream text-center mb-3">Match de Mesa</h3>
+        {/* ponytail: texto final no PR D (Ricardo revisa) */}
+        <div className="text-sm text-cream/70 mb-5 leading-relaxed space-y-2">
+          <p>
+            Você senta com outras pessoas que compraram este ingresso. As mesas se formam 24 h antes do
+            evento, e dá para escolher a sua antes, vendo quem já está nela.
+          </p>
+          <p>
+            Se aceitar, os colegas da sua mesa e quem estiver escolhendo mesa neste evento veem seu primeiro
+            nome, sua faixa de idade, sua foto (depois de aprovada), seu perfil de mesa, suas etiquetas e sua
+            escolaridade. Nunca veem e-mail, telefone, CPF nem suas respostas.
+          </p>
+          <p>
+            Para participar é preciso ter 18 anos ou mais, nome e foto no Perfil; o resto é opcional. Você pode
+            revogar quando quiser em "Sua mesa": suas respostas e etiquetas são apagadas e o lugar continua, só
+            com o primeiro nome. As mesas são apagadas 30 dias depois do evento.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <label className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+            <input type="checkbox" className="mt-1 accent-plum" checked={li} onChange={(e) => setLi(e.target.checked)} />
+            <span className="text-sm text-cream/70">Li e aceito o termo do Match de Mesa.</span>
+          </label>
+          <label className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+            <input type="checkbox" className="mt-1 accent-plum" checked={rede} onChange={(e) => setRede(e.target.checked)} />
+            <span className="text-sm text-cream/70">
+              Também quero mostrar minha rede social aos colegas de mesa (opcional, segundo aceite; dá para tirar depois).
+            </span>
+          </label>
+          {erro && (
+            <div role="alert" className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm text-cream">
+              {erro}
+              {/nome|foto|nascimento|18/i.test(erro) && (
+                <a href={appUrl('/app/profile')} className="block mt-1 text-plum-light underline">Completar meu Perfil</a>
+              )}
+            </div>
+          )}
+          <button
+            onClick={aceitar}
+            disabled={!li || salvando}
+            className="w-full py-3 bg-plum text-cream font-medium rounded-full transition-all hover:shadow-glow disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {salvando ? 'Registrando...' : 'Aceitar e continuar'}
+          </button>
+          {onPular && (
+            <button onClick={onPular} className="w-full py-2.5 text-sm text-cream/70 hover:text-cream transition-colors">
+              Agora não, só comprar o ingresso
+            </button>
+          )}
+          <button onClick={onFechar} className="w-full py-2.5 text-sm text-cream/70 hover:text-cream transition-colors">
+            Voltar
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
   )
 }

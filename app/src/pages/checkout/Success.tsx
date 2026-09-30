@@ -206,9 +206,9 @@ export default function CheckoutSuccess() {
                   <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">
                     <Users className="w-8 h-8 text-plum" />
                   </div>
-                  <h3 className="font-serif text-2xl mb-2">Mesa coletiva</h3>
+                  <h3 className="font-serif text-2xl mb-2">Match de Mesa</h3>
                   <p className="text-sm text-cream/70 mb-6 max-w-sm">
-                    A formação automática das mesas ainda não está disponível.
+                    Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
                     {ticketsActive && ' Seu ingresso vale normalmente no evento.'}
                   </p>
                   <button

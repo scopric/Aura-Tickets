@@ -1,726 +1,457 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useGSAP } from '@gsap/react'
-import gsap from 'gsap'
+import { useState } from 'react'
+import { createPortal } from 'react-dom'
+import { Users, Loader2, Flag, LogOut, Undo2, Bell, Clock, ShieldAlert, Camera, ExternalLink, Plus } from 'lucide-react'
+import { toast } from 'sonner'
 import {
-  Sparkles,
-  Users,
-  Clock,
-  MessageCircle,
-  Trophy,
-  Camera,
-  Zap,
-  Heart,
-  Crown,
-  Loader2,
-  MapPin,
-  Music,
-  Star,
-} from 'lucide-react'
-import { useMyTable, useTableMembers } from '../hooks/useMatchmaking'
-import { mesasColetivas, events as mockEvents } from '../data/mockData'
-import { intervalToDuration, differenceInSeconds } from 'date-fns'
+  useMyTable,
+  useMesasParaEscolher,
+  useEscolherMesa,
+  useMatchmakingProfile,
+  useMinhaFotoModeracao,
+  useMesaAvisos,
+  useMesaSair,
+  useMesaVoltar,
+  useMesaRevogar,
+  useMesaRede,
+  useMesaDenunciar,
+  consentimentoVigente,
+  redeVigente,
+  type MesaCartao,
+  type MotivoDenuncia,
+} from '../hooks/useMatchmaking'
+import { ESCOLARIDADE, FAIXAS_IDADE, etiquetasEmComum, rotuloTag, type MesaTags } from '../lib/mesaTags'
+import { appUrl } from '../lib/appHost'
+import { MesaTermoModal } from './CollectiveTableCard'
+import ProfileQuiz from './ProfileQuiz'
 
 interface YourTableProps {
   eventId: string
 }
 
-/* ============================================================
-   Tipos & Helpers
-   ============================================================ */
-
-interface DisplayMember {
-  id: string
-  name: string
-  avatar: string | null
-  role: string
-  vibe: string | null
-  interests: string[]
-  isYou: boolean
+// "DD/MM às HH:MM" no horário de Brasília, seja qual for o fuso do aparelho
+function formaEmTexto(iso: string): string {
+  const p = Object.fromEntries(
+    new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(iso)).map(x => [x.type, x.value])
+  )
+  return `${p.day}/${p.month} às ${p.hour}:${p.minute}`
 }
 
-function getInitials(name: string) {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .slice(0, 2)
-    .toUpperCase()
+const MOTIVOS: Record<MotivoDenuncia, string> = {
+  assedio: 'Assédio',
+  perfil_falso: 'Perfil falso',
+  conteudo_improprio: 'Conteúdo impróprio',
+  outro: 'Outro motivo',
 }
 
-function hashString(str: string) {
-  let h = 0
-  for (let i = 0; i < str.length; i++) {
-    h = str.charCodeAt(i) + ((h << 5) - h)
-  }
-  return h
-}
-
-function avatarGradient(name: string) {
-  const hues = [320, 280, 240, 200, 160, 30, 10]
-  const h = hues[Math.abs(hashString(name)) % hues.length]
-  return `linear-gradient(135deg, hsl(${h}, 70%, 55%), hsl(${h + 40}, 60%, 35%))`
-}
-
-function parseEventDate(dateStr: string): Date {
-  const months: Record<string, number> = {
-    Janeiro: 0,
-    Fevereiro: 1,
-    Março: 2,
-    Abril: 3,
-    Maio: 4,
-    Junho: 5,
-    Julho: 6,
-    Agosto: 7,
-    Setembro: 8,
-    Outubro: 9,
-    Novembro: 10,
-    Dezembro: 11,
-  }
-  const match = dateStr.match(/(\d+)\s+de\s+(\w+),\s+(\d{4})/)
-  if (match) {
-    const [, day, month, year] = match
-    return new Date(parseInt(year), months[month] ?? 5, parseInt(day), 20, 0, 0)
-  }
-  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-}
-
-function getEventDate(eventId: string): Date {
-  const ev = import.meta.env.DEV ? mockEvents.find((e) => e.id === eventId) : undefined
-  if (ev) return parseEventDate(ev.date)
-  return new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-}
-
-function generateMission(tableName: string): { icon: typeof Camera; title: string; desc: string } {
-  const missions = [
-    { icon: Camera, title: 'Missão Fotográfica', desc: 'Tire uma foto em grupo e poste com #AuraTickets' },
-    { icon: MessageCircle, title: 'Missão Conversa', desc: 'Descubra quem na mesa já visitou o país mais exótico' },
-    { icon: Zap, title: 'Missão Energia', desc: 'Leve toda a mesa até a pista em pelo menos uma música' },
-    { icon: Trophy, title: 'Missão Quiz', desc: 'Responda juntos ao quiz do evento e conquistem o topo' },
-    { icon: Music, title: 'Missão Playlist', desc: 'Crie uma playlist colaborativa com um hit de cada um' },
-    { icon: Star, title: 'Missão Estrela', desc: 'Escolham um "membro do destaque" da noite por votação' },
-  ]
-  const idx = Math.abs(hashString(tableName)) % missions.length
-  return missions[idx]
-}
-
-function useCountdown(targetDate: Date) {
-  const [timeLeft, setTimeLeft] = useState(() => differenceInSeconds(targetDate, new Date()))
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const diff = differenceInSeconds(targetDate, new Date())
-      setTimeLeft(diff > 0 ? diff : 0)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [targetDate])
-
-  const duration = intervalToDuration({ start: 0, end: timeLeft * 1000 })
-  return {
-    days: duration.days ?? 0,
-    hours: duration.hours ?? 0,
-    minutes: duration.minutes ?? 0,
-    seconds: duration.seconds ?? 0,
-    isExpired: timeLeft <= 0,
-  }
+const MOTIVO_ESCOLHA: Record<string, string> = {
+  sem_ingresso: 'A escolha de mesa aparece quando o pagamento do ingresso for confirmado.',
+  fora_do_prazo: 'Escolha e troca de mesa só até 2 h antes do evento.',
+  travado: 'Sua participação nas mesas deste evento foi suspensa pela organização.',
+  sem_perfil: 'Para escolher a mesa, aceite o termo e tenha nome, data de nascimento e foto aprovada no Perfil.',
+  saiu: 'Você saiu do Match de Mesa neste evento: volte para escolher a mesa.',
 }
 
 /* ============================================================
-   Sub-componentes
+   Cartão de uma pessoa
    ============================================================ */
 
-function MemberAvatar({
-  member,
-  size = 64,
-  glow = false,
-}: {
-  member: DisplayMember
-  size?: number
-  glow?: boolean
+function Cartao({ c, minhasTags, eu, onDenunciar }: {
+  c: MesaCartao
+  minhasTags?: MesaTags | null
+  eu?: boolean
+  onDenunciar?: (c: MesaCartao) => void
 }) {
-  const initials = getInitials(member.name)
-  const hasAvatar = member.avatar && member.avatar.trim().length > 0
-
-  return (
-    <div
-      className="relative rounded-full flex items-center justify-center overflow-hidden shrink-0"
-      style={{
-        width: size,
-        height: size,
-        boxShadow: glow
-          ? '0 0 20px rgba(122, 59, 105, 0.45), 0 0 40px rgba(122, 59, 105, 0.15)'
-          : '0 0 0 1px rgba(255,255,255,0.1)',
-        border: `2px solid ${member.isYou ? 'rgba(122, 59, 105, 0.9)' : 'rgba(255,255,255,0.15)'}`,
-      }}
-    >
-      {hasAvatar ? (
-        <img
-          src={member.avatar!}
-          alt={member.name}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
-      ) : (
-        <div
-          className="w-full h-full flex items-center justify-center text-cream font-semibold"
-          style={{
-            fontSize: size * 0.35,
-            background: avatarGradient(member.name),
-          }}
-        >
-          {initials}
-        </div>
-      )}
-      {member.isYou && (
-        <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-plum text-[9px] text-cream rounded-full whitespace-nowrap shadow-lg">
-          Você
-        </div>
-      )}
-    </div>
-  )
-}
-
-function CountdownUnit({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="flex flex-col items-center min-w-[52px]">
-      <div className="relative overflow-hidden rounded-xl bg-white/5 border border-white/10 px-2 py-2 sm:px-3 sm:py-3">
-        <span className="block text-lg sm:text-2xl font-serif text-cream tabular-nums leading-none">
-          {String(value).padStart(2, '0')}
-        </span>
+  if (!c.id && c.nome === 'Lugar ocupado') {
+    return (
+      <div className="p-4 rounded-2xl bg-white/[0.03] border border-dashed border-white/10 flex items-center gap-3">
+        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center"><Users className="w-5 h-5 text-cream/40" /></div>
+        <span className="text-sm text-cream/70">Lugar ocupado</span>
       </div>
-      <span className="text-[9px] sm:text-[10px] text-cream/70 mt-1 uppercase tracking-wider">{label}</span>
+    )
+  }
+  const comuns = eu ? new Set<string>() : etiquetasEmComum(minhasTags, c.tags)
+  const tags = Object.entries(c.tags ?? {})
+    .flatMap(([cat, lista]) => (lista ?? []).map(slug => ({ cat, slug, comum: comuns.has(`${cat}:${slug}`) })))
+    .sort((a, b) => Number(b.comum) - Number(a.comum))
+  return (
+    <div className={`p-4 rounded-2xl border ${eu ? 'bg-plum/10 border-plum/30' : 'bg-white/[0.03] border-white/10'}`}>
+      <div className="flex items-center gap-3">
+        {c.foto ? (
+          <img src={c.foto} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-12 h-12 rounded-full bg-plum/20 flex items-center justify-center flex-shrink-0 font-semibold">
+            {c.nome.slice(0, 1).toUpperCase()}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium truncate">{c.nome}{eu && <span className="text-cream/70"> (você)</span>}</div>
+          <div className="text-xs text-cream/70">
+            {[c.faixa_idade && (FAIXAS_IDADE[c.faixa_idade] ?? c.faixa_idade), c.perfil,
+              c.escolaridade && (ESCOLARIDADE[c.escolaridade as keyof typeof ESCOLARIDADE] ?? c.escolaridade)]
+              .filter(Boolean).join(' · ')}
+          </div>
+        </div>
+        {!eu && c.id && onDenunciar && (
+          <button onClick={() => onDenunciar(c)} className="p-2 rounded-full text-cream/70 hover:text-red-300 hover:bg-white/5" aria-label={`Denunciar ${c.nome}`} title="Denunciar">
+            <Flag className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mt-3">
+          {tags.map(t => (
+            <span key={`${t.cat}:${t.slug}`} className={`px-2 py-0.5 rounded-full text-[11px] border ${t.comum ? 'bg-plum/30 border-plum/50 text-cream font-medium' : 'bg-white/5 border-white/10 text-cream/70'}`}>
+              {rotuloTag(t.cat, t.slug)}{t.comum && <span className="sr-only"> (em comum)</span>}
+            </span>
+          ))}
+        </div>
+      )}
+      {c.rede_social && (
+        <a href={c.rede_social} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 mt-3 text-xs text-plum-light hover:underline">
+          <ExternalLink className="w-3 h-3" /> Rede social
+        </a>
+      )}
     </div>
   )
 }
 
 /* ============================================================
-   Componente Principal
+   Escolher ou trocar de mesa
+   ============================================================ */
+
+function EscolherMesa({ eventId, minhasTags, onDenunciar, onFeito }: {
+  eventId: string
+  minhasTags?: MesaTags | null
+  onDenunciar: (c: MesaCartao) => void
+  onFeito: () => void
+}) {
+  const { data, isLoading, error } = useMesasParaEscolher(eventId)
+  const escolher = useEscolherMesa(eventId)
+  const entrar = (numero: number | null) =>
+    escolher.mutate(numero, {
+      onSuccess: (r) => { toast.success(`Você está na ${r.nome}.`); onFeito() },
+      onError: (e) => toast.error(e.message),
+    })
+
+  if (isLoading) return <div className="py-6 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-plum" /></div>
+  if (error) return <p className="text-sm text-cream/70">{error.message}</p>
+  if (data?.motivo) return <p className="text-sm text-cream/70">{MOTIVO_ESCOLHA[data.motivo] ?? 'Escolha de mesa indisponível agora.'}</p>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-xs text-cream/70">Troca livre enquanto houver vaga, até 2 h antes do evento, com 30 minutos entre uma troca e outra.</p>
+      {(data?.mesas ?? []).length === 0 && <p className="text-sm text-cream/70">Nenhuma outra mesa com vaga agora.</p>}
+      {(data?.mesas ?? []).map(m => (
+        <div key={m.numero} className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="font-serif text-lg">Mesa {m.numero}</div>
+              <div className="text-xs text-cream/70">{m.vagas} {m.vagas === 1 ? 'vaga' : 'vagas'}</div>
+            </div>
+            <button
+              onClick={() => entrar(m.numero)}
+              disabled={escolher.isPending}
+              className="px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow disabled:opacity-50"
+            >
+              Entrar na Mesa {m.numero}
+            </button>
+          </div>
+          {m.etiquetas && m.etiquetas.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {m.etiquetas.slice(0, 8).map(e => (
+                <span key={`${e.categoria}:${e.etiqueta}`} className="px-2 py-0.5 rounded-full text-[11px] bg-white/5 border border-white/10 text-cream/70">
+                  {rotuloTag(e.categoria, e.etiqueta)} · {e.pessoas}
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {m.pessoas.map((p, i) => <Cartao key={p.id ?? `oc-${i}`} c={p} minhasTags={minhasTags} onDenunciar={onDenunciar} />)}
+          </div>
+        </div>
+      ))}
+      <button
+        onClick={() => entrar(null)}
+        disabled={escolher.isPending}
+        className="w-full py-3 rounded-full border border-plum/40 text-cream text-sm hover:bg-plum/10 flex items-center justify-center gap-2 disabled:opacity-50"
+      >
+        <Plus className="w-4 h-4" /> Mesa nova
+      </button>
+    </div>
+  )
+}
+
+/* ============================================================
+   Denúncia
+   ============================================================ */
+
+function Denunciar({ alvo, onFechar }: { alvo: MesaCartao; onFechar: () => void }) {
+  const [motivo, setMotivo] = useState<MotivoDenuncia | null>(null)
+  const [detalhe, setDetalhe] = useState('')
+  const denunciar = useMesaDenunciar()
+  const enviar = () => {
+    if (!motivo || !alvo.id) return
+    denunciar.mutate({ membro: alvo.id, motivo, detalhe }, {
+      onSuccess: (r) => {
+        if (r?.ja_denunciado) toast.info('Você já denunciou esta pessoa neste evento.')
+        else toast.success('Denúncia enviada. A equipe da Evokaa vai analisar.')
+        onFechar()
+      },
+      onError: (e) => toast.error(e.message),
+    })
+  }
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="denuncia-titulo" style={{ paddingBottom: 'calc(var(--cookie-banner-h, 0px) + 1rem)' }}>
+      <div className="glass-panel p-6 max-w-md w-full max-h-full overflow-y-auto">
+        <h3 id="denuncia-titulo" className="font-serif text-xl text-cream mb-1">Denunciar {alvo.nome}</h3>
+        <p className="text-xs text-cream/70 mb-4">A denúncia vai para a equipe da Evokaa, que analisa. Ninguém é bloqueado automaticamente.</p>
+        <fieldset className="space-y-2 mb-4">
+          <legend className="text-sm text-cream mb-2">Motivo</legend>
+          {(Object.keys(MOTIVOS) as MotivoDenuncia[]).map(m => (
+            <label key={m} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer text-sm text-cream/80">
+              <input type="radio" name="motivo" className="accent-plum" checked={motivo === m} onChange={() => setMotivo(m)} />
+              {MOTIVOS[m]}
+            </label>
+          ))}
+        </fieldset>
+        <label className="block text-sm text-cream mb-1" htmlFor="denuncia-detalhe">Detalhe (opcional)</label>
+        <textarea
+          id="denuncia-detalhe"
+          value={detalhe}
+          onChange={(e) => setDetalhe(e.target.value)}
+          maxLength={500}
+          rows={3}
+          className="w-full p-3 rounded-xl bg-white/5 border border-white/10 text-sm text-cream placeholder:text-cream/40 outline-none focus:border-plum/50"
+          placeholder="O que aconteceu?"
+        />
+        <p className="text-[11px] text-cream/70 mt-1 mb-4">
+          Não escreva dados de saúde, religião, orientação sexual ou de outras pessoas. {detalhe.length}/500
+        </p>
+        <div className="flex gap-2">
+          <button onClick={onFechar} className="flex-1 py-2.5 text-sm text-cream/70 hover:text-cream">Cancelar</button>
+          <button
+            onClick={enviar}
+            disabled={!motivo || denunciar.isPending}
+            className="flex-1 py-2.5 bg-plum text-cream text-sm font-medium rounded-full disabled:opacity-50"
+          >
+            {denunciar.isPending ? 'Enviando...' : 'Enviar denúncia'}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  )
+}
+
+/* ============================================================
+   Sua mesa
    ============================================================ */
 
 export default function YourTable({ eventId }: YourTableProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const centerRef = useRef<HTMLDivElement>(null)
-  const scoreRef = useRef<HTMLSpanElement>(null)
-  const memberRefs = useRef<(HTMLDivElement | null)[]>([])
+  const { data, isLoading, error } = useMyTable(eventId)
+  const { profile } = useMatchmakingProfile()
+  const { data: fotoModeracao } = useMinhaFotoModeracao()
+  const { avisos, marcarLidos } = useMesaAvisos()
+  const sair = useMesaSair(eventId)
+  const voltar = useMesaVoltar(eventId)
+  const revogar = useMesaRevogar()
+  const rede = useMesaRede()
 
-  const [hoveredMember, setHoveredMember] = useState<string | null>(null)
-  const [liked, setLiked] = useState<Record<string, boolean>>({})
-  const [displayedScore, setDisplayedScore] = useState(0)
-  const [radius, setRadius] = useState(150)
+  const [escolhendo, setEscolhendo] = useState(false)
+  const [termo, setTermo] = useState(false)
+  const [quiz, setQuiz] = useState(false)
+  const [revogando, setRevogando] = useState(false)
+  const [alvo, setAlvo] = useState<MesaCartao | null>(null)
 
-  const { data: tableData, isLoading: tableLoading } = useMyTable(eventId)
-  const { data: tableMembers, isLoading: membersLoading } = useTableMembers(tableData?.id ?? null)
+  const caixa = 'bg-void text-cream rounded-3xl p-5 sm:p-8'
 
-  /* ---- Responsividade do raio circular ---- */
-  useEffect(() => {
-    function updateRadius() {
-      const w = window.innerWidth
-      if (w < 640) setRadius(115)
-      else if (w < 1024) setRadius(155)
-      else setRadius(195)
-    }
-    updateRadius()
-    window.addEventListener('resize', updateRadius)
-    return () => window.removeEventListener('resize', updateRadius)
-  }, [])
-
-  /* ---- Fallback para mocks quando Supabase vazio ---- */
-  const effectiveTable = useMemo(() => {
-    if (tableData) return tableData
-    const mock = import.meta.env.DEV ? (mesasColetivas.find((m) => m.id.includes(eventId.split('-')[0])) ?? mesasColetivas[0]) : undefined
-    if (!mock) return null
-    return {
-      id: mock.id,
-      event_id: eventId,
-      ticket_type_id: null,
-      name: mock.name,
-      theme: mock.theme,
-      capacity: mock.capacity,
-      compatibility_score: mock.compatibility,
-      status: 'open' as const,
-      icebreaker_question: null,
-      icebreaker_sent_at: null,
-      created_at: new Date().toISOString(),
-    }
-  }, [tableData, eventId])
-
-  const effectiveMembers: DisplayMember[] = useMemo(() => {
-    if (tableMembers && tableMembers.length > 0) {
-      return tableMembers.map((m) => ({
-        id: m.id,
-        name: m.profiles?.full_name ?? 'Membro',
-        avatar: m.profiles?.avatar_url ?? null,
-        role: m.role,
-        vibe: m.vibe,
-        interests: [],
-        isYou: false,
-      }))
-    }
-    const mock = import.meta.env.DEV ? (mesasColetivas.find((m) => m.id === effectiveTable?.id) ?? mesasColetivas[0]) : undefined
-    if (!mock) return []
-    return mock.members.map((m) => ({
-      id: m.id,
-      name: m.name,
-      avatar: m.avatar,
-      role: m.role,
-      vibe: m.vibe,
-      interests: m.interests,
-      isYou: m.name === 'Você',
-    }))
-  }, [tableMembers, effectiveTable?.id])
-
-  /* ---- Contador regressivo ---- */
-  const eventDate = useMemo(() => getEventDate(eventId), [eventId])
-  const countdown = useCountdown(eventDate)
-
-  /* ---- Score animado ---- */
-  useEffect(() => {
-    const target = effectiveTable?.compatibility_score ?? 0
-    if (target <= 0) return
-    const obj = { val: 0 }
-    gsap.to(obj, {
-      val: target,
-      duration: 2.2,
-      ease: 'power2.out',
-      onUpdate: () => setDisplayedScore(Math.round(obj.val)),
-    })
-  }, [effectiveTable?.compatibility_score])
-
-  /* ---- Animações GSAP ---- */
-  useGSAP(
-    () => {
-      if (!containerRef.current) return
-
-      // Aurora layers
-      gsap.fromTo(
-        '.aurora-layer',
-        { opacity: 0, scale: 1.3 },
-        { opacity: 1, scale: 1, duration: 2.5, ease: 'power2.out', stagger: 0.4 }
-      )
-
-      // Partículas
-      gsap.fromTo(
-        '.particle',
-        { opacity: 0 },
-        { opacity: 1, duration: 1.5, stagger: 0.05, ease: 'power1.out', delay: 0.5 }
-      )
-
-      // Centro da mesa
-      if (centerRef.current) {
-        gsap.fromTo(
-          centerRef.current,
-          { scale: 0.4, opacity: 0 },
-          { scale: 1, opacity: 1, duration: 1.2, ease: 'back.out(1.7)', delay: 0.4 }
-        )
-      }
-
-      // Membros circulares
-      const validMembers = memberRefs.current.filter(Boolean)
-      gsap.fromTo(
-        validMembers,
-        { scale: 0, opacity: 0, y: 30 },
-        {
-          scale: 1,
-          opacity: 1,
-          y: 0,
-          duration: 0.9,
-          stagger: 0.3,
-          ease: 'back.out(1.7)',
-          delay: 0.9,
-        }
-      )
-
-      // Cards inferiores
-      gsap.fromTo(
-        '.cinematic-card',
-        { y: 50, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.9, stagger: 0.12, ease: 'power3.out', delay: 2 }
-      )
-    },
-    { scope: containerRef, dependencies: [effectiveMembers, effectiveTable] }
-  )
-
-  /* ---- Layout circular ---- */
-  const positions = useMemo(() => {
-    const count = effectiveMembers.length
-    if (count === 0) return []
-    return effectiveMembers.map((_, i) => {
-      const angle = (i * 2 * Math.PI) / count - Math.PI / 2
-      return {
-        x: Math.cos(angle) * radius,
-        y: Math.sin(angle) * radius,
-      }
-    })
-  }, [effectiveMembers, radius])
-
-  const isLoading = tableLoading && !tableData
-  const mission = useMemo(() => generateMission(effectiveTable?.name ?? ''), [effectiveTable?.name])
-  const icebreaker = effectiveTable?.icebreaker_question ?? 'Se vocês pudessem criar um drink que representasse essa mesa, quais ingredientes teria?'
-
-  const toggleLike = (id: string) => {
-    setLiked((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
-
-  /* ==========================================================
-     Loading State
-     ========================================================== */
   if (isLoading) {
     return (
-      <div className="relative overflow-hidden rounded-3xl bg-void min-h-[420px] flex flex-col items-center justify-center p-8">
-        <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at 50% 50%, rgba(122,59,105,0.12), transparent 70%)' }} />
-        <div className="relative z-10 flex flex-col items-center text-center space-y-6">
-          <div className="relative">
-            <div className="w-20 h-20 rounded-full border-2 border-plum/30 flex items-center justify-center">
-              <Loader2 className="w-8 h-8 text-plum animate-spin" />
-            </div>
-            <div className="absolute inset-0 rounded-full border-2 border-plum/10 animate-ping" />
-          </div>
-          <div className="space-y-2">
-            <h3 className="font-serif text-2xl text-cream">Carregando sua mesa</h3>
-          </div>
-        </div>
+      <div className={`${caixa} min-h-[200px] flex flex-col items-center justify-center`}>
+        <Loader2 className="w-8 h-8 text-plum animate-spin mb-3" />
+        <p className="text-sm text-cream/70">Carregando sua mesa</p>
       </div>
     )
   }
-
-  // Sem mesa real (e sem mock fora de DEV): avisa em vez de deixar a coluna vazia
-  if (!effectiveTable) {
+  if (error || !data) {
+    return <div className={caixa}><p className="text-sm text-cream/70">{error?.message ?? 'Não foi possível carregar sua mesa.'}</p></div>
+  }
+  if (data.travado) {
     return (
-      <div className="bg-void text-cream rounded-3xl p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
-        <h3 className="font-serif text-xl mb-2">Sua mesa ainda não foi formada</h3>
-        <p className="text-sm text-cream/70 max-w-sm">A formação automática das mesas ainda não está disponível.</p>
+      <div className={`${caixa} flex items-start gap-3`}>
+        <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+        <p className="text-sm">Sua participação nas mesas deste evento foi suspensa pela organização.</p>
+      </div>
+    )
+  }
+  // sem ingresso coletivo ativo: o banco não devolve nem a data de formação
+  if (!data.forma_em && data.mesas.length === 0) {
+    return (
+      <div className={caixa}>
+        <h3 className="font-serif text-xl mb-2">Sua mesa</h3>
+        <p className="text-sm text-cream/70">Sua mesa aparece aqui quando o pagamento do ingresso for confirmado.</p>
       </div>
     )
   }
 
-  /* ==========================================================
-     Render Principal
-     ========================================================== */
-  return (
-    <div ref={containerRef} className="relative overflow-hidden rounded-3xl bg-void">
-      {/* ---- Keyframes inline para aurora e partículas ---- */}
-      <style>{`
-        @keyframes aurora-drift {
-          0% { transform: translate(-50%, -50%) rotate(0deg) scale(1); }
-          33% { transform: translate(-45%, -55%) rotate(120deg) scale(1.1); }
-          66% { transform: translate(-55%, -45%) rotate(240deg) scale(0.95); }
-          100% { transform: translate(-50%, -50%) rotate(360deg) scale(1); }
-        }
-        @keyframes aurora-drift-slow {
-          0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.2); }
-          50% { transform: translate(-48%, -52%) rotate(180deg) scale(1.3); }
-          100% { transform: translate(-50%, -50%) rotate(360deg) scale(1.2); }
-        }
-        @keyframes float-particle {
-          0%, 100% { transform: translateY(0) translateX(0); opacity: 0.4; }
-          25% { transform: translateY(-20px) translateX(10px); opacity: 0.8; }
-          50% { transform: translateY(-10px) translateX(-10px); opacity: 0.5; }
-          75% { transform: translateY(-30px) translateX(5px); opacity: 0.7; }
-        }
-        .aurora-layer {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          border-radius: 50%;
-          filter: blur(80px);
-          opacity: 0.6;
-          pointer-events: none;
-        }
-        .aurora-1 {
-          width: 600px;
-          height: 600px;
-          background: radial-gradient(circle, rgba(122,59,105,0.35) 0%, transparent 70%);
-          animation: aurora-drift 20s linear infinite;
-        }
-        .aurora-2 {
-          width: 500px;
-          height: 500px;
-          background: radial-gradient(circle, rgba(139,92,246,0.2) 0%, transparent 70%);
-          animation: aurora-drift-slow 25s linear infinite reverse;
-        }
-        .aurora-3 {
-          width: 400px;
-          height: 400px;
-          background: radial-gradient(circle, rgba(217,119,6,0.15) 0%, transparent 70%);
-          animation: aurora-drift 30s linear infinite;
-        }
-        .particle {
-          position: absolute;
-          border-radius: 50%;
-          background: rgba(255,255,255,0.5);
-          pointer-events: none;
-        }
-      `}</style>
+  const consentido = consentimentoVigente(profile)
+  const colegasTodos = data.mesas.flatMap(m => m.colegas ?? [])
+  const minhasTags = colegasTodos.find(c => c.eu)?.tags ?? profile?.tags
+  const avisosEvento = (avisos.data ?? []).filter(a => a.evento === eventId && !a.lido)
 
-      {/* ---- Fundo Aurora ---- */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="aurora-layer aurora-1" />
-        <div className="aurora-layer aurora-2" />
-        <div className="aurora-layer aurora-3" />
-        {Array.from({ length: 18 }).map((_, i) => {
-          const seed = ((i * 9301 + 49297) % 233280) / 233280
-          const size = 2 + (seed * 3)
-          const left = 10 + (((seed * 9301 + 49297) % 233280) / 233280) * 80
-          const top = 10 + (((seed * 49297 + 9301) % 233280) / 233280) * 80
-          const delay = seed * 5
-          const duration = 6 + (((seed * 49297 + 9301) % 233280) / 233280) * 8
-          return (
-            <div
-              key={i}
-              className="particle"
-              style={{
-                width: size,
-                height: size,
-                left: `${left}%`,
-                top: `${top}%`,
-                animation: `float-particle ${duration.toFixed(2)}s ease-in-out ${delay.toFixed(2)}s infinite`,
-              }}
-            />
-          )
-        })}
+  const acao = (m: { mutate: (v: void, o: { onSuccess: () => void; onError: (e: Error) => void }) => void }, ok: string) =>
+    m.mutate(undefined, { onSuccess: () => toast.success(ok), onError: (e) => toast.error(e.message) })
+
+  return (
+    <div className={`${caixa} space-y-5`}>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <span className="text-[10px] uppercase tracking-widest text-cream/70">Match de Mesa</span>
+          <h3 className="font-serif text-2xl">Sua mesa</h3>
+        </div>
+        <Users className="w-6 h-6 text-plum" />
       </div>
 
-      {/* ---- Conteúdo ---- */}
-      <div className="relative z-10 px-4 py-8 sm:px-8 sm:py-12">
-        {/* Header */}
-        <div className="text-center mb-8 sm:mb-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 mb-4">
-            <Crown className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-[11px] text-cream/70 uppercase tracking-widest font-medium">Sua Mesa Coletiva</span>
-          </div>
+      {avisosEvento.length > 0 && (
+        <div className="p-4 rounded-2xl bg-plum/10 border border-plum/30 space-y-2" role="status">
+          {avisosEvento.map(a => (
+            <div key={a.id} className="flex items-start gap-2 text-sm">
+              <Bell className="w-4 h-4 text-plum flex-shrink-0 mt-0.5" />
+              <span>{a.mensagem}{a.mesa ? ` (${a.mesa})` : ''}</span>
+            </div>
+          ))}
+          <button onClick={() => marcarLidos.mutate()} disabled={marcarLidos.isPending} className="text-xs text-plum-light hover:underline">
+            Ok, entendi
+          </button>
         </div>
+      )}
 
-        {/* ---- Layout Circular ---- */}
-        <div className="relative mx-auto" style={{ width: '100%', maxWidth: 640, height: radius * 2 + 160 }}>
-          {/* Centro */}
-          <div
-            ref={centerRef}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center justify-center text-center"
-          >
-            <div className="relative mb-3">
-              <div
-                className="w-28 h-28 sm:w-36 sm:h-36 rounded-full flex flex-col items-center justify-center bg-white/5 border border-white/10 backdrop-blur-md"
-                style={{ boxShadow: '0 0 60px rgba(122, 59, 105, 0.15), inset 0 0 40px rgba(122, 59, 105, 0.05)' }}
-              >
-                <Sparkles className="w-4 h-4 text-plum mb-1 opacity-70" />
-                <span className="font-serif text-xl sm:text-2xl text-cream leading-tight">{effectiveTable.name}</span>
-                <span className="text-[10px] sm:text-xs text-cream/70 mt-0.5">{effectiveTable.theme}</span>
-              </div>
-              {/* Anel orbital sutil */}
-              <div
-                className="absolute inset-0 rounded-full"
-                style={{
-                  border: '1px solid rgba(122, 59, 105, 0.2)',
-                  transform: 'scale(1.15)',
-                }}
-              />
-            </div>
-
-            {/* Score */}
-            <div className="flex flex-col items-center">
-              <span className="text-[10px] text-cream/70 uppercase tracking-widest mb-1">Compatibilidade</span>
-              <div className="flex items-baseline gap-1">
-                <span ref={scoreRef} className="font-serif text-3xl sm:text-4xl text-plum">
-                  {displayedScore}
-                </span>
-                <span className="text-sm text-plum/70">%</span>
-              </div>
-              <div className="w-24 h-1 bg-white/10 rounded-full mt-2 overflow-hidden">
-                <div
-                  className="h-full bg-plum rounded-full transition-all duration-1000 ease-out"
-                  style={{ width: `${displayedScore}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Membros orbitando */}
-          {effectiveMembers.map((member, i) => {
-            const pos = positions[i]
-            if (!pos) return null
-            const isHovered = hoveredMember === member.id
-            return (
-              <div
-                key={member.id}
-                ref={(el) => { memberRefs.current[i] = el }}
-                className="absolute z-30 flex flex-col items-center cursor-pointer"
-                style={{
-                  left: `calc(50% + ${pos.x}px)`,
-                  top: `calc(50% + ${pos.y}px - 30px)`,
-                  transform: 'translate(-50%, -50%)',
-                  transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                }}
-                onMouseEnter={() => setHoveredMember(member.id)}
-                onMouseLeave={() => setHoveredMember(null)}
-              >
-                <div
-                  style={{
-                    transform: isHovered ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                  }}
-                >
-                  <MemberAvatar
-                    member={member}
-                    size={56}
-                    glow={isHovered || member.isYou}
-                  />
-                </div>
-
-                <div className="mt-2 text-center">
-                  <span className="block text-xs text-cream font-medium whitespace-nowrap">{member.name}</span>
-                  {member.vibe && (
-                    <span className="block text-[9px] text-plum/70 whitespace-nowrap">{member.vibe}</span>
-                  )}
-                </div>
-
-                {/* Card flutuante de detalhes no hover */}
-                {isHovered && (
-                  <div
-                    className="absolute z-50 bottom-full mb-3 w-48 p-3 rounded-xl bg-void/95 border border-white/10 backdrop-blur-xl shadow-2xl"
-                    style={{ animation: 'fadeInUp 0.25s ease-out' }}
-                  >
-                    <style>{`
-                      @keyframes fadeInUp {
-                        from { opacity: 0; transform: translateY(8px); }
-                        to { opacity: 1; transform: translateY(0); }
-                      }
-                    `}</style>
-                    <div className="flex items-center gap-2 mb-2">
-                      <MemberAvatar member={member} size={32} />
-                      <div>
-                        <span className="block text-xs text-cream font-medium">{member.name}</span>
-                        <span className="block text-[10px] text-cream/70">{member.role}</span>
-                      </div>
-                    </div>
-                    {member.interests.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {member.interests.map((interest) => (
-                          <span
-                            key={interest}
-                            className="px-1.5 py-0.5 bg-white/5 text-cream/70 text-[9px] rounded-full border border-white/5"
-                          >
-                            {interest}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {!member.isYou && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          toggleLike(member.id)
-                        }}
-                        className="flex items-center gap-1 text-[10px] transition-colors"
-                        style={{ color: liked[member.id] ? '#f87171' : 'rgba(247,245,240,0.3)' }}
-                      >
-                        <Heart className="w-3 h-3" fill={liked[member.id] ? '#f87171' : 'none'} />
-                        <span>{liked[member.id] ? 'Curtiu' : 'Curtir perfil'}</span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )
-          })}
+      {!consentido ? (
+        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+          <p className="text-sm mb-3">
+            Você aparece para os colegas só pelo primeiro nome, e vê os colegas do mesmo jeito. Aceite o termo
+            para mostrar e ver foto, faixa de idade, perfil e gostos, e para escolher a sua mesa.
+          </p>
+          <button onClick={() => setTermo(true)} className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow">
+            Ler e aceitar o termo
+          </button>
         </div>
+      ) : (
+        <>
+          {(fotoModeracao === 'pendente' || fotoModeracao === 'revisar') && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm">
+              <Camera className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+              <span>Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.</span>
+            </div>
+          )}
+          {fotoModeracao === 'recusada' && (
+            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm">
+              <Camera className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />
+              <span>Sua foto não foi aprovada. <a href={appUrl('/app/profile')} className="underline">Troque a foto no Perfil</a> para aparecer com perfil.</span>
+            </div>
+          )}
+        </>
+      )}
 
-        {/* ---- Contador Regressivo ---- */}
-        {!countdown.isExpired && (
-          <div className="cinematic-card flex flex-col items-center mt-2 mb-8">
-            <div className="flex items-center gap-2 mb-3 text-cream/70">
-              <Clock className="w-3.5 h-3.5" />
-              <span className="text-[10px] uppercase tracking-widest">Contagem regressiva</span>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3">
-              <CountdownUnit value={countdown.days} label="Dias" />
-              <span className="text-cream/70 text-lg -mt-4">:</span>
-              <CountdownUnit value={countdown.hours} label="Horas" />
-              <span className="text-cream/70 text-lg -mt-4">:</span>
-              <CountdownUnit value={countdown.minutes} label="Min" />
-              <span className="text-cream/70 text-lg -mt-4">:</span>
-              <CountdownUnit value={countdown.seconds} label="Seg" />
-            </div>
-          </div>
-        )}
-
-        {/* ---- Grid inferior: Quebra-gelo + Missão + Tags ---- */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl mx-auto">
-          {/* Quebra-Gelo */}
-          <div className="cinematic-card p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-plum/20 flex items-center justify-center">
-                <MessageCircle className="w-4 h-4 text-plum" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-cream">Quebra-Gelo</h3>
-                <span className="text-[10px] text-cream/70">Comece a conversa</span>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-              <span className="block text-xs text-cream/70 mb-2">Pergunta exclusiva da mesa</span>
-              <p className="text-sm text-cream/80 leading-relaxed">{icebreaker}</p>
-            </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-plum/70">
-              <Sparkles className="w-3 h-3" />
-              <span>Gerada pela IA com base nos perfis da mesa</span>
-            </div>
-          </div>
-
-          {/* Missão da Mesa */}
-          <div className="cinematic-card p-5 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                <Trophy className="w-4 h-4 text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-cream">Missão da Mesa</h3>
-                <span className="text-[10px] text-cream/70">Desafio social</span>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/5 to-transparent border border-amber-500/10">
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <mission.icon className="w-4 h-4 text-amber-400" />
-                </div>
-                <div>
-                  <span className="block text-sm font-medium text-cream mb-1">{mission.title}</span>
-                  <p className="text-xs text-cream/70 leading-relaxed">{mission.desc}</p>
-                </div>
-              </div>
-            </div>
-            <div className="mt-3 flex items-center gap-1.5 text-[10px] text-cream/70">
-              <Zap className="w-3 h-3" />
-              <span>Complete e ganhe pontos de experiência</span>
-            </div>
-          </div>
+      {data.saiu && (
+        <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+          <p className="text-sm mb-3">Você saiu do Match de Mesa neste evento: seu lugar continua, mas seu perfil não aparece para ninguém.</p>
+          <button onClick={() => acao(voltar, 'Seu perfil voltou a aparecer na mesa.')} disabled={voltar.isPending} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 text-sm hover:bg-white/5">
+            <Undo2 className="w-4 h-4" /> Voltar ao Match de Mesa
+          </button>
         </div>
+      )}
 
-        {/* ---- Tags de afinidade ---- */}
-        <div className="cinematic-card flex flex-wrap items-center justify-center gap-2 mt-4 max-w-2xl mx-auto">
-          {['Temperamento equilibrado', 'Interesses alinhados', 'Vibe compatível', 'Energia complementar'].map(
-            (tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/5 text-cream/70 text-[10px] rounded-full border border-white/10"
-              >
-                <Sparkles className="w-3 h-3 text-plum" />
-                <span>{tag}</span>
-              </span>
-            )
+      {data.mesas.length === 0 ? (
+        <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10">
+          <Clock className="w-5 h-5 text-plum flex-shrink-0 mt-0.5" />
+          <p className="text-sm">
+            Sua mesa será formada em <strong>{formaEmTexto(data.forma_em!)}</strong> (horário de Brasília).
+            {consentido && ' Antes disso, você pode escolher a sua.'}
+          </p>
+        </div>
+      ) : (
+        data.mesas.map(m => (
+          <div key={m.nome} className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h4 className="font-serif text-xl">{m.nome}</h4>
+              <span className="text-xs text-cream/70">{(m.colegas ?? []).length} de {m.capacidade} lugares</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(m.colegas ?? []).map((c, i) => (
+                <Cartao key={c.id ?? `oc-${i}`} c={c} eu={c.eu} minhasTags={minhasTags} onDenunciar={setAlvo} />
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+
+      {consentido && !data.saiu && (
+        <div>
+          <button onClick={() => setEscolhendo(!escolhendo)} className="w-full py-3 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow">
+            {escolhendo ? 'Fechar a lista de mesas' : data.mesas.length ? 'Trocar de mesa' : 'Escolher minha mesa'}
+          </button>
+          {escolhendo && (
+            <div className="mt-4">
+              <EscolherMesa eventId={eventId} minhasTags={minhasTags} onDenunciar={setAlvo} onFeito={() => setEscolhendo(false)} />
+            </div>
           )}
         </div>
+      )}
 
-        {/* ---- Info do evento ---- */}
-        <div className="cinematic-card flex items-center justify-center gap-4 mt-6 text-[10px] text-cream/70">
-          <div className="flex items-center gap-1">
-            <MapPin className="w-3 h-3" />
-            <span>Evento: {eventId.replace(/-/g, ' ')}</span>
+      {consentido && (
+        <div className="pt-4 border-t border-white/10 space-y-3 text-sm">
+          <button onClick={() => setQuiz(true)} className="text-plum-light hover:underline">Editar meu perfil de mesa</button>
+          {profile?.social_url && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-1 accent-plum"
+                checked={redeVigente(profile)}
+                disabled={rede.isPending}
+                onChange={(e) => rede.mutate(e.target.checked, { onError: (err) => toast.error(err.message) })}
+              />
+              <span className="text-cream/80">Mostrar minha rede social aos colegas de mesa (segundo aceite, opcional)</span>
+            </label>
+          )}
+          <div className="flex flex-wrap gap-2">
+            {data.mesas.length > 0 && !data.saiu && (
+              <button onClick={() => acao(sair, 'Você saiu do Match de Mesa. Seu lugar continua.')} disabled={sair.isPending} className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-white/20 text-xs hover:bg-white/5">
+                <LogOut className="w-3.5 h-3.5" /> Sair do Match de Mesa
+              </button>
+            )}
+            {!revogando && (
+              <button onClick={() => setRevogando(true)} className="px-4 py-2 rounded-full border border-red-400/30 text-xs text-red-200 hover:bg-red-500/10">
+                Revogar consentimento
+              </button>
+            )}
           </div>
-          <div className="flex items-center gap-1">
-            <Users className="w-3 h-3" />
-            <span>{effectiveMembers.length} / {effectiveTable.capacity} membros</span>
-          </div>
+          {revogando && (
+            <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 space-y-3" role="alertdialog" aria-label="Confirmar revogação">
+              <p>Revogar apaga suas respostas, etiquetas, escolaridade e rede social. Seu lugar na mesa continua, só com o primeiro nome.</p>
+              <div className="flex gap-2">
+                <button onClick={() => setRevogando(false)} className="px-4 py-2 text-xs text-cream/70 hover:text-cream">Cancelar</button>
+                <button
+                  onClick={() => revogar.mutate(undefined, {
+                    onSuccess: () => { setRevogando(false); toast.success('Consentimento revogado e respostas apagadas.') },
+                    onError: (e) => toast.error(e.message),
+                  })}
+                  disabled={revogar.isPending}
+                  className="px-4 py-2 rounded-full bg-red-500/80 text-cream text-xs font-medium disabled:opacity-50"
+                >
+                  {revogar.isPending ? 'Revogando...' : 'Confirmar revogação'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-      </div>
+      )}
+
+      {termo && <MesaTermoModal onAceito={() => { setTermo(false); setQuiz(true) }} onFechar={() => setTermo(false)} />}
+      {quiz && createPortal(<ProfileQuiz onComplete={() => setQuiz(false)} onCancel={() => setQuiz(false)} />, document.body)}
+      {alvo && <Denunciar alvo={alvo} onFechar={() => setAlvo(null)} />}
     </div>
   )
 }

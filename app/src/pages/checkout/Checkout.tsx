@@ -5,6 +5,15 @@ import { usePublicEvent } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
+import { useAuthStore } from '../../stores/authStore'
+
+// Match de Mesa: só maiores de 18 (o banco confere de novo no pedido, mesa_pedido_guard)
+function maiorDe18(iso: string) {
+  const n = new Date(iso + 'T00:00:00')
+  const limite = new Date()
+  limite.setFullYear(limite.getFullYear() - 18)
+  return n <= limite && n.getFullYear() >= 1900
+}
 
 export default function Checkout() {
   const location = useLocation()
@@ -23,8 +32,10 @@ export default function Checkout() {
   const initialCart = stateCart || pendingCheckout?.cart || {}
 
   const { data: event, isLoading, error } = usePublicEvent(eventId)
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [cart, setCart] = useState<Record<string, number>>(initialCart || {})
+  const [nascimento, setNascimento] = useState('')
+  const [salvandoNascimento, setSalvandoNascimento] = useState(false)
 
   // Estados do Mapa de Assentos
   const [seatingMap, setSeatingMap] = useState<any | null>(null)
@@ -207,9 +218,11 @@ export default function Checkout() {
   const ticketTypes = event?.ticket_types || []
 
   const updateQty = (id: string, delta: number) => {
+    // Match de Mesa: 1 lugar por conta em cada evento
+    const max = ticketTypes.find(t => t.id === id)?.type === 'coletiva' ? 1 : Infinity
     setCart(prev => {
       const current = prev[id] || 0
-      const next = Math.max(0, current + delta)
+      const next = Math.min(max, Math.max(0, current + delta))
       if (next === 0) {
         const n = { ...prev }
         delete n[id]
@@ -226,6 +239,8 @@ export default function Checkout() {
   }).filter(Boolean) as any[]
 
   const total = items.reduce((s, i) => s + (i.total || 0), 0)
+  const temColetiva = items.some(i => i.type === 'coletiva')
+  const nascimentoPerfil = user?.birth_date || null
   const fees = Number((total * 0.05).toFixed(2)) // 5% fee
   const grandTotal = total + fees
 
@@ -277,6 +292,39 @@ export default function Checkout() {
     toast.success(`${occupantModal.label} reservado(a) no seu carrinho!`)
   }
 
+  // Grava em profiles.birth_date só se estiver vazia: com o perfil ainda carregando, nunca sobrescreve
+  const salvarNascimento = async () => {
+    if (!user?.id || !nascimento) return
+    if (!maiorDe18(nascimento)) {
+      toast.error('O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.')
+      return
+    }
+    setSalvandoNascimento(true)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        // ponytail: `as never` até regenerar os tipos do Supabase (mesmo erro em Profile.tsx)
+        .update({ birth_date: nascimento } as never)
+        .eq('id', user.id)
+        .is('birth_date', null)
+        .select('id')
+      if (error) throw error
+      if (!data?.length) {
+        await useAuthStore.getState().fetchProfile({ force: true })
+        if (useAuthStore.getState().user?.birth_date) toast.info('Seu Perfil já tinha data de nascimento: vale a que está lá.')
+        else toast.error('Não foi possível salvar a data. Tente pelo seu Perfil.')
+        return
+      }
+      const atual = useAuthStore.getState().user
+      if (atual) useAuthStore.getState().setUser({ ...atual, birth_date: nascimento })
+      toast.success('Data de nascimento salva no seu Perfil.')
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Não foi possível salvar a data.')
+    } finally {
+      setSalvandoNascimento(false)
+    }
+  }
+
   const handleContinuePayment = () => {
     if (items.length === 0) {
       toast.error('Selecione pelo menos um ingresso para continuar.')
@@ -293,6 +341,15 @@ export default function Checkout() {
       }))
       toast.info('Faça login para continuar sua compra.')
       navigate('/auth/login', { state: { from: '/checkout' } })
+      return
+    }
+    // Match de Mesa: data de nascimento com 18+ antes de criar o pedido
+    if (temColetiva && !nascimentoPerfil) {
+      toast.error('Informe sua data de nascimento para comprar o Match de Mesa.')
+      return
+    }
+    if (temColetiva && !maiorDe18(nascimentoPerfil!)) {
+      toast.error('O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.')
       return
     }
     navigate('/checkout/payment', {
@@ -402,7 +459,9 @@ export default function Checkout() {
                             <span className="w-6 text-center text-sm font-medium">{qty}</span>
                             <button
                               onClick={() => updateQty(ticket.id, 1)}
-                              className="w-8 h-8 rounded-full bg-espresso/5 flex items-center justify-center text-espresso hover:bg-plum/10 transition-colors"
+                              disabled={ticket.type === 'coletiva' && qty >= 1}
+                              aria-label={`Mais um ${ticket.name}`}
+                              className="w-8 h-8 rounded-full bg-espresso/5 flex items-center justify-center text-espresso hover:bg-plum/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -416,6 +475,39 @@ export default function Checkout() {
                 <p className="text-sm text-espresso/70 italic py-4">Nenhum ingresso cadastrado para este evento.</p>
               )}
             </div>
+
+            {temColetiva && isAuthenticated && (
+              !nascimentoPerfil ? (
+                <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm space-y-3">
+                  <h2 className="font-serif text-lg text-espresso">Match de Mesa: sua data de nascimento</h2>
+                  <p className="text-xs text-espresso/70">
+                    Só maiores de 18 participam, com 1 lugar por conta em cada evento. A data fica no seu Perfil; os
+                    colegas de mesa veem só a faixa de idade.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="date"
+                      aria-label="Data de nascimento"
+                      value={nascimento}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setNascimento(e.target.value)}
+                      className="px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                    />
+                    <button
+                      onClick={salvarNascimento}
+                      disabled={!nascimento || salvandoNascimento}
+                      className="px-4 py-2 rounded-full bg-plum text-cream text-sm font-medium disabled:opacity-50"
+                    >
+                      {salvandoNascimento ? 'Salvando...' : 'Salvar data'}
+                    </button>
+                  </div>
+                </div>
+              ) : !maiorDe18(nascimentoPerfil) && (
+                <div role="alert" className="p-5 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-espresso">
+                  O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.
+                </div>
+              )
+            )}
 
             {/* Renderização Interativa do Mapa de Assentos se ativo */}
             {seatingMap && chooseViaMap && (

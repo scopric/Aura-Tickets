@@ -476,10 +476,11 @@ export default function EventPage() {
                         perks: ticket.perks || []
                       }}
                       cartQty={cart[ticket.id] || 0}
-                      onAdd={() => addToCart(ticket.id)}
+                      // Match de Mesa: 1 lugar por conta em cada evento (o banco recusa quantidade maior)
+                      onAdd={() => { if (!cart[ticket.id]) addToCart(ticket.id) }}
                       onRemove={() => removeFromCart(ticket.id)}
                       onQuantityChange={(qty) => {
-                        const diff = qty - (cart[ticket.id] || 0)
+                        const diff = Math.min(qty, 1) - (cart[ticket.id] || 0)
                         if (diff > 0) {
                           for (let i = 0; i < diff; i++) addToCart(ticket.id)
                         } else if (diff < 0) {
