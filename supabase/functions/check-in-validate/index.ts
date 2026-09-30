@@ -7,17 +7,14 @@
 // Respostas: 200 { valid, message, ... } (inclusive "já utilizado"); 404 ingresso não encontrado;
 // 400 corpo inválido; 401 sem login; 403 sem permissão ou sem o código do 2FA.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { corsHeaders } from '../_shared/cors.ts'
 import { mfaOk } from '../_shared/mfa.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { error: 'Método não permitido' })
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')

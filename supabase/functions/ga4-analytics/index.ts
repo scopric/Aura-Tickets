@@ -11,6 +11,7 @@
 // API: https://developers.google.com/analytics/devguides/reporting/data/v1 — o GA4 só conta
 // quem aceitou cookies; a dimensão date vem no fuso da propriedade (Brasília).
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -22,13 +23,6 @@ const API = `https://analyticsdata.googleapis.com/v1beta/properties/${PROPRIEDAD
 // GA4 entrou no ar em 27/09/2026: "Todo período" começa aí.
 const INICIO_GA4 = '2026-09-27'
 const DIAS: Record<string, number> = { '7d': 7, '30d': 30, all: 0 }
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
 class GoogleErro extends Error {
   constructor(public status: number, public etapa: 'token' | 'api') {
@@ -101,7 +95,10 @@ const hojeBrasilia = () => {
 const somaDias = (dia: string, n: number) => new Date(Date.parse(`${dia}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10)
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { ok: false, motivo: 'entrada_invalida' })
 
   const authorization = req.headers.get('Authorization') ?? ''
