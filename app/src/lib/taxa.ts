@@ -32,3 +32,9 @@ export function resumoCarrinho(itens: { preco: number; qtd: number }[]): { subto
 export function brl(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
+
+// "R$ 50,00 + taxa R$ 5,00 = R$ 55,00" (Decreto 13.108, art. 7º: preço, taxa e total discriminados)
+export function textoPreco(preco: number, qtd = 1): string {
+  const r = resumoCarrinho([{ preco, qtd }])
+  return r.subtotal > 0 ? `${brl(r.subtotal)} + taxa ${brl(r.taxa)} = ${brl(r.total)}` : 'Gratuito'
+}

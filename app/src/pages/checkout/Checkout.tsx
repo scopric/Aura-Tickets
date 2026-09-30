@@ -5,7 +5,7 @@ import { usePublicEvent } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
-import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../../lib/taxa'
+import { resumoCarrinho, brl, textoPreco, TAXA_PERCENTUAL, TAXA_MINIMA } from '../../lib/taxa'
 
 export default function Checkout() {
   const location = useLocation()
@@ -384,7 +384,7 @@ export default function Checkout() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-espresso">{ticket.name}</div>
-                        <div className="text-xs text-espresso/70">{ticket.price > 0 ? `${brl(ticket.price)} + taxa ${brl(calcularTaxa(ticket.price).taxa)} cada` : 'Gratuito'}</div>
+                        <div className="text-xs text-espresso/70">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         {chooseViaMap ? (
@@ -837,7 +837,7 @@ export default function Checkout() {
               <h3 className="font-serif text-lg text-espresso">Identificar Assento</h3>
             </div>
             <p className="text-xs text-espresso/70 font-medium">
-              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: {occupantModal.price > 0 ? `${brl(occupantModal.price)} + taxa ${brl(calcularTaxa(occupantModal.price).taxa)} = ${brl(calcularTaxa(occupantModal.price).total)}` : 'Gratuito'}).
+              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: {textoPreco(ticketTypes.find(t => t.id === occupantModal.ticketTypeId)?.price ?? occupantModal.price)}).
             </p>
             <div>
               <label htmlFor="modal-occ-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Nome do Ocupante</label>

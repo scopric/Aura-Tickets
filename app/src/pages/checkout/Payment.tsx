@@ -124,7 +124,7 @@ export default function CheckoutPayment() {
   }
 
   const handlePay = async () => {
-    if (!eventId || !cart || !totalAmount || !itemsSummary) {
+    if (!eventId || !cart || !resumo.total || !itemsSummary) {
       toast.error('Detalhes do pedido inválidos.')
       return
     }

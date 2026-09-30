@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularTaxa, resumoCarrinho } from '../lib/taxa'
+import { calcularTaxa, resumoCarrinho, textoPreco } from '../lib/taxa'
 
 describe('calcularTaxa (10%, mínimo de R$ 3 por ingresso, gratuito sem taxa)', () => {
   it('gratuito não tem taxa', () => {
@@ -37,5 +37,14 @@ describe('resumoCarrinho', () => {
   })
   it('carrinho vazio', () => {
     expect(resumoCarrinho([])).toEqual({ subtotal: 0, taxa: 0, total: 0 })
+  })
+})
+
+describe('textoPreco', () => {
+  it('preço, taxa e total discriminados; gratuito sem taxa', () => {
+    const t = (s: string) => s.replace(/\u00a0/g, ' ')
+    expect(t(textoPreco(50))).toBe('R$ 50,00 + taxa R$ 5,00 = R$ 55,00')
+    expect(t(textoPreco(19.9, 3))).toBe('R$ 59,70 + taxa R$ 9,00 = R$ 68,70')
+    expect(textoPreco(0)).toBe('Gratuito')
   })
 })

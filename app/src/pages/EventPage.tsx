@@ -6,7 +6,7 @@ import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePublicEvent } from '../hooks/useEvents'
 import CollectiveTableCard from '../components/CollectiveTableCard'
-import { calcularTaxa, resumoCarrinho, brl } from '../lib/taxa'
+import { calcularTaxa, resumoCarrinho, brl, textoPreco } from '../lib/taxa'
 import { toast } from 'sonner'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -571,7 +571,7 @@ export default function EventPage() {
                           </div>
                           <span className="text-cream/70 text-sm">
                             {ticket.price > 0
-                              ? `${brl(resumoCarrinho([{ preco: ticket.price, qtd: cart[ticket.id] }]).total)} (taxa ${brl(resumoCarrinho([{ preco: ticket.price, qtd: cart[ticket.id] }]).taxa)})`
+                              ? textoPreco(ticket.price, cart[ticket.id])
                               : 'Gratuito'}
                           </span>
                         </div>
@@ -606,7 +606,7 @@ export default function EventPage() {
             <span className="text-cream/70">|</span>
             <span className="text-cream font-medium">
               {brl(cartResumo.total)}
-              {cartResumo.taxa > 0 && <span className="text-cream/60 text-xs font-normal"> · taxa {brl(cartResumo.taxa)} inclusa</span>}
+              {cartResumo.taxa > 0 && <span className="text-cream/60 text-xs font-normal"> ({brl(cartResumo.subtotal)} + taxa {brl(cartResumo.taxa)})</span>}
             </span>
             <button 
               onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}
