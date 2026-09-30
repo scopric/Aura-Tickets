@@ -70,8 +70,8 @@ VITE_GA_MEASUREMENT_ID=G-XXXXXXXXXX   # opcional: Google Analytics 4; sem ela o 
 
 ## Banco de dados (Supabase)
 
-O schema vive em `supabase/migrations/`. Aplique as migrations no seu projeto Supabase
-(via Supabase CLI ou colando no SQL Editor, em ordem). Os tipos TypeScript do banco ficam
+As migrations antigas estão arquivadas em `docs/archive/migrations-antigas/` e **não** devem ser
+aplicadas (motivo no README de lá); SQL novo fica em `docs/sql/`. Os tipos TypeScript do banco ficam
 em `app/src/types/database.ts` e devem ser mantidos em sincronia com o schema.
 
 ## Deploy (Vercel)
@@ -83,4 +83,4 @@ em `app/src/types/database.ts` e devem ser mantidos em sincronia com o schema.
   e Google Analytics 4 (`VITE_GA_MEASUREMENT_ID` só em Production; carrega apenas após o consentimento
   de cookies analíticos, com `page_view` manual por rota — na medição aprimorada do GA4, desligue
   "alterações de página com base em eventos do histórico do navegador" para não contar em dobro).
-- `app/vercel.json` já contém os rewrites de SPA. Detalhes em `app/DEPLOY.md`.
+- `app/vercel.json` já contém os rewrites de SPA. A Vercel publica sozinha a cada merge no `main` (integração do Git).

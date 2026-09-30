@@ -5,7 +5,7 @@
 --
 -- Origem: app/src/lib/tracking.ts grava em user_activities a cada página (com consentimento
 -- de cookies analíticos) e as telas de admin (Analytics, Users, AdminSettings) leem dela.
--- A tabela nunca existiu no banco: a migration supabase/migrations/00000000000008_user_tracking_system.sql
+-- A tabela nunca existiu no banco: a migration docs/archive/migrations-antigas/raiz/00000000000008_user_tracking_system.sql
 -- (raiz do repositório) não foi aplicada, e cada página gerava um erro no console.
 -- Base: essa migration, com quatro ajustes:
 --   - INSERT só com user_id nulo ou igual ao próprio usuário (ninguém grava em nome de outro);

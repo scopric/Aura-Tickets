@@ -87,7 +87,7 @@ Acesse a URL do deploy e verifique:
 
 1. [ ] A página carrega sem tela branca
 2. [ ] O console do navegador não mostra erro de env vars
-3. [ ] O login funciona (teste com `produtor@aura.teste` / `senha123`)
+3. [ ] O login funciona (teste com um usuário seu)
 4. [ ] O dashboard do produtor carrega corretamente
 
 ---

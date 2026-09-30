@@ -22,7 +22,7 @@ async function run() {
   console.log('================================================================');
   
   // 1. Obter o Token de Acesso Pessoal (Supabase Personal Access Token)
-  let token = process.argv[2] || process.env.SUPABASE_ACCESS_TOKEN;
+  let token = process.env.SUPABASE_ACCESS_TOKEN;
   if (!token) {
     console.log('\nPara rodar esta automação, você precisa gerar um Token de Acesso Pessoal do Supabase.');
     console.log('Acesse: https://supabase.com/dashboard/account/tokens e crie um token.');
