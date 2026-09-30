@@ -12,10 +12,6 @@ export default function AuthPasswordStrength({ password, confirmPassword }: Pass
 
   const requirements = [
     { key: 'minLength' as const, label: `Mínimo ${PASSWORD_MIN} caracteres` },
-    { key: 'hasLowercase' as const, label: 'Pelo menos 1 letra minúscula' },
-    { key: 'hasUppercase' as const, label: 'Pelo menos 1 letra maiúscula' },
-    { key: 'hasNumber' as const, label: 'Pelo menos 1 número' },
-    { key: 'hasSpecial' as const, label: 'Pelo menos 1 símbolo do teclado (!@#$%); acento e espaço não contam' },
   ]
 
   const passwordsMatch = confirmPassword !== undefined && password === confirmPassword && password.length > 0

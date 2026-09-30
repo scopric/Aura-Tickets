@@ -175,7 +175,8 @@ export default function AuthLogin() {
 
         // Papel real: profiles.role, carregado pelo fetchProfile dentro do login()
         const realRole = useAuthStore.getState().user?.role
-        const blocked = realRole && blockedMessage(realRole)
+        // Sem papel (perfil não carregou) não entra: fecha em erro
+        const blocked = realRole ? blockedMessage(realRole) : 'Não foi possível confirmar o acesso desta conta. Tente de novo.'
         if (blocked) {
           await clearSession()
           setError(blocked)

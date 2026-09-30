@@ -136,47 +136,62 @@ function ProtectedRoute({
   allowedRoles: AllowedRole[];
   requiredPermission?: string;
 }) {
-  const { isAuthenticated, role, user } = useAuth()
+  const { isAuthenticated, isLoading, role, user } = useAuth()
   const location = useLocation()
-  const [checkingMfa, setCheckingMfa] = useState(true)
-  const [mfaRequired, setMfaRequired] = useState(false)
+  // Fecha em erro: sem confirmar o nível do 2FA a rota não abre.
+  const [mfa, setMfa] = useState<'checking' | 'ok' | 'required' | 'error'>('checking')
+  const [mfaAttempt, setMfaAttempt] = useState(0)
 
   useEffect(() => {
-    async function checkMfa() {
-      if (isAuthenticated) {
-        try {
-          const { data, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
-          if (!error && data) {
-            if (data.nextLevel === 'aal2' && data.currentLevel === 'aal1') {
-              setMfaRequired(true)
-            }
-          }
-        } catch (err) {
-          console.error('[ProtectedRoute] Erro ao verificar MFA:', err)
-        }
-      }
-      setCheckingMfa(false)
-    }
-    checkMfa()
-  }, [isAuthenticated])
+    if (isLoading || !isAuthenticated) return
+    let cancelled = false
+    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      .then(({ data, error }) => {
+        if (error || !data) throw error ?? new Error('Nível de autenticação indisponível')
+        if (!cancelled) setMfa(data.nextLevel === 'aal2' && data.currentLevel === 'aal1' ? 'required' : 'ok')
+      })
+      .catch((err) => {
+        console.error('[ProtectedRoute] Erro ao verificar MFA:', err)
+        if (!cancelled) setMfa('error')
+      })
+    return () => { cancelled = true }
+  }, [isLoading, isAuthenticated, mfaAttempt])
+
+  const spinner = (
+    <div className="min-h-screen bg-canvas flex items-center justify-center">
+      <Loader2 className="w-8 h-8 animate-spin text-plum" />
+    </div>
+  )
+
+  if (isLoading) return spinner
 
   if (!isAuthenticated) {
     return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
   }
 
-  if (checkingMfa) {
+  if (mfa === 'checking') return spinner
+
+  // Sem redirecionar: mandar para o login aqui já causou loop.
+  if (mfa === 'error') {
     return (
-      <div className="min-h-screen bg-canvas flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-plum" />
+      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-espresso">Não foi possível confirmar sua sessão.</p>
+        <button onClick={() => { setMfa('checking'); setMfaAttempt((n) => n + 1) }} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
+          Tentar de novo
+        </button>
       </div>
     )
   }
 
-  if (mfaRequired) {
+  if (mfa === 'required') {
     return <Navigate to="/auth/login" state={{ from: location.pathname, mfaRequired: true }} replace />
   }
 
-  if (role && !allowedRoles.includes(role)) {
+  // Papel nulo nega. Vai para o login (que não age sem papel), e não para o /app/hub: com papel nulo o
+  // /app/hub negaria de novo e redirecionaria para si mesmo (loop).
+  if (!role) return <Navigate to="/auth/login" replace />
+
+  if (!allowedRoles.includes(role)) {
     // No alpha não existem painéis de outros papéis: redirecionar para eles cairia no catch-all e voltaria aqui (loop).
     // O login recusa a sessão com "Acesso restrito."
     if (appMode === 'admin') return <Navigate to="/auth/login" replace />
