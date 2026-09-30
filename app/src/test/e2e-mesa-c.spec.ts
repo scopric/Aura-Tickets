@@ -51,23 +51,32 @@ async function mockEventos(page: Page, eventos: object[] = [EVENTO_ROW]) {
 
 // A conta demo de admin não tem moderate_mesa nem super_admin: acrescenta na lista fixa dela
 // (stores/authStore.ts, só em DEV) ao servir o módulo, sem mudar o app.
+// A falha fica numa variável e o expect sai fora do handler (erro dentro do handler some no log da rota).
 async function permissoesDemo(page: Page, extras: string[]) {
+  const estado = { trocado: false, falha: '' }
   await page.route('**/src/stores/authStore.ts*', async (route) => {
     const r = await route.fetch()
     const texto = await r.text()
     const novo = texto.replace(/\[(["'])manage_users\1/, (m) => `[${extras.map((e) => JSON.stringify(e)).join(', ')}, ${m.slice(1)}`)
-    if (novo === texto) throw new Error('lista de permissões da conta demo não encontrada em authStore.ts')
+    if (novo === texto) estado.falha = 'lista de permissões da conta demo não encontrada em authStore.ts'
+    else estado.trocado = true
     await route.fulfill({ response: r, body: novo })
   })
+  return estado
 }
 
+// extras vazio = a conta demo como ela é (sem moderate_mesa)
 async function entrarAdmin(page: Page, extras: string[]) {
-  await permissoesDemo(page, extras)
+  const estado = extras.length ? await permissoesDemo(page, extras) : null
   await page.goto(`${ALPHA}/auth/login`)
   await page.getByPlaceholder('seu@email.com').fill('admin@aura.teste')
   await page.getByPlaceholder('Sua senha').fill('senha123')
   await page.getByRole('button', { name: /Entrar/ }).first().click()
   await page.waitForURL((u) => !u.toString().includes('/auth/login'), { timeout: 20000 })
+  if (estado) {
+    expect(estado.falha).toBe('')
+    expect(estado.trocado).toBe(true)
+  }
 }
 
 async function entrarProdutor(page: Page) {
@@ -90,11 +99,12 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
       { id: 'u1', nome: 'Ana Souza', foto: FOTO, hash: 'h-ana', situacao: 'pendente' },
       { id: 'u2', nome: 'Bruno Lima', foto: FOTO, hash: 'h-bruno', situacao: 'revisar' },
       { id: 'u3', nome: 'Carla Dias', foto: 'https://exemplo.invalido/foto.jpg', hash: 'h-carla', situacao: 'pendente' },
+      { id: 'u4', nome: 'Dora Reis', foto: FOTO, hash: 'h-dora', situacao: 'pendente' },
     ]
     const chamadas = await mockRpc(page, {
       mesa_fotos_para_revisar: () => ({ json: fila }),
       mesa_foto_decidir: (b) => {
-        if (b.p_hash === 'h-carla') return { json: false } // a pessoa trocou a foto depois da fila
+        if (b.p_hash === 'h-dora') return { json: false } // a pessoa trocou a foto depois da fila
         fila = fila.filter((f) => f.id !== b.p_user)
         return { json: true }
       },
@@ -119,13 +129,17 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await linha('Bruno Lima').getByRole('button', { name: 'Recusar' }).click()
     await expect(page.getByText('Foto recusada.')).toBeVisible()
 
-    await linha('Carla Dias').getByRole('button', { name: 'Aprovar' }).click()
+    // fora do formato do app: não aprova, só recusa
+    await expect(linha('Carla Dias').getByRole('button', { name: 'Aprovar' })).toBeDisabled()
+    await expect(linha('Carla Dias').getByRole('button', { name: 'Recusar' })).toBeEnabled()
+
+    await linha('Dora Reis').getByRole('button', { name: 'Aprovar' }).click()
     await expect(page.getByText('A pessoa trocou a foto; atualize a lista.')).toBeVisible()
 
     expect(chamadas.filter((c) => c.nome === 'mesa_foto_decidir').map((c) => c.body)).toEqual([
       { p_user: 'u1', p_hash: 'h-ana', p_aprovada: true },
       { p_user: 'u2', p_hash: 'h-bruno', p_aprovada: false },
-      { p_user: 'u3', p_hash: 'h-carla', p_aprovada: true },
+      { p_user: 'u4', p_hash: 'h-dora', p_aprovada: true },
     ])
   })
 
@@ -200,6 +214,12 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await expect(alerta).toBeVisible()
     await expect(alerta.getByRole('button', { name: 'Ativar o 2FA agora' })).toBeVisible()
   })
+
+  test('42501 "Acesso negado" mostra a falta de permissão', async ({ page }) => {
+    await mockRpc(page, { mesa_fotos_para_revisar: () => erro('42501', 'Acesso negado') })
+    await page.goto(`${ALPHA}/admin/match-de-mesa`)
+    await expect(page.getByRole('alert').filter({ hasText: /^Sem permissão: só o produtor do evento/ })).toBeVisible()
+  })
 })
 
 test('admin — Equipe mostra a permissão "Moderar Match de Mesa"', async ({ page }) => {
@@ -211,6 +231,15 @@ test('admin — Equipe mostra a permissão "Moderar Match de Mesa"', async ({ pa
   await page.getByText('Moderadora Teste').click()
   await expect(page.getByText('Moderar Match de Mesa')).toBeVisible()
   await expect(page.getByText('Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.')).toBeVisible()
+})
+
+test('admin sem moderate_mesa: sem item no menu e a rota volta ao dashboard', async ({ page }) => {
+  await entrarAdmin(page, [])
+  await page.goto(`${ALPHA}/admin/dashboard`)
+  await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible()
+  await expect(page.getByRole('link', { name: /Match de Mesa/ })).toHaveCount(0)
+  await page.goto(`${ALPHA}/admin/match-de-mesa`)
+  await expect(page).toHaveURL(/\/admin\/dashboard$/)
 })
 
 test.describe('produtor — Match de Mesa no evento', () => {
@@ -239,6 +268,10 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await expect(painel.getByText(/quem já escolheu a mesa fica nela, e os demais completam as mesas com vaga/)).toBeVisible()
 
     await painel.getByRole('button', { name: 'Formar mesas agora' }).click()
+    await painel.getByRole('button', { name: 'Cancelar' }).click()
+    expect(chamadas.some((c) => c.nome === 'formar_mesas')).toBe(false)
+    await painel.getByRole('button', { name: 'Formar mesas agora' }).click()
+    await painel.getByRole('button', { name: 'Confirmar formação' }).click()
     await expect(page.getByText('3 pessoas entraram nas mesas.')).toBeVisible()
 
     await expect(painel.getByRole('heading', { name: /^Mesa 1/ })).toBeVisible()
@@ -286,5 +319,26 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await expect(page.getByText('Editar Evento')).toBeVisible()
     await expect(page.getByRole('region', { name: 'Match de Mesa' })).toHaveCount(0)
     expect(chamadas).toEqual([])
+  })
+
+  test('evento de outro produtor não mostra o painel', async ({ page }) => {
+    await page.unroute('**/rest/v1/events?*')
+    await mockEventos(page, [{ ...EVENTO_ROW, producer_id: 'f0000000-0000-4000-8000-00000000000f' }])
+    const chamadas = await mockRpc(page, { mesas_do_evento: [], mesa_denuncias_do_evento: [] })
+    await page.goto(`/producer/events/${EVENTO}/edit`)
+    await expect(page.getByText('Editar Evento')).toBeVisible()
+    await expect(page.getByRole('region', { name: 'Match de Mesa' })).toHaveCount(0)
+    expect(chamadas).toEqual([])
+  })
+
+  test('42501 "Acesso negado" vira mensagem de permissão, não "entre de novo"', async ({ page }) => {
+    await mockRpc(page, {
+      mesas_do_evento: () => erro('42501', 'Acesso negado'),
+      mesa_denuncias_do_evento: () => erro('42501', 'Acesso negado'),
+    })
+    await page.goto(`/producer/events/${EVENTO}/edit`)
+    const painel = page.getByRole('region', { name: 'Match de Mesa' })
+    await expect(painel.getByRole('alert').first()).toHaveText(/^Sem permissão: só o produtor do evento/)
+    await expect(painel.getByText(/Entre de novo/)).toHaveCount(0)
   })
 })

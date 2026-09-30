@@ -3,30 +3,26 @@ import { Loader2, Users, Flag } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useMesasDoEvento, useFormarMesas, useRemoverMembro, useMesaDenuncias, erroMesaAdmin,
-  MOTIVO_DENUNCIA, MOTIVO_REMOCAO, type DenunciaProdutor, type MotivoRemocao,
+  MOTIVO_REMOCAO, type MotivoRemocao,
 } from '../../hooks/useMesaAdmin'
+import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 
 // Match de Mesa no evento do produtor: formar as mesas, ver quem senta onde (nome completo e
 // ingresso), remover alguém da mesa (o banco trava a pessoa no evento) e ver as denúncias que a
-// moderação liberou (só denunciado, motivo e mesa). Só aparece em evento com ingresso "coletiva".
-interface Props {
-  eventId: string
-  ticketTypes?: { type: string }[] | null
-}
+// moderação liberou (só denunciado, motivo e mesa). Quem monta decide quando aparece: só para o dono
+// do evento e só em evento com ingresso "coletiva".
 
 const botao = 'px-3 py-1.5 rounded-full text-xs font-medium transition-all disabled:opacity-50'
 
-export default function MatchDeMesaPanel({ eventId, ticketTypes }: Props) {
-  const temMesa = !!ticketTypes?.some(t => t.type === 'coletiva')
-  const mesas = useMesasDoEvento(eventId, temMesa)
-  const denuncias = useMesaDenuncias<DenunciaProdutor>(eventId, temMesa)
+export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
+  const mesas = useMesasDoEvento(eventId)
+  const denuncias = useMesaDenuncias('produtor', eventId)
   const formar = useFormarMesas(eventId)
   const remover = useRemoverMembro(eventId)
   const [removendo, setRemovendo] = useState<string | null>(null)
   const [motivo, setMotivo] = useState<MotivoRemocao | ''>('')
   const [detalhe, setDetalhe] = useState('')
-
-  if (!temMesa) return null
+  const [confirmarFormar, setConfirmarFormar] = useState(false)
 
   // O banco aceita detalhe de 3 a 500 caracteres e o exige em "outro"
   const d = detalhe.trim()
@@ -51,16 +47,29 @@ export default function MatchDeMesaPanel({ eventId, ticketTypes }: Props) {
             As mesas se formam sozinhas 24 h antes do evento. Formar agora: quem já escolheu a mesa fica nela, e os demais completam as mesas com vaga.
           </p>
         </div>
-        <button
-          onClick={() => formar.mutate(undefined, {
-            onSuccess: n => toast.success(n === 1 ? '1 pessoa entrou nas mesas.' : `${n} pessoas entraram nas mesas.`),
-            onError: e => toast.error(erroMesaAdmin(e)),
-          })}
-          disabled={formar.isPending}
-          className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
-        >
-          {formar.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />} Formar mesas agora
-        </button>
+        {confirmarFormar ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-espresso/70">Quem ainda não tem mesa entra agora. Confirma?</span>
+            <button
+              onClick={() => formar.mutate(undefined, {
+                onSuccess: n => { setConfirmarFormar(false); toast.success(n === 1 ? '1 pessoa entrou nas mesas.' : `${n} pessoas entraram nas mesas.`) },
+                onError: e => toast.error(erroMesaAdmin(e)),
+              })}
+              disabled={formar.isPending}
+              className={`${botao} flex items-center gap-1.5 bg-plum text-cream`}
+            >
+              {formar.isPending && <Loader2 className="w-3.5 h-3.5 animate-spin" />} Confirmar formação
+            </button>
+            <button onClick={() => setConfirmarFormar(false)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmarFormar(true)}
+            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
+          >
+            <Users className="w-4 h-4" /> Formar mesas agora
+          </button>
+        )}
       </div>
 
       {mesas.isLoading ? (
@@ -80,7 +89,7 @@ export default function MatchDeMesaPanel({ eventId, ticketTypes }: Props) {
                   <li key={p.ingresso} className="text-xs text-espresso">
                     <div className="flex items-center justify-between gap-2">
                       <span>
-                        {p.nome || 'Sem nome'}
+                        {p.nome}
                         <span className="text-espresso/70 font-mono ml-2" title={p.ingresso}>ingresso {p.ingresso.slice(0, 8)}</span>
                       </span>
                       {removendo !== p.ingresso && (

@@ -6,27 +6,34 @@ import { useTwoFactor } from '../../hooks/useTwoFactor'
 import {
   useFotosParaRevisar, useFotoDecidir, useMesaDenuncias, useDenunciaStatus, useDenunciaLiberar,
   useMesaTravas, useMesaDestravar, erroMesaAdmin, precisa2fa,
-  STATUS_DENUNCIA, MOTIVO_DENUNCIA, MOTIVO_REMOCAO, type StatusDenuncia,
+  STATUS_DENUNCIA, MOTIVO_REMOCAO, type StatusDenuncia,
 } from '../../hooks/useMesaAdmin'
+import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 
 // Moderação do Match de Mesa (permissão moderate_mesa; o banco exige também a sessão com 2FA).
 type Aba = 'fotos' | 'denuncias' | 'remocoes'
 
 const dataBr = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 const cartao = 'p-4 rounded-xl bg-white/40 border border-white/60'
+// só a foto que o app grava vira <img> e pode ser aprovada; outra coisa só pode ser recusada
+const jpeg = (foto: string) => foto.startsWith('data:image/jpeg;base64,')
 const botao = 'px-3 py-1.5 rounded-full text-xs font-medium transition-all disabled:opacity-50'
 
 type Mfa = ReturnType<typeof useTwoFactor>
 
 // Sessão sem 2FA: o banco recusa toda a moderação (42501 "Ative o 2FA para moderar")
-function Erro({ err, mfa }: { err: unknown; mfa: Mfa }) {
+function Erro({ err, mfa, onRetry }: { err: unknown; mfa: Mfa; onRetry: () => void }) {
   return (
     <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
       {precisa2fa(err) ? (
         <>
           Ative o 2FA para moderar.{' '}
           {mfa.enabled ? (
-            'Com o 2FA ativo, recarregue a página; se continuar, saia e entre de novo digitando o código.'
+            // depois de ativar pelo modal a sessão já é aal2: basta pedir a lista de novo
+            <>
+              <button onClick={onRetry} className="underline font-medium">Tentar de novo</button>
+              {' '}(se continuar, saia e entre de novo digitando o código).
+            </>
           ) : (
             <button onClick={mfa.toggle} disabled={mfa.loading} className="underline font-medium">Ativar o 2FA agora</button>
           )}
@@ -66,6 +73,8 @@ export default function AdminMatchDeMesa() {
       </nav>
 
       {aba !== 'fotos' && (
+        // ponytail: denúncia só por evento escolhido; falta no SQL uma fila geral das abertas (todos os
+        // eventos) para o moderador não precisar procurar evento a evento. Pendência.
         <label className="block mb-6 max-w-md">
           <span className="text-xs font-medium text-espresso/70 mb-1.5 block">Evento</span>
           <select value={eventId} onChange={e => setEventId(e.target.value)}
@@ -100,7 +109,7 @@ function Fotos({ mfa }: { mfa: Mfa }) {
   }
 
   if (fila.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
-  if (fila.isError) return <Erro err={fila.error} mfa={mfa} />
+  if (fila.isError) return <Erro err={fila.error} mfa={mfa} onRetry={() => fila.refetch()} />
   const itens = fila.data ?? []
 
   return (
@@ -115,7 +124,7 @@ function Fotos({ mfa }: { mfa: Mfa }) {
       {itens.map(f => (
         <div key={f.id} className={`${cartao} flex items-center gap-4`}>
           {/* só a foto que o app grava (base64 JPEG); qualquer outra coisa não vira <img> */}
-          {f.foto.startsWith('data:image/jpeg;base64,')
+          {jpeg(f.foto)
             ? <img src={f.foto} alt={`Foto de ${f.nome ?? 'perfil'}`} className="w-20 h-20 rounded-xl object-cover" />
             : <div className="w-20 h-20 rounded-xl bg-espresso/5 flex items-center justify-center text-[10px] text-espresso/70 text-center">formato não aceito</div>}
           <div className="flex-1 min-w-0">
@@ -125,7 +134,7 @@ function Fotos({ mfa }: { mfa: Mfa }) {
             </span>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => decide(f.id, f.hash, true)} disabled={decidir.isPending} className={`${botao} bg-plum text-cream hover:shadow-glow`}>Aprovar</button>
+            <button onClick={() => decide(f.id, f.hash, true)} disabled={decidir.isPending || !jpeg(f.foto)} className={`${botao} bg-plum text-cream hover:shadow-glow`}>Aprovar</button>
             <button onClick={() => decide(f.id, f.hash, false)} disabled={decidir.isPending} className={`${botao} border border-red-200 text-red-500 hover:bg-red-50`}>Recusar</button>
           </div>
         </div>
@@ -135,13 +144,13 @@ function Fotos({ mfa }: { mfa: Mfa }) {
 }
 
 function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
-  const lista = useMesaDenuncias(eventId)
+  const lista = useMesaDenuncias('moderador', eventId)
   const mudarStatus = useDenunciaStatus()
   const liberar = useDenunciaLiberar()
   const [confirmar, setConfirmar] = useState<string | null>(null)
 
   if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
-  if (lista.isError) return <Erro err={lista.error} mfa={mfa} />
+  if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
   const itens = lista.data ?? []
 
   return (
@@ -199,7 +208,7 @@ function Remocoes({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   const [confirmar, setConfirmar] = useState<string | null>(null)
 
   if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
-  if (lista.isError) return <Erro err={lista.error} mfa={mfa} />
+  if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
   const itens = lista.data ?? []
 
   return (

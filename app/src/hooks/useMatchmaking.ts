@@ -89,6 +89,14 @@ export interface MesaAviso {
 
 export type MotivoDenuncia = 'assedio' | 'perfil_falso' | 'conteudo_improprio' | 'outro'
 
+// Rótulos da lista fechada (CHECK de mesa_denuncias): participante, produtor e moderador
+export const MOTIVO_DENUNCIA: Record<MotivoDenuncia, string> = {
+  assedio: 'Assédio',
+  perfil_falso: 'Perfil falso',
+  conteudo_improprio: 'Conteúdo impróprio',
+  outro: 'Outro motivo',
+}
+
 // ============================================================
 // Erros do banco em texto para a pessoa
 // ============================================================
