@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
+import { validarContato, validarEmail } from "../_shared/validar.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -274,12 +275,10 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
   `;
 }
 
-// Função auxiliar para disparar o e-mail real ou simular
+// Sem modo "demo": sem chave não há envio, e quem chama responde 503 (ver MANDA_EMAIL abaixo). Fingir
+// envio fazia a tela dizer "enviado" sem ninguém receber nada.
 async function sendMail(to: string, subject: string, html: string, from: string) {
-  if (!RESEND_API_KEY) {
-    console.log(`[DEMO EMAIL] Para: ${to} | Assunto: ${subject}`);
-    return { id: "demo-" + crypto.randomUUID(), demo: true };
-  }
+  if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY ausente");
 
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -300,8 +299,38 @@ async function sendMail(to: string, subject: string, html: string, from: string)
   return data;
 }
 
+// Tipos que só existem para mandar e-mail: sem RESEND_API_KEY, 503 antes de qualquer efeito (inclusive
+// antes de marcar a flag do boas-vindas). `contact` grava a mensagem mesmo assim; `newsletter_subscribe` e
+// `unsubscribe` não mandam e-mail.
+const MANDA_EMAIL = ["welcome", "signup_notification", "newsletter", "order_confirmation", "ticket_delivery"];
+
+// Canais públicos sem login (contato e inscrição na newsletter): 5 chamadas a cada 10 minutos por IP,
+// contadas juntas na mesma tabela. Sem IP identificável não há como limitar, então recusa.
+// Registra ANTES de contar (a própria chamada entra na conta): contar e depois gravar deixava uma rajada
+// em paralelo passar inteira pela contagem. Tentativa recusada também conta, e prolonga o bloqueio.
+// Devolve a resposta de recusa, ou null para seguir.
+async function limitarPorIp(req: Request, supabaseAdmin: ReturnType<typeof createClient>, json: (b: unknown, s?: number) => Response) {
+  const ip = clientIp(req.headers);
+  if (!ip) return json({ error: "Não foi possível identificar a origem da requisição." }, 400);
+  const { error: hitError } = await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
+  const since = new Date(Date.now() - 10 * 60_000).toISOString();
+  const { count, error } = hitError ? { count: null, error: hitError } : await supabaseAdmin
+    .from("contact_rate_limit_hits")
+    .select("id", { count: "exact", head: true })
+    .eq("ip", ip)
+    .gte("created_at", since);
+  if (error) {
+    console.error("[limite por IP] falhou:", error.message);
+    return json({ error: "Não foi possível processar agora. Tente de novo." }, 500);
+  }
+  if ((count ?? 0) > 5) return json({ error: "Muitas tentativas. Tente de novo em alguns minutos." }, 429);
+  return null;
+}
+
 serve(async (req) => {
   const cors = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: cors });
   }
@@ -328,6 +357,10 @@ serve(async (req) => {
       from = "Evokaa Eventos <contato@evokaa.com.br>";
     } else {
       from = "Evokaa <contato@evokaa.com.br>";
+    }
+
+    if (!RESEND_API_KEY && MANDA_EMAIL.includes(emailType)) {
+      return json({ error: "Envio de e-mail indisponível no momento." }, 503);
     }
 
     // O branch de webhook de `orders` (que existia numa versão anterior deste arquivo) foi
@@ -412,64 +445,79 @@ serve(async (req) => {
         // corrida que reservar depois de enviar (uma rajada em paralelo derruba a marcação de
         // todo mundo antes de qualquer envio terminar). Um boas-vindas que falhe simplesmente
         // não é reenviado — aceitável para um e-mail de cortesia.
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 400,
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
+        console.error(`[${emailType}] envio falhou:`, e.message);
+        return json({ error: "Não foi possível enviar o e-mail." }, 502);
       }
     }
 
     // FORMULÁRIO DE CONTATO (emailType: 'contact') — canal público, sem login. Também não
     // aceita `html` pronto do cliente: só os campos estruturados do formulário, escapados e
     // montados no servidor; o destino é sempre TEAM_EMAIL, nunca `to` do corpo.
+    // A gravação em `contact_messages` é só daqui (service role, depois do limite e da validação):
+    // o visitante não tem mais INSERT direto na tabela (docs/sql/20261001_seg5_entrada_limites.sql).
     if (emailType === "contact") {
-      const { name, email, phone, message, subject: contactSubject } = payload;
-      if (!name || !email || !message) {
-        return new Response(JSON.stringify({ error: "Nome, e-mail e mensagem são obrigatórios." }), {
-          status: 400,
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
-      }
+      const v = validarContato(payload);
+      if (!v.ok) return json({ error: v.erro }, 400);
+      const c = v.dados;
 
-      // Limite de taxa por IP: canal público sem login, sem isso alguém gasta a cota da Resend
-      // chamando em loop. 5 mensagens a cada 10 minutos por IP.
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
       }
       const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-      const ip = clientIp(req.headers);
-      if (ip) {
-        const since = new Date(Date.now() - 10 * 60_000).toISOString();
-        const { count } = await supabaseAdmin
-          .from("contact_rate_limit_hits")
-          .select("id", { count: "exact", head: true })
-          .eq("ip", ip)
-          .gte("created_at", since);
-        if ((count ?? 0) >= 5) {
-          return new Response(JSON.stringify({ error: "Muitas mensagens enviadas. Tente de novo em alguns minutos." }), {
-            status: 429,
-            headers: { ...cors, "Content-Type": "application/json" },
-          });
-        }
-        await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
+      const recusa = await limitarPorIp(req, supabaseAdmin, json);
+      if (recusa) return recusa;
+
+      const { error: insertError } = await supabaseAdmin.from("contact_messages").insert({
+        name: c.name,
+        email: c.email,
+        phone: c.phone || null,
+        subject: c.subject || "Contato via site",
+        message: c.message,
+        page: c.page || null,
+      });
+      if (insertError) {
+        console.error("[contact] gravação falhou:", insertError.message);
+        return json({ error: "Não foi possível enviar a mensagem. Tente de novo." }, 500);
       }
 
+      // A mensagem já está gravada (a equipe vê no admin): falha do aviso por e-mail só vai para o log,
+      // senão a pessoa tentaria de novo e a mensagem entraria duplicada.
       try {
-        const mailRes = await sendMail(
+        await sendMail(
           TEAM_EMAIL,
-          `[Contato Site] ${contactSubject || "Nova Mensagem"} - ${name}`,
-          getContactHtml(String(name), String(email), phone ? String(phone) : "", String(message), contactSubject ? String(contactSubject) : ""),
+          `[Contato Site] ${c.subject || "Nova Mensagem"} - ${c.name}`,
+          getContactHtml(c.name, c.email, c.phone, c.message, c.subject),
           from
         );
-        return new Response(JSON.stringify({ success: true, ...mailRes }), {
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
       } catch (e) {
-        return new Response(JSON.stringify({ error: e.message }), {
-          status: 400,
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
+        console.error("[contact] aviso por e-mail falhou:", e.message);
       }
+      return json({ success: true });
+    }
+
+    // INSCRIÇÃO NA NEWSLETTER (emailType: 'newsletter_subscribe') — rodapé do site, sem login. Grava só
+    // pela função (visitante não tem INSERT na tabela). Mesma resposta exista ou não o e-mail: não revela
+    // quem já é assinante. Quem se descadastrou e se inscreve de novo continua descadastrado (a linha é a
+    // prova LGPD do opt-out); reativar fica para a dupla confirmação (plano N1).
+    if (emailType === "newsletter_subscribe") {
+      const email = validarEmail(payload.email);
+      if (!email) return json({ error: "Informe um e-mail válido." }, 400);
+
+      if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
+      }
+      const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const recusa = await limitarPorIp(req, supabaseAdmin, json);
+      if (recusa) return recusa;
+
+      // "on conflict do nothing" pelos dois índices únicos (email e lower(email)): o PostgREST só aceita
+      // coluna em on_conflict, não expressão, então a duplicata (23505) é tratada como sucesso aqui.
+      const { error: insertError } = await supabaseAdmin.from("newsletter_subscribers").insert({ email });
+      if (insertError && insertError.code !== "23505") {
+        console.error("[newsletter_subscribe] gravação falhou:", insertError.message);
+        return json({ error: "Não foi possível concluir a inscrição. Tente de novo." }, 500);
+      }
+      return json({ success: true, message: "Inscrição recebida" });
     }
 
     // DESCADASTRO DA NEWSLETTER (emailType: 'unsubscribe') — público, sem login. Chega por POST
@@ -521,18 +569,11 @@ serve(async (req) => {
     // institucional — mas o link de descadastro nunca vem do corpo: é sempre trocado aqui pelo
     // token real de cada assinante.
     if (emailType === "newsletter") {
-      const json = (body: unknown, status = 200) =>
-        new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
-
       const { campaignId } = payload;
       if (!campaignId) return json({ error: "campaignId é obrigatório." }, 400);
       if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         throw new Error("Variáveis de ambiente do Supabase não configuradas na Edge Function");
       }
-      // Sem chave, sendMail cai no modo demo e "envia" sem mandar nada: é exatamente o envio
-      // fingido que esta rota existe para acabar, então aqui é erro, não simulação.
-      if (!RESEND_API_KEY) return json({ error: "RESEND_API_KEY não configurada: envio de newsletter desligado." }, 500);
-
       const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
       const caller = await getCaller(req);
@@ -590,7 +631,7 @@ serve(async (req) => {
       // (o índice em lower(email) passa a impedir novas)
       const vistos = new Set<string>();
       let sentCount = 0;
-      const falhas: string[] = [];
+      let falhas = 0;
       for (const sub of (subscribers || [])) {
         const chave = String(sub.email).trim().toLowerCase();
         if (vistos.has(chave)) continue;
@@ -603,11 +644,12 @@ serve(async (req) => {
         try {
           await sendMail(chave, campaign.title, personalizedHtml, from);
           sentCount++;
-        } catch (e) {
-          falhas.push(chave);
-          console.error(`[newsletter] falha ao enviar para ${chave}:`, e.message);
+        } catch {
+          // sem o e-mail do assinante no log (nem a mensagem da Resend, que costuma repeti-lo)
+          falhas++;
         }
       }
+      if (falhas) console.error(`[newsletter] ${falhas} de ${vistos.size} envios falharam`);
 
       // Nenhum envio saiu (cota da Resend, chave inválida...): devolve a campanha a rascunho em
       // vez de deixá-la "enviada" para sempre sem ninguém ter recebido
@@ -622,7 +664,7 @@ serve(async (req) => {
         .eq("id", campaignId);
       if (finalError) console.error("[newsletter] envio feito, mas recipient_count não gravou:", finalError.message);
 
-      return json({ success: true, sentCount, total: vistos.size, failed: falhas.length });
+      return json({ success: true, sentCount, total: vistos.size, failed: falhas });
     }
 
     // ENVIO TRANSACIONAL UNITÁRIO MANUAL (orderId + emailType)
@@ -731,7 +773,7 @@ serve(async (req) => {
           order_id: orderId,
           email_type: emailType,
           recipient: recipientEmail,
-          status: mailRes.demo ? "simulated_demo" : "sent",
+          status: "sent",
           resend_id: mailRes.id
         });
 
@@ -750,11 +792,10 @@ serve(async (req) => {
       }
     }
 
-    throw new Error("Payload inválido. Envie um formato suportado.");
+    return json({ error: "Payload inválido. Envie um formato suportado." }, 400);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    // detalhe só no log: a mensagem crua pode trazer id de pedido, e-mail ou texto da Resend
+    console.error("[send-email] erro:", error?.message);
+    return json({ error: "Erro interno ao processar o e-mail." }, 500);
   }
 });
