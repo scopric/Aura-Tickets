@@ -8,13 +8,7 @@
 //   se estiver entre a criação da conta e agora.
 // Chamada: POST { terms_version, privacy_version } com o JWT do usuário. Só age sobre o dono do token.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+import { corsHeaders } from "../_shared/cors.ts"
 
 const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/
 const VERSION_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -37,7 +31,10 @@ export function clientIp(headers: Headers): { ip: string | null; forwarded_for: 
 const FIRST_VERSION = '2026-09-27'  // primeira versão publicada dos textos (app/src/lib/legal.ts); nada anterior é aceito
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { error: 'Método não permitido' })
 
   const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')

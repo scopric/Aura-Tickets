@@ -18,17 +18,14 @@
 // (text[]), producer_profiles.company_name, cnpj (único), bank_account e notification_settings
 // (jsonb), tickets.buyer_email. Por isso valores vazios, não nulos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
+import { corsHeaders } from "../_shared/cors.ts"
 import { mfaOk } from "../_shared/mfa.ts"
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
-
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { error: 'Método não permitido' })
 
   const url = Deno.env.get('SUPABASE_URL') ?? ''

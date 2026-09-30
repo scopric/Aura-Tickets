@@ -10,6 +10,7 @@
 // API: https://vercel.com/docs/analytics/web-analytics-api — dias agrupados em UTC;
 // plano Hobby guarda 1 mês.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { corsHeaders } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -20,13 +21,6 @@ const PROJETO = 'prj_7ftpPhffwLsJIX34AaGKOxbgRpL1'
 const TIME = 'team_Nox6jNrYUnDET3MIXC3tEj2p'
 const API = 'https://api.vercel.com/v1/query/web-analytics/visits'
 const DIAS: Record<string, number> = { '7d': 7, '30d': 30 }
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
 class VercelErro extends Error {
   constructor(public status: number) {
@@ -52,7 +46,10 @@ const top = (linhas: Linha[], chave: string) =>
   [...(linhas ?? [])].sort((a, b) => Number(a[chave] === 'Others') - Number(b[chave] === 'Others')).map(l => ({ nome: l[chave] === 'Others' ? 'Outros' : String(l[chave] ?? ''), visitantes: Number(l.visitors ?? 0), paginas: Number(l.pageviews ?? 0) }))
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  const cors = corsHeaders(req)
+  const json = (status: number, body: unknown) =>
+    new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: cors })
   if (req.method !== 'POST') return json(405, { ok: false, motivo: 'entrada_invalida' })
 
   const authorization = req.headers.get('Authorization') ?? ''
