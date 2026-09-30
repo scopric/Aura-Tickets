@@ -309,7 +309,7 @@ $$;
 --     roteiro do ingresso (1ª resposta do assunto com script) → cortesia (nenhum termo útil: não conta
 --     tentativa nem passa) → artigo confiável (busca exata; senão aproximada) → sem resposta: anota os
 --     termos da pergunta (mascarados), IA (3b) ou humano.
---     Confiável: 2+ termos na pergunta, 2+ achados no artigo, cobertura >= 0,6 e metade dos termos no
+--     Confiável: 2+ termos na pergunta, 2+ achados no artigo, cobertura >= 0,6 e mais da metade dos termos no
 --     título/palavras-chave; ou 1 termo só, achado no título/palavras-chave de um único artigo.
 --     ponytail: limiares e padrões fixos, calibrados no T12; mudar aqui se a base crescer.
 create or replace function public.chat_bot_responder(p_conv uuid, p_texto text)
@@ -406,7 +406,7 @@ begin
           v_com_titulo := v_com_titulo + 1;
         end if;
       end loop;
-      if v_id is not null and ((v_n >= 2 and v_acertos >= 2 and v_acertos >= 0.6 * v_n and v_no_titulo * 2 >= v_n)
+      if v_id is not null and ((v_n >= 2 and v_acertos >= 2 and v_acertos >= 0.6 * v_n and v_no_titulo * 2 > v_n)
                                or (v_n = 1 and v_no_titulo > 0 and v_com_titulo = 1)) then
         v_resposta := v_titulo || E'\n\n' || v_corpo;
         exit;
