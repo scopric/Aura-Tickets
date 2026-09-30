@@ -29,8 +29,11 @@ export default function EventsBrowse() {
         query = query.eq('category', category)
       }
 
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%,venue_name.ilike.%${search}%`)
+      // vírgula, parênteses, aspas e barra invertida quebram a sintaxe do .or() do PostgREST (% * _ são curingas do ilike):
+      // viram separadores, e as palavras se juntam com % ("Tardizinha, Bora" acha "Tardizinha Bora Dançar")
+      const termo = search.split(/[\s,()"\\%*_:]+/).filter(Boolean).join('%')
+      if (termo) {
+        query = query.or(`title.ilike.%${termo}%,description.ilike.%${termo}%,venue_name.ilike.%${termo}%`)
       }
 
       const { data, error } = await query.order('date', { ascending: true })
