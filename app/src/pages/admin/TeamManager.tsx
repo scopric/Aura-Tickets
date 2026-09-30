@@ -31,12 +31,14 @@ const PERMISSIONS = [
   { id: 'manage_support', label: 'Atendimento (chat)', desc: 'Responder as conversas do chat, fazer notas internas, atribuir, mudar setor e resolver.' },
   { id: 'manage_newsletter', label: 'Campanhas de Newsletter', desc: 'Criar, editar e disparar informativos para a base de e-mails.' },
   { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
-  { id: 'manage_team', label: 'Gerenciar Equipe Admin', desc: 'Permite adicionar novos membros e alterar permissões de outros admins.' },
+  { id: 'manage_team', label: 'Ver Equipe Admin', desc: 'Permite ver a equipe administrativa. Promover, rebaixar e alterar permissões é só do Super Admin.' },
 ]
 
 export default function AdminTeamManager() {
   const containerRef = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
+  // Só o super_admin promove, rebaixa e altera permissões (o banco garante: docs/sql/20260930_permissoes_admin.sql)
+  const canEdit = !!user?.admin_permissions?.includes('super_admin')
   
   // States
   const [admins, setAdmins] = useState<AdminProfile[]>([])
@@ -135,15 +137,17 @@ export default function AdminTeamManager() {
     try {
       const initialPerms = ['view_analytics'] // Permissão padrão inicial
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           role: 'admin',
           admin_permissions: initialPerms
         })
         .eq('id', foundUser.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('sem permissão para alterar este perfil')
       
       toast.success(`${foundUser.full_name || foundUser.email} promovido a Administrador!`)
       setFoundUser(null)
@@ -159,6 +163,7 @@ export default function AdminTeamManager() {
 
   // Open Permission Editor
   const handleEditPermissions = (admin: AdminProfile) => {
+    if (!canEdit || admin.id === user?.id) return // ninguém altera as próprias permissões
     setSelectedAdmin(admin)
     setSelectedPermissions(admin.admin_permissions || [])
   }
@@ -192,14 +197,16 @@ export default function AdminTeamManager() {
     }
     setIsSavingPermissions(true)
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           admin_permissions: selectedPermissions
         })
         .eq('id', selectedAdmin.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('sem permissão para alterar este perfil')
 
       toast.success('Permissões da equipe atualizadas com sucesso!')
       
@@ -232,15 +239,17 @@ export default function AdminTeamManager() {
     if (!confirm) return
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           role: 'user',
           admin_permissions: []
         })
         .eq('id', adminId)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('sem permissão para alterar este perfil')
 
       toast.success(`${name} rebaixado para Participante com sucesso.`)
       setAdmins(admins.filter(a => a.id !== adminId))
@@ -290,7 +299,7 @@ export default function AdminTeamManager() {
                     <div 
                       key={admin.id}
                       onClick={() => handleEditPermissions(admin)}
-                      className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-4 ${
+                      className={`p-4 rounded-xl border transition-all ${canEdit && admin.id !== user?.id ? 'cursor-pointer' : 'cursor-default'} flex items-center justify-between gap-4 ${
                         selectedAdmin?.id === admin.id
                           ? 'border-plum bg-plum/5 shadow-md'
                           : 'border-white bg-white/40 hover:bg-white/70 dark:hover:bg-white/10 shadow-sm'
@@ -420,6 +429,10 @@ export default function AdminTeamManager() {
                   <Trash2 className="w-3.5 h-3.5" /> Remover da Equipe
                 </button>
               </div>
+            </div>
+          ) : !canEdit ? (
+            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm text-xs text-espresso/70 leading-relaxed">
+              Somente o Super Admin promove, rebaixa e altera permissões da equipe.
             </div>
           ) : (
             /* Invite / Promote Box */

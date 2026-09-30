@@ -70,6 +70,8 @@ const availableFeatures = [
 
 export default function AdminUsers() {
   const { user: loggedInUser } = useAuth()
+  // Papel de admin só o super_admin muda (docs/sql/20260930_permissoes_admin.sql)
+  const souSuper = !!loggedInUser?.admin_permissions?.includes('super_admin')
   const ref = useRef<HTMLDivElement>(null)
   
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -405,11 +407,13 @@ export default function AdminUsers() {
 
       // 3. Papel por último (o gatilho do banco só deixa admin alterar role)
       if (roleChanged) {
-        const { error: profileError } = await supabase
+        const { data: alterado, error: profileError } = await supabase
           .from('profiles')
           .update({ role: editRole })
           .eq('id', selectedProfile.id)
+          .select('id')
         if (profileError) throw profileError
+        if (!alterado?.length) throw new Error('sem permissão para alterar o papel desta conta')
       }
 
       toast.success('Usuário atualizado com sucesso!')
@@ -681,14 +685,14 @@ export default function AdminUsers() {
                       <select 
                         value={editRole}
                         onChange={e => setEditRole(e.target.value as Profile['role'])}
-                        disabled={selectedProfile.id === loggedInUser?.id}
-                        title={selectedProfile.id === loggedInUser?.id ? 'Você não pode alterar o próprio papel' : undefined}
+                        disabled={selectedProfile.id === loggedInUser?.id || (selectedProfile.role === 'admin' && !souSuper)}
+                        title={selectedProfile.id === loggedInUser?.id ? 'Você não pode alterar o próprio papel' : selectedProfile.role === 'admin' && !souSuper ? 'Papel de admin: só o Super Admin altera (em Equipe)' : undefined}
                         className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700 disabled:opacity-50"
                       >
                         <option value="user">Participante</option>
                         <option value="producer">Produtor</option>
                         <option value="editor">Editor</option>
-                        <option value="admin">Administrador</option>
+                        {(souSuper || selectedProfile.role === 'admin') && <option value="admin">Administrador</option>}
                       </select>
                     </div>
 
