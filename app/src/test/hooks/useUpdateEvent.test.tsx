@@ -31,10 +31,10 @@ describe('useUpdateEvent grava só o que a tela mandou', () => {
     expect(await gravado({ status: 'ended' })).toEqual({ status: 'ended' })
   })
 
-  it('EditEvent: location vira venue_name; approval_status e location não vão ao banco', async () => {
+  it('EditEvent: approval_status e location não vão ao banco; venue_name vai', async () => {
     const payload = await gravado({
       title: 'Show', description: null, date: '2026-10-10', time: '20:00',
-      location: 'Arena', category: 'Música', status: 'published', approval_status: 'pending',
+      location: 'Arena', venue_name: 'Arena', category: 'Música', status: 'published', approval_status: 'pending',
       cover_image: '/c.jpg', image_url: '/c.jpg', capacity: 100,
     })
     expect(payload).toEqual({

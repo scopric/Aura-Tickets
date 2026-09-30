@@ -338,11 +338,10 @@ export function useUpdateEvent() {
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
 
-      // Lista branca: só grava a coluna que a tela mandou (location vale por venue_name).
-      // Chave ausente não é regravada: "Arquivar" manda só status e não apaga o resto;
-      // approval_status e afins ficam de fora (quem decide é o banco, F0a).
+      // Lista branca: só grava a coluna que a tela mandou. Chave ausente não é regravada:
+      // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins
+      // ficam de fora (moderação é do banco, F0a).
       const enviados = new Set(Object.keys(event))
-      if (enviados.has('location')) enviados.add('venue_name')
       const colunas = {
         title: event.title,
         subtitle: event.subtitle || null,
@@ -352,7 +351,7 @@ export function useUpdateEvent() {
         image_url: event.image_url || '/images/hero-bg.jpg',
         category: event.category || 'Outros',
         tags: event.tags || [],
-        venue_name: event.venue_name || event.location || null,
+        venue_name: event.venue_name || null,
         venue_address: event.venue_address || null,
         date: event.date || null,
         time: event.time || null,

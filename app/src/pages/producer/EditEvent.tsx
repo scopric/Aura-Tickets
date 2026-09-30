@@ -123,7 +123,7 @@ export default function ProducerEditEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success('Evento atualizado e enviado para aprovação!')
+      toast.success('Alterações salvas. Mudanças no conteúdo do evento voltam para a análise da equipe.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar evento')
