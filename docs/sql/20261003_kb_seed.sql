@@ -92,7 +92,7 @@ from (values
    null),
   ('lev-a20', 'Posso parcelar a compra?',
    'Ainda não. O parcelamento está em construção e não aparece na compra.',
-   'parcelar, parcelamento, vezes no cartão, sem juros, dividir pagamento', 'all', 'financeiro', 'published',
+   'parcelar, parcelamento, vezes no cartão, pagar parcelado, pagar em vezes, sem juros, dividir pagamento', 'all', 'financeiro', 'published',
    null),
   ('lev-a21', 'Posso usar um cupom de desconto na compra do ingresso?',
    'Ainda não. A compra ainda não tem campo de cupom. Quando os cupons de evento forem liberados, o próprio produtor do evento vai criá-los e divulgá-los.',
