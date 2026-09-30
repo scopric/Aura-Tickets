@@ -51,7 +51,7 @@ export default function CheckoutSuccess() {
   // a Fase 4 existir, o webhook do Pix insere tickets novos 'active' ao lado dos que o checkout já
   // criou 'cancelled' para o mesmo pedido — `every` ficaria preso em "Pedido registrado" mesmo pago.
   const ticketsActive = tickets.some(t => t.status === 'active')
-  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'collective_table' || t.ticket_types?.name?.toLowerCase().includes('mesa'))
+  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'coletiva')
 
   // Mapeamento dos ingressos agrupados por tipo para resumo do card
   const ticketSummary = tickets.reduce((acc, t) => {
@@ -157,7 +157,7 @@ export default function CheckoutSuccess() {
                     <div className="mt-4 p-3 rounded-xl bg-plum/10 border border-plum/20">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-plum" />
-                        <span className="text-xs text-cream/70">Seu matchmaking está em andamento</span>
+                        <span className="text-xs text-cream/70">Ingresso de mesa coletiva</span>
                       </div>
                     </div>
                   )}
@@ -206,34 +206,17 @@ export default function CheckoutSuccess() {
                   <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">
                     <Users className="w-8 h-8 text-plum" />
                   </div>
-                  <h3 className="font-serif text-2xl mb-2">Sua Mesa Está Sendo Montada</h3>
+                  <h3 className="font-serif text-2xl mb-2">Mesa coletiva</h3>
                   <p className="text-sm text-cream/70 mb-6 max-w-sm">
-                    Nosso algoritmo está analisando perfis de compatibilidade para formar 
-                    o grupo ideal para você. Em 48h você recebe seus colegas de mesa.
+                    A formação automática das mesas ainda não está disponível.
+                    {ticketsActive && ' Seu ingresso vale normalmente no evento.'}
                   </p>
-                  <div className="flex items-center gap-3 mb-6">
-                    {['Temperamento', 'Interesses', 'Vibe'].map((tag) => (
-                      <span key={tag} className="px-3 py-1.5 bg-white/5 text-cream/70 text-xs rounded-full border border-white/10 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-plum" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="w-full max-w-xs">
-                    <div className="flex items-center justify-between text-xs text-cream/70 mb-2">
-                      <span>Analisando perfis</span>
-                      <span>85%</span>
-                    </div>
-                    <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                      <div className="h-full bg-plum rounded-full animate-pulse" style={{ width: '85%' }} />
-                    </div>
-                  </div>
                   <button
                     onClick={() => setShowTable(true)}
                     className="mt-6 text-sm text-plum hover:text-cream transition-colors flex items-center gap-1"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Ver preview da minha mesa
+                    Ver minha mesa
                   </button>
                 </div>
               )

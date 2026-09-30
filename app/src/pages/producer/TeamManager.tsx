@@ -24,8 +24,6 @@ interface TeamMember {
   role: 'admin' | 'editor' | 'viewer'
   status: 'active' | 'pending' | 'blocked'
   permissions: Record<string, Permission>
-  assignedTasks: number
-  completedTasks: number
   lastActive: string
   joinedAt: string
   avatar: string
@@ -92,8 +90,6 @@ export default function TeamManager() {
       role: (dbMember.role || 'viewer') as TeamMember['role'],
       status: status,
       permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
-      assignedTasks: 0, // sem tabela de tarefas: não inventar número
-      completedTasks: 0,
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
       avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`
@@ -300,19 +296,17 @@ export default function TeamManager() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {[1, 2, 3, 4].map(n => (
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          {[1, 2].map(n => (
             <div key={n} className="p-5 rounded-2xl bg-white/40 border border-white/60 animate-pulse h-[98px]" />
           ))}
         </div>
       ) : (
         /* KPIs */
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 gap-4 mb-8">
           {[
             { label: 'Total Membros', value: members.length.toString(), icon: Users },
             { label: 'Membros Ativos', value: members.filter(m => m.status === 'active').length.toString(), icon: UserCheck },
-            { label: 'Tarefas Ativas', value: members.reduce((s, m) => s + m.assignedTasks, 0).toString(), icon: Activity },
-            { label: 'Tarefas Concluídas', value: members.reduce((s, m) => s + m.completedTasks, 0).toString(), icon: Check },
           ].map(k => (
             <div key={k.label} className="team-card p-5 rounded-2xl bg-white/60 border border-white/60">
               <k.icon className="w-4 h-4 text-plum mb-3" />
@@ -344,7 +338,7 @@ export default function TeamManager() {
             </div>
           </div>
           <div className="flex items-center gap-2 mt-3">
-            <button onClick={handleInvite} className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2"><Mail className="w-4 h-4" /> Enviar Convite</button>
+            <button onClick={handleInvite} className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2"><Plus className="w-4 h-4" /> Adicionar membro</button>
             <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
           </div>
         </div>
@@ -363,7 +357,6 @@ export default function TeamManager() {
             const isExpanded = expandedMember === member.id
             const isEditing = editingMember === member.id
             const roleCfg = roleLabels[member.role] || roleLabels.viewer
-            const completion = member.assignedTasks > 0 ? Math.round((member.completedTasks / member.assignedTasks) * 100) : 0
 
             return (
               <div key={member.id} className="team-card bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
@@ -378,16 +371,6 @@ export default function TeamManager() {
                       {member.status === 'blocked' && <span className="px-2 py-0.5 bg-red-50 text-red-500 text-[10px] rounded-full border border-red-100 font-medium">Bloqueado</span>}
                     </div>
                     <div className="text-[11px] text-espresso/70 mt-0.5">{member.email} · Atividade: {member.lastActive}</div>
-                  </div>
-                  <div className="hidden md:flex items-center gap-4 flex-shrink-0">
-                    <div className="text-center">
-                      <div className="text-xs font-semibold text-espresso">{member.assignedTasks}</div>
-                      <div className="text-[9px] text-espresso/70">Tarefas</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-xs font-semibold text-green-600">{completion}%</div>
-                      <div className="text-[9px] text-espresso/70">Concluído</div>
-                    </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {isExpanded ? <ChevronUp className="w-4 h-4 text-espresso/20" /> : <ChevronDown className="w-4 h-4 text-espresso/20" />}
@@ -455,15 +438,7 @@ export default function TeamManager() {
                     )}
 
                     {/* Stats */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 rounded-xl bg-canvas text-center">
-                        <div className="text-sm font-semibold text-espresso">{member.assignedTasks}</div>
-                        <div className="text-[9px] text-espresso/70">Atribuídas</div>
-                      </div>
-                      <div className="p-3 rounded-xl bg-canvas text-center">
-                        <div className="text-sm font-semibold text-green-600">{member.completedTasks}</div>
-                        <div className="text-[9px] text-espresso/70">Concluídas</div>
-                      </div>
+                    <div className="grid grid-cols-1 gap-3">
                       <div className="p-3 rounded-xl bg-canvas text-center">
                         <div className="text-sm font-semibold text-espresso">{member.joinedAt}</div>
                         <div className="text-[9px] text-espresso/70">Entrou em</div>

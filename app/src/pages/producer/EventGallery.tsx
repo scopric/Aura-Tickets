@@ -30,14 +30,14 @@ export default function ProducerEventGallery() {
   const filtered = activeEvent === 'Todos' ? photos : photos.filter(p => p.event_name === activeEvent)
 
   const addPhoto = async () => {
-    if (!uploadPreview) { toast.error('Selecione uma imagem'); return }
+    if (!uploadPreview) { toast.error('Cole o endereço da imagem'); return }
     try {
       await createPhoto.mutateAsync({
         event_name: uploadForm.eventName || null,
         url: uploadPreview,
         caption: uploadForm.caption || null,
         featured: uploadForm.featured,
-        size: '1.5MB',
+        size: null, // tamanho desconhecido (imagem por endereço)
       })
       setUploadForm({ eventName: '', caption: '', featured: false })
       setUploadPreview(null)
@@ -188,14 +188,14 @@ export default function ProducerEventGallery() {
               <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-8 text-center hover:border-plum/30 transition-colors">
                 {uploadPreview ? (
                   <div className="relative">
-                    <img src={uploadPreview} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
+                    <img src={uploadPreview} alt="Preview" onError={() => { setUploadPreview(null); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-40 object-cover rounded-xl" />
                     <button onClick={() => setUploadPreview(null)} className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
-                    <p className="text-sm text-espresso/70">Cole a URL da imagem ou use o exemplo</p>
-                    <button onClick={() => setUploadPreview('/images/concert-1.jpg')} className="px-5 py-2 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">Usar exemplo</button>
+                    <p className="text-sm text-espresso/70">Cole o endereço (https://) da imagem</p>
+                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} onBlur={e => { const v = e.target.value.trim(); try { const u = new URL(v); if (u.protocol === 'https:' && u.hostname.includes('.')) setUploadPreview(v); else if (v) toast.error('Use um endereço que comece com https://') } catch { if (v) toast.error('Endereço de imagem inválido') } }} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
                   </div>
                 )}
               </div>

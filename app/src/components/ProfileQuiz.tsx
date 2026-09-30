@@ -66,7 +66,7 @@ const QUIZ_STEPS: QuizStep[] = [
   {
     id: 'temperament',
     question: 'Como você descreveria seu temperamento em eventos?',
-    subtitle: 'Seu jeito de ser define a energia da mesa',
+    subtitle: 'Conte como você é em eventos',
     options: [
       {
         value: 'introvert',
@@ -91,7 +91,7 @@ const QUIZ_STEPS: QuizStep[] = [
   {
     id: 'intention',
     question: 'Qual seu objetivo principal nesse evento?',
-    subtitle: 'A intenção guia nosso algoritmo de matchmaking',
+    subtitle: 'Conte o que você busca no evento',
     options: [
       {
         value: 'network',
@@ -572,16 +572,15 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
           </div>
 
           <h2 className="font-serif text-3xl md:text-4xl text-cream mb-3 tracking-tight">
-            Analisando seu perfil...
+            Salvando suas respostas...
           </h2>
           <p className="text-cream/70 text-sm md:text-base max-w-sm">
-            Nosso algoritmo está cruzando temperamentos, vibes e energias para
-            encontrar sua mesa perfeita
+            A formação automática das mesas ainda não está disponível.
           </p>
 
           <div className="mt-10 flex items-center gap-3 text-cream/70 text-xs uppercase tracking-widest">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            <span>Processando matchmaking</span>
+            <span>Salvando</span>
           </div>
 
           {/* Particles */}
@@ -623,7 +622,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
                 Mesa Coletiva
               </span>
               <div className="text-cream/70 text-xs font-medium">
-                Matchmaking por afinidade
+                Questionário de afinidade
               </div>
             </div>
           </div>
@@ -789,7 +788,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
         {/* Bottom hint */}
         <div className="mt-10 text-center">
           <p className="text-cream/70 text-xs">
-            Suas respostas definem sua mesa ideal — seja você mesmo
+            Responda com sinceridade
           </p>
         </div>
       </div>

@@ -63,7 +63,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
             </div>
             <div>
               <h3 className="font-serif text-2xl text-cream">{ticket.name}</h3>
-              <p className="text-xs text-cream/70">Matchmaking por afinidade</p>
+              <p className="text-xs text-cream/70">Mesa compartilhada no evento</p>
             </div>
           </div>
 
@@ -108,16 +108,9 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
           <div className="flex items-start gap-3 mb-3">
             <Info className="w-4 h-4 text-cream/40 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-cream/70 leading-relaxed">
-              Nosso algoritmo analisa perfis de temperamento, interesses e objetivos para montar mesas com alta compatibilidade. 
-              Você recebe seus "colegas de mesa" 48h antes do evento.
+              Você senta com outras pessoas que também compraram a mesa coletiva.
+              A formação automática das mesas ainda não está disponível.
             </p>
-          </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            {['Temperamento', 'Interesses', 'Vibe', 'Idade'].map((tag) => (
-              <span key={tag} className="px-2.5 py-1 bg-white/5 text-cream/70 text-[10px] rounded-full border border-white/10">
-                {tag}
-              </span>
-            ))}
           </div>
         </div>
 
@@ -138,7 +131,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               className="w-full py-3 bg-plum text-cream font-medium rounded-full transition-all duration-300 hover:shadow-glow flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4" />
-              {quizCompleted ? (consented ? 'Adicionar ao Carrinho' : 'Aceitar Termos') : 'Fazer Matchmaking'}
+              {quizCompleted ? (consented ? 'Adicionar ao Carrinho' : 'Aceitar Termos') : 'Responder questionário'}
             </button>
           )}
         </div>

@@ -6,7 +6,7 @@ import {
   Ticket, MessageSquare, QrCode, Clock, MapPin, Calendar,
   ChevronRight, Star, Share2, Wine, UtensilsCrossed,
   Package, Send, User, Bell, Search, Sparkles,
-  ShoppingCart, Minus, Plus, Image as ImageIcon, Loader2
+  ShoppingCart, Image as ImageIcon, Loader2
 } from 'lucide-react'
 import gsap from 'gsap'
 import { usePublicEvents } from '../../hooks/useEvents'
@@ -20,7 +20,6 @@ import OnboardingTour from '../../components/OnboardingTour'
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
   const [showQR, setShowQR] = useState<string | null>(null)
-  const [cart, setCart] = useState<Record<string, number>>({})
   const [chatMessage, setChatMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [menuCategory, setMenuCategory] = useState<string>('Todos')
@@ -84,16 +83,10 @@ export default function AppHub() {
     })
   }
 
-  const cartTotal = Object.entries(cart).reduce((s, [id, qty]) => {
-    const item = dbMenuItems.find(m => m.id === id)
-    return s + (item ? item.price * qty : 0)
-  }, 0)
-  const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
-
   const tabs = [
     { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length > 0 ? myTickets.length : undefined },
     { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
-    { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: cartCount > 0 ? cartCount : undefined },
+    { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: undefined },
     { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
   ]
 
@@ -269,13 +262,14 @@ export default function AppHub() {
   const renderCardapio = () => (
     <div className="space-y-4">
       <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><ShoppingCart className="w-4 h-4 text-plum" /> Cardápio do Evento</h2>
+      <p className="text-[11px] text-amber-400 mb-2">Pedidos pelo app em breve: por enquanto, o cardápio é só para consulta.</p>
       {activeEventId ? (
         <>
           <div className="p-3.5 rounded-xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20">
             <h3 className="text-xs font-semibold text-cream mb-0.5 truncate">
               {activeEventName}
             </h3>
-            <p className="text-[10px] text-cream/70">Compre antecipado e retire no local</p>
+            <p className="text-[10px] text-cream/70">Consulte os itens e preços do evento</p>
           </div>
 
           {/* Categories */}
@@ -305,7 +299,6 @@ export default function AppHub() {
               {dbMenuItems
                 .filter(item => menuCategory === 'Todos' || item.category === menuCategory)
                 .map(item => {
-                  const qty = cart[item.id] || 0
                   const icons: Record<string, typeof Wine> = { bebida: Wine, comida: UtensilsCrossed, combo: Package, merchandise: Package, servico: Sparkles }
                   const Icon = icons[item.category] || Package
                   return (
@@ -319,15 +312,6 @@ export default function AppHub() {
                       </div>
                       <div className="text-right flex-shrink-0">
                         <div className="text-xs text-cream font-medium">R$ {item.price}</div>
-                        {qty > 0 ? (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <button onClick={() => { const n = { ...cart }; if (n[item.id] > 1) n[item.id]--; else delete n[item.id]; setCart(n) }} className="w-5 h-5 rounded-full bg-white/10 flex items-center justify-center text-xs hover:bg-white/20 transition-all"><Minus className="w-2.5 h-2.5" /></button>
-                            <span className="text-[11px] w-3 text-center">{qty}</span>
-                            <button onClick={() => setCart({ ...cart, [item.id]: (cart[item.id] || 0) + 1 })} className="w-5 h-5 rounded-full bg-plum flex items-center justify-center text-xs hover:shadow-glow transition-all"><Plus className="w-2.5 h-2.5" /></button>
-                          </div>
-                        ) : (
-                          <button onClick={() => { setCart({ ...cart, [item.id]: 1 }); toast.success(`${item.name} adicionado!`) }} className="mt-0.5 px-2.5 py-0.5 bg-plum/20 text-plum text-[9px] rounded-full hover:bg-plum hover:text-cream transition-all">Adicionar</button>
-                        )}
                       </div>
                     </div>
                   )
@@ -340,19 +324,6 @@ export default function AppHub() {
           <ShoppingCart className="w-8 h-8 text-cream/10 mx-auto mb-2" />
           <p className="text-cream/70 text-xs mb-1">Você não tem ingressos ativos</p>
           <p className="text-cream/70 text-[10px]">Compre um ingresso para ver o cardápio do evento</p>
-        </div>
-      )}
-
-      {/* Cart summary */}
-      {cartCount > 0 && (
-        <div className="p-3 rounded-xl bg-plum border border-plum/40 shadow-glow mt-3">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-cream/70">{cartCount} itens</span>
-            <span className="font-serif text-base text-cream">R$ {cartTotal}</span>
-          </div>
-          <button disabled className="w-full py-1.5 bg-cream/60 text-plum text-xs font-semibold rounded-lg cursor-not-allowed">
-            Pedidos em breve
-          </button>
         </div>
       )}
     </div>

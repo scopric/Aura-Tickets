@@ -375,22 +375,22 @@ export default function YourTable({ eventId }: YourTableProps) {
             <div className="absolute inset-0 rounded-full border-2 border-plum/10 animate-ping" />
           </div>
           <div className="space-y-2">
-            <h3 className="font-serif text-2xl text-cream">Nossa IA está montando sua mesa perfeita</h3>
-            <p className="text-sm text-cream/70 max-w-xs mx-auto">
-              Analisando afinidades, temperamentos e vibes para criar uma experiência inesquecível.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-plum/70">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Análise de compatibilidade em andamento</span>
+            <h3 className="font-serif text-2xl text-cream">Carregando sua mesa</h3>
           </div>
         </div>
       </div>
     )
   }
 
-  // Sem mesa real (e sem mock fora de DEV): nada a mostrar
-  if (!effectiveTable) return null
+  // Sem mesa real (e sem mock fora de DEV): avisa em vez de deixar a coluna vazia
+  if (!effectiveTable) {
+    return (
+      <div className="bg-void text-cream rounded-3xl p-8 text-center min-h-[200px] flex flex-col items-center justify-center">
+        <h3 className="font-serif text-xl mb-2">Sua mesa ainda não foi formada</h3>
+        <p className="text-sm text-cream/70 max-w-sm">A formação automática das mesas ainda não está disponível.</p>
+      </div>
+    )
+  }
 
   /* ==========================================================
      Render Principal
