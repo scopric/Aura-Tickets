@@ -220,6 +220,7 @@ export default function ModernHero() {
           muted
           loop
           playsInline
+          poster="/videos/hero-poster.jpg"
           onLoadedData={() => setVideoLoaded(true)}
           className={`w-full h-full object-cover transition-opacity duration-1000 ${videoLoaded ? 'opacity-100' : 'opacity-0'}`}
           style={{ transform: 'scale(1.05)' }}
