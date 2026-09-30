@@ -35,3 +35,4 @@ build/
 app/.vite/
 app/scratch/
 **/supabase/.temp/
+**/supabase/.branches/
