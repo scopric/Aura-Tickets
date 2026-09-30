@@ -427,7 +427,7 @@ export default function AdminAiSettings() {
               <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {PLANS.map(p => (
                   <label key={p.id} className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">{p.name}{p.id === 'free' ? ' (total)' : ' (mês)'}</span>
+                    <span className="text-xs font-semibold text-muted-foreground">{p.name} (mês)</span>
                     <input className={inputCls} inputMode="numeric" value={numInput(f.quotas[p.id])} onChange={e => set('quotas', { ...f.quotas, [p.id]: lerNum(e.target.value) })} />
                   </label>
                 ))}

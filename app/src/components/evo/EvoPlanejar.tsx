@@ -48,7 +48,9 @@ const inteiroEntre = (v: string, min: number, max: number) => {
   const n = Number(v)
   return Number.isInteger(n) && n >= min && n <= max ? n : null
 }
-const opcionalNaoNegativo = (v: string) => (v.trim() === '' ? undefined : Number(v) >= 0 ? Number(v) : null)
+// AAAA-MM-DD no fuso do navegador (o mesmo formato do <input type="date">)
+const hojeLocal = () => new Date().toLocaleDateString('en-CA')
+const opcionalNaoNegativo =(v: string) => (v.trim() === '' ? undefined : Number(v) >= 0 ? Number(v) : null)
 
 export const FORM_PLANEJAR_VAZIO = { genero: '', publico: '', cidade: '', uf: '', data: '', duracao: '', preco: '', orcamento: '', layout: 'em_pe' }
 export type CamposPlanejar = typeof FORM_PLANEJAR_VAZIO
@@ -133,7 +135,7 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="evo-data" className={rotulo}>Data (opcional)</label>
-          <input id="evo-data" type="date" value={f.data} onChange={set('data')} className={campo} />
+          <input id="evo-data" type="date" min={hojeLocal()} value={f.data} onChange={set('data')} className={campo} />
         </div>
         <div>
           <label htmlFor="evo-layout" className={rotulo}>Formato</label>
@@ -234,6 +236,7 @@ export function PropostaCard({ proposta, usageId, edicao, criando, criadoId, sem
     if (!p.title.trim()) return setErro('Dê um título ao evento.')
     if (p.description.length > 2000) return setErro('Descrição: no máximo 2.000 caracteres.')
     if (!p.cidade.trim() || !UFS.includes(p.uf)) return setErro('Confira cidade e UF.')
+    if (p.date && p.date < hojeLocal()) return setErro('A data do evento já passou.')
     if (capacity === null) return setErro('Capacidade: um número inteiro de 1 a 200.000.')
     if (tickets.some((t) => !t.name || !(t.price >= 0) || t.capacity === null)) return setErro('Cada lote precisa de nome, preço (0 ou mais) e quantidade (1 ou mais).')
     setErro('')
@@ -300,7 +303,7 @@ export function PropostaCard({ proposta, usageId, edicao, criando, criadoId, sem
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label htmlFor={`evo-p-data-${id}`} className={rotulo}>Data</label>
-          <input id={`evo-p-data-${id}`} type="date" value={p.date} onChange={set('date')} className={campo} />
+          <input id={`evo-p-data-${id}`} type="date" min={hojeLocal()} value={p.date} onChange={set('date')} className={campo} />
         </div>
         <div>
           <label htmlFor={`evo-p-hora-${id}`} className={rotulo}>Horário</label>

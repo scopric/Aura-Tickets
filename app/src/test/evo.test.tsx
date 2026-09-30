@@ -115,7 +115,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
     role = 'producer'
     vi.mocked(supabase.functions.invoke).mockReset()
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
-      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', date: '2026-11-20', time: '22:00', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', date: '2099-11-20', time: '22:00', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
       tickets: [{ name: '1º lote', price: 40, quantity: 150 }] } }, error: null } as never)
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
@@ -137,12 +137,28 @@ describe('EvoHub: painel, chat e rascunho', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
     expect(await screen.findByRole('link', { name: 'Abrir rascunho' })).toHaveAttribute('href', '/producer/events/ev1/edit')
     expect(criar).toHaveBeenCalledWith({
-      event: { title: 'Forró da Vila', description: 'Forró pé de serra', category: 'Show', date: '2026-11-20', time: '22:00', start_date: new Date('2026-11-20T22:00').toISOString(), venue_name: null, venue_city: 'Recife', venue_state: 'PE', capacity: 300, status: 'draft',
+      event: { title: 'Forró da Vila', description: 'Forró pé de serra', category: 'Show', date: '2099-11-20', time: '22:00', start_date: new Date('2099-11-20T22:00').toISOString(), venue_name: null, venue_city: 'Recife', venue_state: 'PE', capacity: 300, status: 'draft',
         settings: { genero: 'forro', uf: 'PE', origem: 'evo', ai_usage_id: 'u-9' } },
       tickets: [],
     })
     expect(supabase.from).toHaveBeenCalledWith('ticket_types')
     expect(insert).toHaveBeenCalledWith([{ event_id: 'ev1', name: '1º lote', description: null, price: 35, capacity: 150, quantity_total: 150, sold: 0, quantity_sold: 0, type: 'individual', perks: [], is_active: true }])
+  })
+  it('proposta com data passada: avisa e não cria o evento', async () => {
+    criar.mockClear()
+    vi.mocked(supabase.functions.invoke).mockReset()
+    vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
+      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      tickets: [{ name: 'Ingresso', price: 0, quantity: 300 }] } }, error: null } as never)
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.change(await screen.findByLabelText('Mensagem para o Evo'), { target: { value: 'Monte o rascunho' } })
+    fireEvent.keyDown(screen.getByLabelText('Mensagem para o Evo'), { key: 'Enter' })
+    await screen.findByText('Plano')
+    fireEvent.change(screen.getByLabelText('Data'), { target: { value: '2025-06-20' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
+    expect(await screen.findByText('A data do evento já passou.')).toBeInTheDocument()
+    expect(criar).not.toHaveBeenCalled()
   })
   it('planejar: lotes falham depois do evento criado → guarda o id e não deixa criar de novo', async () => {
     criar.mockClear()

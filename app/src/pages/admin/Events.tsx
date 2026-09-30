@@ -24,7 +24,12 @@ const approvalStatusCfg: Record<string, { label: string; cls: string }> = {
   approved: { label: 'Aprovado', cls: 'bg-green-100 text-green-700 border-green-200' },
   pending: { label: 'Pendente', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
   rejected: { label: 'Rejeitado', cls: 'bg-red-100 text-red-700 border-red-200' },
+  draft: { label: 'Não enviado', cls: 'bg-slate-50 text-slate-500 border-slate-100' },
 }
+
+// Rascunho não foi enviado à moderação (o banco grava approval_status 'pending' por padrão)
+const moderacao = (e: { status: string; approval_status?: string | null }) =>
+  e.status === 'draft' ? 'draft' : e.approval_status || 'pending'
 
 const fmtDateTime = (s?: string | null) => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }
 
@@ -105,7 +110,7 @@ export default function AdminEvents() {
   }
 
   const approved = allEvents.filter(e => e.status === 'published' && e.approval_status === 'approved')
-  const pending = allEvents.filter(e => e.approval_status === 'pending' || !e.approval_status)
+  const pending = allEvents.filter(e => moderacao(e) === 'pending')
   
   const totalRevenue = approved.reduce((s, e) => {
     const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
@@ -113,7 +118,7 @@ export default function AdminEvents() {
   }, 0)
 
   const filteredEvents = allEvents.filter(e => {
-    const appStatus = e.approval_status || 'pending'
+    const appStatus = moderacao(e)
     if (activeTab === 'all') return true
     return appStatus === activeTab
   })
@@ -200,7 +205,7 @@ export default function AdminEvents() {
                   filteredEvents.map(e => {
                     const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
                     const pubStatus = statusCfg[e.status] || { label: e.status, cls: 'bg-slate-50 text-slate-500 border-slate-100' }
-                    const appStatus = approvalStatusCfg[e.approval_status || 'pending']
+                    const appStatus = approvalStatusCfg[moderacao(e)]
                     const formattedDate = e.date
                       ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
                       : 'Data a definir'
@@ -261,7 +266,7 @@ export default function AdminEvents() {
                             >
                               <Info className="w-3.5 h-3.5" />
                             </button>
-                            {(e.approval_status === 'pending' || !e.approval_status) && (
+                            {moderacao(e) === 'pending' && (
                               <>
                                 <button
                                   onClick={() => handleApprove(e.id)}
@@ -355,8 +360,8 @@ export default function AdminEvents() {
                 <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${(statusCfg[detail.status] || { cls: 'bg-slate-50 text-slate-500 border-slate-100' }).cls}`}>
                   Publicação: {statusCfg[detail.status]?.label || detail.status}
                 </span>
-                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${approvalStatusCfg[detail.approval_status || 'pending'].cls}`}>
-                  Moderação: {approvalStatusCfg[detail.approval_status || 'pending'].label}
+                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${approvalStatusCfg[moderacao(detail)].cls}`}>
+                  Moderação: {approvalStatusCfg[moderacao(detail)].label}
                 </span>
                 {detail.featured_carousel && <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-100">Em destaque</span>}
               </div>
@@ -417,7 +422,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
-                {(detail.approval_status === 'pending' || !detail.approval_status) && (
+                {moderacao(detail) === 'pending' && (
                   <>
                     <button onClick={() => handleApprove(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 transition-colors disabled:opacity-40">
                       <Check className="w-3.5 h-3.5" /> Aprovar

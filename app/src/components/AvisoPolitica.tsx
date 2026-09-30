@@ -33,7 +33,7 @@ export default function AvisoPolitica() {
   return (
     <div
       role="status"
-      className="glass-panel fixed inset-x-3 top-3 z-[60] mx-auto flex max-w-xl items-start gap-3 !rounded-2xl px-4 py-3 text-sm shadow-lg"
+      className="glass-panel fixed inset-x-3 top-3 z-[45] mx-auto flex max-w-xl items-start gap-3 !rounded-2xl px-4 py-3 text-sm shadow-lg"
     >
       <p className="flex-1 leading-relaxed">
         Atualizamos a nossa{' '}
