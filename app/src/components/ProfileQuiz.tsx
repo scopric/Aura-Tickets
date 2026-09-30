@@ -23,7 +23,6 @@ import {
   Moon,
   Sun,
   Flame,
-  BrainCircuit,
   Loader2,
   GraduationCap,
   AtSign,
@@ -517,7 +516,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
           <div className="relative w-24 h-24 mb-8 flex items-center justify-center">
             <div className="center-pulse absolute inset-0 rounded-full bg-plum/20 blur-xl" />
             <div className="relative z-10 w-16 h-16 rounded-full bg-plum/10 border border-plum/30 flex items-center justify-center animate-pulse-glow">
-              <BrainCircuit className="w-8 h-8 text-plum" />
+              <Loader2 className="w-8 h-8 text-plum animate-spin" />
             </div>
           </div>
 

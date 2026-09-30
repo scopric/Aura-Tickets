@@ -156,10 +156,15 @@ export default function ParticipantTickets() {
 
       {/* Sua mesa (Match de Mesa) */}
       {mesaDe && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto">
+        // Esc fecha; o contains ignora o Esc dos modais internos (termo, denúncia, questionário), que vêm por portal
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto"
+          role="dialog" aria-modal="true" aria-label="Sua mesa" tabIndex={-1}
+          onKeyDown={e => { if (e.key === 'Escape' && e.currentTarget.contains(e.target as Node)) setMesaDe(null) }}
+        >
           <div className="absolute inset-0 glass-backdrop" onClick={() => setMesaDe(null)} />
           <div className="relative w-full max-w-2xl my-8">
-            <button onClick={() => setMesaDe(null)} aria-label="Fechar sua mesa" className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-void border border-white/10 text-cream flex items-center justify-center"><X className="w-4 h-4" /></button>
+            <button autoFocus onClick={() => setMesaDe(null)} aria-label="Fechar sua mesa" className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-void border border-white/10 text-cream flex items-center justify-center"><X className="w-4 h-4" /></button>
             <YourTable eventId={mesaDe} />
           </div>
         </div>

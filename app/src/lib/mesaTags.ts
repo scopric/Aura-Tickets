@@ -1,6 +1,6 @@
 // Listas fechadas do Match de Mesa. Os slugs são os mesmos do SQL (mesa_tags_ok e os CHECKs de
 // user_profiles_ext em docs/sql/20261003_mesa_coletiva.sql): mudar aqui exige mudar lá, e vice-versa.
-// src/test/mesaTags.test.ts compara as duas listas.
+// src/test/mesaTags.test.tsx compara as duas listas.
 
 export const MESA_TAGS = {
   musica: {

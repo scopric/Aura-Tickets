@@ -19,7 +19,7 @@ import {
   type MesaCartao,
   type MotivoDenuncia,
 } from '../hooks/useMatchmaking'
-import { ESCOLARIDADE, FAIXAS_IDADE, etiquetasEmComum, rotuloTag, type MesaTags } from '../lib/mesaTags'
+import { ESCOLARIDADE, FAIXAS_IDADE, REDE_SOCIAL_RE, etiquetasEmComum, rotuloTag, type MesaTags } from '../lib/mesaTags'
 import { appUrl } from '../lib/appHost'
 import { MesaTermoModal } from './CollectiveTableCard'
 import ProfileQuiz from './ProfileQuiz'
@@ -78,7 +78,8 @@ function Cartao({ c, minhasTags, eu, onDenunciar }: {
   return (
     <div className={`p-4 rounded-2xl border ${eu ? 'bg-plum/10 border-plum/30' : 'bg-white/[0.03] border-white/10'}`}>
       <div className="flex items-center gap-3">
-        {c.foto ? (
+        {/* só JPEG em base64 (o que o Perfil grava): URL externa não vira img */}
+        {c.foto?.startsWith('data:image/jpeg;base64,') ? (
           <img src={c.foto} alt="" className="w-12 h-12 rounded-full object-cover flex-shrink-0" />
         ) : (
           <div className="w-12 h-12 rounded-full bg-plum/20 flex items-center justify-center flex-shrink-0 font-semibold">
@@ -108,8 +109,8 @@ function Cartao({ c, minhasTags, eu, onDenunciar }: {
           ))}
         </div>
       )}
-      {c.rede_social && (
-        <a href={c.rede_social} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 mt-3 text-xs text-plum-light hover:underline">
+      {c.rede_social && REDE_SOCIAL_RE.test(c.rede_social) && (
+        <a href={c.rede_social} target="_blank" rel="noopener noreferrer nofollow ugc" className="inline-flex items-center gap-1 mt-3 text-xs text-plum-light hover:underline">
           <ExternalLink className="w-3 h-3" /> Rede social
         </a>
       )}
@@ -199,14 +200,15 @@ function Denunciar({ alvo, onFechar }: { alvo: MesaCartao; onFechar: () => void 
         else toast.success('Denúncia enviada. A equipe da Evokaa vai analisar.')
         onFechar()
       },
-      onError: (e) => toast.error(e.message),
+      // 23514: CHECK do detalhe (caractere de controle ou de direção de texto)
+      onError: (e) => toast.error((e as Error & { code?: string }).code === '23514' ? 'Texto com caracteres não permitidos.' : e.message),
     })
   }
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="denuncia-titulo" style={{ paddingBottom: 'calc(var(--cookie-banner-h, 0px) + 1rem)' }}>
       <div className="glass-panel p-6 max-w-md w-full max-h-full overflow-y-auto">
         <h3 id="denuncia-titulo" className="font-serif text-xl text-cream mb-1">Denunciar {alvo.nome}</h3>
-        <p className="text-xs text-cream/70 mb-4">A denúncia vai para a equipe da Evokaa, que analisa. Ninguém é bloqueado automaticamente.</p>
+        <p className="text-xs text-cream/70 mb-4">A denúncia vai para a equipe da Evokaa, que analisa. Ninguém é bloqueado automaticamente. Depois da análise da equipe da Evokaa, a organização do evento pode ver o motivo e quem foi denunciado; seu nome e o detalhe não são mostrados a ela.</p>
         <fieldset className="space-y-2 mb-4">
           <legend className="text-sm text-cream mb-2">Motivo</legend>
           {(Object.keys(MOTIVOS) as MotivoDenuncia[]).map(m => (
@@ -266,6 +268,20 @@ export default function YourTable({ eventId }: YourTableProps) {
   const [alvo, setAlvo] = useState<MesaCartao | null>(null)
 
   const caixa = 'bg-void text-cream rounded-3xl p-5 sm:p-8'
+  const avisosEvento = (avisos.data ?? []).filter(a => a.evento === eventId && !a.lido)
+  const blocoAvisos = avisosEvento.length > 0 && (
+    <div className="p-4 rounded-2xl bg-plum/10 border border-plum/30 space-y-2" role="status">
+      {avisosEvento.map(a => (
+        <div key={a.id} className="flex items-start gap-2 text-sm">
+          <Bell className="w-4 h-4 text-plum flex-shrink-0 mt-0.5" />
+          <span>{a.mensagem}{a.mesa ? ` (${a.mesa})` : ''}</span>
+        </div>
+      ))}
+      <button onClick={() => marcarLidos.mutate()} disabled={marcarLidos.isPending} className="text-xs text-plum-light hover:underline">
+        Ok, entendi
+      </button>
+    </div>
+  )
 
   if (isLoading) {
     return (
@@ -280,9 +296,12 @@ export default function YourTable({ eventId }: YourTableProps) {
   }
   if (data.travado) {
     return (
-      <div className={`${caixa} flex items-start gap-3`}>
-        <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm">Sua participação nas mesas deste evento foi suspensa pela organização.</p>
+      <div className={`${caixa} space-y-4`}>
+        {blocoAvisos}
+        <div className="flex items-start gap-3">
+          <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">Sua participação nas mesas deste evento foi suspensa pela organização.</p>
+        </div>
       </div>
     )
   }
@@ -299,7 +318,6 @@ export default function YourTable({ eventId }: YourTableProps) {
   const consentido = consentimentoVigente(profile)
   const colegasTodos = data.mesas.flatMap(m => m.colegas ?? [])
   const minhasTags = colegasTodos.find(c => c.eu)?.tags ?? profile?.tags
-  const avisosEvento = (avisos.data ?? []).filter(a => a.evento === eventId && !a.lido)
 
   const acao = (m: { mutate: (v: void, o: { onSuccess: () => void; onError: (e: Error) => void }) => void }, ok: string) =>
     m.mutate(undefined, { onSuccess: () => toast.success(ok), onError: (e) => toast.error(e.message) })
@@ -314,19 +332,7 @@ export default function YourTable({ eventId }: YourTableProps) {
         <Users className="w-6 h-6 text-plum" />
       </div>
 
-      {avisosEvento.length > 0 && (
-        <div className="p-4 rounded-2xl bg-plum/10 border border-plum/30 space-y-2" role="status">
-          {avisosEvento.map(a => (
-            <div key={a.id} className="flex items-start gap-2 text-sm">
-              <Bell className="w-4 h-4 text-plum flex-shrink-0 mt-0.5" />
-              <span>{a.mensagem}{a.mesa ? ` (${a.mesa})` : ''}</span>
-            </div>
-          ))}
-          <button onClick={() => marcarLidos.mutate()} disabled={marcarLidos.isPending} className="text-xs text-plum-light hover:underline">
-            Ok, entendi
-          </button>
-        </div>
-      )}
+      {blocoAvisos}
 
       {!consentido ? (
         <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/10">
@@ -367,10 +373,14 @@ export default function YourTable({ eventId }: YourTableProps) {
       {data.mesas.length === 0 ? (
         <div className="flex items-start gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/10">
           <Clock className="w-5 h-5 text-plum flex-shrink-0 mt-0.5" />
-          <p className="text-sm">
-            Sua mesa será formada em <strong>{formaEmTexto(data.forma_em!)}</strong> (horário de Brasília).
-            {consentido && ' Antes disso, você pode escolher a sua.'}
-          </p>
+          {new Date(data.forma_em!) < new Date() ? (
+            <p className="text-sm">Sua mesa está sendo formada; volte em alguns minutos.</p>
+          ) : (
+            <p className="text-sm">
+              Sua mesa será formada em <strong>{formaEmTexto(data.forma_em!)}</strong> (horário de Brasília).
+              {consentido && ' Antes disso, você pode escolher a sua.'}
+            </p>
+          )}
         </div>
       ) : (
         data.mesas.map(m => (

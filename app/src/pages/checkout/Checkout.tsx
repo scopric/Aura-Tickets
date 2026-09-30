@@ -330,6 +330,13 @@ export default function Checkout() {
       toast.error('Selecione pelo menos um ingresso para continuar.')
       return
     }
+    // Match de Mesa: 1 lugar por conta em cada evento (cobre o carrinho vindo do state/sessionStorage,
+    // o mapa de assentos e 2 tipos coletivos no mesmo pedido)
+    const coletivas = items.filter(i => i.type === 'coletiva')
+    if (coletivas.length > 1 || coletivas.some(i => i.qty > 1)) {
+      toast.error('No Match de Mesa é 1 lugar por conta em cada evento.')
+      return
+    }
     if (!isAuthenticated) {
       // Salvar carrinho no sessionStorage para recuperar após login
       sessionStorage.setItem('aura_pending_checkout', JSON.stringify({

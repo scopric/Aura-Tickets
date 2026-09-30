@@ -284,6 +284,7 @@ test('checkout de Match de Mesa: quantidade fixa em 1 e data de nascimento (18+)
   await page.goto(`/event/${EVENTO}`)
   await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).nth(1).click()
   await page.getByRole('dialog', { name: 'Match de Mesa' }).getByRole('button', { name: 'Agora não, só comprar o ingresso' }).click()
+  await expect(page.getByRole('button', { name: 'Mais um Match de Mesa' })).toBeDisabled() // o + do cartão
   await page.getByRole('button', { name: 'Finalizar' }).click()
   await expect(page).toHaveURL(/\/checkout$/)
 
@@ -309,4 +310,66 @@ test('checkout de Match de Mesa: quantidade fixa em 1 e data de nascimento (18+)
 
   await page.getByRole('button', { name: 'Continuar para Pagamento' }).click()
   await expect(page).toHaveURL(/\/checkout\/payment$/)
+})
+
+test('sem mesa e forma_em no passado: "Sua mesa está sendo formada"', async ({ page }) => {
+  await mockRpc(page, { minha_mesa: { forma_em: '2020-01-01T00:00:00+00:00', saiu: false, mesas: [] }, meus_avisos_mesa: [] })
+  await mockPerfil(page, PERFIL_OK)
+  await abrirSuaMesa(page)
+  await expect(page.getByText('Sua mesa está sendo formada; volte em alguns minutos.')).toBeVisible()
+  await expect(page.getByText(/Sua mesa será formada em/)).toHaveCount(0)
+})
+
+test('travado com aviso "removido": o aviso aparece e é marcado como lido', async ({ page }) => {
+  const chamadas = await mockRpc(page, {
+    minha_mesa: { mesas: [], travado: true },
+    meus_avisos_mesa: [{ id: 'a2', evento: EVENTO, mesa: 'Mesa 3', tipo: 'removido', mensagem: 'Você foi retirado da sua mesa pela organização do evento; procure a organização no local', criado_em: '2026-10-02T00:00:00Z', lido: false }],
+    marcar_avisos_lidos: null,
+  })
+  await mockPerfil(page, PERFIL_OK)
+  await abrirSuaMesa(page)
+  await expect(page.getByText('Sua participação nas mesas deste evento foi suspensa pela organização.')).toBeVisible()
+  await expect(page.getByText(/Você foi retirado da sua mesa pela organização do evento.*\(Mesa 3\)/)).toBeVisible()
+  await page.getByRole('button', { name: 'Ok, entendi' }).click()
+  await expect.poll(() => chamadas.some(c => c.nome === 'marcar_avisos_lidos')).toBe(true)
+})
+
+test('rede social fora da lista não vira link e foto que não é JPEG base64 não vira img', async ({ page }) => {
+  const ana = MESA_COM_COLEGAS.mesas[0].colegas[1]
+  await mockRpc(page, {
+    minha_mesa: {
+      ...MESA_COM_COLEGAS,
+      mesas: [{ ...MESA_COM_COLEGAS.mesas[0], colegas: [
+        MESA_COM_COLEGAS.mesas[0].colegas[0],
+        { ...ana, rede_social: 'javascript:alert(1)', foto: 'https://exemplo.invalid/rastreio.jpg' },
+        { ...ana, id: 'm-caio', nome: 'Caio', rede_social: 'https://facebook.com/caio', foto: 'data:image/svg+xml;base64,PHN2Zz4=' },
+      ] }],
+    },
+    meus_avisos_mesa: [],
+  })
+  await mockPerfil(page, PERFIL_OK)
+  await abrirSuaMesa(page)
+  await expect(page.getByText('Ana', { exact: true })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Rede social' })).toHaveCount(0)
+  await expect(page.locator('img[src^="https://exemplo.invalid"], img[src^="data:image/svg"]')).toHaveCount(0)
+  await expect(page.getByText('A', { exact: true })).toBeVisible() // inicial no lugar da foto
+  await expect(page.getByText('C', { exact: true })).toBeVisible()
+})
+
+test('checkout recusa, antes do pagamento, 2 tipos de Match de Mesa ou quantidade 2 vindos do sessionStorage', async ({ page }) => {
+  await mockRpc(page, {})
+  await mockPerfil(page, null)
+  const TIPO2 = 'e0000000-0000-4000-8000-0000000000c2'
+  const evento = { ...EVENTO_ROW, ticket_types: [...EVENTO_ROW.ticket_types, { ...EVENTO_ROW.ticket_types[1], id: TIPO2, name: 'Match de Mesa VIP' }] }
+  await page.route('**/rest/v1/events?*', (route) =>
+    route.request().url().includes(`id=eq.${EVENTO}`) ? route.fulfill({ json: [evento] }) : route.fallback())
+
+  for (const cart of [{ [TIPO]: 1, [TIPO2]: 1 }, { [TIPO]: 2 }]) {
+    await page.goto('/')
+    await page.evaluate(([e, c]) => sessionStorage.setItem('aura_pending_checkout', JSON.stringify({ eventId: e, cart: c })), [EVENTO, cart] as const)
+    await page.goto('/checkout')
+    await page.getByRole('button', { name: 'Continuar para Pagamento' }).click()
+    await expect(page.getByText('No Match de Mesa é 1 lugar por conta em cada evento.')).toBeVisible()
+    await expect(page).toHaveURL(/\/checkout$/)
+  }
 })

@@ -105,7 +105,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
             <Info className="w-4 h-4 text-cream/40 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-cream/70 leading-relaxed">
               Você senta com outras pessoas que também compraram a mesa coletiva.
-              A formação automática das mesas ainda não está disponível.
+              Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
             </p>
           </div>
         </div>
@@ -117,7 +117,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               <div className="flex items-center gap-3">
                 <button onClick={onRemove} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors">-</button>
                 <span className="text-cream font-medium">{cartQty}</span>
-                <button onClick={() => onQuantityChange(cartQty + 1)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors">+</button>
+                <button onClick={() => onQuantityChange(cartQty + 1)} disabled={cartQty >= 1} aria-label="Mais um Match de Mesa" title="1 lugar por conta em cada evento" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">+</button>
               </div>
               <span className="text-cream/70 text-sm">R$ {ticket.price * cartQty}</span>
             </div>
@@ -192,9 +192,14 @@ export function MesaTermoModal({ onAceito, onFechar, onPular }: { onAceito: () =
             evento, e dá para escolher a sua antes, vendo quem já está nela.
           </p>
           <p>
-            Se aceitar, os colegas da sua mesa e quem estiver escolhendo mesa neste evento veem seu primeiro
-            nome, sua faixa de idade, sua foto (depois de aprovada), seu perfil de mesa, suas etiquetas e sua
-            escolaridade. Nunca veem e-mail, telefone, CPF nem suas respostas.
+            O aceite vale para todos os eventos com Match de Mesa até você revogar. Os colegas da sua mesa e
+            quem estiver escolhendo mesa no mesmo evento veem seu primeiro nome, sua faixa de idade, sua foto
+            (depois de aprovada), seu perfil de mesa (resumo tirado das respostas de temperamento e energia),
+            suas etiquetas e sua escolaridade. Não veem as respostas do questionário, só o perfil resumido, nem
+            e-mail, telefone ou CPF.
+          </p>
+          <p>
+            A organização do evento vê seu nome completo e sua mesa; a moderação da Evokaa vê sua foto e seu nome.
           </p>
           <p>
             Para participar é preciso ter 18 anos ou mais, nome e foto no Perfil; o resto é opcional. Você pode
