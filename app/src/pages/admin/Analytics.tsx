@@ -7,14 +7,16 @@ import { supabase } from '../../lib/supabase'
 import gsap from 'gsap'
 
 type ItemTop = { nome: string; visitantes: number; paginas: number }
+// Mesmo formato nas duas funções (vercel-analytics e ga4-analytics); sessoes e agora só no GA4
 interface Trafego {
-  periodo: '7d' | '30d'
-  totais: { visitantes: number; paginas: number }
+  periodo: string
+  totais: { visitantes: number; paginas: number; sessoes?: number }
   porDia: { dia: string; visitantes: number; paginas: number }[]
   paginas: ItemTop[]
   origens: ItemTop[]
   paises: ItemTop[]
   aparelhos: ItemTop[]
+  agora?: number | null
 }
 
 const MOTIVOS_VERCEL: Record<string, string> = {
@@ -26,9 +28,18 @@ const MOTIVOS_VERCEL: Record<string, string> = {
   entrada_invalida: 'período inválido.',
 }
 
-// Nomes que a Vercel devolve vazios ou em inglês
+const MOTIVOS_GA4: Record<string, string> = {
+  nao_autorizado: 'sua conta não tem a permissão de ver Analytics.',
+  sem_chave: 'a credencial do Google ainda não foi configurada no servidor.',
+  credencial_invalida: 'a credencial do Google foi apagada ou perdeu o acesso à propriedade do GA4.',
+  limite: 'o Google limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
+  google_erro: 'o Google não respondeu. Tente de novo em instantes.',
+  entrada_invalida: 'período inválido.',
+}
+
+// Nomes que a Vercel e o Google devolvem vazios ou em inglês
 const nomeOrigem = (n: string) => n || 'Acesso direto'
-const nomeAparelho = (n: string) => ({ desktop: 'Computador', mobile: 'Celular', tablet: 'Tablet' } as Record<string, string>)[n] || n || 'Outro'
+const nomeAparelho = (n: string) => ({ desktop: 'Computador', mobile: 'Celular', tablet: 'Tablet', 'smart tv': 'TV' } as Record<string, string>)[n] || n || 'Outro'
 const nomePais = (n: string) => {
   if (!n) return 'Desconhecido'
   try {
@@ -38,7 +49,138 @@ const nomePais = (n: string) => {
   }
 }
 
-function ListaTop({ titulo, itens, rotulo }: { titulo: string; itens: ItemTop[]; rotulo: (n: string) => string }) {
+// Busca de uma fonte de tráfego (função do Supabase), só com a aba aberta; sem atualização automática
+function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivos: Record<string, string>) {
+  const [dados, setDados] = useState<Trafego | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [carregando, setCarregando] = useState(false)
+  const [hora, setHora] = useState<Date | null>(null)
+  const pedidoAtual = useRef(0)
+
+  const carregar = async () => {
+    const pedido = ++pedidoAtual.current
+    setCarregando(true)
+    setErro(null)
+    const { data, error } = await supabase.functions.invoke(funcao, { body: { periodo } })
+    if (pedido !== pedidoAtual.current) return // resposta de um período antigo
+    if (error || !data?.ok) {
+      setDados(null)
+      setErro(motivos[data?.motivo] ?? 'não foi possível falar com o servidor.')
+    } else {
+      setDados({ ...data, periodo })
+      setHora(new Date())
+    }
+    setCarregando(false)
+  }
+
+  useEffect(() => {
+    if (ativo) carregar()
+  }, [ativo, periodo])
+
+  // números de outro período não ficam na tela enquanto o novo carrega
+  return { dados: dados?.periodo === periodo ? dados : null, erro, carregando, hora, carregar }
+}
+
+function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPainel, pessoas, abrev, nota, extras = [] }: {
+  fonte: ReturnType<typeof useFonteTrafego>
+  legenda: string
+  titulo: string
+  deQuem: string
+  periodoTexto: string
+  linkPainel: string
+  pessoas: string
+  abrev: string
+  nota: string
+  extras?: [string, number][]
+}) {
+  const { dados, erro, carregando, hora, carregar } = fonte
+  return (
+    <>
+      <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{legenda}</span>
+            <h3 className="font-serif text-xl text-foreground mt-1">{titulo}</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {periodoTexto}
+              {dados && hora && ` · atualizado às ${hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={carregar}
+              disabled={carregando}
+              className="py-2 px-3 bg-background border border-border text-foreground hover:bg-muted rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-60"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
+            </button>
+            <a href={linkPainel} target="_blank" rel="noreferrer" className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5">
+              Painel completo <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
+
+        {erro ? (
+          <div role="alert" className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
+            Não foi possível carregar os dados {deQuem}: {erro}
+          </div>
+        ) : !dados ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="w-6 h-6 text-primary animate-spin" />
+          </div>
+        ) : (
+          <>
+            <div className={`grid gap-4 ${extras.length ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
+              {([[pessoas, dados.totais.visitantes], ['Páginas vistas', dados.totais.paginas], ...extras] as [string, number][]).map(([l, v]) => (
+                <div key={l} className="p-4 rounded-xl bg-muted/40 border border-border">
+                  <div className="text-xs text-muted-foreground">{l}</div>
+                  <div className="font-serif text-2xl text-foreground mt-1">{v}</div>
+                </div>
+              ))}
+            </div>
+
+            {dados.totais.paginas === 0 ? (
+              <p className="text-xs text-muted-foreground italic py-6 text-center">Nenhuma visita no período.</p>
+            ) : (
+              <div>
+                <div className="h-56" role="img" aria-label={`Gráfico de ${pessoas.toLowerCase()} e páginas vistas por dia`}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dados.porDia.map(d => ({ ...d, rotulo: d.dia.slice(8, 10) + '/' + d.dia.slice(5, 7) }))}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
+                      <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                      <Tooltip
+                        formatter={(v: number, nome: string) => [v, nome === 'paginas' ? 'Páginas vistas' : pessoas]}
+                        cursor={{ fill: 'rgba(128,128,128,0.12)' }}
+                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
+                        labelStyle={{ color: 'hsl(var(--foreground))' }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Bar dataKey="paginas" fill="#8f33f5" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="visitantes" fill="#c084fc" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">Barras escuras: páginas vistas · claras: {pessoas.toLowerCase()}. {nota}</p>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {dados && !erro && dados.totais.paginas > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <ListaTop titulo="Páginas mais vistas" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} />
+          <ListaTop titulo="De onde vêm" itens={dados.origens} rotulo={nomeOrigem} abrev={abrev} />
+          <ListaTop titulo="Países" itens={dados.paises} rotulo={nomePais} abrev={abrev} />
+          <ListaTop titulo="Aparelhos" itens={dados.aparelhos} rotulo={nomeAparelho} abrev={abrev} />
+        </div>
+      )}
+    </>
+  )
+}
+
+function ListaTop({ titulo, itens, rotulo, abrev }: { titulo: string; itens: ItemTop[]; rotulo: (n: string) => string; abrev: string }) {
   return (
     <div className="p-5 rounded-2xl bg-card border border-border shadow-sm">
       <h4 className="text-xs font-semibold text-foreground mb-3">{titulo}</h4>
@@ -49,7 +191,7 @@ function ListaTop({ titulo, itens, rotulo }: { titulo: string; itens: ItemTop[];
           {itens.map(i => (
             <li key={i.nome} className="flex items-center justify-between gap-3 text-xs">
               <span className="text-foreground truncate min-w-0" title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
-              <span className="text-muted-foreground tabular-nums flex-shrink-0">{i.visitantes} vis. · {i.paginas} pág.</span>
+              <span className="text-muted-foreground tabular-nums flex-shrink-0">{i.visitantes} {abrev} · {i.paginas} pág.</span>
             </li>
           ))}
         </ul>
@@ -208,37 +350,9 @@ export default function AdminAnalytics() {
     loadAnalyticsData()
   }, [period])
 
-  // Vercel: busca só com a aba Tráfego aberta; o plano Hobby guarda 1 mês, então "Todo período" = 30 dias
-  const [trafego, setTrafego] = useState<Trafego | null>(null)
-  const [trafegoErro, setTrafegoErro] = useState<string | null>(null)
-  const [trafegoCarregando, setTrafegoCarregando] = useState(false)
-  const [trafegoHora, setTrafegoHora] = useState<Date | null>(null)
-  const pedidoTrafego = useRef(0)
-  const periodoVercel = period === '7d' ? '7d' : '30d'
-  // números de outro período não ficam na tela enquanto o novo carrega
-  const trafegoAtual = trafego?.periodo === periodoVercel ? trafego : null
-
-  const loadTrafego = async () => {
-    const pedido = ++pedidoTrafego.current
-    setTrafegoCarregando(true)
-    setTrafegoErro(null)
-    const { data, error } = await supabase.functions.invoke('vercel-analytics', {
-      body: { periodo: periodoVercel },
-    })
-    if (pedido !== pedidoTrafego.current) return // resposta de um período antigo
-    if (error || !data?.ok) {
-      setTrafego(null)
-      setTrafegoErro(MOTIVOS_VERCEL[data?.motivo] ?? 'não foi possível falar com o servidor.')
-    } else {
-      setTrafego({ ...data, periodo: periodoVercel })
-      setTrafegoHora(new Date())
-    }
-    setTrafegoCarregando(false)
-  }
-
-  useEffect(() => {
-    if (activeSubTab === 'traffic') loadTrafego()
-  }, [activeSubTab, period])
+  // Tráfego: cada fonte busca só com a aba aberta. A Vercel (Hobby) guarda 1 mês: "Todo período" = 30 dias.
+  const vercel = useFonteTrafego('vercel-analytics', period === '7d' ? '7d' : '30d', activeSubTab === 'traffic', MOTIVOS_VERCEL)
+  const ga4 = useFonteTrafego('ga4-analytics', period, activeSubTab === 'traffic', MOTIVOS_GA4)
 
   useEffect(() => {
     if (!isLoading) {
@@ -441,120 +555,32 @@ export default function AdminAnalytics() {
 
           {activeSubTab === 'traffic' && (
             <div className="space-y-6 an-anim">
-              {/* Vercel Web Analytics: números pela função vercel-analytics */}
-              <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-5">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Sem cookies · todos os visitantes</span>
-                    <h3 className="font-serif text-xl text-foreground mt-1">Vercel Web Analytics</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
-                      {trafegoAtual && trafegoHora && ` · atualizado às ${trafegoHora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={loadTrafego}
-                      disabled={trafegoCarregando}
-                      className="py-2 px-3 bg-background border border-border text-foreground hover:bg-muted rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-60"
-                    >
-                      <RefreshCw className={`w-3.5 h-3.5 ${trafegoCarregando ? 'animate-spin' : ''}`} /> Atualizar
-                    </button>
-                    <a
-                      href="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5"
-                    >
-                      Painel completo <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  </div>
-                </div>
-
-                {trafegoErro ? (
-                  <div role="alert" className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
-                    Não foi possível carregar os dados da Vercel: {trafegoErro}
-                  </div>
-                ) : !trafegoAtual ? (
-                  <div className="flex items-center justify-center py-12">
-                    <Loader2 className="w-6 h-6 text-primary animate-spin" />
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-2 gap-4">
-                      {[
-                        ['Visitantes', trafegoAtual.totais.visitantes],
-                        ['Páginas vistas', trafegoAtual.totais.paginas],
-                      ].map(([l, v]) => (
-                        <div key={l} className="p-4 rounded-xl bg-muted/40 border border-border">
-                          <div className="text-xs text-muted-foreground">{l}</div>
-                          <div className="font-serif text-2xl text-foreground mt-1">{v}</div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {trafegoAtual.totais.paginas === 0 ? (
-                      <p className="text-xs text-muted-foreground italic py-6 text-center">Nenhuma visita no período.</p>
-                    ) : (
-                      <div>
-                        <div className="h-56" role="img" aria-label="Gráfico de visitantes e páginas vistas por dia">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={trafegoAtual.porDia.map(d => ({ ...d, rotulo: d.dia.slice(8, 10) + '/' + d.dia.slice(5, 7) }))}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                              <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                              <Tooltip
-                                formatter={(v: number, nome: string) => [v, nome === 'paginas' ? 'Páginas vistas' : 'Visitantes']}
-                                cursor={{ fill: 'rgba(128,128,128,0.12)' }}
-                                contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
-                                labelStyle={{ color: 'hsl(var(--foreground))' }}
-                                itemStyle={{ color: 'hsl(var(--foreground))' }}
-                              />
-                              <Bar dataKey="paginas" fill="#8f33f5" radius={[4, 4, 0, 0]} />
-                              <Bar dataKey="visitantes" fill="#c084fc" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                          </ResponsiveContainer>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-1">Barras escuras: páginas vistas · claras: visitantes. Dias contados no horário UTC (3 h à frente de Brasília).</p>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {trafegoAtual && !trafegoErro && trafegoAtual.totais.paginas > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <ListaTop titulo="Páginas mais vistas" itens={trafegoAtual.paginas} rotulo={n => n || '/'} />
-                  <ListaTop titulo="De onde vêm" itens={trafegoAtual.origens} rotulo={nomeOrigem} />
-                  <ListaTop titulo="Países" itens={trafegoAtual.paises} rotulo={nomePais} />
-                  <ListaTop titulo="Aparelhos" itens={trafegoAtual.aparelhos} rotulo={nomeAparelho} />
-                </div>
-              )}
-
-              {/* Card Google Analytics 4 */}
-              <div className="p-6 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between space-y-4">
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Com Consentimento</span>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">G-JJ5JP5DH2L</span>
-                  </div>
-                  <h3 className="font-serif text-xl text-foreground">Google Analytics 4 (GA4)</h3>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Relatórios aprofundados de aquisição de campanhas, funil de conversão e comportamento dos usuários que aceitaram a política de cookies no banner.
-                  </p>
-                </div>
-
-                <div className="pt-4 border-t border-border">
-                  <a
-                    href="https://analytics.google.com"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="w-full py-2.5 px-4 bg-background border border-border text-foreground hover:bg-muted rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all"
-                  >
-                    Abrir Google Analytics <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                A Vercel conta todos os acessos, sem cookies; o Google conta só quem aceitou os cookies. Os dois medem coisas diferentes e os números não se comparam.
+              </p>
+              <PainelTrafego
+                fonte={vercel}
+                legenda="Sem cookies · todos os visitantes"
+                titulo="Vercel Web Analytics"
+                deQuem="da Vercel"
+                periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
+                linkPainel="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
+                pessoas="Visitantes"
+                abrev="vis."
+                nota="Dias contados no horário UTC (3 h à frente de Brasília)."
+              />
+              <PainelTrafego
+                fonte={ga4}
+                legenda="Com consentimento · só quem aceitou cookies"
+                titulo="Google Analytics 4"
+                deQuem="do Google"
+                periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Desde 27/09/2026, quando o GA4 entrou no ar'}
+                linkPainel="https://analytics.google.com"
+                pessoas="Usuários ativos"
+                abrev="usu."
+                nota="Dias no horário de Brasília. O Google pode levar até 48 h para fechar os números de um dia."
+                extras={ga4.dados ? [['Sessões', ga4.dados.totais.sessoes ?? 0], ...(ga4.dados.agora == null ? [] : [['Agora no site (últimos 30 min)', ga4.dados.agora] as [string, number]])] : []}
+              />
             </div>
           )}
         </>
