@@ -12,6 +12,10 @@
 --   3. Só então colar este arquivo inteiro no SQL Editor (uma transação: se a conferência do fim falhar, nada
 --      é gravado).
 --   4. Conferir: bloco "Conferência" do fim já roda sozinho; depois o Security Advisor.
+--   Se a conferência abortar com "default do postgres ainda dá TRUNCATE ... ou EXECUTE ...", rode
+--     select defaclnamespace::regnamespace, defaclobjtype, defaclacl from pg_default_acl where defaclrole = 'postgres'::regrole;
+--   e revogue à mão o `anon=`, `=X` (PUBLIC) ou `D` (TRUNCATE) das linhas de schema `-` (global) ou `public`.
+--   Em 30/09 a produção tinha só entradas de `public` e `storage` (sem global), iguais ao banco local: não deve abortar.
 -- Idempotente. Rodar de novo depois de reaplicar docs/sql/20260927_security_hardening.sql: ele volta a dar
 -- EXECUTE de gf_is_admin a anon e recria gf_tasks_owner sem "to" (vale para anon).
 --
