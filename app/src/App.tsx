@@ -109,6 +109,7 @@ const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
 const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
 const AdminAiSettings = lazy(() => import('./pages/admin/AiSettings'))
 const AdminAtendimento = lazy(() => import('./pages/admin/Atendimento'))
+const AdminMatchDeMesa = lazy(() => import('./pages/admin/MatchDeMesa'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
 // App pages (lazy loaded)
@@ -276,6 +277,7 @@ function Layout() {
                 <Route path="/admin/coupons" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_coupons"><AdminCoupons /></ProtectedRoute>} />
                 <Route path="/admin/team" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_team"><AdminTeam /></ProtectedRoute>} />
                 <Route path="/admin/ia" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminAiSettings /></ProtectedRoute>} />
+                <Route path="/admin/match-de-mesa" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="moderate_mesa"><AdminMatchDeMesa /></ProtectedRoute>} />
               </Route>
 
               <Route path="*" element={<RootRedirect />} />

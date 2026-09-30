@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Upload, Plus, X, Check, MapPin, Loader2 } from 'lucide-react'
 import { usePublicEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
+import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
 
 export default function ProducerEditEvent() {
   const { eventId } = useParams<{ eventId: string }>()
@@ -478,6 +479,8 @@ export default function ProducerEditEvent() {
           </div>
         </div>
       )}
+
+      <MatchDeMesaPanel eventId={existingEvent.id} ticketTypes={existingEvent.ticket_types} />
     </div>
   )
 }

@@ -22,6 +22,7 @@ import {
   Camera,
   TicketPercent,
   Bot,
+  Armchair,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -53,6 +54,7 @@ const navItems = [
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
   { to: '/admin/atendimento', icon: MessageCircle, label: 'Atendimento', permission: 'manage_support' },
+  { to: '/admin/match-de-mesa', icon: Armchair, label: 'Match de Mesa', permission: 'moderate_mesa' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
