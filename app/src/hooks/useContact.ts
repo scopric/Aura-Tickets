@@ -15,7 +15,7 @@ export function useContact() {
     mutationFn: async (data: ContactMessage) => {
       // Tudo pela Edge Function: ela valida, limita por IP, grava em `contact_messages` (o visitante não
       // tem mais INSERT direto na tabela) e avisa a equipe por e-mail. `invoke` nunca lança: o erro vem
-      // em `error` e sobe para a tela mostrar a falha.
+      // em `error` e sobe para a tela, com a mensagem da função (limite, validação) em `mensagem`.
       const { error } = await supabase.functions.invoke('send-email', {
         body: {
           emailType: 'contact',
@@ -27,7 +27,12 @@ export function useContact() {
           page: data.page || window.location.pathname,
         }
       })
-      if (error) throw error
+      if (error) {
+        // FunctionsHttpError guarda a resposta da função em error.context (como no Footer); erro de rede não
+        const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } }).context
+        const mensagem = typeof ctx?.json === 'function' ? await ctx.json().then(b => b?.error).catch(() => undefined) : undefined
+        throw Object.assign(error, { mensagem })
+      }
 
       return true
     },

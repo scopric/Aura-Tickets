@@ -62,7 +62,7 @@ export default function ContactPage() {
       }, 5000)
     } catch (err) {
       console.error('[Contact]', err)
-      toast.error('Falha ao enviar mensagem. Por favor, tente novamente.')
+      toast.error((err as { mensagem?: string })?.mensagem || 'Falha ao enviar mensagem. Por favor, tente novamente.')
     }
   }
 
@@ -210,6 +210,7 @@ export default function ContactPage() {
                     <div className={inputWrapperClasses('name')}>
                       <input
                         id="name"
+                        maxLength={120}
                         type="text"
                         value={form.name}
                         onChange={e => setForm({ ...form, name: e.target.value })}
@@ -229,6 +230,7 @@ export default function ContactPage() {
                     <div className={inputWrapperClasses('email')}>
                       <input
                         id="email"
+                        maxLength={254}
                         type="email"
                         value={form.email}
                         onChange={e => setForm({ ...form, email: e.target.value })}
@@ -250,6 +252,7 @@ export default function ContactPage() {
                     <div className={inputWrapperClasses('phone')}>
                       <input
                         id="phone"
+                        maxLength={30}
                         type="tel"
                         value={form.phone}
                         onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -297,6 +300,7 @@ export default function ContactPage() {
                   <div className={inputWrapperClasses('message')}>
                     <textarea
                       id="message"
+                      maxLength={5000}
                       value={form.message}
                       onChange={e => setForm({ ...form, message: e.target.value })}
                       onFocus={() => setFocusedField('message')}

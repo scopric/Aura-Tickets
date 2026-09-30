@@ -6,8 +6,14 @@
 -- ORDEM DE APLICAÇÃO (obrigatória):
 --   Se este SQL rodar antes da `send-email` nova, o formulário de contato e a inscrição do rodapé PARAM: o site
 --   antigo grava direto na tabela e a regra que deixava gravar some. Por isso:
+--   0. ANTES de publicar: baixar a `send-email` que está no ar (`get_edge_function` pelo MCP ou
+--      `supabase functions download send-email`) e comparar com a do `main` (invariante 10). Se diferir, parar: a
+--      produção tem mudança fora do repositório e publicar este PR a apagaria.
 --   1. Publicar a `send-email` deste PR, da raiz do repositório (supabase/functions/send-email + _shared).
---   2. Conferir a publicada: `supabase functions download send-email` e `grep -c newsletter_subscribe` > 0.
+--   2. Conferir a publicada INTEIRA: baixar de novo e fazer diff contra supabase/functions/send-email/index.ts e
+--      _shared/validar.ts deste ramo. Tem de dar zero diferença (grep de uma palavra não basta).
+--   Se o PR for mesclado ANTES de publicar a função: o rodapé responde "Payload inválido" na inscrição da
+--   newsletter e o contato só chega por e-mail (não grava no admin, a função antiga não grava), até publicar.
 --   3. Mesclar o PR (front novo na Vercel: contato e rodapé só chamam a função). Entre o passo 1 e este, o
 --      front antigo grava o contato direto E a função nova grava de novo: mensagem duplicada no admin, só nessa
 --      janela. Fazer 1 e 3 em seguida.
@@ -35,7 +41,9 @@
 --    que uma regra aberta criada por engano no futuro não reabra a gravação direta. Admin segue gravando e lendo
 --    pelas regras próprias (gf_contact_messages_admin_all, "Apenas admins gerenciam subscribers").
 -- 2. Limite por IP: a função conta contato e newsletter juntos na contact_rate_limit_hits (5 a cada 10 min).
---    Sem coluna nova: separar só se um canal começar a atrapalhar o outro.
+--    Sem coluna nova: separar só se um canal começar a atrapalhar o outro. A chave é o IP (IPv4) ou o prefixo
+--    /64 (IPv6). A tabela é limpa por um job do pg_cron (limpar_contact_rate_limit_hits, de hora em hora: apaga o
+--    que tem mais de 1 dia), no padrão do limpar_access_logs.
 -- 3. Valores: >= 0 em preço, capacidade, quantidades vendidas e totais; quantidade de item e mínimo por pedido
 --    >= 1. Cupons NÃO entram: já têm coupons_value_chk (desconto > 0 e percentual <= 100) e coupons_limites_chk
 --    (usos, mínimo do pedido, desconto máximo) no baseline.
@@ -96,6 +104,13 @@ alter table public.feedback drop constraint if exists feedback_tamanhos_chk;
 alter table public.feedback add constraint feedback_tamanhos_chk check (
   length(page) <= 2048 and length(user_agent) <= 1024 and length(admin_notes) <= 5000);
 
+-- 6. Limpeza da tabela do limite por IP (só as últimas 10 min contam; 1 dia de folga para investigar abuso)
+create extension if not exists pg_cron;
+select cron.unschedule('limpar_contact_rate_limit_hits')
+  where exists (select 1 from cron.job where jobname = 'limpar_contact_rate_limit_hits');
+select cron.schedule('limpar_contact_rate_limit_hits', '23 * * * *',
+  $$delete from public.contact_rate_limit_hits where created_at < now() - interval '1 day'$$);
+
 -- Conferência obrigatória: se algo faltar, nada deste arquivo é gravado.
 do $$
 begin
@@ -120,6 +135,9 @@ begin
         and convalidated) <> 6 then
     raise exception 'falta CHECK (ou não validado)';
   end if;
+  if not exists (select 1 from cron.job where jobname = 'limpar_contact_rate_limit_hits') then
+    raise exception 'job limpar_contact_rate_limit_hits não agendado';
+  end if;
 end;
 $$;
 
@@ -127,6 +145,8 @@ commit;
 
 -- Desfazer:
 -- begin;
+-- select cron.unschedule('limpar_contact_rate_limit_hits')
+--   where exists (select 1 from cron.job where jobname = 'limpar_contact_rate_limit_hits');
 -- alter table public.ticket_types drop constraint if exists ticket_types_valores_chk;
 -- alter table public.orders drop constraint if exists orders_valores_chk;
 -- alter table public.order_items drop constraint if exists order_items_valores_chk;

@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
-import { validarContato, validarEmail } from "../_shared/validar.ts";
+import { chaveIp, validarContato, validarEmail } from "../_shared/validar.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -9,13 +9,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "
 
 const TEAM_EMAIL = "contato@evokaa.com.br";
 
-// Mesmo padrão de extração de IP já usado em produção (record-access): o cliente pode inventar
-// o COMEÇO do x-forwarded-for, mas não o que os proxies acrescentam no FIM.
-const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/;
+// Em produção a Cloudflare fica na frente do Supabase: o IP real do visitante vem em `cf-connecting-ip`. O FIM do
+// x-forwarded-for é o gateway (não o visitante) e o COMEÇO o cliente inventa; fica só como último recurso, com
+// aviso no log. Devolve a chave do limite (IPv4 inteiro ou prefixo /64 do IPv6, ver chaveIp).
 function clientIp(headers: Headers): string | null {
-  const chain = headers.get("x-forwarded-for");
-  const candidate = (headers.get("cf-connecting-ip") ?? chain?.split(",").at(-1) ?? headers.get("x-real-ip") ?? "").trim();
-  return IP_RE.test(candidate) ? candidate : null;
+  const cf = headers.get("cf-connecting-ip");
+  if (!cf) console.warn("[limite por IP] sem cf-connecting-ip; usando x-forwarded-for/x-real-ip");
+  return chaveIp(cf ?? headers.get("x-forwarded-for")?.split(",").at(-1) ?? headers.get("x-real-ip") ?? "");
 }
 
 // Identifica quem está chamando pelo token da requisição — nunca confiar em `to`/`from` do
@@ -307,12 +307,13 @@ const MANDA_EMAIL = ["welcome", "signup_notification", "newsletter", "order_conf
 // Canais públicos sem login (contato e inscrição na newsletter): 5 chamadas a cada 10 minutos por IP,
 // contadas juntas na mesma tabela. Sem IP identificável não há como limitar, então recusa.
 // Registra ANTES de contar (a própria chamada entra na conta): contar e depois gravar deixava uma rajada
-// em paralelo passar inteira pela contagem. Tentativa recusada também conta, e prolonga o bloqueio.
+// em paralelo passar inteira pela contagem. A tentativa recusada apaga o próprio registro (senão quem insiste
+// ficaria bloqueado para sempre, e com ele o /64 inteiro); a aceita nunca é apagada, então a rajada segue barrada.
 // Devolve a resposta de recusa, ou null para seguir.
 async function limitarPorIp(req: Request, supabaseAdmin: ReturnType<typeof createClient>, json: (b: unknown, s?: number) => Response) {
   const ip = clientIp(req.headers);
   if (!ip) return json({ error: "Não foi possível identificar a origem da requisição." }, 400);
-  const { error: hitError } = await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip });
+  const { data: hit, error: hitError } = await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip }).select("id").single();
   const since = new Date(Date.now() - 10 * 60_000).toISOString();
   const { count, error } = hitError ? { count: null, error: hitError } : await supabaseAdmin
     .from("contact_rate_limit_hits")
@@ -323,7 +324,11 @@ async function limitarPorIp(req: Request, supabaseAdmin: ReturnType<typeof creat
     console.error("[limite por IP] falhou:", error.message);
     return json({ error: "Não foi possível processar agora. Tente de novo." }, 500);
   }
-  if ((count ?? 0) > 5) return json({ error: "Muitas tentativas. Tente de novo em alguns minutos." }, 429);
+  if ((count ?? 0) > 5) {
+    const { error: delError } = await supabaseAdmin.from("contact_rate_limit_hits").delete().eq("id", hit!.id);
+    if (delError) console.error("[limite por IP] recusa não apagou o registro:", delError.message);
+    return json({ error: "Muitas tentativas. Tente de novo em alguns minutos." }, 429);
+  }
   return null;
 }
 
@@ -343,7 +348,14 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json();
+    // Corpo acima de 64 KB é recusado antes de interpretar (o maior uso legítimo, o contato, tem até ~5,6 mil caracteres).
+    // Sem content-length (envio em partes), mede o texto lido.
+    const MAX_CORPO = 65536;
+    const tamanho = req.headers.get("content-length");
+    if (tamanho !== null && !(Number(tamanho) <= MAX_CORPO)) return json({ error: "Requisição grande demais." }, 413);
+    const corpo = await req.text();
+    if (corpo.length > MAX_CORPO) return json({ error: "Requisição grande demais." }, 413);
+    const payload = JSON.parse(corpo);
     // `from` nunca vem do chamador — só o roteamento abaixo, por `emailType`, decide o
     // remetente. Aceitar `from` do corpo permitiria assinar e-mail como qualquer endereço.
     let { orderId, emailType } = payload;
@@ -410,7 +422,7 @@ serve(async (req) => {
       // Marca ANTES de mandar, não depois: entre "checar a flag" e "gravar a flag" existe uma
       // janela — sem isso, um script chamando em paralelo com o mesmo JWT passa pela checagem
       // várias vezes antes de qualquer gravação acontecer (a checagem por si só não impede
-      // duas chamadas simultâneas). Se o envio falhar, desmarca para permitir nova tentativa.
+      // duas chamadas simultâneas). Se o envio falhar, a marca fica e o e-mail não é reenviado (ver o catch).
       const { error: markError } = await supabaseAdmin.auth.admin.updateUserById(caller.id, {
         app_metadata: { [sentFlag]: true },
       });
@@ -509,6 +521,20 @@ serve(async (req) => {
       const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
       const recusa = await limitarPorIp(req, supabaseAdmin, json);
       if (recusa) return recusa;
+
+      // ponytail: teto global de 50/h — trocar pela dupla confirmação (N1)
+      const { count: naHora, error: tetoError } = await supabaseAdmin
+        .from("newsletter_subscribers")
+        .select("id", { count: "exact", head: true })
+        .gt("created_at", new Date(Date.now() - 60 * 60_000).toISOString());
+      if (tetoError) {
+        console.error("[newsletter_subscribe] contagem do teto falhou:", tetoError.message);
+        return json({ error: "Não foi possível concluir a inscrição. Tente de novo." }, 500);
+      }
+      if ((naHora ?? 0) > 50) {
+        console.warn(`[newsletter_subscribe] teto global: ${naHora} inscrições na última hora`);
+        return json({ error: "Muitas inscrições agora. Tente mais tarde." }, 429);
+      }
 
       // "on conflict do nothing" pelos dois índices únicos (email e lower(email)): o PostgREST só aceita
       // coluna em on_conflict, não expressão, então a duplicata (23505) é tratada como sucesso aqui.

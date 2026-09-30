@@ -27,4 +27,13 @@ describe('useContact', () => {
     const { result } = renderHook(() => useContact(), { wrapper })
     await expect(result.current.mutateAsync(msg)).rejects.toThrow('429')
   })
+
+  it('mensagem da função (limite, validação) vai em `mensagem`', async () => {
+    const error = Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      context: { json: async () => ({ error: 'Muitas tentativas. Tente de novo em alguns minutos.' }) },
+    })
+    vi.mocked(supabase.functions.invoke).mockResolvedValue({ data: null, error } as never)
+    const { result } = renderHook(() => useContact(), { wrapper })
+    await expect(result.current.mutateAsync(msg)).rejects.toMatchObject({ mensagem: 'Muitas tentativas. Tente de novo em alguns minutos.' })
+  })
 })

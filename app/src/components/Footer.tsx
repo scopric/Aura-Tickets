@@ -137,6 +137,11 @@ export default function Footer() {
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : subscribed ? 'Enviado!' : 'Assinar'}
               </button>
             </form>
+            {subscribed && (
+              <p className="text-xs text-white/40 mt-2">
+                Se você já tinha cancelado a inscrição, fale com a gente para voltar a receber.
+              </p>
+            )}
           </div>
         </div>
 
