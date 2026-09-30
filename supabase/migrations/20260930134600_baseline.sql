@@ -3975,3 +3975,6 @@ create policy gf_mfa_aal2 on storage.objects as RESTRICTIVE for ALL to authentic
   with check (( SELECT public.gf_mfa_ok() AS gf_mfa_ok));
 
 create event trigger ensure_rls on ddl_command_end when tag in ('CREATE TABLE', 'CREATE TABLE AS', 'SELECT INTO') execute function public.rls_auto_enable();
+
+-- A materialized view nasce vazia; preencher para consultas locais.
+refresh materialized view public.event_summary;

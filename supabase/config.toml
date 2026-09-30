@@ -1,3 +1,6 @@
+# SÓ LOCAL (supabase start / db reset / test db). NUNCA rodar `supabase config push` nem ligar o
+# Branching com este arquivo: os valores de login abaixo são de desenvolvimento e desligariam
+# recursos da produção. A configuração do Auth de produção é feita só no painel.
 # For detailed configuration reference documentation, visit:
 # https://supabase.com/docs/guides/local-development/cli/config
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
@@ -300,8 +303,9 @@ max_enrolled_factors = 10
 
 # Control MFA via App Authenticator (TOTP)
 [auth.mfa.totp]
-enroll_enabled = false
-verify_enabled = false
+# ligado como na produção (o 2FA é exigido pelo banco, gf_mfa_ok)
+enroll_enabled = true
+verify_enabled = true
 
 # Configure MFA via Phone Messaging
 [auth.mfa.phone]
