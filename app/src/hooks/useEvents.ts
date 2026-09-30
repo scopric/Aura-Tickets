@@ -338,29 +338,35 @@ export function useUpdateEvent() {
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
 
+      // Lista branca: só grava a coluna que a tela mandou. Chave ausente não é regravada:
+      // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins
+      // ficam de fora (moderação é do banco, F0a).
+      const enviados = new Set(Object.keys(event))
+      const colunas = {
+        title: event.title,
+        subtitle: event.subtitle || null,
+        description: event.description || null,
+        short_description: event.short_description || null,
+        cover_image: event.cover_image || '/images/hero-bg.jpg',
+        image_url: event.image_url || '/images/hero-bg.jpg',
+        category: event.category || 'Outros',
+        tags: event.tags || [],
+        venue_name: event.venue_name || null,
+        venue_address: event.venue_address || null,
+        date: event.date || null,
+        time: event.time || null,
+        start_date: event.start_date || new Date().toISOString(),
+        end_date: event.end_date || null,
+        status: event.status || 'draft',
+        visibility: event.visibility || 'public',
+        capacity: event.capacity || null,
+        branding: event.branding || {},
+        settings: event.settings || {},
+      }
+
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .update({
-          title: event.title,
-          subtitle: event.subtitle || null,
-          description: event.description || null,
-          short_description: event.short_description || null,
-          cover_image: event.cover_image || '/images/hero-bg.jpg',
-          image_url: event.image_url || '/images/hero-bg.jpg',
-          category: event.category || 'Outros',
-          tags: event.tags || [],
-          venue_name: event.venue_name || event.location || null,
-          venue_address: event.venue_address || null,
-          date: event.date || null,
-          time: event.time || null,
-          start_date: event.start_date || new Date().toISOString(),
-          end_date: event.end_date || null,
-          status: event.status || 'draft',
-          visibility: event.visibility || 'public',
-          capacity: event.capacity || null,
-          branding: event.branding || {},
-          settings: event.settings || {},
-        })
+        .update(Object.fromEntries(Object.entries(colunas).filter(([k]) => enviados.has(k))))
         .eq('id', eventId)
         .select()
         .single()

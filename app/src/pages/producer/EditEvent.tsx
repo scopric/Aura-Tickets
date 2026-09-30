@@ -102,7 +102,6 @@ export default function ProducerEditEvent() {
         venue_name: formData.location || null,
         category: category,
         status: existingEvent?.status || 'published',
-        approval_status: 'pending' as const,
         cover_image: image || '/images/hero-bg.jpg',
         image_url: image || '/images/hero-bg.jpg',
         capacity: tickets.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) || null
@@ -124,7 +123,7 @@ export default function ProducerEditEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success('Evento atualizado e enviado para aprovação!')
+      toast.success('Alterações salvas. Mudanças no conteúdo do evento voltam para a análise da equipe.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar evento')
