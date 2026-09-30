@@ -6,13 +6,19 @@
 -- Idempotente. Rodar de novo depois de reaplicar 20260927_security_hardening.sql (recria o gatilho).
 begin;
 
--- 1. Gatilho de profiles. gf_admin_can('super_admin') = é admin com super_admin e passou pelo 2FA.
+-- 1. Gatilho de profiles. gf_admin_can('super_admin') = é admin com super_admin e, se tiver o 2FA ativado,
+--    entrou com o código. Super_admin sem 2FA age só com a senha: risco aceito pelo Ricardo em 30/09/2026.
 create or replace function public.gf_protect_profile_privileges()
 returns trigger
 language plpgsql
 set search_path to ''
 as $$
 begin
+  -- Quem sai do papel admin perde as permissões (senão voltar a admin depois recupera as antigas)
+  if old.role = 'admin' and new.role is distinct from 'admin' then
+    new.admin_permissions := '{}';
+  end if;
+
   -- Nunca sobrar zero super_admin (vale para todos, inclusive a chave de serviço do delete-account).
   -- A trava serializa dois super_admins que se rebaixam ao mesmo tempo (senão os dois passariam).
   if old.role = 'admin' and 'super_admin' = any(coalesce(old.admin_permissions, '{}')) then
@@ -51,22 +57,21 @@ begin
     end if;
   end if;
 
-  -- Na linha de outra pessoa a regra de acesso já exige manage_users; aqui fica o piso de "é admin"
   if (new.is_verified is distinct from old.is_verified
       or new.stripe_customer_id is distinct from old.stripe_customer_id)
-     and not public.gf_is_admin() then
+     and not public.gf_admin_can('manage_users') then
     raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
   end if;
   return new;
 end;
 $$;
 
--- 2. Admin só edita o perfil dos outros com manage_users (super_admin incluído); o próprio perfil
---    segue pela regra "Usuários modificam próprio perfil".
+-- 2. Admin só edita o perfil dos outros com manage_users (super_admin incluído); perfil de outro admin,
+--    só o super_admin. O próprio perfil segue pela regra "Usuários modificam próprio perfil".
 drop policy if exists gf_profiles_admin_update on public.profiles;
 create policy gf_profiles_admin_update on public.profiles for update to authenticated
-  using ((select public.gf_admin_can('manage_users')))
-  with check ((select public.gf_admin_can('manage_users')));
+  using ((select public.gf_admin_can('manage_users')) and (role <> 'admin' or (select public.gf_admin_can('super_admin'))))
+  with check ((select public.gf_admin_can('manage_users')) and (role <> 'admin' or (select public.gf_admin_can('super_admin'))));
 
 -- 3. Eventos: qualquer admin lê (Dashboard, Newsletter, Usuários, Financeiro); escrever exige manage_events.
 drop policy if exists "Admins gerenciam todos os eventos" on public.events;
