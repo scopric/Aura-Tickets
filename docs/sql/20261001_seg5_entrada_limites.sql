@@ -121,7 +121,13 @@ alter table public.feedback add constraint feedback_tamanhos_chk check (
   length(page) <= 2048 and length(user_agent) <= 1024 and length(admin_notes) <= 5000);
 
 -- 6. Limpeza da tabela do limite por IP (só as últimas 10 min contam; 1 dia de folga para investigar abuso)
-create extension if not exists pg_cron;
+-- pg_cron já está ligado em produção (job limpar_access_logs). NÃO usar `create extension if not exists pg_cron`:
+-- no Supabase ela dispara o gatilho interno de permissões do schema cron e falha com 2BP01 (30/09/2026).
+do $$ begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise exception 'pg_cron não está ligado: ligar em Database > Extensions antes de rodar este arquivo';
+  end if;
+end $$;
 select cron.unschedule('limpar_contact_rate_limit_hits')
   where exists (select 1 from cron.job where jobname = 'limpar_contact_rate_limit_hits');
 select cron.schedule('limpar_contact_rate_limit_hits', '23 * * * *',
