@@ -514,9 +514,9 @@ function HowItWorksCard({
 
   const getPreviewImage = () => {
     switch (stepIndex) {
-      case 0: return '/images/preview_create_event.png'
-      case 1: return '/images/preview_manage_event.png'
-      case 2: return '/images/preview_sell_tickets.png'
+      case 0: return '/images/preview_create_event.webp'
+      case 1: return '/images/preview_manage_event.webp'
+      case 2: return '/images/preview_sell_tickets.webp'
       default: return ''
     }
   }
@@ -576,6 +576,7 @@ function HowItWorksCard({
           <img
             src={getPreviewImage()}
             alt={title}
+            loading="lazy"
             className={`w-full h-full object-cover object-top transition-all duration-700 ease-out ${
               isHovered 
                 ? 'scale-[1.08] translate-y-0 opacity-100 filter brightness-110' 
