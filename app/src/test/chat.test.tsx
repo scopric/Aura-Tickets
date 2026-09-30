@@ -276,11 +276,11 @@ describe('chat: som das mensagens', () => {
 
   it('admin, em qualquer página: mensagem de cliente toca; a própria, nota interna e resposta da equipe não', () => {
     montar(<AdminLayout />)
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(1)
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'u1' }) // o próprio admin como cliente
-    chegar({ sender_role: 'agent', is_internal: false, sender_id: 'a2' })
-    chegar({ sender_role: 'customer', is_internal: true, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'u1', bot_state: 'humano' }) // o próprio admin como cliente
+    chegar({ sender_role: 'agent', is_internal: false, sender_id: 'a2', bot_state: 'humano' })
+    chegar({ sender_role: 'customer', is_internal: true, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(1)
   })
 
@@ -291,7 +291,7 @@ describe('chat: som das mensagens', () => {
     fireEvent.click(botao)
     expect(botao).toHaveAttribute('aria-pressed', 'false')
     expect(mem['evokaa-som-chat']).toBe('off')
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(0)
   })
 

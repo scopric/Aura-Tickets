@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, ArrowLeft, CheckCircle2, ChevronRight, Loader2, LogIn, Mail, MessageCircle, Send, X } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Bot, CheckCircle2, ChevronRight, Headset, Loader2, LogIn, Mail, MessageCircle, Send, X } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import {
-  MAX_TEXTO, avaliarConversa, depois, iniciais, iniciarConversa, marcarLida, mensagemDeErro, publicoDoPapel, quando,
+  MAX_TEXTO, avaliarConversa, depois, falarComAtendente, iniciais, iniciarConversa, marcarLida, mensagemDeErro, publicoDoPapel, quando,
   useAssuntos, useChatConfig, useMeuContato, useMinhasConversas, validarTelefoneBR,
   type Assunto, type Conversa, type Publico,
 } from '../hooks/useConversas'
@@ -65,7 +65,7 @@ function ItemConversa({ c, onClick }: { c: Conversa; onClick: () => void }) {
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className={`truncate text-sm ${naoLida ? 'font-semibold' : 'font-medium'}`}>{c.chat_topics?.label ?? 'Conversa'}</span>
-            {c.status === 'resolved' && <span className="shrink-0 rounded-full bg-emerald-600/10 px-1.5 py-px text-[10px] font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">Resolvida</span>}
+            {c.status === 'resolved' && <span className="shrink-0 rounded-full bg-emerald-600/10 px-1.5 py-px text-[10px] font-semibold text-emerald-800 dark:bg-emerald-400/15 dark:text-emerald-200">{c.bot_state === 'bot' ? 'Resolvida pelo assistente' : 'Resolvida'}</span>}
           </span>
           <span className={`block truncate text-xs ${suave}`}>{c.last_message_preview ?? ''}</span>
         </span>
@@ -308,6 +308,46 @@ const NOTAS = [
   { n: 3, emoji: '😊', rotulo: 'Ótimo' },
 ] as const
 
+/** Resolvida no "Sim" do assistente: sem a nota de 1 a 3 (ela fica para o atendimento humano). */
+function ResolvidaPeloAssistente() {
+  return (
+    <div className="mx-4 mb-1 rounded-2xl border border-emerald-600/20 bg-emerald-50/80 px-4 py-3 text-center dark:border-emerald-300/20 dark:bg-emerald-400/10">
+      <p className="flex items-center justify-center gap-1.5 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+        <CheckCircle2 className="h-4 w-4" aria-hidden="true" /> Resolvida pelo assistente
+      </p>
+      <p className={`mt-1 text-[11px] ${suave}`}>Precisa de mais alguma coisa? Escreva abaixo e a conversa é reaberta.</p>
+    </div>
+  )
+}
+
+/** Botão sempre visível enquanto a conversa está com o assistente. */
+function FalarComAtendente({ id, atualizar }: { id: string; atualizar: () => void }) {
+  const qc = useQueryClient()
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const pedir = async () => {
+    setEnviando(true)
+    setErro(null)
+    try {
+      await falarComAtendente(id)
+      atualizar()
+      qc.invalidateQueries({ queryKey: ['chat-mensagens', id] })
+    } catch (e) {
+      setErro(mensagemDeErro(e))
+    } finally {
+      setEnviando(false)
+    }
+  }
+  return (
+    <div className="mx-4 mb-1">
+      <button type="button" disabled={enviando} onClick={pedir} className={`inline-flex w-full items-center justify-center gap-2 rounded-full border border-slate-900/20 px-4 py-1.5 text-xs font-semibold hover:bg-slate-900/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10 ${foco}`}>
+        {enviando ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <Headset className="h-3.5 w-3.5" aria-hidden="true" />} Falar com um atendente
+      </button>
+      {erro && <p role="alert" className="mt-1 text-center text-xs text-red-700 dark:text-red-300">{erro}</p>}
+    </div>
+  )
+}
+
 function Avaliacao({ c, atualizar }: { c: Conversa; atualizar: () => void }) {
   const [erro, setErro] = useState<string | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -354,6 +394,7 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   const { data: conversas } = useMinhasConversas()
   const c = conversas?.find((x) => x.id === id)
   const naoLida = !!c && depois(c.last_reply_at, c.customer_last_read_at)
+  const comAssistente = c?.bot_state === 'bot' && c.status === 'open'
   const atualizar = () => qc.invalidateQueries({ queryKey: ['chat-minhas', user?.id] })
 
   // "visto" do cliente: marca ao abrir e a cada resposta nova com a conversa na tela
@@ -365,24 +406,27 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   return (
     <>
       <Voltar onClick={() => ir({ t: 'inicio' })}>
-        {/* quem assumiu aparece com o nome (assignee_name, gravado pelo servidor); sem dono, "Equipe Evokaa" */}
+        {/* com o assistente: "Assistente Evokaa"; depois, quem assumiu aparece com o nome (assignee_name,
+            gravado pelo servidor); sem dono, "Equipe Evokaa" */}
         <div className="flex items-center gap-2.5">
           <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-xs font-bold text-[#fff]">
-            {c?.assignee_name ? iniciais(c.assignee_name) : <MessageCircle className="h-4 w-4" />}
+            {comAssistente ? <Bot className="h-4 w-4" /> : c?.assignee_name ? iniciais(c.assignee_name) : <MessageCircle className="h-4 w-4" />}
           </span>
           <div className="min-w-0">
             <h3 data-foco tabIndex={-1} className="truncate text-sm font-semibold focus:outline-none">
-              {c?.assignee_name ? `${c.assignee_name} está te atendendo` : 'Equipe Evokaa'}
+              {comAssistente ? 'Assistente Evokaa' : c?.assignee_name ? `${c.assignee_name} está te atendendo` : 'Equipe Evokaa'}
             </h3>
             <p className={`truncate text-xs ${suave}`}>
-              {c?.assignee_name && <span>Equipe Evokaa</span>}
-              {c?.assignee_name && <span aria-hidden="true"> · </span>}
+              {comAssistente && <span>assistente virtual</span>}
+              {!comAssistente && c?.assignee_name && <span>Equipe Evokaa</span>}
+              {(comAssistente || c?.assignee_name) && <span aria-hidden="true"> · </span>}
               <span>{c?.chat_topics?.label ?? 'Conversa'}{c?.status === 'resolved' ? ' · resolvida' : ''}</span>
             </p>
           </div>
         </div>
       </Voltar>
-      {c?.status === 'resolved' && <Avaliacao c={c} atualizar={atualizar} />}
+      {comAssistente && <FalarComAtendente id={id} atualizar={atualizar} />}
+      {c?.status === 'resolved' && (c.bot_state === 'bot' ? <ResolvidaPeloAssistente /> : <Avaliacao c={c} atualizar={atualizar} />)}
       <ChatThread
         key={id}
         conversaId={id}
@@ -390,7 +434,8 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
         podeAnexar={c?.status === 'open'}
         lidoAte={c?.agent_last_read_at}
         aoEnviar={atualizar}
-        rotuloCampo="Mensagem para a equipe Evokaa"
+        rotuloCampo={comAssistente ? 'Mensagem para o assistente Evokaa' : 'Mensagem para a equipe Evokaa'}
+        assistente={comAssistente}
       />
     </>
   )
