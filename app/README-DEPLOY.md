@@ -24,12 +24,7 @@
 
 ## 🚀 DEPLOY AGORA
 
-### Opção A: Duplo clique (mais fácil)
-1. Vá na pasta `Evokaa Tickets\app`
-2. Dê **duplo clique** em `DEPLOY-VERCEL.bat`
-3. Aguarde o build e deploy
-
-### Opção B: PowerShell (se o .bat falhar)
+### PowerShell
 ```powershell
 cd "C:\Users\scopa\OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets\app"
 npm run build
@@ -49,10 +44,7 @@ npx vercel --prod
 
 ### Passo 2: Criar usuários de teste
 1. Authentication → Users → Add User
-2. Crie estes 3 usuários:
-   - `produtor@aura.teste` / senha: `senha123`
-   - `admin@aura.teste` / senha: `senha123`
-   - `user@aura.teste` / senha: `senha123`
+2. Crie os usuários de teste de que precisar (e-mail e senha à sua escolha; não registre a senha em arquivo versionado)
 3. O trigger `handle_new_user` cria o perfil automaticamente na tabela `users`
 
 ### Passo 3: Storage (imagens)
@@ -61,16 +53,6 @@ npx vercel --prod
    - `event-images`
    - `avatars`
    - `producer-logos`
-
----
-
-## 🔑 Login de demonstração
-
-| Email | Senha | Acesso |
-|-------|-------|--------|
-| `produtor@aura.teste` | `senha123` | Dashboard do Produtor |
-| `admin@aura.teste` | `senha123` | Painel Admin |
-| `user@aura.teste` | `senha123` | Área do Participante |
 
 ---
 

@@ -26,13 +26,7 @@
 
 1. No painel Supabase, vá em **Authentication → Users**
 2. Clique em **Add User → Create new user**
-3. Crie os 3 usuários de teste:
-
-| Email | Senha | Role | ID (se possível definir) |
-|-------|-------|------|--------------------------|
-| `produtor@aura.teste` | `senha123` | producer | `d3f6ab7a-b847-4aa4-af6c-033a738c2ce4` |
-| `admin@aura.teste` | `senha123` | admin | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
-| `user@aura.teste` | `senha123` | customer | `b2c3d4e5-f6a7-8901-bcde-f23456789012` |
+3. Crie os usuários de teste de que precisar (e-mail e senha à sua escolha; não registre a senha em arquivo versionado)
 
 > **Nota:** O Supabase Auth não permite definir UUID manualmente pela UI. Se os IDs forem diferentes, o modo demo ainda funciona (ele cria mock local), mas o seed.sql precisará ser ajustado com os IDs reais.
 
@@ -81,18 +75,15 @@ npx supabase init
 ```powershell
 mkdir -p supabase\functions\send-email
 mkdir -p supabase\functions\check-in-validate
-mkdir -p supabase\functions\generate-certificate
 
 copy supabase-functions-send-email-index.ts supabase\functions\send-email\index.ts
 copy supabase-functions-check-in-validate-index.ts supabase\functions\check-in-validate\index.ts
-copy supabase-functions-generate-certificate-index.ts supabase\functions\generate-certificate\index.ts
 ```
 
 4. Deploy das functions:
 ```powershell
 npx supabase functions deploy send-email
 npx supabase functions deploy check-in-validate
-npx supabase functions deploy generate-certificate
 ```
 
 5. Configure as secrets (opcional — modo demo funciona sem):
@@ -107,11 +98,6 @@ Execute o script de deploy:
 cd "OneDrive\Documentos\Gemini\Antigravity\Evokaa Tickets\app"
 npm run build
 npx vercel --prod
-```
-
-Ou use o arquivo batch:
-```
-DEPLOY-AGORA.bat
 ```
 
 ---
@@ -129,7 +115,7 @@ VITE_SUPABASE_ANON_KEY=sua_anon_key
 ## 🧪 Testando
 
 1. Acesse o site deployado
-2. Faça login com `produtor@aura.teste` / `senha123`
+2. Faça login com um dos usuários de teste criados no passo 2
 3. Navegue pelo Dashboard, Eventos, CRM, Finance, etc.
 4. Todos os dados são mock se o Supabase não estiver configurado, ou reais se estiver.
 

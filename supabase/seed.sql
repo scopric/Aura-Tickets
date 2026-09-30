@@ -3,7 +3,6 @@
 --
 -- INSTRUÇÕES:
 -- 1. Acesse o app e registre uma conta de PRODUTOR em /auth/register
---    (use: produtor@aura.teste / senha123)
 -- 2. No Supabase Dashboard → Table Editor → profiles, copie o UUID do produtor
 -- 3. Substitua 'COLE_AQUI_O_UUID_DO_PRODUTOR' abaixo por esse UUID
 -- 4. Rode este script

@@ -30,3 +30,8 @@ aura-complete-source/
 Aura documentos/
 dist/
 build/
+
+# Artefatos locais (não versionar)
+app/.vite/
+app/scratch/
+**/supabase/.temp/

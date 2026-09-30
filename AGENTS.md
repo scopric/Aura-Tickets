@@ -7,7 +7,7 @@ Contexto do repositório para qualquer agente de código (Claude Code, Codex, Cu
 - **Claude Code** é a ferramenta principal do projeto. As instruções específicas dele estão em [`CLAUDE.md`](CLAUDE.md), carregado automaticamente. A memória entre sessões (histórico, decisões, pendências) fica num cofre do Obsidian fora deste repositório, na máquina do mantenedor; este arquivo é o contexto público.
 - **Um ramo por tarefa, a partir do `main` atualizado, sempre com pull request.** Quem mescla é o mantenedor. Nenhuma correção de segurança fica parada num ramo.
 - **Repositório público:** nenhuma chave, senha ou token em arquivo versionado. As variáveis ficam na Vercel e no Supabase.
-- **Banco de produção:** SQL novo vai para `docs/sql/`, não para `supabase/migrations/` (a integração Supabase↔GitHub rodaria as migrations em produção e a primeira apaga tabelas). Aplicar SQL em produção é ato do mantenedor.
+- **Banco de produção:** SQL novo vai para `docs/sql/`, não para `supabase/migrations/` (a integração Supabase↔GitHub rodaria as migrations em produção; as antigas, que apagavam tabelas, estão em `docs/archive/migrations-antigas/`). Aplicar SQL em produção é ato do mantenedor.
 - O histórico de maio e junho de 2026 (Lovable, Antigravity e Kimi Code CLI) está em `docs/archive/`. Os arquivos do agente Kimi (`aura-agent.yaml`, `aura-system-prompt.md`) e do agente Antigravity (`run_agent.py`, `requirements.txt`, `.env.example` com chave Gemini) foram removidos em 27/09/2026; `docs/archive/KIMI_MEMORY.md` ficou como registro histórico.
 
 ## Ponytail — modo de trabalho (código enxuto)
@@ -427,7 +427,7 @@ Use este checklist antes de entregar features ou fazer deploy.
 ### Autenticação
 - [ ] Login com e-mail/senha válidos redireciona corretamente (`user` → `/app/hub`, `producer` → `/producer/dashboard`, `admin` → `/admin/dashboard`)
 - [ ] Login com credenciais inválidas exibe toast de erro (sem crashar)
-- [ ] Login com conta demo funciona (`produtor@aura.teste` / `senha123`, `user@aura.teste` / `senha123`)
+- [ ] Login com conta demo funciona (só em desenvolvimento; contas em `app/src/hooks/useAuth.ts`)
 - [ ] Botão de login mostra spinner `<Loader2>` durante o submit (testar duas vezes seguidas)
 - [ ] Logout limpa sessão e redireciona para `/`
 - [ ] Recarregar a página mantém a sessão (testar em `/producer/dashboard`)
