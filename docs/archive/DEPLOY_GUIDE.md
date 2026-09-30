@@ -176,7 +176,7 @@ Após o deploy, verifique:
    ```
    https://www.evokaa.com.br/auth/login
    ```
-   Tente logar com `produtor@aura.teste` / `senha123`.
+   Tente logar com um usuário seu.
 
 3. **Supabase conectado:**
    - Abra o console do navegador (F12)
