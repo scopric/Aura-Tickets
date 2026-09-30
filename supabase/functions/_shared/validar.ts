@@ -51,7 +51,7 @@ const ipv4 = (s: string) => IPV4_RE.test(s) && s.split('.').every(o => Number(o)
 
 export function chaveIp(ip: string): string | null {
   const s = ip.trim().toLowerCase()
-  if (ipv4(s)) return s
+  if (ipv4(s)) return s.split('.').map(Number).join('.')
   if (s.startsWith('::ffff:') && ipv4(s.slice(7))) return s.slice(7)
   const partes = s.split('::')
   if (partes.length > 2) return null

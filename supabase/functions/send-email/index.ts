@@ -349,13 +349,27 @@ serve(async (req) => {
 
   try {
     // Corpo acima de 64 KB é recusado antes de interpretar (o maior uso legítimo, o contato, tem até ~5,6 mil caracteres).
-    // Sem content-length (envio em partes), mede o texto lido.
+    // Sem content-length (envio em partes), lê em pedaços e corta ao passar do limite (não guarda tudo na memória).
     const MAX_CORPO = 65536;
     const tamanho = req.headers.get("content-length");
     if (tamanho !== null && !(Number(tamanho) <= MAX_CORPO)) return json({ error: "Requisição grande demais." }, 413);
-    const corpo = await req.text();
-    if (corpo.length > MAX_CORPO) return json({ error: "Requisição grande demais." }, 413);
-    const payload = JSON.parse(corpo);
+    const partes: Uint8Array[] = [];
+    let lidos = 0;
+    if (req.body) {
+      const leitor = req.body.getReader();
+      for (;;) {
+        const { done, value } = await leitor.read();
+        if (done) break;
+        lidos += value.length;
+        if (lidos > MAX_CORPO) { await leitor.cancel(); return json({ error: "Requisição grande demais." }, 413); }
+        partes.push(value);
+      }
+    }
+    const bytes = new Uint8Array(lidos);
+    let pos = 0;
+    for (const p of partes) { bytes.set(p, pos); pos += p.length; }
+    let payload;
+    try { payload = JSON.parse(new TextDecoder().decode(bytes)); } catch { return json({ error: "Requisição inválida." }, 400); }
     // `from` nunca vem do chamador — só o roteamento abaixo, por `emailType`, decide o
     // remetente. Aceitar `from` do corpo permitiria assinar e-mail como qualquer endereço.
     let { orderId, emailType } = payload;

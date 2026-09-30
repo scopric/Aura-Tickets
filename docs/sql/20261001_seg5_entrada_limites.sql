@@ -58,7 +58,7 @@
 --    permissão manage_newsletter (a mesma da rota /admin/newsletter e do disparo na send-email) e sem passar pelo
 --    2FA do admin (gf_mfa_ok). Passam a usar gf_admin_can('manage_newsletter') (super_admin também passa), só para
 --    authenticated. Efeito colateral: admin sem manage_newsletter deixa de ver o contador "Inscritos na
---    newsletter" do painel (o card mostra erro), como já acontece com as outras áreas restritas.
+--    newsletter" do painel (o card mostra 0, sem vazar nada), como já acontece com as outras áreas restritas.
 begin;
 
 -- Conferência dos dados: aborta com a contagem antes de criar qualquer CHECK.
