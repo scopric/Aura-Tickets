@@ -1,3 +1,5 @@
+-- ATENÇÃO (30/09/2026): este arquivo recria funções que docs/sql/20260930_2fa_no_banco.sql protege com o
+-- 2FA. Se for rodado de novo, rode também o 20260930_2fa_no_banco.sql logo depois.
 -- =============================================================================
 -- Evo, o agente de IA do produtor (Etapa 1) — banco — 2026-09-29
 -- Aplicar à mão no SQL Editor do Supabase. NÃO vai para supabase/migrations (Decisão 02).

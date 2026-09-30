@@ -12,6 +12,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, AVISO_NORMAS } from '../_shared/planejar.ts'
 import { resumir } from '../_shared/mascara.ts'
+import { mfaOk } from '../_shared/mfa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -275,6 +276,8 @@ async function atender(req: Request): Promise<Response> {
 
   const caller = await getCaller(req)
   if (!caller) return json(401, { ok: false, motivo: 'nao_autorizado', message: 'Faça login novamente.' })
+  // Conta com 2FA: só com o código confirmado nesta sessão
+  if (!(await mfaOk(req))) return json(403, { ok: false, motivo: 'nao_autorizado', message: 'Confirme o código do 2FA (saia e entre de novo).' })
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const { data: perfil } = await admin.from('profiles').select('role, admin_permissions').eq('id', caller.id).maybeSingle()

@@ -10,6 +10,7 @@
 // Assunto e texto são fixos aqui: o admin não escolhe conteúdo nem destinatário.
 // O log leva só user_id e status HTTP: nunca o e-mail nem a chave.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
+import { mfaOk } from '../_shared/mfa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -85,6 +86,8 @@ Deno.serve(async (req: Request) => {
 
   const caller = await getCaller(req)
   if (!caller) return json(401, { ok: false, motivo: 'nao_autorizado' })
+  // Admin com 2FA: só com o código confirmado nesta sessão (a senha sozinha não dispara e-mail em massa)
+  if (!(await mfaOk(req))) return json(403, { ok: false, motivo: 'nao_autorizado' })
 
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const { data: perfil } = await admin.from('profiles').select('role, admin_permissions').eq('id', caller.id).maybeSingle()

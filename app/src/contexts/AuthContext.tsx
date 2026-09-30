@@ -56,6 +56,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Escuta mudanças de auth para sincronização automática em tempo real
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       try {
+        // Depois do código do 2FA o token passa a aal2, mas o supabase-js só repassa token novo ao
+        // Realtime em SIGNED_IN/TOKEN_REFRESHED: sem isto o tempo real seguiria com o aal1 e o banco
+        // (regra gf_mfa_aal2) não entregaria nada até o próximo refresh (~1 h).
+        if (event === 'MFA_CHALLENGE_VERIFIED' && session) supabase.realtime.setAuth(session.access_token)
         if (session) {
           // Login de verdade traz token NOVO (senha, login social, retorno do provedor); recarga e
           // troca de aba reemitem SIGNED_IN com o token que a memória já tem. Só o novo é registrado:
