@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normas, estimarConsumo, sugerirLotes, checklistOrcamento } from '../../../supabase/functions/_shared/planejar'
+import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, dataPassada } from '../../../supabase/functions/_shared/planejar'
 
 describe('planejar (cálculos do Evo)', () => {
   it('800 pessoas em pé', () => {
@@ -58,5 +58,13 @@ describe('planejar (cálculos do Evo)', () => {
     expect(categorias.filter(c => 'calculado' in c).map(c => c.categoria)).toEqual(['brigada', 'bar_bebidas'])
     const cerveja = estimarConsumo({ publico: 800, duracao_h: 4.5 }).itens[0]
     expect([cerveja.min, cerveja.max]).toEqual([800, 1600])
+  })
+  it('dataPassada: só AAAA-MM-DD antes de hoje', () => {
+    expect(dataPassada('2025-06-20', '2026-09-30')).toBe(true)
+    expect(dataPassada('2026-09-30', '2026-09-30')).toBe(false)
+    expect(dataPassada('2026-12-12', '2026-09-30')).toBe(false)
+    expect(dataPassada('20/12/2026', '2026-09-30')).toBe(false)
+    expect(dataPassada('', '2026-09-30')).toBe(false)
+    expect(dataPassada(undefined, '2026-09-30')).toBe(false)
   })
 })

@@ -135,3 +135,8 @@ export function checklistOrcamento({ publico, duracao_h, uf }: { publico: number
     aviso: AVISO_NORMAS,
   }
 }
+
+// Data AAAA-MM-DD anterior a hoje (mesmo formato; texto nesse formato compara como data).
+// Formato errado não conta como passado: a validação da proposta recusa por outro motivo.
+export const dataPassada = (data: unknown, hoje: string) =>
+  typeof data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data) && data < hoje

@@ -129,7 +129,7 @@ export default function EvoHub() {
     ? 'O Evo está pensando na sua resposta'
     : selo > 0 ? `Falar com o Evo (${selo} ${selo === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com o Evo'
   const textoBalao = {
-    convite: podeEvo ? 'Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.' : 'Oi! Sou o Evo 👋 Precisa de ajuda?',
+    convite: podeEvo ? 'Oi! Sou o Evo 👋 Posso te ajudar a\u00A0planejar seu evento.' : 'Oi! Sou o Evo 👋 Precisa de ajuda?',
     resposta: 'O Evo respondeu! Toque para ver.',
     aviso: 'O Evo tem um aviso para você',
   }
