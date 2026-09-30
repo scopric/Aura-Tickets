@@ -113,7 +113,7 @@ alter table public.conversations drop constraint if exists conversations_handoff
 alter table public.conversations add constraint conversations_handoff_reason_check
   check (handoff_reason in ('pedido', 'sem_resposta', 'nao_resolveu', 'anexo', 'erro', 'atendente', 'desligado'));
 alter table public.conversations add column if not exists bot_tries int not null default 0;
--- selo "Resolvida pelo assistente": só o "Sim" liga; reabrir (chat_send) desliga; cron e equipe não mexem
+-- selo "Resolvida pelo assistente": só o "Sim" liga; reabrir (chat_send) e a equipe mudar o status desligam; cron não mexe
 alter table public.conversations add column if not exists bot_resolveu boolean not null default false;
 
 -- 3c. Mensagens: camada do assistente (1 = base, 2 = IA no 3b; nula na cortesia) e o estado da conversa quando a mensagem
@@ -859,6 +859,8 @@ begin
     bot_state = case when v_assignee is not null then 'humano' else c.bot_state end,
     handoff_at = case when v_assignee is not null and c.bot_state = 'bot' then coalesce(c.handoff_at, now()) else c.handoff_at end,
     handoff_reason = case when v_assignee is not null and c.bot_state = 'bot' then coalesce(c.handoff_reason, 'atendente') else c.handoff_reason end,
+    -- NOVO (3a): a equipe mudar o status (reabrir ou resolver) tira o selo "Resolvida pelo assistente"
+    bot_resolveu = case when p_patch ? 'status' then false else c.bot_resolveu end,
     updated_at = now()
   where c.id = p_conv;
 
@@ -866,7 +868,7 @@ begin
 end;
 $$;
 
--- 6d. chat_inbox: o retorno muda (bot_state, handoff_at), então drop + create. Filtro novo
+-- 6d. chat_inbox: o retorno muda (bot_state, handoff_at, bot_resolveu), então drop + create. Filtro novo
 --     "assistente" (abertas com o assistente); abertas, minhas, sem dono e urgentes só humanas.
 drop function if exists public.chat_inbox(text, text, int);
 create function public.chat_inbox(p_filtro text, p_busca text, p_limite int)
@@ -878,7 +880,7 @@ returns table (
   last_customer_message_at timestamptz, last_reply_at timestamptz,
   agent_last_read_at timestamptz, customer_last_read_at timestamptz,
   nao_lida boolean, created_at timestamptz, resolved_at timestamptz, rating smallint,
-  bot_state text, handoff_at timestamptz
+  bot_state text, handoff_at timestamptz, bot_resolveu boolean
 )
 language plpgsql
 stable
@@ -900,7 +902,7 @@ begin
          c.agent_last_read_at, c.customer_last_read_at,
          coalesce(c.last_customer_message_at > coalesce(c.agent_last_read_at, '-infinity'), false),
          c.created_at, c.resolved_at, c.rating,
-         c.bot_state, c.handoff_at
+         c.bot_state, c.handoff_at, c.bot_resolveu
   from public.conversations c
   left join public.chat_departments d on d.id = c.department_id
   left join public.chat_topics t on t.id = c.topic_id
@@ -1554,7 +1556,8 @@ begin
   raise notice 'T14 OK: Sim e passagem não se atropelam';
 end $t$;
 
--- T15. Selo "Resolvida pelo assistente" (D4): só o Sim liga; reabrir desliga; cron e equipe não ligam
+-- T15. Selo "Resolvida pelo assistente" (D4): só o Sim liga; reabrir (cliente ou equipe) desliga; cron e
+--      equipe não ligam; chat_inbox devolve o selo
 do $t$
 declare r jsonb; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000023'; ad uuid := 'f0000000-0000-4000-8000-000000000004';
 begin
@@ -1574,8 +1577,17 @@ begin
   perform pg_temp.como(ad);
   r := public.chat_update(cv, '{"status": "resolved"}');
   assert (select status = 'resolved' and bot_state = 'bot' and not bot_resolveu from public.conversations where id = cv), 'T15: equipe deu selo';
+  -- equipe reabre a resolvida pelo Sim: o selo sai
   perform pg_temp.como(null);
-  raise notice 'T15 OK: selo só no Sim';
+  cv := pg_temp.conversa_bot(u);
+  perform pg_temp.como(u);
+  r := public.chat_bot_feedback(cv, true);
+  perform pg_temp.como(ad);
+  assert exists (select 1 from public.chat_inbox('resolvidas', null, 200) where id = cv and bot_resolveu), 'T15: chat_inbox sem o selo';
+  r := public.chat_update(cv, '{"status": "open"}');
+  assert (select status = 'open' and not bot_resolveu from public.conversations where id = cv), 'T15: equipe reabriu e o selo ficou';
+  perform pg_temp.como(null);
+  raise notice 'T15 OK: selo só no Sim; reabrir pela equipe tira o selo; chat_inbox devolve o selo';
 end $t$;
 
 -- T16. Cortesia (D5): agradecimento, saudação, reação positiva ou pedido de detalhes (também só com

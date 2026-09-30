@@ -43,6 +43,7 @@ interface LinhaInbox {
   last_reply_at: string | null
   nao_lida: boolean
   bot_state: 'bot' | 'humano'
+  bot_resolveu: boolean
 }
 
 interface ConversaAdmin {
@@ -59,6 +60,7 @@ interface ConversaAdmin {
   created_at: string
   rating: number | null
   bot_state: 'bot' | 'humano'
+  bot_resolveu: boolean
   chat_topics: { label: string; mediation: boolean } | null
   chat_contacts: { name: string; email: string | null; phone: string | null; origin: string; marketing_opt_in: boolean } | null
 }
@@ -99,7 +101,7 @@ function useConversaAdmin(id: string | null) {
     queryFn: async () => {
       const { data: d, error } = await supabase
         .from('conversations' as never)
-        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
+        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
         .eq('id', id!)
         .maybeSingle()
       if (error) throw error
@@ -354,7 +356,7 @@ export default function Atendimento() {
                           {l.mediation && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">Mediação</span>}
                           {l.bot_state === 'bot' && (
                             <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-px text-[10px] font-semibold text-sky-800 dark:text-sky-200">
-                              <Bot className="h-3 w-3" aria-hidden="true" />{l.status === 'resolved' ? 'Resolvida pelo assistente' : 'Assistente'}
+                              <Bot className="h-3 w-3" aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}
                             </span>
                           )}
                           {l.department_name && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{l.department_name}</span>}
@@ -402,7 +404,7 @@ export default function Atendimento() {
                 <h2 className="truncate text-sm font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</h2>
                 <p className="truncate text-xs text-muted-foreground">
                   {c.chat_topics?.label ?? 'Sem assunto'} · {c.status === 'open' ? 'Aberta' : 'Resolvida'}
-                  {c.bot_state === 'bot' ? (c.status === 'open' ? ' · com o assistente' : ' pelo assistente') : ''}
+                  {c.bot_state === 'bot' ? (c.status === 'open' ? ' · com o assistente' : c.bot_resolveu ? ' pelo assistente' : '') : ''}
                   {c.priority === 'urgent' ? ' · Urgente' : ''}
                   {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id ? '' : ' · sem dono'}
                 </p>

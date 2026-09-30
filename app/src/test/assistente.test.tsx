@@ -202,6 +202,32 @@ describe('assistente: caixa de entrada e menu do admin', () => {
     expect(within(linha).queryByText('Sem dono')).toBeNull()
   })
 
+  it('"Resolvida pelo assistente" só com o selo (Sim do cliente); sem ele, "Assistente"', async () => {
+    role = 'admin'
+    const linha = (id: string, contact_name: string, bot_resolveu: boolean) => ({ id, user_id: null, status: 'resolved', priority: 'normal', assignee_id: null,
+      department_name: null, topic_label: 'Outros', mediation: false, contact_name, last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'oi',
+      last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: false, bot_state: 'bot', handoff_at: null, bot_resolveu })
+    rpc.mockImplementation((nome: string, args: { p_filtro?: string }) => Promise.resolve(nome === 'chat_inbox' && args.p_filtro === 'resolvidas'
+      ? { data: [linha('c1', 'Carla Dias', true), linha('c2', 'Bruno Reis', false)], error: null }
+      : { data: [], error: null }))
+    respostas.conversations = { id: 'c2', user_id: null, status: 'resolved', priority: 'normal', assignee_id: null, assignee_name: null, department_id: null,
+      customer_last_read_at: null, agent_last_read_at: null, last_customer_message_at: null, created_at: '2026-09-30T12:00:00Z', rating: null,
+      bot_state: 'bot', bot_resolveu: false, chat_topics: { label: 'Outros', mediation: false }, chat_contacts: { name: 'Bruno Reis', email: null, phone: null, origin: 'app', marketing_opt_in: false } }
+    montar(<Atendimento />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Resolvidas' }))
+    const carla = await screen.findByRole('button', { name: /Carla Dias/ })
+    expect(within(carla).getByText('Resolvida pelo assistente')).toBeInTheDocument()
+    const bruno = screen.getByRole('button', { name: /Bruno Reis/ })
+    expect(within(bruno).getByText('Assistente')).toBeInTheDocument()
+    expect(within(bruno).queryByText('Resolvida pelo assistente')).toBeNull()
+    // cabeçalho da conversa fechada pela equipe ou pelo cron: "Resolvida", sem "pelo assistente"
+    fireEvent.click(bruno)
+    const cab = await screen.findByRole('heading', { name: 'Bruno Reis' })
+    expect(cab.nextElementSibling?.textContent).toMatch(/Outros · Resolvida/)
+    expect(cab.nextElementSibling?.textContent).not.toMatch(/pelo assistente/)
+    expect(chamadas.some((c) => c.tabela === 'conversations' && c.metodo === 'select' && String(c.args[0]).includes('bot_resolveu'))).toBe(true)
+  })
+
   it('contador e bipe só de conversa com a equipe: cliente com o assistente não toca; passagem toca', () => {
     role = 'admin'
     bipes = 0
