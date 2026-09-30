@@ -36,7 +36,7 @@
 -- O Supabase dá EXECUTE/ALL a anon e authenticated por padrão (default privileges): por isso
 -- cada função e tabela tem revoke explícito seguido do grant mínimo (bloco 7).
 -- Permissão nova de admin: moderate_mesa (gf_admin_can já libera super_admin); dar a quem modera.
--- Pré-requisitos (conferidos em 30/09): gf_is_admin, gf_admin_can, gf_mfa_ok
+-- Pré-requisitos (conferidos em 30/09): gf_admin_can, gf_mfa_ok
 -- (20260930_2fa_no_banco.sql), team_members, pg_cron; table_members vazia (o bloco 3 para com erro
 -- se não estiver).
 -- Idempotente: pode rodar de novo.
@@ -759,7 +759,8 @@ $$;
 --     ingressos não muda nada. Cada tipo de ingresso coletivo tem as próprias mesas; a numeração
 --     "Mesa N" é única no evento. Mesa que fica sem ninguém é apagada. Pessoa travada no evento
 --     (mesa_travas) fica fora.
---     Com usuário logado: 2FA e produtor do evento ou admin. Sem usuário: só o cron/SQL Editor
+--     Com usuário logado: 2FA e produtor do evento, ou moderador (moderate_mesa, aal2). Sem usuário:
+--     só o cron/SQL Editor
 --     (sessão postgres ou supabase_admin; o pg_cron conecta com o usuário que agendou o job).
 create or replace function public.formar_mesas(p_event_id uuid)
 returns int
@@ -784,10 +785,11 @@ begin
     if session_user not in ('postgres', 'supabase_admin') then
       raise exception 'Acesso negado' using errcode = '42501';
     end if;
-  elsif not public.gf_mfa_ok()
-     or (not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = v_uid)
-         and not public.gf_is_admin()) then
+  elsif not public.gf_mfa_ok() then
     raise exception 'Acesso negado' using errcode = '42501';
+  elsif not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = v_uid) then
+    -- admin só com moderate_mesa e sessão aal2 (auditoria do PR C)
+    perform public.mesa_moderador();
   end if;
   -- cron e botão do produtor ao mesmo tempo: um espera o outro
   perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
@@ -992,7 +994,8 @@ begin
 end;
 $$;
 
--- 5c. mesas_do_evento: para o produtor acomodar as pessoas (nome completo e ingresso, um por
+-- 5c. mesas_do_evento: para o produtor (2FA) ou o moderador (moderate_mesa, aal2) acomodar as
+--     pessoas (nome completo do dono atual do ingresso e ingresso, um por
 --     cadeira). Mesas vazias aparecem, com a lista de membros vazia. Mesmo filtro de minha_mesa:
 --     só ingresso active/used ainda do mesmo dono (quem saiu some antes da próxima formação). Sem a
 --     nota da mesa (RIPD R14). Quem saiu da Mesa Tinder continua com nome: o produtor sabe quem senta onde.
@@ -1004,10 +1007,12 @@ security definer
 set search_path = ''
 as $$
 begin
-  if not public.gf_mfa_ok()
-     or (not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid()))
-         and not public.gf_is_admin()) then
+  if not public.gf_mfa_ok() then
     raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid())) then
+    -- admin só com moderate_mesa e sessão aal2 (auditoria do PR C): o nome completo de todas as mesas
+    perform public.mesa_moderador();
   end if;
   return coalesce((
     select jsonb_agg(jsonb_build_object(
@@ -1015,8 +1020,10 @@ begin
              'nome', c.name,
              'capacidade', c.capacity,
              'membros', (
-               select coalesce(jsonb_agg(jsonb_build_object('nome', coalesce(p.full_name, t.buyer_name), 'ingresso', t.id)
-                                         order by coalesce(p.full_name, t.buyer_name), t.id), '[]'::jsonb)
+               -- o nome do dono atual do ingresso (transferido: o novo dono), nunca o de quem comprou
+               select coalesce(jsonb_agg(jsonb_build_object('nome', coalesce(nullif(trim(p.full_name), ''), '(sem nome no perfil)'),
+                                                            'ingresso', t.id)
+                                         order by p.full_name, t.id), '[]'::jsonb)
                from public.table_members m
                join public.tickets t on t.id = m.ticket_id
                left join public.profiles p on p.id = t.user_id

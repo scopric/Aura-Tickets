@@ -188,7 +188,8 @@ begin
   raise notice 'T5 OK: mesa vazia apagada; chegadas completam a mesa com gente; sem número repetido';
 end $t$;
 
--- T6. Produtor de outro evento e comprador → 42501; admin e produtor conseguem; 2FA exigido
+-- T6. Produtor de outro evento e comprador → 42501; admin sem moderate_mesa → 42501; admin com
+--     moderate_mesa só com aal2; produtor consegue; 2FA exigido
 do $t$
 begin
   perform pg_temp.como(pg_temp.u(2));
@@ -197,9 +198,19 @@ begin
   perform pg_temp.como(pg_temp.u(11));
   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = '42501', 'comprador formou mesas';
   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'comprador leu mesas do evento';
-  perform pg_temp.como(pg_temp.u(3));
-  assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(902))) = 'ok', 'admin não formou';
-  assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = 'ok', 'admin não leu';
+  -- o admin 3 não tem moderate_mesa: nem com aal2
+  perform pg_temp.como(pg_temp.u(3), 'aal2');
+  assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(902))) = '42501', 'admin sem moderate_mesa formou';
+  assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'admin sem moderate_mesa leu';
+  perform pg_temp.como(null);
+  update public.profiles set admin_permissions = array['moderate_mesa'] where id = pg_temp.u(3);
+  -- com moderate_mesa: aal1 → 42501; aal2 → passa
+  perform pg_temp.como(pg_temp.u(3), 'aal1');
+  assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(902))) = '42501', 'moderador aal1 formou';
+  assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'moderador aal1 leu';
+  perform pg_temp.como(pg_temp.u(3), 'aal2');
+  assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(902))) = 'ok', 'moderador aal2 não formou';
+  assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = 'ok', 'moderador aal2 não leu';
   perform pg_temp.como(pg_temp.u(1));
   assert jsonb_array_length(public.mesas_do_evento(pg_temp.u(901))) = 4, 'produtor não vê as 4 mesas';
   assert public.mesas_do_evento(pg_temp.u(901))::text like '%Ana Maria Souza%', 'produtor sem nome completo';
@@ -221,7 +232,7 @@ begin
   assert pg_temp.erro(format('select public.minha_mesa(%L)', pg_temp.u(901))) = 'ok', 'minha_mesa com aal2 barrada';
   perform pg_temp.como(null);
   delete from auth.mfa_factors where user_id in (pg_temp.u(1), pg_temp.u(11));
-  raise notice 'T6 OK: só produtor do evento e admin; 2FA exigido quando há fator';
+  raise notice 'T6 OK: só produtor do evento e moderador com aal2; admin comum barrado; 2FA exigido quando há fator';
 end $t$;
 
 -- T7. anon e authenticated não leem nem escrevem nas tabelas; anon não executa as funções
@@ -481,7 +492,13 @@ begin
   assert n = 1 and exists (select 1 from public.table_members where ticket_id = pg_temp.u(1503) and user_id = pg_temp.u(47)), format('novo dono não entrou (n=%s)', n);
   assert not exists (select 1 from public.table_members where user_id = pg_temp.u(43)), 'antigo dono ficou';
   perform pg_temp.como(pg_temp.u(1));
-  assert public.mesas_do_evento(pg_temp.u(904))::text like '%Pessoa47 Sobrenome%', 'produtor não vê o novo dono';
+  assert public.mesas_do_evento(pg_temp.u(904))::text like '%Pessoa47 Sobrenome%'
+     and public.mesas_do_evento(pg_temp.u(904))::text not like '%Comprador%', 'produtor não vê o novo dono (ou vê quem comprou)';
+  -- perfil sem nome: a cadeira aparece como "(sem nome no perfil)", nunca com o nome da compra
+  perform pg_temp.como(null);
+  update public.profiles set full_name = ' ' where id = pg_temp.u(47);
+  perform pg_temp.como(pg_temp.u(1));
+  assert public.mesas_do_evento(pg_temp.u(904))::text like '%(sem nome no perfil)%', 'perfil sem nome';
   perform pg_temp.como(null);
   raise notice 'T17 OK: transferência troca a pessoa; quem saiu some de mesas_do_evento';
 end $t$;
