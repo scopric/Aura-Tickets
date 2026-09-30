@@ -12,18 +12,14 @@ test.describe('Checkout', () => {
   })
 
   test('deve navegar do evento para o checkout', async ({ page }) => {
-    // Acessar um evento público demo
+    // evento de demonstração (só em desenvolvimento)
     await page.goto('/event/evt-001')
+    await expect(page.getByRole('heading', { level: 1, name: /Festival de Verão/ })).toBeVisible()
 
-    // Verificar informações do evento
-    await expect(page.getByText('Festival de Verão 2025')).toBeVisible()
-
-    // Clicar em comprar (assumindo que há um botão de compra na página)
-    const buyButton = page.getByRole('button', { name: /Comprar|Ingressos|Participar/i })
-    if (await buyButton.isVisible().catch(() => false)) {
-      await buyButton.click()
-      await expect(page).toHaveURL(/.*\/checkout/)
-    }
+    await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).first().click()
+    await page.getByRole('button', { name: 'Finalizar' }).click()
+    await expect(page).toHaveURL(/\/checkout$/)
+    await expect(page.getByRole('heading', { name: 'Seu carrinho está vazio' })).toHaveCount(0)
   })
 
   test('/checkout sem carrinho mostra o aviso de carrinho vazio', async ({ page }) => {
@@ -32,11 +28,9 @@ test.describe('Checkout', () => {
     await expect(page.getByRole('heading', { name: 'Seu carrinho está vazio' })).toBeVisible()
   })
 
-  test('deve exigir seleção de ingresso antes de continuar', async ({ page }) => {
-    // Tentar ir direto para pagamento sem carrinho
+  test('/checkout/payment sem pedido volta para a Home com aviso', async ({ page }) => {
     await page.goto('/checkout/payment')
-
-    // Deve redirecionar para home ou mostrar erro
-    await expect(page.getByText(/expirada|inválida|checkout/i)).toBeVisible()
+    await expect(page.getByText('Sessão de pagamento expirada ou inválida.').first()).toBeVisible()
+    await expect(page).toHaveURL(/\/$/)
   })
 })
