@@ -48,7 +48,7 @@ from (values
    null),
   ('lev-a09', 'O que acontece com meus ingressos se eu excluir a conta?',
    'Os ingressos já emitidos para eventos futuros continuam válidos e no nome de quem comprou, mas deixam de aparecer para você, porque a conta deixa de existir. Antes de excluir, salve ou compartilhe o QR Code de cada ingresso: depois não dá para recuperar.',
-   'excluir conta ingresso, perder ingresso, ingresso depois de apagar conta, qr code conta excluída', 'participant', 'privacidade', 'published',
+   'excluir conta ingresso, ingresso depois de apagar conta, qr code conta excluída', 'participant', 'privacidade', 'published',
    null),
   ('lev-a10', 'Onde vejo meus ingressos?',
    'Entre na sua conta e abra "Meus Ingressos" no menu. Dá para filtrar por Todos, Ativos e Histórico. O ingresso só aparece ali depois que o pagamento é confirmado. Um pedido ainda não pago aparece em "Compras", como Pendente.',

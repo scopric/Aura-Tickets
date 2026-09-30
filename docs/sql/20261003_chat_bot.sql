@@ -107,8 +107,11 @@ end $$;
 -- 3b. Conversas: com quem está (as que já existem ficam "humano"), quando e por que passou, respostas do assistente
 alter table public.conversations add column if not exists bot_state text not null default 'humano' check (bot_state in ('bot', 'humano'));
 alter table public.conversations add column if not exists handoff_at timestamptz;
-alter table public.conversations add column if not exists handoff_reason text
-  check (handoff_reason in ('pedido', 'sem_resposta', 'nao_resolveu', 'anexo', 'erro', 'atendente'));
+alter table public.conversations add column if not exists handoff_reason text;
+-- regra refeita a cada rodada (a lista de motivos cresce: 'desligado' = assistente desligado no meio da conversa)
+alter table public.conversations drop constraint if exists conversations_handoff_reason_check;
+alter table public.conversations add constraint conversations_handoff_reason_check
+  check (handoff_reason in ('pedido', 'sem_resposta', 'nao_resolveu', 'anexo', 'erro', 'atendente', 'desligado'));
 alter table public.conversations add column if not exists bot_tries int not null default 0;
 -- selo "Resolvida pelo assistente": só o "Sim" liga; reabrir (chat_send) desliga; cron e equipe não mexem
 alter table public.conversations add column if not exists bot_resolveu boolean not null default false;
@@ -199,7 +202,8 @@ $$;
 
 -- 4d. Busca nos artigos publicados do público certo. Um tsquery por termo (plainto_tsquery, combinados
 --     com ||: texto cru nunca vira tsquery). acertos = termos achados no artigo; no_titulo = achados no
---     título/palavras-chave. Com p_aprox, conta também o termo (5+ letras) parecido por trigramas com
+--     título/palavras-chave, sem contar "evokaa" (o nome da casa está em muitos títulos e não diz o assunto).
+--     Com p_aprox, conta também o termo (5+ letras) parecido por trigramas com
 --     uma palavra do título/palavras-chave (erro de digitação).
 --     ponytail: o modo aproximado varre os publicados (centenas); limiar 0,6 calibrado no T12.
 create or replace function public.chat_kb_buscar(p_q text, p_publicos text[], p_limite int, p_aprox boolean default false)
@@ -230,8 +234,8 @@ begin
   select a.id, a.title, a.body, cardinality(v_w),
          count(*) filter (where a.busca @@ k.tq
            or (p_aprox and char_length(k.w) >= 5 and extensions.word_similarity(k.w, a.tk) >= 0.6))::int,
-         count(*) filter (where ts_filter(a.busca, '{a}') @@ k.tq
-           or (p_aprox and char_length(k.w) >= 5 and extensions.word_similarity(k.w, a.tk) >= 0.6))::int,
+         count(*) filter (where k.w <> 'evokaa' and (ts_filter(a.busca, '{a}') @@ k.tq
+           or (p_aprox and char_length(k.w) >= 5 and extensions.word_similarity(k.w, a.tk) >= 0.6)))::int,
          ts_rank_cd(a.busca, v_ou)
   from (select ar.id, ar.title, ar.body, ar.busca,
                lower(extensions.unaccent('extensions.unaccent'::regdictionary, ar.title || ' ' || ar.keywords)) as tk
@@ -261,7 +265,8 @@ $$;
 --     aparecer como não lida e sai no e-mail da equipe) e avisa o cliente. Mensagem com clock_timestamp():
 --     na mesma transação, now() empataria com a do cliente.
 --     Limite de 3 conversas humanas abertas (como no chat_start), com a mesma trava por pessoa; no limite,
---     não passa e o assistente avisa. Erro do assistente passa sempre (a mensagem não pode ficar sem ninguém).
+--     não passa e o assistente avisa. Erro do assistente e assistente desligado passam sempre (a mensagem
+--     não pode ficar sem ninguém).
 --     Devolve se passou. Retorno mudou (void → boolean): drop + create.
 drop function if exists public.chat_bot_passar(uuid, text);
 create function public.chat_bot_passar(p_conv uuid, p_motivo text)
@@ -278,7 +283,7 @@ begin
   if not found then
     return false;
   end if;
-  if p_motivo not in ('erro', 'atendente') then
+  if p_motivo not in ('erro', 'atendente', 'desligado') then
     perform pg_advisory_xact_lock(hashtext('chat:' || v_user::text));
     if (select count(*) from public.conversations c where c.user_id = v_user and c.status = 'open' and c.bot_state = 'humano') >= 3 then
       insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
@@ -305,10 +310,11 @@ begin
 end;
 $$;
 
--- 4g. O assistente responde (camada 1). Ordem: pedido escrito de uma pessoa (Decisão 83: passa) →
---     roteiro do ingresso (1ª resposta do assunto com script) → cortesia (nenhum termo útil: não conta
---     tentativa nem passa) → artigo confiável (busca exata; senão aproximada) → sem resposta: anota os
---     termos da pergunta (mascarados), IA (3b) ou humano.
+-- 4g. O assistente responde (camada 1). Ordem: assistente desligado (passa) → pedido escrito de uma
+--     pessoa (Decisão 83: passa) → roteiro do ingresso (1ª resposta do assunto com script) → cortesia
+--     (nenhum termo útil, ou só palavras de reação e risadas: não conta tentativa nem passa) → artigo
+--     confiável (busca exata; senão aproximada) → sem resposta: IA (3b) ou humano; se a conversa sai do
+--     assistente, anota os termos da pergunta (mascarados).
 --     Confiável: 2+ termos na pergunta, 2+ achados no artigo, cobertura >= 0,6 e mais da metade dos termos no
 --     título/palavras-chave; ou 1 termo só, achado no título/palavras-chave de um único artigo.
 --     ponytail: limiares e padrões fixos, calibrados no T12; mudar aqui se a base crescer.
@@ -336,6 +342,7 @@ declare
   v_tries int;
   v_norm text;
   v_pergunta text;
+  v_saiu boolean;
 begin
   select c.id, c.user_id, c.bot_state, c.bot_tries, t.script, p.role
     into v_c
@@ -346,14 +353,22 @@ begin
   if v_c.bot_state is distinct from 'bot' then
     return;
   end if;
+  -- desligado com a conversa já aberta com ele: a mensagem vai para a equipe (fora do limite de 3)
+  if not coalesce((select s.bot_enabled from public.chat_settings s where s.id = 1), false) then
+    perform public.chat_bot_passar(p_conv, 'desligado');
+    return;
+  end if;
   v_aud := case when v_c.role in ('user', 'customer') then 'participant'
                 when v_c.role in ('producer', 'editor') then 'producer' else 'site' end;
   v_publicos := array['all', 'site', v_aud];
 
-  -- pedido escrito de uma pessoa (estreito: "transferir o ingresso para outra pessoa" não é pedido)
+  -- pedido escrito de uma pessoa (estreito: "transferir o ingresso para outra pessoa" e "a operadora do
+  -- cartão recusou" não são pedido)
   v_norm := public.chat_kb_normalizar(p_texto);
-  if v_norm ~ '\m(atendente|humano|humana|operador|operadora)\M'
-     or v_norm ~ '\mcom\s+(um|uma|o|a)?\s*(pessoa|alguem|gente|equipe|suporte)\M'
+  if v_norm ~ '\m(atendente|humano|humana)\M'
+     or v_norm ~ '\m(falar|chamar|conversar|quero)\s+(com\s+)?((um|uma|o|a)\s+)?operadora?\M'
+     or v_norm ~ '\mcom\s+(um|uma|o|a)?\s*(pessoa|alguem|gente|equipe|suporte|atendimento|voces|vcs|responsavel)\M'
+     or v_norm ~ '\mtem\s+alguem\M'
      or v_norm ~ '\m(nao|sem)\M.*\mrobos?\M|\mrobos?\M.*\mnao\M' then
     perform public.chat_bot_passar(p_conv, 'pedido');
     return;
@@ -382,7 +397,11 @@ begin
       'Não encontrei pedidos nesta conta. Se a compra foi feita com outra conta, entre com ela para ver o ingresso em "Meus Ingressos".');
   else
     v_termos := public.chat_kb_termos(p_texto);
-    if cardinality(v_termos) = 0 then
+    -- cortesia: nenhum termo útil, ou só palavras de reação e risadas ("perfeito", "kkk"). A lista fica aqui,
+    -- sobre a mensagem inteira, e não nas palavras vazias do chat_kb_termos ("show" é categoria de evento).
+    if not exists (select 1 from unnest(v_termos) w
+                   where w <> all (array['perfeito', 'perfeita', 'legal', 'show', 'bola', 'ah', 'ata', 'rs', 'hmm', 'aff', 'massa', 'top', 'blz'])
+                     and w !~ '^(k+|rs+|(rs)+|(ha)+|(he)+|hm+)$') then
       -- cortesia não é resposta: bot_layer nulo (a tela não pergunta "Isso resolveu?")
       insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
       values (p_conv, null, 'bot', 'Assistente Evokaa',
@@ -390,6 +409,9 @@ begin
                    then 'Por nada! Se precisar de mais alguma coisa, é só escrever.'
                    when v_norm ~ '\m(oi|oii|oie|ola|opa|eai|eae|iae|salve|hey|alo|bom dia|boa tarde|boa noite|tudo bem)\M'
                    then 'Oi! Tudo bem? Como posso ajudar?'
+                   -- reação positiva ("perfeito", "show de bola", "blz"): sem pedir detalhes
+                   when v_norm ~ '\m(perfeit[oa]|legal|show|bola|massa|top|beleza)\M'
+                   then 'Que bom! Se precisar de mais alguma coisa, é só escrever.'
                    else 'Pode me contar com mais detalhes?' end,
               clock_timestamp());
       return;
@@ -415,18 +437,20 @@ begin
   end if;
 
   if v_resposta is null then
+    -- PR 3b: com a IA, a Edge Function support-bot responde; sem ela, passa para humano
+    v_saiu := public.chat_bot_pode_ia(p_conv);
+    if not v_saiu then
+      v_saiu := public.chat_bot_passar(p_conv, 'sem_resposta');
+    end if;
+    -- anota só se a conversa saiu do assistente (no limite de 3 ela fica com ele e a pessoa repete a pergunta);
     -- só os termos úteis, depois da máscara (a frase inteira pode ter nome ou outro dado da pessoa)
     v_pergunta := left(array_to_string(public.chat_kb_termos(public.chat_kb_mascarar(p_texto)), ' '), 200);
-    if v_pergunta <> '' then
+    if v_saiu and v_pergunta <> '' then
       insert into public.kb_perguntas_sem_resposta (texto, audience)
       values (v_pergunta, v_aud)
       on conflict (texto, audience) do update
         set vezes = public.kb_perguntas_sem_resposta.vezes + 1, ultima_em = now();
     end if;
-    if public.chat_bot_pode_ia(p_conv) then
-      return;  -- PR 3b: a Edge Function support-bot responde
-    end if;
-    perform public.chat_bot_passar(p_conv, 'sem_resposta');
     return;
   end if;
 
@@ -442,8 +466,9 @@ $$;
 
 -- 5. Funções chamadas pelo navegador --------------------------------------------
 
--- 5a. "Falar com um atendente" (só o cliente, conversa aberta com o assistente). Não passa com 3
---     conversas humanas abertas (limite_abertas); se outra ação a tirou do assistente, fora_do_assistente.
+-- 5a. "Falar com um atendente" (só o cliente, conversa aberta com o assistente). Com 3 conversas humanas
+--     abertas não passa, mas devolve ok: o aviso do assistente já está na conversa (a tela não repete em
+--     vermelho); se outra ação a tirou do assistente, fora_do_assistente.
 create or replace function public.chat_handoff(p_conv uuid)
 returns jsonb
 language plpgsql
@@ -458,9 +483,10 @@ begin
     return jsonb_build_object('ok', false, 'motivo', 'fora_do_assistente');
   end if;
   if not public.chat_bot_passar(p_conv, 'pedido') then
-    return jsonb_build_object('ok', false, 'motivo',
-      case when exists (select 1 from public.conversations c where c.id = p_conv and c.status = 'open' and c.bot_state = 'bot')
-           then 'limite_abertas' else 'fora_do_assistente' end);
+    -- ainda com o assistente = limite de 3 (ele já avisou na conversa); senão, outra ação a tirou dele
+    if not exists (select 1 from public.conversations c where c.id = p_conv and c.status = 'open' and c.bot_state = 'bot') then
+      return jsonb_build_object('ok', false, 'motivo', 'fora_do_assistente');
+    end if;
   end if;
   return jsonb_build_object('ok', true);
 end;
@@ -483,6 +509,8 @@ begin
   if p_resolveu is null then
     raise exception 'Resposta inválida' using errcode = '22023';
   end if;
+  -- mesma trava do chat_send e do chat_start: o "Sim" espera a mensagem em andamento (e a resposta do assistente)
+  perform pg_advisory_xact_lock(hashtext('chat:' || auth.uid()::text));
   if not exists (select 1 from public.conversations c where c.id = p_conv and c.status = 'open' and c.bot_state = 'bot') then
     return jsonb_build_object('ok', false, 'motivo', 'fora_do_assistente');
   end if;
@@ -1078,10 +1106,10 @@ select cron.schedule('chat_bot_paradas', '7 * * * *', $cron$
   where status = 'open' and bot_state = 'bot' and last_message_at < now() - interval '24 hours';
 $cron$);
 
--- 8b. Perguntas sem resposta guardadas por até 180 dias (contados da última vez que apareceram)
+-- 8b. Perguntas sem resposta guardadas por até 30 dias (Decisão 97; contados da última vez que apareceram)
 select cron.unschedule('kb_perguntas_limpeza') where exists (select 1 from cron.job where jobname = 'kb_perguntas_limpeza');
 select cron.schedule('kb_perguntas_limpeza', '17 4 * * *', $cron$
-  delete from public.kb_perguntas_sem_resposta where ultima_em < now() - interval '180 days';
+  delete from public.kb_perguntas_sem_resposta where ultima_em < now() - interval '30 days';
 $cron$);
 
 -- 9. Quem executa o quê ------------------------------------------------------------
@@ -1172,7 +1200,8 @@ commit;
 -- Testes T1–T17 (rodar num banco descartável: imagem supabase/postgres com os stubs do chat, depois de
 -- 20261001 → 20261002 → 20260930 → este arquivo → 20261003_kb_seed.sql). Tudo em begin … rollback.
 -- Cada teste termina com "NOTICE: Tn OK"; falha = ERROR. O T12 usa frases candidatas que o Ricardo
--- ainda revisa (lista no relatório do PR); falha se o assistente errar mais de 2.
+-- ainda revisa (lista no relatório do PR); falha com qualquer resposta confiante e errada, pedido ou passagem
+-- errados, ou com mais de 2 frases que esperam um artigo e passam para humano.
 -- =============================================================================
 /*
 begin;
@@ -1199,7 +1228,7 @@ create function pg_temp.resultado(p_conv uuid) returns text language sql as $f$
   select case
     when c.bot_state = 'humano' and c.handoff_reason = 'pedido' then 'pedido'
     when c.bot_state = 'humano' then 'passa'
-    when m.body like 'Oi! Tudo bem?%' or m.body like 'Por nada!%' then 'cortesia'
+    when m.body like 'Oi! Tudo bem?%' or m.body like 'Por nada!%' or m.body like 'Que bom!%' then 'cortesia'
     when m.body = 'Pode me contar com mais detalhes?' then 'detalhes'
     else coalesce((select a.slug from public.kb_articles a where m.body like a.title || E'\n\n%' order by char_length(a.title) desc limit 1), 'outro: ' || left(m.body, 40))
   end
@@ -1435,10 +1464,15 @@ begin
   raise notice 'T9 OK: resposta pública ou atribuição tiram do assistente; nota interna não';
 end $t$;
 
--- T10. Interruptor: só manage_support muda; desligado, conversa nasce humana
+-- T10. Interruptor: só manage_support muda; desligado, conversa nasce humana e a que já estava com o
+--      assistente passa na mensagem seguinte (motivo 'desligado', mesmo no limite de 3)
 do $t$
-declare r jsonb; ad uuid := 'f0000000-0000-4000-8000-000000000004'; ax uuid := 'f0000000-0000-4000-8000-000000000005'; cli uuid := 'f0000000-0000-4000-8000-000000000001';
+declare r jsonb; cv uuid; ad uuid := 'f0000000-0000-4000-8000-000000000004'; ax uuid := 'f0000000-0000-4000-8000-000000000005'; cli uuid := 'f0000000-0000-4000-8000-000000000001';
+  cli2 uuid := 'f0000000-0000-4000-8000-000000000002';
 begin
+  cv := pg_temp.conversa_bot(cli2);  -- aberta com o assistente antes de desligar
+  insert into public.conversations (user_id, kind, status, bot_state) values (cli2, 'evokaa', 'open', 'humano');
+  assert (select count(*) from public.conversations where user_id = cli2 and status = 'open' and bot_state = 'humano') = 3, 'T10: 3 humanas';
   perform pg_temp.como(ax);
   assert pg_temp.erro('select public.chat_bot_ligar(false)') = '42501', 'T10: sem permissão desligou';
   perform pg_temp.como(ad);
@@ -1450,14 +1484,21 @@ begin
   r := public.chat_start(pg_temp.topico('participant_evokaa', 'Outros assuntos'), null, 'Carla', '5511987654321', false, 'esqueci minha senha');
   assert (select bot_state = 'humano' from public.conversations where id = (r->>'id')::uuid), 'T10: desligado e nasceu com o assistente';
   assert not exists (select 1 from public.conversation_messages where conversation_id = (r->>'id')::uuid and sender_role = 'bot'), 'T10: respondeu desligado';
+  perform pg_temp.como(cli2);
+  r := public.chat_send(cv, 'esqueci minha senha', false, null, null);
+  assert (r->>'ok')::boolean, format('T10 send: %s', r);
+  assert (select bot_state = 'humano' and handoff_reason = 'desligado' from public.conversations where id = cv), 'T10: aberta com o assistente não passou ao desligar';
+  assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'bot'), 'T10: assistente respondeu desligado';
+  assert exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'system' and body like 'Vou passar sua conversa%'), 'T10: sem aviso da passagem';
   perform pg_temp.como(ad);
   r := public.chat_bot_ligar(true);
   perform pg_temp.como(null);
-  raise notice 'T10 OK: interruptor só com manage_support; desligado não responde';
+  raise notice 'T10 OK: interruptor só com manage_support; desligado não responde e passa a conversa aberta com o assistente';
 end $t$;
 
 -- T13. Limite de 3 humanas abertas na passagem (D3): botão, "Não", pedido escrito e sem resposta não
---      passam e o assistente avisa; erro do assistente passa mesmo assim; abaixo do limite passa
+--      passam e o assistente avisa (o botão devolve ok: o aviso já está na conversa); pergunta sem resposta
+--      no limite não é anotada; erro do assistente passa mesmo assim; abaixo do limite passa
 do $t$
 declare r jsonb; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000021';
 begin
@@ -1467,7 +1508,7 @@ begin
   cv := pg_temp.conversa_bot(u);
   perform pg_temp.como(u);
   r := public.chat_handoff(cv);
-  assert r->>'motivo' = 'limite_abertas', format('T13: botão no limite: %s', r);
+  assert r = '{"ok": true}'::jsonb, format('T13: botão no limite: %s', r);
   r := public.chat_bot_feedback(cv, false);
   perform pg_temp.como(null);
   perform public.chat_bot_responder(cv, 'quero falar com uma pessoa');
@@ -1476,6 +1517,7 @@ begin
   assert (select count(*) from public.conversation_messages where conversation_id = cv and sender_role = 'bot' and bot_layer is null
           and body = 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.') = 4, 'T13: aviso do limite';
   assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'system'), 'T13: aviso de passagem no limite';
+  assert not exists (select 1 from public.kb_perguntas_sem_resposta where texto = 'blablu xyzqwe'), 'T13: anotou pergunta de quem ficou com o assistente';
   assert public.chat_bot_passar(cv, 'erro'), 'T13: erro não passou no limite';
   assert (select bot_state = 'humano' and handoff_reason = 'erro' from public.conversations where id = cv), 'T13: erro';
   update public.conversations set status = 'resolved' where user_id = u and id <> cv;
@@ -1536,23 +1578,34 @@ begin
   raise notice 'T15 OK: selo só no Sim';
 end $t$;
 
--- T16. Cortesia (D5): agradecimento, saudação ou pedido de detalhes; nenhuma conta tentativa nem passa
+-- T16. Cortesia (D5): agradecimento, saudação, reação positiva ou pedido de detalhes (também só com
+--      palavras de reação e risadas); nenhuma conta tentativa nem passa; "show" continua termo da busca
 do $t$
 declare r record; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000023';
 begin
+  assert public.chat_kb_termos('show') = '{show}', 'T16: "show" virou palavra vazia';
   for r in select * from (values ('oi', 'Oi! Tudo bem? Como posso ajudar?'), ('bom dia!', 'Oi! Tudo bem? Como posso ajudar?'),
                                  ('td bem?', 'Oi! Tudo bem? Como posso ajudar?'), ('obg', 'Por nada! Se precisar de mais alguma coisa, é só escrever.'),
                                  ('oi, valeu', 'Por nada! Se precisar de mais alguma coisa, é só escrever.'),
-                                 ('ok', 'Pode me contar com mais detalhes?'), ('a:b! (x)', 'Pode me contar com mais detalhes?')) v(f, b) loop
+                                 ('ok', 'Pode me contar com mais detalhes?'), ('a:b! (x)', 'Pode me contar com mais detalhes?'),
+                                 ('perfeito', 'Que bom! Se precisar de mais alguma coisa, é só escrever.'),
+                                 ('show de bola!', 'Que bom! Se precisar de mais alguma coisa, é só escrever.'),
+                                 ('blz', 'Que bom! Se precisar de mais alguma coisa, é só escrever.'),
+                                 ('top, valeu', 'Por nada! Se precisar de mais alguma coisa, é só escrever.'),
+                                 ('legal, massa', 'Que bom! Se precisar de mais alguma coisa, é só escrever.'),
+                                 ('kkkk', 'Pode me contar com mais detalhes?'), ('rsrs', 'Pode me contar com mais detalhes?'),
+                                 ('hahaha', 'Pode me contar com mais detalhes?'), ('hmm', 'Pode me contar com mais detalhes?'),
+                                 ('aff', 'Pode me contar com mais detalhes?'), ('ah ta', 'Pode me contar com mais detalhes?'),
+                                 ('ata', 'Pode me contar com mais detalhes?')) v(f, b) loop
     cv := pg_temp.conversa_bot(u);
     perform public.chat_bot_responder(cv, r.f);
     assert (select body = r.b and bot_layer is null from public.conversation_messages where conversation_id = cv and sender_role = 'bot'), format('T16: "%s"', r.f);
     assert (select bot_state = 'bot' and bot_tries = 0 from public.conversations where id = cv), format('T16: "%s" contou ou passou', r.f);
   end loop;
-  raise notice 'T16 OK: cortesia com agradecimento, saudação ou pedido de detalhes';
+  raise notice 'T16 OK: cortesia com agradecimento, saudação, reação positiva ou pedido de detalhes; reação e risada não passam';
 end $t$;
 
--- T17. Pergunta sem resposta: só os termos, com número de 7+ dígitos mascarado; limpeza de 180 dias
+-- T17. Pergunta sem resposta: só os termos, com número de 7+ dígitos mascarado; limpeza de 30 dias
 do $t$
 declare cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000023';
 begin
@@ -1562,11 +1615,11 @@ begin
   assert exists (select 1 from public.kb_perguntas_sem_resposta where texto = 'blablu deu numero pedido xyzqwe' and audience = 'participant'),
     format('T17: pergunta gravada: %s', (select array_agg(texto) from public.kb_perguntas_sem_resposta));
   insert into public.kb_perguntas_sem_resposta (texto, audience, ultima_em) values
-    ('t17 velha', 'site', now() - interval '181 days'), ('t17 recente', 'site', now() - interval '179 days');
+    ('t17 velha', 'site', now() - interval '31 days'), ('t17 recente', 'site', now() - interval '29 days');
   execute (select command from cron.job where jobname = 'kb_perguntas_limpeza');
   assert not exists (select 1 from public.kb_perguntas_sem_resposta where texto = 't17 velha')
-     and exists (select 1 from public.kb_perguntas_sem_resposta where texto = 't17 recente'), 'T17: limpeza de 180 dias';
-  raise notice 'T17 OK: pergunta sem resposta só com termos mascarados; limpeza de 180 dias';
+     and exists (select 1 from public.kb_perguntas_sem_resposta where texto = 't17 recente'), 'T17: limpeza de 30 dias';
+  raise notice 'T17 OK: pergunta sem resposta só com termos mascarados; limpeza de 30 dias';
 end $t$;
 
 -- T11. Base: sem manage_support não lê nem grava; admin grava só manual/atendente; excluir guarda o slug;
@@ -1624,13 +1677,14 @@ begin
 end $t$;
 rollback;
 
--- T12. Frases (candidatas para o Ricardo revisar: T12-frases.md). Falha se errar mais de 2.
+-- T12. Frases (candidatas para o Ricardo revisar: T12-frases.md). Tolerância zero para quem espera passa ou
+--      pedido e para artigo errado; até 2 frases que esperam um artigo podem passar para humano.
 begin;
 create function pg_temp.resultado(p_conv uuid) returns text language sql as $f$
   select case
     when c.bot_state = 'humano' and c.handoff_reason = 'pedido' then 'pedido'
     when c.bot_state = 'humano' then 'passa'
-    when m.body like 'Oi! Tudo bem?%' or m.body like 'Por nada!%' then 'cortesia'
+    when m.body like 'Oi! Tudo bem?%' or m.body like 'Por nada!%' or m.body like 'Que bom!%' then 'cortesia'
     when m.body = 'Pode me contar com mais detalhes?' then 'detalhes'
     else coalesce((select a.slug from public.kb_articles a where m.body like a.title || E'\n\n%' order by char_length(a.title) desc limit 1), 'outro: ' || left(m.body, 40))
   end
@@ -1660,9 +1714,14 @@ insert into t12 (n, frase, esperado, papel) values
   (29, 'evento cancelado, quero meu dinheiro de volta', 'passa', 'user'), (30, 'quero cancelar minha compra', 'passa', 'user'),
   (31, 'esqueci o email da minha conta', 'passa', 'user'), (32, 'perdi meu celular com o ingresso', 'passa', 'user'),
   (33, 'falar com atendente', 'pedido', 'user'), (34, 'não quero robô', 'pedido', 'user'),
-  (35, 'posso transferir o ingresso para outra pessoa?', 'passa', 'user');  -- não é pedido de pessoa (passa sem resposta)
+  (35, 'posso transferir o ingresso para outra pessoa?', 'passa', 'user'),  -- não é pedido de pessoa (passa sem resposta)
+  -- revisão de 30/09 (segunda rodada): B1, pedido de pessoa mais largo e "operadora" do cartão
+  (36, 'perdi meu ingresso', 'passa', 'user'), (37, 'posso pagar em 3 vezes no cartao?', 'lev-a20', 'user'),
+  (38, 'qual a taxa da evokaa por ingresso', 'passa', 'producer'), (39, 'a operadora do meu cartao recusou', 'lev-a17', 'user'),
+  (40, 'tem alguém aí?', 'pedido', 'user'), (41, 'quero falar com o atendimento', 'pedido', 'user'),
+  (42, 'falar com vcs', 'pedido', 'user');
 do $t$
-declare r record; cv uuid; erros int := 0;
+declare r record; cv uuid; erros int := 0; graves int;
 begin
   for r in select * from t12 order by n loop
     insert into public.conversations (user_id, kind, bot_state)
@@ -1677,12 +1736,15 @@ begin
   insert into public.conversations (user_id, kind, bot_state) values ('f0000000-0000-4000-8000-000000000011', 'evokaa', 'bot') returning id into cv;
   perform public.chat_bot_responder(cv, 'reembouso');
   insert into t12 values (99, 'reembouso (A15 publicada)', 'lev-a15', 'user', pg_temp.resultado(cv));
-  select count(*) into erros from t12 where obtido is distinct from esperado;
+  select count(*), count(*) filter (where not (esperado like 'lev-%' and obtido = 'passa')) into erros, graves
+  from t12 where obtido is distinct from esperado;
   raise notice 'T12: % de % frases certas', (select count(*) from t12) - erros, (select count(*) from t12);
   for r in select * from t12 where obtido is distinct from esperado order by n loop
     raise notice 'T12 errou #%: "%" esperado % obtido %', r.n, r.frase, r.esperado, r.obtido;
   end loop;
-  assert erros <= 2, 'T12: mais de 2 erros';
+  -- resposta confiante e errada (ou pedido/passagem trocados) não pode; artigo esperado que passou, até 2
+  assert graves = 0, 'T12: resposta confiante e errada, ou pedido/passagem trocados';
+  assert erros <= 2, 'T12: mais de 2 frases que esperam um artigo passaram para humano';
 end $t$;
 rollback;
 */
