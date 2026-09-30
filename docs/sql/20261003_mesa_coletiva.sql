@@ -1,28 +1,58 @@
 -- =============================================================================
--- Mesa coletiva: formação automática, perfil de mesa e consentimento (PR A) — banco — 2026-10-03
--- Aplicar à mão no SQL Editor do Supabase. NÃO vai para supabase/migrations (Decisão 02).
+-- Mesa Tinder: formação, escolha da mesa, perfil, consentimento, denúncia e moderação da foto
+-- (PR A, com o A2 incorporado) — banco — 2026-10-03
+-- Aplicar à mão no SQL Editor do Supabase, de uma vez. NÃO vai para supabase/migrations (Decisão 02).
 -- Plano: Claude/Planos/groovy-waddling-wilkinson (PR A).
--- Contrato: o navegador não lê nem escreve collective_tables, table_members e mesa_consentimentos;
--- tudo passa pelas funções formar_mesas (produtor/admin/cron), minha_mesa (participante),
--- mesas_do_evento (produtor/admin), mesa_consentir e mesa_revogar, SECURITY DEFINER, porque a
--- RLS filtra linhas e não colunas.
--- Exposição e afinidade só para quem tem consentimento vigente E 18 anos ou mais (birth_date
--- preenchida): "mesa_ok". Quem não é mesa_ok tem lugar, entra com perfil neutro, aparece só com o
--- primeiro nome e também vê os colegas só pelo primeiro nome (reciprocidade, decisão do Ricardo).
+-- Contrato: o navegador não lê nem escreve collective_tables, table_members, mesa_consentimentos e
+-- mesa_denuncias; tudo passa por funções SECURITY DEFINER com 2FA (gf_mfa_ok), porque a RLS filtra
+-- linhas e não colunas: formar_mesas e mesas_do_evento (produtor/admin/cron), minha_mesa,
+-- mesas_para_escolher, escolher_mesa, mesa_sair/mesa_voltar e mesa_denunciar (participante),
+-- mesa_consentir/mesa_revogar e mesa_mostrar_rede/mesa_ocultar_rede (consentimentos),
+-- meus_avisos_mesa/marcar_avisos_lidos (participante), mesa_denuncias_do_evento e
+-- mesa_remover_membro (produtor/moderador), mesa_denuncia_status, mesa_denuncia_liberar,
+-- mesa_travas_do_evento, mesa_destravar, mesa_fotos_para_revisar e mesa_foto_decidir (moderador:
+-- permissão moderate_mesa e sessão aal2).
+-- TESTES: em 20261003_mesa_coletiva_testes.sql (só em banco descartável), aplicado depois deste.
+-- Decisões do Ricardo (30/09):
+--   - só maiores de 18, 1 cadeira por ingresso e 1 ingresso coletivo por conta em cada evento; quem
+--     tem menor no grupo compra mesa normal. A compra exige só a data de nascimento;
+--   - para aparecer, só nome, idade e foto (aprovada na moderação) são obrigatórios;
+--     questionário, etiquetas, escolaridade e rede social são opcionais ("mesa_ok");
+--   - Decisão 94: o colega aparece só com o primeiro nome e a faixa de idade, mais foto, perfil,
+--     etiquetas e escolaridade; a rede social só com um segundo aceite. Quem não é mesa_ok tem
+--     lugar, aparece só com o primeiro nome e vê os colegas do mesmo jeito (reciprocidade);
+--   - escolher a mesa vendo quem está nela, ou "Mesa nova"; trocar sem limite, com vaga, até 2 h
+--     antes; quem não escolher é alocado 24 h antes, e a formação completa as mesas com vaga
+--     (Decisão 84); participante não bloqueia participante;
+--   - denúncia com um toque, sem bloqueio; o admin faz a triagem e libera ao produtor, que vê
+--     denunciado, motivo e mesa, menos contra ele ou a equipe dele. Guarda no bloco 3e;
+--   - contra perseguição: 30 min entre trocas, aviso "entrou alguém na sua mesa" (sem dizer quem) e
+--     remoção pelo produtor ou pelo admin (mesa_remover_membro), com trava;
+--   - risco aceito: mesas_para_escolher mostra o cartão mesmo em mesa de 1 pessoa (quem está sozinho
+--     fica identificável pela foto); o Ricardo decidiu mostrar sempre.
+-- FOTO: o app grava a foto em profiles.avatar_url como data:image/jpeg;base64 (app/src/lib/
+-- avatarUpload.ts), sem Storage; só esse formato vale para a mesa (blocos 2d e 4b'). Quando a foto
+-- for para o Storage, rever (URL de outro bucket ou arquivo sobrescrito depois da moderação).
 -- O Supabase dá EXECUTE/ALL a anon e authenticated por padrão (default privileges): por isso
 -- cada função e tabela tem revoke explícito seguido do grant mínimo (bloco 7).
--- Pré-requisitos (conferidos em 30/09): gf_is_admin, gf_mfa_ok (20260930_2fa_no_banco.sql), pg_cron;
--- table_members vazia (o bloco 3 para com erro se não estiver).
+-- Permissão nova de admin: moderate_mesa (gf_admin_can já libera super_admin); dar a quem modera.
+-- Pré-requisitos (conferidos em 30/09): gf_is_admin, gf_admin_can, gf_mfa_ok
+-- (20260930_2fa_no_banco.sql), team_members, pg_cron; table_members vazia (o bloco 3 para com erro
+-- se não estiver).
 -- Idempotente: pode rodar de novo.
 -- ORDEM: aplicar só junto com o PR do front que troca useMatchmaking, YourTable e ProfileQuiz
 -- (PR B/C). Antes dele, o questionário que grava "romance" (CHECK do bloco 2) e a tela antiga da
--- mesa (lê table_members direto, sem GRANT depois do bloco 7) dão erro.
+-- mesa (lê table_members direto, sem GRANT depois do bloco 7) dão erro. O PR B também tem de parar
+-- de enviar gender, bio e birth_year (RIPD R03, CHECK do bloco 2): o questionário atual grava gender.
+-- E tem de continuar enviando a foto em base64 (data:image/jpeg;base64) como hoje; se a foto for
+-- para o Storage, rever este SQL antes.
 -- PENDÊNCIA FASE 4: o gatilho do pedido (mesa_pedido_guard, bloco 3c) reduz, não elimina: dois
 -- pedidos pendentes da mesma pessoa passam. Na Fase 4, o create-payment tem de refazer a checagem
 -- (incluindo pedidos pagos do evento) e o estorno no webhook ao receber 22023 de mesa_idade_guard
 -- é obrigatório.
--- Mesa Tinder (decisão do Ricardo, 30/09): só maiores de 18, 1 cadeira por ingresso e 1 ingresso
--- coletivo por conta em cada evento; quem tem menor no grupo compra mesa normal.
+-- Notificação de denúncia: a tabela notifications não tem policy (o front não a lê) e as colunas
+-- divergem entre o esquema (body/metadata) e o hook useNotifications (message/data); o produtor e o
+-- admin veem as denúncias pela lista.
 -- =============================================================================
 begin;
 
@@ -89,7 +119,9 @@ alter table public.user_profiles_ext
   add column if not exists education text,
   add column if not exists mesa_consent_version text,
   add column if not exists mesa_consent_at timestamptz,
-  add column if not exists mesa_consent_revoked_at timestamptz;
+  add column if not exists mesa_consent_revoked_at timestamptz,
+  add column if not exists rede_consent_at timestamptz,
+  add column if not exists rede_consent_revoked_at timestamptz;
 
 -- https:// em minúsculas e caminho só com caracteres de URL comum (o front normaliza antes)
 alter table public.user_profiles_ext drop constraint if exists user_profiles_ext_social_url_chk;
@@ -116,7 +148,16 @@ alter table public.user_profiles_ext add constraint user_profiles_ext_vibe_chk c
 alter table public.user_profiles_ext drop constraint if exists user_profiles_ext_intention_chk;
 alter table public.user_profiles_ext add constraint user_profiles_ext_intention_chk check (intention is distinct from 'romance');
 
--- 2b. Histórico do consentimento (prova do aceite e da revogação). Só as funções do bloco 6 gravam.
+-- RIPD R03: gênero, bio e ano de nascimento fora de propósito (a idade vem de profiles.birth_date).
+-- 0 linhas em produção (30/09); o update zera o que houver antes do CHECK.
+update public.user_profiles_ext set gender = null, bio = null, birth_year = null
+where gender is not null or bio is not null or birth_year is not null;
+alter table public.user_profiles_ext drop constraint if exists user_profiles_ext_sem_dado_extra_chk;
+alter table public.user_profiles_ext add constraint user_profiles_ext_sem_dado_extra_chk check (
+  gender is null and bio is null and birth_year is null);
+
+-- 2b. Histórico do consentimento (prova do aceite e da revogação, da mesa e da rede social). Só as
+--     funções do bloco 6 gravam.
 create table if not exists public.mesa_consentimentos (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
@@ -125,9 +166,13 @@ create table if not exists public.mesa_consentimentos (
   em timestamptz not null default now()
 );
 create index if not exists mesa_consentimentos_user_idx on public.mesa_consentimentos (user_id);
+alter table public.mesa_consentimentos drop constraint if exists mesa_consentimentos_acao_check;
+alter table public.mesa_consentimentos add constraint mesa_consentimentos_acao_check check (
+  acao in ('consentiu', 'revogou', 'mostrou_rede', 'ocultou_rede'));
 alter table public.mesa_consentimentos enable row level security;
 
--- 2c. As colunas mesa_consent_* só mudam pelas funções (que rodam como o dono, não como anon/authenticated).
+-- 2c. As colunas mesa_consent_* e rede_consent_* só mudam pelas funções (que rodam como o dono, não
+--     como anon/authenticated).
 --     current_user, e não o JWT: é o papel que de fato executa o comando.
 create or replace function public.mesa_consent_guard()
 returns trigger
@@ -137,11 +182,15 @@ as $$
 begin
   if current_user in ('anon', 'authenticated') and (
        (tg_op = 'INSERT' and (new.mesa_consent_version is not null or new.mesa_consent_at is not null
-                              or new.mesa_consent_revoked_at is not null))
+                              or new.mesa_consent_revoked_at is not null
+                              or new.rede_consent_at is not null or new.rede_consent_revoked_at is not null))
     or (tg_op = 'UPDATE' and (new.mesa_consent_version is distinct from old.mesa_consent_version
                               or new.mesa_consent_at is distinct from old.mesa_consent_at
-                              or new.mesa_consent_revoked_at is distinct from old.mesa_consent_revoked_at))) then
-    raise exception 'Consentimento da mesa só por mesa_consentir/mesa_revogar' using errcode = '42501';
+                              or new.mesa_consent_revoked_at is distinct from old.mesa_consent_revoked_at
+                              or new.rede_consent_at is distinct from old.rede_consent_at
+                              or new.rede_consent_revoked_at is distinct from old.rede_consent_revoked_at))) then
+    raise exception 'Consentimento da mesa só por mesa_consentir/mesa_revogar/mesa_mostrar_rede/mesa_ocultar_rede'
+      using errcode = '42501';
   end if;
   return new;
 end;
@@ -149,6 +198,53 @@ $$;
 drop trigger if exists mesa_consent_guard on public.user_profiles_ext;
 create trigger mesa_consent_guard before insert or update on public.user_profiles_ext
   for each row execute function public.mesa_consent_guard();
+
+-- 2d. Moderação da foto (decisão do Ricardo, 30/09): uma Edge Function (outro PR, com service_role)
+--     grava aprovada/recusada/revisar; o admin decide (mesa_foto_decidir, bloco 6d). A aprovação vale
+--     para a foto moderada, identificada por avatar_moderacao_hash = mesa_foto_hash(avatar_url), o
+--     sha256 em hexadecimal (sem guardar
+--     outra cópia do base64): trocar a foto volta tudo para pendente. Fotos já existentes começam
+--     pendentes. Contrato da Edge Function: o mesmo de mesa_foto_decidir, ou seja, gravar só
+--     "where public.mesa_foto_hash(avatar_url) = <hash moderado> and avatar_moderacao in
+--     ('pendente', 'revisar')" (ou 'aprovada', para revogar), gravando avatar_moderacao_hash = <hash>.
+alter table public.profiles
+  add column if not exists avatar_moderacao text not null default 'pendente',
+  add column if not exists avatar_moderado_em timestamptz,
+  add column if not exists avatar_moderacao_hash text,
+  drop column if exists avatar_moderacao_url;
+alter table public.profiles drop constraint if exists profiles_avatar_moderacao_chk;
+alter table public.profiles add constraint profiles_avatar_moderacao_chk check (
+  avatar_moderacao in ('pendente', 'aprovada', 'recusada', 'revisar'));
+
+-- anon/authenticated não gravam as 3 colunas (mesmo padrão de current_user de mesa_consent_guard);
+-- service_role e funções SECURITY DEFINER gravam. Convive com gf_protect_profile_privileges
+-- (20260927_security_hardening.sql), que roda antes (ordem alfabética dos gatilhos) e só olha
+-- role, admin_permissions, is_verified e stripe_customer_id.
+create or replace function public.mesa_avatar_guard()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if current_user in ('anon', 'authenticated') and (
+       (tg_op = 'INSERT' and (new.avatar_moderacao is distinct from 'pendente' or new.avatar_moderado_em is not null
+                              or new.avatar_moderacao_hash is not null))
+    or (tg_op = 'UPDATE' and (new.avatar_moderacao is distinct from old.avatar_moderacao
+                              or new.avatar_moderado_em is distinct from old.avatar_moderado_em
+                              or new.avatar_moderacao_hash is distinct from old.avatar_moderacao_hash))) then
+    raise exception 'Moderação da foto só pelo sistema' using errcode = '42501';
+  end if;
+  if tg_op = 'UPDATE' and new.avatar_url is distinct from old.avatar_url then
+    new.avatar_moderacao := 'pendente';
+    new.avatar_moderado_em := null;
+    new.avatar_moderacao_hash := null;
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists mesa_avatar_guard on public.profiles;
+create trigger mesa_avatar_guard before insert or update on public.profiles
+  for each row execute function public.mesa_avatar_guard();
 
 -- 3. Um lugar por ingresso: ticket_id é o que torna formar_mesas idempotente.
 --    NOT NULL direto porque table_members está vazia em produção (conferido em 30/09); se não
@@ -164,6 +260,13 @@ begin
       add column ticket_id uuid not null unique references public.tickets(id) on delete cascade;
   end if;
 end $$;
+
+-- 3a. oculto: "sair da Mesa Tinder" (mesa_sair, bloco 5f): a cadeira continua, o perfil some.
+--     ultima_troca_em: 30 min entre trocas da mesma pessoa (escolher_mesa; a 1ª escolha não conta).
+alter table public.table_members
+  add column if not exists oculto boolean not null default false,
+  add column if not exists ultima_troca_em timestamptz,
+  drop column if exists mesas_anteriores;
 
 -- 3b. Mesa coletiva só para maiores de 18, com data de nascimento, e 1 por conta em cada evento
 --     (regras do Ricardo, 30/09).
@@ -282,12 +385,117 @@ drop policy if exists "Perfis ext visiveis por membros da mesma mesa" on public.
 drop policy if exists "Membros visiveis por participantes da mesma mesa" on public.table_members;
 drop trigger if exists trg_collective_ticket on public.tickets;
 drop function if exists public.handle_collective_ticket_insert();
+-- Rascunhos do A2 (30/09) com bloqueio entre participantes, que o Ricardo tirou no mesmo dia; nunca
+-- foram aplicados em produção.
+drop function if exists public.mesa_bloquear(uuid), public.mesa_desbloquear(uuid), public.meus_bloqueios(),
+  public.mesa_bloqueio_novo(public.table_members), public.mesa_membro_alvo(uuid);
+drop table if exists public.mesa_bloqueios;
+alter table public.table_members drop column if exists trocas, drop column if exists troca_livre,
+  drop column if exists trocas_livres, drop column if exists livres_ganhas;
 
 -- A view antiga não é lida por ninguém que continue (useCollectiveTables sai no PR C); ela também
 -- impediria a troca de tipo abaixo.
 drop view if exists public.collective_table_summary;
 -- numeric(3,1) de produção não comporta 100.0
 alter table public.collective_tables alter column compatibility_score type numeric(4,1);
+
+-- 3e. Denúncias da Mesa Tinder (bloco 5g). Nascem "aberta" e só o moderador as vê; o moderador faz
+--     a triagem e libera ao produtor (liberada_produtor_em, mesa_denuncia_liberar), que continua vendo
+--     a denúncia mesmo depois de o status mudar. Guarda (decisão do Ricardo, 30/09): detalhe
+--     apagado 180 dias depois do evento, salvo em_apuracao ou judicial; a denúncia, 3 anos depois,
+--     salvo em_apuracao ou judicial (cron apagar_mesas_antigas, bloco 8). Sobrevive à exclusão da
+--     conta e do evento (nomes gravados na hora; evento_em guarda a data do evento para a limpeza).
+--     Não bloqueia ninguém (participante não bloqueia participante, decisão de 30/09).
+--     Nunca aplicada em produção: create table if not exists basta.
+create table if not exists public.mesa_denuncias (
+  id uuid primary key default gen_random_uuid(),
+  denunciante uuid references public.profiles(id) on delete set null,
+  denunciado uuid references public.profiles(id) on delete set null,
+  denunciante_nome text,
+  denunciado_nome text,
+  evento uuid references public.events(id) on delete set null,
+  evento_em timestamptz not null,
+  table_id uuid,  -- a mesa do denunciado (sem FK: a mesa pode ser apagada)
+  mesa text,      -- o nome dela na hora
+  motivo text not null check (motivo in ('assedio', 'perfil_falso', 'conteudo_improprio', 'outro')),
+  -- sem caracteres de controle nem de direção de texto (bidi)
+  detalhe text check (char_length(detalhe) <= 500
+    and detalhe !~ '[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f؜‎‏‪-‮⁦-⁩]'),
+  mesma_mesa boolean not null,  -- estiveram na mesma mesa ao mesmo tempo (base do "assedio")
+  -- o período em que estiveram juntos (prova: mesa_passagens some em 30 dias)
+  sobreposicao_inicio timestamptz,
+  sobreposicao_fim timestamptz,
+  criado_em timestamptz not null default now(),
+  status text not null default 'aberta' check (status in ('aberta', 'em_apuracao', 'resolvida', 'judicial')),
+  status_mudado_por uuid references public.profiles(id) on delete set null,
+  status_mudado_em timestamptz,
+  liberada_produtor_em timestamptz,
+  liberada_por uuid references public.profiles(id) on delete set null,
+  unique (denunciante, denunciado, evento),
+  check (motivo <> 'assedio' or mesma_mesa)
+);
+create index if not exists mesa_denuncias_evento_idx on public.mesa_denuncias (evento);
+alter table public.mesa_denuncias enable row level security;
+
+-- 3f. Passagens pelas mesas (gatilho mesa_passagem, bloco 4h): quem esteve em que mesa e quando.
+--     Base de "mesma mesa ao mesmo tempo" e da denúncia depois da saída (reembolso, transferência,
+--     troca). membro_id = id da linha de table_members (o id que o participante vê). Sem FK para a
+--     mesa, que pode ser apagada; some com a limpeza de 30 dias (bloco 8).
+create table if not exists public.mesa_passagens (
+  id uuid primary key default gen_random_uuid(),
+  membro_id uuid not null,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  ticket_id uuid not null,
+  evento uuid not null references public.events(id) on delete cascade,
+  table_id uuid not null,
+  entrou_em timestamptz not null,
+  saiu_em timestamptz
+);
+create index if not exists mesa_passagens_membro_idx on public.mesa_passagens (membro_id);
+create index if not exists mesa_passagens_mesa_idx on public.mesa_passagens (table_id);
+create index if not exists mesa_passagens_user_idx on public.mesa_passagens (user_id, evento);
+alter table public.mesa_passagens enable row level security;
+
+-- 3g. Avisos à pessoa: "entrou" (alguém entrou na sua mesa, nunca quem) e "removido" (a organização
+--     tirou você da mesa, mesa_remover_membro). 1 aviso não lido por mesa e tipo (dedupe).
+create table if not exists public.mesa_avisos (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  evento uuid not null references public.events(id) on delete cascade,
+  table_id uuid,
+  mesa text,
+  tipo text not null default 'entrou' check (tipo in ('entrou', 'removido')),
+  criado_em timestamptz not null default now(),
+  lido boolean not null default false
+);
+drop index if exists public.mesa_avisos_nao_lido_uq;
+create unique index mesa_avisos_nao_lido_uq on public.mesa_avisos (user_id, table_id, tipo) where not lido;
+alter table public.mesa_avisos enable row level security;
+
+-- 3h. Travas (mesa_remover_membro): a pessoa tirada da mesa pelo produtor ou pelo moderador não
+--     escolhe mesa nem é alocada de novo no evento (a cadeira física se resolve no local). A trava é
+--     da pessoa no evento (evento, user_id): recomprar depois de reembolso continua travado, e quem
+--     recebe um ingresso transferido não herda nada. Motivo de lista fechada; "outro" exige detalhe.
+--     Só o moderador destrava (mesa_destravar), com registro. Tabela própria porque
+--     table_members.table_id é obrigatório (a linha não fica sem mesa).
+--     Guarda: 180 dias depois do evento (cron, bloco 8), como o detalhe da denúncia; PENDÊNCIA:
+--     prazo sujeito a decisão do jurídico. Nunca aplicada em produção: create table if not exists basta.
+create table if not exists public.mesa_travas (
+  id uuid primary key default gen_random_uuid(),
+  evento uuid not null references public.events(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  ticket_id uuid references public.tickets(id) on delete set null,  -- o ingresso da hora (informativo)
+  motivo text not null check (motivo in ('denuncia_triada', 'comportamento_no_local', 'pedido_da_pessoa', 'outro')),
+  detalhe text check (char_length(detalhe) between 3 and 500
+    and detalhe !~ '[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f؜‎‏‪-‮⁦-⁩]'),
+  por uuid references public.profiles(id) on delete set null,
+  em timestamptz not null default now(),
+  destravada_por uuid references public.profiles(id) on delete set null,
+  destravada_em timestamptz,
+  check (motivo <> 'outro' or detalhe is not null)
+);
+create unique index if not exists mesa_travas_vigente_uq on public.mesa_travas (evento, user_id) where destravada_em is null;
+alter table public.mesa_travas enable row level security;
 
 -- 4. Apoio -------------------------------------------------------------------------
 
@@ -311,9 +519,44 @@ immutable
 set search_path = ''
 as $$ select '2026-10-03' $$;
 
--- 4b'. mesa_ok: consentimento vigente (versão atual, não revogado) e 18 anos ou mais. Sem
+-- 4b0. Formato da foto: só a que o app grava (data:image/jpeg;base64, avatarUpload.ts), até 60.000
+--      caracteres. Fecha URL externa, de outro bucket ou de arquivo trocado depois da moderação.
+create or replace function public.mesa_foto_formato(p text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  -- até 60.000 caracteres (a foto do app, 150×150 em JPEG, fica bem abaixo); o tamanho antes da regex
+  select case when length(p) > 60000 then false
+              else coalesce(p ~ '^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$', false) end
+$$;
+
+-- 4b1. Hash da foto (sha256, hexadecimal): o que a moderação aprova.
+create or replace function public.mesa_foto_hash(p text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$ select encode(sha256(convert_to(p, 'UTF8')), 'hex') $$;
+
+-- 4b2. Pessoa travada no evento (mesa_travas vigente). Uso interno.
+create or replace function public.mesa_travado(p_evento uuid, p_user uuid)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select exists (select 1 from public.mesa_travas tr
+                 where tr.evento = p_evento and tr.user_id = p_user and tr.destravada_em is null);
+$$;
+
+-- 4b'. mesa_ok: consentimento vigente (versão atual, não revogado), 18 anos ou mais, nome e foto do
+--     app em base64 (mesa_foto_formato), aprovada na moderação para a foto atual (bloco 2d) — os únicos
+--     obrigatórios para aparecer (decisão do Ricardo, 30/09). Sem
 --     birth_date, não. Com o gatilho mesa_idade_guard (bloco 3b), menor nem chega à mesa; o 18+
---     aqui fica como defesa.
+--     aqui fica como defesa. Quem apaga a foto ou o nome volta a ser tratado como não mesa_ok (só o
+--     primeiro nome, e vê os colegas do mesmo jeito). A compra exige só a idade (blocos 3b e 3c).
 create or replace function public.mesa_ok(p_user uuid)
 returns boolean
 language sql
@@ -327,7 +570,10 @@ as $$
     where x.user_id = p_user
       and x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
       and x.mesa_consent_version = public.mesa_termo_versao()
-      and p.birth_date <= current_date - interval '18 years');
+      and p.birth_date <= current_date - interval '18 years'
+      and trim(coalesce(p.full_name, '')) <> ''
+      and public.mesa_foto_formato(p.avatar_url)
+      and p.avatar_moderacao = 'aprovada' and p.avatar_moderacao_hash = public.mesa_foto_hash(p.avatar_url));
 $$;
 
 -- 4c. mesa_perfil: o que a formação usa de uma pessoa; nulo se não for mesa_ok.
@@ -383,12 +629,136 @@ as $$
   from v;
 $$;
 
+-- 4e. mesa_cartao: como um colega aparece para outro (Decisão 94). p_ok = quem vê e quem é visto são
+--     mesa_ok e quem é visto não saiu. Sempre só o primeiro nome ("Lugar ocupado" para quem saiu);
+--     com p_ok, faixa de idade (nunca a exata), foto, perfil, etiquetas e escolaridade (opcionais
+--     vazios saem nulos); a rede social só com o segundo aceite vigente (mesa_mostrar_rede).
+--     Uso interno.
+create or replace function public.mesa_cartao(p_user uuid, p_ok boolean, p_oculto boolean)
+returns jsonb
+language sql
+stable
+set search_path = ''
+as $$
+  select jsonb_build_object(
+    'nome', case when p_oculto then 'Lugar ocupado' else split_part(trim(p.full_name), ' ', 1) end,
+    'faixa_idade', case when p_ok then case
+        when age(p.birth_date) < interval '25 years' then '18–24'
+        when age(p.birth_date) < interval '35 years' then '25–34'
+        when age(p.birth_date) < interval '45 years' then '35–44'
+        when age(p.birth_date) < interval '60 years' then '45–59'
+        else '60+' end end,
+    'foto', case when p_ok then p.avatar_url end,
+    'perfil', case when p_ok then x.vibe end,
+    'tags', case when p_ok then coalesce(x.tags, '{}'::jsonb) end,
+    'escolaridade', case when p_ok then x.education end,
+    'rede_social', case when p_ok and x.rede_consent_at is not null and x.rede_consent_revoked_at is null
+                        then x.social_url end)
+  from public.profiles p
+  left join public.user_profiles_ext x on x.user_id = p.id
+  where p.id = p_user;
+$$;
+
+-- 4f. Cadeiras ocupadas: só ingresso active/used ainda do mesmo dono (o filtro de minha_mesa), para
+--     quem foi reembolsado não segurar vaga até a próxima formar_mesas. Uso interno.
+create or replace function public.mesa_ocupados(p_mesa uuid)
+returns int
+language sql
+stable
+set search_path = ''
+as $$
+  select count(*)::int
+  from public.table_members m
+  join public.tickets t on t.id = m.ticket_id
+  where m.table_id = p_mesa and t.user_id = m.user_id and t.status in ('active', 'used');
+$$;
+
+-- 4g. Nota e situação (open/full) de uma mesa, como em formar_mesas (nota só com pares mesa_ok).
+--     Uso interno.
+create or replace function public.mesa_recalcular(p_mesa uuid)
+returns void
+language sql
+set search_path = ''
+as $$
+  update public.collective_tables c set
+    status = case when c.status = 'closed' then 'closed'
+                  when public.mesa_ocupados(c.id) >= c.capacity then 'full' else 'open' end,
+    compatibility_score = (
+      select round(avg(public.mesa_compat(pa.p, pb.p)), 1)
+      from public.table_members a
+      join public.table_members b on b.table_id = a.table_id and a.ticket_id < b.ticket_id
+      cross join lateral (select public.mesa_perfil(a.user_id) p) pa
+      cross join lateral (select public.mesa_perfil(b.user_id) p) pb
+      where a.table_id = c.id and pa.p is not null and pb.p is not null)
+  where c.id = p_mesa;
+$$;
+
+-- 4h. Gatilho de table_members: abre e fecha as passagens (bloco 3f) em toda entrada, troca e saída
+--     (escolher_mesa, formar_mesas, mesa_remover_membro, reembolso) e avisa quem já estava na mesa
+--     que "entrou alguém" (bloco 3g), sem dizer quem, se ainda tiver ingresso válido. SECURITY
+--     DEFINER: grava em tabelas fechadas seja quem for que mexa em table_members. "Já estava" =
+--     entrou antes deste comando: na
+--     primeira formação, todos entram juntos e ninguém é avisado. clock_timestamp: dentro da mesma
+--     transação, entrada e saída ficam em ordem.
+create or replace function public.mesa_passagem()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_op = 'UPDATE' and new.table_id is not distinct from old.table_id then
+    return null;
+  end if;
+  if tg_op in ('UPDATE', 'DELETE') then
+    update public.mesa_passagens set saiu_em = clock_timestamp() where membro_id = old.id and saiu_em is null;
+  end if;
+  if tg_op in ('INSERT', 'UPDATE') then
+    insert into public.mesa_passagens (membro_id, user_id, ticket_id, evento, table_id, entrou_em)
+    select new.id, new.user_id, new.ticket_id, c.event_id, new.table_id, clock_timestamp()
+    from public.collective_tables c where c.id = new.table_id;
+    -- só quem ainda tem ingresso active/used dele (reembolsado ou transferido não é avisado)
+    insert into public.mesa_avisos (user_id, evento, table_id, mesa, tipo)
+    select distinct p.user_id, p.evento, p.table_id, c.name, 'entrou'
+    from public.mesa_passagens p
+    join public.collective_tables c on c.id = p.table_id
+    join public.tickets t on t.id = p.ticket_id and t.user_id = p.user_id and t.status in ('active', 'used')
+    where p.table_id = new.table_id and p.saiu_em is null and p.user_id <> new.user_id
+      and p.entrou_em < statement_timestamp()
+    on conflict (user_id, table_id, tipo) where not lido do nothing;
+  end if;
+  return null;
+end;
+$$;
+drop trigger if exists mesa_passagem on public.table_members;
+create trigger mesa_passagem after insert or update of table_id or delete on public.table_members
+  for each row execute function public.mesa_passagem();
+
+-- 4i. Moderação (fotos e denúncias): permissão moderate_mesa (super_admin também passa) e sessão
+--     aal2, mesmo sem fator cadastrado (decisão do Ricardo, 30/09). Uso interno.
+create or replace function public.mesa_moderador()
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+  if not public.gf_admin_can('moderate_mesa') then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  if coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then
+    raise exception 'Ative o 2FA para moderar' using errcode = '42501';
+  end if;
+end;
+$$;
+
 -- 5. Funções da mesa ------------------------------------------------------------------
 
 -- 5a. formar_mesas: aloca quem tem ingresso coletivo (active/used) e ainda não tem lugar; tira quem
 --     deixou de ter. Devolve quantas pessoas entraram nesta chamada. Rodar de novo sem mudança nos
 --     ingressos não muda nada. Cada tipo de ingresso coletivo tem as próprias mesas; a numeração
---     "Mesa N" é única no evento e nunca se repete (mesa que esvazia fica aberta até a limpeza).
+--     "Mesa N" é única no evento. Mesa que fica sem ninguém é apagada. Pessoa travada no evento
+--     (mesa_travas) fica fora.
 --     Com usuário logado: 2FA e produtor do evento ou admin. Sem usuário: só o cron/SQL Editor
 --     (sessão postgres ou supabase_admin; o pg_cron conecta com o usuário que agendou o job).
 create or replace function public.formar_mesas(p_event_id uuid)
@@ -456,7 +826,8 @@ begin
     join public.profiles pr on pr.id = t.user_id
     where t.ticket_type_id = v_tipo and t.event_id = p_event_id and t.status in ('active', 'used')
       and pr.birth_date <= current_date - interval '18 years'
-      and not exists (select 1 from public.table_members m where m.ticket_id = t.id);
+      and not exists (select 1 from public.table_members m where m.ticket_id = t.id)
+      and not public.mesa_travado(p_event_id, t.user_id);
     -- Defesa além do gatilho mesa_idade_guard: menor ou sem data de nascimento fica fora e é avisado
     -- (só os ids dos ingressos no log, nenhum dado pessoal)
     select array_agg(t.id order by t.id) into v_fora
@@ -464,7 +835,8 @@ begin
     left join public.profiles pr on pr.id = t.user_id
     where t.ticket_type_id = v_tipo and t.event_id = p_event_id and t.status in ('active', 'used')
       and (pr.birth_date is null or pr.birth_date > current_date - interval '18 years')
-      and not exists (select 1 from public.table_members m where m.ticket_id = t.id);
+      and not exists (select 1 from public.table_members m where m.ticket_id = t.id)
+      and not public.mesa_travado(p_event_id, t.user_id);
     if v_fora is not null then
       raise warning 'formar_mesas(%): % ingresso(s) de menor ou sem data de nascimento fora da mesa: %',
         p_event_id, cardinality(v_fora), v_fora;
@@ -472,35 +844,44 @@ begin
     continue when v_ids is null;
     v_total := v_total + cardinality(v_ids);
 
+    -- ponytail: uma escolha antecipada (escolher_mesa) cria mesa do tipo e desliga a afinidade da
+    -- primeira formação para todo o tipo de ingresso; os demais entram pela fila de quem chega
+    -- depois. Separar "mesa escolhida" de "mesa formada" se a afinidade fizer falta.
     if v_primeira then
-      -- ntile sobre a fila ordenada: grupos parecidos e equilibrados (13 → 5/4/4)
+      -- ntile sobre a fila ordenada: grupos parecidos e equilibrados (13 → 5/4/4). O número da mesa
+      -- sai do md5 do menor ingresso do grupo (determinístico e sem revelar a ordem de temperamento).
       v_k := ceil(cardinality(v_ids) / 6.0);
-      with mesas as (
-        insert into public.collective_tables (event_id, ticket_type_id, name, capacity, status)
-        select p_event_id, v_tipo, 'Mesa ' || (v_prox + g - 1), 6, 'open'
-        from generate_series(1, v_k) g
-        returning id, name
-      ), u as (
+      with u as (
         select u.ticket_id, ntile(v_k) over (order by u.ord) grupo
         from unnest(v_ids) with ordinality u(ticket_id, ord)
+      ), g as (
+        select u.grupo, v_prox - 1 + row_number() over (order by md5(min(u.ticket_id::text))) numero
+        from u group by u.grupo
+      ), mesas as (
+        insert into public.collective_tables (event_id, ticket_type_id, name, capacity, status)
+        select p_event_id, v_tipo, 'Mesa ' || g.numero, 6, 'open' from g
+        returning id, name
       )
       -- vibe nula: minha_mesa lê a vibe na hora, com o consentimento vigente
       insert into public.table_members (table_id, user_id, ticket_id, vibe)
       select m.id, t.user_id, t.id, null
       from u
+      join g on g.grupo = u.grupo
       join public.tickets t on t.id = u.ticket_id
-      join mesas m on m.name = 'Mesa ' || (v_prox + u.grupo - 1);
+      join mesas m on m.name = 'Mesa ' || g.numero;
       v_prox := v_prox + v_k;
       v_mudou := v_mudou || array(select c.id from public.collective_tables c where c.ticket_type_id = v_tipo);
     else
-      -- Quem chega depois: mesa do mesmo tipo com menos gente; sem vaga, mesa nova.
+      -- Quem chega depois: mesa do mesmo tipo com vaga, primeiro as que já têm gente (com escolha antes
+      -- da formação, a formação completa as mesas com vaga: Decisão 84) e, entre elas, a com menos
+      -- gente; sem vaga, mesa nova.
       -- ponytail: sem afinidade para quem chega depois (plano); reformar mesa já anunciada confundiria.
       foreach v_ticket in array v_ids loop
         select c.id into v_mesa
         from public.collective_tables c
         cross join lateral (select count(*) n from public.table_members m where m.table_id = c.id) q
         where c.ticket_type_id = v_tipo and c.status <> 'closed' and q.n < c.capacity
-        order by q.n, c.created_at, substring(c.name from '[0-9]+')::int
+        order by (q.n = 0), q.n, c.created_at, substring(c.name from '[0-9]+')::int
         limit 1;
         if v_mesa is null then
           insert into public.collective_tables (event_id, ticket_type_id, name, capacity, status)
@@ -530,6 +911,9 @@ begin
       cross join lateral (select public.mesa_perfil(b.user_id) p) pb
       where a.table_id = c.id and pa.p is not null and pb.p is not null)
   where c.id = any(v_mudou);
+  -- mesa que ficou sem ninguém (saídas) sai, como em escolher_mesa
+  delete from public.collective_tables c
+  where c.event_id = p_event_id and not exists (select 1 from public.table_members m where m.table_id = c.id);
 
   return v_total;
 end;
@@ -540,9 +924,11 @@ $$;
 --     e mesa_pedido_guard já garantem 1 ingresso coletivo por conta em cada evento.
 --     Nunca devolve user_id, e-mail, telefone, CPF, temperamento, intenção nem a nota da mesa.
 --     Colega só aparece com ingresso active/used ainda dele (transferido ou reembolsado some na hora).
---     Perfil completo só quando quem vê E quem é visto são mesa_ok; senão, só o primeiro nome.
---     Foto só do Storage do projeto (URL pública, não é segredo):
---     https://rwaezeqyuhxrssntcxdv.supabase.co/storage/
+--     Cada colega sai como em mesa_cartao (bloco 4e): só o primeiro nome e, quando quem vê E quem é
+--     visto são mesa_ok, faixa de idade, foto, perfil, etiquetas, escolaridade e (com o segundo
+--     aceite) rede social. "id" é o id da linha de table_members (opaco), para mesa_denunciar; quem
+--     saiu (oculto) aparece como "Lugar ocupado", sem id, e também vê os colegas só pelo primeiro
+--     nome ("saiu": true).
 create or replace function public.minha_mesa(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -552,8 +938,8 @@ set search_path = ''
 as $$
 declare
   v_uid uuid := auth.uid();
-  v_foto_ok constant text := 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/';
   v_eu_ok boolean;
+  v_saiu boolean;
 begin
   if v_uid is null or not public.gf_mfa_ok() then
     raise exception 'Acesso negado' using errcode = '42501';
@@ -565,34 +951,35 @@ begin
                    and t.status in ('active', 'used')) then
     return jsonb_build_object('mesas', '[]'::jsonb);
   end if;
-  v_eu_ok := public.mesa_ok(v_uid);
+  -- tirada da mesa pela organização (mesa_remover_membro): sem mesa e sem data de formação
+  if public.mesa_travado(p_event_id, v_uid) then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'travado', true);
+  end if;
+  v_saiu := exists (select 1 from public.table_members m join public.collective_tables c on c.id = m.table_id
+                    where c.event_id = p_event_id and m.user_id = v_uid and m.oculto);
+  v_eu_ok := public.mesa_ok(v_uid) and not v_saiu;
 
   return jsonb_build_object(
     'forma_em', (select public.evento_momento(e) - interval '24 hours' from public.events e where e.id = p_event_id),
+    'saiu', v_saiu,
     'mesas', coalesce((
       select jsonb_agg(jsonb_build_object(
                'nome', c.name,
                'capacidade', c.capacity,
                'colegas', (
-                 select jsonb_agg(jsonb_build_object(
-                          'nome', case when k.ok then p.full_name else split_part(trim(p.full_name), ' ', 1) end,
-                          'foto', case when k.ok and starts_with(p.avatar_url, v_foto_ok) then p.avatar_url end,
-                          'idade', case when k.ok then date_part('year', age(p.birth_date))::int end,
-                          'rede_social', case when k.ok then x.social_url end,
-                          'perfil', case when k.ok then x.vibe end,
-                          'tags', case when k.ok then coalesce(x.tags, '{}'::jsonb) end,
-                          'escolaridade', case when k.ok then x.education end,
-                          'eu', g.user_id = v_uid)
-                        || case when g.n > 1 then jsonb_build_object('acompanhantes', g.n - 1) else '{}'::jsonb end
-                        order by g.user_id = v_uid desc, p.full_name, g.primeiro)
-                 from (select m.user_id, count(*) n, min(m.ticket_id::text) primeiro
+                 select jsonb_agg(public.mesa_cartao(g.user_id, k.ok, k.oculto)
+                          || jsonb_build_object('id', case when not k.oculto then g.membro end, 'eu', g.user_id = v_uid)
+                          || case when g.n > 1 then jsonb_build_object('acompanhantes', g.n - 1) else '{}'::jsonb end
+                        order by g.user_id = v_uid desc, k.oculto, g.primeiro)
+                 from (select m.user_id, count(*) n, min(m.ticket_id::text) primeiro,
+                              (array_agg(m.id order by m.ticket_id))[1] membro, bool_or(m.oculto) oculto
                        from public.table_members m
                        join public.tickets t on t.id = m.ticket_id
                        where m.table_id = c.id and t.user_id = m.user_id and t.status in ('active', 'used')
                        group by m.user_id) g
-                 join public.profiles p on p.id = g.user_id
-                 left join public.user_profiles_ext x on x.user_id = g.user_id
-                 cross join lateral (select v_eu_ok and public.mesa_ok(g.user_id) ok) k)
+                 -- a própria pessoa nunca vira "Lugar ocupado" para si mesma
+                 cross join lateral (select g.oculto and g.user_id <> v_uid oculto) o
+                 cross join lateral (select o.oculto, v_eu_ok and not o.oculto and public.mesa_ok(g.user_id) ok) k)
              ) order by substring(c.name from '[0-9]+')::int)
       from public.collective_tables c
       where c.event_id = p_event_id
@@ -607,7 +994,8 @@ $$;
 
 -- 5c. mesas_do_evento: para o produtor acomodar as pessoas (nome completo e ingresso, um por
 --     cadeira). Mesas vazias aparecem, com a lista de membros vazia. Mesmo filtro de minha_mesa:
---     só ingresso active/used ainda do mesmo dono (quem saiu some antes da próxima formação).
+--     só ingresso active/used ainda do mesmo dono (quem saiu some antes da próxima formação). Sem a
+--     nota da mesa (RIPD R14). Quem saiu da Mesa Tinder continua com nome: o produtor sabe quem senta onde.
 create or replace function public.mesas_do_evento(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -626,7 +1014,6 @@ begin
              'numero', substring(c.name from '[0-9]+')::int,
              'nome', c.name,
              'capacidade', c.capacity,
-             'score', c.compatibility_score,
              'membros', (
                select coalesce(jsonb_agg(jsonb_build_object('nome', coalesce(p.full_name, t.buyer_name), 'ingresso', t.id)
                                          order by coalesce(p.full_name, t.buyer_name), t.id), '[]'::jsonb)
@@ -641,9 +1028,519 @@ begin
 end;
 $$;
 
+-- 5d. mesas_para_escolher: as mesas com vaga do mesmo tipo de ingresso, menos a própria, com quem está
+--     nelas (mesa_cartao). Só para quem tem ingresso coletivo válido, é mesa_ok, não saiu, não está
+--     travado e está dentro da janela (até 2 h antes do evento); os outros recebem
+--     {"mesas": [], "motivo": ...}, sem perfil nenhum. Quem não é mesa_ok ou saiu aparece como
+--     "Lugar ocupado", sem id. Etiquetas agregadas só com 3 ou mais perfis visíveis (desenho, 6.2).
+--     Risco aceito (Ricardo, 30/09): o cartão aparece mesmo em mesa de 1 pessoa.
+create or replace function public.mesas_para_escolher(p_event_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_ticket uuid;
+  v_tipo uuid;
+  v_mesa uuid;
+  v_saiu boolean;
+begin
+  if v_uid is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  select t.id, t.ticket_type_id into v_ticket, v_tipo
+  from public.tickets t join public.ticket_types tt on tt.id = t.ticket_type_id
+  where t.event_id = p_event_id and t.user_id = v_uid and tt.type = 'coletiva' and t.status in ('active', 'used')
+  order by t.created_at limit 1;
+  if v_ticket is null then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'motivo', 'sem_ingresso');
+  end if;
+  if (select public.evento_momento(e) from public.events e where e.id = p_event_id) - now() < interval '2 hours' then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'motivo', 'fora_do_prazo');
+  end if;
+  if public.mesa_travado(p_event_id, v_uid) then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'motivo', 'travado');
+  end if;
+  if not public.mesa_ok(v_uid) then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'motivo', 'sem_perfil');
+  end if;
+  select m.table_id, m.oculto into v_mesa, v_saiu
+  from public.table_members m where m.ticket_id = v_ticket and m.user_id = v_uid;
+  if v_saiu then
+    return jsonb_build_object('mesas', '[]'::jsonb, 'motivo', 'saiu');
+  end if;
+
+  return jsonb_build_object('mesas', coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'numero', substring(c.name from '[0-9]+')::int,
+             'vagas', c.capacity - o.n,
+             'pessoas', coalesce(pes.lista, '[]'::jsonb),
+             'etiquetas', case when (select count(*) from jsonb_array_elements(pes.lista) x
+                                     where jsonb_typeof(x -> 'tags') = 'object') >= 3 then (
+               select coalesce(jsonb_agg(jsonb_build_object('categoria', s.cat, 'etiqueta', s.tag, 'pessoas', s.n)
+                                         order by s.n desc, s.cat, s.tag), '[]'::jsonb)
+               from (select e.key cat, v.tag, count(*)::int n
+                     from jsonb_array_elements(pes.lista) x, jsonb_each(x -> 'tags') e, jsonb_array_elements_text(e.value) v(tag)
+                     where jsonb_typeof(x -> 'tags') = 'object'
+                     group by e.key, v.tag) s) end)
+           order by substring(c.name from '[0-9]+')::int)
+    from public.collective_tables c
+    cross join lateral (select public.mesa_ocupados(c.id) n) o
+    cross join lateral (
+      select jsonb_agg(public.mesa_cartao(m.user_id, k.ok, not k.ok)
+                       || jsonb_build_object('id', case when k.ok then m.id end)
+                       order by not k.ok, m.joined_at, m.id) lista
+      from public.table_members m
+      join public.tickets t on t.id = m.ticket_id
+      cross join lateral (select not m.oculto and public.mesa_ok(m.user_id) ok) k
+      where m.table_id = c.id and t.user_id = m.user_id and t.status in ('active', 'used')) pes
+    where c.event_id = p_event_id and c.ticket_type_id = v_tipo and c.status <> 'closed'
+      and c.id is distinct from v_mesa and o.n < c.capacity
+  ), '[]'::jsonb));
+end;
+$$;
+
+-- 5e. escolher_mesa: entra (ou troca) na mesa de número p_mesa_numero; null = "Mesa nova" (a
+--     próxima "Mesa N" do evento, capacidade 6, do mesmo tipo de ingresso). Troca sem limite de
+--     quantidade, com vaga, até 2 h antes do evento e com 30 min entre uma troca e outra (a 1ª
+--     escolha não conta). Ingresso travado (mesa_remover_membro) não escolhe. Mesma trava por evento
+--     de formar_mesas. Mesa inexistente, fechada, de outro tipo ou cheia: "Mesa indisponível". A
+--     mesa antiga que fica vazia é apagada. Quem já estava na mesa recebe o aviso (gatilho 4h).
+--     ponytail: apagar a mesa de número mais alto deixa o número voltar numa "Mesa nova"; guardar o
+--     último número do evento se isso confundir alguém.
+create or replace function public.escolher_mesa(p_event_id uuid, p_mesa_numero int)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  -- Escolha e troca só até 2 h antes do evento; entre trocas, 30 min (contra perseguição).
+  v_prazo constant interval := interval '2 hours';
+  v_intervalo constant interval := interval '30 minutes';
+  v_ticket uuid;
+  v_tipo uuid;
+  v_eu public.table_members;
+  v_mesa uuid;
+  v_nome text;
+begin
+  if v_uid is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  select t.id, t.ticket_type_id into v_ticket, v_tipo
+  from public.tickets t join public.ticket_types tt on tt.id = t.ticket_type_id
+  where t.event_id = p_event_id and t.user_id = v_uid and tt.type = 'coletiva' and t.status in ('active', 'used')
+  order by t.created_at limit 1;
+  if v_ticket is null then
+    raise exception 'Você não tem ingresso da Mesa Tinder neste evento' using errcode = '22023';
+  end if;
+  if not public.mesa_ok(v_uid) then
+    raise exception 'Para escolher a mesa, aceite o termo e tenha foto aprovada' using errcode = '22023';
+  end if;
+  -- 30 min: conferência rápida antes da trava por evento e de novo depois dela (duas chamadas
+  -- simultâneas: a segunda espera a primeira e vê a troca que ela gravou)
+  if exists (select 1 from public.table_members m where m.ticket_id = v_ticket and m.ultima_troca_em > now() - v_intervalo) then
+    raise exception 'Espere 30 minutos entre uma troca de mesa e outra' using errcode = '22023';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
+  -- depois da trava: uma remoção feita ao mesmo tempo já está gravada
+  if public.mesa_travado(p_event_id, v_uid) then
+    raise exception 'Sua participação nas mesas deste evento foi suspensa pela organização.' using errcode = '22023';
+  end if;
+  if (select public.evento_momento(e) from public.events e where e.id = p_event_id) - now() < v_prazo then
+    raise exception 'Escolha e troca de mesa só até 2 h antes do evento' using errcode = '22023';
+  end if;
+
+  -- cadeira de ingresso transferido que formar_mesas ainda não limpou (ticket_id é único)
+  delete from public.table_members m where m.ticket_id = v_ticket and m.user_id <> v_uid;
+  select m.* into v_eu from public.table_members m where m.ticket_id = v_ticket;
+  if v_eu.oculto then
+    raise exception 'Você saiu da Mesa Tinder: volte para escolher a mesa' using errcode = '22023';
+  end if;
+  if v_eu.ultima_troca_em > now() - v_intervalo then
+    raise exception 'Espere 30 minutos entre uma troca de mesa e outra' using errcode = '22023';
+  end if;
+
+  if p_mesa_numero is null then
+    select 'Mesa ' || (coalesce(max(substring(c.name from '[0-9]+')::int), 0) + 1) into v_nome
+    from public.collective_tables c where c.event_id = p_event_id;
+    insert into public.collective_tables (event_id, ticket_type_id, name, capacity, status)
+    values (p_event_id, v_tipo, v_nome, 6, 'open')
+    returning id into v_mesa;
+  else
+    select c.id, c.name into v_mesa, v_nome
+    from public.collective_tables c
+    where c.event_id = p_event_id and c.name = 'Mesa ' || p_mesa_numero;
+    if v_mesa is not null and v_mesa = v_eu.table_id then
+      raise exception 'Você já está nesta mesa' using errcode = '22023';
+    end if;
+    if not exists (select 1 from public.collective_tables c
+                   where c.id = v_mesa and c.ticket_type_id = v_tipo and c.status <> 'closed'
+                     and public.mesa_ocupados(c.id) < c.capacity) then
+      raise exception 'Mesa indisponível' using errcode = '22023';
+    end if;
+  end if;
+
+  if v_eu.id is null then
+    insert into public.table_members (table_id, user_id, ticket_id, vibe) values (v_mesa, v_uid, v_ticket, null);
+  else
+    update public.table_members m set table_id = v_mesa, ultima_troca_em = now() where m.id = v_eu.id;
+    if public.mesa_ocupados(v_eu.table_id) = 0 then
+      delete from public.collective_tables c where c.id = v_eu.table_id;
+    else
+      perform public.mesa_recalcular(v_eu.table_id);
+    end if;
+  end if;
+  perform public.mesa_recalcular(v_mesa);
+  return jsonb_build_object('numero', substring(v_nome from '[0-9]+')::int, 'nome', v_nome);
+end;
+$$;
+
+-- 5f. mesa_sair / mesa_voltar: o perfil some (ou volta) na hora; a cadeira continua.
+--     ponytail: só age em quem já tem cadeira; antes disso a pessoa não aparece para ninguém, mas
+--     formar_mesas a aloca visível. Para sair antes da formação, guardar a escolha por ingresso.
+create or replace function public.mesa_sair(p_event_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  update public.table_members m set oculto = true
+  from public.collective_tables c
+  where c.id = m.table_id and c.event_id = p_event_id and m.user_id = auth.uid();
+  if not found then
+    raise exception 'Você ainda não tem mesa neste evento' using errcode = '22023';
+  end if;
+end;
+$$;
+
+create or replace function public.mesa_voltar(p_event_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  update public.table_members m set oculto = false
+  from public.collective_tables c
+  where c.id = m.table_id and c.event_id = p_event_id and m.user_id = auth.uid();
+  if not found then
+    raise exception 'Você ainda não tem mesa neste evento' using errcode = '22023';
+  end if;
+end;
+$$;
+
+-- 5g. mesa_denunciar: um toque, com o id de membro vindo de minha_mesa ou mesas_para_escolher. O id
+--     vale pelo histórico de passagens (bloco 3f), mesmo depois de troca, reembolso ou transferência,
+--     até a limpeza de 30 dias. Pode denunciar quem tem ingresso coletivo válido no evento ou passou
+--     por uma mesa dele. Não bloqueia ninguém. Até 5 denúncias por pessoa em cada evento; repetir a
+--     mesma devolve {"ja_denunciado": true}. "assedio" só entre quem esteve na mesma mesa ao mesmo
+--     tempo (mesma_mesa e o período, gravados como prova). Nasce "aberta": só o moderador vê até
+--     liberar ao produtor.
+create or replace function public.mesa_denunciar(p_membro uuid, p_motivo text, p_detalhe text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_alvo public.mesa_passagens;
+  v_ini timestamptz;
+  v_fim timestamptz;
+begin
+  if v_uid is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  select p.* into v_alvo from public.mesa_passagens p where p.membro_id = p_membro order by p.entrou_em desc limit 1;
+  if v_alvo.id is null or v_alvo.user_id = v_uid
+     or not (exists (select 1 from public.tickets t join public.ticket_types tt on tt.id = t.ticket_type_id
+                     where t.event_id = v_alvo.evento and t.user_id = v_uid and tt.type = 'coletiva'
+                       and t.status in ('active', 'used'))
+             or exists (select 1 from public.mesa_passagens p where p.user_id = v_uid and p.evento = v_alvo.evento)) then
+    raise exception 'Pessoa não encontrada' using errcode = '22023';
+  end if;
+  -- duas denúncias da mesma pessoa ao mesmo tempo: uma espera a outra (limite de 5)
+  perform pg_advisory_xact_lock(hashtext('mesa_denuncia:' || v_uid || ':' || v_alvo.evento));
+  if exists (select 1 from public.mesa_denuncias d
+             where d.denunciante = v_uid and d.denunciado = v_alvo.user_id and d.evento = v_alvo.evento) then
+    return jsonb_build_object('ja_denunciado', true);
+  end if;
+  if (select count(*) from public.mesa_denuncias d where d.denunciante = v_uid and d.evento = v_alvo.evento) >= 5 then
+    raise exception 'Limite de 5 denúncias por evento' using errcode = '22023';
+  end if;
+  -- período em que estiveram juntos na mesma mesa (do primeiro encontro ao último; quem ainda está
+  -- junto conta até a hora da denúncia)
+  select min(greatest(a.entrou_em, b.entrou_em)),
+         max(least(coalesce(a.saiu_em, clock_timestamp()), coalesce(b.saiu_em, clock_timestamp())))
+    into v_ini, v_fim
+  from public.mesa_passagens a join public.mesa_passagens b on b.table_id = a.table_id
+  where a.user_id = v_uid and b.user_id = v_alvo.user_id and a.evento = v_alvo.evento
+    and a.entrou_em < coalesce(b.saiu_em, 'infinity') and b.entrou_em < coalesce(a.saiu_em, 'infinity');
+  if p_motivo = 'assedio' and v_ini is null then
+    raise exception 'Assédio só pode ser denunciado por quem esteve na mesma mesa ao mesmo tempo' using errcode = '22023';
+  end if;
+  insert into public.mesa_denuncias (denunciante, denunciado, denunciante_nome, denunciado_nome, evento, evento_em,
+                                     table_id, mesa, motivo, detalhe, mesma_mesa, sobreposicao_inicio, sobreposicao_fim)
+  select v_uid, v_alvo.user_id, pa.full_name, pb.full_name, v_alvo.evento, public.evento_momento(e),
+         v_alvo.table_id, (select c.name from public.collective_tables c where c.id = v_alvo.table_id),
+         p_motivo, nullif(trim(p_detalhe), ''), v_ini is not null, v_ini, v_fim
+  from public.events e
+  join public.profiles pa on pa.id = v_uid
+  join public.profiles pb on pb.id = v_alvo.user_id
+  where e.id = v_alvo.evento;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+
+-- 5h0. Conflito de interesse na moderação: a denúncia é contra quem chama, ou quem chama é o
+--      produtor do evento e a denúncia é contra alguém da equipe dele (team_members). Vale também para o
+--      super_admin que produz eventos. Uso interno.
+create or replace function public.mesa_conflito(p_evento uuid, p_denunciado uuid)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+  select p_denunciado = auth.uid()
+      or (exists (select 1 from public.events e where e.id = p_evento and e.producer_id = auth.uid())
+          and exists (select 1 from public.team_members tm where tm.producer_id = auth.uid() and tm.user_id = p_denunciado));
+$$;
+
+-- 5h. mesa_denuncias_do_evento: o moderador (moderate_mesa, aal2) vê tudo, menos as denúncias contra
+--     ele mesmo e, se ele produz o evento, contra a equipe dele (conflito de interesse, mesa_conflito);
+--     o produtor do evento vê as liberadas a ele
+--     (liberada_produtor_em), mesmo depois de o status mudar, com o denunciado (nome completo), o
+--     motivo e a mesa, menos as denúncias contra ele mesmo ou contra a equipe dele (team_members).
+--     ponytail: o moderador denunciado não vê nem decide a denúncia contra ele; se for o único
+--     moderador, ninguém decide. Dar moderate_mesa a mais de uma pessoa (ou ao super_admin).
+create or replace function public.mesa_denuncias_do_evento(p_event_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_produtor uuid := (select e.producer_id from public.events e where e.id = p_event_id);
+begin
+  if not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  if public.gf_admin_can('moderate_mesa') then
+    perform public.mesa_moderador();
+    return coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id', d.id, 'criado_em', d.criado_em, 'motivo', d.motivo, 'detalhe', d.detalhe, 'status', d.status,
+               'mesa', d.mesa, 'denunciante', d.denunciante_nome, 'denunciado', d.denunciado_nome,
+               'mesma_mesa', d.mesma_mesa, 'sobreposicao_inicio', d.sobreposicao_inicio,
+               'sobreposicao_fim', d.sobreposicao_fim, 'status_mudado_em', d.status_mudado_em,
+               'liberada_produtor_em', d.liberada_produtor_em)
+             order by d.criado_em desc, d.id)
+      from public.mesa_denuncias d
+      where d.evento = p_event_id and not coalesce(public.mesa_conflito(d.evento, d.denunciado), false)
+    ), '[]'::jsonb);
+  end if;
+  if v_produtor is distinct from auth.uid() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('denunciado', d.denunciado_nome, 'motivo', d.motivo, 'mesa', d.mesa)
+                     order by d.criado_em desc, d.id)
+    from public.mesa_denuncias d
+    where d.evento = p_event_id and d.liberada_produtor_em is not null and d.denunciado is distinct from v_produtor
+      and not exists (select 1 from public.team_members tm where tm.producer_id = v_produtor and tm.user_id = d.denunciado)
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- 5i. mesa_denuncia_status e mesa_denuncia_liberar: só o moderador (moderate_mesa, aal2), nunca em
+--     conflito de interesse (mesa_conflito); gravam quem fez e quando. Liberar ao produtor é de uma vez só.
+create or replace function public.mesa_denuncia_status(p_id uuid, p_status text)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  update public.mesa_denuncias set status = p_status, status_mudado_por = auth.uid(), status_mudado_em = now()
+  where id = p_id and not coalesce(public.mesa_conflito(evento, denunciado), false);
+  if not found then
+    raise exception 'Denúncia não encontrada' using errcode = '22023';
+  end if;
+end;
+$$;
+
+create or replace function public.mesa_denuncia_liberar(p_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  update public.mesa_denuncias set liberada_produtor_em = coalesce(liberada_produtor_em, now()),
+                                   liberada_por = coalesce(liberada_por, auth.uid())
+  where id = p_id and not coalesce(public.mesa_conflito(evento, denunciado), false);
+  if not found then
+    raise exception 'Denúncia não encontrada' using errcode = '22023';
+  end if;
+end;
+$$;
+
+-- 5j. mesa_remover_membro: o produtor do evento (2FA) ou o moderador (moderate_mesa, aal2) tira a
+--     pessoa da mesa e trava a pessoa no evento (mesa_travas): ela não escolhe nem é alocada de novo,
+--     e a cadeira física se resolve no local. Motivo da lista; "outro" exige detalhe. Grava quem e
+--     quando, e avisa a pessoa (aviso "removido"). A mesa que ficar vazia é apagada.
+drop function if exists public.mesa_remover_membro(uuid, uuid, text);
+create or replace function public.mesa_remover_membro(p_event_id uuid, p_ticket_id uuid, p_motivo text,
+                                                      p_detalhe text default null)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid;
+  v_mesa uuid;
+  v_nome text;
+  v_trava uuid;
+begin
+  if not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  if not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid())) then
+    perform public.mesa_moderador();
+  end if;
+  select t.user_id into v_user from public.tickets t join public.ticket_types tt on tt.id = t.ticket_type_id
+  where t.id = p_ticket_id and t.event_id = p_event_id and tt.type = 'coletiva';
+  if v_user is null then
+    raise exception 'Ingresso não encontrado neste evento' using errcode = '22023';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
+  insert into public.mesa_travas (evento, user_id, ticket_id, motivo, detalhe, por)
+  values (p_event_id, v_user, p_ticket_id, p_motivo, nullif(trim(p_detalhe), ''), auth.uid())
+  on conflict (evento, user_id) where destravada_em is null do nothing
+  returning id into v_trava;  -- nulo quando já havia trava vigente
+  delete from public.table_members m where m.ticket_id = p_ticket_id returning m.table_id into v_mesa;
+  if v_mesa is not null then
+    select c.name into v_nome from public.collective_tables c where c.id = v_mesa;
+    if public.mesa_ocupados(v_mesa) = 0 then
+      delete from public.collective_tables c where c.id = v_mesa;
+    else
+      perform public.mesa_recalcular(v_mesa);
+    end if;
+  end if;
+  -- aviso só quando algo mudou (trava nova ou saída da mesa).
+  -- ponytail: a 2ª remoção com trava vigente não é registrada em lugar nenhum (B2); guardar um
+  -- histórico de remoções se a organização precisar dele.
+  if v_trava is not null or v_mesa is not null then
+    insert into public.mesa_avisos (user_id, evento, table_id, mesa, tipo)
+    values (v_user, p_event_id, v_mesa, v_nome, 'removido')
+    on conflict (user_id, table_id, tipo) where not lido do nothing;
+  end if;
+end;
+$$;
+
+-- 5j'. mesa_travas_do_evento e mesa_destravar: só o moderador (moderate_mesa, aal2) revisa as remoções
+--      e destrava, com registro de quem destravou e quando; nunca a trava dele mesmo.
+create or replace function public.mesa_travas_do_evento(p_event_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', tr.id, 'pessoa', pu.full_name, 'motivo', tr.motivo, 'detalhe', tr.detalhe,
+             'por', pp.full_name, 'em', tr.em, 'destravada_em', tr.destravada_em, 'destravada_por', pd.full_name)
+           order by tr.em desc, tr.id)
+    from public.mesa_travas tr
+    left join public.profiles pu on pu.id = tr.user_id
+    left join public.profiles pp on pp.id = tr.por
+    left join public.profiles pd on pd.id = tr.destravada_por
+    where tr.evento = p_event_id and tr.user_id is distinct from auth.uid()
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function public.mesa_destravar(p_event_id uuid, p_trava_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
+  where id = p_trava_id and evento = p_event_id and destravada_em is null and user_id is distinct from auth.uid();
+  if not found then
+    raise exception 'Trava não encontrada' using errcode = '22023';
+  end if;
+end;
+$$;
+
+-- 5k. meus_avisos_mesa / marcar_avisos_lidos: "entrou alguém na sua mesa" (sem dizer quem) e
+--     "removido" (a organização tirou a pessoa da mesa).
+create or replace function public.meus_avisos_mesa()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('id', a.id, 'evento', a.evento, 'mesa', a.mesa, 'tipo', a.tipo,
+                                        'mensagem', case a.tipo
+                                          when 'removido' then 'Você foi retirado da sua mesa pela organização do evento; procure a organização no local'
+                                          else 'Entrou alguém na sua mesa' end,
+                                        'criado_em', a.criado_em, 'lido', a.lido)
+                     order by a.lido, a.criado_em desc, a.id)
+    from public.mesa_avisos a where a.user_id = auth.uid()
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function public.marcar_avisos_lidos()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if auth.uid() is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  update public.mesa_avisos set lido = true where user_id = auth.uid() and not lido;
+end;
+$$;
+
 -- 6. Consentimento: só por estas funções (o gatilho do bloco 2c barra a gravação direta) --------
 
 -- 6a. mesa_consentir: aceite do termo vigente. Versão diferente = o front está com o termo velho.
+--     Obrigatórios para participar (decisão do Ricardo, 30/09): nome, 18 anos ou mais e foto no
+--     formato do app (mesa_foto_formato); o resto (questionário, etiquetas, escolaridade, rede) é opcional. A
+--     aprovação da foto não é exigida aqui (a moderação pode demorar): ela só controla se o perfil
+--     aparece (mesa_ok).
 create or replace function public.mesa_consentir(p_versao text)
 returns void
 language plpgsql
@@ -660,9 +1557,16 @@ begin
   if p_versao is distinct from v_versao then
     raise exception 'Versão do termo desatualizada: recarregue a página' using errcode = '22023';
   end if;
+  if not exists (select 1 from public.profiles p where p.id = v_uid and trim(coalesce(p.full_name, '')) <> '') then
+    raise exception 'Para participar, adicione seu nome ao perfil' using errcode = '22023';
+  end if;
   if not exists (select 1 from public.profiles p
                  where p.id = v_uid and p.birth_date <= current_date - interval '18 years') then
-    raise exception 'Mesa Tinder é só para maiores de 18' using errcode = '22023';
+    raise exception 'Mesa Tinder é só para maiores de 18: informe sua data de nascimento' using errcode = '22023';
+  end if;
+  if not exists (select 1 from public.profiles p
+                 where p.id = v_uid and public.mesa_foto_formato(p.avatar_url)) then
+    raise exception 'Para participar, adicione sua foto de perfil' using errcode = '22023';
   end if;
   insert into public.user_profiles_ext (user_id, mesa_consent_version, mesa_consent_at, mesa_consent_revoked_at)
   values (v_uid, v_versao, now(), null)
@@ -674,7 +1578,8 @@ begin
 end;
 $$;
 
--- 6b. mesa_revogar: revoga e apaga, no mesmo UPDATE, tudo o que o questionário da mesa coletou.
+-- 6b. mesa_revogar: revoga e apaga, no mesmo UPDATE, tudo o que o questionário da mesa coletou,
+--     e revoga também o aceite da rede social.
 --     O lugar na mesa continua (sem afinidade e só com o primeiro nome). A nota das mesas da pessoa
 --     é apagada: foi calculada com as respostas dela (volta na próxima mudança da mesa, sem ela).
 create or replace function public.mesa_revogar()
@@ -692,6 +1597,7 @@ begin
   end if;
   update public.user_profiles_ext x set
     mesa_consent_revoked_at = now(),
+    rede_consent_revoked_at = case when x.rede_consent_at is not null then now() end,
     tags = null, social_url = null, education = null, temperament = null, intention = null,
     music_style = null, energy_level = null, vibe = null, gender = null, bio = null,
     birth_year = null, quiz_completed_at = null
@@ -705,9 +1611,98 @@ begin
 end;
 $$;
 
+-- 6c. mesa_mostrar_rede / mesa_ocultar_rede: segundo aceite, separado do da mesa (Decisão 94). A rede
+--     social só aparece para colegas mesa_ok enquanto este aceite estiver vigente.
+create or replace function public.mesa_mostrar_rede()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  update public.user_profiles_ext x set rede_consent_at = now(), rede_consent_revoked_at = null
+  where x.user_id = v_uid and x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
+    and x.mesa_consent_version = public.mesa_termo_versao();
+  if not found then
+    raise exception 'Aceite primeiro o termo da Mesa Tinder' using errcode = '22023';
+  end if;
+  insert into public.mesa_consentimentos (user_id, versao, acao) values (v_uid, public.mesa_termo_versao(), 'mostrou_rede');
+end;
+$$;
+
+create or replace function public.mesa_ocultar_rede()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+begin
+  if v_uid is null or not public.gf_mfa_ok() then
+    raise exception 'Acesso negado' using errcode = '42501';
+  end if;
+  update public.user_profiles_ext x set rede_consent_revoked_at = now()
+  where x.user_id = v_uid and x.rede_consent_at is not null and x.rede_consent_revoked_at is null;
+  if found then
+    insert into public.mesa_consentimentos (user_id, versao, acao) values (v_uid, public.mesa_termo_versao(), 'ocultou_rede');
+  end if;
+end;
+$$;
+
+-- 6d. Moderação da foto pelo moderador (moderate_mesa, aal2): a fila são as fotos pendentes ou em
+--     revisão, no formato do app, de quem aceitou o termo da mesa (não a base toda), com o hash
+--     (sha256); a decisão só vale se a foto ainda for a mesma (hash) e estiver pendente ou em revisão,
+--     ou aprovada, para revogar (p_aprovada = false). Nunca a própria foto. Devolve se decidiu.
+create or replace function public.mesa_fotos_para_revisar()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  return coalesce((
+    select jsonb_agg(jsonb_build_object('id', p.id, 'nome', p.full_name, 'foto', p.avatar_url, 'hash', public.mesa_foto_hash(p.avatar_url),
+                                        'situacao', p.avatar_moderacao) order by p.full_name, p.id)
+    from public.profiles p
+    join public.user_profiles_ext x on x.user_id = p.id
+    where p.avatar_moderacao in ('pendente', 'revisar') and public.mesa_foto_formato(p.avatar_url)
+      and p.id is distinct from auth.uid()
+      and x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
+  ), '[]'::jsonb);
+end;
+$$;
+
+drop function if exists public.mesa_foto_decidir(uuid, boolean);
+create or replace function public.mesa_foto_decidir(p_user uuid, p_hash text, p_aprovada boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  perform public.mesa_moderador();
+  update public.profiles p set
+    avatar_moderacao = case when p_aprovada then 'aprovada' else 'recusada' end,
+    avatar_moderado_em = now(),
+    avatar_moderacao_hash = p_hash
+  where p.id = p_user and p.id is distinct from auth.uid() and public.mesa_foto_hash(p.avatar_url) = p_hash and p_aprovada is not null
+    and (p.avatar_moderacao in ('pendente', 'revisar') or (p.avatar_moderacao = 'aprovada' and not p_aprovada));
+  return found;
+end;
+$$;
+
 -- 7. Quem acessa o quê ---------------------------------------------------------------
 -- Tabelas: só as funções acima leem e escrevem (RLS sem policy + sem GRANT).
-revoke all on public.collective_tables, public.table_members, public.mesa_consentimentos from anon, authenticated;
+revoke all on public.collective_tables, public.table_members, public.mesa_consentimentos, public.mesa_denuncias,
+  public.mesa_passagens, public.mesa_avisos, public.mesa_travas from anon, authenticated;
 
 revoke all on function public.mesa_ok(uuid) from public, anon, authenticated;
 revoke all on function public.mesa_perfil(uuid) from public, anon, authenticated;
@@ -725,11 +1720,56 @@ grant execute on function public.minha_mesa(uuid) to authenticated;
 grant execute on function public.mesas_do_evento(uuid) to authenticated;
 grant execute on function public.mesa_consentir(text) to authenticated;
 grant execute on function public.mesa_revogar() to authenticated;
--- mesa_tags_ok, mesa_compat, evento_momento e mesa_termo_versao são puras (não leem tabela): ficam com o grant
+-- funções internas (sem EXECUTE para o navegador)
+revoke all on function public.mesa_avatar_guard() from public, anon, authenticated;
+revoke all on function public.mesa_passagem() from public, anon, authenticated;
+revoke all on function public.mesa_moderador() from public, anon, authenticated;
+revoke all on function public.mesa_travado(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.mesa_conflito(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.mesa_cartao(uuid, boolean, boolean) from public, anon, authenticated;
+revoke all on function public.mesa_ocupados(uuid) from public, anon, authenticated;
+revoke all on function public.mesa_recalcular(uuid) from public, anon, authenticated;
+-- escolha, denúncia, rede social e moderação
+revoke all on function public.mesas_para_escolher(uuid) from public, anon;
+revoke all on function public.escolher_mesa(uuid, int) from public, anon;
+revoke all on function public.mesa_sair(uuid) from public, anon;
+revoke all on function public.mesa_voltar(uuid) from public, anon;
+revoke all on function public.mesa_denunciar(uuid, text, text) from public, anon;
+revoke all on function public.mesa_denuncias_do_evento(uuid) from public, anon;
+revoke all on function public.mesa_denuncia_status(uuid, text) from public, anon;
+revoke all on function public.mesa_mostrar_rede() from public, anon;
+revoke all on function public.mesa_ocultar_rede() from public, anon;
+revoke all on function public.mesa_fotos_para_revisar() from public, anon;
+revoke all on function public.mesa_foto_decidir(uuid, text, boolean) from public, anon;
+revoke all on function public.mesa_remover_membro(uuid, uuid, text, text) from public, anon;
+revoke all on function public.mesa_denuncia_liberar(uuid) from public, anon;
+revoke all on function public.mesa_travas_do_evento(uuid) from public, anon;
+revoke all on function public.mesa_destravar(uuid, uuid) from public, anon;
+revoke all on function public.meus_avisos_mesa() from public, anon;
+revoke all on function public.marcar_avisos_lidos() from public, anon;
+grant execute on function public.mesas_para_escolher(uuid) to authenticated;
+grant execute on function public.escolher_mesa(uuid, int) to authenticated;
+grant execute on function public.mesa_sair(uuid) to authenticated;
+grant execute on function public.mesa_voltar(uuid) to authenticated;
+grant execute on function public.mesa_denunciar(uuid, text, text) to authenticated;
+grant execute on function public.mesa_denuncias_do_evento(uuid) to authenticated;
+grant execute on function public.mesa_denuncia_status(uuid, text) to authenticated;
+grant execute on function public.mesa_mostrar_rede() to authenticated;
+grant execute on function public.mesa_ocultar_rede() to authenticated;
+grant execute on function public.mesa_fotos_para_revisar() to authenticated;
+grant execute on function public.mesa_foto_decidir(uuid, text, boolean) to authenticated;
+grant execute on function public.mesa_remover_membro(uuid, uuid, text, text) to authenticated;
+grant execute on function public.mesa_denuncia_liberar(uuid) to authenticated;
+grant execute on function public.mesa_travas_do_evento(uuid) to authenticated;
+grant execute on function public.mesa_destravar(uuid, uuid) to authenticated;
+grant execute on function public.meus_avisos_mesa() to authenticated;
+grant execute on function public.marcar_avisos_lidos() to authenticated;
+-- mesa_tags_ok, mesa_compat, evento_momento, mesa_termo_versao, mesa_foto_formato e mesa_foto_hash são puras (não leem tabela): ficam com o grant
 -- padrão, porque o CHECK de tags roda com a permissão de quem grava o perfil.
 
 -- 8. Cron. formar_mesas a cada 15 min, nas 24 h antes do evento; cada evento num bloco próprio,
---    para um erro não derrubar os outros. apagar_mesas_antigas todo dia às 04:37 UTC.
+--    para um erro não derrubar os outros. apagar_mesas_antigas todo dia às 04:37 UTC (mesas,
+--    passagens e avisos de 30 dias; travas de 180 dias; denúncias vencidas, bloco 3e).
 --    ponytail: a falha de um evento aparece só como WARNING no log do Postgres; em
 --    cron.job_run_details a execução fica "succeeded". Se precisar de alerta, gravar a falha numa tabela.
 select cron.unschedule('formar_mesas') where exists (select 1 from cron.job where jobname = 'formar_mesas');
@@ -753,9 +1793,24 @@ $cron$);
 
 select cron.unschedule('apagar_mesas_antigas') where exists (select 1 from cron.job where jobname = 'apagar_mesas_antigas');
 select cron.schedule('apagar_mesas_antigas', '37 4 * * *', $cron$
-  delete from public.collective_tables c
-  using public.events e
-  where e.id = c.event_id and public.evento_momento(e) < now() - interval '30 days';
+  do $job$
+  begin
+    delete from public.collective_tables c
+    using public.events e
+    where e.id = c.event_id and public.evento_momento(e) < now() - interval '30 days';
+    delete from public.mesa_passagens p using public.events e
+    where e.id = p.evento and public.evento_momento(e) < now() - interval '30 days';
+    delete from public.mesa_avisos a using public.events e
+    where e.id = a.evento and public.evento_momento(e) < now() - interval '30 days';
+    -- travas: 180 dias (PENDÊNCIA: prazo sujeito a decisão do jurídico)
+    delete from public.mesa_travas tr using public.events e
+    where e.id = tr.evento and public.evento_momento(e) < now() - interval '180 days';
+    -- denúncias (bloco 3e): detalhe em 180 dias e a denúncia em 3 anos, salvo em apuração ou judicial
+    update public.mesa_denuncias set detalhe = null
+    where detalhe is not null and evento_em < now() - interval '180 days' and status not in ('em_apuracao', 'judicial');
+    delete from public.mesa_denuncias
+    where evento_em < now() - interval '3 years' and status not in ('em_apuracao', 'judicial');
+  end $job$;
 $cron$);
 
 commit;
@@ -764,523 +1819,3 @@ commit;
 -- select jobname, schedule from cron.job where jobname in ('formar_mesas', 'apagar_mesas_antigas');
 -- select grantee, privilege_type from information_schema.role_table_grants
 --   where table_name in ('collective_tables', 'table_members', 'mesa_consentimentos') and grantee in ('anon', 'authenticated');
-
-
-
--- =============================================================================
--- TESTES (rodar à mão no SQL Editor: tire o "-- " do começo das linhas abaixo e rode tudo
--- de uma vez; o bloco inteiro está num begin … rollback e não deixa nada gravado).
--- Contas de teste com ids fixos (b0000000-…); e-mails *.invalid. Cada teste termina com
--- "NOTICE: Tn OK"; falha = ERROR com o valor recebido.
--- Stubs usados no Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório:
--- profiles/events/ticket_types/tickets/user_profiles_ext/collective_tables/table_members com as
--- colunas, CHECKs, FKs, RLS e GRANTs de produção (compatibility_score numeric(3,1),
--- table_members.user_id NOT NULL, events.start_date NOT NULL DEFAULT now(), tickets.order_id
--- NOT NULL), auth.jwt(), auth.mfa_factors, orders/order_items, e gf_mfa_ok/gf_is_admin copiadas
--- de 20260930_2fa_no_banco.sql.
--- Em produção, events e orders podem ter outras colunas obrigatórias: se o insert de pg_temp.ingresso,
--- do T0 ou do T16 falhar, complete-o.
--- A corrida entre duas sessões (trava mesa_conta) não cabe neste bloco de uma sessão só; foi testada
--- à parte, com duas sessões psql em paralelo.
--- =============================================================================
--- begin;
--- -- p = usuário (null = postgres); aal = nível da sessão no JWT
--- create function pg_temp.como(p uuid, aal text default 'aal1') returns void language plpgsql as $f$
--- begin
---   perform set_config('request.jwt.claim.sub', coalesce(p::text, ''), true);
---   perform set_config('request.jwt.claims', case when p is null then '' else json_build_object('sub', p, 'role', 'authenticated', 'aal', aal)::text end, true);
---   perform set_config('role', case when p is null then 'postgres' else 'authenticated' end, true);
--- end $f$;
--- create function pg_temp.erro(q text) returns text language plpgsql as $f$
--- begin execute q; return 'ok'; exception when others then return sqlstate; end $f$;
--- create function pg_temp.u(n int) returns uuid language sql as $f$ select ('b0000000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $f$;
--- -- retrato das mesas de um evento (ids, nomes, status, nota e ingressos), para comparar antes/depois
--- create function pg_temp.retrato(ev uuid) returns text language sql as $f$
---   select coalesce(string_agg(c.id || c.name || c.status || coalesce(c.compatibility_score::text, '-') || coalesce(m.ticket_id::text, '-'), ',' order by c.id, m.ticket_id), '')
---   from public.collective_tables c left join public.table_members m on m.table_id = c.id where c.event_id = ev $f$;
--- create function pg_temp.tamanhos(ev uuid) returns int[] language sql as $f$
---   select array_agg(n order by numero) from (select substring(c.name from '[0-9]+')::int numero, count(m.id)::int n from public.collective_tables c
---   left join public.table_members m on m.table_id = c.id where c.event_id = ev group by c.name) s $f$;
--- -- colegas que "quem" vê em minha_mesa (evento ev), achatados
--- create function pg_temp.colegas(quem uuid, ev uuid) returns setof jsonb language plpgsql as $f$
--- declare r jsonb;
--- begin
---   perform pg_temp.como(quem);
---   r := public.minha_mesa(ev);
---   perform pg_temp.como(null);
---   return query select c from jsonb_array_elements(r -> 'mesas') m, jsonb_array_elements(m -> 'colegas') c;
--- end $f$;
--- -- ingresso com o próprio pedido (tickets.order_id é NOT NULL em produção)
--- create function pg_temp.ingresso(id int, tipo int, ev int, dono int, st text default 'active') returns void language sql as $f$
---   with o as (insert into public.orders (user_id, event_id, status) values (pg_temp.u(dono), pg_temp.u(ev), 'paid') returning id)
---   insert into public.tickets (id, order_id, ticket_type_id, event_id, user_id, buyer_name, buyer_email, buyer_cpf, status, created_at)
---   select pg_temp.u(ingresso.id), o.id, pg_temp.u(tipo), pg_temp.u(ev), pg_temp.u(dono), 'Comprador ' || dono, 'pessoa' || dono || '@teste.evokaa.invalid',
---          '00000000000', st, now() - (10000 - ingresso.id) * interval '1 second' from o $f$;
--- -- perfil com consentimento, gravado como postgres (o gatilho só barra anon/authenticated)
--- create function pg_temp.consente(g int) returns void language sql as $f$
---   insert into public.user_profiles_ext (user_id, temperament, intention, music_style, energy_level, vibe, tags, social_url, education,
---     mesa_consent_version, mesa_consent_at)
---   values (pg_temp.u(g), (array['introvert', 'ambivert', 'extrovert'])[g % 3 + 1], (array['network', 'fun', 'experience'])[g % 3 + 1],
---     (array['rock', 'pop', 'sertanejo', 'indie'])[g % 4 + 1], (array['low', 'medium', 'high'])[g % 3 + 1], 'Explorador Tranquilo',
---     jsonb_build_object('musica', jsonb_build_array((array['rock', 'pop', 'funk'])[g % 3 + 1]), 'idiomas', '["ingles"]'::jsonb),
---     'https://instagram.com/pessoa' || g, 'superior', '2026-10-03', now()) $f$;
---
--- -- T0. Contas: 1 produtor P, 2 produtor Q, 3 admin, 11..63 pessoas (61 sem data de nascimento,
--- --     62 com 17 anos, 63 fazendo 18 hoje).
--- --     Eventos de P: E=901 (daqui a 2 dias; start_date = dia da criação, como em produção),
--- --     E3=903, E4=904, E5=905. De Q: E2=902. Tipos coletivos 911..915 (um por evento).
--- insert into auth.users (id, email)
--- select pg_temp.u(g), 'pessoa' || g || '@teste.evokaa.invalid' from generate_series(1, 63) g;
--- insert into public.profiles (id, full_name, birth_date, role, avatar_url)
--- select pg_temp.u(g), case g when 1 then 'Paula Produtora' when 2 then 'Quintino Produtor' when 3 then 'Alice Admin'
---   when 11 then 'Ana Maria Souza' when 12 then 'Bruno Carlos Lima' else 'Pessoa ' || g || ' Sobrenome' end,
---   case g when 61 then null when 62 then (current_date - interval '17 years')::date
---     when 63 then (current_date - interval '18 years')::date else date '1995-06-15' end,
---   case g when 3 then 'admin' when 1 then 'producer' when 2 then 'producer' else 'user' end,
---   case g when 42 then 'https://golpe.example/foto.png' else 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/avatars/' || g || '.png' end
--- from generate_series(1, 63) g
--- on conflict (id) do update set full_name = excluded.full_name, birth_date = excluded.birth_date, role = excluded.role, avatar_url = excluded.avatar_url;
--- insert into public.events (id, producer_id, title, date, time, status, approval_status)
--- select pg_temp.u(900 + g), pg_temp.u(case g when 2 then 2 else 1 end), 'Evento teste ' || g, current_date + 2, '22:00', 'published', 'approved'
--- from generate_series(1, 5) g;
--- insert into public.ticket_types (id, event_id, name, type, capacity)
--- select pg_temp.u(910 + g), pg_temp.u(900 + g), 'Mesa coletiva', 'coletiva', 100 from generate_series(1, 5) g;
--- -- E: 13 ativos (11..23) + 24 cancelado + 25 reembolsado; todos consentem menos o 12 (Bruno)
--- do $$ begin
---   perform pg_temp.ingresso(1000 + g, 911, 901, g, case g when 24 then 'cancelled' when 25 then 'refunded' else 'active' end) from generate_series(11, 25) g;
---   perform pg_temp.consente(g) from generate_series(11, 45) g where g <> 12;
--- end $$;
--- insert into public.user_profiles_ext (user_id, temperament, intention, vibe, social_url) values
---   (pg_temp.u(12), 'extrovert', 'fun', 'Turbilhão', 'https://instagram.com/bruno');
---
--- -- T1. 13 ingressos ativos → 3 mesas de 5, 4 e 4; nota de 0 a 100 (cabe em numeric(4,1)); vibe não gravada
--- do $t$
--- declare n int;
--- begin
---   perform pg_temp.como(pg_temp.u(1));
---   n := public.formar_mesas(pg_temp.u(901));
---   perform pg_temp.como(null);
---   assert n = 13, format('alocou %s', n);
---   assert pg_temp.tamanhos(pg_temp.u(901)) = array[5, 4, 4], format('tamanhos %s', pg_temp.tamanhos(pg_temp.u(901)));
---   assert (select bool_and(status = 'open' and compatibility_score between 0 and 100 and capacity = 6)
---           from public.collective_tables where event_id = pg_temp.u(901)), 'status/nota/capacidade';
---   assert (select bool_and(matchmaking_answers = '{}'::jsonb and vibe is null) from public.table_members), 'copiou respostas ou gravou vibe';
---   raise notice 'T1 OK: 13 → 5/4/4, notas %', (select array_agg(compatibility_score order by name) from public.collective_tables);
--- end $t$;
---
--- -- T2. Rodar de novo não muda nada (mesmos ids, membros, status e nota)
--- do $t$
--- declare antes text := pg_temp.retrato(pg_temp.u(901)); n int;
--- begin
---   n := public.formar_mesas(pg_temp.u(901));
---   assert n = 0, format('2ª rodada alocou %s', n);
---   assert pg_temp.retrato(pg_temp.u(901)) = antes, 'mudou na 2ª rodada';
---   raise notice 'T2 OK: 2ª rodada idempotente';
--- end $t$;
---
--- -- T3. Cancelado e reembolsado ficam de fora
--- do $t$
--- begin
---   assert not exists (select 1 from public.table_members where ticket_id in (pg_temp.u(1024), pg_temp.u(1025))), 'cancelado/reembolsado na mesa';
---   raise notice 'T3 OK: cancelled/refunded fora';
--- end $t$;
---
--- -- T4. Compra nova entra na mesa com menos gente; cancelamento sai; mesas cheias → "full" e mesa nova
--- do $t$
--- declare n int; v_mesa text;
--- begin
---   perform pg_temp.ingresso(1026, 911, 901, 26);
---   n := public.formar_mesas(pg_temp.u(901));
---   select c.name into v_mesa from public.table_members m join public.collective_tables c on c.id = m.table_id where m.ticket_id = pg_temp.u(1026);
---   assert n = 1 and v_mesa = 'Mesa 2', format('chegada: n=%s mesa=%s', n, v_mesa);
---   assert pg_temp.tamanhos(pg_temp.u(901)) = array[5, 5, 4], format('tamanhos %s', pg_temp.tamanhos(pg_temp.u(901)));
---   update public.tickets set status = 'cancelled' where id = (select m.ticket_id from public.table_members m
---     join public.collective_tables c on c.id = m.table_id where c.name = 'Mesa 1' and c.event_id = pg_temp.u(901)
---     and m.user_id <> pg_temp.u(12) order by m.ticket_id limit 1);
---   n := public.formar_mesas(pg_temp.u(901));
---   assert n = 0 and pg_temp.tamanhos(pg_temp.u(901)) = array[4, 5, 4], format('saída: n=%s %s', n, pg_temp.tamanhos(pg_temp.u(901)));
---   perform pg_temp.ingresso(1000 + g, 911, 901, g) from generate_series(27, 33) g;
---   n := public.formar_mesas(pg_temp.u(901));
---   assert n = 7 and pg_temp.tamanhos(pg_temp.u(901)) = array[6, 6, 6, 2], format('lotação: n=%s %s', n, pg_temp.tamanhos(pg_temp.u(901)));
---   assert (select array_agg(status order by name) from public.collective_tables where event_id = pg_temp.u(901))
---          = array['full', 'full', 'full', 'open'], 'status full/open';
---   raise notice 'T4 OK: chegada entra na Mesa 2, cancelamento sai, lotação abre a Mesa 4';
--- end $t$;
---
--- -- T5. Mesa que esvazia continua aberta (sem nota) e recebe quem chega; número não se repete
--- do $t$
--- declare n int;
--- begin
---   perform pg_temp.ingresso(1100 + g, 913, 903, g) from generate_series(34, 40) g;   -- 7 → Mesa 1 (4) e Mesa 2 (3)
---   n := public.formar_mesas(pg_temp.u(903));
---   assert pg_temp.tamanhos(pg_temp.u(903)) = array[4, 3], format('E3 %s', pg_temp.tamanhos(pg_temp.u(903)));
---   update public.tickets set status = 'refunded' where id in (select m.ticket_id from public.table_members m
---     join public.collective_tables c on c.id = m.table_id where c.event_id = pg_temp.u(903) and c.name = 'Mesa 2');
---   n := public.formar_mesas(pg_temp.u(903));
---   assert pg_temp.tamanhos(pg_temp.u(903)) = array[4, 0], format('esvaziou %s', pg_temp.tamanhos(pg_temp.u(903)));
---   assert (select status = 'open' and compatibility_score is null from public.collective_tables
---           where event_id = pg_temp.u(903) and name = 'Mesa 2'), 'mesa vazia não ficou aberta e sem nota';
---   perform pg_temp.ingresso(1150 + g, 913, 903, g) from generate_series(46, 54) g;   -- 9: 6 na Mesa 2, 2 na Mesa 1, 1 na Mesa 3
---   n := public.formar_mesas(pg_temp.u(903));
---   assert n = 9 and pg_temp.tamanhos(pg_temp.u(903)) = array[6, 6, 1], format('reuso %s', pg_temp.tamanhos(pg_temp.u(903)));
---   assert (select count(*) = count(distinct name) from public.collective_tables where event_id = pg_temp.u(903)), 'número repetido';
---   raise notice 'T5 OK: mesa vazia fica aberta, recebe chegadas; Mesa 3 nova, sem número repetido';
--- end $t$;
---
--- -- T6. Produtor de outro evento e comprador → 42501; admin e produtor conseguem; 2FA exigido
--- do $t$
--- begin
---   perform pg_temp.como(pg_temp.u(2));
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = '42501', 'Q formou mesas de E';
---   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'Q leu mesas de E';
---   perform pg_temp.como(pg_temp.u(11));
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = '42501', 'comprador formou mesas';
---   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'comprador leu mesas do evento';
---   perform pg_temp.como(pg_temp.u(3));
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(902))) = 'ok', 'admin não formou';
---   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = 'ok', 'admin não leu';
---   perform pg_temp.como(pg_temp.u(1));
---   assert jsonb_array_length(public.mesas_do_evento(pg_temp.u(901))) = 4, 'produtor não vê as 4 mesas';
---   assert public.mesas_do_evento(pg_temp.u(901))::text like '%Ana Maria Souza%', 'produtor sem nome completo';
---   assert public.mesas_do_evento(pg_temp.u(901))::text not like '%@%', 'e-mail em mesas_do_evento';
---   -- 2FA: fator verificado e sessão aal1 → 42501; aal2 → passa
---   perform pg_temp.como(null);
---   insert into auth.mfa_factors (user_id, status) values (pg_temp.u(1), 'verified'), (pg_temp.u(11), 'verified');
---   perform pg_temp.como(pg_temp.u(1), 'aal1');
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = '42501', 'formar_mesas sem 2FA';
---   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'mesas_do_evento sem 2FA';
---   perform pg_temp.como(pg_temp.u(11), 'aal1');
---   assert pg_temp.erro(format('select public.minha_mesa(%L)', pg_temp.u(901))) = '42501', 'minha_mesa sem 2FA';
---   assert pg_temp.erro(format('select public.mesa_consentir(%L)', '2026-10-03')) = '42501', 'mesa_consentir sem 2FA';
---   assert pg_temp.erro('select public.mesa_revogar()') = '42501', 'mesa_revogar sem 2FA';
---   assert pg_temp.erro(format('select public.minha_mesa(%L)', pg_temp.u(901))) = '42501', 'minha_mesa sem 2FA';
---   perform pg_temp.como(pg_temp.u(1), 'aal2');
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = 'ok', 'produtor com aal2 barrado';
---   perform pg_temp.como(pg_temp.u(11), 'aal2');
---   assert pg_temp.erro(format('select public.minha_mesa(%L)', pg_temp.u(901))) = 'ok', 'minha_mesa com aal2 barrada';
---   perform pg_temp.como(null);
---   delete from auth.mfa_factors where user_id in (pg_temp.u(1), pg_temp.u(11));
---   raise notice 'T6 OK: só produtor do evento e admin; 2FA exigido quando há fator';
--- end $t$;
---
--- -- T7. anon e authenticated não leem nem escrevem nas tabelas; anon não executa as funções
--- do $t$
--- begin
---   perform set_config('request.jwt.claim.sub', '', true);
---   perform set_config('request.jwt.claims', '', true);
---   perform set_config('role', 'anon', true);
---   assert pg_temp.erro('select 1 from public.collective_tables') = '42501', 'anon SELECT mesas';
---   assert pg_temp.erro('select 1 from public.table_members') = '42501', 'anon SELECT membros';
---   assert pg_temp.erro('select 1 from public.mesa_consentimentos') = '42501', 'anon SELECT histórico';
---   assert pg_temp.erro(format('insert into public.collective_tables (event_id, name) values (%L, %L)', pg_temp.u(901), 'X')) = '42501', 'anon INSERT';
---   assert pg_temp.erro(format('select public.formar_mesas(%L)', pg_temp.u(901))) = '42501', 'anon EXECUTE formar_mesas';
---   assert pg_temp.erro(format('select public.minha_mesa(%L)', pg_temp.u(901))) = '42501', 'anon EXECUTE minha_mesa';
---   assert pg_temp.erro(format('select public.mesas_do_evento(%L)', pg_temp.u(901))) = '42501', 'anon EXECUTE mesas_do_evento';
---   assert pg_temp.erro(format('select public.mesa_consentir(%L)', '2026-10-03')) = '42501', 'anon EXECUTE mesa_consentir';
---   assert pg_temp.erro('select public.mesa_revogar()') = '42501', 'anon EXECUTE mesa_revogar';
---   perform pg_temp.como(pg_temp.u(11));
---   assert pg_temp.erro('select 1 from public.table_members') = '42501', 'authenticated SELECT membros';
---   assert pg_temp.erro('select 1 from public.mesa_consentimentos') = '42501', 'authenticated SELECT histórico';
---   assert pg_temp.erro(format('insert into public.collective_tables (event_id, name) values (%L, %L)', pg_temp.u(901), 'X')) = '42501', 'authenticated INSERT';
---   assert pg_temp.erro(format('select public.mesa_perfil(%L)', pg_temp.u(12))) = '42501', 'authenticated EXECUTE mesa_perfil';
---   assert pg_temp.erro(format('select public.mesa_ok(%L)', pg_temp.u(12))) = '42501', 'authenticated EXECUTE mesa_ok';
---   perform pg_temp.como(null);
---   raise notice 'T7 OK: tabelas fechadas; anon sem EXECUTE';
--- end $t$;
---
--- -- T8. minha_mesa: sem dado proibido nem nota; quem não consentiu só com o primeiro nome;
--- --     reciprocidade; colega reembolsado some na hora; quem não tem ingresso não vê nem forma_em
--- do $t$
--- declare r jsonb; colega uuid; b jsonb; sai uuid;
--- begin
---   select m2.user_id into colega from public.table_members m1 join public.table_members m2 on m2.table_id = m1.table_id
---   where m1.user_id = pg_temp.u(12) and m2.user_id <> pg_temp.u(12) order by m2.ticket_id limit 1;
---   perform pg_temp.como(colega);
---   r := public.minha_mesa(pg_temp.u(901));
---   perform pg_temp.como(null);
---   assert jsonb_array_length(r -> 'mesas') = 1, format('mesas: %s', r);
---   assert r::text not like '%user_id%' and r::text not like '%email%' and r::text not like '%@teste.evokaa.invalid%'
---      and r::text not like '%temperament%' and r::text not like '%intention%' and r::text not like '%b0000000%'
---      and r::text not like '%introvert%' and r::text not like '%extrovert%' and r::text not like '%score%'
---      and not (r -> 'mesas' -> 0 ? 'score'), format('vazou: %s', r);
---   assert (r ->> 'forma_em')::timestamptz = ((current_date + 2) + time '22:00') at time zone 'America/Sao_Paulo' - interval '24 hours',
---          format('forma_em %s', r ->> 'forma_em');
---   select c into b from jsonb_array_elements(r -> 'mesas' -> 0 -> 'colegas') c where c ->> 'nome' = 'Bruno';
---   assert b is not null and b -> 'foto' = 'null' and b -> 'idade' = 'null' and b -> 'rede_social' = 'null'
---      and b -> 'tags' = 'null' and b -> 'escolaridade' = 'null' and b -> 'perfil' = 'null', format('Bruno exposto: %s', b);
---   assert (select count(*) from jsonb_array_elements(r -> 'mesas' -> 0 -> 'colegas') c where (c ->> 'eu')::boolean) = 1, 'eu';
---   assert (select bool_and((c ->> 'idade')::int >= 18 and c ->> 'rede_social' like 'https://%' and c ->> 'foto' like 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/%')
---           from jsonb_array_elements(r -> 'mesas' -> 0 -> 'colegas') c where c ->> 'nome' <> 'Bruno'), format('colega que consentiu incompleto: %s', r);
---   -- reciprocidade: Bruno (sem consentimento) vê todos só pelo primeiro nome
---   assert (select bool_and(c ->> 'nome' not like '% %' and c -> 'foto' = 'null' and c -> 'tags' = 'null')
---           from pg_temp.colegas(pg_temp.u(12), pg_temp.u(901)) c), 'Bruno viu perfil completo';
---   -- colega reembolsado some antes de formar_mesas rodar de novo
---   select m2.ticket_id into sai from public.table_members m1 join public.table_members m2 on m2.table_id = m1.table_id
---   where m1.user_id = colega and m2.user_id not in (colega, pg_temp.u(12)) order by m2.ticket_id limit 1;
---   update public.tickets set status = 'refunded' where id = sai;
---   assert not exists (select 1 from pg_temp.colegas(colega, pg_temp.u(901)) c
---                      where c ->> 'nome' = (select p.full_name from public.tickets t join public.profiles p on p.id = t.user_id where t.id = sai)),
---          'reembolsado ainda aparece';
---   -- sem ingresso coletivo no evento: {"mesas": []}, sem forma_em
---   perform pg_temp.como(pg_temp.u(60));
---   assert public.minha_mesa(pg_temp.u(901)) = '{"mesas": []}'::jsonb, 'sem ingresso viu algo';
---   perform pg_temp.como(null);
---   raise notice 'T8 OK: minha_mesa sem dado proibido nem nota; primeiro nome; reciprocidade; reembolsado some';
--- end $t$;
---
--- -- T9. 2º ingresso coletivo na mesma conta → 22023. Defesas de minha_mesa: quem vira menor depois
--- --     de alocado (burla do ponytail do bloco 3b) só com o primeiro nome; 2 ingressos forçados com o
--- --     gatilho desligado = 1 colega com acompanhantes; foto fora do Storage do projeto não sai
--- do $t$
--- declare c41 jsonb; c42 jsonb; eu jsonb;
--- begin
---   perform pg_temp.ingresso(1500, 914, 904, 41);
---   perform pg_temp.ingresso(1501, 914, 904, 42);
---   perform pg_temp.ingresso(1503, 914, 904, 43);
---   assert pg_temp.erro('select pg_temp.ingresso(1502, 914, 904, 42)') = '22023', '2º ingresso coletivo na mesma conta passou';
---   alter table public.tickets disable trigger mesa_idade_guard;
---   perform pg_temp.ingresso(1502, 914, 904, 42);
---   alter table public.tickets enable trigger mesa_idade_guard;
---   perform public.formar_mesas(pg_temp.u(904));
---   update public.profiles set birth_date = current_date - interval '17 years' where id = pg_temp.u(41);
---   select c into c41 from pg_temp.colegas(pg_temp.u(43), pg_temp.u(904)) c where c ->> 'nome' = 'Pessoa';
---   assert c41 is not null and c41 -> 'idade' = 'null' and c41 -> 'foto' = 'null' and c41 -> 'tags' = 'null', format('menor exposto: %s', c41);
---   select c into c42 from pg_temp.colegas(pg_temp.u(43), pg_temp.u(904)) c where c ->> 'nome' = 'Pessoa 42 Sobrenome';
---   assert (c42 ->> 'acompanhantes')::int = 1 and c42 -> 'foto' = 'null', format('acompanhantes/foto: %s', c42);
---   assert (select count(*) from pg_temp.colegas(pg_temp.u(43), pg_temp.u(904))) = 3, 'mais de um colega por pessoa';
---   select c into eu from pg_temp.colegas(pg_temp.u(42), pg_temp.u(904)) c where (c ->> 'eu')::boolean;
---   assert (select count(*) from pg_temp.colegas(pg_temp.u(42), pg_temp.u(904)) c where (c ->> 'eu')::boolean) = 1
---      and (eu ->> 'acompanhantes')::int = 1, format('eu duplicado: %s', eu);
---   perform pg_temp.como(pg_temp.u(1));
---   assert jsonb_array_length(public.mesas_do_evento(pg_temp.u(904)) -> 0 -> 'membros') = 4, 'produtor não vê 4 cadeiras';
---   perform pg_temp.como(null);
---   raise notice 'T9 OK: 1 por conta; menor fechado; acompanhantes (defesa); foto externa bloqueada; produtor conta cadeiras';
--- end $t$;
---
--- -- T10. 3 pessoas sem consentimento: forma, sem overflow, nota nula
--- do $t$
--- begin
---   perform pg_temp.ingresso(1300 + g, 915, 905, g) from generate_series(55, 57) g;
---   assert public.formar_mesas(pg_temp.u(905)) = 3, 'não alocou 3';
---   assert (select compatibility_score is null from public.collective_tables where event_id = pg_temp.u(905)), 'nota sem par consentido';
---   raise notice 'T10 OK: sem consentimento, nota nula';
--- end $t$;
---
--- -- T11. CHECKs: etiquetas, social_url, escolaridade, vibe e "romance"
--- do $t$
--- declare u text := pg_temp.u(11);
--- begin
---   perform pg_temp.como(pg_temp.u(11));
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"musica": ["forro", "axe_inexistente"]}' where user_id = %L$q$, u)) = '23514', 'tag fora da lista';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"musica": ["sertanejo","funk","rock","pop","eletronica","mpb","samba_pagode","forro","indie"]}' where user_id = %L$q$, u)) = '23514', '9 itens';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"religiao": ["x"]}' where user_id = %L$q$, u)) = '23514', 'categoria estranha';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"musica": ["rock", "rock"]}' where user_id = %L$q$, u)) = '23514', 'repetida';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"musica": "rock"}' where user_id = %L$q$, u)) = '23514', 'não array';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set tags = '{"musica": ["sertanejo","funk","rock","pop","eletronica","mpb","samba_pagode","forro"], "hobbies": ["pets"]}' where user_id = %L$q$, u)) = 'ok', '8 itens válidos';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'http://instagram.com/ana' where user_id = %L$q$, u)) = '23514', 'http://';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'HTTPS://instagram.com/ana' where user_id = %L$q$, u)) = '23514', 'HTTPS maiúsculo';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'https://facebook.com/ana' where user_id = %L$q$, u)) = '23514', 'outro domínio';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'https://instagram.com.golpe.io/ana' where user_id = %L$q$, u)) = '23514', 'domínio disfarçado';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'https://instagram.com/ana"onclick=x' where user_id = %L$q$, u)) = '23514', 'aspas no caminho';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'https://instagram.com/' where user_id = %L$q$, u)) = '23514', 'caminho vazio';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set social_url = 'https://www.linkedin.com/in/ana-souza_1' where user_id = %L$q$, u)) = 'ok', 'linkedin válido';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set education = 'doutorado' where user_id = %L$q$, u)) = '23514', 'escolaridade';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set vibe = 'Hacker' where user_id = %L$q$, u)) = '23514', 'vibe fora da lista';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set vibe = 'Camaleão' where user_id = %L$q$, u)) = 'ok', 'vibe válida';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set intention = 'romance' where user_id = %L$q$, u)) = '23514', 'romance';
---   perform pg_temp.como(null);
---   raise notice 'T11 OK: CHECKs de tags, social_url, escolaridade, vibe e romance';
--- end $t$;
---
--- -- T12. Consentimento só por função; versão errada falha; revogar zera e registra
--- do $t$
--- declare u60 uuid := pg_temp.u(60);
--- begin
---   perform pg_temp.como(pg_temp.u(11));
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set mesa_consent_at = now() - interval '1 day' where user_id = %L$q$, pg_temp.u(11))) = '42501', 'update direto de mesa_consent_at';
---   assert pg_temp.erro(format($q$update public.user_profiles_ext set mesa_consent_revoked_at = null, mesa_consent_version = 'x' where user_id = %L$q$, pg_temp.u(11))) = '42501', 'update direto de mesa_consent_version';
---   perform pg_temp.como(u60);
---   assert pg_temp.erro(format($q$insert into public.user_profiles_ext (user_id, mesa_consent_at) values (%L, now())$q$, u60)) = '42501', 'insert direto com consentimento';
---   assert pg_temp.erro(format('select public.mesa_consentir(%L)', '2020-01-01')) = '22023', 'versão errada aceita';
---   perform public.mesa_consentir('2026-10-03');
---   perform pg_temp.como(null);
---   assert (select mesa_consent_version = '2026-10-03' and mesa_consent_at is not null and mesa_consent_revoked_at is null
---           from public.user_profiles_ext where user_id = u60), 'mesa_consentir não gravou';
---   update public.user_profiles_ext set temperament = 'introvert', tags = '{"hobbies": ["pets"]}', social_url = 'https://x.com/p60',
---     education = 'medio', vibe = 'Curioso', bio = 'oi', gender = 'F', birth_year = 1990, quiz_completed_at = now() where user_id = u60;
---   perform pg_temp.como(u60);
---   perform public.mesa_revogar();
---   perform pg_temp.como(null);
---   assert (select mesa_consent_revoked_at is not null and tags is null and social_url is null and education is null and temperament is null
---             and intention is null and music_style is null and energy_level is null and vibe is null and gender is null and bio is null
---             and birth_year is null and quiz_completed_at is null from public.user_profiles_ext where user_id = u60), 'revogar não zerou';
---   assert (select array_agg(acao order by em, acao) from public.mesa_consentimentos where user_id = u60) = array['consentiu', 'revogou'], 'histórico';
---   raise notice 'T12 OK: consentimento só por função; revogação zera e fica no histórico';
--- end $t$;
---
--- -- T13. Cron: forma só na janela de 24 h (pelo date/time, não pelo start_date), um evento com erro
--- --      não derruba os outros, e apaga mesas de evento com mais de 30 dias
--- do $t$
--- declare formar text := (select command from cron.job where jobname = 'formar_mesas');
---         apagar text := (select command from cron.job where jobname = 'apagar_mesas_antigas');
---         daqui3h timestamp := (now() + interval '3 hours') at time zone 'America/Sao_Paulo';
--- begin
---   -- E2 daqui a 3 h, com 1 ingresso; E5 daqui a 3 h também, mas com erro forçado; E3 com start_date
---   -- de 40 dias atrás e date daqui a 10 dias (fora da janela e não pode ser apagado)
---   update public.events set date = daqui3h::date, time = daqui3h::time where id in (pg_temp.u(902), pg_temp.u(905));
---   perform pg_temp.ingresso(1400, 912, 902, 58);
---   perform pg_temp.ingresso(1401, 915, 905, 59);
---   create function pg_temp.falha() returns trigger language plpgsql as $f$
---   begin if new.ticket_id = 'b0000000-0000-4000-8000-000000001401' then raise exception 'erro forçado'; end if; return new; end $f$;
---   create trigger falha before insert on public.table_members for each row execute function pg_temp.falha();
---   update public.events set start_date = now() - interval '40 days', date = current_date + 10 where id = pg_temp.u(903);
---   perform pg_temp.ingresso(1402, 913, 903, 59);
---   update public.events set date = current_date - 40 where id = pg_temp.u(901);
---   execute formar;
---   drop trigger falha on public.table_members;
---   assert exists (select 1 from public.table_members where ticket_id = pg_temp.u(1400)), 'evento com erro derrubou os outros';
---   assert not exists (select 1 from public.table_members where ticket_id = pg_temp.u(1401)), 'evento com erro formou';
---   assert not exists (select 1 from public.table_members where ticket_id = pg_temp.u(1402)), 'formou fora da janela (usou start_date)';
---   execute apagar;
---   assert not exists (select 1 from public.collective_tables where event_id = pg_temp.u(901)), 'não apagou mesas de 40 dias';
---   assert exists (select 1 from public.collective_tables where event_id = pg_temp.u(903)), 'apagou evento futuro pelo start_date';
---   perform pg_temp.como((select user_id from public.tickets where event_id = pg_temp.u(903) and status = 'active' order by id limit 1));
---   assert (public.minha_mesa(pg_temp.u(903)) ->> 'forma_em')::timestamptz
---          = ((current_date + 10) + time '22:00') at time zone 'America/Sao_Paulo' - interval '24 hours', 'forma_em pelo start_date';
---   perform pg_temp.como(null);
---   raise notice 'T13 OK: janela pelo date/time; erro isolado por evento; limpeza de 30 dias';
--- end $t$;
---
--- -- T14. mesa_compat: perfis iguais = 100; opostos = 60 (a intenção parcial soma 10); Jaccard soma
--- do $t$
--- begin
---   assert public.mesa_compat('{"temperament":"introvert","energy_level":"low","intention":"fun","music_style":"rock"}',
---                             '{"temperament":"introvert","energy_level":"low","intention":"fun","music_style":"rock"}') = 100, 'iguais';
---   assert public.mesa_compat('{"temperament":"introvert","energy_level":"low","intention":"network","music_style":"jazz"}',
---                             '{"temperament":"extrovert","energy_level":"high","intention":"fun","music_style":"sertanejo"}') = 60, 'opostos';
---   assert public.mesa_compat('{"temperament":"introvert","energy_level":"low","tags":{"musica":["rock"]}}',
---                             '{"temperament":"extrovert","energy_level":"high","tags":{"musica":["rock","pop"]}}') = 55, 'jaccard 1/2';
---   raise notice 'T14 OK: mesa_compat';
--- end $t$;
---
--- -- T15. Mesa coletiva só para 18+ com data de nascimento (gatilho mesa_idade_guard); ingresso
--- --      individual não muda; quem ficou sem data depois da compra fica fora da mesa, com aviso
--- do $t$
--- begin
---   insert into public.ticket_types (id, event_id, name, type, capacity) values (pg_temp.u(916), pg_temp.u(904), 'Pista', 'individual', 100);
---   assert pg_temp.erro('select pg_temp.ingresso(1600, 914, 904, 61)') = '22023', 'sem data de nascimento passou';
---   assert pg_temp.erro('select pg_temp.ingresso(1601, 914, 904, 62)') = '22023', '17 anos passou';
---   assert pg_temp.erro('select pg_temp.ingresso(1602, 914, 904, 63)') = 'ok', '18 anos hoje barrado';
---   assert pg_temp.erro('select pg_temp.ingresso(1603, 916, 904, 62)') = 'ok', 'individual de menor barrado';
---   assert pg_temp.erro(format('update public.tickets set ticket_type_id = %L where id = %L', pg_temp.u(914), pg_temp.u(1603))) = '22023', 'troca para coletiva de menor passou';
---   assert pg_temp.erro(format('update public.tickets set user_id = %L where id = %L', pg_temp.u(61), pg_temp.u(1602))) = '22023', 'transferência para quem não tem data passou';
---   perform set_config('role', 'service_role', true);
---   assert pg_temp.erro('select pg_temp.ingresso(1604, 914, 904, 62)') = '22023', 'service_role passou';
---   perform set_config('role', 'postgres', true);
---   -- defesa: comprou com 18+, a data sumiu depois; formar_mesas deixa fora (WARNING esperado)
---   update public.profiles set birth_date = null where id = pg_temp.u(63);
---   perform public.formar_mesas(pg_temp.u(904));
---   assert not exists (select 1 from public.table_members where ticket_id = pg_temp.u(1602)), 'sem data foi alocado';
---   raise notice 'T15 OK: coletiva só 18+ com data (inclusive service_role); individual livre; defesa na formação';
--- end $t$;
--- -- T16. Pedido (order_items), antes da cobrança: coletiva só com quantidade 1, comprador 18+ com
--- --      data de nascimento, 1 item coletivo por pedido e nenhum ingresso coletivo já ativo no evento
--- do $t$
--- declare o45 uuid := gen_random_uuid(); o62 uuid := gen_random_uuid(); o43 uuid := gen_random_uuid(); item uuid;
--- begin
---   insert into public.orders (id, user_id, event_id, status) values
---     (o45, pg_temp.u(45), pg_temp.u(904), 'pending'), (o62, pg_temp.u(62), pg_temp.u(904), 'pending'),
---     (o43, pg_temp.u(43), pg_temp.u(904), 'pending');
---   assert pg_temp.erro(format('insert into public.order_items (order_id, ticket_type_id, quantity) values (%L, %L, 2)', o45, pg_temp.u(914))) = '22023', 'coletiva com quantidade 2 passou';
---   insert into public.order_items (order_id, ticket_type_id, quantity) values (o45, pg_temp.u(914), 1) returning id into item;
---   assert pg_temp.erro(format('insert into public.order_items (order_id, ticket_type_id, quantity) values (%L, %L, 1)', o45, pg_temp.u(914))) = '22023', '2º item coletivo no pedido passou';
---   assert pg_temp.erro(format('update public.order_items set quantity = 2 where id = %L', item)) = '22023', 'update para quantidade 2 passou';
---   assert pg_temp.erro(format('insert into public.order_items (order_id, ticket_type_id, quantity) values (%L, %L, 1)', o62, pg_temp.u(914))) = '22023', 'coletiva de menor passou';
---   assert pg_temp.erro(format('insert into public.order_items (order_id, ticket_type_id, quantity) values (%L, %L, 3)', o62, pg_temp.u(916))) = 'ok', 'individual de menor barrado';
---   assert pg_temp.erro(format('insert into public.order_items (order_id, ticket_type_id, quantity) values (%L, %L, 1)', o43, pg_temp.u(914))) = '22023', 'quem já tem coletiva comprou outra';
---   raise notice 'T16 OK: pedido coletivo barrado antes da cobrança (quantidade, idade, duplicado); individual livre';
--- end $t$;
---
--- -- T17. Transferência só trocando o dono: o antigo some de mesas_do_evento e minha_mesa na hora e
--- --      sai na rodada seguinte, em que o novo dono entra; reembolsado também some de mesas_do_evento
--- do $t$
--- declare r jsonb; n int;
--- begin
---   update public.tickets set user_id = pg_temp.u(47) where id = pg_temp.u(1503);   -- de 43 para 47
---   update public.tickets set status = 'refunded' where id = pg_temp.u(1500);       -- 41
---   perform pg_temp.como(pg_temp.u(1));
---   r := public.mesas_do_evento(pg_temp.u(904));
---   assert r::text not like '%' || pg_temp.u(1503) || '%' and r::text not like '%' || pg_temp.u(1500) || '%'
---      and r::text not like '%Pessoa 43%' and r::text not like '%Pessoa 41%', format('mesas_do_evento mostra quem saiu: %s', r);
---   perform pg_temp.como(null);
---   assert not exists (select 1 from pg_temp.colegas(pg_temp.u(42), pg_temp.u(904)) c where c ->> 'nome' like 'Pessoa 43%'), 'antigo dono em minha_mesa';
---   n := public.formar_mesas(pg_temp.u(904));
---   assert n = 1 and exists (select 1 from public.table_members where ticket_id = pg_temp.u(1503) and user_id = pg_temp.u(47)), format('novo dono não entrou (n=%s)', n);
---   assert not exists (select 1 from public.table_members where user_id = pg_temp.u(43)), 'antigo dono ficou';
---   perform pg_temp.como(pg_temp.u(1));
---   assert public.mesas_do_evento(pg_temp.u(904))::text like '%Pessoa 47 Sobrenome%', 'produtor não vê o novo dono';
---   perform pg_temp.como(null);
---   raise notice 'T17 OK: transferência troca a pessoa; quem saiu some de mesas_do_evento';
--- end $t$;
---
--- -- T18. Consentimento de versão antiga do termo = não vigente: só o primeiro nome (e reciprocidade)
--- do $t$
--- declare a uuid; b uuid; mesa uuid; ca jsonb;
--- begin
---   select c.id into mesa from public.collective_tables c where c.event_id = pg_temp.u(903) and c.name = 'Mesa 1';
---   select m.user_id into a from public.table_members m where m.table_id = mesa and public.mesa_ok(m.user_id) order by m.ticket_id limit 1;
---   select m.user_id into b from public.table_members m where m.table_id = mesa and public.mesa_ok(m.user_id) and m.user_id <> a order by m.ticket_id limit 1;
---   update public.user_profiles_ext set mesa_consent_version = '2025-01-01' where user_id = a;
---   select c into ca from pg_temp.colegas(b, pg_temp.u(903)) c where c ->> 'nome' = (select split_part(full_name, ' ', 1) from public.profiles where id = a)
---     and not (c ->> 'eu')::boolean;
---   assert ca is not null and ca -> 'foto' = 'null' and ca -> 'tags' = 'null', format('versão antiga exposta: %s', ca);
---   assert (select bool_and(c ->> 'nome' not like '% %') from pg_temp.colegas(a, pg_temp.u(903)) c), 'versão antiga viu perfis completos';
---   raise notice 'T18 OK: termo de versão antiga não vale';
--- end $t$;
---
--- -- T19. mesa_revogar apaga a nota das mesas da pessoa
--- do $t$
--- declare mesa uuid; quem uuid;
--- begin
---   select c.id into mesa from public.collective_tables c where c.event_id = pg_temp.u(903) and c.name = 'Mesa 1';
---   assert (select compatibility_score is not null from public.collective_tables where id = mesa), 'preparo: Mesa 1 sem nota';
---   select m.user_id into quem from public.table_members m where m.table_id = mesa and public.mesa_ok(m.user_id) order by m.ticket_id limit 1;
---   perform pg_temp.como(quem);
---   perform public.mesa_revogar();
---   perform pg_temp.como(null);
---   assert (select compatibility_score is null from public.collective_tables where id = mesa), 'nota ficou depois de revogar';
---   raise notice 'T19 OK: revogar apaga a nota da mesa';
--- end $t$;
--- -- T20. Reativação, check-in, troca de pedido, troca de tipo e consentimento de menor
--- do $t$
--- declare o45 uuid; o62 uuid; item uuid;
--- begin
---   -- reativação duplicada: 1700 cancelado, 1701 ativo; voltar 1700 para active → 22023
---   perform pg_temp.ingresso(1700, 914, 904, 49);
---   update public.tickets set status = 'cancelled' where id = pg_temp.u(1700);
---   perform pg_temp.ingresso(1701, 914, 904, 49);
---   assert pg_temp.erro(format('update public.tickets set status = %L where id = %L', 'active', pg_temp.u(1700))) = '22023', 'reativação duplicada passou';
---   assert pg_temp.erro(format('update public.tickets set status = %L where id = %L', 'used', pg_temp.u(1700))) = '22023', 'reativação como used passou';
---   -- check-in de quem ficou sem data de nascimento depois da compra: passa
---   perform pg_temp.ingresso(1702, 914, 904, 50);
---   update public.profiles set birth_date = null where id = pg_temp.u(50);
---   assert pg_temp.erro(format('update public.tickets set status = %L where id = %L', 'used', pg_temp.u(1702))) = 'ok', 'check-in barrado';
---   assert pg_temp.erro(format('update public.tickets set status = %L where id = %L', 'refunded', pg_temp.u(1702))) = 'ok', 'reembolso barrado';
---   -- mover item coletivo para o pedido de um menor → 22023
---   select o.id into o45 from public.orders o where o.user_id = pg_temp.u(45) and o.status = 'pending';
---   select o.id into o62 from public.orders o where o.user_id = pg_temp.u(62) and o.status = 'pending';
---   select oi.id into item from public.order_items oi where oi.order_id = o45 and oi.ticket_type_id = pg_temp.u(914);
---   assert pg_temp.erro(format('update public.order_items set order_id = %L where id = %L', o62, item)) = '22023', 'item movido para pedido de menor';
---   -- troca de tipo: com vendas → 22023 (nos dois sentidos); sem vendas → passa
---   assert pg_temp.erro(format('update public.ticket_types set type = %L where id = %L', 'individual', pg_temp.u(914))) = '22023', 'coletiva vendida virou individual';
---   assert pg_temp.erro(format('update public.ticket_types set type = %L where id = %L', 'coletiva', pg_temp.u(916))) = '22023', 'individual vendido virou coletiva';
---   insert into public.ticket_types (id, event_id, name, type, capacity) values (pg_temp.u(917), pg_temp.u(904), 'Nova', 'coletiva', 10);
---   assert pg_temp.erro(format('update public.ticket_types set type = %L where id = %L', 'vip', pg_temp.u(917))) = 'ok', 'troca sem vendas barrada';
---   assert pg_temp.erro(format('update public.ticket_types set name = %L where id = %L', 'Mesa Tinder', pg_temp.u(914))) = 'ok', 'renomear barrado';
---   -- mesa_consentir de menor → 22023
---   perform pg_temp.como(pg_temp.u(62));
---   assert pg_temp.erro(format('select public.mesa_consentir(%L)', public.mesa_termo_versao())) = '22023', 'menor consentiu';
---   perform pg_temp.como(null);
---   raise notice 'T20 OK: reativação duplicada barrada; check-in livre; pedido de menor; tipo travado após venda; menor não consente';
--- end $t$;
--- rollback;
