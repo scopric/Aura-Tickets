@@ -40,7 +40,7 @@ interface AuthState {
 
 // Sessão de demonstração só em desenvolvimento: em produção um `mock-token-` gravado no
 // localStorage não pode virar interface de admin/produtor (os dados já eram barrados pelo RLS).
-function isMockSession(session: any): boolean {
+export function isMockSession(session: any): boolean {
   return import.meta.env.DEV && !!session?.access_token?.startsWith('mock-token-')
 }
 

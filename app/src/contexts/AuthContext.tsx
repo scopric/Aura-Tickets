@@ -68,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Fica antes da trava abaixo porque o `user` pode estar persistido de uma sessão antiga.
           setSession(session)
           const sid = loginSessionId(session.access_token)
-          if (event === 'SIGNED_IN' && (!sid || sid !== useAuthStore.getState().loginSessionId)) {
-            // Marca a sessão como registrada só depois do sucesso: se falhar, a próxima carga tenta de novo.
+          if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && (!sid || sid !== useAuthStore.getState().loginSessionId)) {
+            // Marca a sessão como registrada só depois do sucesso: se falhar, a próxima carga (INITIAL_SESSION) tenta de novo.
             supabase.functions.invoke('record-access', { body: { terms_version: TERMS_VERSION, privacy_version: PRIVACY_VERSION } })
               .then(({ error }) => {
                 if (error) console.warn('[AuthContext] record-access:', error.message)

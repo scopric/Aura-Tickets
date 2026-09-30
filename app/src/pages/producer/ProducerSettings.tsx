@@ -200,6 +200,10 @@ export default function ProducerSettings() {
         toast.error('Por segurança, saia e entre de novo na sua conta para trocar a senha.')
         return
       }
+      if (error?.code === 'same_password') {
+        toast.error('A nova senha deve ser diferente da atual.')
+        return
+      }
       if (error?.code === 'weak_password') {
         toast.error(`A senha não atende às regras. ${PASSWORD_HINT}.`)
         return

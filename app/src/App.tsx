@@ -12,6 +12,7 @@ import CookieBanner from './components/CookieBanner'
 import SupportChatWidget from './components/SupportChatWidget'
 import AvisoPolitica from './components/AvisoPolitica'
 import { supabase } from './lib/supabase'
+import { useAuthStore, isMockSession } from './stores/authStore'
 import { Loader2 } from 'lucide-react'
 import { Analytics, type BeforeSend } from '@vercel/analytics/react'
 
@@ -144,6 +145,8 @@ function ProtectedRoute({
 
   useEffect(() => {
     if (isLoading || !isAuthenticated) return
+    // Sessão demo (só DEV) não existe no Supabase: sem isto os testes e2e com as contas demo parariam aqui.
+    if (isMockSession(useAuthStore.getState().session)) { setMfa('ok'); return }
     let cancelled = false
     supabase.auth.mfa.getAuthenticatorAssuranceLevel()
       .then(({ data, error }) => {
