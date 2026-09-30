@@ -10,7 +10,7 @@
 // lista não executa. A chave do Gemini vem do Vault (ai_get_gemini_key, só service_role) e
 // nunca sai desta função; erro do Google não chega ao cliente.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
-import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, AVISO_NORMAS } from '../_shared/planejar.ts'
+import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, dataPassada, AVISO_NORMAS } from '../_shared/planejar.ts'
 import { resumir } from '../_shared/mascara.ts'
 import { mfaOk } from '../_shared/mfa.ts'
 
@@ -437,7 +437,7 @@ async function atender(req: Request): Promise<Response> {
           }
           case 'propor_rascunho_evento': {
             // data passada volta como erro para o modelo corrigir a resposta (não some em silêncio)
-            if (typeof args?.date === 'string' && args.date < hoje) return { erro: `A data ${args.date} já passou (hoje é ${hoje}). Proponha com data futura ou sem data.` }
+            if (dataPassada(args?.date, hoje)) return { erro: `A data ${args.date} já passou (hoje é ${hoje}). Proponha com data futura ou sem data.` }
             const p = validarProposta(args)
             if (!p) return { erro: 'Proposta inválida: confira título, cidade, UF (2 letras), capacidade e ingressos (1 a 10, com nome, preço e quantidade).' }
             proposal = p
