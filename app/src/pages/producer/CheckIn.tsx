@@ -5,7 +5,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
 
 interface TicketCheck {
@@ -22,7 +21,6 @@ interface TicketCheck {
 }
 
 export default function ProducerCheckIn() {
-  const { user } = useAuth()
   const { data: events, isLoading: isEventsLoading } = useProducerEvents()
   
   const [selectedEventId, setSelectedEventId] = useState<string>('')
@@ -121,11 +119,14 @@ export default function ProducerCheckIn() {
         body: {
           qrCode: code.trim(),
           eventId: selectedEventId,
-          operatorId: user?.id
         }
       })
 
-      if (error) throw error
+      if (error) {
+        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função (sem permissão, 2FA, não encontrado)
+        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
+        throw new Error(body?.error || body?.message || error.message)
+      }
 
       // Mapear o resultado do scan
       if (data.valid) {
@@ -181,7 +182,7 @@ export default function ProducerCheckIn() {
       }
     } catch (err: any) {
       console.error('Erro ao validar check-in:', err)
-      toast.error('Erro na validação do ingresso!')
+      toast.error(err.message || 'Erro na validação do ingresso!')
       
       setLastScan({
         ticket: {
