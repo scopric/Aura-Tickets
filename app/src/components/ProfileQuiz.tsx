@@ -66,7 +66,7 @@ const QUIZ_STEPS: QuizStep[] = [
   {
     id: 'temperament',
     question: 'Como você descreveria seu temperamento em eventos?',
-    subtitle: 'Seu jeito de ser define a energia da mesa',
+    subtitle: 'Conte como você é em eventos',
     options: [
       {
         value: 'introvert',
@@ -788,7 +788,7 @@ export default function ProfileQuiz({ onComplete, onCancel }: ProfileQuizProps) 
         {/* Bottom hint */}
         <div className="mt-10 text-center">
           <p className="text-cream/70 text-xs">
-            Suas respostas definem sua mesa ideal — seja você mesmo
+            Responda com sinceridade
           </p>
         </div>
       </div>

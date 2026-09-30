@@ -51,7 +51,7 @@ export default function CheckoutSuccess() {
   // a Fase 4 existir, o webhook do Pix insere tickets novos 'active' ao lado dos que o checkout já
   // criou 'cancelled' para o mesmo pedido — `every` ficaria preso em "Pedido registrado" mesmo pago.
   const ticketsActive = tickets.some(t => t.status === 'active')
-  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'coletiva' || t.ticket_types?.name?.toLowerCase().includes('mesa'))
+  const hasCollectiveTable = tickets.some(t => t.ticket_types?.type === 'coletiva')
 
   // Mapeamento dos ingressos agrupados por tipo para resumo do card
   const ticketSummary = tickets.reduce((acc, t) => {
