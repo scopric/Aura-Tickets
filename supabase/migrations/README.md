@@ -1,0 +1,4 @@
+- `20260930134600_baseline.sql` retrata só o schema (sem dados) da produção em 30/09/2026; serve para `supabase start`/`supabase db reset` e o pgTAP locais.
+- "Deploy to production" da integração GitHub do Supabase continua desligado (Decisão 03): nada desta pasta vai sozinho para a produção.
+- SQL novo para a produção segue em `docs/sql/` até a convenção de migrations do PR 9.
+- Para marcar o baseline como já aplicado na produção, o Ricardo roda uma vez: `supabase migration repair --status applied 20260930134600 --project-ref rwaezeqyuhxrssntcxdv`.
