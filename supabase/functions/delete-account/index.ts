@@ -113,6 +113,9 @@ Deno.serve(async (req) => {
   for (const [name, run] of steps) {
     const { error } = await run()
     if (error) {
+      if (name === 'profiles' && /pelo menos um super_admin/.test(error.message)) {
+        return json(409, { error: 'Você é o único Super Admin. Promova outra pessoa a Super Admin antes de excluir a conta.' })
+      }
       console.error('[delete-account]', uid, name, error.message)
       return json(500, { error: `Não foi possível concluir (${name}). Tente de novo; se persistir, fale com dpo@evokaa.com.br.` })
     }

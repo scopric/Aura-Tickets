@@ -1,5 +1,7 @@
 -- ATENÇÃO (30/09/2026): este arquivo recria funções que docs/sql/20260930_2fa_no_banco.sql protege com o
 -- 2FA. Se for rodado de novo, rode também o 20260930_2fa_no_banco.sql logo depois.
+-- ATENÇÃO (30/09/2026): também recria o gatilho de profiles que docs/sql/20260930_permissoes_admin.sql
+-- endurece (só super_admin mexe em permissões). Se rodar este de novo, rode aquele logo depois.
 -- =============================================================================
 -- Endurecimento de segurança — 2026-09-27
 -- APLICADO MANUALMENTE em produção (projeto rwaezeqyuhxrssntcxdv) via Supabase MCP.
