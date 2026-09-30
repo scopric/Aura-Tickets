@@ -3,10 +3,15 @@
 -- search_path que faltava e apaga duas colunas legadas que ninguém lê.
 --
 -- ORDEM DE APLICAÇÃO (obrigatória):
---   1. Publicar a Edge Function `delete-account` deste PR ANTES de rodar este SQL. A versão atual grava
---      `api_key: null` em producer_profiles; sem a coluna, a exclusão de conta de produtor falha no passo 2.
---   2. Colar este arquivo inteiro no SQL Editor (uma transação: se a conferência do fim falhar, nada é gravado).
---   3. Conferir: bloco "Conferência" do fim já roda sozinho; depois o Security Advisor.
+--   Se o SQL rodar antes da função `delete-account` nova, TODA exclusão de conta falha com PGRST204 (coluna
+--   `api_key` inexistente), DEPOIS de já ter anonimizado o perfil (passo 1 da função): a pessoa perde os dados
+--   e o papel, mas a conta continua. Por isso:
+--   1. Publicar `delete-account` deste PR.
+--   2. Conferir que a publicada não tem `api_key` (`supabase functions download delete-account --use-api` e
+--      `grep -c api_key` = 0, ou olhar no painel).
+--   3. Só então colar este arquivo inteiro no SQL Editor (uma transação: se a conferência do fim falhar, nada
+--      é gravado).
+--   4. Conferir: bloco "Conferência" do fim já roda sozinho; depois o Security Advisor.
 -- Idempotente. Rodar de novo depois de reaplicar docs/sql/20260927_security_hardening.sql: ele volta a dar
 -- EXECUTE de gf_is_admin a anon e recria gf_tasks_owner sem "to" (vale para anon).
 --
@@ -35,12 +40,23 @@
 --    vazio), então basta fixar.
 -- 4. TRUNCATE: nenhuma função do banco e nenhum código do app usa (no app, "truncate" é só classe CSS).
 --    O "alter default privileges" vale para tabelas criadas pelo papel que roda este SQL (postgres no SQL Editor).
+--    Tabelas criadas pelo papel supabase_admin (ex.: pelo painel) ainda nascem com TRUNCATE para anon e sem RLS
+--    automático: o postgres não consegue mudar o default de outro papel. Conferir depois de criar tabela pelo
+--    painel.
 -- 5. is_authorized NÃO entra no gatilho de profiles: a coluna não existe na produção (baseline de 30/09;
 --    erro 2.3 de "Erros que não se repetem"). Citar new.is_authorized quebraria toda edição de perfil.
 -- 6. events.password: 0 linhas com valor (produção, 30/09); nada no app nem nas Edge Functions lê ou grava
---    (só aparece no tipo DbEvent e nos eventos de exemplo do front); nenhuma view, materialized view ou função
---    depende da coluna (pg_depend e corpos conferidos no banco local). Apagada.
+--    (só aparecia no tipo DbEvent e nos eventos de exemplo do front, tirados neste PR); nenhuma view,
+--    materialized view ou função depende da coluna (pg_depend e corpos conferidos no banco local). Apagada.
 -- 7. producer_profiles.api_key: sem API para produtor (Decisão 37); só o delete-account gravava null. Apagada.
+-- 8. Funções novas criadas pelo postgres nascem sem EXECUTE para anon. O default global (sem schema) dá EXECUTE a
+--    PUBLIC em toda função nova, e o default por schema só soma a ele (testado: só "in schema public revoke ...
+--    from public, anon" deixava anon = t). Por isso dois comandos: o global tira PUBLIC; o do schema public tira
+--    anon. authenticated e service_role seguem com EXECUTE pelo default do schema public. Só o schema public tem
+--    funções do postgres (conferido no local); storage tem default próprio que dá EXECUTE a anon e authenticated.
+--    Efeito fora de public e storage: função nova do postgres em outro schema (inclusive pg_temp) nasce só com
+--    EXECUTE do dono; quem mais precisar recebe grant explícito (os testes do fim fazem isso).
+--    REGRA: toda função nova que visitante sem login precise chamar leva "grant execute ... to anon" explícito.
 begin;
 
 -- 1. Regras com gf_is_admin só para usuários logados
@@ -64,6 +80,9 @@ revoke execute on function public.gf_is_admin() from public, anon;
 grant execute on function public.gf_is_admin() to authenticated, service_role;
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.rls_auto_enable() from public, anon, authenticated;
+-- funções novas criadas pelo postgres nascem sem EXECUTE para anon (DECISÕES 8)
+alter default privileges for role postgres revoke execute on functions from public;
+alter default privileges for role postgres in schema public revoke execute on functions from public, anon;
 
 -- 3. search_path fixo
 alter function public.handle_updated_at() set search_path = '';
@@ -89,9 +108,9 @@ begin
      or has_function_privilege('anon', 'public.rls_auto_enable()', 'execute') then
     raise exception 'handle_new_user/rls_auto_enable ainda executáveis pela API';
   end if;
-  -- nenhuma regra que chama gf_is_admin pode valer para anon (senão a consulta anônima dá erro)
+  -- nenhuma regra (de qualquer schema) que chama gf_is_admin pode valer para anon (senão a consulta anônima dá erro)
   if exists (select 1 from pg_policies
-             where schemaname in ('public', 'storage') and roles && array['public', 'anon']::name[]
+             where roles && array['public', 'anon']::name[]
                and (coalesce(qual, '') || coalesce(with_check, '')) like '%gf_is_admin%') then
     raise exception 'há regra com gf_is_admin valendo para anon: conferir antes de aplicar';
   end if;
@@ -104,6 +123,18 @@ begin
                and (has_table_privilege('anon', c.oid, 'truncate')
                     or has_table_privilege('authenticated', c.oid, 'truncate'))) then
     raise exception 'ainda há tabela com TRUNCATE para anon/authenticated';
+  end if;
+  -- defaults do postgres (global = namespace 0, e o do schema public): tabela nova sem TRUNCATE para a API,
+  -- função nova sem EXECUTE para anon/public. Sem entrada global de função vale o padrão do Postgres (PUBLIC).
+  if exists (select 1 from pg_default_acl d, aclexplode(d.defaclacl) a
+             where d.defaclrole = 'postgres'::regrole and d.defaclnamespace in (0, 'public'::regnamespace)
+               and ((d.defaclobjtype = 'r' and a.privilege_type = 'TRUNCATE'
+                     and a.grantee in ('anon'::regrole, 'authenticated'::regrole))
+                    or (d.defaclobjtype = 'f' and a.privilege_type = 'EXECUTE'
+                        and a.grantee in (0, 'anon'::regrole))))
+     or not exists (select 1 from pg_default_acl where defaclrole = 'postgres'::regrole
+                    and defaclnamespace = 0 and defaclobjtype = 'f') then
+    raise exception 'default do postgres ainda dá TRUNCATE à API ou EXECUTE de função nova a anon/public';
   end if;
   if exists (select 1 from information_schema.columns where table_schema = 'public'
              and ((table_name = 'events' and column_name = 'password')
@@ -123,7 +154,22 @@ commit;
 -- alter default privileges in schema public grant truncate on tables to anon, authenticated;
 -- alter function public.handle_updated_at() reset search_path;
 -- grant execute on function public.gf_is_admin(), public.handle_new_user(), public.rls_auto_enable() to public, anon, authenticated;
--- alter policy gf_academy_admin_write on public.academy_courses to public;  -- e as outras 13 do item 1
+-- alter default privileges for role postgres grant execute on functions to public;
+-- alter default privileges for role postgres in schema public grant execute on functions to anon;
+-- alter policy gf_academy_admin_write on public.academy_courses to public;
+-- alter policy gf_contact_admin_read on public.contact_messages to public;
+-- alter policy gf_customers_owner on public.customers to public;
+-- alter policy gf_event_banners_all on public.event_banners to public;
+-- alter policy gf_budget_boxes_all on public.event_budget_boxes to public;
+-- alter policy gf_event_photos_all on public.event_photos to public;
+-- alter policy gf_event_surveys_owner on public.event_surveys to public;
+-- alter policy gf_event_timeline_all on public.event_timeline_items to public;
+-- alter policy gf_event_zones_owner on public.event_zones to public;
+-- alter policy gf_piggy_tx_owner on public.piggy_transactions to public;
+-- alter policy gf_support_sessions_owner on public.support_sessions to public;
+-- alter policy gf_tasks_owner on public.tasks to public;
+-- alter policy gf_custom_features_admin_write on public.user_custom_features to public;
+-- alter policy gf_custom_features_read on public.user_custom_features to public;
 -- commit;
 
 -- =============================================================================
@@ -142,9 +188,14 @@ commit;
 -- end $f$;
 -- create function pg_temp.erro(q text) returns text language plpgsql as $f$
 -- begin execute q; return 'ok'; exception when others then return sqlstate || ' ' || sqlerrm; end $f$;
+-- -- funções novas do postgres nascem sem EXECUTE para PUBLIC em qualquer schema (DECISÕES 8), pg_temp inclusive
+-- grant execute on function pg_temp.como(text, uuid), pg_temp.erro(text) to anon, authenticated;
 --
 -- -- T0. Dados: evento aprovado e rascunho, curso, settings pública e privada, link de afiliado.
--- --     O cadastro em auth.users já testa o gatilho handle_new_user (sem EXECUTE para a API).
+-- --     Roda como postgres (dono de handle_new_user): prova que o gatilho segue criando o perfil, não que o
+-- --     papel da API de Auth consegue. O cadastro pela API de Auth (papel supabase_auth_admin, sem EXECUTE em
+-- --     handle_new_user) foi testado à parte e funcionou. "set local role supabase_auth_admin" aqui dá
+-- --     "permission denied to set role" (o postgres não é membro desse papel), por isso fica só esta nota.
 -- insert into auth.users (id, email, raw_user_meta_data) values
 --   ('5e600000-0000-4000-8000-000000000001', 'produtor@teste-seg6.evokaa.invalid', '{"role":"producer"}'),
 --   ('5e600000-0000-4000-8000-000000000002', 'admin@teste-seg6.evokaa.invalid', '{}');
@@ -152,7 +203,7 @@ commit;
 --   assert (select count(*) from public.profiles where id in ('5e600000-0000-4000-8000-000000000001',
 --     '5e600000-0000-4000-8000-000000000002')) = 2, 'cadastro em auth.users não criou o perfil';
 --   assert (select role from public.profiles where id = '5e600000-0000-4000-8000-000000000001') = 'producer', 'papel do cadastro';
---   raise notice 'T0 OK: auth.users cria o perfil (handle_new_user sem EXECUTE da API)';
+--   raise notice 'T0 OK: insert em auth.users (como postgres) cria o perfil';
 -- end $t$;
 -- update public.profiles set role = 'admin', admin_permissions = '{super_admin}' where id = '5e600000-0000-4000-8000-000000000002';
 -- insert into public.events (id, producer_id, title, slug, status, approval_status, updated_at) values
@@ -196,7 +247,9 @@ commit;
 --   raise notice 'T2 OK: regras de dono/admin seguem para logados; TRUNCATE barrado';
 -- end $t$;
 --
--- -- T3. Tabela nova nasce com RLS e gf_mfa_aal2 (rls_auto_enable sem EXECUTE da API); updated_at segue.
+-- -- T3. Roda como postgres: tabela nova segue nascendo com RLS e gf_mfa_aal2 depois do revoke em
+-- --     rls_auto_enable (prova que o gatilho de evento não depende do EXECUTE revogado da API, não que um papel
+-- --     da API cria tabela); updated_at segue.
 -- create table public.seg6_teste (id int);
 -- do $t$ begin
 --   assert (select relrowsecurity from pg_class where oid = 'public.seg6_teste'::regclass), 'tabela nova sem RLS';
@@ -207,4 +260,13 @@ commit;
 --   assert (select updated_at = now() from public.events where id = '5e600000-0000-4000-8000-000000000101'), 'updated_at parou';
 --   raise notice 'T3 OK: tabela nova com RLS e gf_mfa_aal2; handle_updated_at funciona com search_path vazio';
 -- end $t$;
+--
+-- -- T4. Função nova criada pelo postgres (SECURITY DEFINER): anon sem EXECUTE, authenticated com.
+-- create function public.seg6_nova() returns int language sql security definer set search_path = '' as 'select 1';
+-- do $t$ begin
+--   assert not has_function_privilege('anon', 'public.seg6_nova()', 'execute'), 'anon executa função nova';
+--   assert has_function_privilege('authenticated', 'public.seg6_nova()', 'execute'), 'authenticated sem função nova';
+--   raise notice 'T4 OK: função nova fechada para anon e aberta para authenticated';
+-- end $t$;
+-- drop function public.seg6_nova();
 -- rollback;

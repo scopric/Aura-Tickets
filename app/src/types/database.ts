@@ -498,7 +498,6 @@ export interface Database {
           end_date: string | null
           status: string
           visibility: string
-          password: string | null
           capacity: number | null
           branding: Json
           settings: Json
@@ -533,7 +532,6 @@ export interface Database {
           end_date?: string | null
           status?: string
           visibility?: string
-          password?: string | null
           capacity?: number | null
           branding?: Json
           settings?: Json
@@ -568,7 +566,6 @@ export interface Database {
           end_date?: string | null
           status?: string
           visibility?: string
-          password?: string | null
           capacity?: number | null
           branding?: Json
           settings?: Json
