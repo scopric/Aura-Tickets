@@ -125,7 +125,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
                 <span className="text-cream font-medium">{cartQty}</span>
                 <button onClick={() => onQuantityChange(cartQty + 1)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors">+</button>
               </div>
-              <span className="text-cream/70 text-sm">{textoPreco(ticket.price, cartQty)}</span>
+              <span className="text-cream/70 text-xs text-right">{textoPreco(ticket.price, cartQty)}</span>
             </div>
           ) : (
             <button

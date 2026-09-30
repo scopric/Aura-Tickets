@@ -569,7 +569,7 @@ export default function EventPage() {
                               +
                             </button>
                           </div>
-                          <span className="text-cream/70 text-sm">
+                          <span className="text-cream/70 text-xs text-right">
                             {ticket.price > 0
                               ? textoPreco(ticket.price, cart[ticket.id])
                               : 'Gratuito'}
@@ -599,14 +599,14 @@ export default function EventPage() {
 
       {/* Floating Cart */}
       {cartCount > 0 && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ bottom: 'calc(var(--cookie-banner-h, 0px) + 1.5rem)' }}>
-          <div className="glass-dark border border-white/10 rounded-full px-6 py-3 flex items-center gap-4 shadow-elevated animate-pulse-glow">
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 bottom-[calc(var(--cookie-banner-h,0px)+5.5rem)] sm:bottom-[calc(var(--cookie-banner-h,0px)+1.5rem)]">
+          <div className="glass-dark border border-white/10 rounded-full px-5 py-2.5 flex items-center gap-3 sm:gap-4 shadow-elevated animate-pulse-glow whitespace-nowrap">
             <ShoppingCart className="w-5 h-5 text-plum" />
             <span className="text-cream text-sm font-medium">{cartCount} ingresso{cartCount > 1 ? 's' : ''}</span>
             <span className="text-cream/70">|</span>
-            <span className="text-cream font-medium">
+            <span className="text-cream font-medium flex flex-col leading-tight">
               {brl(cartResumo.total)}
-              {cartResumo.taxa > 0 && <span className="text-cream/60 text-xs font-normal"> ({brl(cartResumo.subtotal)} + taxa {brl(cartResumo.taxa)})</span>}
+              {cartResumo.taxa > 0 && <span className="text-cream/60 text-[11px] font-normal whitespace-nowrap">{brl(cartResumo.subtotal)} + taxa {brl(cartResumo.taxa)}</span>}
             </span>
             <button 
               onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}
