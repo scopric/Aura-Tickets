@@ -24,6 +24,8 @@ interface PhoneInputProps {
   className?: string
   disabled?: boolean
   id?: string
+  /** Trava o DDI em +55 (o chat só aceita número do Brasil) */
+  apenasBrasil?: boolean
 }
 
 export default function PhoneInput({
@@ -31,7 +33,8 @@ export default function PhoneInput({
   onChange,
   className = '',
   disabled = false,
-  id
+  id,
+  apenasBrasil = false
 }: PhoneInputProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState<CountryDdi>(COUNTRIES_DDI[0])
@@ -122,13 +125,14 @@ export default function PhoneInput({
       {/* Botão Seletor de DDI */}
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || apenasBrasil}
+        aria-label={apenasBrasil ? 'DDI do Brasil, +55' : undefined}
         onClick={() => setDropdownOpen(!dropdownOpen)}
         className="flex items-center gap-1.5 px-3 py-2.5 bg-white/40 border border-white/60 rounded-l-xl text-sm text-espresso hover:bg-white/60 transition-all focus:outline-none focus:border-plum/30 h-[42px] border-r-0"
       >
         <span className="text-base leading-none select-none">{selectedCountry.flag}</span>
         <span className="text-xs font-semibold font-mono text-espresso/80">{selectedCountry.code}</span>
-        <ChevronDown className="w-3.5 h-3.5 text-espresso/40 flex-shrink-0" />
+        {!apenasBrasil && <ChevronDown className="w-3.5 h-3.5 text-espresso/40 flex-shrink-0" />}
       </button>
 
       {/* Input de Número Local */}
