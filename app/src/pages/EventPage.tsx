@@ -179,7 +179,7 @@ export default function EventPage() {
             <MapPin className="w-8 h-8" />
           </div>
           <h2 className="font-serif text-2xl text-espresso mb-3">Evento Não Encontrado</h2>
-          <p className="text-sm text-espresso/60 mb-8 leading-relaxed">
+          <p className="text-sm text-espresso/70 mb-8 leading-relaxed">
             O evento solicitado não foi encontrado ou foi removido pelo produtor. Verifique se o endereço está correto.
           </p>
           <Link
@@ -259,7 +259,7 @@ export default function EventPage() {
             {event.title}
           </h1>
           {event.subtitle && (
-            <p className="hero-event-meta font-serif text-xl sm:text-2xl text-cream/60 italic mb-8 max-w-xl">
+            <p className="hero-event-meta font-serif text-xl sm:text-2xl text-cream/70 italic mb-8 max-w-xl">
               {event.subtitle}
             </p>
           )}
@@ -341,7 +341,7 @@ export default function EventPage() {
                   {event.description}
                 </p>
               ) : (
-                <p className="detail-item text-espresso/40 leading-relaxed mb-8 italic">
+                <p className="detail-item text-espresso/70 leading-relaxed mb-8 italic">
                   Nenhuma descrição detalhada fornecida pelo produtor.
                 </p>
               )}
@@ -353,8 +353,8 @@ export default function EventPage() {
                   </div>
                   <div>
                     <h4 className="font-medium text-espresso mb-1">Local</h4>
-                    <p className="text-sm text-espresso/60">{event.venue_name || event.location || 'Local a definir'}</p>
-                    {event.venue_address && <p className="text-sm text-espresso/40">{event.venue_address}</p>}
+                    <p className="text-sm text-espresso/70">{event.venue_name || event.location || 'Local a definir'}</p>
+                    {event.venue_address && <p className="text-sm text-espresso/70">{event.venue_address}</p>}
                   </div>
                 </div>
 
@@ -364,8 +364,8 @@ export default function EventPage() {
                   </div>
                   <div>
                     <h4 className="font-medium text-espresso mb-1">Data e Horário</h4>
-                    <p className="text-sm text-espresso/60">{formattedDate}</p>
-                    {event.time && <p className="text-sm text-espresso/40">{event.time}</p>}
+                    <p className="text-sm text-espresso/70">{formattedDate}</p>
+                    {event.time && <p className="text-sm text-espresso/70">{event.time}</p>}
                   </div>
                 </div>
 
@@ -375,8 +375,8 @@ export default function EventPage() {
                   </div>
                   <div>
                     <h4 className="font-medium text-espresso mb-1">Público</h4>
-                    <p className="text-sm text-espresso/60">Classificação a definir</p>
-                    <p className="text-sm text-espresso/40">Sujeito a lotação do espaço</p>
+                    <p className="text-sm text-espresso/70">Classificação a definir</p>
+                    <p className="text-sm text-espresso/70">Sujeito a lotação do espaço</p>
                   </div>
                 </div>
               </div>
@@ -391,7 +391,7 @@ export default function EventPage() {
               {/* Interested Users — desativado em producao ate backend de atividade social */}
               {import.meta.env.DEV && (
                 <div className="detail-item mb-8">
-                  <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
+                  <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/70 mb-4">
                     Atividade Recente
                   </h4>
                   <div className="space-y-3">
@@ -402,7 +402,7 @@ export default function EventPage() {
 
               {/* Ticket Sales Status */}
               <div className="detail-item">
-                <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/40 mb-4">
+                <h4 className="text-xs font-medium uppercase tracking-widest text-espresso/70 mb-4">
                   Disponibilidade
                 </h4>
                 <div className="space-y-3">
@@ -429,13 +429,13 @@ export default function EventPage() {
                           style={{ width: `${Math.min(((tt.sold || 0) / (tt.capacity || 1)) * 100, 100)}%` }}
                         />
                       </div>
-                      <p className="text-xs text-espresso/40 mt-2">
+                      <p className="text-xs text-espresso/70 mt-2">
                         {tt.sold || 0} de {tt.capacity || 100} vendidos
                       </p>
                     </div>
                   ))}
                   {ticketTypes.length === 0 && (
-                    <p className="text-sm text-espresso/40 italic">Nenhum ingresso disponível no momento.</p>
+                    <p className="text-sm text-espresso/70 italic">Nenhum ingresso disponível no momento.</p>
                   )}
                 </div>
               </div>
@@ -454,7 +454,7 @@ export default function EventPage() {
             <h2 className="ticket-card font-serif text-4xl lg:text-6xl text-cream mb-4">
               Ingressos
             </h2>
-            <p className="ticket-card text-cream/50 max-w-xl mx-auto">
+            <p className="ticket-card text-cream/70 max-w-xl mx-auto">
               Escolha sua experiência. Cada ingresso oferece benefícios exclusivos para tornar seu momento inesquecível.
             </p>
           </div>
@@ -496,7 +496,7 @@ export default function EventPage() {
                     {/* Header */}
                     <div className="p-6 lg:p-8">
                       <h3 className="font-serif text-2xl text-cream mb-2">{ticket.name}</h3>
-                      {ticket.description && <p className="text-sm text-cream/50 mb-6">{ticket.description}</p>}
+                      {ticket.description && <p className="text-sm text-cream/70 mb-6">{ticket.description}</p>}
                       
                       <div className="flex items-baseline gap-1 mb-6">
                         <span className="font-serif text-4xl text-cream">R$ {ticket.price}</span>
@@ -505,7 +505,7 @@ export default function EventPage() {
                       {/* Progress */}
                       {ticket.capacity && (
                         <div className="mb-4">
-                          <div className="flex items-center justify-between text-xs text-cream/40 mb-2">
+                          <div className="flex items-center justify-between text-xs text-cream/70 mb-2">
                             <span>{ticket.sold || 0} vendidos</span>
                             <span>{ticket.capacity} total</span>
                           </div>
@@ -533,7 +533,7 @@ export default function EventPage() {
                             expandedTicket === ticket.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                           }`}>
                             {ticket.perks.map((perk: string, i: number) => (
-                              <div key={i} className="flex items-center gap-2 text-sm text-cream/60">
+                              <div key={i} className="flex items-center gap-2 text-sm text-cream/70">
                                 <Check className="w-4 h-4 text-plum flex-shrink-0" />
                                 {perk}
                               </div>
@@ -562,7 +562,7 @@ export default function EventPage() {
                               +
                             </button>
                           </div>
-                          <span className="text-cream/60 text-sm">
+                          <span className="text-cream/70 text-sm">
                             R$ {ticket.price * cart[ticket.id]}
                           </span>
                         </div>
@@ -581,7 +581,7 @@ export default function EventPage() {
               ))
             ) : (
               <div className="col-span-full text-center py-12 bg-white/5 rounded-3xl border border-white/10">
-                <p className="text-cream/40 text-sm italic">Nenhum ingresso disponível no momento.</p>
+                <p className="text-cream/70 text-sm italic">Nenhum ingresso disponível no momento.</p>
               </div>
             )}
           </div>
@@ -602,7 +602,7 @@ export default function EventPage() {
           <div className="glass-dark border border-white/10 rounded-full px-6 py-3 flex items-center gap-4 shadow-elevated animate-pulse-glow">
             <ShoppingCart className="w-5 h-5 text-plum" />
             <span className="text-cream text-sm font-medium">{cartCount} ingresso{cartCount > 1 ? 's' : ''}</span>
-            <span className="text-cream/50">|</span>
+            <span className="text-cream/70">|</span>
             <span className="text-cream font-medium">R$ {cartTotal}</span>
             <button 
               onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}

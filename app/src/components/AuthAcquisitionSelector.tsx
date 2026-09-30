@@ -50,18 +50,18 @@ export default function AuthAcquisitionSelector({ value, referralEmail, onChange
               className={`p-4 rounded-2xl border transition-all duration-300 text-left group ${
                 isSelected
                   ? 'bg-plum/10 border-plum/30 shadow-lg shadow-plum/10'
-                  : 'bg-white/60 border-white/60 hover:bg-white hover:border-plum/20 hover:shadow-md'
+                  : 'bg-white/60 border-white/60 hover:bg-white dark:hover:bg-white/10 hover:border-plum/20 hover:shadow-md'
               }`}
             >
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 transition-colors ${
-                isSelected ? 'bg-plum text-cream' : 'bg-espresso/5 text-espresso/30 group-hover:bg-plum/10 group-hover:text-plum'
+                isSelected ? 'bg-plum text-cream' : 'bg-espresso/5 text-espresso/70 group-hover:bg-plum/10 group-hover:text-plum'
               }`}>
                 <Icon className="w-5 h-5" />
               </div>
               <p className={`text-xs font-medium mb-0.5 ${isSelected ? 'text-plum' : 'text-espresso'}`}>
                 {option.label}
               </p>
-              <p className="text-[10px] text-espresso/40 leading-tight">{option.description}</p>
+              <p className="text-[10px] text-espresso/70 leading-tight">{option.description}</p>
             </button>
           )
         })}
@@ -77,9 +77,9 @@ export default function AuthAcquisitionSelector({ value, referralEmail, onChange
             value={localReferral}
             onChange={(e) => handleReferralChange(e.target.value)}
             placeholder="email@do.amigo.com"
-            className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors"
+            className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors"
           />
-          <p className="text-[10px] text-espresso/40 mt-2">
+          <p className="text-[10px] text-espresso/70 mt-2">
             Em breve você poderá ganhar recompensas por indicações!
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function AuthAcquisitionSelector({ value, referralEmail, onChange
             onChange={(e) => handleReferralChange(e.target.value)}
             placeholder="Vi um panfleto, ouvi no rádio..."
             rows={3}
-            className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors resize-none"
+            className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors resize-none"
           />
         </div>
       )}

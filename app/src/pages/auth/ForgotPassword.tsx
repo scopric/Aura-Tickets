@@ -43,7 +43,7 @@ export default function ForgotPassword() {
             <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Recuperar senha</h1>
-          <p className="text-sm text-espresso/50 mt-1">
+          <p className="text-sm text-espresso/70 mt-1">
             {sent ? 'Verifique sua caixa de entrada' : 'Informe seu e-mail para receber o link'}
           </p>
         </div>
@@ -55,7 +55,7 @@ export default function ForgotPassword() {
             </div>
             <div>
               <h2 className="text-sm font-medium text-espresso mb-1">E-mail enviado!</h2>
-              <p className="text-xs text-espresso/50">
+              <p className="text-xs text-espresso/70">
                 Enviamos um link de recuperação para <strong>{email}</strong>.<br />
                 Verifique sua caixa de entrada e spam.
               </p>
@@ -76,7 +76,7 @@ export default function ForgotPassword() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">E-mail</label>
               <div className="relative">
                 <input
                   type="email"
@@ -85,7 +85,7 @@ export default function ForgotPassword() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
               </div>
@@ -108,7 +108,7 @@ export default function ForgotPassword() {
               )}
             </button>
 
-            <p className="text-center text-xs text-espresso/40 mt-6">
+            <p className="text-center text-xs text-espresso/70 mt-6">
               <Link to="/auth/login" className="text-plum hover:underline inline-flex items-center gap-1">
                 <ArrowLeft className="w-3 h-3" /> Voltar para o login
               </Link>

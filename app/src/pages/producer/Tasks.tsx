@@ -23,8 +23,8 @@ const tagColors: Record<string, string> = {
 
 const priorityColors = {
   alta: 'text-red-500 bg-red-50 border-red-100',
-  media: 'text-amber-600 bg-amber-50 border-amber-100',
-  baixa: 'text-blue-600 bg-blue-50 border-blue-100',
+  media: 'text-amber-700 bg-amber-50 border-amber-100',
+  baixa: 'text-blue-700 bg-blue-50 border-blue-100',
 }
 
 export default function ProducerTasks() {
@@ -142,7 +142,7 @@ export default function ProducerTasks() {
     return (
       <div className="p-6 lg:p-10 max-w-5xl mx-auto flex flex-col items-center justify-center py-20">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando tarefas...</p>
+        <p className="text-espresso/70 text-sm">Carregando tarefas...</p>
       </div>
     )
   }
@@ -153,7 +153,7 @@ export default function ProducerTasks() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Tarefas</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie seu pipeline de producao</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie seu pipeline de producao</p>
         </div>
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
           <Plus className="w-4 h-4" /> Nova Tarefa
@@ -169,7 +169,7 @@ export default function ProducerTasks() {
         ].map(s => (
           <div key={s.label} className={`p-4 rounded-2xl ${s.bg} border border-white/60 text-center`}>
             <div className={`font-serif text-2xl ${s.color}`}>{s.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-0.5">{s.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
           </div>
         ))}
       </div>
@@ -178,7 +178,7 @@ export default function ProducerTasks() {
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
           {(['Todos', ...categories] as const).map(cat => (
-            <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterCategory === cat ? 'bg-plum text-cream' : 'text-espresso/40 hover:text-espresso/70'}`}>{cat}</button>
+            <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterCategory === cat ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{cat}</button>
           ))}
         </div>
         {allTags.length > 0 && (
@@ -191,19 +191,19 @@ export default function ProducerTasks() {
           </div>
         )}
         <div className="flex items-center gap-1 ml-auto">
-          <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg text-espresso/30 hover:text-espresso transition-colors ${viewMode === 'list' ? 'text-plum bg-plum/10' : ''}`}><Layout className="w-4 h-4" /></button>
-          <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg text-espresso/30 hover:text-espresso transition-colors ${viewMode === 'kanban' ? 'text-plum bg-plum/10' : ''}`}><Columns3 className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg text-espresso/70 hover:text-espresso transition-colors ${viewMode === 'list' ? 'text-plum bg-plum/10' : ''}`}><Layout className="w-4 h-4" /></button>
+          <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg text-espresso/70 hover:text-espresso transition-colors ${viewMode === 'kanban' ? 'text-plum bg-plum/10' : ''}`}><Columns3 className="w-4 h-4" /></button>
         </div>
       </div>
 
       {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-md bg-canvas border border-white/60 rounded-3xl p-6 shadow-2xl">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
+          <div className="glass-panel relative w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Nova Tarefa</h3>
-              <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/40"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-3">
               <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titulo da tarefa" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
@@ -253,11 +253,11 @@ export default function ProducerTasks() {
                 </button>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className={`text-sm font-medium ${task.status === 'concluida' ? 'text-espresso/40 line-through' : 'text-espresso'}`}>{task.title}</h3>
+                    <h3 className={`text-sm font-medium ${task.status === 'concluida' ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{task.title}</h3>
                     <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full border ${priorityColors[task.priority]}`}>{task.priority}</span>
                   </div>
-                  <p className="text-xs text-espresso/40 mb-2">{task.description}</p>
-                  <div className="flex items-center gap-3 text-[10px] text-espresso/30">
+                  <p className="text-xs text-espresso/70 mb-2">{task.description}</p>
+                  <div className="flex items-center gap-3 text-[10px] text-espresso/70">
                     <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date || 'Sem prazo'}</span>
                     <span className="flex items-center gap-1"><User className="w-3 h-3" />{task.assignee || 'Nao atribuido'}</span>
                     <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{task.category}</span>
@@ -266,7 +266,7 @@ export default function ProducerTasks() {
                     ))}
                   </div>
                 </div>
-                <button onClick={() => handleDelete(task.id)} className="p-1.5 rounded-lg text-espresso/10 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                <button onClick={() => handleDelete(task.id)} className="p-1.5 rounded-lg text-espresso/50 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
 
               {/* Expandable details */}
@@ -285,7 +285,7 @@ export default function ProducerTasks() {
                           <button onClick={() => toggleSubtask(task, sub.id)} className={`w-4 h-4 rounded border flex items-center justify-center ${sub.done ? 'bg-green-500 border-green-500' : 'border-espresso/20'}`}>
                             {sub.done && <CheckCircle2 className="w-3 h-3 text-white" />}
                           </button>
-                          <span className={`text-xs ${sub.done ? 'text-espresso/30 line-through' : 'text-espresso'}`}>{sub.title}</span>
+                          <span className={`text-xs ${sub.done ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{sub.title}</span>
                         </div>
                       ))}
                     </div>
@@ -302,9 +302,9 @@ export default function ProducerTasks() {
                         <div key={c.id} className="p-2 rounded-xl bg-canvas">
                           <div className="flex items-center justify-between mb-0.5">
                             <span className="text-[10px] font-medium text-espresso">{c.author}</span>
-                            <span className="text-[9px] text-espresso/20">{c.date}</span>
+                            <span className="text-[9px] text-espresso/70">{c.date}</span>
                           </div>
-                          <p className="text-xs text-espresso/60">{c.text}</p>
+                          <p className="text-xs text-espresso/70">{c.text}</p>
                         </div>
                       ))}
                     </div>
@@ -325,7 +325,7 @@ export default function ProducerTasks() {
           {(['pendente', 'em-andamento', 'concluida'] as const).map(col => {
             const colTasks = filtered.filter(t => t.status === col)
             const colLabels = { pendente: 'Pendente', 'em-andamento': 'Em Andamento', concluida: 'Concluida' }
-            const colColors = { pendente: 'bg-amber-50 text-amber-600', 'em-andamento': 'bg-blue-50 text-blue-600', concluida: 'bg-green-50 text-green-600' }
+            const colColors = { pendente: 'bg-amber-50 text-amber-700', 'em-andamento': 'bg-blue-50 text-blue-700', concluida: 'bg-green-50 text-green-700' }
             return (
               <div key={col} className="flex-shrink-0 w-72">
                 <div className={`p-2 rounded-xl ${colColors[col]} text-xs font-medium mb-3 text-center`}>{colLabels[col]} ({colTasks.length})</div>
@@ -333,7 +333,7 @@ export default function ProducerTasks() {
                   {colTasks.map(task => (
                     <div key={task.id} className="p-3 rounded-xl bg-white/60 border border-white/60 hover:shadow-md transition-all cursor-pointer" onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}>
                       <h4 className="text-xs font-medium text-espresso">{task.title}</h4>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-espresso/30">
+                      <div className="flex items-center gap-2 mt-1 text-[10px] text-espresso/70">
                         <span className={`px-1.5 py-0.5 rounded-full border ${priorityColors[task.priority]}`}>{task.priority}</span>
                         <span>{task.due_date || 'Sem prazo'}</span>
                       </div>

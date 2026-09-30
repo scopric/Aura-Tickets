@@ -9,6 +9,14 @@ import SupportChatWidget, { SupportChatPanel } from '../components/SupportChatWi
 import Atendimento from '../pages/admin/Atendimento'
 import AdminLayout from '../components/AdminLayout'
 
+// o jsdom não tem matchMedia; o botão de feedback do topo do admin (useIsMobile) usa
+if (!window.matchMedia) {
+  window.matchMedia = ((q: string) => ({
+    matches: false, media: q, onchange: null,
+    addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia
+}
+
 let role = 'user'
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({
   user: { id: 'u1', role, email: 'ana@exemplo.com', full_name: 'Ana Souza', phone: null, admin_permissions: role === 'admin' ? ['manage_support'] : [] },

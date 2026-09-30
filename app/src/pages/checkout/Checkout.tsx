@@ -308,11 +308,11 @@ export default function Checkout() {
 
   if (!eventId) {
     return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md bg-white/60 border border-white/60 rounded-3xl p-8 backdrop-blur-sm shadow-elevated">
           <ShoppingCart className="w-10 h-10 text-plum/40 mx-auto mb-4" />
           <h2 className="font-serif text-2xl text-espresso mb-3">Seu carrinho está vazio</h2>
-          <p className="text-sm text-espresso/60 mb-6">Escolha um evento e adicione ingressos para continuar.</p>
+          <p className="text-sm text-espresso/70 mb-6">Escolha um evento e adicione ingressos para continuar.</p>
           <Link to="/events" className="btn-primary inline-flex items-center gap-2">
             <Ticket className="w-4 h-4" /> Ver eventos
           </Link>
@@ -323,19 +323,19 @@ export default function Checkout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center">
+      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando detalhes do seu pedido...</p>
+        <p className="text-espresso/70 text-sm">Carregando detalhes do seu pedido...</p>
       </div>
     )
   }
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-canvas flex flex-col items-center justify-center p-6 text-center">
+      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center p-6 text-center">
         <div className="max-w-md bg-white/60 border border-white/60 rounded-3xl p-8 backdrop-blur-sm shadow-elevated">
           <h2 className="font-serif text-2xl text-espresso mb-3">Erro no Pedido</h2>
-          <p className="text-sm text-espresso/60 mb-6">Não conseguimos processar o seu pedido. Por favor, tente novamente.</p>
+          <p className="text-sm text-espresso/70 mb-6">Não conseguimos processar o seu pedido. Por favor, tente novamente.</p>
           <Link to="/" className="btn-primary inline-flex items-center gap-2">
             <ArrowLeft className="w-4 h-4" /> Voltar para Explorar
           </Link>
@@ -345,13 +345,13 @@ export default function Checkout() {
   }
 
   return (
-    <div className="min-h-screen bg-canvas pt-24 pb-16">
+    <div className="min-h-screen glass-canvas pt-24 pb-16">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button
             onClick={() => navigate(-1)}
-            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors"
+            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -384,7 +384,7 @@ export default function Checkout() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-espresso">{ticket.name}</div>
-                        <div className="text-xs text-espresso/40">R$ {ticket.price} cada</div>
+                        <div className="text-xs text-espresso/70">R$ {ticket.price} cada</div>
                       </div>
                       <div className="flex items-center gap-2">
                         {chooseViaMap ? (
@@ -413,7 +413,7 @@ export default function Checkout() {
                   )
                 })
               ) : (
-                <p className="text-sm text-espresso/40 italic py-4">Nenhum ingresso cadastrado para este evento.</p>
+                <p className="text-sm text-espresso/70 italic py-4">Nenhum ingresso cadastrado para este evento.</p>
               )}
             </div>
 
@@ -425,12 +425,12 @@ export default function Checkout() {
                   <h3 className="font-serif text-base text-espresso">Mapa do Salão - Seleção de Poltronas/Mesas</h3>
                 </div>
                 
-                <p className="text-xs text-espresso/60">
+                <p className="text-xs text-espresso/70">
                   Clique nos assentos/mesas livres (em verde/cores do setor) para reservá-los digitando o nome do ocupante. Assentos azuis requerem contato.
                 </p>
 
                 {/* Legenda de Status */}
-                <div className="flex flex-wrap gap-3 text-[9px] font-bold text-espresso/60 bg-stone-50 p-2.5 rounded-xl border border-stone-200/50">
+                <div className="flex flex-wrap gap-3 text-[9px] font-bold text-espresso/70 bg-stone-50 p-2.5 rounded-xl border border-stone-200/50">
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span>Livre</span>
@@ -463,7 +463,7 @@ export default function Checkout() {
                   </div>
                 ) : (() => {
                   const activeEnv = seatingMap.environments?.[0] || seatingMap.environments?.[0]
-                  if (!activeEnv) return <p className="text-xs text-espresso/40 italic">Mapa vazio.</p>
+                  if (!activeEnv) return <p className="text-xs text-espresso/70 italic">Mapa vazio.</p>
                   
                   const seats = activeEnv.seats || []
                   const walls = activeEnv.walls || []
@@ -481,14 +481,14 @@ export default function Checkout() {
                   return (
                     <div className="relative border border-stone-200/50 rounded-2xl bg-stone-100 p-2 shadow-inner overflow-hidden select-none">
                       {/* Controles de Zoom Flutuantes */}
-                      <div className="absolute bottom-3 right-3 z-35 flex items-center gap-1 bg-white/95 backdrop-blur-xs p-1 rounded-xl border border-stone-200/80 shadow-md">
+                      <div className="absolute bottom-3 right-3 z-35 flex items-center gap-1 bg-white/95 dark:bg-canvas/90 backdrop-blur-xs p-1 rounded-xl border border-stone-200/80 shadow-md">
                         <button 
                           onClick={(ev) => {
                             ev.stopPropagation()
                             setMapZoom(z => Math.max(0.15, z - 0.15))
                           }}
                           title="Afastar"
-                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/60 hover:text-espresso transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors"
                         >
                           <ZoomOut className="w-3.5 h-3.5" />
                         </button>
@@ -501,7 +501,7 @@ export default function Checkout() {
                             setMapZoom(z => Math.min(3.0, z + 0.15))
                           }}
                           title="Aproximar"
-                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/60 hover:text-espresso transition-colors"
+                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors"
                         >
                           <ZoomIn className="w-3.5 h-3.5" />
                         </button>
@@ -511,7 +511,7 @@ export default function Checkout() {
                             handleAutoFit(activeEnv)
                           }}
                           title="Auto-Ajustar (Centralizar)"
-                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/60 hover:text-espresso transition-colors border-l border-stone-200"
+                          className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors border-l border-stone-200"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
                         </button>
@@ -541,7 +541,7 @@ export default function Checkout() {
                           {/* Contorno do Pavilhão */}
                           {roomShape === 'rectangle' && (
                             <div 
-                              className="absolute border-stone-650 bg-white shadow pointer-events-none transition-all"
+                              className="absolute border-stone-650 bg-white dark:bg-white/5 shadow pointer-events-none transition-all"
                               style={{
                                 left: 10 * ppm,
                                 top: 10 * ppm,
@@ -643,7 +643,7 @@ export default function Checkout() {
                               >
                                 {s.type === 'seat' && (
                                   <div 
-                                    className="w-full h-full rounded border flex items-center justify-center bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+                                    className="w-full h-full rounded border flex items-center justify-center bg-white dark:bg-white/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                                     style={{ borderColor: statusColor, background: isSelected ? `${statusColor}25` : `${statusColor}10` }}
                                   >
                                     <Armchair className="w-2.5 h-2.5" style={{ color: statusColor }} />
@@ -653,7 +653,7 @@ export default function Checkout() {
                                 {s.type === 'table' && (
                                   <div className="w-full h-full relative flex items-center justify-center">
                                     <div 
-                                      className={`border flex flex-col items-center justify-center shadow-xs bg-white z-10 ${s.tableShape === 'circle' ? 'rounded-full' : s.tableShape === 'square' ? 'rounded-sm' : 'rounded'}`}
+                                      className={`border flex flex-col items-center justify-center shadow-xs bg-white dark:bg-white/5 z-10 ${s.tableShape === 'circle' ? 'rounded-full' : s.tableShape === 'square' ? 'rounded-sm' : 'rounded'}`}
                                       style={{ 
                                         borderColor: statusColor, 
                                         width: '72%', 
@@ -723,7 +723,7 @@ export default function Checkout() {
 
                                 {s.type !== 'seat' && s.type !== 'table' && (
                                   <div 
-                                    className="w-full h-full rounded-sm border flex flex-col items-center justify-center text-[5px] font-bold text-center bg-white shadow-[0_1px_2px_rgba(0,0,0,0.02)] p-0.5 overflow-hidden"
+                                    className="w-full h-full rounded-sm border flex flex-col items-center justify-center text-[5px] font-bold text-center bg-white dark:bg-white/5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] p-0.5 overflow-hidden"
                                     style={{ borderColor: statusColor, background: isSelected ? `${statusColor}15` : `${statusColor}05`, color: statusColor }}
                                   >
                                     <span className="truncate max-w-full leading-none">{s.label}</span>
@@ -761,11 +761,11 @@ export default function Checkout() {
                 </div>
                 <div>
                   <div className="text-sm font-medium text-espresso">{event.title}</div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-espresso/50">
+                  <div className="flex items-center gap-1 mt-1 text-xs text-espresso/70">
                     <Calendar className="w-3 h-3" />
                     {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5 text-xs text-espresso/50">
+                  <div className="flex items-center gap-1 mt-0.5 text-xs text-espresso/70">
                     <MapPin className="w-3 h-3" />
                     {event.venue_name || event.location || 'Local a definir'}
                   </div>
@@ -782,21 +782,21 @@ export default function Checkout() {
                 <div className="space-y-3 mb-6">
                   {items.map((item, i) => (
                     <div key={i} className="flex justify-between text-sm">
-                      <span className="text-cream/60">{item.name} x{item.qty}</span>
+                      <span className="text-cream/70">{item.name} x{item.qty}</span>
                       <span className="font-medium">R$ {item.total?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-cream/40 italic mb-6">Seu carrinho está vazio.</p>
+                <p className="text-xs text-cream/70 italic mb-6">Seu carrinho está vazio.</p>
               )}
               
               <div className="border-t border-white/10 pt-4 space-y-2">
-                <div className="flex justify-between text-sm text-cream/50">
+                <div className="flex justify-between text-sm text-cream/70">
                   <span>Subtotal</span>
                   <span>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
-                <div className="flex justify-between text-sm text-cream/50">
+                <div className="flex justify-between text-sm text-cream/70">
                   <span>Taxas (5%)</span>
                   <span>R$ {fees.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                 </div>
@@ -830,31 +830,31 @@ export default function Checkout() {
 
       {/* Modal de Ocupante */}
       {occupantModal && occupantModal.open && (
-        <div className="fixed inset-0 bg-void/50 backdrop-blur-xs flex items-center justify-center p-4 z-55 animate-fade-in">
-          <div className="bg-white rounded-3xl border border-stone-200/80 p-6 max-w-sm w-full space-y-4 shadow-elevated">
+        <div className="fixed inset-0 flex items-center justify-center p-4 z-[55] animate-fade-in glass-backdrop">
+          <div className="glass-panel p-6 max-w-sm w-full space-y-4">
             <div className="flex items-center gap-2 text-plum">
               <Ticket className="w-5 h-5" />
               <h3 className="font-serif text-lg text-espresso">Identificar Assento</h3>
             </div>
-            <p className="text-xs text-espresso/60 font-medium">
+            <p className="text-xs text-espresso/70 font-medium">
               Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: R$ {occupantModal.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
             </p>
             <div>
-              <label htmlFor="modal-occ-inp" className="block text-[9px] text-espresso/40 uppercase mb-1 font-bold">Nome do Ocupante</label>
+              <label htmlFor="modal-occ-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Nome do Ocupante</label>
               <input 
                 id="modal-occ-inp"
                 type="text"
                 value={tempOccupantName}
                 onChange={e => setTempOccupantName(e.target.value)}
                 placeholder="Nome completo do ocupante"
-                className="w-full px-4 py-3 bg-white border border-stone-200 rounded-xl text-sm font-bold text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 shadow-xs"
+                className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-sm font-bold text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 shadow-xs"
                 autoFocus
               />
             </div>
             <div className="flex gap-2 pt-2">
               <button
                 onClick={() => setOccupantModal(null)}
-                className="flex-1 py-2 rounded-full border border-stone-200 hover:bg-stone-50 text-xs font-bold text-espresso/60 transition-colors"
+                className="flex-1 py-2 rounded-full border border-stone-200 hover:bg-stone-50 text-xs font-bold text-espresso/70 transition-colors"
               >
                 Cancelar
               </button>

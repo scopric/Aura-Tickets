@@ -155,7 +155,7 @@ export default function ProducerDashboard() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Dashboard</h1>
-          <p className="text-sm text-espresso/50 mt-1">Visão geral dos seus eventos com dados reais</p>
+          <p className="text-sm text-espresso/70 mt-1">Visão geral dos seus eventos com dados reais</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
@@ -202,7 +202,7 @@ export default function ProducerDashboard() {
                 <TrendingUp className="w-4 h-4 text-green-500" />
               </div>
               <div className="font-serif text-xl lg:text-2xl text-espresso break-words">{stat.value}</div>
-              <div className="text-xs text-espresso/40 mt-1">{stat.label}</div>
+              <div className="text-xs text-espresso/70 mt-1">{stat.label}</div>
               <div className="text-[10px] text-green-400 mt-2">{stat.change}</div>
             </div>
           ))
@@ -228,7 +228,7 @@ export default function ProducerDashboard() {
               </div>
             ) : !events || events.length === 0 ? (
               <div className="text-center py-8">
-                <p className="text-sm text-espresso/50 mb-4">Você ainda não tem eventos cadastrados.</p>
+                <p className="text-sm text-espresso/70 mb-4">Você ainda não tem eventos cadastrados.</p>
                 <Link
                   to="/producer/planner"
                   className="inline-flex items-center gap-2 px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all"
@@ -254,13 +254,13 @@ export default function ProducerDashboard() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-sm font-medium text-espresso group-hover:text-plum transition-colors truncate">{event.title}</h3>
-                        <p className="text-xs text-espresso/40 truncate">
+                        <p className="text-xs text-espresso/70 truncate">
                           {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Sem data'} · {event.venue_name || 'Sem local'}
                         </p>
                       </div>
                       <div className="text-right">
                         <div className="text-sm font-medium text-espresso">R$ {eventRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div className="text-[10px] text-espresso/40">{eventSold} vendidos</div>
+                        <div className="text-[10px] text-espresso/70">{eventSold} vendidos</div>
                       </div>
                       <ArrowUpRight className="w-4 h-4 text-espresso/20 group-hover:text-plum transition-colors" />
                     </Link>
@@ -289,7 +289,7 @@ export default function ProducerDashboard() {
             </div>
           ) : !recentOrders || recentOrders.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-xs text-espresso/40">Nenhuma venda registrada recentemente.</p>
+              <p className="text-xs text-espresso/70">Nenhuma venda registrada recentemente.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -302,8 +302,8 @@ export default function ProducerDashboard() {
                     <p className="text-sm text-espresso">
                       Ingresso vendido para <span className="font-medium">{order.profiles?.full_name || 'Cliente'}</span>
                     </p>
-                    <p className="text-xs text-espresso/40 truncate max-w-[180px]">{order.events?.title || 'Evento'}</p>
-                    <p className="text-[10px] text-espresso/30 mt-0.5">{formatTimeElapsed(order.created_at)}</p>
+                    <p className="text-xs text-espresso/70 truncate max-w-[180px]">{order.events?.title || 'Evento'}</p>
+                    <p className="text-[10px] text-espresso/70 mt-0.5">{formatTimeElapsed(order.created_at)}</p>
                   </div>
                 </div>
               ))}

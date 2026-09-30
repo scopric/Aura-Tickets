@@ -5,7 +5,7 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-canvas">
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-espresso/50 hover:text-plum transition-colors mb-8">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-espresso/70 hover:text-plum transition-colors mb-8">
           <ArrowLeft className="w-4 h-4" />
           Voltar para o início
         </Link>
@@ -18,7 +18,7 @@ export default function TermsPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/40">Última atualização: 27 de setembro de 2026</p>
+          <p className="text-xs text-espresso/70">Última atualização: 27 de setembro de 2026</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Aceitação dos Termos</h2>
@@ -66,7 +66,7 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">9. Contato</h2>
-            <p>Dúvidas sobre estes termos podem ser enviadas pelo formulário de contato em <Link to="/contato" className="text-plum hover:underline">/contato</Link>.</p>
+            <p>Dúvidas sobre estes termos podem ser enviadas pelo formulário de contato em <Link to="/contato" className="text-plum-light hover:underline">/contato</Link>.</p>
           </section>
         </div>
       </div>

@@ -202,7 +202,7 @@ export default function ProducerCommunications() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Comunicação</h1>
-          <p className="text-sm text-espresso/50 mt-1">E-mail marketing, SMS e notificações em tempo real</p>
+          <p className="text-sm text-espresso/70 mt-1">E-mail marketing, SMS e notificações em tempo real</p>
         </div>
         <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
           <Send className="w-4 h-4" /> Nova Campanha
@@ -227,7 +227,7 @@ export default function ProducerCommunications() {
             <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60 text-center">
               <k.icon className={`w-5 h-5 ${k.color} mx-auto mb-2`} />
               <div className={`font-serif text-2xl ${k.color}`}>{k.value}</div>
-              <div className="text-xs text-espresso/40 mt-1">{k.label}</div>
+              <div className="text-xs text-espresso/70 mt-1">{k.label}</div>
             </div>
           ))}
         </div>
@@ -240,7 +240,7 @@ export default function ProducerCommunications() {
           {templates.map(t => {
             const Icon = typeIcons[t.type]
             return (
-              <button key={t.id} onClick={() => { setForm({ ...form, type: t.type, name: t.name, subject: t.name }); setShowForm(true) }} className="flex items-center gap-2 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/60 hover:bg-plum/10 hover:text-plum transition-all border border-transparent hover:border-plum/20">
+              <button key={t.id} onClick={() => { setForm({ ...form, type: t.type, name: t.name, subject: t.name }); setShowForm(true) }} className="flex items-center gap-2 px-4 py-2.5 bg-canvas rounded-xl text-xs text-espresso/70 hover:bg-plum/10 hover:text-plum transition-all border border-transparent hover:border-plum/20">
                 <Icon className="w-3.5 h-3.5" /> {t.name}
               </button>
             )
@@ -257,12 +257,12 @@ export default function ProducerCommunications() {
             { id: 'sms' as const, label: 'SMS', icon: MessageSquare },
             { id: 'push' as const, label: 'Push', icon: Bell },
           ].map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/40 hover:text-espresso/70'}`}>
+            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium transition-all ${activeTab === t.id ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <t.icon className="w-3.5 h-3.5" /> {t.label}
             </button>
           ))}
         </div>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar campanhas..." className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 w-48" />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar campanhas..." className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 w-48" />
       </div>
 
       {/* List */}
@@ -285,13 +285,13 @@ export default function ProducerCommunications() {
                   <div className="flex items-center gap-2 mb-0.5">
                     <h3 className="text-sm font-medium text-espresso">{c.name}</h3>
                     <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full ${
-                      c.status === 'enviada' ? 'bg-green-50 text-green-600 border border-green-100' :
-                      c.status === 'agendada' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                      c.status === 'enviada' ? 'bg-green-50 text-green-700 border border-green-100' :
+                      c.status === 'agendada' ? 'bg-amber-50 text-amber-700 border border-amber-100' :
                       'bg-gray-50 text-gray-500 border border-gray-100'
                     }`}>{c.status}</span>
                   </div>
-                  <p className="text-xs text-espresso/40 truncate pr-4">{c.subject}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-espresso/30">
+                  <p className="text-xs text-espresso/70 truncate pr-4">{c.subject}</p>
+                  <div className="flex items-center gap-3 mt-1 text-[10px] text-espresso/70">
                     <span>{c.audience}</span>
                     <span>{c.eventName}</span>
                     {c.sent > 0 && <span className="flex items-center gap-1"><Send className="w-3 h-3" /> {c.sent} disparos</span>}
@@ -299,19 +299,19 @@ export default function ProducerCommunications() {
                 </div>
                 {c.status === 'enviada' && (
                   <div className="text-right flex-shrink-0 hidden md:block">
-                    <div className="text-xs text-espresso/60">{c.openRate}% abertura</div>
-                    <div className="text-xs text-espresso/60">{c.clickRate}% cliques</div>
+                    <div className="text-xs text-espresso/70">{c.openRate}% abertura</div>
+                    <div className="text-xs text-espresso/70">{c.clickRate}% cliques</div>
                   </div>
                 )}
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button onClick={() => { setForm({ ...form, name: `Cópia - ${c.name}`, type: c.type, subject: c.subject, audience: c.audience }); setShowForm(true); toast.success('Modelo copiado para edição!') }} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors" title="Duplicar Campanha"><Copy className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => deleteCampaign(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors" title="Excluir Campanha"><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => { setForm({ ...form, name: `Cópia - ${c.name}`, type: c.type, subject: c.subject, audience: c.audience }); setShowForm(true); toast.success('Modelo copiado para edição!') }} className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors" title="Duplicar Campanha"><Copy className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => deleteCampaign(c.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors" title="Excluir Campanha"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
             )
           })}
           {filtered.length === 0 && (
-            <div className="bg-white/40 border border-dashed border-espresso/10 rounded-2xl py-12 text-center text-xs text-espresso/30">
+            <div className="bg-white/40 border border-dashed border-espresso/10 rounded-2xl py-12 text-center text-xs text-espresso/70">
               Nenhuma campanha encontrada nesta categoria.
             </div>
           )}
@@ -322,34 +322,34 @@ export default function ProducerCommunications() {
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated max-h-[90vh] overflow-y-auto">
+          <div className="glass-panel relative w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Nova Campanha</h3>
-              <button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowForm(false)} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3">
               <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
                 {(['email', 'sms', 'push'] as const).map(t => (
-                  <button key={t} onClick={() => setForm({ ...form, type: t })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === t ? 'bg-plum text-cream' : 'text-espresso/40'}`}>
+                  <button key={t} onClick={() => setForm({ ...form, type: t })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === t ? 'bg-plum text-cream' : 'text-espresso/70'}`}>
                     {t.toUpperCase()}
                   </button>
                 ))}
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/50 mb-1.5 block">Nome da Campanha *</label>
-                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Lembrete Importante 1" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nome da Campanha *</label>
+                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Lembrete Importante 1" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/50 mb-1.5 block">Assunto da Mensagem *</label>
-                <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} placeholder="Assunto que aparecerá no destinatário..." className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Assunto da Mensagem *</label>
+                <input value={form.subject} onChange={e => setForm({ ...form, subject: e.target.value })} placeholder="Assunto que aparecerá no destinatário..." className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/50 mb-1.5 block">Conteúdo Completo (Mensagem)</label>
-                <textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Escreva o texto completo da mensagem aqui..." rows={4} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 resize-none" />
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Conteúdo Completo (Mensagem)</label>
+                <textarea value={form.message} onChange={e => setForm({ ...form, message: e.target.value })} placeholder="Escreva o texto completo da mensagem aqui..." rows={4} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none" />
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/50 mb-1.5 block">Público Alvo</label>
-                <select value={form.audience} onChange={e => setForm({ ...form, audience: e.target.value })} aria-label="Selecionar público alvo" title="Público Alvo" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/60 focus:outline-none">
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Público Alvo</label>
+                <select value={form.audience} onChange={e => setForm({ ...form, audience: e.target.value })} aria-label="Selecionar público alvo" title="Público Alvo" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none">
                   <option value="Todos os participantes">Todos os participantes</option>
                   <option value="Compradores VIP">Compradores VIP</option>
                   <option value="Compradores Pista">Compradores Pista</option>
@@ -358,17 +358,17 @@ export default function ProducerCommunications() {
               </div>
               <label className="flex items-center gap-2 cursor-pointer pt-2">
                 <input type="checkbox" checked={form.schedule} onChange={e => setForm({ ...form, schedule: e.target.checked })} className="accent-plum" />
-                <span className="text-xs text-espresso/60">Agendar envio futuro</span>
+                <span className="text-xs text-espresso/70">Agendar envio futuro</span>
               </label>
               {form.schedule && (
                 <div className="grid grid-cols-2 gap-3 pt-1">
-                  <input type="date" aria-label="Data de agendamento" title="Data de agendamento" onChange={e => setForm({ ...form, date: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/60 focus:outline-none" />
-                  <input type="time" aria-label="Hora de agendamento" title="Hora de agendamento" onChange={e => setForm({ ...form, time: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/60 focus:outline-none" />
+                  <input type="date" aria-label="Data de agendamento" title="Data de agendamento" onChange={e => setForm({ ...form, date: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none" />
+                  <input type="time" aria-label="Hora de agendamento" title="Hora de agendamento" onChange={e => setForm({ ...form, time: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none" />
                 </div>
               )}
             </div>
             <div className="flex items-center justify-end gap-3 mt-6 pt-4 border-t border-espresso/5">
-              <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/50 hover:text-espresso transition-colors">Cancelar</button>
+              <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
               <button onClick={addCampaign} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">{form.schedule ? 'Agendar' : 'Disparar / Salvar'}</button>
             </div>
           </div>

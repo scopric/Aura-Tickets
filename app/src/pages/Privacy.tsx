@@ -5,7 +5,7 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-canvas">
       <div className="max-w-3xl mx-auto px-6 py-16">
-        <Link to="/" className="inline-flex items-center gap-2 text-sm text-espresso/50 hover:text-plum transition-colors mb-8">
+        <Link to="/" className="inline-flex items-center gap-2 text-sm text-espresso/70 hover:text-plum transition-colors mb-8">
           <ArrowLeft className="w-4 h-4" />
           Voltar para o início
         </Link>
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/40">Última atualização: 29 de setembro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
+          <p className="text-xs text-espresso/70">Última atualização: 29 de setembro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
@@ -74,7 +74,7 @@ export default function PrivacyPage() {
               <li>Revogar consentimento a qualquer momento</li>
               <li>Solicitar portabilidade dos dados</li>
             </ul>
-            <p className="mt-2">Para exercer seus direitos, entre em contato pelo formulário em <Link to="/contato" className="text-plum hover:underline">/contato</Link>.</p>
+            <p className="mt-2">Para exercer seus direitos, entre em contato pelo formulário em <Link to="/contato" className="text-plum-light hover:underline">/contato</Link>.</p>
           </section>
 
           <section>
@@ -113,7 +113,7 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-medium text-espresso mb-2">10. Contato</h2>
             <p>Controladora: Evoka Soluções Ltda, CNPJ 68.076.437/0001-42.</p>
             <p>Encarregado de Dados (DPO): dpo@evokaa.com.br</p>
-            <p>Formulário de contato: <Link to="/contato" className="text-plum hover:underline">/contato</Link></p>
+            <p>Formulário de contato: <Link to="/contato" className="text-plum-light hover:underline">/contato</Link></p>
           </section>
         </div>
       </div>

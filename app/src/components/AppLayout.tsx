@@ -49,6 +49,7 @@ export default function AppLayout() {
     if (file && user?.id) {
       await uploadAvatar(file, user.id)
     }
+    e.target.value = '' // escolher a mesma imagem de novo volta a disparar o envio
   }
 
   const triggerUpload = () => {
@@ -69,11 +70,11 @@ export default function AppLayout() {
     location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
-    <div className="flex min-h-screen bg-canvas">
+    <div className="flex min-h-screen glass-canvas">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
           onClick={() => setMobileOpen(false)}
         />
       )}
@@ -84,13 +85,9 @@ export default function AppLayout() {
           'fixed left-0 top-0 bottom-0 z-50 flex flex-col transition-all duration-300 ease-out',
           'lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          collapsed ? 'w-[72px]' : 'w-[250px]'
+          collapsed ? 'w-[72px]' : 'w-[250px]',
+          'glass-bar border-r'
         )}
-        style={{
-          background: 'rgba(7, 8, 12, 0.75)',
-          backdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.05)'
-        }}
       >
         {/* Logo */}
         <div
@@ -111,8 +108,8 @@ export default function AppLayout() {
               <span
                 className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
                 style={{
-                  background: 'rgba(143,51,245,0.15)',
-                  color: '#a78bfa',
+                  background: 'rgba(143, 51, 245, 0.1)',
+                  color: 'var(--plum-light)',
                   border: '1px solid rgba(143,51,245,0.25)',
                 }}
               >
@@ -212,7 +209,7 @@ export default function AppLayout() {
           <button
             onClick={logout}
             className={cn(
-              'flex items-center gap-3 rounded-lg transition-all w-full text-white/20 hover:text-red-400/80 hover:bg-red-500/[0.06]',
+              'flex items-center gap-3 rounded-lg transition-all w-full text-white/60 hover:text-red-400/80 hover:bg-red-500/[0.06]',
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
@@ -246,12 +243,7 @@ export default function AppLayout() {
       >
         {/* Header */}
         <header
-          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b"
-          style={{
-            background: 'rgba(7, 8, 12, 0.75)',
-            backdropFilter: 'blur(20px)',
-            borderColor: 'rgba(255, 255, 255, 0.05)',
-          }}
+          className="sticky top-0 z-30 h-16 flex items-center justify-between px-6 border-b glass-bar"
         >
           <div className="flex items-center gap-4">
             {/* Mobile menu button */}
@@ -301,7 +293,7 @@ export default function AppLayout() {
 
               {/* Notifications Dropdown */}
               {showNotifs && (
-                <div className="absolute right-0 top-full mt-2 w-96 bg-slate-950/90 backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-96 glass-panel rounded-2xl overflow-hidden z-50">
                   <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
                     <h3 className="text-sm font-semibold text-white">Notificações</h3>
                     <button
@@ -349,12 +341,14 @@ export default function AppLayout() {
 
             <FeedbackTopButton className="p-2.5 rounded-xl text-white/60 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400" />
 
-            {/* Avatar */}
-            <img
-              src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
-              alt="Avatar"
-              className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
-            />
+            {/* Avatar: clicar troca a foto */}
+            <button type="button" onClick={triggerUpload} title="Alterar foto de perfil" aria-label="Alterar foto de perfil" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum">
+              <img
+                src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
+                alt=""
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
+              />
+            </button>
           </div>
         </header>
 

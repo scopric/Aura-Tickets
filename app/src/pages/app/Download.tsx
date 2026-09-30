@@ -13,7 +13,7 @@ export default function AppDownload() {
         <h1 className="font-serif text-4xl text-espresso mb-3">
           Baixe o <span className="italic text-plum">App</span>
         </h1>
-        <p className="text-espresso/50 mb-10">
+        <p className="text-espresso/70 mb-10">
           Uma experiencia completa na palma da sua mao. Ingressos, comandas, networking e muito mais.
         </p>
 
@@ -23,20 +23,20 @@ export default function AppDownload() {
           <div className="p-4 pt-8 h-full flex flex-col">
             <div className="text-center mb-4">
               <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-6 w-auto mx-auto mb-2" />
-              <p className="text-[8px] text-cream/40">Evokaa Events</p>
+              <p className="text-[8px] text-cream/70">Evokaa Events</p>
             </div>
             <div className="space-y-2 flex-1">
               <div className="p-2 rounded-xl bg-white/5 border border-white/10">
                 <div className="text-[9px] text-cream font-medium">Noite Eletro 2025</div>
-                <div className="text-[8px] text-cream/40">15 Jun · Warehouse</div>
+                <div className="text-[8px] text-cream/70">15 Jun · Warehouse</div>
               </div>
               <div className="p-2 rounded-xl bg-plum/10 border border-plum/20">
                 <div className="text-[9px] text-cream font-medium">Mesa Aurora</div>
-                <div className="text-[8px] text-plum/60">6 membros · 94% match</div>
+                <div className="text-[8px] text-plum/70">6 membros · 94% match</div>
               </div>
               <div className="p-2 rounded-xl bg-white/5 border border-white/10">
                 <div className="text-[9px] text-cream font-medium">Comanda Digital</div>
-                <div className="text-[8px] text-cream/40">3 itens · R$ 85</div>
+                <div className="text-[8px] text-cream/70">3 itens · R$ 85</div>
               </div>
             </div>
             <div className="flex items-center justify-center gap-2 mt-2">
@@ -59,7 +59,7 @@ export default function AppDownload() {
               <f.icon className="w-4 h-4 text-plum flex-shrink-0" />
               <div>
                 <div className="text-xs font-medium text-espresso">{f.label}</div>
-                <div className="text-[10px] text-espresso/40">{f.desc}</div>
+                <div className="text-[10px] text-espresso/70">{f.desc}</div>
               </div>
             </div>
           ))}
@@ -77,7 +77,7 @@ export default function AppDownload() {
           </button>
         </div>
 
-        <p className="text-xs text-espresso/30 mt-6">
+        <p className="text-xs text-espresso/70 mt-6">
           Disponivel em breve nas lojas oficiais
         </p>
 

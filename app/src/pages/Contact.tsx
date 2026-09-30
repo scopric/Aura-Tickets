@@ -74,7 +74,7 @@ export default function ContactPage() {
   ]
 
   const labelClasses = (field: string) => `text-[10px] font-bold uppercase tracking-widest transition-all duration-300 ${
-    focusedField === field ? 'text-[#1d68c4] translate-x-0.5' : 'text-slate-400'
+    focusedField === field ? 'text-[#1d68c4] translate-x-0.5' : 'text-slate-600'
   }`
 
   const inputWrapperClasses = (field: string) => `relative border-b transition-all duration-300 py-1.5 ${
@@ -107,11 +107,11 @@ export default function ContactPage() {
             {/* Clean minimalist list of details */}
             <div className="space-y-6">
               <div className="flex gap-4 group">
-                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
+                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
                   <Mail className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">E-mail Principal</div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-600">E-mail Principal</div>
                   <a href="mailto:contato@evokaa.com.br" className="text-sm font-semibold text-slate-800 hover:text-[#1d68c4] transition-colors mt-0.5 block">
                     contato@evokaa.com.br
                   </a>
@@ -119,11 +119,11 @@ export default function ContactPage() {
               </div>
 
               <div className="flex gap-4 group">
-                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
+                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
                   <Phone className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Telefone e WhatsApp</div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-600">Telefone e WhatsApp</div>
                   <span className="text-sm font-semibold text-slate-800 mt-0.5 block">
                     (41) 99758-5425
                   </span>
@@ -131,15 +131,15 @@ export default function ContactPage() {
               </div>
 
               <div className="flex gap-4 group">
-                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
+                <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-500 group-hover:text-[#1d68c4] group-hover:border-[#1d68c4]/20 transition-all duration-300">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <div>
-                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Localização</div>
+                  <div className="text-[9px] font-bold uppercase tracking-wider text-slate-600">Localização</div>
                   <span className="text-sm font-semibold text-slate-800 mt-0.5 block">
                     Rua Treze de Maio, 336, salas 33 e 34
                   </span>
-                  <span className="text-[10px] text-slate-400 block mt-0.5 font-light">
+                  <span className="text-[10px] text-slate-600 block mt-0.5 font-light">
                     Curitiba/PR
                   </span>
                 </div>
@@ -148,7 +148,7 @@ export default function ContactPage() {
 
             {/* Social channels (Clean Links) */}
             <div className="pt-6 border-t border-slate-100">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 block mb-3">Siga-nos</span>
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-600 block mb-3">Siga-nos</span>
               <div className="flex gap-4">
                 {/* Instagram: sem perfil registrado no projeto; volta quando houver o endereço */}
                 <a href="/" className="text-xs font-semibold text-slate-500 hover:text-[#1d68c4] transition-colors flex items-center gap-1 group">
@@ -167,15 +167,15 @@ export default function ContactPage() {
               className="flex items-center justify-between p-5 rounded-2xl border border-[#22c55e]/20 bg-[#22c55e]/[0.02] hover:bg-[#22c55e]/5 transition-all duration-300 group max-w-sm shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#22c55e] flex items-center justify-center text-white shadow-md">
+                <div className="w-9 h-9 rounded-full bg-[#16a34a] flex items-center justify-center text-white shadow-md">
                   <MessageCircle className="w-4 h-4 fill-current" />
                 </div>
                 <div>
                   <div className="text-xs font-bold text-slate-800">Atendimento WhatsApp</div>
-                  <div className="text-[10px] text-[#22c55e] font-semibold mt-0.5">Resposta instantânea</div>
+                  <div className="text-[10px] text-[#15803d] font-semibold mt-0.5">Resposta instantânea</div>
                 </div>
               </div>
-              <ChevronRight className="w-4 h-4 text-[#22c55e] transition-transform group-hover:translate-x-1" />
+              <ChevronRight className="w-4 h-4 text-[#16a34a] transition-transform group-hover:translate-x-1" />
             </a>
           </div>
 
@@ -216,7 +216,7 @@ export default function ContactPage() {
                         onFocus={() => setFocusedField('name')}
                         onBlur={() => setFocusedField(null)}
                         placeholder="Como devemos te chamar?"
-                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-400/50 font-medium"
+                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-500 font-medium"
                       />
                     </div>
                   </div>
@@ -235,7 +235,7 @@ export default function ContactPage() {
                         onFocus={() => setFocusedField('email')}
                         onBlur={() => setFocusedField(null)}
                         placeholder="seu.email@provedor.com"
-                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-400/50 font-medium"
+                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-500 font-medium"
                       />
                     </div>
                   </div>
@@ -256,7 +256,7 @@ export default function ContactPage() {
                         onFocus={() => setFocusedField('phone')}
                         onBlur={() => setFocusedField(null)}
                         placeholder="(11) 99999-9999"
-                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-400/50 font-medium"
+                        className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-500 font-medium"
                       />
                     </div>
                   </div>
@@ -282,7 +282,7 @@ export default function ContactPage() {
                         <option value="Proposta comercial ou parcerias">Proposta de parceria</option>
                         <option value="Outro assunto">Outro assunto</option>
                       </select>
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
                         <ChevronDown className="w-3.5 h-3.5" />
                       </div>
                     </div>
@@ -303,7 +303,7 @@ export default function ContactPage() {
                       onBlur={() => setFocusedField(null)}
                       placeholder="Conte-nos em detalhes como podemos te ajudar..."
                       rows={4}
-                      className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-400/50 font-medium resize-none leading-relaxed"
+                      className="w-full bg-transparent border-none outline-none text-slate-800 text-sm placeholder:text-slate-500 font-medium resize-none leading-relaxed"
                     />
                   </div>
                 </div>
@@ -327,7 +327,7 @@ export default function ContactPage() {
 
             {/* Direct e-mails list (Compact & Clean) */}
             <div className="mt-16 pt-8 border-t border-slate-100">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-6">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-600 block mb-6">
                 E-mails diretos de setores
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -337,7 +337,7 @@ export default function ContactPage() {
                       <d.icon className="w-3.5 h-3.5" />
                     </div>
                     <div>
-                      <span className="text-[10px] font-semibold text-slate-400 block">{d.title}</span>
+                      <span className="text-[10px] font-semibold text-slate-600 block">{d.title}</span>
                       <a href={`mailto:${d.email}`} className="text-xs font-bold text-slate-700 hover:text-[#1d68c4] transition-colors mt-0.5 block">
                         {d.email}
                       </a>
@@ -362,7 +362,7 @@ export default function ContactPage() {
             </div>
           </div>
           <h3 className="font-serif text-lg font-bold text-slate-800">Rua Treze de Maio, 336, salas 33 e 34</h3>
-          <p className="text-xs text-slate-400 mt-1 font-light">Curitiba/PR</p>
+          <p className="text-xs text-slate-600 mt-1 font-light">Curitiba/PR</p>
         </div>
       </section>
 

@@ -70,7 +70,7 @@ export default function ProducerWallet() {
     <div className="p-6 lg:p-10 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="font-serif text-3xl text-espresso">Carteira</h1>
-        <p className="text-sm text-espresso/50 mt-1">Gerencie seus fundos e saques</p>
+        <p className="text-sm text-espresso/70 mt-1">Gerencie seus fundos e saques</p>
       </div>
 
       {/* Balance Card */}
@@ -79,7 +79,7 @@ export default function ProducerWallet() {
         <div className="relative z-10">
           <div className="flex items-center gap-2 mb-2">
             <Wallet className="w-4 h-4 text-cream/50" />
-            <span className="text-sm text-cream/50">Saldo disponivel</span>
+            <span className="text-sm text-cream/70">Saldo disponivel</span>
           </div>
           <div className="font-serif text-5xl text-cream mb-4">
             {isLoading ? (
@@ -111,9 +111,9 @@ export default function ProducerWallet() {
             <div className="text-sm text-espresso font-mono truncate">
               {user?.email || 'contato@evokaa.com.br'}
             </div>
-            <div className="text-xs text-espresso/40">Chave de e-mail</div>
+            <div className="text-xs text-espresso/70">Chave de e-mail</div>
           </div>
-          <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/30 hover:text-plum transition-colors">
+          <button onClick={handleCopy} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-plum transition-colors">
             {copied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
           </button>
         </div>
@@ -135,7 +135,7 @@ export default function ProducerWallet() {
                   <div className="text-sm text-espresso font-medium truncate">
                     Saque {w.status === 'pending' ? '- Pendente' : w.status === 'completed' ? '- Concluido' : '- ' + w.status}
                   </div>
-                  <div className="text-xs text-espresso/40">{formatDate(w.created_at)}</div>
+                  <div className="text-xs text-espresso/70">{formatDate(w.created_at)}</div>
                 </div>
                 <div className="text-sm font-medium text-amber-600">
                   -R$ {w.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -154,11 +154,11 @@ export default function ProducerWallet() {
         {isLoading ? (
           <div className="p-10 text-center">
             <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-3" />
-            <p className="text-sm text-espresso/40">Carregando movimentacoes...</p>
+            <p className="text-sm text-espresso/70">Carregando movimentacoes...</p>
           </div>
         ) : transactions.length === 0 ? (
           <div className="p-10 text-center">
-            <p className="text-sm text-espresso/40">Nenhuma movimentacao ainda.</p>
+            <p className="text-sm text-espresso/70">Nenhuma movimentacao ainda.</p>
           </div>
         ) : (
           <div className="divide-y divide-espresso/5">
@@ -173,7 +173,7 @@ export default function ProducerWallet() {
                     <div className="text-sm text-espresso font-medium truncate">
                       {t.description || (t.events?.title || 'Transacao')}
                     </div>
-                    <div className="text-xs text-espresso/40">{formatDate(t.created_at)}</div>
+                    <div className="text-xs text-espresso/70">{formatDate(t.created_at)}</div>
                   </div>
                   <div className={`text-sm font-medium ${isIn ? 'text-green-600' : 'text-red-500'}`}>
                     {isIn ? '+' : '-'}R$ {Math.abs(t.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -187,17 +187,17 @@ export default function ProducerWallet() {
 
       {/* Withdraw Modal */}
       {showWithdrawModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-          <div className="bg-canvas rounded-2xl border border-white/60 shadow-xl w-full max-w-sm p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
+          <div className="glass-panel w-full max-w-sm p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-serif text-xl text-espresso">Solicitar Saque</h3>
-              <button onClick={() => setShowWithdrawModal(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/40">
+              <button onClick={() => setShowWithdrawModal(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="text-xs text-espresso/50 mb-1 block">Valor (R$)</label>
+                <label className="text-xs text-espresso/70 mb-1 block">Valor (R$)</label>
                 <input
                   type="number"
                   value={withdrawAmount}
@@ -207,7 +207,7 @@ export default function ProducerWallet() {
                 />
               </div>
               <div>
-                <label className="text-xs text-espresso/50 mb-1 block">Chave PIX</label>
+                <label className="text-xs text-espresso/70 mb-1 block">Chave PIX</label>
                 <input
                   type="text"
                   value={withdrawPixKey}

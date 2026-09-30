@@ -327,7 +327,7 @@ function Layout() {
               <Route path="/producer/galeria" element={<ProducerEventGallery />} />
               <Route path="/producer/afiliados" element={<FeatureGuard featureKey="affiliates"><ProducerAffiliates /></FeatureGuard>} />
               <Route path="/producer/checkin" element={<FeatureGuard featureKey="checkin"><ProducerCheckIn /></FeatureGuard>} />
-              <Route path="/producer/comunicacao" element={<FeatureGuard featureKey="communications"><ProducerCommunications /></FeatureGuard>} />
+              <Route path="/producer/comunicacao" element={<ComingSoonRoute title="A Comunicação com participantes"><FeatureGuard featureKey="communications"><ProducerCommunications /></FeatureGuard></ComingSoonRoute>} />
               <Route path="/producer/tarefas" element={<ProducerTasks />} />
               <Route path="/producer/cupons" element={<ProducerCoupons />} />
               <Route path="/producer/parceiros" element={<ProducerPartners />} />

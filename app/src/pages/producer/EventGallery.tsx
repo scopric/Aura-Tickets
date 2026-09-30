@@ -70,7 +70,7 @@ export default function ProducerEventGallery() {
     return (
       <div className="p-6 lg:p-10 max-w-7xl mx-auto flex flex-col items-center justify-center py-20">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando galeria...</p>
+        <p className="text-espresso/70 text-sm">Carregando galeria...</p>
       </div>
     )
   }
@@ -80,14 +80,14 @@ export default function ProducerEventGallery() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Galeria de Fotos</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie as fotos dos seus eventos</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie as fotos dos seus eventos</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
-            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-plum text-cream' : 'text-espresso/30 hover:text-espresso/60'}`}>
+            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <Grid3X3 className="w-4 h-4" />
             </button>
-            <button onClick={() => setViewMode('list')} className={`p-2 rounded-full transition-all ${viewMode === 'list' ? 'bg-plum text-cream' : 'text-espresso/30 hover:text-espresso/60'}`}>
+            <button onClick={() => setViewMode('list')} className={`p-2 rounded-full transition-all ${viewMode === 'list' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
               <List className="w-4 h-4" />
             </button>
           </div>
@@ -99,11 +99,11 @@ export default function ProducerEventGallery() {
 
       {/* Event filter */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <button onClick={() => setActiveEvent('Todos')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === 'Todos' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/50 hover:text-espresso/70'}`}>
+        <button onClick={() => setActiveEvent('Todos')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === 'Todos' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
           Todos ({photos.length})
         </button>
         {events.map(e => (
-          <button key={e} onClick={() => setActiveEvent(e)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === e ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/50 hover:text-espresso/70'}`}>
+          <button key={e} onClick={() => setActiveEvent(e)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === e ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
             {e} ({photos.filter(p => p.event_name === e).length})
           </button>
         ))}
@@ -145,20 +145,20 @@ export default function ProducerEventGallery() {
               </div>
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-espresso truncate">{photo.caption || 'Sem legenda'}</h3>
-                <p className="text-[10px] text-espresso/30">{photo.event_name || 'Evento'} · {new Date(photo.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {photo.size || '-'}</p>
-                <div className="flex items-center gap-3 mt-1 text-[10px] text-espresso/30">
+                <p className="text-[10px] text-espresso/70">{photo.event_name || 'Evento'} · {new Date(photo.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {photo.size || '-'}</p>
+                <div className="flex items-center gap-3 mt-1 text-[10px] text-espresso/70">
                   <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {photo.likes || 0}</span>
                   <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {photo.comments || 0}</span>
                 </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => toggleFeatured(photo)} className={`p-2 rounded-lg transition-colors ${photo.featured ? 'text-plum bg-plum/10' : 'text-espresso/20 hover:text-amber-500 hover:bg-amber-50'}`} title={photo.featured ? 'Remover destaque' : 'Destacar'}>
+                <button onClick={() => toggleFeatured(photo)} className={`p-2 rounded-lg transition-colors ${photo.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-50'}`} title={photo.featured ? 'Remover destaque' : 'Destacar'}>
                   <Check className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => { setSelectedPhoto(photo) }} className="p-2 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors">
+                <button onClick={() => { setSelectedPhoto(photo) }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
                   <Eye className="w-3.5 h-3.5" />
                 </button>
-                <button onClick={() => handleDelete(photo.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors">
+                <button onClick={() => handleDelete(photo.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -170,8 +170,8 @@ export default function ProducerEventGallery() {
       {filtered.length === 0 && (
         <div className="text-center py-16">
           <ImagePlus className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-          <p className="text-sm text-espresso/30">Nenhuma foto encontrada.</p>
-          <p className="text-xs text-espresso/20 mt-1">Adicione a primeira foto da galeria.</p>
+          <p className="text-sm text-espresso/70">Nenhuma foto encontrada.</p>
+          <p className="text-xs text-espresso/70 mt-1">Adicione a primeira foto da galeria.</p>
         </div>
       )}
 
@@ -179,10 +179,10 @@ export default function ProducerEventGallery() {
       {showUpload && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowUpload(false)} />
-          <div className="relative w-full max-w-lg bg-white/80 backdrop-blur-xl border border-white/60 rounded-3xl p-6 shadow-elevated">
+          <div className="glass-panel relative w-full max-w-lg p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-serif text-xl text-espresso">Adicionar Foto</h3>
-              <button onClick={() => setShowUpload(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/40 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
+              <button onClick={() => setShowUpload(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-4">
               <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-8 text-center hover:border-plum/30 transition-colors">
@@ -194,20 +194,20 @@ export default function ProducerEventGallery() {
                 ) : (
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
-                    <p className="text-sm text-espresso/60">Cole a URL da imagem ou use o exemplo</p>
+                    <p className="text-sm text-espresso/70">Cole a URL da imagem ou use o exemplo</p>
                     <button onClick={() => setUploadPreview('/images/concert-1.jpg')} className="px-5 py-2 border border-espresso/15 text-espresso text-xs rounded-full hover:bg-espresso/5 transition-all">Usar exemplo</button>
                   </div>
                 )}
               </div>
-              <input value={uploadForm.eventName} onChange={e => setUploadForm({ ...uploadForm, eventName: e.target.value })} placeholder="Nome do evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
-              <input value={uploadForm.caption} onChange={e => setUploadForm({ ...uploadForm, caption: e.target.value })} placeholder="Legenda da foto" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+              <input value={uploadForm.eventName} onChange={e => setUploadForm({ ...uploadForm, eventName: e.target.value })} placeholder="Nome do evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <input value={uploadForm.caption} onChange={e => setUploadForm({ ...uploadForm, caption: e.target.value })} placeholder="Legenda da foto" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <label className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={uploadForm.featured} onChange={e => setUploadForm({ ...uploadForm, featured: e.target.checked })} className="accent-plum" />
-                <span className="text-xs text-espresso/60">Destacar esta foto</span>
+                <span className="text-xs text-espresso/70">Destacar esta foto</span>
               </label>
             </div>
             <div className="flex items-center justify-end gap-3 mt-5">
-              <button onClick={() => setShowUpload(false)} className="px-5 py-2.5 text-sm text-espresso/50 hover:text-espresso transition-colors">Cancelar</button>
+              <button onClick={() => setShowUpload(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
               <button onClick={addPhoto} disabled={createPhoto.isPending} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
                 {createPhoto.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
               </button>
@@ -219,28 +219,28 @@ export default function ProducerEventGallery() {
       {/* Photo Detail Modal */}
       {selectedPhoto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedPhoto(null)} />
-          <div className="relative w-full max-w-3xl bg-white/80 backdrop-blur-xl rounded-3xl overflow-hidden shadow-2xl max-h-[90vh]">
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedPhoto(null)} />
+          <div className="glass-panel relative w-full max-w-3xl overflow-hidden max-h-[90vh]">
             <img src={selectedPhoto.url} alt={selectedPhoto.caption || ''} className="w-full max-h-[50vh] object-cover" />
             <div className="p-6">
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-serif text-xl text-espresso mb-1">{selectedPhoto.caption || 'Sem legenda'}</h3>
-                  <p className="text-sm text-espresso/50">{selectedPhoto.event_name || 'Evento'} · {new Date(selectedPhoto.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {selectedPhoto.size || '-'}</p>
+                  <p className="text-sm text-espresso/70">{selectedPhoto.event_name || 'Evento'} · {new Date(selectedPhoto.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {selectedPhoto.size || '-'}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => toggleFeatured(selectedPhoto)} className={`p-2 rounded-lg transition-colors ${selectedPhoto.featured ? 'text-plum bg-plum/10' : 'text-espresso/20 hover:text-amber-500'}`} title="Destacar">
+                  <button onClick={() => toggleFeatured(selectedPhoto)} className={`p-2 rounded-lg transition-colors ${selectedPhoto.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500'}`} title="Destacar">
                     <Check className="w-4 h-4" />
                   </button>
-                  <button onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('URL copiada!') }} className="p-2 rounded-lg hover:bg-canvas text-espresso/20 hover:text-espresso/60 transition-colors">
+                  <button onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('URL copiada!') }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
                     <Download className="w-4 h-4" />
                   </button>
-                  <button onClick={() => handleDelete(selectedPhoto.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/20 hover:text-red-500 transition-colors">
+                  <button onClick={() => handleDelete(selectedPhoto.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-espresso/5 text-sm text-espresso/40">
+              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-espresso/5 text-sm text-espresso/70">
                 <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {selectedPhoto.likes || 0} curtidas</span>
                 <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {selectedPhoto.comments || 0} comentarios</span>
               </div>

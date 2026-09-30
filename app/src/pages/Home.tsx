@@ -80,7 +80,7 @@ function FeatureCard({
         <h4 className="text-slate-900 text-[15px] font-bold tracking-tight font-serif flex items-center gap-2 group-hover:text-slate-950 transition-colors">
           {title}
         </h4>
-        <p className="text-[13px] text-slate-400 font-light leading-relaxed">
+        <p className="text-[13px] text-slate-600 font-light leading-relaxed">
           {desc}
         </p>
       </div>
@@ -97,12 +97,12 @@ function WizardWidget() {
         </div>
         <div className="flex-1">
           <div className="text-[10px] font-bold text-slate-800 leading-none">1. Dados do Evento</div>
-          <div className="text-[8px] text-slate-400 mt-0.5">Festival de Música Eletrônica</div>
+          <div className="text-[8px] text-slate-600 mt-0.5">Festival de Música Eletrônica</div>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
-        <div className="w-5 h-5 rounded-full border border-blue-500 bg-blue-50 flex items-center justify-center text-blue-600 text-[10px] font-bold relative">
+        <div className="w-5 h-5 rounded-full border border-blue-500 bg-blue-50 flex items-center justify-center text-blue-700 text-[10px] font-bold relative">
           <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping absolute" />
           <span className="w-1.5 h-1.5 bg-blue-500 rounded-full relative" />
         </div>
@@ -115,8 +115,8 @@ function WizardWidget() {
         </div>
       </div>
 
-      <div className="flex items-center gap-3 opacity-40 group-hover:opacity-75 transition-opacity duration-500">
-        <div className="w-5 h-5 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400 text-[10px] font-bold">
+      <div className="flex items-center gap-3 opacity-70 group-hover:opacity-90 transition-opacity duration-500">
+        <div className="w-5 h-5 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-600 text-[10px] font-bold">
           3
         </div>
         <div className="flex-1">
@@ -145,7 +145,7 @@ function TicketWidget() {
           
           <div className="mt-2">
             <div className="text-[9px] font-bold text-white tracking-wide uppercase leading-none">Pista Premium</div>
-            <div className="text-[7px] text-white/40 mt-0.5">Lote 02 • Entrada Prioritária</div>
+            <div className="text-[7px] text-white/60 mt-0.5">Lote 02 • Entrada Prioritária</div>
           </div>
 
           <div className="flex items-end justify-between mt-1">
@@ -167,15 +167,15 @@ function TicketWidget() {
       <div className="flex-1 w-full space-y-3 text-left">
         <div className="flex justify-between items-end">
           <div>
-            <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Lote 02 (Premium)</div>
+            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider">Lote 02 (Premium)</div>
             <div className="text-base font-bold text-slate-800 leading-none mt-1">94% Vendido</div>
           </div>
-          <span className="text-[10px] font-semibold text-slate-400">470 / 500 un</span>
+          <span className="text-[10px] font-semibold text-slate-600">470 / 500 un</span>
         </div>
         <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
           <div className="bg-gradient-to-r from-[#1D68C4] to-[#8F33F5] h-full w-[94%] rounded-full group-hover:w-[100%] transition-all duration-700 ease-out" />
         </div>
-        <p className="text-[10px] text-slate-400 font-light leading-relaxed">
+        <p className="text-[10px] text-slate-600 font-light leading-relaxed">
           Atualizado em tempo real. Disparo automático de novo lote configurado.
         </p>
       </div>
@@ -210,7 +210,7 @@ function PaletteWidget() {
             >
               Comprar Ingresso
             </span>
-            <span className="text-[8px] text-slate-400 font-light">Customizado</span>
+            <span className="text-[8px] text-slate-600 font-light">Customizado</span>
           </div>
         </div>
       </div>
@@ -261,12 +261,12 @@ function SocialWidget() {
 
       {/* Pop-up de Comprovação */}
       <div className="w-full bg-[#8F33F5]/[0.01] border border-[#8F33F5]/10 rounded-xl p-2.5 flex items-center gap-2.5 shadow-sm group-hover:bg-[#8F33F5]/5 transition-all duration-500">
-        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-green-600 shrink-0">
+        <div className="w-6 h-6 rounded-full bg-green-50 flex items-center justify-center text-green-700 shrink-0">
           <CheckCircle2 className="w-3.5 h-3.5 fill-current" />
         </div>
         <div className="flex-1 text-left">
           <div className="text-[9px] font-extrabold text-slate-800">Ana Souza comprou!</div>
-          <div className="text-[7px] text-slate-400 font-light mt-0.5">Há 4s • Ingresso VIP Pista</div>
+          <div className="text-[7px] text-slate-600 font-light mt-0.5">Há 4s • Ingresso VIP Pista</div>
         </div>
       </div>
     </div>
@@ -278,11 +278,11 @@ function ChartWidget() {
     <div className="w-full max-w-[420px] flex flex-col sm:flex-row items-center gap-6 p-2">
       {/* Painel Financeiro */}
       <div className="space-y-1.5 text-center sm:text-left min-w-[130px] shrink-0">
-        <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest">FATURAMENTO</div>
+        <div className="text-[9px] font-extrabold text-slate-600 uppercase tracking-widest">FATURAMENTO</div>
         <h3 className="text-xl font-extrabold tracking-tight font-serif text-slate-900 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-purple-600 transition-all duration-500">
           R$ 84.192,00
         </h3>
-        <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+        <span className="inline-flex items-center gap-1 text-[8px] font-extrabold text-green-700 bg-green-50 px-2 py-0.5 rounded-full">
           +18.4% esta semana
         </span>
       </div>
@@ -360,7 +360,7 @@ function SecurityWidget() {
         <Shield className="w-5 h-5 text-[#1D68C4] group-hover:text-[#8F33F5] transition-colors duration-500 fill-current opacity-10 absolute" />
         <Shield className="w-5 h-5 text-[#1D68C4] group-hover:text-[#8F33F5] transition-colors duration-500 relative z-10" />
       </div>
-      <div className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-3.5 relative z-10">
+      <div className="text-[8px] font-bold text-slate-600 uppercase tracking-widest mt-3.5 relative z-10">
         Criptografia Ativa
       </div>
     </div>
@@ -449,7 +449,7 @@ function WidgetStep3({ isHovered }: { isHovered: boolean }) {
         <circle cx="24" cy="24" r="16" stroke="currentColor" strokeWidth="0.5" strokeDasharray="1 3" />
       </svg>
       <svg
-        className={`w-6 h-6 text-[#10b981] relative z-10 transition-all duration-500 ease-out ${
+        className={`w-6 h-6 text-[#059669] relative z-10 transition-all duration-500 ease-out ${
           isHovered ? 'scale-115 -translate-y-1.5 filter drop-shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'scale-100 translate-y-0'
         }`}
         viewBox="0 0 24 24"
@@ -505,8 +505,8 @@ function HowItWorksCard({
 
   const getBadgeColors = () => {
     switch (stepIndex) {
-      case 0: return 'bg-[#8f33f5]/10 text-[#8f33f5] border-[#8f33f5]/20'
-      case 1: return 'bg-[#1d68c4]/10 text-[#1d68c4] border-[#1d68c4]/20'
+      case 0: return 'bg-[#8f33f5]/10 text-[#a78bfa] border-[#8f33f5]/20'
+      case 1: return 'bg-[#1d68c4]/10 text-[#60a5fa] border-[#1d68c4]/20'
       case 2: return 'bg-[#10b981]/10 text-[#10b981] border-[#10b981]/20'
       default: return 'bg-white/10 text-white/80 border-white/20'
     }
@@ -565,7 +565,7 @@ function HowItWorksCard({
             <h3 className="text-white text-lg font-bold font-serif group-hover:text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 transition-all duration-300">
               {title}
             </h3>
-            <p className="text-white/40 text-[11.5px] font-light leading-relaxed group-hover:text-white/50 transition-colors duration-300">
+            <p className="text-white/60 text-[11.5px] font-light leading-relaxed group-hover:text-white/70 transition-colors duration-300">
               {desc}
             </p>
           </div>
@@ -677,13 +677,13 @@ export default function Home() {
             <h2 className="text-[var(--espresso)]">
               Eventos em <em style={{ color: 'var(--plum)' }}>Destaque</em>
             </h2>
-            <p className="text-[var(--ink-faint)] text-sm mt-2 max-w-md">
+            <p className="text-slate-400 text-sm mt-2 max-w-md">
               Fique por dentro das experiências mais exclusivas e procuradas na nossa plataforma.
             </p>
           </div>
           <Link
             to="/events"
-            className="text-xs font-bold text-plum hover:text-plum/80 flex items-center gap-1 group transition-all"
+            className="text-xs font-bold text-plum-light hover:text-white flex items-center gap-1 group transition-all"
           >
             Buscar Todos os Eventos 
             <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
@@ -713,7 +713,7 @@ export default function Home() {
                 className="stat-num bg-white/[0.01] border border-white/[0.05] backdrop-blur-sm rounded-2xl p-6 hover:border-white/10 hover:bg-white/[0.03] transition-all duration-500 flex flex-col justify-between h-36 group text-left"
               >
                 <div>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-[0.15em] font-extrabold block">
+                  <span className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-extrabold block">
                     {stat.label}
                   </span>
                   {/* Número que conta via GSAP */}
@@ -757,7 +757,7 @@ export default function Home() {
             <h2 className="text-slate-900 font-serif text-4xl sm:text-5xl font-extrabold tracking-tight mt-5 leading-tight">
               Tudo que você <em className="text-gradient not-italic">precisa</em>
             </h2>
-            <p className="text-slate-400 text-sm mt-4 max-w-md mx-auto leading-relaxed font-light">
+            <p className="text-slate-600 text-sm mt-4 max-w-md mx-auto leading-relaxed font-light">
               Ferramentas de altíssima fidelidade e UX projetadas para elevar o nível da produção do seu evento.
             </p>
           </div>
@@ -841,7 +841,7 @@ export default function Home() {
                     <Sparkles className="w-5 h-5 text-purple-400 animate-pulse" />
                   </div>
                   <h5 className="text-white text-base font-bold font-serif">Infraestrutura Exclusiva</h5>
-                  <p className="text-[11px] text-white/40 max-w-[180px] font-light leading-relaxed">
+                  <p className="text-[11px] text-white/60 max-w-[180px] font-light leading-relaxed">
                     Sua plataforma própria com taxas customizadas de produtor sênior.
                   </p>
                 </div>
@@ -881,7 +881,7 @@ export default function Home() {
             <h2 className="text-white">
               Como <em className="text-gradient not-italic">Funciona</em>
             </h2>
-            <p className="text-white/30 text-sm mt-4 max-w-sm mx-auto font-light">
+            <p className="text-white/60 text-sm mt-4 max-w-sm mx-auto font-light">
               Três passos simples para transformar sua visão em realidade.
             </p>
           </div>
@@ -939,7 +939,7 @@ export default function Home() {
               Pronto para criar<br />
               <em className="text-gradient not-italic">algo extraordinário?</em>
             </h2>
-            <p className="text-slate-400 text-sm mb-10 max-w-sm mx-auto leading-relaxed">
+            <p className="text-slate-600 text-sm mb-10 max-w-sm mx-auto leading-relaxed">
               Junte-se a milhares de criadores que já transformam experiências com a Evokaa.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -952,7 +952,7 @@ export default function Home() {
               </Link>
               <Link
                 to="/producer/brand"
-                className="btn-ghost"
+                className="btn-ghost text-slate-800 border-slate-300"
               >
                 Explorar Brand Studio
               </Link>

@@ -260,7 +260,7 @@ export default function AnimatedHero() {
         </div>
 
         {/* Subtitle */}
-        <p className="hero-desc text-lg sm:text-xl text-espresso/50 max-w-xl mx-auto mb-12 leading-relaxed font-light">
+        <p className="hero-desc text-lg sm:text-xl text-espresso/70 max-w-xl mx-auto mb-12 leading-relaxed font-light">
           A plataforma definitiva para criadores de experiencias. 
           Crie, gerencie e venda ingressos para eventos que deixam marcas.
         </p>
@@ -297,7 +297,7 @@ export default function AnimatedHero() {
           ].map((stat) => (
             <div key={stat.label} className="text-center">
               <div className="font-serif text-2xl lg:text-3xl text-plum">{stat.value}</div>
-              <div className="text-xs text-espresso/40 uppercase tracking-widest mt-1">{stat.label}</div>
+              <div className="text-xs text-espresso/70 uppercase tracking-widest mt-1">{stat.label}</div>
             </div>
           ))}
         </div>
@@ -305,7 +305,7 @@ export default function AnimatedHero() {
 
       {/* Scroll indicator */}
       <div className="hero-scroll absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-3">
-        <span className="text-[10px] text-espresso/30 uppercase tracking-[0.2em]">Rolar</span>
+        <span className="text-[10px] text-espresso/70 uppercase tracking-[0.2em]">Rolar</span>
         <div className="w-px h-10 bg-gradient-to-b from-espresso/30 to-transparent relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-4 bg-plum/60 animate-bounce" style={{ animationDuration: '2s' }} />
         </div>

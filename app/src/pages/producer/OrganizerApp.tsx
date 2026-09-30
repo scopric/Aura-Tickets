@@ -28,25 +28,25 @@ export default function OrganizerApp() {
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">App do Organizador</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie seus eventos na palma da mao</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie seus eventos na palma da mao</p>
         </div>
       </div>
 
       {/* Hero */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12 items-center">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-600 text-[10px] font-medium mb-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-green-50 text-green-700 text-[10px] font-medium mb-4">
             <Zap className="w-3 h-3" /> PWA — Funciona em qualquer celular
           </div>
           <h2 className="font-serif text-3xl text-espresso mb-4">
             Controle total do seu evento, <em style={{ color: 'var(--plum)' }}>onde estiver</em>
           </h2>
-          <p className="text-sm text-espresso/50 mb-6 leading-relaxed">
+          <p className="text-sm text-espresso/70 mb-6 leading-relaxed">
             Nosso app PWA (Progressive Web App) funciona diretamente no navegador do seu celular, 
             sem precisar baixar nada da loja. Instale na tela inicial e use como um app nativo.
           </p>
@@ -56,7 +56,7 @@ export default function OrganizerApp() {
               Saiba Mais
             </Link>
           </div>
-          <div className="flex items-center gap-4 text-[10px] text-espresso/30">
+          <div className="flex items-center gap-4 text-[10px] text-espresso/70">
             <span className="flex items-center gap-1"><Shield className="w-3 h-3" /> Login seguro</span>
           </div>
         </div>
@@ -69,7 +69,7 @@ export default function OrganizerApp() {
               <div className="p-4 h-full">
                 <div className="flex items-center justify-between mb-6 mt-4">
                   <div>
-                    <div className="text-[10px] text-espresso/30">Seu evento</div>
+                    <div className="text-[10px] text-espresso/70">Seu evento</div>
                     <div className="text-sm font-medium text-espresso">Dashboard</div>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-plum/10 flex items-center justify-center">
@@ -79,16 +79,16 @@ export default function OrganizerApp() {
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   <div className="p-3 bg-white/60 rounded-xl">
                     <div className="text-lg font-medium text-espresso">—</div>
-                    <div className="text-[9px] text-espresso/30">Check-ins</div>
+                    <div className="text-[9px] text-espresso/70">Check-ins</div>
                   </div>
                   <div className="p-3 bg-white/60 rounded-xl">
                     <div className="text-lg font-medium text-green-600">—</div>
-                    <div className="text-[9px] text-espresso/30">Ocupacao</div>
+                    <div className="text-[9px] text-espresso/70">Ocupacao</div>
                   </div>
                 </div>
                 <div className="p-3 bg-white/60 rounded-xl mb-4">
                   <div className="flex justify-between mb-2">
-                    <span className="text-[10px] text-espresso/40">Vendas em tempo real</span>
+                    <span className="text-[10px] text-espresso/70">Vendas em tempo real</span>
                     <span className="text-[10px] text-green-600">—</span>
                   </div>
                   <div className="flex items-end gap-1 h-16">
@@ -98,7 +98,7 @@ export default function OrganizerApp() {
                   </div>
                 </div>
                 <div className="p-3 bg-white/60 rounded-xl">
-                  <div className="text-[10px] text-espresso/40 mb-2">Ultimos check-ins</div>
+                  <div className="text-[10px] text-espresso/70 mb-2">Ultimos check-ins</div>
                   {['—', '—', '—'].map((name, i) => (
                     <div key={i} className="flex items-center gap-2 py-1.5 border-b border-white/40 last:border-0">
                       <div className="w-6 h-6 rounded-full bg-plum/10 flex items-center justify-center">
@@ -123,7 +123,7 @@ export default function OrganizerApp() {
               <f.icon className="w-5 h-5" style={{ color: f.color }} />
             </div>
             <h3 className="text-sm font-medium text-espresso mb-1">{f.title}</h3>
-            <p className="text-xs text-espresso/40 leading-relaxed">{f.desc}</p>
+            <p className="text-xs text-espresso/70 leading-relaxed">{f.desc}</p>
           </div>
         ))}
       </div>
@@ -140,7 +140,7 @@ export default function OrganizerApp() {
             <div key={s.step} className="text-center">
               <div className="font-serif text-4xl mb-3" style={{ color: 'var(--plum)', opacity: 0.3 }}>{s.step}</div>
               <h3 className="text-sm font-medium text-espresso mb-1">{s.title}</h3>
-              <p className="text-xs text-espresso/40">{s.desc}</p>
+              <p className="text-xs text-espresso/70">{s.desc}</p>
             </div>
           ))}
         </div>

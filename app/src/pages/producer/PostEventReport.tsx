@@ -55,7 +55,7 @@ export default function PostEventReport() {
     return (
       <div className="p-6 lg:p-10 max-w-6xl mx-auto flex flex-col items-center justify-center py-20">
         <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/60 text-sm">Carregando relatorio...</p>
+        <p className="text-espresso/70 text-sm">Carregando relatorio...</p>
       </div>
     )
   }
@@ -63,12 +63,12 @@ export default function PostEventReport() {
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto">
       <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/50 hover:text-espresso transition-colors">
+        <Link to="/producer/dashboard" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">Relatorio Pos-Evento</h1>
-          <p className="text-sm text-espresso/50 mt-1">{selectedEvent?.title || 'Selecione um evento'} — Analise completa de desempenho</p>
+          <p className="text-sm text-espresso/70 mt-1">{selectedEvent?.title || 'Selecione um evento'} — Analise completa de desempenho</p>
         </div>
         <select
           value={selectedEventId || ''}
@@ -98,7 +98,7 @@ export default function PostEventReport() {
           <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
             <k.icon className="w-4 h-4 mb-2" style={{ color: k.color }} />
             <div className="font-serif text-2xl" style={{ color: k.color }}>{k.value}</div>
-            <div className="text-[10px] text-espresso/40 mt-1 uppercase tracking-wider">{k.label}</div>
+            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
           </div>
         ))}
       </div>
@@ -114,19 +114,19 @@ export default function PostEventReport() {
             <div className="p-4 bg-green-50/50 rounded-xl text-center">
               <ThumbsUp className="w-5 h-5 text-green-600 mx-auto mb-2" />
               <div className="text-2xl font-serif text-green-600">{report.promoters}</div>
-              <div className="text-xs text-espresso/40">Promotores (9-10)</div>
+              <div className="text-xs text-espresso/70">Promotores (9-10)</div>
               <div className="text-[10px] text-green-600 mt-1">{report.totalResponses > 0 ? Math.round((report.promoters / report.totalResponses) * 100) : 0}%</div>
             </div>
             <div className="p-4 bg-amber-50/50 rounded-xl text-center">
               <div className="w-5 h-5 rounded-full border-2 border-amber-400 mx-auto mb-2" />
               <div className="text-2xl font-serif text-amber-600">{report.passives}</div>
-              <div className="text-xs text-espresso/40">Passivos (7-8)</div>
+              <div className="text-xs text-espresso/70">Passivos (7-8)</div>
               <div className="text-[10px] text-amber-600 mt-1">{report.totalResponses > 0 ? Math.round((report.passives / report.totalResponses) * 100) : 0}%</div>
             </div>
             <div className="p-4 bg-red-50/50 rounded-xl text-center">
               <ThumbsDown className="w-5 h-5 text-red-500 mx-auto mb-2" />
               <div className="text-2xl font-serif text-red-500">{report.detractors}</div>
-              <div className="text-xs text-espresso/40">Detratores (0-6)</div>
+              <div className="text-xs text-espresso/70">Detratores (0-6)</div>
               <div className="text-[10px] text-red-500 mt-1">{report.totalResponses > 0 ? Math.round((report.detractors / report.totalResponses) * 100) : 0}%</div>
             </div>
             <div className="md:col-span-3 mt-2">
@@ -135,7 +135,7 @@ export default function PostEventReport() {
                 <div className="h-full bg-amber-400" style={{ width: `${report.totalResponses > 0 ? (report.passives / report.totalResponses) * 100 : 0}%` }} />
                 <div className="h-full bg-red-400" style={{ width: `${report.totalResponses > 0 ? (report.detractors / report.totalResponses) * 100 : 0}%` }} />
               </div>
-              <div className="flex justify-between text-[9px] text-espresso/20 mt-1">
+              <div className="flex justify-between text-[9px] text-espresso/70 mt-1">
                 <span>-100</span>
                 <span>0</span>
                 <span>+100</span>
@@ -154,14 +154,14 @@ export default function PostEventReport() {
         {showHeatmap && (
           <div>
             <div className="flex items-center justify-center h-40 bg-canvas rounded-xl mb-4">
-              <p className="text-xs text-espresso/30">Dados de check-in por horario serao exibidos aqui quando disponiveis.</p>
+              <p className="text-xs text-espresso/70">Dados de check-in por horario serao exibidos aqui quando disponiveis.</p>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {zones.length > 0 ? zones.map(z => (
                 <div key={z.id} className="p-3 bg-white/40 rounded-xl flex items-center justify-between">
                   <div>
                     <div className="text-xs font-medium text-espresso">{z.name}</div>
-                    <div className="text-[10px] text-espresso/30">{z.expected_visitors} visitantes · tempo medio {z.avg_time_minutes}min</div>
+                    <div className="text-[10px] text-espresso/70">{z.expected_visitors} visitantes · tempo medio {z.avg_time_minutes}min</div>
                   </div>
                   <div className="flex items-center gap-1">
                     <Star className="w-3 h-3 text-amber-400" />
@@ -170,7 +170,7 @@ export default function PostEventReport() {
                 </div>
               )) : (
                 <div className="md:col-span-2 text-center py-4">
-                  <p className="text-xs text-espresso/30">Nenhuma zona cadastrada para este evento.</p>
+                  <p className="text-xs text-espresso/70">Nenhuma zona cadastrada para este evento.</p>
                 </div>
               )}
             </div>
@@ -183,7 +183,7 @@ export default function PostEventReport() {
         <button onClick={() => setShowComments(!showComments)} className="w-full flex items-center justify-between mb-4">
           <h2 className="text-sm font-medium text-espresso flex items-center gap-2"><MessageSquare className="w-4 h-4 text-plum" /> Comentarios dos Participantes</h2>
           <div className="flex items-center gap-2">
-            <span className="text-[10px] text-espresso/30">{surveys.length} respostas</span>
+            <span className="text-[10px] text-espresso/70">{surveys.length} respostas</span>
             {showComments ? <ChevronUp className="w-4 h-4 text-espresso/30" /> : <ChevronDown className="w-4 h-4 text-espresso/30" />}
           </div>
         </button>
@@ -191,17 +191,17 @@ export default function PostEventReport() {
           <div className="space-y-3">
             {surveys.map((r, i) => (
               <div key={i} className="flex items-start gap-3 p-3 bg-white/40 rounded-xl">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${r.score >= 9 ? 'bg-green-50 text-green-600' : r.score >= 7 ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-500'}`}>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${r.score >= 9 ? 'bg-green-50 text-green-700' : r.score >= 7 ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-500'}`}>
                   {r.score}
                 </div>
                 <div className="flex-1">
                   <div className="text-xs text-espresso/70">{r.comment || 'Sem comentario'}</div>
-                  <div className="text-[10px] text-espresso/25 mt-1">{r.participant_email} · {new Date(r.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</div>
+                  <div className="text-[10px] text-espresso/70 mt-1">{r.participant_email} · {new Date(r.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}</div>
                 </div>
               </div>
             ))}
             {surveys.length === 0 && (
-              <p className="text-xs text-espresso/30 text-center py-4">Nenhuma resposta de pesquisa ainda.</p>
+              <p className="text-xs text-espresso/70 text-center py-4">Nenhuma resposta de pesquisa ainda.</p>
             )}
           </div>
         )}
@@ -217,7 +217,7 @@ export default function PostEventReport() {
             'O pico de ocupacao geralmente ocorre 2-3 horas apos a abertura. Considere programar atracoes principais nesse horario.',
             'Investir em experiencias VIP tende a gerar satisfacao superior e maior disposicao a pagar.',
           ].map((insight, i) => (
-            <div key={i} className="flex items-start gap-2 text-xs text-espresso/60">
+            <div key={i} className="flex items-start gap-2 text-xs text-espresso/70">
               <div className="w-1.5 h-1.5 rounded-full bg-plum mt-1.5 flex-shrink-0" />
               {insight}
             </div>

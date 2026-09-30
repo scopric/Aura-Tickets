@@ -42,8 +42,8 @@ function WidgetFidelity({ isHovered }: { isHovered: boolean }) {
           }}
         />
       </div>
-      <span className={`text-[7px] font-extrabold tracking-widest text-[#8f33f5] uppercase transition-all duration-500 ${
-        isHovered ? 'opacity-100 scale-105' : 'opacity-60 scale-100'
+      <span className={`text-[7px] font-extrabold tracking-widest text-[#6d28d9] uppercase transition-all duration-500 ${
+        isHovered ? 'opacity-100 scale-105' : 'opacity-90 scale-100'
       }`}>
         Sem Vínculo
       </span>
@@ -58,7 +58,7 @@ function WidgetNoFees({ isHovered }: { isHovered: boolean }) {
         isHovered ? 'scale-110 bg-[#06b6d4]/10' : 'scale-100'
       }`} />
       <div className="flex flex-col items-center gap-1 relative z-10">
-        <div className="relative text-[9px] font-bold text-slate-400 font-sans tracking-tight">
+        <div className="relative text-[9px] font-bold text-slate-600 font-sans tracking-tight">
           R$ 299
           <div className={`absolute top-1/2 left-0 right-0 h-[1.5px] bg-red-500 origin-left transition-transform duration-500 ${
             isHovered ? 'scale-x-100' : 'scale-x-0'
@@ -106,7 +106,7 @@ function WidgetFastActivation({ isHovered }: { isHovered: boolean }) {
       </svg>
       <div className="absolute inset-0 flex items-center justify-center z-20">
         <span className={`text-[10px] font-extrabold transition-all duration-500 ${
-          isHovered ? 'text-green-500 scale-110' : 'text-[#ef4444]'
+          isHovered ? 'text-green-700 scale-110' : 'text-[#b91c1c]'
         }`}>
           5min
         </span>
@@ -115,7 +115,7 @@ function WidgetFastActivation({ isHovered }: { isHovered: boolean }) {
         isHovered ? 'opacity-100 scale-90 translate-y-0' : 'opacity-0 scale-75 translate-y-1'
       }`}>
         <span className="w-1 h-1 rounded-full bg-green-500 animate-ping" />
-        <span className="text-[6px] font-black text-green-600 uppercase tracking-widest">Online</span>
+        <span className="text-[6px] font-black text-green-700 uppercase tracking-widest">Online</span>
       </div>
     </div>
   )
@@ -225,7 +225,7 @@ function TrustCard({ iconType, title, desc, accent = '#1d68c4' }: { iconType: 's
         <h4 className="text-sm font-bold text-slate-800 tracking-tight font-serif mb-2 group-hover:text-slate-950 transition-colors duration-300">
           {title}
         </h4>
-        <p className="text-[12px] text-slate-500/90 font-light leading-relaxed max-w-[200px]">
+        <p className="text-[12px] text-slate-600 font-light leading-relaxed max-w-[200px]">
           {desc}
         </p>
       </div>
@@ -249,7 +249,7 @@ function WidgetFree({ isHovered }: { isHovered: boolean }) {
       
       {/* Símbolo central: Cubo geométrico em perspectiva (estilo blueprint/outline) */}
       <svg
-        className={`w-6 h-6 text-[#10b981] relative z-10 transition-transform duration-500 ${
+        className={`w-6 h-6 text-[#059669] relative z-10 transition-transform duration-500 ${
           isHovered ? 'scale-110' : 'scale-100'
         }`}
         viewBox="0 0 24 24"
@@ -559,12 +559,12 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
   const cardContent = (
     <div className={baseCardStyles}>
       {plan.free && !plan.popular && (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-500 z-30">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-700 z-30">
           Gratuito
         </span>
       )}
       {isBest && (
-        <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-500 shadow-md z-30">
+        <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full text-[9px] font-bold text-white uppercase tracking-wider bg-green-700 shadow-md z-30">
           Ideal para Você
         </span>
       )}
@@ -577,7 +577,7 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
         </div>
 
         <h3 className="text-xl font-bold text-slate-900 font-serif">{plan.name}</h3>
-        <p className="text-xs text-slate-400 mt-1 min-h-[32px] leading-relaxed">{plan.tagline}</p>
+        <p className="text-xs text-slate-600 mt-1 min-h-[32px] leading-relaxed">{plan.tagline}</p>
 
         <div className="flex items-baseline gap-1 mt-5 mb-5">
           {plan.free ? (
@@ -585,22 +585,22 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
           ) : (
             <>
               <span className="text-3xl font-extrabold text-slate-900">R$ {plan.monthlyCost}</span>
-              <span className="text-xs text-slate-400">/mês</span>
+              <span className="text-xs text-slate-600">/mês</span>
             </>
           )}
         </div>
 
         <div className="mb-6 p-3 rounded-xl bg-slate-50 border border-slate-100">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Taxa de venda</span>
+            <span className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold">Taxa de venda</span>
             <span className="text-xs font-bold" style={{ color: plan.color }}>{plan.fee}%</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Valor mínimo</span>
+            <span className="text-[10px] text-slate-600 uppercase tracking-wider font-semibold">Valor mínimo</span>
             {plan.feeMin > 0 ? (
               <span className="text-[10px] text-slate-600 font-medium">R$ {plan.feeMin}</span>
             ) : (
-              <span className="text-[10px] text-green-600 font-bold uppercase tracking-wider bg-green-50 px-1.5 py-0.5 rounded">Isento</span>
+              <span className="text-[10px] text-green-700 font-bold uppercase tracking-wider bg-green-50 px-1.5 py-0.5 rounded">Isento</span>
             )}
           </div>
         </div>
@@ -608,7 +608,7 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
         <div className="space-y-3 mb-6">
           {plan.highlights.map((feat, i) => (
             <div key={i} className="flex items-start gap-2.5 text-[11px] text-slate-500 leading-snug">
-              <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+              <Check className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />
               <span>{feat}</span>
             </div>
           ))}
@@ -620,7 +620,7 @@ function PlanCard({ plan, isBest, period }: PlanCardProps) {
         onClick={() => irParaCadastro(plan.id)}
         className={`w-full py-3 text-xs font-bold rounded-full transition-all duration-300 focus:outline-none ${
           plan.free 
-            ? 'bg-green-500 hover:bg-green-600 text-white hover:shadow-lg' 
+            ? 'bg-green-700 hover:bg-green-800 text-white hover:shadow-lg' 
             : plan.popular
               ? 'text-white hover:shadow-lg'
               : 'border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
@@ -728,7 +728,7 @@ const pricingPlans: Plan[] = [
     name: planName('free'),
     tagline: 'Perfeito para começar sem custos fixos',
     monthlyPrice: planPrice('free'),
-    color: '#10b981', // Verde
+    color: '#047857', // Verde (emerald-700: 5,5:1 no branco; #10b981 dava 2,4:1 nos 12%)
     free: true,
     fee: 12,
     feeMin: 3.99,
@@ -1040,7 +1040,7 @@ export default function PricingSection() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900 font-serif">Simule sua Economia Real</h3>
-              <p className="text-xs text-slate-400">Descubra qual plano é o mais vantajoso com base no seu volume de vendas.</p>
+              <p className="text-xs text-slate-600">Descubra qual plano é o mais vantajoso com base no seu volume de vendas.</p>
             </div>
           </div>
 
@@ -1061,7 +1061,7 @@ export default function PricingSection() {
                   onChange={(e) => setTicketPrice(Number(e.target.value))}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1d68c4]"
                 />
-                <div className="flex justify-between text-[10px] text-slate-400">
+                <div className="flex justify-between text-[10px] text-slate-600">
                   <span>R$ 0 (Gratuito)</span>
                   <span>R$ 500</span>
                 </div>
@@ -1081,7 +1081,7 @@ export default function PricingSection() {
                   onChange={(e) => setTicketsCount(Number(e.target.value))}
                   className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-[#1d68c4]"
                 />
-                <div className="flex justify-between text-[10px] text-slate-400">
+                <div className="flex justify-between text-[10px] text-slate-600">
                   <span>10 ingressos</span>
                   <span>2.000 ingressos</span>
                 </div>
@@ -1125,7 +1125,7 @@ export default function PricingSection() {
                   </div>
                 </div>
 
-                <p className="text-[9px] text-white/40 leading-relaxed font-light">
+                <p className="text-[9px] text-white/60 leading-relaxed font-light">
                   * As taxas de vendas por ingresso são descontadas diretamente de cada venda realizada e não vêm cobradas no seu boleto/fatura mensal.
                 </p>
               </div>
@@ -1155,7 +1155,7 @@ export default function PricingSection() {
                   <span>{label}</span>
                   {discount && (
                     <span className={`text-[8px] px-1.5 py-0.5 rounded-full font-extrabold ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-green-500/10 text-green-600'
+                      isActive ? 'bg-white/20 text-white' : 'bg-green-500/10 text-green-700'
                     }`}>
                       {discount}
                     </span>
@@ -1231,9 +1231,9 @@ export default function PricingSection() {
                               <td key={pKey} className="p-4 text-center text-xs text-slate-500">
                                 {typeof val === 'boolean' ? (
                                   val ? (
-                                    <Check className="w-4 h-4 text-green-500 mx-auto" />
+                                    <Check className="w-4 h-4 text-green-600 mx-auto" />
                                   ) : (
-                                    <X className="w-4 h-4 text-slate-300 mx-auto" />
+                                    <X className="w-4 h-4 text-slate-500 mx-auto" />
                                   )
                                 ) : (
                                   <span className="font-semibold text-slate-600">{val}</span>
@@ -1260,7 +1260,7 @@ export default function PricingSection() {
               
               <div className="space-y-1 relative z-10">
                 <h3 className="text-base sm:text-lg font-bold text-slate-800 font-serif">Ficou com dúvida sobre qual plano escolher?</h3>
-                <p className="text-xs text-slate-400 font-light max-w-xl">Nós te ajudamos a escolher o melhor plano com base no tamanho do seu evento e no suporte que você precisa.</p>
+                <p className="text-xs text-slate-600 font-light max-w-xl">Nós te ajudamos a escolher o melhor plano com base no tamanho do seu evento e no suporte que você precisa.</p>
               </div>
               
               <button
@@ -1285,7 +1285,7 @@ export default function PricingSection() {
               <button 
                 type="button" 
                 onClick={handleResetQuiz}
-                className="absolute top-4 right-4 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-colors uppercase tracking-wider"
+                className="absolute top-4 right-4 text-[10px] font-bold text-slate-600 hover:text-slate-800 transition-colors uppercase tracking-wider"
               >
                 Cancelar
               </button>
@@ -1305,7 +1305,7 @@ export default function PricingSection() {
                       key={oIdx}
                       type="button"
                       onClick={() => handleSelectQuizOption(opt.value)}
-                      className="w-full p-3.5 text-left text-xs text-slate-600 hover:text-[#8f33f5] bg-slate-50/50 hover:bg-[#8f33f5]/5 border border-slate-200/50 hover:border-[#8f33f5]/30 rounded-xl transition-all duration-300 flex items-center justify-between font-medium group"
+                      className="w-full p-3.5 text-left text-xs text-slate-700 hover:text-[#8f33f5] bg-slate-50/50 hover:bg-[#8f33f5]/5 border border-slate-200/50 hover:border-[#8f33f5]/30 rounded-xl transition-all duration-300 flex items-center justify-between font-medium group"
                     >
                       <span>{opt.label}</span>
                       <div className="w-4 h-4 rounded-full border border-slate-300 flex items-center justify-center group-hover:border-[#8f33f5] transition-all duration-300">
@@ -1323,11 +1323,11 @@ export default function PricingSection() {
               <div className="absolute -right-20 -bottom-20 w-48 h-48 bg-[#8f33f5]/5 rounded-full blur-2xl pointer-events-none" />
 
               <div className="space-y-2 relative z-10">
-                <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full">Recomendação Concluída</span>
+                <span className="text-[10px] font-bold text-green-700 uppercase tracking-widest bg-green-500/10 px-3 py-1 rounded-full">Recomendação Concluída</span>
                 <h3 className="text-xl sm:text-2xl font-bold text-slate-800 font-serif pt-2">
                   O plano perfeito para você é o <span className="text-gradient font-extrabold">{quizRecommendedPlan?.name}</span>!
                 </h3>
-                <p className="text-xs text-slate-400 font-light max-w-md mx-auto leading-relaxed">
+                <p className="text-xs text-slate-600 font-light max-w-md mx-auto leading-relaxed">
                   {quizRecommendedPlan?.tagline}. Só pague comissão de {quizRecommendedPlan?.fee}% sobre ingressos vendidos e tenha acesso completo aos recursos ideais.
                 </p>
               </div>

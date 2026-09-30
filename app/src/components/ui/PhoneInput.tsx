@@ -148,8 +148,8 @@ export default function PhoneInput({
 
       {/* Dropdown de Países */}
       {dropdownOpen && (
-        <div className="absolute top-full left-0 mt-1.5 w-64 bg-white/95 backdrop-blur-md border border-stone-200/80 rounded-2xl shadow-elevated z-50 py-1.5 overflow-hidden animate-fade-in max-h-60 overflow-y-auto">
-          <div className="px-3 py-1 text-[10px] font-bold text-espresso/40 uppercase tracking-wider border-b border-stone-100 mb-1">
+        <div className="absolute top-full left-0 mt-1.5 w-64 bg-white/95 dark:bg-canvas/90 backdrop-blur-md border border-stone-200/80 rounded-2xl shadow-elevated z-50 py-1.5 overflow-hidden animate-fade-in max-h-60 overflow-y-auto">
+          <div className="px-3 py-1 text-[10px] font-bold text-espresso/70 uppercase tracking-wider border-b border-stone-100 mb-1">
             Selecione o País
           </div>
           {COUNTRIES_DDI.map(c => (
@@ -161,7 +161,7 @@ export default function PhoneInput({
             >
               <span className="text-lg leading-none">{c.flag}</span>
               <span className="flex-1 truncate">{c.name}</span>
-              <span className="text-xs font-mono text-espresso/40">{c.code}</span>
+              <span className="text-xs font-mono text-espresso/70">{c.code}</span>
             </button>
           ))}
         </div>

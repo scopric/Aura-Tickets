@@ -72,7 +72,7 @@ export default function Footer() {
           {/* Links */}
           <div className="lg:col-span-4 grid grid-cols-2 gap-8">
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-widest text-white/40 mb-4">
+              <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
                 Plataforma
               </h4>
               <ul className="space-y-3">
@@ -98,7 +98,7 @@ export default function Footer() {
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-widest text-white/40 mb-4">
+              <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
                 Empresa
               </h4>
               <ul className="space-y-3">
@@ -118,7 +118,7 @@ export default function Footer() {
 
           {/* Newsletter */}
           <div className="lg:col-span-4">
-            <h4 className="text-xs font-medium uppercase tracking-widest text-white/40 mb-4">
+            <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
               Newsletter
             </h4>
             <p className="text-sm text-white/60 mb-4">
@@ -130,7 +130,7 @@ export default function Footer() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-cream placeholder:text-cream/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-cream placeholder:text-cream/70 focus:outline-none focus:border-blue-500/50 transition-colors"
               />
               <button
                 type="submit"
@@ -145,17 +145,17 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/60">
             &copy; 2025 Evokaa. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-6">
-            <Link to="/privacidade" className="text-xs text-white/40 hover:text-white/60 transition-colors">
+            <Link to="/privacidade" className="text-xs text-white/60 hover:text-white/80 transition-colors">
               Privacidade
             </Link>
-            <Link to="/termos" className="text-xs text-white/40 hover:text-white/60 transition-colors">
+            <Link to="/termos" className="text-xs text-white/60 hover:text-white/80 transition-colors">
               Termos
             </Link>
-            <button onClick={() => { if (typeof window !== 'undefined' && (window as any).__auraOpenCookieBanner) (window as any).__auraOpenCookieBanner() }} className="text-xs text-white/40 hover:text-white/60 transition-colors">
+            <button onClick={() => { if (typeof window !== 'undefined' && (window as any).__auraOpenCookieBanner) (window as any).__auraOpenCookieBanner() }} className="text-xs text-white/60 hover:text-white/80 transition-colors">
               Cookies
             </button>
           </div>

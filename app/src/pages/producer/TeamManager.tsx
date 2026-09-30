@@ -272,8 +272,8 @@ export default function TeamManager() {
 
   const roleLabels: Record<string, { label: string; cls: string }> = {
     admin: { label: 'Administrador', cls: 'bg-plum/10 text-plum border-plum/20' },
-    editor: { label: 'Editor', cls: 'bg-amber-50 text-amber-600 border-amber-100' },
-    viewer: { label: 'Visualizador', cls: 'bg-blue-50 text-blue-600 border-blue-100' },
+    editor: { label: 'Editor', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
+    viewer: { label: 'Visualizador', cls: 'bg-blue-50 text-blue-700 border-blue-100' },
     blocked: { label: 'Bloqueado', cls: 'bg-red-50 text-red-500 border-red-100' }
   }
 
@@ -283,16 +283,16 @@ export default function TeamManager() {
       <div className="flex items-start justify-between mb-8">
         <div>
           <h1 className="font-serif text-3xl text-espresso">Equipe</h1>
-          <p className="text-sm text-espresso/50 mt-1">Gerencie a equipe de administradores e permissões de acesso</p>
+          <p className="text-sm text-espresso/70 mt-1">Gerencie a equipe de administradores e permissões de acesso</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
-            <div className="font-serif text-2xl text-espresso">{members.filter(m => m.status === 'active').length}<span className="text-espresso/20">/5</span></div>
-            <div className="text-[10px] text-espresso/30 uppercase tracking-wider font-semibold">Membros ativos</div>
+            <div className="font-serif text-2xl text-espresso">{members.filter(m => m.status === 'active').length}<span className="text-espresso/70">/5</span></div>
+            <div className="text-[10px] text-espresso/70 uppercase tracking-wider font-semibold">Membros ativos</div>
           </div>
           <button
             onClick={() => canAddMore ? setShowInvite(!showInvite) : toast.error('Limite de 5 membros atingido')}
-            className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all flex items-center gap-2 ${canAddMore ? 'bg-plum text-cream hover:shadow-glow' : 'bg-espresso/5 text-espresso/20 cursor-not-allowed'}`}
+            className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all flex items-center gap-2 ${canAddMore ? 'bg-plum text-cream hover:shadow-glow' : 'bg-espresso/5 text-espresso/70 cursor-not-allowed'}`}
           >
             <Plus className="w-4 h-4" /> Convidar
           </button>
@@ -317,7 +317,7 @@ export default function TeamManager() {
             <div key={k.label} className="team-card p-5 rounded-2xl bg-white/60 border border-white/60">
               <k.icon className="w-4 h-4 text-plum mb-3" />
               <div className="font-serif text-2xl text-espresso">{k.value}</div>
-              <div className="text-[10px] text-espresso/30 mt-1 uppercase tracking-wider font-semibold">{k.label}</div>
+              <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider font-semibold">{k.label}</div>
             </div>
           ))}
         </div>
@@ -329,14 +329,14 @@ export default function TeamManager() {
           <h3 className="text-sm font-medium text-espresso mb-4">Convidar Membro</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="md:col-span-2">
-              <label className="text-xs text-espresso/40 mb-1 block">E-mail</label>
+              <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="colega@email.com" className="w-full pl-10 pr-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30" />
+                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="colega@email.com" className="w-full pl-10 pr-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               </div>
             </div>
             <div>
-              <label className="text-xs text-espresso/40 mb-1 block">Nível de Acesso</label>
+              <label className="text-xs text-espresso/70 mb-1 block">Nível de Acesso</label>
               <select value={inviteRole} onChange={e => setInviteRole(e.target.value as 'editor' | 'viewer')} aria-label="Nível de Acesso" title="Selecionar nível de acesso" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                 <option value="editor">Editor</option>
                 <option value="viewer">Visualizador</option>
@@ -345,7 +345,7 @@ export default function TeamManager() {
           </div>
           <div className="flex items-center gap-2 mt-3">
             <button onClick={handleInvite} className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2"><Mail className="w-4 h-4" /> Enviar Convite</button>
-            <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 text-sm text-espresso/40 hover:text-espresso transition-colors">Cancelar</button>
+            <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
           </div>
         </div>
       )}
@@ -374,19 +374,19 @@ export default function TeamManager() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-espresso">{member.name}</span>
                       <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${roleCfg.cls}`}>{roleCfg.label}</span>
-                      {member.status === 'pending' && <span className="px-2 py-0.5 bg-amber-50 text-amber-600 text-[10px] rounded-full border border-amber-100">Pendente</span>}
+                      {member.status === 'pending' && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] rounded-full border border-amber-100">Pendente</span>}
                       {member.status === 'blocked' && <span className="px-2 py-0.5 bg-red-50 text-red-500 text-[10px] rounded-full border border-red-100 font-medium">Bloqueado</span>}
                     </div>
-                    <div className="text-[11px] text-espresso/30 mt-0.5">{member.email} · Atividade: {member.lastActive}</div>
+                    <div className="text-[11px] text-espresso/70 mt-0.5">{member.email} · Atividade: {member.lastActive}</div>
                   </div>
                   <div className="hidden md:flex items-center gap-4 flex-shrink-0">
                     <div className="text-center">
                       <div className="text-xs font-semibold text-espresso">{member.assignedTasks}</div>
-                      <div className="text-[9px] text-espresso/30">Tarefas</div>
+                      <div className="text-[9px] text-espresso/70">Tarefas</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xs font-semibold text-green-600">{completion}%</div>
-                      <div className="text-[9px] text-espresso/30">Concluído</div>
+                      <div className="text-[9px] text-espresso/70">Concluído</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
@@ -407,7 +407,7 @@ export default function TeamManager() {
                       {member.status !== 'blocked' ? (
                         <button onClick={() => updateStatus(member.id, 'blocked')} className="px-3 py-1.5 bg-red-50 text-red-500 text-xs rounded-lg border border-red-100 hover:bg-red-100 transition-all flex items-center gap-1"><Ban className="w-3 h-3" /> Bloquear</button>
                       ) : (
-                        <button onClick={() => updateStatus(member.id, 'active')} className="px-3 py-1.5 bg-green-50 text-green-600 text-xs rounded-lg border border-green-100 hover:bg-green-100 transition-all flex items-center gap-1"><Check className="w-3 h-3" /> Ativar</button>
+                        <button onClick={() => updateStatus(member.id, 'active')} className="px-3 py-1.5 bg-green-50 text-green-700 text-xs rounded-lg border border-green-100 hover:bg-green-100 transition-all flex items-center gap-1"><Check className="w-3 h-3" /> Ativar</button>
                       )}
                       <button onClick={() => { setEditingMember(isEditing ? null : member.id) }} className="px-3 py-1.5 bg-plum/10 text-plum text-xs rounded-lg hover:bg-plum/20 transition-all flex items-center gap-1"><Shield className="w-3 h-3" /> {isEditing ? 'Fechar' : 'Permissões'}</button>
                       <button onClick={() => removeMember(member.id)} className="px-3 py-1.5 text-red-500 text-xs hover:bg-red-50 rounded-lg transition-all flex items-center gap-1 ml-auto"><Trash2 className="w-3 h-3" /> Remover</button>
@@ -418,7 +418,7 @@ export default function TeamManager() {
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
                           <h4 className="text-xs font-semibold text-espresso">Permissões de Módulo</h4>
-                          <div className="flex items-center gap-3 text-[10px] text-espresso/30">
+                          <div className="flex items-center gap-3 text-[10px] text-espresso/70">
                             <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> Ver</span>
                             <span className="flex items-center gap-1"><Edit3 className="w-3 h-3" /> Editar</span>
                             <span className="flex items-center gap-1"><Trash2 className="w-3 h-3" /> Excluir</span>
@@ -436,16 +436,16 @@ export default function TeamManager() {
                                     <span className="text-xs text-espresso">{mod.label}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <button onClick={() => updatePermission(member.id, key, 'view')} aria-label="Permissão de Visualização" title="Visualizar" className={`p-1 rounded transition-all ${perm.view ? 'bg-plum/10 text-plum' : 'bg-espresso/5 text-espresso/15'}`}><Eye className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => updatePermission(member.id, key, 'edit')} aria-label="Permissão de Edição" title="Editar" className={`p-1 rounded transition-all ${perm.edit ? 'bg-amber-50 text-amber-600' : 'bg-espresso/5 text-espresso/15'}`}><Edit3 className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => updatePermission(member.id, key, 'delete')} aria-label="Permissão de Exclusão" title="Excluir" className={`p-1 rounded transition-all ${perm.delete ? 'bg-red-50 text-red-500' : 'bg-espresso/5 text-espresso/15'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => updatePermission(member.id, key, 'view')} aria-label="Permissão de Visualização" title="Visualizar" className={`p-1 rounded transition-all ${perm.view ? 'bg-plum/10 text-plum' : 'bg-espresso/5 text-espresso/50'}`}><Eye className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => updatePermission(member.id, key, 'edit')} aria-label="Permissão de Edição" title="Editar" className={`p-1 rounded transition-all ${perm.edit ? 'bg-amber-50 text-amber-700' : 'bg-espresso/5 text-espresso/50'}`}><Edit3 className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => updatePermission(member.id, key, 'delete')} aria-label="Permissão de Exclusão" title="Excluir" className={`p-1 rounded transition-all ${perm.delete ? 'bg-red-50 text-red-500' : 'bg-espresso/5 text-espresso/50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
                                   </div>
                                 </div>
                                 <div className="flex gap-1">
                                   {perm.view && <span className="px-1.5 py-0.5 bg-plum/10 text-plum text-[9px] rounded-full">Ver</span>}
-                                  {perm.edit && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-600 text-[9px] rounded-full">Editar</span>}
+                                  {perm.edit && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] rounded-full">Editar</span>}
                                   {perm.delete && <span className="px-1.5 py-0.5 bg-red-50 text-red-500 text-[9px] rounded-full">Excluir</span>}
-                                  {!perm.view && !perm.edit && !perm.delete && <span className="text-[9px] text-espresso/20 font-medium">Sem acesso</span>}
+                                  {!perm.view && !perm.edit && !perm.delete && <span className="text-[9px] text-espresso/70 font-medium">Sem acesso</span>}
                                 </div>
                               </div>
                             )
@@ -458,15 +458,15 @@ export default function TeamManager() {
                     <div className="grid grid-cols-3 gap-3">
                       <div className="p-3 rounded-xl bg-canvas text-center">
                         <div className="text-sm font-semibold text-espresso">{member.assignedTasks}</div>
-                        <div className="text-[9px] text-espresso/30">Atribuídas</div>
+                        <div className="text-[9px] text-espresso/70">Atribuídas</div>
                       </div>
                       <div className="p-3 rounded-xl bg-canvas text-center">
                         <div className="text-sm font-semibold text-green-600">{member.completedTasks}</div>
-                        <div className="text-[9px] text-espresso/30">Concluídas</div>
+                        <div className="text-[9px] text-espresso/70">Concluídas</div>
                       </div>
                       <div className="p-3 rounded-xl bg-canvas text-center">
                         <div className="text-sm font-semibold text-espresso">{member.joinedAt}</div>
-                        <div className="text-[9px] text-espresso/30">Entrou em</div>
+                        <div className="text-[9px] text-espresso/70">Entrou em</div>
                       </div>
                     </div>
                   </div>

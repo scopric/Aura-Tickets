@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search } from 'lucide-react'
+import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -8,6 +8,7 @@ import { useAuthStore } from '../../stores/authStore'
 import { useUserTickets } from '../../hooks/useUserTickets'
 import { useUserOrders } from '../../hooks/useUserOrders'
 import { supabase } from '../../lib/supabase'
+import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput, { COUNTRIES_DDI } from '../../components/ui/PhoneInput'
 import { searchAddressByPostalCode } from '../../lib/cepService'
 import { formatCurrency } from '../../lib/formatters'
@@ -149,6 +150,15 @@ export default function ParticipantProfile() {
   }
 
   const isLoading = isLoadingTickets || isLoadingOrders
+  const fotoRef = useRef<HTMLInputElement>(null)
+  const [enviandoFoto, setEnviandoFoto] = useState(false)
+  const trocarFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !user?.id) return
+    setEnviandoFoto(true)
+    try { await uploadAvatar(file, user.id) } finally { setEnviandoFoto(false) }
+  }
 
   return (
     <div className="max-w-3xl">
@@ -157,9 +167,22 @@ export default function ParticipantProfile() {
       {/* Header Card */}
       <div className="p-6 rounded-3xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-20 h-20 rounded-full bg-plum/20 flex items-center justify-center text-2xl font-serif text-plum-light">
-            {(profile.name || 'U').charAt(0).toUpperCase()}
-          </div>
+          <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={trocarFoto} />
+          <button
+            type="button"
+            onClick={() => fotoRef.current?.click()}
+            disabled={enviandoFoto}
+            aria-label="Alterar foto de perfil"
+            title="Alterar foto de perfil"
+            className="relative w-20 h-20 shrink-0 rounded-full bg-plum/20 flex items-center justify-center text-2xl font-serif text-plum-light overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum disabled:opacity-60"
+          >
+            {user?.avatar_url || user?.avatar
+              ? <img src={user.avatar_url || user.avatar} alt="" className="w-full h-full object-cover" />
+              : (profile.name || 'U').charAt(0).toUpperCase()}
+            <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/55 py-1 text-[10px] font-sans text-[#fff]">{/* branco nos dois temas (.light .text-white escureceria) */}
+              {enviandoFoto ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Alterar
+            </span>
+          </button>
           <div className="flex-1">
             <h2 className="font-serif text-2xl text-cream">{profile.name || 'Usuário'}</h2>
             <p className="text-xs text-white/40">{profile.email}</p>
@@ -374,7 +397,7 @@ export default function ParticipantProfile() {
               aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
               aria-pressed={mfa.enabled}
               onClick={mfa.toggle}
-              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-white/10'} disabled:opacity-55`}
+              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-espresso/50'} disabled:opacity-55`}
             >
               <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
             </button>

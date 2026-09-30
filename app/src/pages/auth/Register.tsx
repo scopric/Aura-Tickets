@@ -132,7 +132,7 @@ export default function AuthRegister() {
       <button 
         type="button"
         onClick={handleBack}
-        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-espresso/40 hover:text-plum transition-colors"
+        className="absolute top-6 left-6 sm:top-8 sm:left-8 inline-flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-espresso/70 hover:text-plum transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         <span>Voltar</span>
@@ -144,7 +144,7 @@ export default function AuthRegister() {
             <img src="/images/logo-evokaa.png" alt="Evokaa" className="h-10 w-auto" />
           </Link>
           <h1 className="font-serif text-2xl text-espresso">Criar conta</h1>
-          <p className="text-sm text-espresso/50 mt-1">Comece a criar eventos ou participar</p>
+          <p className="text-sm text-espresso/70 mt-1">Comece a criar eventos ou participar</p>
         </div>
 
         {/* Indicador de Passos/Etapas */}
@@ -153,7 +153,7 @@ export default function AuthRegister() {
             <div className="flex-1 h-1 rounded-full bg-plum transition-all duration-300" />
             <div className={`flex-1 h-1 rounded-full transition-all duration-300 ${step === 2 ? 'bg-plum' : 'bg-espresso/10'}`} />
           </div>
-          <div className="flex justify-between items-center text-[10px] uppercase tracking-wider font-extrabold text-espresso/40">
+          <div className="flex justify-between items-center text-[10px] uppercase tracking-wider font-extrabold text-espresso/70">
             <span>Passo {step} de 2</span>
             <span>{step === 1 ? 'Identificação' : 'Preferências & Termos'}</span>
           </div>
@@ -165,14 +165,14 @@ export default function AuthRegister() {
               <button 
                 type="button"
                 onClick={() => setType('producer')} 
-                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center gap-1.5 ${type === 'producer' ? 'bg-plum text-cream' : 'text-espresso/50'}`}
+                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center gap-1.5 ${type === 'producer' ? 'bg-plum text-cream' : 'text-espresso/70'}`}
               >
                 <Building className="w-3.5 h-3.5" />Produtor
               </button>
               <button 
                 type="button"
                 onClick={() => setType('user')} 
-                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center gap-1.5 ${type === 'user' ? 'bg-plum text-cream' : 'text-espresso/50'}`}
+                className={`flex-1 py-2 text-xs font-medium rounded-full transition-all flex items-center justify-center gap-1.5 ${type === 'user' ? 'bg-plum text-cream' : 'text-espresso/70'}`}
               >
                 <User className="w-3.5 h-3.5" />Participante
               </button>
@@ -180,44 +180,44 @@ export default function AuthRegister() {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Nome</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nome</label>
                 <input
                   type="text"
                   value={name}
                   disabled={isSubmitting}
                   onChange={e => { setName(e.target.value); if (errors.name) setErrors(p => { const n = { ...p }; delete n.name; return n }) }}
                   placeholder="Seu nome"
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.name ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.name ? 'border-red-300' : 'border-white/60'}`}
                 />
                 {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name}</p>}
               </div>
               <div>
-                <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Sobrenome</label>
+                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Sobrenome</label>
                 <input
                   type="text"
                   value={lastName}
                   disabled={isSubmitting}
                   onChange={e => { setLastName(e.target.value); if (errors.lastName) setErrors(p => { const n = { ...p }; delete n.lastName; return n }) }}
                   placeholder="Sobrenome"
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.lastName ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.lastName ? 'border-red-300' : 'border-white/60'}`}
                 />
                 {errors.lastName && <p className="text-[10px] text-red-500 mt-1">{errors.lastName}</p>}
               </div>
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">E-mail</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">E-mail</label>
               <input
                 type="email"
                 value={email}
                 disabled={isSubmitting}
                 onChange={e => { setEmail(e.target.value); if (errors.email) setErrors(p => { const n = { ...p }; delete n.email; return n }) }}
                 placeholder="seu@email.com"
-                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.email ? 'border-red-300' : 'border-white/60'}`}
+                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.email ? 'border-red-300' : 'border-white/60'}`}
               />
               {errors.email && <p className="text-[10px] text-red-500 mt-1">{errors.email}</p>}
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Senha</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Senha</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -228,17 +228,17 @@ export default function AuthRegister() {
                   placeholder="Crie uma senha"
                   aria-describedby="password-hint"
                   aria-invalid={!!errors.password}
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
                 />
-                <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/30 hover:text-espresso transition-colors">
+                <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
               {/* dica em prosa antes de digitar; ao digitar, o checklist abaixo de "Confirmar senha" assume */}
-              <p id="password-hint" className={`text-[10px] mt-1 ${errors.password ? 'text-red-500' : 'text-espresso/50'}`}>{errors.password ?? (password.length > 0 ? '' : PASSWORD_HINT)}</p>
+              <p id="password-hint" className={`text-[10px] mt-1 ${errors.password ? 'text-red-500' : 'text-espresso/70'}`}>{errors.password ?? (password.length > 0 ? '' : PASSWORD_HINT)}</p>
             </div>
             <div>
-              <label className="text-xs font-medium text-espresso/60 mb-1.5 block">Confirmar senha</label>
+              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Confirmar senha</label>
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={confirmPassword}
@@ -247,7 +247,7 @@ export default function AuthRegister() {
                 onChange={e => { setConfirmPassword(e.target.value); if (errors.confirmPassword) setErrors(p => { const n = { ...p }; delete n.confirmPassword; return n }) }}
                 placeholder="Repita a senha"
                 aria-invalid={!!errors.confirmPassword}
-                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/30 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.confirmPassword ? 'border-red-300' : 'border-white/60'}`}
+                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.confirmPassword ? 'border-red-300' : 'border-white/60'}`}
               />
               {errors.confirmPassword && <p className="text-[10px] text-red-500 mt-1">{errors.confirmPassword}</p>}
               {password.length > 0 && <div className="mt-2"><AuthPasswordStrength password={password} confirmPassword={confirmPassword} /></div>}
@@ -265,14 +265,14 @@ export default function AuthRegister() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {type === 'producer' && (
               <div className="space-y-1">
-                <label htmlFor="affiliate-code" className="text-xs font-medium text-espresso/60 block">Código de indicação (opcional)</label>
+                <label htmlFor="affiliate-code" className="text-xs font-medium text-espresso/70 block">Código de indicação (opcional)</label>
                 <input
                   id="affiliate-code"
                   type="text"
                   value={affiliateCode}
                   onChange={e => setAffiliateCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30))}
                   placeholder="Se um consultor Evokaa indicou você"
-                  className="w-full px-4 py-3 bg-white border border-espresso/10 rounded-xl text-sm font-mono uppercase focus:outline-none focus:border-plum"
+                  className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm font-mono uppercase focus:outline-none focus:border-plum"
                   autoComplete="off"
                 />
               </div>
@@ -280,7 +280,7 @@ export default function AuthRegister() {
 
             {/* Componente de Canal de Aquisição */}
             <div className="space-y-1">
-              <label className="text-xs font-medium text-espresso/60 block">Como nos conheceu?</label>
+              <label className="text-xs font-medium text-espresso/70 block">Como nos conheceu?</label>
               <AuthAcquisitionSelector
                 value={howDidYouHear}
                 referralEmail={referralEmail}
@@ -306,7 +306,7 @@ export default function AuthRegister() {
             />
 
             {(errors.terms || errors.privacy) && (
-              <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">
+              <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">
                 {errors.terms || errors.privacy}
               </div>
             )}
@@ -333,7 +333,7 @@ export default function AuthRegister() {
                 type="button"
                 disabled={isSubmitting}
                 onClick={() => setStep(1)}
-                className="w-full py-2.5 bg-transparent text-espresso/60 hover:text-espresso font-medium text-xs rounded-full transition-all border border-espresso/10 hover:bg-espresso/5 disabled:opacity-50"
+                className="w-full py-2.5 bg-transparent text-espresso/70 hover:text-espresso font-medium text-xs rounded-full transition-all border border-espresso/10 hover:bg-espresso/5 disabled:opacity-50"
               >
                 Voltar para os dados cadastrais
               </button>
@@ -341,7 +341,7 @@ export default function AuthRegister() {
           </form>
         )}
 
-        <p className="text-center text-xs text-espresso/40 mt-6">
+        <p className="text-center text-xs text-espresso/70 mt-6">
           Já tem conta? <Link to="/auth/login" className="text-plum hover:underline">Entrar</Link>
         </p>
       </div>

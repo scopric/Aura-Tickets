@@ -115,29 +115,29 @@ export function useTwoFactor() {
   }
 
   const modal = enroll && (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onKeyDown={e => { if (e.key === 'Escape' && !verifying) cancel() }}>
-      <div role="dialog" aria-modal="true" aria-labelledby="twofa-title" className="w-full max-w-md bg-white dark:bg-canvas border border-espresso/10 rounded-2xl p-6 shadow-2xl relative text-espresso">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center glass-backdrop p-4" onKeyDown={e => { if (e.key === 'Escape' && !verifying) cancel() }}>
+      <div role="dialog" aria-modal="true" aria-labelledby="twofa-title" className="glass-panel w-full max-w-md p-6 relative text-espresso">
         <h3 id="twofa-title" className="font-serif text-xl mb-2 flex items-center gap-2">
           <Shield className="w-5 h-5 text-plum" /> Configurar Autenticador (2FA)
         </h3>
-        <p className="text-xs text-espresso/60 mb-4">
+        <p className="text-xs text-espresso/70 mb-4">
           Instale o Google Authenticator ou Microsoft Authenticator no seu celular, escaneie o código abaixo e digite o código de 6 dígitos para validar.
         </p>
 
         <img src={enroll.qr} alt="QR Code para o aplicativo autenticador" className="w-48 h-48 mx-auto my-6 bg-white p-3 rounded-xl border border-espresso/10" />
 
         <div className="bg-slate-50 dark:bg-white/5 border border-espresso/5 rounded-xl p-3 mb-4 text-center">
-          <span className="text-[10px] text-espresso/60 block mb-1">Chave manual (se o QR Code falhar)</span>
+          <span className="text-[10px] text-espresso/70 block mb-1">Chave manual (se o QR Code falhar)</span>
           <code className="text-xs font-mono font-bold tracking-wider select-all break-all text-plum">{enroll.secret}</code>
         </div>
 
         {error && (
-          <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 text-center">{error}</div>
+          <div role="alert" className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">{error}</div>
         )}
 
         <form onSubmit={verify} className="space-y-4">
           <div>
-            <label htmlFor="twofa-code" className="text-xs font-medium text-espresso/60 mb-1 block">Código de verificação</label>
+            <label htmlFor="twofa-code" className="text-xs font-medium text-espresso/70 mb-1 block">Código de verificação</label>
             <input
               id="twofa-code"
               autoFocus
@@ -149,11 +149,11 @@ export function useTwoFactor() {
               onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
               placeholder="000000"
               disabled={verifying}
-              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/60 border border-slate-200 dark:border-white/60 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+              className="w-full px-4 py-2.5 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl text-center text-lg font-mono tracking-widest text-espresso focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
             />
           </div>
           <div className="flex gap-2 justify-end pt-2">
-            <button type="button" disabled={verifying} onClick={cancel} className="px-4 py-2 text-xs text-espresso/60 hover:text-espresso transition-colors">
+            <button type="button" disabled={verifying} onClick={cancel} className="px-4 py-2 text-xs text-espresso/70 hover:text-espresso transition-colors">
               Cancelar
             </button>
             <button type="submit" disabled={verifying} className="px-5 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1.5 disabled:opacity-50">
