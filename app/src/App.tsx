@@ -133,12 +133,16 @@ type AllowedRole = 'user' | 'producer' | 'admin' | 'editor' | 'customer'
 // fluxo do Perfil; o código confirmado deixa a sessão em aal2 e a rota confere de novo.
 function AdminTwoFactorSetup({ onDone }: { onDone: () => void }) {
   const { enabled, loading, toggle, modal } = useTwoFactor()
+  const { logout } = useAuth()
   useEffect(() => { if (enabled) onDone() }, [enabled, onDone])
   return (
     <div className="min-h-screen bg-canvas flex flex-col items-center justify-center gap-4 px-6 text-center">
       <p className="text-espresso">Para usar o painel de administração, ative a verificação em duas etapas.</p>
       <button onClick={toggle} disabled={loading} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
         Ativar verificação em duas etapas
+      </button>
+      <button onClick={logout} className="text-sm text-espresso underline">
+        Sair
       </button>
       {modal}
     </div>
@@ -171,7 +175,8 @@ export function ProtectedRoute({
       .then(async ({ data, error }) => {
         if (error || !data?.currentLevel) throw error ?? new Error('Nível de autenticação indisponível')
         if (data.nextLevel === 'aal2' && data.currentLevel === 'aal1') return 'required' as const
-        if (role !== 'admin') return 'ok' as const
+        // aal2 já implica fator confirmado (o banco confere o resto): só admin em aal1 lista os fatores
+        if (role !== 'admin' || data.currentLevel === 'aal2') return 'ok' as const
         // Admin precisa de 2FA cadastrado (Decisão 99)
         const { data: fatores, error: fatoresError } = await supabase.auth.mfa.listFactors()
         if (fatoresError) throw fatoresError

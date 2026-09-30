@@ -87,7 +87,10 @@ Deno.serve(async (req: Request) => {
   if (!(await mfaOk(req))) return json(403, { ok: false, motivo: 'nao_autorizado' })
 
   // o banco decide (gf_admin_can: admin só com 2FA e o código, Decisão 99)
-  if ((await adminCan(req, 'manage_settings')) !== true) return json(200, { ok: false, motivo: 'nao_autorizado' })
+  // null = o banco não respondeu: "tente de novo", não "não autorizado"
+  const pode = await adminCan(req, 'manage_settings')
+  if (pode === null) return json(503, { ok: false, motivo: 'indisponivel', message: 'Tente de novo em instantes.' })
+  if (!pode) return json(200, { ok: false, motivo: 'nao_autorizado' })
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   let b: any = null

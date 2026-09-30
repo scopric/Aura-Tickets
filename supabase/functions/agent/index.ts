@@ -301,8 +301,10 @@ async function atender(req: Request): Promise<Response> {
   const { mode, message, history, form } = corpo
   // Admin: o banco decide (gf_is_admin/gf_admin_can, só com 2FA e o código, Decisão 99).
   // ping: só quem pode mexer nas configurações da IA (manage_settings)
-  if (mode === 'ping' ? (await adminCan(req, 'manage_settings')) !== true
-    : role === 'admin' && (await adminCan(req)) !== true) return recusa('nao_autorizado')
+  // null = o banco não respondeu: "tente de novo", não "não autorizado"
+  const pode = mode === 'ping' ? await adminCan(req, 'manage_settings') : role === 'admin' ? await adminCan(req) : true
+  if (pode === null) return json(503, { ok: false, motivo: 'erro_ia', message: 'Tente de novo em instantes.' })
+  if (!pode) return recusa('nao_autorizado')
 
   const { data: cfg, error: cfgError } = await admin.from('ai_settings').select('*').eq('id', 1).maybeSingle()
   if (cfgError || !cfg) {

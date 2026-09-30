@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 const auth = vi.hoisted(() => ({ role: 'admin' as string }))
 const mfa = vi.hoisted(() => ({ getAuthenticatorAssuranceLevel: vi.fn(), listFactors: vi.fn() }))
 vi.mock('../hooks/useAuth', () => ({
-  useAuth: () => ({ isAuthenticated: true, isLoading: false, role: auth.role, user: { admin_permissions: ['super_admin'] } }),
+  useAuth: () => ({ isAuthenticated: true, isLoading: false, role: auth.role, user: { admin_permissions: ['super_admin'] }, logout: vi.fn() }),
 }))
 vi.mock('../lib/supabase', () => ({ supabase: { auth: { mfa } } }))
 
@@ -25,14 +25,15 @@ describe('ProtectedRoute e o 2FA do admin', () => {
     mfa.listFactors.mockResolvedValue(fatores(0))
     abrir()
     expect(await screen.findByText(/ative a verificação em duas etapas/)).toBeInTheDocument()
+    expect(screen.getByText('Sair')).toBeInTheDocument()
     expect(screen.queryByText('painel')).not.toBeInTheDocument()
   })
 
-  it('admin com fator e aal2 → painel', async () => {
+  it('admin em aal2 → painel, sem listar fatores', async () => {
     mfa.getAuthenticatorAssuranceLevel.mockResolvedValue(nivel('aal2', 'aal2'))
-    mfa.listFactors.mockResolvedValue(fatores(1))
     abrir()
     expect(await screen.findByText('painel')).toBeInTheDocument()
+    expect(mfa.listFactors).not.toHaveBeenCalled()
   })
 
   it('erro ao listar fatores → fecha com "Tentar de novo"', async () => {
