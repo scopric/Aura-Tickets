@@ -1,702 +1,471 @@
-import { useState, useEffect } from 'react'
-import {
-  Users, TrendingUp, Target, Phone, Mail, MessageSquare,
-  Star, ArrowRight, Search, CheckCircle2,
-  Calendar, DollarSign, BarChart3, Plus, Trash2, X
-} from 'lucide-react'
+import { useState } from 'react'
+import { Phone, Mail, Search, Calendar, Plus, Trash2, Copy, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { iniciais } from '../../hooks/useConversas'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
+// Tipos locais: types/database.ts está desatualizado (crm_* viram never)
+interface Etapa { id: string; name: string; position: number }
+interface Interacao { id: string; type: TipoInteracao; content: string | null; created_at: string }
 interface Lead {
   id: string
-  name: string
-  email: string
-  avatar: string
-  status: 'novo' | 'qualificado' | 'proposta' | 'negociacao' | 'fechado'
+  full_name: string
+  email: string | null
+  phone: string | null
   source: string
-  score: number
-  value: number
-  lastContact: string
-  eventInterest: string
-  phone: string
-  notes: string
-  interactions: { date: string; type: string; content: string }[]
+  potential_value: number
+  event_interest: string | null
+  notes: string | null
+  stage_id: string | null
+  created_at: string
+  crm_interactions: Interacao[]
 }
 
-const columns = [
-  { key: 'novo', label: 'Novo', color: 'bg-blue-100 text-blue-700', icon: Users },
-  { key: 'qualificado', label: 'Qualificado', color: 'bg-amber-100 text-amber-700', icon: Target },
-  { key: 'proposta', label: 'Proposta', color: 'bg-violet-100 text-violet-700', icon: Mail },
-  { key: 'negociacao', label: 'Negociação', color: 'bg-orange-100 text-orange-700', icon: ArrowRight },
-  { key: 'fechado', label: 'Fechado', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
-] as const
+// crm_interactions_type_check: só estes 5 valores
+type TipoInteracao = 'message' | 'call' | 'email' | 'note' | 'meeting'
+const TIPOS: Record<TipoInteracao, string> = {
+  message: 'Mensagem',
+  call: 'Ligação',
+  email: 'E-mail',
+  note: 'Nota',
+  meeting: 'Reunião',
+}
+
+const SEM_ETAPA = 'sem-etapa'
+
+function quandoFoi(iso: string) {
+  const min = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (min < 1) return 'Agora mesmo'
+  if (min < 60) return `Há ${min} min`
+  if (min < 60 * 24) return `Há ${Math.floor(min / 60)} h`
+  return new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
+}
+
+const dinheiro = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const ORIGENS = ['Instagram', 'LinkedIn', 'Google Ads', 'Facebook', 'Indicação', 'Afiliado', 'Orgânico']
+
+const leadVazio = { name: '', email: '', phone: '', source: 'Instagram', value: '', interest: '', notes: '' }
 
 export default function ProducerCRM() {
   const { user } = useAuth()
-  const [leads, setLeads] = useState<Lead[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Lead | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
-
-  // Estados para o modal de novo lead
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
-  const [newLeadName, setNewLeadName] = useState('')
-  const [newLeadEmail, setNewLeadEmail] = useState('')
-  const [newLeadPhone, setNewLeadPhone] = useState('')
-  const [newLeadSource, setNewLeadSource] = useState('Instagram')
-  const [newLeadValue, setNewLeadValue] = useState('')
-  const [newLeadInterest, setNewLeadInterest] = useState('')
-  const [newLeadNotes, setNewLeadNotes] = useState('')
+  const [novo, setNovo] = useState(leadVazio)
   const [isSubmittingLead, setIsSubmittingLead] = useState(false)
-
-  // Estados para nova interação
-  const [newIntType, setNewIntType] = useState('Nota')
+  const [criandoEtapas, setCriandoEtapas] = useState(false)
+  const [newIntType, setNewIntType] = useState<TipoInteracao>('note')
   const [newIntContent, setNewIntContent] = useState('')
   const [isSubmittingInt, setIsSubmittingInt] = useState(false)
 
-  // Função para formatar data decorrida
-  const formatTimeElapsed = (dateStr: string) => {
-    try {
-      const diffMs = new Date().getTime() - new Date(dateStr).getTime()
-      const diffMins = Math.floor(diffMs / 60000)
-      if (diffMins < 1) return 'Agora mesmo'
-      if (diffMins < 60) return `Há ${diffMins} min`
-      const diffHours = Math.floor(diffMins / 60)
-      if (diffHours < 24) return `Há ${diffHours}h`
-      return new Date(dateStr).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
-    } catch {
-      return ''
-    }
-  }
+  const queryKey = ['producer-crm', user?.id]
+  const { data, isPending, isError, refetch } = useQuery({
+    queryKey,
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const [et, ld] = await Promise.all([
+        supabase.from('pipeline_stages').select('id, name, position').eq('producer_id', user!.id).order('position'),
+        supabase.from('crm_leads')
+          .select('id, full_name, email, phone, source, potential_value, event_interest, notes, stage_id, created_at, crm_interactions(id, type, content, created_at)')
+          .eq('producer_id', user!.id)
+          .order('created_at', { ascending: false }),
+      ])
+      if (et.error) throw et.error
+      if (ld.error) throw ld.error
+      const leads = ((ld.data ?? []) as unknown as Lead[]).map(l => ({
+        ...l,
+        potential_value: Number(l.potential_value) || 0,
+        crm_interactions: [...(l.crm_interactions ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at)),
+      }))
+      return { etapas: (et.data ?? []) as unknown as Etapa[], leads }
+    },
+  })
+  const etapas = data?.etapas ?? []
+  const leads = data?.leads ?? []
+  const selected = leads.find(l => l.id === selectedId) ?? null
+  // a Lista de interesse lê a mesma crm_leads com outra chave
+  const recarregar = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey }),
+    queryClient.invalidateQueries({ queryKey: ['producer-leads', user?.id] }),
+  ])
+  // contato = mensagem, ligação, e-mail ou reunião; nota (inclusive "Movido para") não conta
+  const ultimoContato = (l: Lead) => l.crm_interactions.find(i => i.type !== 'note')
 
-  // Mapear do banco de dados para a interface local
-  const mapDbLeadToLead = (dbLead: any): Lead => {
-    const sortedInteractions = (dbLead.crm_interactions || [])
-      .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  // Lead sem etapa (ou com etapa apagada) aparece numa coluna própria, só quando existe
+  const colunaDe = (l: Lead) => (l.stage_id && etapas.some(e => e.id === l.stage_id) ? l.stage_id : SEM_ETAPA)
+  const colunas = [
+    ...(leads.some(l => colunaDe(l) === SEM_ETAPA) ? [{ id: SEM_ETAPA, name: 'Sem etapa' }] : []),
+    ...etapas,
+  ]
+  const nomeEtapa = (id: string | null) => etapas.find(e => e.id === id)?.name ?? 'Sem etapa'
 
-    return {
-      id: dbLead.id,
-      name: dbLead.full_name,
-      email: dbLead.email || '',
-      avatar: dbLead.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${dbLead.full_name}`,
-      status: (dbLead.stage_id || 'novo') as Lead['status'],
-      source: dbLead.source || 'Organico',
-      score: dbLead.score || 50,
-      value: Number(dbLead.potential_value) || 0,
-      lastContact: sortedInteractions[0]
-        ? formatTimeElapsed(sortedInteractions[0].created_at)
-        : 'Sem contato',
-      eventInterest: dbLead.event_interest || '',
-      phone: dbLead.phone || '',
-      notes: dbLead.notes || '',
-      interactions: sortedInteractions.map((int: any) => ({
-        date: new Date(int.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }),
-        type: int.type,
-        content: int.content || '',
-      })),
-    }
-  }
+  const filtered = leads.filter(l => !search || l.full_name.toLowerCase().includes(search.toLowerCase()))
 
-  // Carregar leads do Supabase
-  const loadLeads = async () => {
-    if (!user?.id) return
-    setIsLoading(true)
-    try {
-      const { data: dbLeads, error } = await supabase
-        .from('crm_leads')
-        .select(`
-          *,
-          crm_interactions (*)
-        `)
-        .eq('producer_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setLeads(dbLeads.map(mapDbLeadToLead))
-    } catch (err: any) {
-      console.error('Erro ao carregar leads:', err)
-      toast.error('Erro ao carregar leads do CRM')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadLeads()
-  }, [user?.id])
-
-  const filtered = leads.filter(l => !search || l.name.toLowerCase().includes(search.toLowerCase()))
-
+  // ponytail: sem score (antes era sorteado ao criar o lead); o cartão mostra o nº de interações. Pontuação de verdade
+  // (abertura de e-mail, compra) quando houver dado para isso.
   const stats = {
     total: leads.length,
-    novos: leads.filter(l => l.status === 'novo').length,
-    conversao: leads.length > 0 ? Math.round((leads.filter(l => l.status === 'fechado').length / leads.length) * 100) : 0,
-    revenue: leads.filter(l => l.status === 'fechado').reduce((s, l) => s + l.value, 0),
-    pipeline: leads.reduce((s, l) => s + l.value, 0),
-    avgScore: leads.length > 0 ? Math.round(leads.reduce((s, l) => s + l.score, 0) / leads.length) : 0,
+    semContato: leads.filter(l => !ultimoContato(l)).length,
+    pipeline: leads.reduce((s, l) => s + l.potential_value, 0),
   }
 
-  const handleDragStart = (id: string) => setDraggedId(id)
-  const handleDragOver = (e: React.DragEvent, col: string) => { e.preventDefault(); setDragOverCol(col) }
-  const handleDragLeave = () => setDragOverCol(null)
-  
-  const handleDrop = async (col: string) => {
-    if (draggedId) {
-      const originalLeads = [...leads]
-      // Atualização otimista no estado
-      setLeads(leads.map(l => l.id === draggedId ? { ...l, status: col as Lead['status'] } : l))
-      
-      const lead = leads.find(l => l.id === draggedId)
-      if (lead) {
-        try {
-          const { error } = await supabase
-            .from('crm_leads')
-            .update({ stage_id: col })
-            .eq('id', draggedId)
+  const criarEtapas = async () => {
+    setCriandoEtapas(true)
+    // ponytail: `as never` é remendo temporário (types/database.ts desatualizado); some com o gen types
+    const { error } = await supabase.rpc('crm_criar_etapas_padrao' as never)
+    setCriandoEtapas(false)
+    if (error) { toast.error(error.code === '42501' ? 'Confirme o código do 2FA: saia e entre de novo.' : 'Não foi possível criar as etapas.'); return }
+    toast.success('Etapas criadas.')
+    recarregar()
+  }
 
-          if (error) throw error
+  // Grava interação e confere a linha devolvida (RLS que barra devolve 0 linhas sem erro: erro 11)
+  const gravarInteracao = async (leadId: string, type: TipoInteracao, content: string) => {
+    const { data: r, error } = await supabase.from('crm_interactions')
+      .insert({ lead_id: leadId, type, content } as never) // ponytail: remendo temporário, types/database.ts desatualizado
+      .select('id')
+    if (error || !r?.length) throw error ?? new Error('Interação não gravada')
+  }
 
-          toast.success(`${lead.name} movido para ${columns.find(c => c.key === col)?.label}`)
-
-          // Registrar nova interação de movimentação
-          await supabase.from('crm_interactions').insert({
-            lead_id: draggedId,
-            type: 'Movimentacao',
-            content: `Fase do pipeline alterada para: ${columns.find(c => c.key === col)?.label}`
-          })
-          
-          // Se o lead movido for o que está aberto no Drawer, atualizamos ele também
-          if (selected && selected.id === draggedId) {
-            setSelected({ ...selected, status: col as Lead['status'] })
-          }
-        } catch (err: any) {
-          console.error('Erro ao atualizar fase do lead:', err)
-          setLeads(originalLeads)
-          toast.error('Erro ao salvar alteração no banco de dados')
-        }
-      }
-      setDraggedId(null)
+  const moverLead = async (leadId: string, stageId: string) => {
+    const lead = leads.find(l => l.id === leadId)
+    if (!lead || stageId === SEM_ETAPA || lead.stage_id === stageId) return
+    const anterior = queryClient.getQueryData(queryKey)
+    queryClient.setQueryData(queryKey, { etapas, leads: leads.map(l => l.id === leadId ? { ...l, stage_id: stageId } : l) })
+    // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
+    const { data: r, error } = await supabase.from('crm_leads')
+      .update({ stage_id: stageId, updated_at: new Date().toISOString() } as never)
+      .eq('id', leadId)
+      .select('id')
+    if (error || !r?.length) {
+      queryClient.setQueryData(queryKey, anterior)
+      toast.error('Não foi possível mover o lead.')
+      return
     }
+    try {
+      await gravarInteracao(leadId, 'note', `Movido para ${nomeEtapa(stageId)}`)
+      toast.success(`${lead.full_name} movido para ${nomeEtapa(stageId)}`)
+    } catch {
+      toast.warning('Lead movido, mas o histórico não registrou a mudança.')
+    }
+    recarregar()
+  }
+
+  const handleDrop = (col: string) => {
+    if (draggedId) moverLead(draggedId, col)
+    setDraggedId(null)
     setDragOverCol(null)
   }
 
-  // Adicionar novo lead no banco
   const handleAddLead = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newLeadName.trim()) {
-      toast.error('Preencha o nome do lead')
-      return
-    }
-    if (!user?.id) return
-
+    if (!novo.name.trim() || !user?.id) { toast.error('Preencha o nome do lead'); return }
     setIsSubmittingLead(true)
     try {
-      const score = Math.floor(Math.random() * 40) + 50 // Gerar score aleatório inicial entre 50 e 90
-      const potentialValue = Number(newLeadValue) || 0
-
-      const { data: createdLead, error } = await supabase
-        .from('crm_leads')
+      // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
+      const { data: r, error } = await supabase.from('crm_leads')
         .insert({
           producer_id: user.id,
-          full_name: newLeadName,
-          email: newLeadEmail || null,
-          phone: newLeadPhone || null,
-          source: newLeadSource,
-          score: score,
-          potential_value: potentialValue,
-          event_interest: newLeadInterest || null,
-          notes: newLeadNotes || null,
-          stage_id: 'novo',
-        })
-        .select()
-        .single()
-
-      if (error) throw error
-
-      // Criar interação inicial com as notas
-      if (newLeadNotes.trim() && createdLead) {
-        await supabase.from('crm_interactions').insert({
-          lead_id: createdLead.id,
-          type: 'Cadastro',
-          content: `Lead adicionado com notas iniciais: "${newLeadNotes}"`
-        })
-      } else if (createdLead) {
-        await supabase.from('crm_interactions').insert({
-          lead_id: createdLead.id,
-          type: 'Cadastro',
-          content: 'Lead criado no pipeline.'
-        })
-      }
-
-      toast.success('Lead adicionado com sucesso!')
+          full_name: novo.name.trim(),
+          email: novo.email.trim() || null,
+          phone: novo.phone.trim() || null,
+          source: novo.source,
+          potential_value: Number(novo.value) || 0,
+          event_interest: novo.interest.trim() || null,
+          notes: novo.notes.trim() || null,
+          stage_id: etapas[0]?.id ?? null, // primeira etapa do produtor (uuid real)
+        } as never)
+        .select('id')
+      if (error || !r?.length) throw error ?? new Error('Lead não gravado')
+      toast.success('Lead adicionado.')
       setIsAddModalOpen(false)
-      
-      // Limpar campos
-      setNewLeadName('')
-      setNewLeadEmail('')
-      setNewLeadPhone('')
-      setNewLeadValue('')
-      setNewLeadInterest('')
-      setNewLeadNotes('')
-
-      // Recarregar leads
-      loadLeads()
-    } catch (err: any) {
-      console.error('Erro ao criar lead:', err)
-      toast.error(err.message || 'Erro ao criar lead no Supabase')
+      setNovo(leadVazio)
+      recarregar()
+    } catch {
+      toast.error('Não foi possível adicionar o lead.')
     } finally {
       setIsSubmittingLead(false)
     }
   }
 
-  // Deletar lead do banco
   const handleDeleteLead = async (id: string, name: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o lead "${name}"? Esta ação excluirá todo o histórico de interações.`)) {
-      try {
-        const { error } = await supabase
-          .from('crm_leads')
-          .delete()
-          .eq('id', id)
-
-        if (error) throw error
-
-        toast.success(`Lead ${name} excluído`)
-        if (selected?.id === id) setSelected(null)
-        loadLeads()
-      } catch (err: any) {
-        console.error('Erro ao deletar lead:', err)
-        toast.error('Erro ao excluir o lead')
-      }
-    }
+    if (!window.confirm(`Excluir o lead "${name}"? O histórico de interações também será apagado.`)) return
+    const { data: r, error } = await supabase.from('crm_leads').delete().eq('id', id).select('id')
+    if (error || !r?.length) { toast.error('Não foi possível excluir o lead.'); return }
+    toast.success(`Lead ${name} excluído.`)
+    if (selectedId === id) setSelectedId(null)
+    recarregar()
   }
 
-  // Adicionar nova interação no banco
   const handleAddInteraction = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newIntContent.trim() || !selected) {
-      toast.error('Preencha o conteúdo da interação')
-      return
-    }
-
+    if (!newIntContent.trim() || !selected) { toast.error('Escreva o conteúdo da interação'); return }
     setIsSubmittingInt(true)
     try {
-      const { error } = await supabase
-        .from('crm_interactions')
-        .insert({
-          lead_id: selected.id,
-          type: newIntType,
-          content: newIntContent,
-        })
-
-      if (error) throw error
-
-      toast.success('Interação registrada com sucesso!')
+      await gravarInteracao(selected.id, newIntType, newIntContent.trim())
+      toast.success('Interação registrada.')
       setNewIntContent('')
-
-      // Recarregar os detalhes do lead selecionado e a lista principal
-      const { data: updatedDbLead } = await supabase
-        .from('crm_leads')
-        .select(`
-          *,
-          crm_interactions (*)
-        `)
-        .eq('id', selected.id)
-        .single()
-
-      if (updatedDbLead) {
-        const mapped = mapDbLeadToLead(updatedDbLead)
-        setSelected(mapped)
-        
-        // Atualiza na lista em memória também para evitar novo refetch total imediato
-        setLeads(leads.map(l => l.id === selected.id ? mapped : l))
-      }
-    } catch (err: any) {
-      console.error('Erro ao adicionar interação:', err)
-      toast.error('Erro ao salvar interação no banco')
+      recarregar()
+    } catch {
+      toast.error('Não foi possível registrar a interação.')
     } finally {
       setIsSubmittingInt(false)
     }
   }
 
-  return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">CRM</h1>
-          <p className="text-sm text-espresso/70 mt-1">Pipeline, leads e comunicação integrada</p>
+  const header = (
+    <PageHeader
+      title="CRM"
+      description="Funil de leads e histórico de contatos"
+      actions={<Button onClick={() => setIsAddModalOpen(true)}><Plus aria-hidden="true" />Novo lead</Button>}
+    />
+  )
+
+  if (isPending) {
+    return (
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative max-w-xs w-full flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads..." className="w-full pl-9 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Lead
-          </button>
+        <div className="mt-6 flex gap-3 overflow-hidden">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-64 w-72 shrink-0 rounded-[10px] bg-muted" />)}
         </div>
       </div>
+    )
+  }
 
-      {/* Loading State */}
-      {isLoading ? (
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-8">
-          {[1, 2, 3, 4, 5, 6].map(n => (
-            <div key={n} className="p-4 rounded-2xl bg-white/40 border border-white/60 animate-pulse text-center h-[90px]">
-              <div className="w-4 h-4 bg-espresso/5 rounded-full mx-auto mb-2" />
-              <div className="h-4 bg-espresso/5 rounded w-12 mx-auto mb-2" />
-              <div className="h-3 bg-espresso/5 rounded w-16 mx-auto" />
-            </div>
-          ))}
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar o CRM.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar de novo</Button>
         </div>
-      ) : (
-        /* KPIs */
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 mb-8">
-          {[
-            { label: 'Total Leads', value: stats.total, icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-            { label: 'Novos', value: stats.novos, icon: Users, color: 'text-blue-500', bg: 'bg-blue-50' },
-            { label: 'Conversão', value: `${stats.conversao}%`, icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-            { label: 'Score Médio', value: stats.avgScore, icon: Star, color: 'text-amber-600', bg: 'bg-amber-50' },
-            { label: 'Receita Fechada', value: stats.revenue >= 10000 ? `R$ ${(stats.revenue / 1000).toFixed(1)}K` : `R$ ${stats.revenue}`, icon: DollarSign, color: 'text-plum', bg: 'bg-plum/5' },
-            { label: 'Pipeline Total', value: stats.pipeline >= 10000 ? `R$ ${(stats.pipeline / 1000).toFixed(1)}K` : `R$ ${stats.pipeline}`, icon: BarChart3, color: 'text-violet-600', bg: 'bg-violet-50' },
-          ].map(s => (
-            <div key={s.label} className={`p-4 rounded-2xl ${s.bg} border border-white/60 text-center`}>
-              <s.icon className={`w-4 h-4 ${s.color} mx-auto mb-1.5`} />
-              <div className={`font-serif text-lg ${s.color}`}>{s.value}</div>
-              <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
-            </div>
-          ))}
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {header}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Leads" value={stats.total} />
+        <Stat label="Sem contato" value={stats.semContato} hint="Nenhuma interação registrada" />
+        <Stat label="Valor estimado no funil" value={dinheiro(stats.pipeline)} />
+      </div>
+
+      {etapas.length === 0 && (
+        <div className="mt-6">
+          <EmptyState
+            title="Seu funil ainda não tem etapas"
+            description="Crie as etapas padrão: Novo, Contato feito, Interessado, Negociando e Fechado."
+            action={<Button onClick={criarEtapas} disabled={criandoEtapas}>{criandoEtapas ? 'Criando…' : 'Criar etapas padrão'}</Button>}
+          />
         </div>
       )}
 
-      {/* Kanban */}
-      {isLoading ? (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map(col => (
-            <div key={col.key} className="flex-shrink-0 w-72 rounded-2xl p-4 bg-white/20 dark:bg-white/5 border border-white/40 space-y-4">
-              <div className="h-5 bg-espresso/5 rounded w-20 animate-pulse" />
-              {[1, 2].map(n => (
-                <div key={n} className="p-3 bg-white/40 border border-white/40 rounded-xl space-y-2 h-[100px] animate-pulse" />
-              ))}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {columns.map(col => {
-            const colLeads = filtered.filter(l => l.status === col.key)
-            const isOver = dragOverCol === col.key
-            return (
-              <div
-                key={col.key}
-                className={`flex-shrink-0 w-72 rounded-2xl bg-white/30 dark:bg-white/5 border border-white/60 transition-all ${isOver ? 'ring-2 ring-plum/30 scale-[1.02]' : ''}`}
-                onDragOver={e => handleDragOver(e, col.key)}
-                onDragLeave={handleDragLeave}
-                onDrop={() => handleDrop(col.key)}
-              >
-                <div className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <col.icon className="w-3.5 h-3.5" />
-                    <span className="text-xs font-medium text-espresso">{col.label}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas text-espresso/70">{colLeads.length}</span>
-                  </div>
-                </div>
-                <div className="p-2 space-y-2 max-h-[500px] overflow-y-auto">
-                  {colLeads.map(l => (
-                    <div
-                      key={l.id}
-                      draggable
-                      onDragStart={() => handleDragStart(l.id)}
-                      onClick={() => setSelected(l)}
-                      className="p-3 rounded-xl bg-white/60 border border-white/60 hover:shadow-md hover:bg-white/80 transition-all cursor-grab active:cursor-grabbing group relative"
-                    >
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteLead(l.id, l.name) }}
-                        className="absolute top-2 right-2 p-1 rounded-md text-espresso/50 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Excluir Lead"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-                      <div className="flex items-center gap-2 mb-2 pr-4">
-                        <img src={l.avatar} alt="" className="w-7 h-7 rounded-full object-cover" />
-                        <div className="min-w-0 flex-1">
-                          <div className="text-xs font-medium text-espresso truncate">{l.name}</div>
-                          <div className="text-[9px] text-espresso/70">{l.source}</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 mb-1.5">
-                        <Star className="w-3 h-3 text-amber-400" />
-                        <span className="text-[10px] text-espresso/70">{l.score}</span>
-                        <span className="text-[10px] text-plum ml-auto">R$ {l.value.toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center justify-between mt-1 pt-1 border-t border-espresso/5">
-                        <span className="text-[9px] text-espresso/70 truncate max-w-[150px]">{l.eventInterest || 'Interesse geral'}</span>
-                        <span className="text-[8px] text-espresso/70 font-medium">{l.lastContact}</span>
-                      </div>
-                    </div>
-                  ))}
-                  {colLeads.length === 0 && <div className="py-8 text-center text-[10px] text-espresso/70">Arraste leads aqui</div>}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Modal: Novo Lead */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setIsAddModalOpen(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso flex items-center gap-2">
-                <Users className="w-5 h-5 text-plum" />
-                Adicionar Novo Lead
-              </h3>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Fechar modal" title="Fechar" className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <form onSubmit={handleAddLead} className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nome Completo *</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={newLeadName} 
-                  onChange={e => setNewLeadName(e.target.value)} 
-                  placeholder="Pedro Santos" 
-                  className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" 
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">E-mail</label>
-                  <input 
-                    type="email" 
-                    value={newLeadEmail} 
-                    onChange={e => setNewLeadEmail(e.target.value)} 
-                    placeholder="ex@email.com" 
-                    className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" 
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Telefone</label>
-                  <input 
-                    type="text" 
-                    value={newLeadPhone} 
-                    onChange={e => setNewLeadPhone(e.target.value)} 
-                    placeholder="(11) 98765-4321" 
-                    className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" 
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Origem do Lead</label>
-                  <select 
-                    value={newLeadSource} 
-                    onChange={e => setNewLeadSource(e.target.value)} 
-                    aria-label="Selecionar origem do lead"
-                    title="Origem do Lead"
-                    className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                  >
-                    <option value="Instagram">Instagram</option>
-                    <option value="LinkedIn">LinkedIn</option>
-                    <option value="Google Ads">Google Ads</option>
-                    <option value="Facebook">Facebook</option>
-                    <option value="Indicacao">Indicação</option>
-                    <option value="Afiliado">Afiliado</option>
-                    <option value="Organico">Orgânico</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Valor Estimado (R$)</label>
-                  <input 
-                    type="number" 
-                    value={newLeadValue} 
-                    onChange={e => setNewLeadValue(e.target.value)} 
-                    placeholder="1000" 
-                    className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" 
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Evento de Interesse</label>
-                <input 
-                  type="text" 
-                  value={newLeadInterest} 
-                  onChange={e => setNewLeadInterest(e.target.value)} 
-                  placeholder="Ex: Noite Eletro 2025" 
-                  className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" 
-                />
-              </div>
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Notas Iniciais</label>
-                <textarea 
-                  value={newLeadNotes} 
-                  onChange={e => setNewLeadNotes(e.target.value)} 
-                  rows={3} 
-                  placeholder="Observações ou necessidades do lead..." 
-                  className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none" 
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={isSubmittingLead}
-                className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2"
-              >
-                {isSubmittingLead ? 'Adicionando...' : 'Adicionar Lead'}
-              </button>
-            </form>
+      {colunas.length > 0 && (
+        <>
+          <div className="relative mt-6 w-full sm:max-w-xs">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads" aria-label="Buscar leads" className="pl-9" />
           </div>
-        </div>
+
+          {/* rolagem lateral contida no quadro: a página não rola de lado a 375 px */}
+          <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
+            {colunas.map(col => {
+              const colLeads = filtered.filter(l => colunaDe(l) === col.id)
+              return (
+                <section
+                  key={col.id}
+                  aria-label={col.name}
+                  className={`flex w-72 shrink-0 flex-col rounded-[10px] border bg-card ${dragOverCol === col.id ? 'border-primary' : 'border-border'}`}
+                  onDragOver={e => { e.preventDefault(); setDragOverCol(col.id) }}
+                  onDragLeave={() => setDragOverCol(null)}
+                  onDrop={() => handleDrop(col.id)}
+                >
+                  <h2 className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 text-sm font-medium text-foreground">
+                    <span className="truncate">{col.name}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{colLeads.length}</span>
+                  </h2>
+                  <ul className="max-h-[500px] space-y-2 overflow-y-auto p-2">
+                    {colLeads.map(l => (
+                      <li key={l.id} draggable onDragStart={() => setDraggedId(l.id)} className="group relative rounded-md border border-border bg-background transition-colors hover:bg-foreground/5">
+                        <button type="button" onClick={() => setSelectedId(l.id)} className="flex w-full items-start gap-2 p-3 pr-10 text-left">
+                          <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">{iniciais(l.full_name)}</span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium text-foreground">{l.full_name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{l.source}</span>
+                            <span className="mt-2 flex items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+                              <span>{l.crm_interactions.length} {l.crm_interactions.length === 1 ? 'interação' : 'interações'}</span>
+                              <span>{dinheiro(l.potential_value)}</span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">{ultimoContato(l) ? quandoFoi(ultimoContato(l)!.created_at) : 'Sem contato'}</span>
+                          </span>
+                        </button>
+                        <Button variant="ghost" size="icon-sm" className={`absolute right-1.5 top-1.5 ${icone}`} onClick={() => handleDeleteLead(l.id, l.full_name)} aria-label={`Excluir lead ${l.full_name}`}>
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </li>
+                    ))}
+                    {colLeads.length === 0 && <li className="py-8 text-center text-xs text-muted-foreground">Arraste leads para cá</li>}
+                  </ul>
+                </section>
+              )
+            })}
+          </div>
+        </>
       )}
 
-      {/* Detail Drawer */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
-          <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto flex flex-col justify-between rounded-r-none border-y-0 border-r-0">
-            <div className="p-6 overflow-y-auto flex-1">
-              <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <img src={selected.avatar} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-plum/30" />
-                  <div>
-                    <h3 className="font-serif text-xl text-espresso">{selected.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${columns.find(c => c.key === selected.status)?.color}`}>
-                        {columns.find(c => c.key === selected.status)?.label}
-                      </span>
-                      <span className="text-[10px] text-espresso/70">Score: {selected.score}</span>
-                    </div>
+      {leads.length === 0 && etapas.length > 0 && (
+        <p className="mt-2 text-sm text-muted-foreground">Nenhum lead ainda. Use "Novo lead" para começar.</p>
+      )}
+
+      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo lead</DialogTitle>
+            <DialogDescription>{etapas[0] ? `Entra na etapa "${etapas[0].name}".` : 'Entra sem etapa até você criar as etapas do funil.'}</DialogDescription>
+          </DialogHeader>
+          <form id="form-lead" onSubmit={handleAddLead} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-nome">Nome completo</Label>
+              <Input id="lead-nome" required value={novo.name} onChange={e => setNovo({ ...novo, name: e.target.value })} />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-email">E-mail</Label>
+                <Input id="lead-email" type="email" value={novo.email} onChange={e => setNovo({ ...novo, email: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-telefone">Telefone</Label>
+                <Input id="lead-telefone" type="tel" value={novo.phone} onChange={e => setNovo({ ...novo, phone: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-origem">Origem</Label>
+                <select id="lead-origem" value={novo.source} onChange={e => setNovo({ ...novo, source: e.target.value })} className={select}>
+                  {ORIGENS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-valor">Valor estimado (R$)</Label>
+                <Input id="lead-valor" type="number" inputMode="decimal" min="0" step="0.01" value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-interesse">Evento de interesse</Label>
+              <Input id="lead-interesse" value={novo.interest} onChange={e => setNovo({ ...novo, interest: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-notas">Notas iniciais</Label>
+              <Textarea id="lead-notas" rows={3} value={novo.notes} onChange={e => setNovo({ ...novo, notes: e.target.value })} />
+            </div>
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
+            <Button type="submit" form="form-lead" disabled={isSubmittingLead}>{isSubmittingLead ? 'Adicionando…' : 'Adicionar lead'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={!!selected} onOpenChange={aberto => { if (!aberto) setSelectedId(null) }}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{selected.full_name}</SheetTitle>
+                <SheetDescription>{selected.source} · desde {new Date(selected.created_at).toLocaleDateString('pt-BR')}</SheetDescription>
+              </SheetHeader>
+              <div className="grid gap-5 px-4 pb-6">
+                {etapas.length > 0 && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="lead-etapa">Etapa</Label>
+                    <select id="lead-etapa" value={etapas.some(e => e.id === selected.stage_id) ? selected.stage_id ?? '' : ''} onChange={e => moverLead(selected.id, e.target.value)} className={select}>
+                      {!etapas.some(e => e.id === selected.stage_id) && <option value="" disabled>Sem etapa</option>}
+                      {etapas.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
                   </div>
-                </div>
-                <button onClick={() => setSelected(null)} aria-label="Fechar detalhes" title="Fechar" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+                )}
 
-              {/* Informações de contato */}
-              <div className="space-y-2.5 mb-6 p-4 rounded-xl bg-white/40 border border-white/60">
-                <div className="flex items-center gap-2 text-sm text-espresso/70"><Mail className="w-4 h-4 text-espresso/30" />{selected.email || 'Sem e-mail'}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/70"><Phone className="w-4 h-4 text-espresso/30" />{selected.phone || 'Sem telefone'}</div>
-                <div className="flex items-center gap-2 text-sm text-espresso/70"><Calendar className="w-4 h-4 text-espresso/30" />Contato: {selected.lastContact}</div>
-              </div>
+                <dl className="grid gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground"><Mail aria-hidden="true" className="size-4" /><dt className="sr-only">E-mail</dt><dd className="min-w-0 truncate text-foreground">{selected.email || 'Sem e-mail'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Phone aria-hidden="true" className="size-4" /><dt className="sr-only">Telefone</dt><dd className="text-foreground">{selected.phone || 'Sem telefone'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Calendar aria-hidden="true" className="size-4" /><dt>Último contato:</dt><dd className="text-foreground">{ultimoContato(selected) ? quandoFoi(ultimoContato(selected)!.created_at) : 'nenhum'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><dt>Valor estimado:</dt><dd className="tabular-nums text-foreground">{dinheiro(selected.potential_value)}</dd></div>
+                  {selected.event_interest && <div className="flex items-center gap-2 text-muted-foreground"><dt>Evento de interesse:</dt><dd className="min-w-0 truncate text-foreground">{selected.event_interest}</dd></div>}
+                </dl>
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-plum">{selected.score}</div>
-                  <div className="text-[10px] text-espresso/70">Score de Interesse</div>
-                </div>
-                <div className="p-4 rounded-xl bg-white/60 border border-white/60 text-center">
-                  <div className="font-serif text-xl text-green-600">R$ {selected.value.toLocaleString()}</div>
-                  <div className="text-[10px] text-espresso/70">Valor Estimado</div>
-                </div>
-              </div>
+                {selected.notes && (
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Notas</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{selected.notes}</p>
+                  </div>
+                )}
 
-              {selected.notes && (
-                <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                  <div className="text-[10px] text-espresso/70 uppercase mb-1">Notas Principais</div>
-                  <div className="text-xs text-espresso/70 leading-relaxed whitespace-pre-wrap">{selected.notes}</div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
+                    <Copy aria-hidden="true" />Copiar e-mail
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/55${(selected.phone ?? '').replace(/\D/g, '')}`, '_blank', 'noopener')}>
+                    <MessageCircle aria-hidden="true" />WhatsApp
+                  </Button>
                 </div>
-              )}
 
-              {/* Formulário: Registrar Interação */}
-              <div className="mb-6 p-4 rounded-xl bg-white/60 border border-white/60">
-                <h4 className="text-xs font-semibold text-espresso/70 uppercase mb-3">Registrar Contato / Nota</h4>
-                <form onSubmit={handleAddInteraction} className="space-y-3">
-                  <div className="flex gap-2">
-                    {['Nota', 'WhatsApp', 'Ligação', 'Email', 'Reunião'].map(type => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setNewIntType(type)}
-                        className={`flex-1 py-1 rounded-lg text-[10px] font-medium transition-all border ${
-                          newIntType === type 
-                            ? 'bg-plum text-cream border-plum' 
-                            : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-white/70 dark:hover:bg-white/10'
-                        }`}
-                      >
-                        {type}
-                      </button>
+                <form onSubmit={handleAddInteraction} className="grid gap-3 rounded-md border border-border p-3">
+                  <h3 className="text-sm font-medium text-foreground">Registrar contato</h3>
+                  <div role="group" aria-label="Tipo de interação" className="flex flex-wrap gap-1">
+                    {(Object.keys(TIPOS) as TipoInteracao[]).map(t => (
+                      <Button key={t} type="button" size="sm" variant={newIntType === t ? 'secondary' : 'ghost'} aria-pressed={newIntType === t} onClick={() => setNewIntType(t)} className={newIntType === t ? '' : icone}>{TIPOS[t]}</Button>
                     ))}
                   </div>
-                  <textarea
-                    required
-                    value={newIntContent}
-                    onChange={e => setNewIntContent(e.target.value)}
-                    rows={2}
-                    placeholder={`Conteúdo do contato ou anotação para o ${newIntType}...`}
-                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30 resize-none"
-                  />
-                  <button
-                    type="submit"
-                    disabled={isSubmittingInt}
-                    className="w-full py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all"
-                  >
-                    {isSubmittingInt ? 'Registrando...' : 'Registrar Interação'}
-                  </button>
+                  <Textarea required rows={2} value={newIntContent} onChange={e => setNewIntContent(e.target.value)} aria-label="Conteúdo da interação" placeholder="O que foi conversado" />
+                  <Button type="submit" size="sm" disabled={isSubmittingInt}>{isSubmittingInt ? 'Registrando…' : 'Registrar interação'}</Button>
                 </form>
-              </div>
 
-              {/* Histórico de interações */}
-              <h4 className="text-xs font-semibold text-espresso/70 uppercase mb-3">Histórico de Interações</h4>
-              <div className="space-y-2">
-                {selected.interactions.map((int, i) => (
-                  <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-white/40 border border-white/20">
-                    <div className="w-8 h-8 rounded-lg bg-canvas flex items-center justify-center flex-shrink-0">
-                      <MessageSquare className="w-3.5 h-3.5 text-plum" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-medium text-espresso">{int.type}</span>
-                        <span className="text-[9px] text-espresso/70">{int.date}</span>
-                      </div>
-                      <p className="text-xs text-espresso/70 leading-relaxed mt-0.5 break-words">{int.content}</p>
-                    </div>
-                  </div>
-                ))}
-                {selected.interactions.length === 0 && (
-                  <div className="text-center py-6 text-xs text-espresso/70">Nenhum contato registrado ainda.</div>
-                )}
+                <section aria-labelledby="historico">
+                  <h3 id="historico" className="mb-2 text-sm font-medium text-foreground">Histórico</h3>
+                  {selected.crm_interactions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum contato registrado ainda.</p>
+                  ) : (
+                    <ol className="divide-y divide-border rounded-md border border-border">
+                      {selected.crm_interactions.map(int => (
+                        <li key={int.id} className="p-3">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-medium text-foreground">{TIPOS[int.type] ?? int.type}</span>
+                            <span className="text-muted-foreground">{quandoFoi(int.created_at)}</span>
+                          </div>
+                          {int.content && <p className="mt-1 break-words text-sm text-muted-foreground">{int.content}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
               </div>
-            </div>
-
-            {/* Footer com Ações rápidas */}
-            <div className="p-6 bg-white/40 border-t border-espresso/5 flex items-center gap-2">
-              <button 
-                onClick={() => { navigator.clipboard.writeText(selected.email); toast.success('E-mail copiado!') }} 
-                className="flex-1 py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow font-medium flex items-center justify-center gap-1.5"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                Copiar E-mail
-              </button>
-              <button 
-                onClick={() => {
-                  if (selected.phone) {
-                    window.open(`https://wa.me/55${selected.phone.replace(/[^0-9]/g, '')}`, '_blank');
-                    toast.success('WhatsApp iniciado!');
-                  } else {
-                    toast.error('Lead não possui telefone cadastrado');
-                  }
-                }} 
-                className="flex-1 py-2.5 bg-canvas text-espresso/70 hover:text-espresso text-xs rounded-full hover:bg-white/80 border border-white/60 font-medium flex items-center justify-center gap-1.5"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                WhatsApp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

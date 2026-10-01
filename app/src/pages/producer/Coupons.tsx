@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Trash2, Copy, Check, Power, Ticket, Loader2 } from 'lucide-react'
+import { Plus, Trash2, Copy, Check, Power, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useProducerCoupons,
@@ -9,17 +9,17 @@ import {
   type DbCoupon,
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const statusOptions = ['Todos', 'Ativo', 'Agendado', 'Expirado', 'Esgotado', 'Desativado']
-const typeOptions = ['Todos', 'Percentual', 'Valor Fixo']
-
-const statusColors: Record<string, string> = {
-  ativo: 'bg-green-50 text-green-700 border-green-100',
-  agendado: 'bg-blue-50 text-blue-700 border-blue-100',
-  expirado: 'bg-amber-50 text-amber-700 border-amber-100',
-  esgotado: 'bg-espresso/5 text-espresso/70 border-espresso/10',
-  desativado: 'bg-red-50 text-red-500 border-red-100',
-}
+const typeOptions = ['Todos', 'Percentual', 'Valor fixo']
 
 // status não é coluna: sai de is_active, valid_until e uses/max_uses
 const couponStatus = (c: DbCoupon) =>
@@ -29,10 +29,14 @@ const couponStatus = (c: DbCoupon) =>
   : c.max_uses != null && c.uses >= c.max_uses ? 'esgotado'
   : 'ativo'
 
+const rotulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+
 const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
 
 export default function ProducerCoupons() {
-  const { data: coupons = [], isLoading } = useProducerCoupons()
+  const { data: coupons = [], isLoading, isError, refetch, isFetching } = useProducerCoupons()
   const { data: events = [] } = useProducerEvents()
   const createCoupon = useCreateCoupon()
   const updateCoupon = useUpdateCoupon()
@@ -46,13 +50,14 @@ export default function ProducerCoupons() {
 
   const filtered = coupons
     .filter(c => filterStatus === 'Todos' || couponStatus(c) === filterStatus.toLowerCase())
-    .filter(c => filterType === 'Todos' || (c.discount_type === 'percent' ? 'Percentual' : 'Valor Fixo') === filterType)
+    .filter(c => filterType === 'Todos' || (c.discount_type === 'percent' ? 'Percentual' : 'Valor fixo') === filterType)
 
   const total = coupons.length
   const active = coupons.filter(c => couponStatus(c) === 'ativo').length
   const totalUses = coupons.reduce((s, c) => s + (c.uses || 0), 0)
 
-  const addCoupon = async () => {
+  const addCoupon = async (e: React.FormEvent) => {
+    e.preventDefault()
     const code = form.code.trim().toUpperCase()
     if (!code) { toast.error('Informe o código'); return }
     const value = Number(form.value)
@@ -83,9 +88,9 @@ export default function ProducerCoupons() {
       })
       setForm(emptyForm)
       setShowForm(false)
-      toast.success('Cupom criado!')
+      toast.success('Cupom criado.')
     } catch (e) {
-      toast.error((e as { code?: string })?.code === '23505' ? 'Esse código já existe' : 'Erro ao criar cupom')
+      toast.error((e as { code?: string })?.code === '23505' ? 'Esse código já existe' : 'Não foi possível criar o cupom.')
     }
   }
 
@@ -93,177 +98,209 @@ export default function ProducerCoupons() {
     navigator.clipboard.writeText(code)
     setCopied(code)
     setTimeout(() => setCopied(null), 2000)
-    toast.success('Codigo copiado!')
+    toast.success('Código copiado.')
   }
 
   const toggleStatus = async (coupon: DbCoupon) => {
     const isActive = !coupon.is_active
     try {
       await updateCoupon.mutateAsync({ id: coupon.id, is_active: isActive })
-      toast.success(`Cupom ${isActive ? 'ativado' : 'desativado'}!`)
+      toast.success(`Cupom ${isActive ? 'ativado' : 'desativado'}.`)
     } catch {
-      toast.error('Erro ao atualizar status')
+      toast.error('Não foi possível atualizar o status.')
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (coupon: DbCoupon) => {
+    if (!window.confirm(`Excluir o cupom ${coupon.code}?`)) return
     try {
-      await deleteCoupon.mutateAsync(id)
-      toast.success('Cupom removido!')
-    } catch {
-      toast.error('Erro ao remover cupom')
+      await deleteCoupon.mutateAsync(coupon.id)
+      toast.success('Cupom removido.')
+    } catch (e) {
+      // 23503: o cupom está ligado a um pedido (como em admin/Coupons.tsx)
+      toast.error((e as { code?: string })?.code === '23503' ? 'Este cupom já foi usado. Desative em vez de excluir.' : 'Não foi possível remover o cupom.')
     }
   }
+
+  const header = (
+    <PageHeader
+      title="Cupons"
+      description="Descontos e promoções dos seus eventos"
+      actions={<Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo cupom</Button>}
+    />
+  )
 
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-5xl mx-auto flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando cupons...</p>
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        </div>
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar os cupons.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Cupons</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie descontos e promocoes</p>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-          <Plus className="w-4 h-4" /> Novo Cupom
-        </button>
+    <div>
+      {header}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Cupons" value={total} />
+        <Stat label="Ativos" value={active} />
+        <Stat label="Utilizações" value={totalUses} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        {[
-          { label: 'Total', value: total, icon: Ticket, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Ativos', value: active, icon: Check, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Utilizacoes', value: totalUses, icon: Ticket, color: 'text-plum', bg: 'bg-plum/10' },
-        ].map(s => (
-          <div key={s.label} className={`p-4 rounded-2xl ${s.bg} border border-white/60 text-center`}>
-            <s.icon className={`w-5 h-5 ${s.color} mx-auto mb-1`} />
-            <div className={`font-serif text-xl ${s.color}`}>{s.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
+      <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+        <div role="group" aria-label="Filtrar por status" className="flex flex-wrap gap-1">
           {statusOptions.map(s => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{s}</button>
+            <Button key={s} size="sm" variant={filterStatus === s ? 'secondary' : 'ghost'} aria-pressed={filterStatus === s} onClick={() => setFilterStatus(s)} className={filterStatus === s ? '' : icone}>{s}</Button>
           ))}
         </div>
-        <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
+        <div role="group" aria-label="Filtrar por tipo" className="flex flex-wrap gap-1 sm:ml-auto">
           {typeOptions.map(t => (
-            <button key={t} onClick={() => setFilterType(t)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterType === t ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{t}</button>
+            <Button key={t} size="sm" variant={filterType === t ? 'secondary' : 'ghost'} aria-pressed={filterType === t} onClick={() => setFilterType(t)} className={filterType === t ? '' : icone}>{t}</Button>
           ))}
         </div>
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">Novo Cupom</h3>
-              <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70"><X className="w-5 h-5" /></button>
+      <div className="mt-4">
+        {filtered.length === 0 ? (
+          <EmptyState
+            title={total === 0 ? 'Nenhum cupom ainda' : 'Nenhum cupom com esse filtro'}
+            description={total === 0 ? 'Crie o primeiro cupom de desconto.' : undefined}
+            action={total === 0 ? <Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo cupom</Button> : undefined}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.map(coupon => {
+              const status = couponStatus(coupon)
+              return (
+                <div key={coupon.id} className="rounded-[10px] border border-border bg-card p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant={status === 'ativo' ? 'default' : 'secondary'}>{rotulo(status)}</Badge>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => copyCode(coupon.code)} aria-label={`Copiar código ${coupon.code}`}>
+                        {copied === coupon.code ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => toggleStatus(coupon)} aria-label={coupon.is_active ? `Desativar ${coupon.code}` : `Ativar ${coupon.code}`}>
+                        <Power aria-hidden="true" />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon)} aria-label={`Remover ${coupon.code}`}>
+                        <Trash2 aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <p className="mt-3 break-all font-mono text-lg font-semibold tracking-wider text-foreground">{coupon.code}</p>
+                  <p className="text-sm text-muted-foreground">{coupon.description || 'Sem descrição'}</p>
+
+                  <dl className="mt-3 grid grid-cols-3 gap-2 border-y border-border py-3 text-center">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Desconto</dt>
+                      <dd className="text-sm font-medium tabular-nums text-foreground">
+                        {coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : `R$ ${Number(coupon.discount_value || 0).toLocaleString('pt-BR')}`}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Usado</dt>
+                      <dd className="text-sm font-medium tabular-nums text-foreground">{coupon.uses || 0}/{coupon.max_uses || '–'}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Mínimo</dt>
+                      <dd className="text-sm font-medium tabular-nums text-foreground">R$ {Number(coupon.min_order_value || 0).toLocaleString('pt-BR')}</dd>
+                    </div>
+                  </dl>
+
+                  <p className="mt-3 text-xs text-muted-foreground">
+                    Válido: {coupon.valid_from ? new Date(coupon.valid_from).toLocaleDateString('pt-BR') : 'sempre'}{coupon.valid_until ? ` até ${new Date(coupon.valid_until).toLocaleDateString('pt-BR')}` : ''}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo cupom</DialogTitle>
+            <DialogDescription>O código vale para o evento escolhido ou para todos os seus eventos.</DialogDescription>
+          </DialogHeader>
+          <form id="form-cupom" onSubmit={addCoupon} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="cupom-codigo">Código</Label>
+              <Input id="cupom-codigo" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="Ex.: AURA20" />
             </div>
-            <div className="space-y-3">
-              <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="Codigo (ex: AURA20)" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <div className="grid grid-cols-2 gap-3">
-                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                  <option value="percent">% Percentual</option>
-                  <option value="fixed">R$ Valor Fixo</option>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-tipo">Tipo</Label>
+                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={select}>
+                  <option value="percent">Percentual (%)</option>
+                  <option value="fixed">Valor fixo (R$)</option>
                 </select>
-                <input value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} placeholder={form.type === 'percent' ? 'Desconto %' : 'Valor R$'} type="number" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} placeholder="Compra min. R$" type="number" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                <input value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} placeholder="Limite usos" type="number" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-valor">{form.type === 'percent' ? 'Desconto (%)' : 'Desconto (R$)'}</Label>
+                <Input id="cupom-valor" type="number" inputMode="decimal" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} />
               </div>
-              <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-minimo">Compra mínima (R$)</Label>
+                <Input id="cupom-minimo" type="number" inputMode="decimal" value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-usos">Limite de usos</Label>
+                <Input id="cupom-usos" type="number" inputMode="numeric" value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cupom-evento">Evento</Label>
+              <select id="cupom-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
                 <option value="">Todos os eventos</option>
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                <input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              </div>
-              <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descricao (opcional)" rows={2} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-              <button onClick={addCoupon} disabled={createCoupon.isPending} className="w-full py-3 bg-plum text-cream text-sm font-medium rounded-xl hover:shadow-glow transition-all disabled:opacity-50">
-                {createCoupon.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Criar Cupom'}
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Coupons Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(coupon => {
-          const status = couponStatus(coupon)
-          return (
-          <div key={coupon.id} className="p-5 rounded-2xl bg-white/60 border border-white/60 hover:shadow-md transition-all">
-            <div className="flex items-center justify-between mb-4">
-              <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full border ${statusColors[status]}`}>{status}</span>
-              <div className="flex items-center gap-1">
-                <button onClick={() => copyCode(coupon.code)} className="p-1.5 rounded-lg text-espresso/50 hover:text-plum hover:bg-plum/10 transition-colors">
-                  {copied === coupon.code ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                </button>
-                <button onClick={() => toggleStatus(coupon)} className="p-1.5 rounded-lg text-espresso/50 hover:text-amber-600 hover:bg-amber-50 transition-colors">
-                  <Power className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => handleDelete(coupon.id)} className="p-1.5 rounded-lg text-espresso/50 hover:text-red-500 hover:bg-red-50 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-inicio">Início</Label>
+                <Input id="cupom-inicio" type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cupom-fim">Fim</Label>
+                <Input id="cupom-fim" type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
               </div>
             </div>
-
-            <div className="mb-3">
-              <div className="font-mono text-lg font-bold text-espresso tracking-wider">{coupon.code}</div>
-              <div className="text-xs text-espresso/70 mt-0.5">{coupon.description || 'Sem descricao'}</div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cupom-descricao">Descrição (opcional)</Label>
+              <Textarea id="cupom-descricao" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} />
             </div>
-
-            <div className="flex items-center justify-between py-3 border-t border-b border-espresso/5">
-              <div className="text-center flex-1">
-                <div className="text-xs text-espresso/70">Desconto</div>
-                <div className="text-sm font-medium text-espresso">
-                  {coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : `R$ ${Number(coupon.discount_value || 0).toLocaleString('pt-BR')}`}
-                </div>
-              </div>
-              <div className="w-px h-8 bg-espresso/5" />
-              <div className="text-center flex-1">
-                <div className="text-xs text-espresso/70">Usado</div>
-                <div className="text-sm font-medium text-espresso">{coupon.uses || 0}/{coupon.max_uses || '-'}</div>
-              </div>
-              <div className="w-px h-8 bg-espresso/5" />
-              <div className="text-center flex-1">
-                <div className="text-xs text-espresso/70">Minimo</div>
-                <div className="text-sm font-medium text-espresso">R$ {Number(coupon.min_order_value || 0).toLocaleString('pt-BR')}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between mt-3 text-[10px] text-espresso/70">
-              <span>Valido: {coupon.valid_from ? new Date(coupon.valid_from).toLocaleDateString('pt-BR') : 'Sempre'} {coupon.valid_until ? `- ${new Date(coupon.valid_until).toLocaleDateString('pt-BR')}` : ''}</span>
-            </div>
-          </div>
-          )
-        })}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <Ticket className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-          <p className="text-sm text-espresso/70">Nenhum cupom encontrado.</p>
-          <p className="text-xs text-espresso/70 mt-1">Crie seu primeiro cupom de desconto.</p>
-        </div>
-      )}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" form="form-cupom" disabled={createCoupon.isPending}>
+              {createCoupon.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar cupom'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

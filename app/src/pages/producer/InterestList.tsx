@@ -1,9 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import {
-  ArrowLeft, Mail, Users, TrendingUp, Bell, Send, Clock,
-  CheckCircle2, MailOpen, Trash2, Loader2
-} from 'lucide-react'
+import { Check, Trash2, Loader2, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useProducerLeads,
@@ -11,16 +7,22 @@ import {
   useNotifyAllLeads,
   useDeleteLead,
 } from '../../hooks/useProducerTools'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerInterestList() {
-  const { data: leads = [], isLoading } = useProducerLeads()
+  const { data: leads = [], isLoading, isError, refetch, isFetching } = useProducerLeads()
   const notifyLead = useNotifyLead()
   const notifyAll = useNotifyAllLeads()
   const deleteLead = useDeleteLead()
 
   const [filter, setFilter] = useState<'all' | 'notified' | 'pending'>('all')
   const [showNotifyModal, setShowNotifyModal] = useState(false)
-  const [notifyMessage, setNotifyMessage] = useState('As vendas ja comecaram! Garanta seu ingresso antes que acabe.')
 
   const filtered = leads.filter(i => {
     if (filter === 'notified') return i.notified
@@ -32,163 +34,168 @@ export default function ProducerInterestList() {
   const notifiedCount = leads.filter(i => i.notified).length
   const pendingCount = leads.filter(i => !i.notified).length
   const cities = [...new Set(leads.map(i => i.city).filter(Boolean))].length
+  const emails = [...new Set(filtered.map(i => i.email?.trim()).filter(Boolean))] as string[]
+
+  // "Avisado" só marca na lista: o e-mail em massa chega com o módulo de Comunicação (M6). Até lá, o produtor copia
+  // os e-mails e avisa por conta própria.
+  const copiarEmails = async () => {
+    try {
+      await navigator.clipboard.writeText(emails.join(', '))
+      toast.success(`${emails.length} e-mails copiados.`)
+    } catch {
+      toast.error('Não foi possível copiar. Tente de novo.')
+    }
+  }
 
   const handleNotify = async () => {
     try {
       const result = await notifyAll.mutateAsync()
       setShowNotifyModal(false)
-      toast.success(`${result?.length || 0} pessoas notificadas!`)
+      toast.success(`${result?.length || 0} marcados como avisados.`)
     } catch {
-      toast.error('Erro ao notificar interessados')
+      toast.error('Não foi possível marcar como avisados.')
     }
   }
 
   const handleNotifyOne = async (id: string) => {
     try {
       await notifyLead.mutateAsync(id)
-      toast.success('Notificado!')
+      toast.success('Marcado como avisado.')
     } catch {
-      toast.error('Erro ao notificar')
+      toast.error('Não foi possível marcar como avisado.')
     }
   }
 
-  const handleDelete = async (id: string) => {
+  // a lista lê crm_leads: remover aqui apaga o lead do CRM também
+  const handleDelete = async (id: string, nome: string) => {
+    if (!window.confirm(`Remover ${nome}? O lead também sai do CRM.`)) return
     try {
       await deleteLead.mutateAsync(id)
-      toast.success('Removido!')
+      toast.success('Removido da lista.')
     } catch {
-      toast.error('Erro ao remover')
+      toast.error('Não foi possível remover.')
     }
   }
+
+  const header = (
+    <PageHeader
+      title="Lista de interesse"
+      description="Pessoas interessadas antes das vendas abrirem"
+      actions={
+        <>
+          {emails.length > 0 && (
+            <Button variant="outline" onClick={copiarEmails}><Copy aria-hidden="true" />Copiar e-mails</Button>
+          )}
+          {pendingCount > 0 && (
+            <Button onClick={() => setShowNotifyModal(true)}><Check aria-hidden="true" />Marcar {pendingCount} como avisados</Button>
+          )}
+        </>
+      }
+    />
+  )
 
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-6xl mx-auto flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando lista de interesse...</p>
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        </div>
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar a lista de interesse.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-6xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/event-manager" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Lista de Interesse</h1>
-          <p className="text-sm text-espresso/70 mt-1">Pessoas interessadas antes das vendas abrirem</p>
-        </div>
-        {pendingCount > 0 && (
-          <button onClick={() => setShowNotifyModal(true)} className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-            <Bell className="w-4 h-4" /> Notificar {pendingCount}
-          </button>
+    <div>
+      {header}
+
+      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        "Marcar como avisado" só registra aqui; nenhum e-mail é enviado. O e-mail em massa chega com o módulo de Comunicação.
+        {emails.length > 0 && ' Até lá, copie os e-mails e avise por conta própria.'}
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Interessados" value={total} />
+        <Stat label="Avisados" value={notifiedCount} />
+        <Stat label="Pendentes" value={pendingCount} />
+        <Stat label="Cidades" value={cities} />
+      </div>
+
+      <div role="group" aria-label="Filtrar" className="mt-6 flex flex-wrap gap-1">
+        {(['all', 'pending', 'notified'] as const).map(f => (
+          <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} aria-pressed={filter === f} onClick={() => setFilter(f)} className={filter === f ? '' : icone}>
+            {f === 'all' ? 'Todos' : f === 'pending' ? `Pendentes (${pendingCount})` : `Avisados (${notifiedCount})`}
+          </Button>
+        ))}
+      </div>
+
+      <div className="mt-4">
+        {filtered.length === 0 ? (
+          <EmptyState
+            title={total === 0 ? 'Ninguém na lista ainda' : 'Ninguém com esse filtro'}
+            description={total === 0 ? 'A lista é preenchida conforme as pessoas se cadastram.' : undefined}
+          />
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+            {filtered.map(item => (
+              <li key={item.id} className="flex items-start gap-3 p-3 sm:items-center">
+                <div className="min-w-0 flex-1">
+                  <p className="flex min-w-0 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground">{item.full_name}</span>
+                    {item.notified && <Badge variant="secondary">Avisado</Badge>}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">{item.email || 'Sem e-mail'}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {[item.phone, item.city, item.source, new Date(item.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })].filter(Boolean).join(' · ')}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  {!item.notified && (
+                    <Button variant="outline" size="sm" onClick={() => handleNotifyOne(item.id)} aria-label={`Marcar ${item.full_name} como avisado`}>
+                      <Check aria-hidden="true" /><span className="hidden sm:inline">Marcar como avisado</span>
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item.id, item.full_name)} aria-label={`Remover ${item.full_name}`}>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Interessados', value: total.toString(), icon: Users },
-          { label: 'Notificados', value: notifiedCount.toString(), icon: CheckCircle2 },
-          { label: 'Pendentes', value: pendingCount.toString(), icon: Clock },
-          { label: 'Cidades', value: cities.toString(), icon: TrendingUp },
-        ].map(k => (
-          <div key={k.label} className="p-5 rounded-2xl bg-white/60 border border-white/60">
-            <k.icon className="w-4 h-4 text-plum mb-3" />
-            <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex gap-2 mb-4">
-        {(['all', 'pending', 'notified'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filter === f ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
-            {f === 'all' ? 'Todos' : f === 'pending' ? `Pendentes (${pendingCount})` : `Notificados (${notifiedCount})`}
-          </button>
-        ))}
-      </div>
-
-      {/* Table */}
-      <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-        <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-white/60 text-[10px] uppercase tracking-wider text-espresso/70">
-          <div className="col-span-3">Nome / Email</div>
-          <div className="col-span-2">Telefone</div>
-          <div className="col-span-2">Cidade</div>
-          <div className="col-span-2">Origem</div>
-          <div className="col-span-2">Data</div>
-          <div className="col-span-1"></div>
-        </div>
-        {filtered.map(item => (
-          <div key={item.id} className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-white/60 last:border-0 hover:bg-white/40 transition-colors items-center">
-            <div className="col-span-3">
-              <div className="text-xs font-medium text-espresso">{item.full_name}</div>
-              <div className="text-[10px] text-espresso/70">{item.email}</div>
-            </div>
-            <div className="col-span-2 text-xs text-espresso/70">{item.phone || '-'}</div>
-            <div className="col-span-2 text-xs text-espresso/70">{item.city || '-'}</div>
-            <div className="col-span-2">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/60 text-espresso/70">{item.source}</span>
-            </div>
-            <div className="col-span-2 flex items-center gap-2">
-              <span className="text-xs text-espresso/70">
-                {new Date(item.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
-              </span>
-              {item.notified && <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
-            </div>
-            <div className="col-span-1 flex items-center justify-end gap-1">
-              {!item.notified && (
-                <button onClick={() => handleNotifyOne(item.id)} title="Notificar" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors">
-                  <Mail className="w-3.5 h-3.5" />
-                </button>
-              )}
-              <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <Users className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-          <p className="text-sm text-espresso/70">Nenhum interessado encontrado.</p>
-          <p className="text-xs text-espresso/70 mt-1">A lista sera preenchida conforme pessoas se cadastrarem.</p>
-        </div>
-      )}
-
-      {/* Notify Modal */}
-      {showNotifyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowNotifyModal(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="w-14 h-14 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-              <MailOpen className="w-6 h-6 text-plum" />
-            </div>
-            <h3 className="font-serif text-xl text-espresso text-center mb-2">Notificar Interessados</h3>
-            <p className="text-xs text-espresso/70 text-center mb-4">{pendingCount} pessoas serao notificadas que as vendas comecaram.</p>
-            <div className="mb-4">
-              <label className="text-xs text-espresso/70 mb-1 block">Mensagem</label>
-              <textarea value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)}
-                rows={3} className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setShowNotifyModal(false)} className="flex-1 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all">
-                Cancelar
-              </button>
-              <button onClick={handleNotify} disabled={notifyAll.isPending} className="flex-1 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                {notifyAll.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Enviar</>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Dialog open={showNotifyModal} onOpenChange={setShowNotifyModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Marcar como avisados</DialogTitle>
+            <DialogDescription>
+              {pendingCount} pessoas serão marcadas como avisadas. Nenhum e-mail é enviado: o envio em massa chega com o módulo de Comunicação.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNotifyModal(false)}>Cancelar</Button>
+            <Button onClick={handleNotify} disabled={notifyAll.isPending}>
+              {notifyAll.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Marcando…</> : 'Marcar como avisados'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
