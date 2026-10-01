@@ -12,6 +12,7 @@ import {
   useCreatePiggyTransaction,
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { mensagemMovimento } from '../../lib/orcamento'
 
 const categories = [
   { id: 'marketing', label: 'Marketing', color: '#8b5cf6' },
@@ -70,8 +71,8 @@ export default function ProducerPiggyBank() {
       setDepositBox(null)
       setDepositAmount('')
       toast.success(type === 'deposit' ? `Depositado R$ ${amount.toFixed(2)}!` : `Sacado R$ ${amount.toFixed(2)}!`)
-    } catch {
-      toast.error('Erro na transacao')
+    } catch (e) {
+      toast.error(mensagemMovimento(e))
     }
   }
 

@@ -906,13 +906,15 @@ export function useDeleteBudgetBox() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('event_budget_boxes')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
@@ -958,42 +960,18 @@ export function useCreatePiggyTransaction() {
   return useMutation({
     mutationFn: async ({ box_id, type, amount, note }: { box_id: string; type: 'deposit' | 'withdraw'; amount: number; note?: string }) => {
       if (!user?.id) throw new Error('Nao autenticado')
+      // Atômico no banco: trava a linha, confere o dono e o saldo e grava o movimento (docs/sql/20261005_produtor_acesso.sql).
+      // Erros 22023/23514/42501 viram texto na tela por lib/orcamento.ts.
+      // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
+      const { data, error } = await supabase.rpc('caixinha_movimentar' as never, {
+        p_box: box_id,
+        p_tipo: type,
+        p_valor: amount,
+        p_nota: note || null,
+      } as never)
 
-      // ponytail: ler-calcular-gravar tem corrida entre duas abas; só some com RPC atômica (fase B3)
-      const { data: box, error: boxError } = await supabase
-        .from('event_budget_boxes')
-        .select('saved')
-        .eq('id', box_id)
-        .single()
-
-      if (boxError) throw boxError
-
-      const currentSaved = Number(box?.saved) || 0
-      const newSaved = type === 'deposit' ? currentSaved + amount : currentSaved - amount
-
-      // saldo antes da transação: se a atualização falhar, não fica transação órfã
-      const { data: updated, error: updateError } = await supabase
-        .from('event_budget_boxes')
-        .update({ saved: newSaved })
-        .eq('id', box_id)
-        .select('id')
-
-      if (updateError) throw updateError
-      if (!updated?.length) throw new Error('Saldo da caixinha não foi atualizado')
-
-      const { data: tx, error: txError } = await supabase
-        .from('piggy_transactions')
-        .insert({ box_id, type, amount, note: note || null })
-        .select()
-        .single()
-
-      if (txError) {
-        // devolve o saldo para não ficar valor sem transação registrada
-        await supabase.from('event_budget_boxes').update({ saved: currentSaved }).eq('id', box_id)
-        throw txError
-      }
-
-      return tx
+      if (error) throw error
+      return Number(data) // saldo novo
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['piggy-transactions', variables.box_id] })

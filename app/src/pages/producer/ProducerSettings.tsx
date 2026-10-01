@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import {
   User, Lock, CreditCard, Bell, Users, Save,
   Eye, EyeOff, Instagram, Globe,
-  Shield, Smartphone, Mail, Trash2, AlertTriangle, Loader2
+  Shield, Smartphone, Mail, AlertTriangle, Loader2
 } from 'lucide-react'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -23,10 +24,6 @@ export default function ProducerSettings() {
     isSavingProfile,
     saveProducerProfile,
     isSavingProducerProfile,
-    inviteTeamMember,
-    removeTeamMember,
-    updateTeamRole,
-    isTeamActionPending,
   } = useProducerSettings()
 
   const [section, setSection] = useState<Section>('perfil')
@@ -71,9 +68,6 @@ export default function ProducerSettings() {
     marketingEmails: false, pushEnabled: true, smsEnabled: false,
   })
 
-  const [team, setTeam] = useState<Array<{ id: string; name: string; email: string; role: string; status: 'active' | 'pending' }>>([])
-  const [inviteEmail, setInviteEmail] = useState('')
-
   // Sincronizar estado local com dados do Supabase
   useEffect(() => {
     if (data) {
@@ -109,7 +103,6 @@ export default function ProducerSettings() {
         pushEnabled: ns.pushEnabled ?? true,
         smsEnabled: ns.smsEnabled ?? false,
       })
-      setTeam(data.team)
     }
   }, [data])
 
@@ -136,7 +129,7 @@ export default function ProducerSettings() {
     try {
       await saveProducerProfile({
         company_name: profile.company,
-        cnpj: profile.cnpj.replace(/\D/g, '')
+        cnpj: profile.cnpj.replace(/\D/g, '') || null, // vazio é null: a UNIQUE não aceita dois ''
       })
       toast.success('Dados da empresa atualizados com sucesso!')
     } catch {
@@ -214,37 +207,6 @@ export default function ProducerSettings() {
       // O servidor já encerra as outras sessões ao trocar a senha; o token de acesso delas vale até 1 h.
     } catch (err: any) {
       toast.error(err.message || 'Erro ao alterar senha')
-    }
-  }
-
-  const handleInvite = async () => {
-    if (!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
-      toast.error('E-mail inválido')
-      return
-    }
-    try {
-      await inviteTeamMember({ email: inviteEmail, role: 'Visualizador' })
-      setInviteEmail('')
-    } catch {
-      // erro já tratado no hook
-    }
-  }
-
-  const handleRemoveMember = async (id: string) => {
-    try {
-      await removeTeamMember(id)
-      setTeam(prev => prev.filter(t => t.id !== id))
-    } catch {
-      // erro já tratado no hook
-    }
-  }
-
-  const handleRoleChange = async (id: string, role: string) => {
-    try {
-      await updateTeamRole({ memberId: id, role })
-      setTeam(prev => prev.map(t => t.id === id ? { ...t, role } : t))
-    } catch {
-      toast.error('Erro ao alterar função')
     }
   }
 
@@ -549,46 +511,12 @@ export default function ProducerSettings() {
             </div>
           )}
 
-          {/* EQUIPE */}
+          {/* EQUIPE: a gestão fica na tela Equipe (o módulo M3 refaz); aqui só o atalho */}
           {section === 'equipe' && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <h2 className="text-lg font-medium text-espresso">Equipe</h2>
-
-              <div className="p-4 rounded-xl bg-canvas/50 space-y-3">
-                <label className="text-xs text-espresso/70 block">Convidar membro</label>
-                <div className="flex gap-2">
-                  <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="email@exemplo.com" className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-                  <button onClick={handleInvite} disabled={isTeamActionPending} className="px-4 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">
-                    {isTeamActionPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Convidar'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                {team.map(member => (
-                  <div key={member.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/60 border border-white/60">
-                    <div className="w-9 h-9 rounded-full bg-plum/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-sm font-medium text-plum">{member.name[0]}</span>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-espresso font-medium">{member.name}</div>
-                      <div className="text-[10px] text-espresso/70">{member.email}</div>
-                    </div>
-                    <select value={member.role} onChange={e => handleRoleChange(member.id, e.target.value)} className="text-xs bg-white/60 border border-white/60 rounded-lg px-2 py-1 text-espresso focus:outline-none">
-                      <option>Admin</option><option>Editor</option><option>Visualizador</option>
-                    </select>
-                    <span className={`px-2 py-0.5 text-[10px] rounded-full border ${member.status === 'active' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-amber-50 text-amber-700 border-amber-100'}`}>
-                      {member.status === 'active' ? 'Ativo' : 'Pendente'}
-                    </span>
-                    <button onClick={() => handleRemoveMember(member.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-500 transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
-                {team.length === 0 && (
-                  <div className="py-8 text-center text-xs text-espresso/70">Nenhum membro na equipe ainda.</div>
-                )}
-              </div>
+              <p className="text-sm text-espresso/70">Convites e funções da sua equipe ficam na tela Equipe.</p>
+              <Link to="/producer/team" className="inline-block px-5 py-2 bg-plum text-cream text-sm rounded-full">Gerenciar equipe</Link>
             </div>
           )}
 
