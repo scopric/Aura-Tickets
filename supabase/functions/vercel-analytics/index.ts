@@ -2,7 +2,7 @@
 //
 // Chamada: POST com o JWT do admin (supabase.functions.invoke('vercel-analytics', { body })).
 //   { periodo: '7d' | '30d' | { de, ate: 'AAAA-MM-DD' }, filtros?: [{ campo, valor }] (até 4) }
-//   → { ok:true, de, ate, totais, comparacao, porDia, paginas, origens, paises, aparelhos }
+//   → { ok:true, de, ate, totais, comparacao, semComparacao, porDia, paginas, origens, paises, aparelhos, eventos }
 //   campo ∈ pais | aparelho | pagina | origem; `valor` é o `valor` cru que as listas devolvem.
 // Recusas voltam 200 com { ok:false, motivo }; 401 só sem login.
 // Permissão: gf_admin_can('view_analytics') no banco (mesma regra da rota /admin/analytics),
@@ -128,6 +128,8 @@ Deno.serve(async (req: Request) => {
     partes.push(`${campo.coluna} eq '${f.valor}'`)
   }
   const filtro = partes.length ? { filter: partes.join(' and ') } : {}
+  // páginas de evento (/event/<id ou slug>) com os mesmos filtros; a tela troca pelo nome do evento
+  const filtroEventos = { filter: ["startswith(requestPath,'/event/')", ...partes].join(' and ') }
 
   const janela = (inicio: number, fim: number) => ({ since: new Date(inicio).toISOString(), fimCount: new Date(fim + DIA).toISOString(), fimAgg: new Date(fim + DIA - 1).toISOString() })
   const j = janela(de, ate)
@@ -145,7 +147,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const [totais, porDia, paginas, origens, paises, aparelhos, compAtual, compAnterior] = await Promise.all([
+    const [totais, porDia, paginas, origens, paises, aparelhos, compAtual, compAnterior, eventos] = await Promise.all([
       consulta('count', { since: j.since, until: j.fimCount, ...filtro }),
       consulta('aggregate', { since: j.since, until: j.fimAgg, by: 'day', limit: '31', ...filtro }),
       topo('requestPath'),
@@ -154,6 +156,8 @@ Deno.serve(async (req: Request) => {
       topo('deviceType'),
       comparar ? contagem(de, fimComp) : null,
       comparar ? contagem(inicioAnterior, de - DIA) : null,
+      // se só os eventos falharem, o painel continua de pé
+      consulta('aggregate', { since: j.since, until: j.fimAgg, by: 'requestPath', limit: '50', ...filtroEventos }).catch(() => null),
     ])
     const num = (t: any) => ({ visitantes: Number(t?.visitors ?? 0), paginas: Number(t?.pageviews ?? 0) })
     return json(200, {
@@ -168,6 +172,7 @@ Deno.serve(async (req: Request) => {
       origens: top(origens, 'referrerHostname'),
       paises: top(paises, 'country'),
       aparelhos: top(aparelhos, 'deviceType'),
+      eventos: !Array.isArray(eventos) ? null : (eventos as Linha[]).filter(l => l.requestPath !== 'Others').map(l => ({ caminho: String(l.requestPath ?? ''), visitantes: Number(l.visitors ?? 0), paginas: Number(l.pageviews ?? 0) })),
     })
   } catch (e) {
     const status = e instanceof VercelErro ? e.status : 0

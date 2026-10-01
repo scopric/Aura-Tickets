@@ -1,7 +1,7 @@
 // Números do Google Analytics 4 para a aba "Tráfego & Audiência" do Admin → Analytics.
 //
 // Chamada: POST com o JWT do admin (supabase.functions.invoke('ga4-analytics', { body })).
-//   { periodo: '7d' | '30d' | 'all' | { de, ate: 'AAAA-MM-DD' }, filtros?: [{ campo, valor }] (até 4) } → { ok:true, totais, porDia, paginas, origens, paises, aparelhos, agora }
+//   { periodo: '7d' | '30d' | 'all' | { de, ate: 'AAAA-MM-DD' }, filtros?: [{ campo, valor }] (até 4) } → { ok:true, totais, porDia, paginas, origens, paises, aparelhos, agora, campanhas }
 // Mesmo formato da vercel-analytics, para a tela reaproveitar; aqui "visitantes" = activeUsers.
 // Recusas voltam 200 com { ok:false, motivo }; 401 só sem login.
 // Permissão: gf_admin_can('view_analytics'), com o JWT de quem pede (sem service role).
@@ -93,7 +93,9 @@ const lista = (rel: Relatorio, nome: (v: string) => string) =>
 // montado), então só limitamos tamanho e caracteres de controle.
 const CAMPOS: Record<string, string> = { pais: 'countryId', aparelho: 'deviceCategory', pagina: 'pagePath', origem: 'sessionSource' }
 const ehDia = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
-const semNotSet = (v: string) => (v === '(not set)' ? '' : v)
+// "(not set)" e "(data not available)" = o GA4 não sabe o valor
+const semValor = (v: string) => v === '(not set)' || v === '(data not available)'
+const semNotSet = (v: string) => (semValor(v) ? '' : v)
 
 // Datas em AAAA-MM-DD no fuso de Brasília (o da propriedade), nunca no relógio UTC da função.
 const hojeBrasilia = () => {
@@ -177,13 +179,13 @@ Deno.serve(async (req: Request) => {
 
   try {
     const token = await tokenGoogle(conta)
-    const [a, bb, tempoReal, comp] = await Promise.all([
+    const [a, bb, tempoReal, comp, camp] = await Promise.all([
       google(token, 'batchRunReports', {
         requests: [
           { dateRanges, metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }, { name: 'sessions' }], ...dimensionFilter },
           // ponytail: 1000 dias cobre "Todo período" até ~2029
           { dateRanges, dimensions: [{ name: 'date' }], metrics: pessoasEPaginas, limit: 1000, ...dimensionFilter },
-          top('pagePath', 'screenPageViews'),
+          top('pagePath', 'activeUsers'),
           top('sessionSource', 'activeUsers'),
         ],
       }),
@@ -198,6 +200,16 @@ Deno.serve(async (req: Request) => {
           ...dimensionFilter,
         }).catch(() => null)
         : null,
+      // Campanhas (utm_campaign / Google Ads): sem campanha o GA4 põe "(direct)", "(organic)", "(referral)" ou
+      // "(not set)" — essas linhas saem já no pedido (senão ocupam o limite). Se só isto falhar, o painel continua.
+      google(token, 'runReport', {
+        dateRanges,
+        dimensions: [{ name: 'sessionCampaignName' }, { name: 'sessionSource' }, { name: 'sessionMedium' }],
+        metrics: [{ name: 'activeUsers' }, { name: 'sessions' }],
+        orderBys: [{ metric: { metricName: 'sessions' }, desc: true }],
+        limit: 10,
+        dimensionFilter: { andGroup: { expressions: [...expressoes, { notExpression: { filter: { fieldName: 'sessionCampaignName', stringFilter: { value: '(', matchType: 'BEGINS_WITH' } } } }] } },
+      }).catch(() => null),
     ])
     const [totais, porDiaRel, paginas, origens] = a.reports as Relatorio[]
     const [paises, aparelhos] = bb.reports as Relatorio[]
@@ -226,11 +238,17 @@ Deno.serve(async (req: Request) => {
       comparacao: comp ? { atual: doPeriodo('atual'), anterior: doPeriodo('anterior'), dias: n } : null,
       semComparacao: comp ? null : comparar ? 'falha' : 'periodo',
       porDia,
-      paginas: lista(paginas, v => (v === '(not set)' ? 'Desconhecido' : v)),
-      origens: lista(origens, v => (v === '(direct)' ? '' : v === '(not set)' ? 'Desconhecido' : v)),
+      paginas: lista(paginas, v => (semValor(v) ? 'Desconhecido' : v)),
+      origens: lista(origens, v => (v === '(direct)' ? '' : semValor(v) ? 'Desconhecido' : v)),
       paises: lista(paises, semNotSet),
       aparelhos: lista(aparelhos, semNotSet),
       agora: tempoReal ? num((tempoReal as Relatorio).rows?.[0]?.metricValues[0]) : null,
+      campanhas: camp
+        ? ((camp as Relatorio).rows ?? []).map(l => {
+            const [c, o, m] = (l.dimensionValues ?? []).map(d => d.value)
+          return { campanha: c, origem: semNotSet(o ?? ''), meio: semNotSet(m ?? ''), visitantes: num(l.metricValues[0]), sessoes: num(l.metricValues[1]) }
+        })
+        : null,
     })
   } catch (e) {
     const g = e instanceof GoogleErro ? e : null

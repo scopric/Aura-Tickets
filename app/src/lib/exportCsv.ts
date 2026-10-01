@@ -3,8 +3,8 @@
 function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return ''
   let text = typeof value === 'object' ? JSON.stringify(value) : String(value)
-  // Célula que começa com = + - @ tab ou CR vira fórmula no Excel/LibreOffice (injeção de fórmula): prefixar com apóstrofo
-  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`
+  // Célula que começa com = + - @ (mesmo depois de espaços), tab ou CR vira fórmula no Excel/LibreOffice (injeção de fórmula): prefixar com apóstrofo
+  if (/^\s*[=+\-@]|^[\t\r]/.test(text)) text = `'${text}`
   return /[",\n\r']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
