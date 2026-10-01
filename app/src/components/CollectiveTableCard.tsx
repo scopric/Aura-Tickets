@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info } from 'lucide-react'
+import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Ticket } from '../data/mockData'
 import ProfileQuiz from './ProfileQuiz'
 import { useAuth } from '../hooks/useAuth'
-import { useMatchmakingProfile, useMesaConsentir, useMesaRede, consentimentoVigente } from '../hooks/useMatchmaking'
+import {
+  useMatchmakingProfile, useMesaConsentir, useMesaRede, useMinhaFotoModeracao, useMesaFotoContestar, consentimentoVigente,
+} from '../hooks/useMatchmaking'
 import { appUrl } from '../lib/appHost'
 
 interface Props {
@@ -108,6 +110,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
             </p>
           </div>
+          {user && consentimentoVigente(profile) && <FotoModeracaoAviso />}
         </div>
 
         {/* Actions */}
@@ -146,6 +149,51 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
         />
       )}
     </>
+  )
+}
+
+// Situação da própria foto na moderação (aqui e em "Sua mesa"). O motivo da recusa não chega à pessoa
+// (sem leitura de mesa_moderacoes): só o texto genérico. Aprovada ou sem a coluna: nada.
+export function FotoModeracaoAviso() {
+  const { data: situacao } = useMinhaFotoModeracao()
+  const contestar = useMesaFotoContestar()
+  const [resposta, setResposta] = useState<string | null>(null)
+
+  const pedirRevisao = () => {
+    setResposta(null)
+    contestar.mutate(undefined, {
+      onSuccess: (ok) => setResposta(ok
+        ? 'Pedido enviado. Uma pessoa da equipe vai analisar.'
+        : 'Não é possível pedir revisão desta foto (já foi pedida, ou a decisão não foi automática). Troque a foto.'),
+      onError: (e) => setResposta(e.message), // 42501: mensagem do 2FA em mesaErro
+    })
+  }
+
+  const texto = situacao === 'pendente' ? 'Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.'
+    : situacao === 'revisar' ? 'Sua foto está com a nossa equipe para análise.'
+    : situacao === 'recusada' ? 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se acha que foi engano, peça revisão de uma pessoa da equipe.'
+    : null
+  if (!texto) return null
+  const recusada = situacao === 'recusada'
+
+  return (
+    <div className={`p-3 rounded-xl border text-sm text-cream space-y-3 ${recusada ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
+      <div className="flex items-start gap-2">
+        <Camera className={`w-4 h-4 flex-shrink-0 mt-0.5 ${recusada ? 'text-red-300' : 'text-amber-400'}`} />
+        <span>{texto}</span>
+      </div>
+      {recusada && (
+        <div className="flex flex-wrap gap-2">
+          <a href={appUrl('/app/profile')} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
+            Trocar foto
+          </a>
+          <button onClick={pedirRevisao} disabled={contestar.isPending} className="px-4 py-2 rounded-full border border-white/20 text-xs hover:bg-white/5 disabled:opacity-50">
+            {contestar.isPending ? 'Enviando...' : 'Pedir revisão'}
+          </button>
+        </div>
+      )}
+      {resposta && <p role="status" className="text-xs text-cream/80">{resposta}</p>}
+    </div>
   )
 }
 

@@ -217,6 +217,16 @@ export function useMinhaFotoModeracao() {
   })
 }
 
+// Pede revisão humana da recusa automática da própria foto. false = não dá (já pedida, ou a última
+// decisão não foi da IA); o motivo da recusa não volta para a pessoa.
+export function useMesaFotoContestar() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => rpc<boolean>('mesa_foto_contestar'),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['foto-moderacao'] }),
+  })
+}
+
 // ============================================================
 // Mesa (funções do banco)
 // ============================================================

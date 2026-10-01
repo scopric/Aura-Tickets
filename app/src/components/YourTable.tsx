@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, Loader2, Flag, LogOut, Undo2, Bell, Clock, ShieldAlert, Camera, ExternalLink, Plus } from 'lucide-react'
+import { Users, Loader2, Flag, LogOut, Undo2, Bell, Clock, ShieldAlert, ExternalLink, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useMyTable,
   useMesasParaEscolher,
   useEscolherMesa,
   useMatchmakingProfile,
-  useMinhaFotoModeracao,
   useMesaAvisos,
   useMesaSair,
   useMesaVoltar,
@@ -20,8 +19,7 @@ import {
   type MotivoDenuncia,
 } from '../hooks/useMatchmaking'
 import { ESCOLARIDADE, FAIXAS_IDADE, REDE_SOCIAL_RE, etiquetasEmComum, rotuloTag, type MesaTags } from '../lib/mesaTags'
-import { appUrl } from '../lib/appHost'
-import { MesaTermoModal } from './CollectiveTableCard'
+import { MesaTermoModal, FotoModeracaoAviso } from './CollectiveTableCard'
 import ProfileQuiz from './ProfileQuiz'
 
 interface YourTableProps {
@@ -254,7 +252,6 @@ function Denunciar({ alvo, onFechar }: { alvo: MesaCartao; onFechar: () => void 
 export default function YourTable({ eventId }: YourTableProps) {
   const { data, isLoading, error } = useMyTable(eventId)
   const { profile } = useMatchmakingProfile()
-  const { data: fotoModeracao } = useMinhaFotoModeracao()
   const { avisos, marcarLidos } = useMesaAvisos()
   const sair = useMesaSair(eventId)
   const voltar = useMesaVoltar(eventId)
@@ -345,20 +342,7 @@ export default function YourTable({ eventId }: YourTableProps) {
           </button>
         </div>
       ) : (
-        <>
-          {(fotoModeracao === 'pendente' || fotoModeracao === 'revisar') && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-sm">
-              <Camera className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
-              <span>Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.</span>
-            </div>
-          )}
-          {fotoModeracao === 'recusada' && (
-            <div className="flex items-start gap-2 p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-sm">
-              <Camera className="w-4 h-4 text-red-300 flex-shrink-0 mt-0.5" />
-              <span>Sua foto não foi aprovada. <a href={appUrl('/app/profile')} className="underline">Troque a foto no Perfil</a> para aparecer com perfil.</span>
-            </div>
-          )}
-        </>
+        <FotoModeracaoAviso />
       )}
 
       {data.saiu && (
