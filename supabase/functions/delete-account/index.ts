@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
     // ponytail: pergunta ao Evo nos segundos da exclusão ainda pode gravar 1 linha (ai_log); fechar exige barrar no SQL
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
         'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists',
-        'ai_usage', 'ai_credit_grants']
+        'ai_usage', 'ai_credit_grants', 'staff_profiles']
       .map((t): [string, () => PromiseLike<{ error: { message: string } | null }>] =>
         [t, () => admin.from(t).delete().eq('user_id', uid)]),
   ]

@@ -4,7 +4,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 
 // Cliente com a chave anon e o JWT de quem chamou: o banco decide com auth.uid() e o aal do token
-const comoQuemChamou = (req: Request) =>
+export const comoQuemChamou = (req: Request) =>
   createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '', {
     global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
     auth: { persistSession: false },
