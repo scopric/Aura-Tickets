@@ -929,9 +929,9 @@ export default function AdminAnalytics() {
         <div className="space-y-6">
           <div className="an-anim grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
             <Numero icone={Users} rotulo="Contas" valor={totalUsers === null ? '—' : fmtNum(totalUsers)} apoio="Perfis registrados (total)" />
-            <Numero icone={Activity} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período escolhido" />
-            <Numero icone={Eye} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período escolhido" />
-            <Numero icone={Clock} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período escolhido" />
+            <Numero icone={Activity} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={Eye} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={Clock} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período · com senha e cookies aceitos (login pelo Google não conta)" />
           </div>
 
           <div className="an-anim p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
