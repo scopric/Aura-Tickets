@@ -160,7 +160,11 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   const lista = useMesaDenuncias('moderador', eventId)
   const mudarStatus = useDenunciaStatus()
   const liberar = useDenunciaLiberar()
+  const travas = useMesaTravas(eventId)
+  const destravar = useMesaDestravar(eventId)
   const [confirmar, setConfirmar] = useState<string | null>(null)
+  // denúncia que acabou de ser resolvida como improcedente: se ela tirou alguém da mesa, pergunta se desfaz
+  const [improcedente, setImprocedente] = useState<string | null>(null)
   // "Resolvida" só vai ao banco com o resultado e a explicação
   const [resolvendo, setResolvendo] = useState<string | null>(null)
   const [resultado, setResultado] = useState<ResultadoDenuncia | ''>('')
@@ -195,13 +199,9 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
                 const status = e.target.value as StatusDenuncia
                 if (status === 'resolvida') { setResolvendo(d.id); setResultado(''); setExplicacao(''); return }
                 setResolvendo(null)
-                const eraImprocedente = d.status === 'resolvida' && d.resultado === 'improcedente'
+                setImprocedente(null)
                 mudarStatus.mutate({ id: d.id, status }, {
-                  onSuccess: () => {
-                    toast.success('Status atualizado.')
-                    // o banco já desfez a remoção quando ela virou improcedente; reabrir não a restaura
-                    if (eraImprocedente) toast.warning('A remoção desfeita não volta sozinha; se for o caso, remova de novo pelo painel.', { duration: 15000 })
-                  },
+                  onSuccess: () => toast.success('Status atualizado.'),
                   onError: err => toast.error(erroMesaAdmin(err)),
                 })
               }}
@@ -228,13 +228,23 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
               <div className="flex gap-2">
                 <button disabled={!resultado || !explicacaoOk || mudarStatus.isPending} aria-describedby={`resolver-falta-${d.id}`} className={`${botao} bg-plum text-cream`}
                   onClick={() => resultado && mudarStatus.mutate({ id: d.id, status: 'resolvida', resultado, explicacao }, {
-                    onSuccess: () => { setResolvendo(null); toast.success('Status atualizado.') },
+                    onSuccess: () => { setResolvendo(null); setImprocedente(resultado === 'improcedente' ? d.id : null); toast.success('Status atualizado.') },
                     onError: err => toast.error(erroMesaAdmin(err)),
                   })}>Confirmar resolução</button>
                 <button onClick={() => setResolvendo(null)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
               </div>
             </div>
           )}
+          {improcedente === d.id && (travas.data ?? []).filter(t => t.denuncia_id === d.id && !t.destravada_em).map(t => (
+            <div key={t.id} className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center gap-2">
+              <span className="text-xs text-amber-800">Esta denúncia tirou alguém da mesa. Desfazer a remoção?</span>
+              <button disabled={destravar.isPending} aria-label={`Desfazer remoção de ${t.pessoa || 'conta excluída'}`} className={`${botao} bg-plum text-cream`}
+                onClick={() => destravar.mutate(t.id, {
+                  onSuccess: () => toast.success('Remoção desfeita.'),
+                  onError: err => toast.error(erroMesaAdmin(err)),
+                })}>Desfazer remoção</button>
+            </div>
+          ))}
           {d.status === 'resolvida' && d.resultado && (
             <p className="mt-2 text-xs text-espresso whitespace-pre-line break-words">
               <span className="font-bold">{d.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}</span>
@@ -286,10 +296,11 @@ function Remocoes({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
           </div>
           {t.detalhe && <p className="mt-2 text-xs text-espresso/70 whitespace-pre-line break-words">{t.detalhe}</p>}
           {t.denuncia_resultado && (
-            <div className="mt-1 text-xs text-espresso/70">
-              Denúncia {t.denuncia_resultado === 'procedente' ? 'procedente' : 'improcedente'}
-              {t.denuncia_resultado === 'improcedente' && t.destravada_em ? ' — remoção desfeita' : ''}
-            </div>
+            t.denuncia_resultado === 'improcedente' && !t.destravada_em ? (
+              <div className="mt-1 text-xs font-medium text-amber-800">Denúncia improcedente — a remoção ainda vale</div>
+            ) : (
+              <div className="mt-1 text-xs text-espresso/70">Denúncia {t.denuncia_resultado === 'procedente' ? 'procedente' : 'improcedente'}</div>
+            )
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {t.destravada_em ? (

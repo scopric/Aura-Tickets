@@ -56,6 +56,7 @@ export interface MesaTrava {
   em: string
   destravada_em: string | null
   destravada_por: string | null
+  denuncia_id: string | null
   denuncia_motivo: MotivoDenuncia | null
   denuncia_resultado: ResultadoDenuncia | null
 }
@@ -223,7 +224,7 @@ export function useRemoverMembro(eventId: string) {
 
 export function useDenunciaStatus() {
   // 'resolvida' exige resultado e explicação; nos outros status os dois não vão
-  return useMesaAdminMutation(['mesa-denuncias'], (d: { id: string; status: StatusDenuncia; resultado?: ResultadoDenuncia; explicacao?: string }) =>
+  return useMesaAdminMutation(['mesa-denuncias', 'mesa-travas'], (d: { id: string; status: StatusDenuncia; resultado?: ResultadoDenuncia; explicacao?: string }) =>
     rpc('mesa_denuncia_status', d.status === 'resolvida'
       ? { p_id: d.id, p_status: d.status, p_resultado: d.resultado, p_explicacao: d.explicacao === undefined ? undefined : limparTexto(d.explicacao).trim() }
       : { p_id: d.id, p_status: d.status }))
