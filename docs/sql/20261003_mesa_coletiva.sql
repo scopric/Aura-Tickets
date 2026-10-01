@@ -1555,13 +1555,12 @@ begin
     -- só vale no CHECK (dado antigo); quem quer sair usa mesa_sair
     raise exception 'Motivo inválido: sem denúncia ninguém é removido; quem quer sair usa "sair da mesa"' using errcode = '22023';
   end if;
-  -- o lock vem antes da regra: formar_mesas e a remoção veem o mesmo estado das denúncias
-  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
   -- (quem é produtor do evento e também moderador vale como produtor)
   v_denuncia := public.mesa_denuncia_que_remove(p_event_id, v_user, v_produtor);
   if v_denuncia is null then
     raise exception 'Só é possível remover quem tem denúncia neste evento' using errcode = '22023';
   end if;
+  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
   insert into public.mesa_travas (evento, user_id, ticket_id, motivo, detalhe, por, denuncia_id)
   values (p_event_id, v_user, p_ticket_id, p_motivo, nullif(trim(p_detalhe), ''), auth.uid(), v_denuncia)
   on conflict (evento, user_id) where destravada_em is null do nothing

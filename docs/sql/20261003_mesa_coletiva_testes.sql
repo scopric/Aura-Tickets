@@ -1420,7 +1420,9 @@ begin
   assert (select destravada_em is null and destravada_por is null from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'improcedente destravou sozinho';
   assert public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'trava caiu depois de improcedente';
   r := pg_temp.rpc2(3, format('public.mesa_travas_do_evento(%L)', pg_temp.u(907)));
-  assert r::text like '%"denuncia_resultado": "improcedente"%' and r::text like '%"denuncia_id"%', format('lista sem denuncia_resultado: %s', r);
+  assert (select (x ->> 'denuncia_id')::uuid = (select id from public.mesa_denuncias where evento = pg_temp.u(907) and denunciado = pg_temp.u(19))
+                 and x ->> 'denuncia_resultado' = 'improcedente'
+          from jsonb_array_elements(r) x where x ->> 'pessoa' = 'Pessoa19 Sobrenome'), format('lista sem denuncia_id/denuncia_resultado do 19: %s', r);
   perform pg_temp.rpc2(3, format('public.mesa_destravar(%L, %L)', pg_temp.u(907), (select id from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19))));
   assert not public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'mesa_destravar não destravou';
   r := pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(907)));
