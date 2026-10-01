@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '../../lib/formatters'
 import { mesaErro } from '../../hooks/useMatchmaking'
+import { resumoCarrinho } from '../../lib/taxa'
 
 export default function CheckoutPayment() {
   const location = useLocation()
@@ -34,6 +35,8 @@ export default function CheckoutPayment() {
     totalAmount: locationState.totalAmount || pendingCheckout?.totalAmount,
     itemsSummary: locationState.itemsSummary || pendingCheckout?.itemsSummary,
   }
+  // Recalcula aqui: o totalAmount do sessionStorage pode ter a taxa antiga de 5%.
+  const resumo = resumoCarrinho((itemsSummary || []).map((i: { price: number; quantity: number }) => ({ preco: i.price, qtd: i.quantity })))
 
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card')
   const [pixData, setPixData] = useState<{ qrCodeData: string; qrCodeImageUrl: string } | null>(null)
@@ -122,7 +125,7 @@ export default function CheckoutPayment() {
   }
 
   const handlePay = async () => {
-    if (!eventId || !cart || !totalAmount || !itemsSummary) {
+    if (!eventId || !cart || !resumo.total || !itemsSummary) {
       toast.error('Detalhes do pedido inválidos.')
       return
     }
@@ -172,7 +175,7 @@ export default function CheckoutPayment() {
       event_id: eventId,
       items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
       payment_method: paymentMethod,
-      total_amount: totalAmount
+      total_amount: resumo.total
     }, {
       onSuccess: async (order) => {
         try {
@@ -182,7 +185,7 @@ export default function CheckoutPayment() {
             const result = await processPayment({
               orderId: order.id,
               method: 'credit_card',
-              amount: totalAmount,
+              amount: resumo.total,
               customerEmail: order.customer_email || 'comprador@cliente.com',
               customerName: order.customer_name || 'Comprador Evokaa',
               customerCpf: order.customer_cpf || '',
@@ -199,7 +202,7 @@ export default function CheckoutPayment() {
             navigate('/checkout/success', {
               state: {
                 orderId: order.id,
-                totalAmount,
+                totalAmount: resumo.total,
                 paymentMethod
               }
             })
@@ -209,7 +212,7 @@ export default function CheckoutPayment() {
             const result = await processPayment({
               orderId: order.id,
               method: 'pix',
-              amount: totalAmount,
+              amount: resumo.total,
               customerEmail: order.customer_email || '',
               customerName: order.customer_name || '',
               customerCpf: order.customer_cpf || '',
@@ -246,7 +249,7 @@ export default function CheckoutPayment() {
                     navigate('/checkout/success', {
                       state: {
                         orderId: order.id,
-                        totalAmount,
+                        totalAmount: resumo.total,
                         paymentMethod: 'pix'
                       }
                     })
@@ -433,10 +436,18 @@ export default function CheckoutPayment() {
 
           {/* Summary */}
           <div className="p-6 rounded-2xl bg-void text-cream">
+            <div className="flex justify-between text-sm text-cream/70 mb-1">
+              <span>Ingressos</span>
+              <span>{formatCurrency(resumo.subtotal, currency)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-cream/70 mb-3">
+              <span>Taxa de serviço</span>
+              <span>{formatCurrency(resumo.taxa, currency)}</span>
+            </div>
             <div className="flex justify-between items-center mb-4">
               <span className="text-cream/70">Total a pagar</span>
               <span className="font-serif text-2xl">
-                {formatCurrency(totalAmount, currency)}
+                {formatCurrency(resumo.total, currency)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-cream/70 mb-4">

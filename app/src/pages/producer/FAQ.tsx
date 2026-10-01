@@ -3,16 +3,16 @@ import { Users, Building } from 'lucide-react'
 import FAQSection from '../../components/FAQSection'
 
 const producerFAQs = [
-  { question: 'Como criar um novo evento?', answer: 'Acesse o menu "Nova Festa" no painel lateral. Preencha as informacoes basicas como nome, data, local e capacidade. Em seguida, configure os tipos de ingresso, precos e a aparencia visual do evento. Depois e so publicar!' },
+  { question: 'Como criar um novo evento?', answer: 'Acesse "Criar Evento" no menu lateral. Preencha as informacoes basicas como nome, data, local e capacidade. Em seguida, configure os tipos de ingresso, precos e a aparencia visual do evento. Depois e so publicar!' },
   { question: 'Como funciona o sistema de afiliados?', answer: 'No menu "Afiliados", voce pode cadastrar vendedores que divulgarao seu evento. Cada afiliado recebe um codigo unico e pode ter um cupom exclusivo. Voce define a comissao (ex: 10%) e o limite de ingressos. Na fase beta, a conferencia das vendas e o pagamento (PIX) sao feitos diretamente entre voce e o afiliado; o rastreamento automatico entra com a integracao de pagamentos.' },
   { question: 'Posso limitar a quantidade de ingressos por afiliado?', answer: 'Sim! Ao cadastrar ou editar um afiliado, voce define o "Limite de Ingressos". Na fase beta o limite e um combinado entre voces (avise o afiliado ao chegar perto); o bloqueio automatico entra com a integracao de pagamentos. Voce pode aumentar o limite a qualquer momento.' },
   { question: 'Como funciona a Caixinha?', answer: 'A Caixinha e um cofrinho virtual separado por categoria (Marketing, Decoracao, Emergencia, Lucro). Voce define uma meta para cada uma e vai depositando valores conforme recebe. Ajuda a organizar o orcamento do evento.' },
-  { question: 'Como faco o check-in na porta do evento?', answer: 'Use a tela "Check-in" no menu. Existem dois modos: Scanner (digite o codigo do ingresso) e Lista (visualize todos os participantes). Ambos atualizam em tempo real.' },
-  { question: 'O que e Mesa Coletiva?', answer: 'Mesa Coletiva e um tipo de ingresso onde 6 pessoas desconhecidas sao agrupadas por afinidade de perfil. Elas respondem um questionario e nosso algoritmo forma as mesas. Inclui welcome drink e finger food.' },
+  { question: 'Como faco o check-in na porta do evento?', answer: 'Use a tela "Check-in" no menu. Existem dois modos: Scanner (digite o codigo do ingresso) e Lista (visualize todos os participantes).' },
+  { question: 'O que e Mesa Coletiva?', answer: 'Mesa Coletiva e um tipo de ingresso onde 6 pessoas desconhecidas sao agrupadas por afinidade de perfil. Elas respondem um questionario de perfil; a formacao automatica das mesas por afinidade chega em breve.' },
   { question: 'Como criar cupons de desconto?', answer: 'Va em "Cupons" no menu. Voce pode criar cupons percentuais (ex: 20% OFF) ou valor fixo (ex: R$50 OFF). Defina compra minima, limite de usos e validade.' },
-  { question: 'Como enviar comunicacoes em massa?', answer: 'No menu "Comunicacao", voce cria campanhas de Email, SMS ou Push. Use os templates prontos ou crie do zero. Agende o envio e acompanhe as metricas (abertura, cliques).' },
-  { question: 'Posso exportar relatorios financeiros?', answer: 'Sim! Na tela "Financeiro", clique em "Exportar" para baixar um CSV com todas as transacoes, formas de pagamento e status.' },
-  { question: 'Como funciona o cronograma do evento?', answer: 'A "Timeline" mostra a linha do tempo completa do evento, do soundcheck ao encerramento. Cada item tem horario, responsavel e local. Clique no circulo para marcar como concluido.' },
+  { question: 'Como enviar comunicacoes em massa?', answer: 'Esse recurso ainda nao esta disponivel. O envio de e-mail, SMS e push para os participantes esta em construcao e chega com a ferramenta de e-mail do produtor; por enquanto a tela "Comunicacao" fica fora do menu.' },
+  { question: 'Posso exportar relatorios financeiros?', answer: 'Ainda nao esta disponivel. O botao "Exportar" da tela "Financeiro" esta marcado como "em breve"; ate la, os valores ficam visiveis na propria tela.' },
+  { question: 'Como funciona o cronograma do evento?', answer: 'O "Cronograma" mostra a linha do tempo completa do evento, do soundcheck ao encerramento. Cada item tem horario, responsavel e local. Clique no circulo para marcar como concluido.' },
 ]
 
 const affiliateFAQs = [

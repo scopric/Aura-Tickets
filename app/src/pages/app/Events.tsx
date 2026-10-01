@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { cn } from '../../lib/utils'
+import { calcularTaxa, brl } from '../../lib/taxa'
 
 const categories = [
   'Todos',
@@ -33,8 +34,8 @@ function getMinPrice(ticketTypes: any[]) {
   if (!ticketTypes || ticketTypes.length === 0) return null
   const prices = ticketTypes.map((t) => Number(t.price) || 0).filter((p) => p > 0)
   if (prices.length === 0) return 'Gratuito'
-  const min = Math.min(...prices)
-  return `R$ ${min.toFixed(0)}`
+  const { preco, taxa, total } = calcularTaxa(Math.min(...prices))
+  return `${brl(total)} (${brl(preco)} + taxa ${brl(taxa)})`
 }
 
 export default function AppEvents() {

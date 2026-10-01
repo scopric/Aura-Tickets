@@ -2,6 +2,24 @@ import { supabase } from './supabase'
 import { getAppMode } from './appHost'
 import { useAuthStore } from '../stores/authStore'
 import { gaPageView } from './googleAnalytics'
+import type { BeforeSend } from '@vercel/analytics/react'
+
+/**
+ * Navegador dirigido por programa: Playwright, Selenium e Puppeteer marcam navigator.webdriver;
+ * o navegador integrado do app Claude não marca, mas traz "Claude/" no user agent.
+ * Não conta nas métricas (pico de 01/10/2026: 297 visitas a /producer/__reset numa hora).
+ * Limite: quem abrir o site num app que ponha "Claude/" no user agent também some das métricas.
+ */
+export function ehAutomacao(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return navigator.webdriver === true || /\bClaude\//.test(navigator.userAgent)
+}
+
+// Vercel Web Analytics envia a URL inteira; o Supabase devolve o token no #hash
+// (login social e redefinição de senha), então o hash nunca sai daqui. Fora do componente
+// para não re-registrar o script a cada render. null descarta o evento.
+export const semHash: BeforeSend = (event) =>
+  ehAutomacao() ? null : { ...event, url: event.url.split('#')[0] }
 
 const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
 const SESSION_ID_KEY = 'aura_session_id'
@@ -44,6 +62,7 @@ export async function trackEvent(
   metadata: Record<string, any> = {}
 ) {
   if (getAppMode() === 'admin') return // painel de administração não é rastreado (Decisão 46 do cofre)
+  if (ehAutomacao()) return
   // LGPD: nenhum evento é gravado sem o consentimento de cookies analíticos (banner do site)
   if (!hasAnalyticsConsent()) {
     return

@@ -11,9 +11,9 @@ interface TourStep {
 
 const producerSteps: TourStep[] = [
   { title: 'Bem-vindo ao Evokaa!', description: 'Esta e a sua central de comandos. Aqui voce gerencia todos os seus eventos, vendas e equipe em um so lugar.' },
-  { title: 'Criar Evento', description: 'Comece clicando em "Nova Festa". Escolha o tipo, configure ingressos, preços e publique em minutos.' },
-  { title: 'Afiliados', description: 'Cadastre vendedores que divulgarao seu evento. Cada um tem codigo unico, cupom e limite de ingressos. Acompanhe em tempo real.' },
-  { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar entrada. Rapido e atualiza em tempo real.' },
+  { title: 'Criar Evento', description: 'Comece clicando em "Criar Evento". Escolha o tipo, configure ingressos, preços e publique em minutos.' },
+  { title: 'Afiliados', description: 'Cadastre vendedores que divulgarao seu evento. Cada um tem codigo unico, cupom e limite de ingressos.' },
+  { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar a entrada.' },
   { title: 'Financeiro', description: 'Controle receitas e despesas com formas de pagamento (PIX, cartao, boleto). Veja saldo, pendentes e atrasados.' },
   { title: 'Caixinha', description: 'Separe dinheiro por categoria: Marketing, Decoracao, Emergencia. Defina metas e acompanhe o progresso.' },
   { title: 'Comunicacao', description: 'A comunicacao com os participantes chega em breve.' },

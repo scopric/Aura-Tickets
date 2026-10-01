@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Link } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import { AlertCircle, CheckCheck, Download, FileText, Loader2, Lock, Paperclip, Send, Volume2, VolumeX, WifiOff, X } from 'lucide-react'
+import { AlertCircle, BookPlus, CheckCheck, Download, FileText, Loader2, Lock, Paperclip, Send, Volume2, VolumeX, WifiOff, X } from 'lucide-react'
 import {
   MAX_TEXTO, TIPOS_ANEXO, depois, enviarAnexo, enviarMensagem, iniciais, mensagemDeErro, problemaNoArquivo,
-  useMensagens, useSomChat, useUrlAnexo, type MensagemChat, type PapelMensagem,
+  responderAssistente, useMensagens, useSomChat, useUrlAnexo, type MensagemChat, type PapelMensagem,
 } from '../../hooks/useConversas'
 
 // Selo de quem escreveu: SEMPRE pelo sender_role gravado pelo servidor, nunca pelo nome (o nome
@@ -72,15 +73,48 @@ function Anexo({ m, minha }: { m: MensagemChat; minha: boolean }) {
   )
 }
 
+/** "Isso resolveu?" abaixo da última resposta do assistente (tela do cliente). */
+function Resolveu({ conversaId }: { conversaId: string }) {
+  const qc = useQueryClient()
+  const [enviando, setEnviando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
+  const responder = async (sim: boolean) => {
+    setEnviando(true)
+    setErro(null)
+    try {
+      await responderAssistente(conversaId, sim)
+      qc.invalidateQueries({ queryKey: ['chat-minhas'] })
+      qc.invalidateQueries({ queryKey: ['chat-mensagens', conversaId] })
+    } catch (e) {
+      setErro(mensagemDeErro(e))
+    } finally {
+      setEnviando(false)
+    }
+  }
+  const botao = `rounded-full border border-slate-900/20 px-3 py-0.5 font-semibold hover:bg-slate-900/5 disabled:opacity-50 dark:border-white/20 dark:hover:bg-white/10 ${foco}`
+  return (
+    <div className="mt-1.5 px-1 text-xs text-slate-700 dark:text-slate-300">
+      <div role="group" aria-labelledby={`resolveu-${conversaId}`} className="flex items-center gap-1.5">
+        <span id={`resolveu-${conversaId}`}>Isso resolveu?</span>
+        <button type="button" disabled={enviando} onClick={() => responder(true)} className={botao}>Sim</button>
+        <button type="button" disabled={enviando} onClick={() => responder(false)} className={botao}>Não</button>
+      </div>
+      {erro && <p role="alert" className="mt-1 text-red-700 dark:text-red-300">{erro}</p>}
+    </div>
+  )
+}
+
 /**
  * Conversa (bolhas) + campo de envio. Serve ao widget do cliente (souEquipe = false) e à caixa de
  * entrada do admin (souEquipe = true, com a alternância Responder / Nota interna).
  */
 export default function ChatThread({
-  conversaId, souEquipe, podeNota = false, podeAnexar, lidoAte, aoEnviar, rotuloCampo = 'Mensagem',
+  conversaId, souEquipe, podeNota = false, podeAnexar, lidoAte, aoEnviar, rotuloCampo = 'Mensagem', assistente = false,
 }: {
   conversaId: string
   souEquipe: boolean
+  /** Conversa aberta com o assistente (tela do cliente): "Isso resolveu?" abaixo da última resposta dele */
+  assistente?: boolean
   podeNota?: boolean
   /** O bucket só aceita arquivo em conversa aberta */
   podeAnexar: boolean
@@ -111,6 +145,7 @@ export default function ChatThread({
 
   const minha = (m: MensagemChat) => (souEquipe ? m.sender_role === 'agent' || m.sender_role === 'producer' : m.sender_role === 'customer')
   const ultimaMinha = [...(mensagens ?? [])].reverse().find((m) => minha(m) && !m.is_internal)
+  const ultima = mensagens?.[mensagens.length - 1]
 
   const escolher = (f: File | undefined) => {
     if (arquivoRef.current) arquivoRef.current.value = ''
@@ -177,6 +212,13 @@ export default function ChatThread({
               const anterior = mensagens[i - 1]
               const novoBloco = !anterior || anterior.sender_id !== m.sender_id || anterior.sender_role !== m.sender_role || anterior.is_internal !== m.is_internal
               const eu = minha(m)
+              if (m.sender_role === 'system') {
+                return (
+                  <li key={m.id} className="py-2 text-center text-xs text-slate-700 dark:text-slate-300">
+                    <span className="inline-block rounded-full bg-slate-900/5 px-3 py-1 dark:bg-white/10">{m.body}</span>
+                  </li>
+                )
+              }
               if (m.is_internal) {
                 return (
                   <li key={m.id} className={novoBloco ? 'pt-3' : ''}>
@@ -196,7 +238,7 @@ export default function ChatThread({
                 <li key={m.id} className={`flex gap-2 ${eu ? 'flex-row-reverse' : ''} ${novoBloco ? 'pt-3' : ''}`}>
                   <div className="w-8 shrink-0" aria-hidden="true">
                     {cabecalho && (
-                      <span className={`grid h-8 w-8 place-items-center rounded-full text-[11px] font-bold ${m.sender_role === 'agent' ? 'bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-[#fff]' : 'bg-slate-900/10 text-slate-800 dark:bg-white/10 dark:text-slate-100'}`}>
+                      <span className={`grid h-8 w-8 place-items-center rounded-full text-[11px] font-bold ${m.sender_role === 'agent' || m.sender_role === 'bot' ? 'bg-gradient-to-br from-[#1d68c4] to-[#8f33f5] text-[#fff]' : 'bg-slate-900/10 text-slate-800 dark:bg-white/10 dark:text-slate-100'}`}>
                         {iniciais(m.sender_name)}
                       </span>
                     )}
@@ -227,7 +269,13 @@ export default function ChatThread({
                           <CheckCheck className="h-3.5 w-3.5 text-violet-700 dark:text-violet-300" aria-hidden="true" /> Visto
                         </>
                       )}
+                      {souEquipe && m.sender_role === 'agent' && m.body && (
+                        <Link to={`/admin/conhecimento?mensagem=${m.id}`} className={`ml-1 inline-flex items-center gap-0.5 rounded font-semibold text-violet-800 hover:underline dark:text-violet-200 ${foco}`}>
+                          <BookPlus className="h-3.5 w-3.5" aria-hidden="true" /> Virar artigo
+                        </Link>
+                      )}
                     </p>
+                    {assistente && !souEquipe && m.id === ultima?.id && m.sender_role === 'bot' && !!m.bot_layer && <Resolveu conversaId={conversaId} />}
                   </div>
                 </li>
               )

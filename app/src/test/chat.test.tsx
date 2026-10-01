@@ -216,6 +216,32 @@ describe('chat: caixa de entrada do admin', () => {
     unmount()
     expect(supabase.removeChannel).toHaveBeenCalledWith(canal)
   })
+
+  it('escolher filtro pelo menu muda a consulta; painel de detalhes abre e fecha com Esc', async () => {
+    role = 'admin'
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox'
+      ? { data: [{ id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_name: 'Geral', topic_label: 'Outros', mediation: false,
+          contact_name: 'Carla Dias', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'preciso de ajuda', last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: false }], error: null }
+      : { data: { ok: true }, error: null }))
+    respostas.conversations = { id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_id: null, customer_last_read_at: null,
+      agent_last_read_at: null, last_customer_message_at: null, created_at: '2026-09-30T12:00:00Z', rating: null,
+      chat_topics: { label: 'Outros', mediation: false }, chat_contacts: { name: 'Carla Dias', email: 'carla@exemplo.com', phone: null, origin: 'app', marketing_opt_in: false } }
+    montar(<Atendimento />)
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_inbox', expect.objectContaining({ p_filtro: 'abertas' })))
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Filtro: Abertas' }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /Urgentes/ }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_inbox', expect.objectContaining({ p_filtro: 'urgentes' })))
+    expect(screen.getByRole('button', { name: 'Filtro: Urgentes' })).toBeInTheDocument()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Carla Dias/ }))
+    const detalhes = await screen.findByRole('button', { name: 'Detalhes do contato' })
+    expect(detalhes).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(detalhes)
+    expect(detalhes).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(detalhes).toHaveAttribute('aria-expanded', 'false')
+    expect(detalhes).toHaveFocus()
+  })
 })
 
 describe('chat: nome de quem atende', () => {
@@ -250,11 +276,11 @@ describe('chat: som das mensagens', () => {
 
   it('admin, em qualquer página: mensagem de cliente toca; a própria, nota interna e resposta da equipe não', () => {
     montar(<AdminLayout />)
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(1)
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'u1' }) // o próprio admin como cliente
-    chegar({ sender_role: 'agent', is_internal: false, sender_id: 'a2' })
-    chegar({ sender_role: 'customer', is_internal: true, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'u1', bot_state: 'humano' }) // o próprio admin como cliente
+    chegar({ sender_role: 'agent', is_internal: false, sender_id: 'a2', bot_state: 'humano' })
+    chegar({ sender_role: 'customer', is_internal: true, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(1)
   })
 
@@ -265,7 +291,7 @@ describe('chat: som das mensagens', () => {
     fireEvent.click(botao)
     expect(botao).toHaveAttribute('aria-pressed', 'false')
     expect(mem['evokaa-som-chat']).toBe('off')
-    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1' })
+    chegar({ sender_role: 'customer', is_internal: false, sender_id: 'cliente-1', bot_state: 'humano' })
     expect(bipes).toBe(0)
   })
 

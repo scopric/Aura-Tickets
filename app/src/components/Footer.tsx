@@ -19,25 +19,22 @@ export default function Footer() {
 
     setLoading(true)
     try {
-      const { error } = await supabase
-        .from('newsletter_subscribers')
-        .insert({ email: email.trim().toLowerCase() })
-
-      if (error) {
-        if (error.message?.includes('duplicate') || error.code === '23505') {
-          // pode ser inscrição ativa ou alguém que descadastrou (a linha fica como prova LGPD)
-          toast.info('Este e-mail já está na nossa lista. Para voltar a receber, fale com contato@evokaa.com.br.')
-        } else {
-          toast.error('Erro ao inscrever. Tente novamente.')
-          console.error('[Newsletter]', error)
-        }
-        setLoading(false)
+      // Pela Edge Function (valida, limita por IP e grava; o visitante não tem INSERT na tabela). A resposta
+      // é a mesma exista ou não o e-mail na lista: não revela quem já é assinante.
+      const { data, error } = await supabase.functions.invoke('send-email', {
+        body: { emailType: 'newsletter_subscribe', email: email.trim() },
+      })
+      if (error || data?.error) {
+        // FunctionsHttpError guarda a resposta da função em error.context; erro de rede não
+        const ctx = (error as { context?: { json?: () => Promise<{ error?: string }> } } | null)?.context
+        const msg = data?.error || (typeof ctx?.json === 'function' ? await ctx.json().then(b => b?.error).catch(() => undefined) : undefined)
+        toast.error(msg || 'Erro ao inscrever. Tente novamente.')
         return
       }
 
       setSubscribed(true)
       setEmail('')
-      toast.success('Inscrito com sucesso!')
+      toast.success('Inscrição recebida!')
       setTimeout(() => setSubscribed(false), 4000)
     } catch (err) {
       console.error('[Newsletter]', err)
@@ -58,7 +55,7 @@ export default function Footer() {
           <div className="lg:col-span-4">
             <Link to="/" className="flex items-center gap-2 mb-6">
               <img
-                src="/images/logo-evokaa.png"
+                src="/images/logo-evokaa-sm.png"
                 alt="Evokaa"
                 className="h-20 w-auto"
               />
@@ -140,6 +137,11 @@ export default function Footer() {
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : subscribed ? 'Enviado!' : 'Assinar'}
               </button>
             </form>
+            {subscribed && (
+              <p className="text-xs text-white/40 mt-2">
+                Se você já tinha cancelado a inscrição, fale com a gente para voltar a receber.
+              </p>
+            )}
           </div>
         </div>
 

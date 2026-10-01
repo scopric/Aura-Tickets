@@ -30,6 +30,10 @@ export interface Conversa {
   created_at: string
   /** primeiro nome de quem assumiu (gravado pelo servidor, 20261002_chat_atendente.sql) */
   assignee_name: string | null
+  /** com o assistente ou com a equipe (20261003_chat_bot.sql) */
+  bot_state: 'bot' | 'humano'
+  /** resolvida no "Sim" do assistente (selo); fechada pelo cron ou pela equipe fica falso */
+  bot_resolveu: boolean
   chat_topics: { label: string } | null
 }
 
@@ -45,6 +49,8 @@ export interface MensagemChat {
   attachment_name: string | null
   attachment_mime: string | null
   attachment_size: number | null
+  /** 1 = resposta do assistente pela base; nulo na cortesia e nas demais mensagens */
+  bot_layer: number | null
   created_at: string
 }
 
@@ -95,6 +101,7 @@ const MOTIVOS: Record<string, string> = {
   limite_hora: 'Você abriu muitas conversas na última hora. Tente de novo mais tarde.',
   limite_minuto: 'Muitas mensagens em pouco tempo. Aguarde um minuto e tente de novo.',
   nao_permitido: 'Não foi possível registrar a avaliação (ela é feita uma vez, com a conversa resolvida).',
+  fora_do_assistente: 'Esta conversa já está com a equipe ou foi encerrada.',
 }
 
 /** Erro do Supabase → frase em português. As recusas do banco (22023/42501) já vêm em português. */
@@ -143,6 +150,16 @@ export async function atualizarConversa(conversaId: string, patch: Record<string
 
 export async function marcarLida(conversaId: string) {
   await chamar('chat_mark_read', { p_conv: conversaId })
+}
+
+/** "Falar com um atendente": tira a conversa do assistente */
+export async function falarComAtendente(conversaId: string) {
+  await chamar('chat_handoff', { p_conv: conversaId })
+}
+
+/** "Isso resolveu?" do assistente: Sim resolve; Não passa para a equipe */
+export async function responderAssistente(conversaId: string, resolveu: boolean) {
+  await chamar('chat_bot_feedback', { p_conv: conversaId, p_resolveu: resolveu })
 }
 
 export async function avaliarConversa(conversaId: string, nota: 1 | 2 | 3) {
@@ -307,7 +324,7 @@ export function useMinhasConversas(ouvir = false) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('conversations' as never)
-        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, assignee_name, chat_topics(label)')
+        .select('id, status, priority, last_message_at, last_message_preview, last_reply_at, customer_last_read_at, agent_last_read_at, rating, created_at, assignee_name, bot_state, bot_resolveu, chat_topics(label)')
         .eq('user_id', uid!)
         .order('last_message_at', { ascending: false })
         .limit(50)
@@ -356,7 +373,7 @@ export function useMensagens(conversaId: string | null, apenasPublicas = false) 
     queryFn: async () => {
       let q = supabase
         .from('conversation_messages' as never)
-        .select('id, conversation_id, sender_id, sender_role, sender_name, body, is_internal, attachment_path, attachment_name, attachment_mime, attachment_size, created_at')
+        .select('id, conversation_id, sender_id, sender_role, sender_name, body, is_internal, attachment_path, attachment_name, attachment_mime, attachment_size, bot_layer, created_at')
         .eq('conversation_id', conversaId!)
       if (apenasPublicas) q = q.eq('is_internal', false)
       const { data, error } = await q.order('created_at', { ascending: false }).limit(500)

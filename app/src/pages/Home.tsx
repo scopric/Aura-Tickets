@@ -514,9 +514,9 @@ function HowItWorksCard({
 
   const getPreviewImage = () => {
     switch (stepIndex) {
-      case 0: return '/images/preview_create_event.png'
-      case 1: return '/images/preview_manage_event.png'
-      case 2: return '/images/preview_sell_tickets.png'
+      case 0: return '/images/preview_create_event.webp'
+      case 1: return '/images/preview_manage_event.webp'
+      case 2: return '/images/preview_sell_tickets.webp'
       default: return ''
     }
   }
@@ -576,6 +576,7 @@ function HowItWorksCard({
           <img
             src={getPreviewImage()}
             alt={title}
+            loading="lazy"
             className={`w-full h-full object-cover object-top transition-all duration-700 ease-out ${
               isHovered 
                 ? 'scale-[1.08] translate-y-0 opacity-100 filter brightness-110' 
@@ -657,10 +658,10 @@ export default function Home() {
 
   const landingFAQs = [
     { question: 'O que é a Evokaa?', answer: 'Evokaa é uma plataforma completa para criação e gestão de eventos. Desde o planejamento até a venda de ingressos e check-in na porta, tudo em um só lugar. Conectamos produtores, participantes e afiliados em uma experiência única.' },
-    { question: 'Quanto custa usar a Evokaa?', answer: 'Criar uma conta é gratuita. Cobramos uma comissão sobre as vendas de ingressos (geralmente 5-10%), sem custo fixo mensal. Você só paga quando vende.' },
-    { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva é um tipo de ingresso exclusivo onde 6 pessoas desconhecidas são agrupadas por afinidade de perfil. Cada pessoa responde um questionário rápido e nosso algoritmo forma mesas equilibradas. Inclui welcome drink e finger food.' },
-    { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que você cadastre vendedores com códigos únicos, cupons de desconto exclusivos e limites de ingressos. Acompanhe tudo em tempo real no painel.' },
-    { question: 'Quais formas de pagamento são aceitas?', answer: 'Aceitamos PIX, Cartão de Crédito, Cartão de Débito, Boleto, Dinheiro e Transferência bancária. O dinheiro cai na sua conta em até 2 dias úteis.' },
+    { question: 'Quanto custa usar a Evokaa?', answer: 'Criar uma conta é gratuito. Quem compra paga uma taxa de serviço de 10% do valor de cada ingresso, com mínimo de R$ 3 por ingresso; evento gratuito não tem taxa. Para quem produz eventos, os planos e as tarifas estão em Planos & Tarifas, nesta página.' },
+    { question: 'Como funciona a Mesa Coletiva?', answer: 'A Mesa Coletiva é um tipo de ingresso exclusivo onde 6 pessoas desconhecidas são agrupadas por afinidade de perfil. Cada pessoa responde um questionário rápido de perfil; a formação automática das mesas por afinidade chega em breve.' },
+    { question: 'Posso ter afiliados vendendo meus ingressos?', answer: 'Sim! Nosso sistema de afiliados permite que você cadastre vendedores com códigos únicos, cupons de desconto exclusivos e limites de ingressos, e acompanhe seus afiliados no painel.' },
+    { question: 'Quais formas de pagamento são aceitas?', answer: 'Aceitamos PIX, Cartão de Crédito, Cartão de Débito, Boleto, Dinheiro e Transferência bancária. O dinheiro cai na sua conta em até 3 dias úteis.' },
     { question: 'Como funciona o check-in?', answer: 'Na porta do evento, você pode usar o modo Scanner (digita o código do ingresso) ou o modo Lista (busca o nome do participante). Ambos funcionam offline e atualizam em tempo real.' },
     { question: 'A Evokaa funciona para qualquer tipo de evento?', answer: 'Sim! Festas, shows, workshops, palestras, eventos corporativos, networking, gastronomia, esportes e muito mais. Você também pode criar tipos personalizados.' },
     { question: 'Como entro em contato com o suporte?', answer: 'Use o botão de feedback no canto inferior direito de qualquer página. Nossa equipe responde em até 24h. Produtores têm acesso ao FAQ completo no painel.' },

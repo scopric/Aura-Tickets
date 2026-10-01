@@ -13,10 +13,10 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -26,6 +26,13 @@ jobs:
         run: |
           cd app
           npm ci --legacy-peer-deps
+
+      # Portão de segurança (decisão 101): barra dependência de produção com falha alta ou crítica.
+      - name: Audit Production Dependencies
+        run: |
+          cd app
+          # Repete uma vez: o servidor de audit do npm às vezes falha por rede; falha real falha de novo.
+          npm audit --omit=dev --audit-level=high || { sleep 10; npm audit --omit=dev --audit-level=high; }
 
       - name: Run Lint Check
         run: |
