@@ -3,12 +3,12 @@
 -- produção). Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código: são dois blocos,
 -- cada um num begin … rollback (nada fica gravado), mas mexem em gatilhos e no cron dentro da
 -- transação.
--- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E28: escolha, troca, denúncia e triagem,
+-- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E29: escolha, troca, denúncia e triagem,
 -- faixa de idade, rede social, moderação da foto, avisos, remoção e trava, numeração, conflitos
 -- de interesse do moderador, moderação automática da foto (Fase E).
 -- Contas de teste com ids fixos (b0000000-…); e-mails *.invalid. Cada teste termina com
 -- "NOTICE: Tn OK" ou "NOTICE: En OK"; falha = ERROR com o valor recebido.
--- Rodado em 01/10/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E28 OK.
+-- Rodado em 01/10/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E29 OK.
 -- Stubs usados no Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório:
 -- profiles/events/ticket_types/tickets/user_profiles_ext/collective_tables/table_members com as
 -- colunas, CHECKs, FKs, RLS e GRANTs de produção (compatibility_score numeric(3,1),
@@ -1291,6 +1291,7 @@ declare r1 jsonb; r2 jsonb; r3 jsonb; u1 uuid[]; u2 uuid[]; ok boolean; i int; p
   m text := 'gemini-3.1-flash-lite'; cron_cmd text := (select command from cron.job where jobname = 'moderar_fotos');
 begin
   assert (select schedule from cron.job where jobname = 'moderar_fotos') = '*/2 * * * *', 'cron moderar_fotos';
+  update public.ai_settings set enabled = true where id = 1;   -- o interruptor da IA (E29 testa desligado)
   assert has_function_privilege('service_role', 'public.mesa_fotos_para_moderar_auto(int)', 'execute')
      and has_function_privilege('service_role', 'public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int)', 'execute')
      and not has_function_privilege('authenticated', 'public.mesa_fotos_para_moderar_auto(int)', 'execute')
@@ -1399,13 +1400,70 @@ begin
   assert public.mesa_moderacao_secret() is null, 'segredo antes de existir';
   perform set_config('role', 'postgres', true);
   perform vault.create_secret('segredo-de-teste-nao-usar', 'mesa_moderacao_secret');
+  assert (select count(*) from cron.job where jobname = 'moderar_fotos'
+          and command not like '%' || (select decrypted_secret from vault.decrypted_secrets where name = 'mesa_moderacao_secret') || '%') = 1,
+         'segredo escrito no cron';
   perform set_config('role', 'service_role', true);
   assert public.mesa_moderacao_secret() = 'segredo-de-teste-nao-usar', 'service_role não lê o segredo';
   perform set_config('role', 'postgres', true);
   assert pg_temp.err(43, 'public.mesa_moderacao_secret()') like '42501%', 'authenticated leu o segredo';
+  update public.profiles set avatar_moderacao_reservada_ate = null where avatar_moderacao = 'pendente';  -- reservas vencidas
   execute cron_cmd;
   assert (select count(*) from net.http_request_queue) = n0 + 1, 'cron não chamou com segredo';
   raise notice 'E28 OK: fila com reserva; fora da fila; hash antigo; aprovada/recusada/revisar/3 erros; admin com ia; troca zera; teto; EXECUTE; segredo; cron';
+end $t$;
+
+-- E29. Correções da Fase E: contestação da recusa automática (LGPD, art. 20); limite de 5 moderações
+--      por pessoa em 24 h; motivos zerados aos 30 dias; interruptor da IA; o cron só chama com foto na fila
+do $t$
+declare r jsonb; apagar text := (select command from cron.job where jobname = 'apagar_mesas_antigas'); d1 bigint; d2 bigint;
+begin
+  assert has_function_privilege('authenticated', 'public.mesa_foto_contestar()', 'execute')
+     and not has_function_privilege('anon', 'public.mesa_foto_contestar()', 'execute'), 'EXECUTE de mesa_foto_contestar';
+  foreach r in array array['"public.mesa_ia_ligada()"', '"public.mesa_foto_na_fila(uuid)"', '"public.mesa_tem_foto_para_moderar()"']::jsonb[] loop
+    assert not has_function_privilege('authenticated', r #>> '{}', 'execute') and not has_function_privilege('anon', r #>> '{}', 'execute'), 'aberta: ' || r;
+  end loop;
+  -- contestar: o 42 foi recusado pela IA (E28): contesta uma vez; vai para revisar e para a fila do admin
+  assert pg_temp.rpc(42, 'public.mesa_foto_contestar()') = 'true', 'não contestou';
+  assert (select avatar_moderacao = 'revisar' from public.profiles where id = pg_temp.u(42)), 'contestação sem revisar';
+  assert pg_temp.rpc(42, 'public.mesa_foto_contestar()') = 'false', 'contestou duas vezes';
+  r := pg_temp.rpc2(3, 'public.mesa_fotos_para_revisar()');
+  assert (select x -> 'ia' ->> 'decisao' = 'recusada' and x -> 'ia' -> 'motivos' = '["nudez"]' and (x ->> 'contestada')::boolean
+          from jsonb_array_elements(r) x where x ->> 'nome' = 'Pessoa42 Sobrenome'), format('fila do admin (42): %s', r);
+  -- só recusa da IA: o 41 está aprovado; o 47 foi para revisar pela IA e recusado pelo admin
+  assert pg_temp.rpc(41, 'public.mesa_foto_contestar()') = 'false', 'contestou foto aprovada';
+  assert pg_temp.rpc2(3, format('public.mesa_foto_decidir(%L, %L, false)', pg_temp.u(47), public.mesa_foto_hash(pg_temp.foto('47')))) = 'true', 'preparo 47';
+  assert pg_temp.rpc(47, 'public.mesa_foto_contestar()') = 'false', 'contestou recusa do admin';
+  -- limite por pessoa: 5 moderações em 24 h tiram a foto da fila; mais antigas não contam
+  update public.profiles set avatar_moderacao_reservada_ate = null where id = pg_temp.u(43);
+  assert public.mesa_foto_na_fila(pg_temp.u(43)), 'preparo: 43 fora da fila';
+  insert into public.mesa_moderacoes (user_id, hash, decisao, em)
+  select pg_temp.u(43), 'h', 'aprovada', now() - interval '1 hour' from generate_series(1, 5);
+  assert not public.mesa_foto_na_fila(pg_temp.u(43)), 'passou do limite de 5 por pessoa';
+  update public.mesa_moderacoes set em = now() - interval '25 hours' where user_id = pg_temp.u(43) and hash = 'h';
+  assert public.mesa_foto_na_fila(pg_temp.u(43)), 'moderação de mais de 24 h contou';
+  -- motivos zerados aos 30 dias; decisão e custo ficam
+  insert into public.mesa_moderacoes (user_id, hash, decisao, motivos, custo, em)
+  values (pg_temp.u(44), 'h30', 'recusada', '{drogas}', 0.001, now() - interval '31 days') returning id into d1;
+  insert into public.mesa_moderacoes (user_id, hash, decisao, motivos, custo, em)
+  values (pg_temp.u(44), 'h10', 'recusada', '{drogas}', 0.001, now() - interval '10 days') returning id into d2;
+  execute apagar;
+  assert (select motivos = '{}' and decisao = 'recusada' and custo = 0.001 from public.mesa_moderacoes where id = d1), 'motivos de 31 dias ficaram';
+  assert (select motivos = '{drogas}' from public.mesa_moderacoes where id = d2), 'apagou motivos de 10 dias';
+  -- interruptor: IA desligada (ou sem linha) esvazia a fila e o cron não chama
+  update public.ai_settings set enabled = false where id = 1;
+  perform set_config('role', 'service_role', true);
+  r := public.mesa_fotos_para_moderar_auto(20);
+  perform set_config('role', 'postgres', true);
+  assert r -> 'fotos' = '[]' and not public.mesa_tem_foto_para_moderar(), format('IA desligada: %s', r);
+  update public.ai_settings set enabled = true where id = 1;
+  assert public.mesa_tem_foto_para_moderar(), 'preparo: nada na fila';
+  -- só pendente sem consentimento: o cron não chama (as outras pendentes ficam reservadas)
+  update public.profiles set avatar_moderacao_reservada_ate = now() + interval '1 hour' where avatar_moderacao = 'pendente';
+  update public.profiles set avatar_moderacao_reservada_ate = null where id = pg_temp.u(44);
+  assert (select avatar_moderacao = 'pendente' from public.profiles where id = pg_temp.u(44))
+     and not public.mesa_tem_foto_para_moderar(), 'pendente sem consentimento conta para o cron';
+  raise notice 'E29 OK: contestação (só a própria, só recusa da IA, 1 vez, vai ao admin); limite por pessoa; motivos aos 30 dias; interruptor; cron só com foto na fila';
 end $t$;
 
 -- E16. anon sem EXECUTE; tabela de denúncias sem grant; funções internas fechadas; 2FA
