@@ -45,6 +45,7 @@ const AuthLogin = lazy(() => import('./pages/auth/Login'))
 const AuthRegister = lazy(() => import('./pages/auth/Register'))
 const AuthForgot = lazy(() => import('./pages/auth/ForgotPassword'))
 const AuthReset = lazy(() => import('./pages/auth/ResetPassword'))
+const Convite = lazy(() => import('./pages/auth/Convite'))
 const AppDownload = lazy(() => import('./pages/app/Download'))
 
 // Producer pages (lazy loaded)
@@ -287,6 +288,8 @@ function Layout() {
               <Route path="/auth/login" element={<AuthLogin />} />
               <Route path="/auth/forgot" element={<AuthForgot />} />
               <Route path="/auth/reset" element={<AuthReset />} />
+              {/* Convite de colaborador: público (o token do link é a prova); o banco decide tudo */}
+              <Route path="/convite" element={<Convite />} />
 
               {/* Admin - protected */}
               <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>

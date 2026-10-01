@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { 
-  Shield, UserPlus, Search, Trash2, Check, X, Loader2, 
-  User, Mail, ShieldAlert, Award, ChevronRight, Save
+  Shield, UserPlus, Search, Trash2, X, Loader2, 
+  User, Mail, ShieldAlert, Award, ChevronRight, Save, RefreshCw, Send
 } from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { chamarConvite, mensagemDe } from '../../lib/convite'
 
 interface AdminProfile {
   id: string
@@ -34,6 +35,36 @@ const PERMISSIONS = [
   { id: 'moderate_mesa', label: 'Moderar Match de Mesa', desc: 'Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.' },
   { id: 'manage_team', label: 'Ver Equipe Admin', desc: 'Permite ver a equipe administrativa. Promover, rebaixar e alterar permissões é só do Super Admin.' },
 ]
+// No convite, nunca super_admin (só pela edição de permissões); o banco e a Edge Function admin-invite conferem de novo
+const PERMISSOES_CONVITE = PERMISSIONS.filter(p => p.id !== 'super_admin')
+
+interface Convite {
+  id: string
+  email: string
+  cargo: string
+  permissions: string[]
+  status: 'pendente' | 'expirado' | 'usado' | 'cancelado'
+  expires_at: string
+}
+
+// Cadastro do colaborador (staff_profiles, docs/sql/20261002_convite_colaborador.sql): só o super_admin lê
+type Ficha = Record<string, string | null>
+const PIX_LABEL: Record<string, string> = { cpf: 'CPF', email: 'E-mail', telefone: 'Celular', aleatoria: 'Chave aleatória' }
+const dataBr = (iso: string | null) => (iso ? new Date(iso.length === 10 ? iso + 'T00:00:00' : iso).toLocaleDateString('pt-BR') : '—')
+const linhasFicha = (f: Ficha): [string, string][] => [
+  ['Nome completo', f.nome_completo ?? '—'],
+  ['Cargo', f.cargo ?? '—'],
+  ['CPF', (f.cpf ?? '').replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4') || '—'],
+  ['RG', f.rg ?? '—'],
+  ['Nascimento', dataBr(f.data_nascimento)],
+  ['Endereço', [f.rua, f.numero, f.complemento, f.bairro, f.cidade && `${f.cidade}/${f.uf}`, f.cep].filter(Boolean).join(', ')],
+  ['E-mail secundário', f.email_secundario ?? '—'],
+  ['Telefone', f.telefone ?? '—'],
+  ['WhatsApp', f.whatsapp ?? '—'],
+  ['Emergência', `${f.emergencia_nome ?? '—'} (${f.emergencia_parentesco ?? '—'}), ${f.emergencia_telefone ?? '—'}`],
+  ['Pix', `${PIX_LABEL[f.pix_tipo ?? ''] ?? f.pix_tipo}: ${f.pix_chave ?? '—'}`],
+  ['Banco', [f.banco, f.agencia && `ag. ${f.agencia}`, f.conta && `conta ${f.conta}`].filter(Boolean).join(', ') || '—'],
+]
 
 export default function AdminTeamManager() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -46,16 +77,22 @@ export default function AdminTeamManager() {
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   
-  // Promotion Search
-  const [searchEmail, setSearchEmail] = useState('')
-  const [isSearchingUser, setIsSearchingUser] = useState(false)
-  const [foundUser, setFoundUser] = useState<AdminProfile | null>(null)
+  // Convite de colaborador (Edge Function admin-invite)
+  const [conviteEmail, setConviteEmail] = useState('')
+  const [conviteCargo, setConviteCargo] = useState('')
+  const [convitePerms, setConvitePerms] = useState<string[]>([])
+  const [enviandoConvite, setEnviandoConvite] = useState(false)
+  const [convites, setConvites] = useState<Convite[]>([])
+  const [convitesErro, setConvitesErro] = useState('')
+  const [conviteEmAndamento, setConviteEmAndamento] = useState<string | null>(null)
+  // Nome, cargo e e-mail de quem entrou por convite (qualquer admin); cadastro completo só para o super_admin
+  const [cargos, setCargos] = useState<Record<string, string>>({})
+  const [ficha, setFicha] = useState<{ id: string; dados: Ficha | null } | null>(null)
   
   // Permission management
   const [selectedAdmin, setSelectedAdmin] = useState<AdminProfile | null>(null)
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
   const [isSavingPermissions, setIsSavingPermissions] = useState(false)
-  const [isPromoting, setIsPromoting] = useState(false)
 
   // Fetch Admins list
   const fetchAdmins = async () => {
@@ -79,9 +116,37 @@ export default function AdminTeamManager() {
     }
   }
 
+  const fetchConvites = () =>
+    chamarConvite<{ convites: Convite[] }>({ acao: 'listar' }).then(
+      r => { setConvites(r.convites); setConvitesErro('') },
+      err => setConvitesErro(mensagemDe(err)),
+    )
+
   useEffect(() => {
     fetchAdmins()
+    supabase.rpc('colaboradores_resumo' as never).then(({ data }) => {
+      const linhas = (data ?? []) as { user_id: string; cargo: string }[]
+      setCargos(Object.fromEntries(linhas.map(l => [l.user_id, l.cargo])))
+    })
   }, [])
+
+  useEffect(() => {
+    if (canEdit) fetchConvites()
+  }, [canEdit])
+
+  // Ficha do colaborador selecionado (só o super_admin; o banco confere com colaborador_dados)
+  useEffect(() => {
+    if (!canEdit || !selectedAdmin) return
+    let cancelado = false
+    const id = selectedAdmin.id
+    supabase.rpc('colaborador_dados' as never, { p_user: id } as never).then(({ data, error }) => {
+      if (cancelado) return
+      if (error) console.error('[Equipe] cadastro do colaborador:', error.message)
+      setFicha({ id, dados: ((data ?? []) as Ficha[])[0] ?? null })
+    })
+    return () => { cancelado = true }
+  }, [canEdit, selectedAdmin])
+  const fichaAtual = selectedAdmin && ficha?.id === selectedAdmin.id ? ficha.dados : 'carregando'
 
   // Animar entrada
   useEffect(() => {
@@ -96,69 +161,36 @@ export default function AdminTeamManager() {
     }
   }, [isLoading])
 
-  // Search profile to promote
-  const handleSearchUser = async (e: React.FormEvent) => {
+  const handleConvidar = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!searchEmail.trim() || !searchEmail.includes('@')) {
-      toast.error('Informe um e-mail válido para busca.')
-      return
-    }
-
-    setIsSearchingUser(true)
-    setFoundUser(null)
-    
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(conviteEmail.trim())) { toast.error('Informe um e-mail válido.'); return }
+    if (conviteCargo.trim().length < 2) { toast.error('Informe o cargo.'); return }
+    setEnviandoConvite(true)
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, role, avatar_url')
-        .eq('email', searchEmail.trim().toLowerCase())
-        .maybeSingle()
-
-      if (error) throw error
-
-      if (!data) {
-        toast.error('Nenhuma conta com esse e-mail. A pessoa precisa se cadastrar antes.')
-      } else if (data.role === 'admin') {
-        toast.info(`${data.full_name || data.email} já é administrador.`)
-      } else {
-        setFoundUser({ ...data, admin_permissions: [], updated_at: null } as AdminProfile)
-      }
-    } catch (err: any) {
-      console.error(err)
-      toast.error('Erro ao buscar usuário: ' + err.message)
+      await chamarConvite({ acao: 'criar', email: conviteEmail.trim(), cargo: conviteCargo.trim(), permissoes: convitePerms })
+      toast.success('Convite enviado. O link vale por 7 dias.')
+      setConviteEmail('')
+      setConviteCargo('')
+      setConvitePerms([])
+    } catch (err) {
+      toast.error(mensagemDe(err))
     } finally {
-      setIsSearchingUser(false)
+      setEnviandoConvite(false)
+      fetchConvites()
     }
   }
 
-  // Promote User to Admin
-  const handlePromoteToAdmin = async () => {
-    if (!foundUser) return
-    setIsPromoting(true)
+  const handleConviteAcao = async (c: Convite, acao: 'reenviar' | 'cancelar') => {
+    if (acao === 'cancelar' && !window.confirm(`Cancelar o convite de ${c.email}? O link enviado deixa de valer.`)) return
+    setConviteEmAndamento(c.id)
     try {
-      const initialPerms = ['view_analytics'] // Permissão padrão inicial
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({
-          role: 'admin',
-          admin_permissions: initialPerms
-        })
-        .eq('id', foundUser.id)
-        .select('id')
-
-      if (error) throw error
-      if (!data?.length) throw new Error('sem permissão para alterar este perfil')
-      
-      toast.success(`${foundUser.full_name || foundUser.email} promovido a Administrador!`)
-      setFoundUser(null)
-      setSearchEmail('')
-      fetchAdmins()
-    } catch (err: any) {
-      console.error(err)
-      toast.error('Erro ao promover: ' + (err.message || 'falha desconhecida'))
+      await chamarConvite({ acao, id: c.id })
+      toast.success(acao === 'reenviar' ? 'Convite reenviado com um link novo. O anterior deixou de valer.' : 'Convite cancelado.')
+    } catch (err) {
+      toast.error(mensagemDe(err))
     } finally {
-      setIsPromoting(false)
+      setConviteEmAndamento(null)
+      fetchConvites()
     }
   }
 
@@ -236,7 +268,7 @@ export default function AdminTeamManager() {
       toast.error('Este é o último Super Admin: promova outro antes de removê-lo.')
       return
     }
-    const confirm = window.confirm(`Tem certeza de que deseja remover o privilégio administrativo de ${name}? Ele será rebaixado a participante comum.`)
+    const confirm = window.confirm(`Remover ${name} dos colaboradores da Evokaa? A conta volta a ser de participante comum.`)
     if (!confirm) return
 
     try {
@@ -265,8 +297,8 @@ export default function AdminTeamManager() {
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
       {/* Title */}
       <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Equipe Administrativa</h1>
-        <p className="text-sm text-espresso/70 mt-1">Gerencie os membros da equipe de moderação e ajuste as permissões de controle (RBAC).</p>
+        <h1 className="font-serif text-3xl text-espresso">Equipe Evokaa</h1>
+        <p className="text-sm text-espresso/70 mt-1">Convide colaboradores e ajuste as áreas do painel que cada um acessa.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -274,7 +306,7 @@ export default function AdminTeamManager() {
         <div className="lg:col-span-2 space-y-6">
           <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
             <h2 className="font-serif text-xl text-espresso mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-plum" /> Membros do Time Admin
+              <Shield className="w-5 h-5 text-plum" /> Colaboradores da Evokaa
             </h2>
 
             {loadError && (
@@ -288,7 +320,7 @@ export default function AdminTeamManager() {
               </div>
             ) : admins.length === 0 ? (
               <div className="text-center py-20 text-espresso/70 italic text-sm">
-                Nenhum administrador cadastrado.
+                Nenhum colaborador cadastrado.
               </div>
             ) : (
               <div className="space-y-4">
@@ -316,12 +348,13 @@ export default function AdminTeamManager() {
                         </div>
                         <div>
                           <div className="text-sm font-bold text-espresso flex items-center gap-1.5">
-                            {admin.full_name || 'Admin Evokaa'}
+                            {admin.full_name || 'Colaborador Evokaa'}
                             {isSuper && (
                               <Award className="w-3.5 h-3.5 text-amber-500 fill-amber-500" title="Super Admin" />
                             )}
                           </div>
                           <div className="text-[10px] text-espresso/70 flex items-center gap-1 mt-0.5">
+                            {cargos[admin.id] && <span className="font-semibold text-espresso/80">{cargos[admin.id]} ·</span>}
                             <span>
                               {isSuper 
                                 ? 'Acesso Total' 
@@ -359,6 +392,55 @@ export default function AdminTeamManager() {
               </div>
             )}
           </div>
+
+          {canEdit && (
+            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
+              <h2 className="font-serif text-xl text-espresso mb-4 flex items-center gap-2">
+                <Mail className="w-5 h-5 text-plum" /> Convites pendentes
+              </h2>
+              {convitesErro && (
+                <div role="alert" className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                  Não foi possível carregar os convites: {convitesErro}
+                </div>
+              )}
+              {convites.filter(c => c.status === 'pendente' || c.status === 'expirado').length === 0 ? (
+                !convitesErro && <p className="text-xs text-espresso/70 italic">Nenhum convite pendente.</p>
+              ) : (
+                <ul className="space-y-3">
+                  {convites.filter(c => c.status === 'pendente' || c.status === 'expirado').map(c => (
+                    <li key={c.id} className="p-4 rounded-xl border border-white bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-sm font-bold text-espresso truncate">{c.email}</div>
+                        <div className="text-[11px] text-espresso/70 mt-0.5">
+                          {c.cargo} · {c.status === 'expirado'
+                            ? <span className="text-amber-600 font-semibold">expirado</span>
+                            : <>vale até {dataBr(c.expires_at)}</>}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleConviteAcao(c, 'reenviar')}
+                          disabled={conviteEmAndamento === c.id}
+                          className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-plum/10 text-plum hover:bg-plum/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <RefreshCw className="w-3 h-3" /> Reenviar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleConviteAcao(c, 'cancelar')}
+                          disabled={conviteEmAndamento === c.id}
+                          className="px-3 py-1.5 rounded-full text-[11px] font-medium text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          <X className="w-3 h-3" /> Cancelar
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Action Panel (Right Col) */}
@@ -378,6 +460,25 @@ export default function AdminTeamManager() {
                 <div className="text-[10px] text-plum font-semibold uppercase tracking-wider">Ajustar Acesso</div>
                 <h3 className="font-serif text-lg text-espresso mt-0.5 leading-snug">{selectedAdmin.full_name || 'Administrador'}</h3>
                 <p className="text-[10px] text-espresso/70 mt-1">Selecione quais áreas do painel administrativo este membro pode acessar.</p>
+              </div>
+
+              {/* Cadastro do colaborador (só o super_admin chega a este painel) */}
+              <div className="mb-6 p-4 rounded-xl bg-white/40 border border-white">
+                <div className="text-xs font-bold text-espresso mb-2">Dados do cadastro</div>
+                {fichaAtual === 'carregando' ? (
+                  <Loader2 className="w-4 h-4 text-plum animate-spin" />
+                ) : !fichaAtual ? (
+                  <p className="text-[11px] text-espresso/70">Sem cadastro de colaborador (conta que entrou na equipe antes do convite).</p>
+                ) : (
+                  <dl className="space-y-1.5 text-[11px]">
+                    {linhasFicha(fichaAtual).map(([rotulo, valor]) => (
+                      <div key={rotulo} className="grid grid-cols-[7.5rem_1fr] gap-2">
+                        <dt className="text-espresso/70">{rotulo}</dt>
+                        <dd className="text-espresso [overflow-wrap:anywhere]">{valor}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                )}
               </div>
 
               {/* Permissions list */}
@@ -436,74 +537,75 @@ export default function AdminTeamManager() {
               Somente o Super Admin promove, rebaixa e altera permissões da equipe.
             </div>
           ) : (
-            /* Invite / Promote Box */
+            /* Convidar colaborador */
             <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
               <h3 className="font-serif text-xl text-espresso mb-1.5 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-plum" /> Promover conta existente
+                <UserPlus className="w-5 h-5 text-plum" /> Convidar colaborador
               </h3>
-              <p className="text-[10px] text-espresso/70 mb-5 leading-normal">
-                A pessoa precisa já ter conta na Evokaa (cadastro pelo site ou app). Informe o e-mail dessa conta para promovê-la a administrador.
+              <p className="text-[11px] text-espresso/70 mb-5 leading-normal">
+                A pessoa recebe um link por e-mail (vale 7 dias), cria a senha ou entra com a conta que já tem, ativa a verificação em duas etapas e preenche o cadastro. O acesso libera assim que ela termina, com as funções marcadas aqui; você recebe um e-mail quando isso acontecer.
               </p>
 
-              <form onSubmit={handleSearchUser} className="space-y-4 mb-6">
+              <form onSubmit={handleConvidar} className="space-y-4">
                 <div>
-                  <label htmlFor="search-email-input" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail do Usuário</label>
-                  <div className="flex gap-2">
-                    <input 
-                      id="search-email-input"
-                      type="email" 
-                      value={searchEmail}
-                      onChange={e => setSearchEmail(e.target.value)}
-                      placeholder="usuario@email.com"
-                      className="flex-1 px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
-                      required
-                    />
-                    <button 
-                      type="submit"
-                      disabled={isSearchingUser}
-                      className="px-3 bg-plum text-cream hover:bg-plum/90 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
-                    >
-                      {isSearchingUser ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Buscar'}
-                    </button>
-                  </div>
+                  <label htmlFor="convite-email-input" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail</label>
+                  <input
+                    id="convite-email-input"
+                    type="email"
+                    value={conviteEmail}
+                    onChange={e => setConviteEmail(e.target.value)}
+                    placeholder="pessoa@email.com"
+                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
+                    required
+                  />
                 </div>
+                <div>
+                  <label htmlFor="convite-cargo-input" className="text-xs font-semibold text-espresso/70 block mb-1">Cargo</label>
+                  <input
+                    id="convite-cargo-input"
+                    value={conviteCargo}
+                    maxLength={80}
+                    onChange={e => setConviteCargo(e.target.value)}
+                    placeholder="Atendimento, Financeiro…"
+                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
+                    required
+                  />
+                </div>
+                <fieldset>
+                  <legend className="text-xs font-semibold text-espresso/70 mb-1">Funções</legend>
+                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                    {PERMISSOES_CONVITE.map(perm => {
+                      const marcada = convitePerms.includes(perm.id)
+                      return (
+                        <label
+                          key={perm.id}
+                          className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
+                            marcada ? 'bg-plum/5 border-plum/20' : 'bg-white/40 border-transparent hover:bg-white/70 dark:hover:bg-white/10'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={marcada}
+                            onChange={() => setConvitePerms(marcada ? convitePerms.filter(p => p !== perm.id) : [...convitePerms, perm.id])}
+                            className="mt-1 accent-plum rounded"
+                          />
+                          <div>
+                            <div className="text-xs font-bold text-espresso">{perm.label}</div>
+                            <div className="text-[10px] text-espresso/70 mt-0.5 leading-snug">{perm.desc}</div>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </fieldset>
+                <button
+                  type="submit"
+                  disabled={enviandoConvite}
+                  className="w-full py-2.5 bg-plum text-cream rounded-full text-xs font-bold hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {enviandoConvite ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Enviar convite</>}
+                </button>
               </form>
-
-              {foundUser && (
-                <div className="p-4 rounded-xl bg-plum/5 border border-plum/10 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-plum/20 flex items-center justify-center text-plum font-bold text-xs uppercase">
-                      {foundUser.full_name?.charAt(0) || <User className="w-3 h-3" />}
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-espresso">{foundUser.full_name || foundUser.email}</div>
-                      <div className="text-[10px] text-espresso/70">{foundUser.email} · Cargo atual: <span className="capitalize">{foundUser.role}</span></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handlePromoteToAdmin}
-                      disabled={isPromoting}
-                      className="flex-1 py-2 bg-plum text-cream hover:shadow-glow rounded-lg text-[10px] font-bold transition-all flex items-center justify-center gap-1"
-                    >
-                      {isPromoting ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <>
-                          <Check className="w-3 h-3" /> Promover a Admin
-                        </>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => setFoundUser(null)}
-                      className="p-2 bg-transparent text-espresso/70 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all text-[10px]"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* Security Advisory */}
               <div className="mt-8 p-3 rounded-lg bg-amber-50/50 border border-amber-100 flex gap-2.5 items-start">
