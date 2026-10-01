@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(25);
+select plan(31);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -47,6 +47,8 @@ select is(caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'withdraw'
 select results_eq($$select type, amount from piggy_transactions where box_id = 'b3b00000-0000-4000-8000-0000000000b1'
   order by type$$, $$values ('deposit'::text, 100::numeric), ('withdraw', 30.00)$$,
   'os 2 movimentos gravados e legíveis pelo dono');
+select ok(not has_function_privilege('anon', 'public.caixinha_movimentar(uuid, text, numeric, text)', 'execute'),
+  'visitante não tem EXECUTE em caixinha_movimentar');
 select results_eq($$select saved from event_budget_boxes where id = 'b3b00000-0000-4000-8000-0000000000b1'$$,
   array[70::numeric], 'saldo 70 na tabela');
 select throws_ok($$select caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'withdraw', 100)$$,
@@ -57,6 +59,15 @@ select throws_ok($$select caixinha_movimentar('b3b00000-0000-4000-8000-000000000
   '22023', null, 'Infinity é recusado');
 select throws_ok($$select caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'roubo', 10)$$,
   '22023', null, 'tipo inválido é recusado');
+select throws_ok($$select caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'deposit', 10, repeat('x', 501))$$,
+  '22023', null, 'nota com mais de 500 caracteres é recusada');
+select is(caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'deposit', 0.01, repeat('x', 500)), 70.01::numeric,
+  'nota com 500 caracteres passa');
+select is(caixinha_movimentar('b3b00000-0000-4000-8000-0000000000b1', 'withdraw', 0.01), 70::numeric, 'estorno de volta a 70');
+select throws_ok($$insert into event_budget_boxes (producer_id, name, target, saved) values
+  ('b3b00000-0000-4000-8000-000000000001', repeat('n', 121), 10, 0)$$, '23514', null, 'nome com mais de 120 caracteres é recusado');
+select throws_ok($$update event_budget_boxes set notes = repeat('n', 1001) where id = 'b3b00000-0000-4000-8000-0000000000b1'$$,
+  '23514', null, 'notas com mais de 1000 caracteres são recusadas');
 
 -- Gravação direta fechada
 select throws_ok($$update event_budget_boxes set saved = 1000000 where id = 'b3b00000-0000-4000-8000-0000000000b1'$$,

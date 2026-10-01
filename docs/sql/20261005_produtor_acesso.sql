@@ -5,6 +5,8 @@
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA pelo TextEdit: erro 17).
 -- É uma transação só: se a conferência do fim falhar, nada é gravado. Idempotente (pode rodar de novo).
 -- Testes: supabase/tests/produtor_acesso.test.sql (pgTAP; banco local, nunca em produção).
+-- Atualizado em 01/10/2026: caixinha_movimentar é a versão SECURITY DEFINER do 20261006 (B3b, DECISÕES 8);
+-- reaplicar este arquivo depois do 20261006 não reabre a gravação direta do saldo.
 --
 -- Estado da produção conferido em 01/10/2026 (só leitura):
 --   crm_leads, crm_interactions, pipeline_stages, menu_items, affiliates e issued_certificates tinham SÓ a
@@ -41,13 +43,14 @@
 --    coluna não se aplica à expressão da regra. Coluna nova em affiliates nasce sem SELECT para a API.
 --    CHECK de comissão entre 0,01 e 100 (0 linhas hoje) vale também para o update.
 --    Índice único (affiliate_user_id, event_id): "já vinculado" sem corrida entre duas chamadas.
--- 8. caixinha_movimentar é SECURITY INVOKER: roda com as regras de acesso de quem chama (2FA e dono pelas
---    regras), mais a checagem explícita producer_id = auth.uid(). O select ... for update trava a linha da
---    caixinha até o fim da transação: duas operações ao mesmo tempo esperam uma pela outra, sem sobrescrever.
---    Valor: arredondado a centavos e aceito só entre 0 e 1 bilhão (exclusive). "NaN" e "Infinity" são valores
---    válidos de numeric e NaN é maior que tudo no Postgres: "p_valor <= 0" sozinho deixava passar.
---    ponytail: a gravação direta em event_budget_boxes.saved e piggy_transactions continua aberta para o
---    dono (a tela atual usa); fechar depois que o B4 passar a tela para a função.
+-- 8. caixinha_movimentar: SUBSTITUÍDO pelo docs/sql/20261006_saldo_e_cancelamento.sql (B3b), que fechou a
+--    gravação direta de saved e de piggy_transactions. Desde 01/10/2026 este arquivo traz o MESMO corpo
+--    SECURITY DEFINER do 20261006 (2FA por gf_mfa_ok(), dono por producer_id = auth.uid(), select ... for update,
+--    valor arredondado a centavos entre 0 e 1 bilhão exclusive, nota até 500 caracteres), para que reaplicar
+--    este arquivo não desfaça o B3b. As duas cópias têm de ficar iguais (os testes das duas suítes cobrem).
+--    "NaN" e "Infinity" são valores válidos de numeric e NaN é maior que tudo no Postgres: por isso a checagem
+--    é "not (v_valor > 0 and v_valor < 1e9)". O select ... for update trava a linha da caixinha até o fim da
+--    transação: duas operações ao mesmo tempo esperam uma pela outra, sem sobrescrever.
 -- 9. vincular_afiliado é SECURITY DEFINER porque precisa achar a pessoa pelo e-mail em auth.users e ler a data
 --    de nascimento em profiles, que a regra de profiles esconde de outros usuários. Compensações: search_path
 --    vazio, gf_mfa_ok() obrigatório, dono do evento conferido no corpo, e devolve só um código (nunca id/nome).
@@ -198,19 +201,25 @@ create policy gf_budget_boxes_all on public.event_budget_boxes as permissive for
 create or replace function public.caixinha_movimentar(p_box uuid, p_tipo text, p_valor numeric, p_nota text default null)
 returns numeric
 language plpgsql
-security invoker
+security definer
 set search_path = ''
 as $$
 declare
   v_saldo numeric;
   v_valor numeric := round(p_valor, 2);
 begin
+  if not public.gf_mfa_ok() then
+    raise exception 'Confirme o código do 2FA' using errcode = '42501';
+  end if;
   if p_tipo is null or p_tipo not in ('deposit', 'withdraw') then
     raise exception 'Tipo de movimento inválido' using errcode = '22023';
   end if;
-  -- DECISÕES 8: NaN é maior que tudo no Postgres; "not (... and ...)" recusa NaN, Infinity e nulo
+  -- NaN é maior que tudo no Postgres; "not (... and ...)" recusa NaN, Infinity e nulo
   if v_valor is null or not (v_valor > 0 and v_valor < 1e9) then
     raise exception 'Valor inválido (entre 0,01 e 999.999.999,99)' using errcode = '22023';
+  end if;
+  if length(p_nota) > 500 then
+    raise exception 'Observação com mais de 500 caracteres' using errcode = '22023';
   end if;
   -- trava a linha: outra movimentação da mesma caixinha espera esta terminar
   select coalesce(b.saved, 0) into v_saldo
