@@ -1,10 +1,11 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Plus } from 'lucide-react'
 import gsap from 'gsap'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useTourLog } from '../../hooks/useTourLog'
 import { brl } from '../../lib/taxa'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -19,6 +20,7 @@ type Evento = {
   approval_status: 'pending' | 'approved' | 'rejected' | null
   date: string | null
   start_date: string
+  created_at: string
   capacity: number | null
   ticket_types: { quantity_total: number | null; capacity: number | null }[]
 }
@@ -67,6 +69,8 @@ function saudacao(): string {
 
 export default function ProducerDashboard() {
   const { user } = useAuth()
+  const { feitos: registrados, registrar, carregou } = useTourLog()
+  const [agora] = useState(() => Date.now()) // fixo na montagem: as dicas usam datas relativas a ele
 
   const { data, isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['producer-inicio', user?.id],
@@ -82,7 +86,7 @@ export default function ProducerDashboard() {
       try {
         const [ev, perfil, pagos, vendidosQ, checkin] = await Promise.all([
           supabase.from('events')
-            .select('id, title, status, approval_status, date, start_date, capacity, ticket_types(quantity_total, capacity)')
+            .select('id, title, status, approval_status, date, start_date, created_at, capacity, ticket_types(quantity_total, capacity)')
             .eq('producer_id', id).abortSignal(sinal),
           supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
           // ponytail: soma no navegador, cortada no max_rows (1.000) do PostgREST; o count diz se cortou e aí a tela
@@ -146,9 +150,12 @@ export default function ProducerDashboard() {
       title="Início"
       description={primeiroNome ? `${saudacao()}, ${primeiroNome}` : saudacao()}
       actions={
-        <Button asChild>
-          <Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost"><Link to="/producer/dashboard?tour=inicio">Ver tour desta tela</Link></Button>
+          <Button asChild>
+            <Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link>
+          </Button>
+        </div>
       }
     />
   )
@@ -185,24 +192,43 @@ export default function ProducerDashboard() {
   const publicados = eventos.filter(e => e.status === 'published' && e.approval_status === 'approved').length
 
   const passos = [
-    { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/planner' },
+    { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/planner?tour=criar-evento' },
     {
       // publicado (em análise, aprovado ou recusado) ou já encerrado: foi enviado
       feito: eventos.some(e => e.status === 'published' || e.status === 'ended'),
       texto: 'Enviar um evento para análise',
-      to: '/producer/events',
+      to: '/producer/events?tour=eventos',
     },
-    { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/events' },
-    { feito: empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings' },
-    { feito: checkinFeito, texto: 'Testar o check-in', to: '/producer/checkin' },
+    { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/events?tour=eventos' },
+    { feito: empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings?tour=configuracoes' },
+    { feito: publicados > 0, texto: 'Evento aprovado e no ar', to: '/producer/events?tour=eventos' },
+    { feito: checkinFeito, texto: 'Testar o check-in', to: '/producer/checkin?tour=checkin' },
   ]
   const feitos = passos.filter(p => p.feito).length
+  // esconde só depois de ler o registro: evita piscar o cartão de quem já dispensou
+  const mostrarChecklist = carregou && feitos < passos.length && !registrados.has('checklist:dispensado')
+
+  // no máximo uma dica, na ordem das regras; só eventos aprovados e no ar
+  const noAr = proximos.filter(e => e.status === 'published' && e.approval_status === 'approved')
+  const limite = agora + 7 * 86400000
+  const dica = [
+    ...noAr.filter(e => !checkinFeito && dataDo(e).getTime() <= limite).map(e => ({
+      id: `dica:checkin:${e.id}`,
+      texto: 'Teste o check-in antes do dia',
+      links: [{ to: '/producer/checkin?tour=checkin', rotulo: 'Abrir check-in' }],
+    })),
+    ...noAr.filter(e => agora - new Date(e.created_at).getTime() > 48 * 3600000 && (vendidosPorEvento[e.id] ?? 0) === 0).map(e => ({
+      id: `dica:sem-venda:${e.id}`,
+      texto: 'Ainda sem vendas? Crie um cupom ou chame afiliados',
+      links: [{ to: '/producer/cupons', rotulo: 'Criar cupom' }, { to: '/producer/afiliados', rotulo: 'Chamar afiliados' }],
+    })),
+  ].find(d => !registrados.has(d.id))
 
   return (
     <div>
       {header}
 
-      <section aria-labelledby="numeros">
+      <section aria-labelledby="numeros" data-tour="inicio-numeros">
         <h2 id="numeros" className="sr-only">Números</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Stat
@@ -219,11 +245,24 @@ export default function ProducerDashboard() {
         )}
       </section>
 
-      {feitos < passos.length && (
-        <section aria-labelledby="primeiros-passos" className="mt-6 rounded-[10px] border border-border bg-card p-4">
+      {carregou && dica && (
+        <section aria-label="Dica" className="mt-6 flex flex-col gap-2 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center">
+          <p className="text-sm font-medium text-foreground sm:mr-auto">{dica.texto}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {dica.links.map(l => <Button key={l.to} asChild size="sm" variant="outline"><Link to={l.to}>{l.rotulo}</Link></Button>)}
+            <Button size="sm" variant="ghost" onClick={() => registrar(dica.id)}>Não mostrar de novo</Button>
+          </div>
+        </section>
+      )}
+
+      {mostrarChecklist && (
+        <section aria-labelledby="primeiros-passos" data-tour="inicio-checklist" className="mt-6 rounded-[10px] border border-border bg-card p-4">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 id="primeiros-passos" className="text-base font-semibold text-foreground">Primeiros passos</h2>
-            <span className="text-sm tabular-nums text-muted-foreground">{feitos} de {passos.length}</span>
+            <h2 id="primeiros-passos" className="text-base font-semibold text-foreground">Primeiro evento no ar</h2>
+            <span className="flex items-baseline gap-3">
+              <span className="text-sm tabular-nums text-muted-foreground">{feitos} de {passos.length}</span>
+              <Button size="sm" variant="ghost" onClick={() => registrar('checklist:dispensado')}>Dispensar</Button>
+            </span>
           </div>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
             <div className="h-full bg-primary" style={{ width: `${(feitos / passos.length) * 100}%` }} />
@@ -248,7 +287,7 @@ export default function ProducerDashboard() {
         </section>
       )}
 
-      <section aria-labelledby="proximos" className="mt-6">
+      <section aria-labelledby="proximos" data-tour="inicio-proximos" className="mt-6">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 id="proximos" className="text-base font-semibold text-foreground">Próximos eventos</h2>
           {eventos.length > 0 && (

@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useSearchParams } from 'react-router-dom'
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { ErrorBoundary } from './error-boundary'
 import {
@@ -8,7 +8,9 @@ import {
   Receipt, Palette, ShoppingBag, Megaphone, FileText, Zap, CreditCard, Mail, Crown,
   LogOut, Menu, PanelLeftClose, PanelLeftOpen,
 } from 'lucide-react'
-import OnboardingTour from '../components/OnboardingTour'
+import Tour from './producer/Tour'
+import { tourDaRota } from '../lib/tours'
+import { useTourLog } from '../hooks/useTourLog'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
@@ -129,6 +131,10 @@ export default function ProducerLayout() {
   const navRef = useRef<HTMLElement>(null)
   const paginaRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
+  const [params, setSearchParams] = useSearchParams()
+  const { registrar } = useTourLog()
+  const tourId = params.get('tour')
+  const tour = tourDaRota(tourId, location.pathname)
   const { user, logout } = useAuth()
   const mobileOpen = gavetaEm === location.pathname
 
@@ -326,10 +332,12 @@ export default function ProducerLayout() {
         </div>
       </div>
       <EvoHub />
-      {/* O tour só abre no painel: antes ele aparecia em toda rota do produtor e cobria
-          /producer/events/new, bloqueando o botão "Criar Evento" atrás do overlay. */}
-      {(location.pathname === '/producer' || location.pathname === '/producer/dashboard') && (
-        <OnboardingTour role="producer" onComplete={() => {}} />
+      {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
+      {tour && tourId && (
+        <Tour key={tourId} tour={tour} onFim={puladas => {
+          void registrar(`tour:${tourId}`, { skipped: puladas })
+          setSearchParams((p: URLSearchParams) => { p.delete('tour'); return p }, { replace: true })
+        }} />
       )}
     </div>
   )

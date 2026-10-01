@@ -187,7 +187,7 @@ export default function EventPlanner() {
       <PageHeader title="Criar evento" description="Planeje em 5 passos: tipo, informações, lotes, custos e resumo" />
 
       {/* Passos */}
-      <ol className="mb-6 flex items-center">
+      <ol data-tour="planner-passos" className="mb-6 flex items-center">
         {steps.map((s, i) => (
           <li key={s.num} className="flex flex-1 items-center last:flex-none" aria-current={step === s.num ? 'step' : undefined}>
             <div className="flex flex-col items-center">
@@ -203,7 +203,7 @@ export default function EventPlanner() {
         ))}
       </ol>
 
-      <div className={cartao}>
+      <div data-tour="planner-cartao" className={cartao}>
 
         {/* PASSO 1 - TIPO */}
         {step === 1 && (
@@ -475,7 +475,7 @@ export default function EventPlanner() {
         )}
 
         {/* Navegação */}
-        <div className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
+        <div data-tour="planner-navegacao" className="mt-6 flex items-center justify-between gap-3 border-t border-border pt-4">
           <Button variant="outline" onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1}>
             <ArrowLeft aria-hidden="true" />Voltar
           </Button>

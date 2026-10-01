@@ -77,7 +77,7 @@ export default function ProducerEvents() {
     <PageHeader
       title="Meus eventos"
       description="Todos os seus eventos, do rascunho ao encerrado"
-      actions={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+      actions={<Button asChild data-tour="eventos-criar"><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
     />
   )
 
@@ -112,19 +112,19 @@ export default function ProducerEvents() {
       {header}
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-        <div className="relative w-full lg:max-w-sm">
+        <div data-tour="eventos-busca" className="relative w-full lg:max-w-sm">
           <label htmlFor="busca-eventos" className="sr-only">Buscar eventos</label>
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input id="busca-eventos" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar pelo nome" className="pl-9" />
         </div>
-        <div role="group" aria-label="Filtrar por situação" className="flex flex-wrap gap-1 lg:ml-auto">
+        <div data-tour="eventos-filtros" role="group" aria-label="Filtrar por situação" className="flex flex-wrap gap-1 lg:ml-auto">
           {filtros.map(f => (
             <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} aria-pressed={filter === f} onClick={() => setFilter(f)} className={filter === f ? '' : icone}>{f}</Button>
           ))}
         </div>
       </div>
 
-      <div className="mt-4">
+      <div data-tour="eventos-lista" className="mt-4">
         {filtered.length === 0 ? (
           events.length === 0 ? (
             <EmptyState
