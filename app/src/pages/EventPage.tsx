@@ -6,7 +6,7 @@ import { useSEO } from '../hooks/useSEO'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import { usePublicEvent } from '../hooks/useEvents'
 import CollectiveTableCard from '../components/CollectiveTableCard'
-import PreOrder from '../components/PreOrder'
+import { calcularTaxa, resumoCarrinho, brl, textoPreco } from '../lib/taxa'
 import { toast } from 'sonner'
 
 gsap.registerPlugin(ScrollTrigger)
@@ -201,10 +201,10 @@ export default function EventPage() {
     : [coverImage]
   const ticketTypes = event.ticket_types || []
 
-  const cartTotal = Object.entries(cart).reduce((total, [ticketId, qty]) => {
-    const ticket = ticketTypes.find((t) => t.id === ticketId)
-    return total + (ticket ? ticket.price * qty : 0)
-  }, 0)
+  const cartResumo = resumoCarrinho(Object.entries(cart).map(([ticketId, qty]) => ({
+    preco: ticketTypes.find((t) => t.id === ticketId)?.price || 0,
+    qtd: qty,
+  })))
 
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
@@ -498,8 +498,15 @@ export default function EventPage() {
                       <h3 className="font-serif text-2xl text-cream mb-2">{ticket.name}</h3>
                       {ticket.description && <p className="text-sm text-cream/70 mb-6">{ticket.description}</p>}
                       
-                      <div className="flex items-baseline gap-1 mb-6">
-                        <span className="font-serif text-4xl text-cream">R$ {ticket.price}</span>
+                      <div className="mb-6">
+                        {ticket.price > 0 ? (
+                          <>
+                            <span className="font-serif text-4xl text-cream">{brl(calcularTaxa(ticket.price).total)}</span>
+                            <p className="text-xs text-cream/60 mt-1">{brl(ticket.price)} + taxa {brl(calcularTaxa(ticket.price).taxa)}</p>
+                          </>
+                        ) : (
+                          <span className="font-serif text-4xl text-cream">Gratuito</span>
+                        )}
                       </div>
 
                       {/* Progress */}
@@ -562,8 +569,10 @@ export default function EventPage() {
                               +
                             </button>
                           </div>
-                          <span className="text-cream/70 text-sm">
-                            R$ {ticket.price * cart[ticket.id]}
+                          <span className="text-cream/70 text-xs text-right">
+                            {ticket.price > 0
+                              ? textoPreco(ticket.price, cart[ticket.id])
+                              : 'Gratuito'}
                           </span>
                         </div>
                       ) : (
@@ -588,25 +597,20 @@ export default function EventPage() {
         </div>
       </section>
 
-      {/* Pre-Order / Comanda Digital */}
-      <section className="py-16 lg:py-24 bg-void relative overflow-hidden">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-plum/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <PreOrder eventId={event.id} />
-        </div>
-      </section>
-
       {/* Floating Cart */}
       {cartCount > 0 && (
-        <div className="fixed left-1/2 -translate-x-1/2 z-50" style={{ bottom: 'calc(var(--cookie-banner-h, 0px) + 1.5rem)' }}>
-          <div className="glass-dark border border-white/10 rounded-full px-6 py-3 flex items-center gap-4 shadow-elevated animate-pulse-glow">
-            <ShoppingCart className="w-5 h-5 text-plum" />
-            <span className="text-cream text-sm font-medium">{cartCount} ingresso{cartCount > 1 ? 's' : ''}</span>
-            <span className="text-cream/70">|</span>
-            <span className="text-cream font-medium">R$ {cartTotal}</span>
+        <div className="fixed left-1/2 -translate-x-1/2 z-50 bottom-[calc(var(--cookie-banner-h,0px)+5.5rem)] sm:bottom-[calc(var(--cookie-banner-h,0px)+1.5rem)]">
+          <div className="glass-dark border border-white/10 rounded-full px-4 sm:px-5 py-2.5 flex items-center gap-2 sm:gap-4 shadow-elevated animate-pulse-glow whitespace-nowrap">
+            <ShoppingCart className="w-5 h-5 text-plum shrink-0" aria-hidden="true" />
+            <span className="text-cream text-sm font-medium">{cartCount}<span className="sr-only sm:not-sr-only"> ingresso{cartCount > 1 ? 's' : ''}</span></span>
+            <span className="text-cream/70 hidden sm:inline">|</span>
+            <span className="text-cream font-medium flex flex-col leading-tight">
+              {brl(cartResumo.total)}
+              {cartResumo.taxa > 0 && <span className="text-cream/60 text-[11px] font-normal whitespace-nowrap">{brl(cartResumo.subtotal)} + taxa {brl(cartResumo.taxa)}</span>}
+            </span>
             <button 
               onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}
-              className="ml-2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors"
+              className="shrink-0 sm:ml-2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors"
             >
               Finalizar
             </button>

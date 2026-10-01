@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info } from 'lucide-react'
 import type { Ticket } from '../data/mockData'
 import ProfileQuiz from './ProfileQuiz'
+import { calcularTaxa, brl, textoPreco } from '../lib/taxa'
 
 interface Props {
   ticket: Ticket
@@ -70,8 +71,9 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
           <p className="text-sm text-cream/70 mb-4 leading-relaxed">{ticket.description}</p>
 
           <div className="font-serif text-4xl text-cream mb-4">
-            R$ {ticket.price}
-            <span className="text-sm text-cream/70 font-sans ml-2">/pessoa</span>
+            {ticket.price > 0 ? brl(calcularTaxa(ticket.price).total) : 'Gratuito'}
+            {ticket.price > 0 && <span className="text-sm text-cream/70 font-sans ml-2">/pessoa</span>}
+            {ticket.price > 0 && <p className="text-xs text-cream/60 font-sans mt-1">{brl(ticket.price)} + taxa {brl(calcularTaxa(ticket.price).taxa)}</p>}
           </div>
 
           {/* Progress */}
@@ -123,7 +125,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
                 <span className="text-cream font-medium">{cartQty}</span>
                 <button onClick={() => onQuantityChange(cartQty + 1)} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors">+</button>
               </div>
-              <span className="text-cream/70 text-sm">R$ {ticket.price * cartQty}</span>
+              <span className="text-cream/70 text-xs text-right">{textoPreco(ticket.price, cartQty)}</span>
             </div>
           ) : (
             <button
