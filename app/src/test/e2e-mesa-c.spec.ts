@@ -313,7 +313,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     // sem denúncia liberada, sem botão de remover
     const ana = painel.locator('li', { hasText: 'Ana Souza' })
     await expect(ana.getByRole('button', { name: 'Remover da mesa' })).toHaveCount(0)
-    await expect(ana.getByText('Sem denúncia liberada')).toBeVisible()
+    await expect(ana.getByText('Sem denúncia analisada')).toBeVisible()
 
     const bruno = painel.locator('li', { hasText: 'Bruno Lima' }).filter({ has: page.getByRole('button') })
     await bruno.getByRole('button', { name: 'Remover da mesa' }).click()
