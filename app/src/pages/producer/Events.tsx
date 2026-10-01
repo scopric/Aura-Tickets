@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Eye, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, copiaDoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -33,7 +33,7 @@ export default function ProducerEvents() {
   const updateEvent = useUpdateEvent()
 
   const cancelar = async (event: DbEvent) => {
-    if (!window.confirm(`Cancelar o evento "${event.title}"? A situação passa a ser Cancelado.`)) return
+    if (!window.confirm(confirmacaoCancelar(event.title, vendidos?.porEvento[event.id] ?? (vendidos ? 0 : undefined)))) return
     try {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status: 'cancelled' }, tickets: [] })
       toast.success('Evento cancelado.')

@@ -275,6 +275,7 @@ export function useCreateEvent() {
           date: event.date || null,
           time: event.time || null,
           start_date: event.start_date || new Date().toISOString(),
+          end_date: event.end_date || null,
           status: event.status || 'draft',
           visibility: event.visibility || 'public',
           capacity: event.capacity || null,
@@ -298,7 +299,7 @@ export function useCreateEvent() {
           quantity_sold: 0,
           type: t.type || 'individual',
           perks: t.perks || [],
-          is_active: true,
+          is_active: t.is_active ?? true,
           // sem lot_number: a coluna não existe em ticket_types (Decisão 20: o código se adapta ao banco)
         }))
 

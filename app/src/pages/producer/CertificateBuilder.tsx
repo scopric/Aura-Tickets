@@ -69,9 +69,11 @@ export default function CertificateBuilder() {
   const [searchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const { data: events = [], isLoading: eventsLoading, isError: eventsError, refetch, isFetching } = useProducerEvents()
-  const [pickedEventId, setPickedEventId] = useState<string | null>(searchParams.get('eventId'))
-  // o modelo é por evento (índice único em certificates.event_id); sem escolha, vale o primeiro evento
-  const eventId = pickedEventId ?? events[0]?.id ?? null
+  const [pickedEventId, setPickedEventId] = useState<string | null>(null)
+  // o modelo é por evento (índice único em certificates.event_id). ?eventId= só vale se for evento do produtor;
+  // sem escolha válida, vale o primeiro evento
+  const doLink = searchParams.get('eventId')
+  const eventId = pickedEventId ?? (events.some(e => e.id === doLink) ? doLink : events[0]?.id) ?? null
   // evento cujo modelo já foi lido do banco: salvar antes disso gravaria o padrão por cima do modelo salvo
   const [carregadoPara, setCarregadoPara] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)

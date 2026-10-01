@@ -26,7 +26,8 @@ const iniciais = (nome: string) =>
 function mensagemErro(err: unknown, padrao: string) {
   const code = (err as { code?: string } | null)?.code
   if (code === '23505') return 'Certificado já emitido para esta pessoa. A lista foi atualizada.'
-  if (code === '42501') return 'Sem permissão para emitir: só para quem tem ingresso válido deste evento.'
+  // 42501: alguém da lista deixou de ter ingresso válido (a regra do banco recusa o lote todo)
+  if (code === '42501') return 'A lista mudou; atualizamos os participantes. Tente de novo.'
   return padrao
 }
 
@@ -92,7 +93,7 @@ export default function Certificates() {
     )
   }
 
-  const participantes = participantesQ.data ?? []
+  const participantes = participantesQ.data?.lista ?? []
   const emitidos = emitidosQ.data ?? []
   const emitidoDe = new Map(emitidos.map(c => [c.user_id, c]))
   const elegiveis = participantes.filter(p => !somenteCheckin || p.checkin)
@@ -196,10 +197,7 @@ export default function Certificates() {
                     <li key={p.user_id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground" aria-hidden="true">{iniciais(p.nome)}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-foreground">{p.nome}</p>
-                          <p className="truncate text-xs text-muted-foreground">{p.email}</p>
-                        </div>
+                        <p className="min-w-0 truncate text-sm font-medium text-foreground">{p.nome}</p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Badge variant="secondary">{p.checkin ? 'Check-in feito' : 'Sem check-in'}</Badge>
@@ -216,6 +214,9 @@ export default function Certificates() {
                   )
                 })}
               </ul>
+            )}
+            {participantesQ.data?.cortado && (
+              <p className="mt-3 text-xs text-muted-foreground">Lista parcial: este evento tem mais de 1.000 ingressos válidos.</p>
             )}
             <p className="mt-3 text-xs text-muted-foreground">A emissão fica registrada com um código de validação. O participante ainda não vê o certificado no app, e o envio por e-mail e o PDF ainda não existem.</p>
           </>

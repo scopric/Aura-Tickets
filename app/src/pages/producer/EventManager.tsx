@@ -3,14 +3,14 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Copy, Archive, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, copiaDoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const filtros: ('Todos' | Situacao)[] = ['Todos', 'Rascunho', 'Em análise', 'Publicado', 'Encerrado', 'Cancelado']
+const filtros: ('Todos' | Situacao)[] = ['Todos', 'Rascunho', 'Em análise', 'Publicado', 'Recusado', 'Encerrado', 'Cancelado']
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const inteiro = (n: number) => n.toLocaleString('pt-BR')
 
@@ -82,7 +82,7 @@ export default function EventManager() {
         ? {
             action: {
               label: 'Cancelar evento',
-              onClick: () => mudarStatus(event, 'cancelled', `Cancelar o evento "${event.title}"? A situação passa a ser Cancelado.`, 'Evento cancelado.'),
+              onClick: () => mudarStatus(event, 'cancelled', confirmacaoCancelar(event.title, vendidos ? vendidoDe(event.id) : undefined), 'Evento cancelado.'),
             },
             duration: 10000,
           }

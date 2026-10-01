@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Music, Heart, Mic, Building, Guitar, Cake, GraduationCap, ArrowRight, ArrowLeft, Check, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useCreateEvent } from '../../hooks/useEvents'
+import { brl } from '../../lib/taxa'
 import { eventProfiles } from '../../data/eventManagerData'
 import type { EventProfile } from '../../data/eventManagerData'
 import { PageHeader } from '@/components/producer/ui'
@@ -15,7 +16,6 @@ import { Switch } from '@/components/ui/switch'
 const cartao = 'rounded-[10px] border border-border bg-card p-4 sm:p-6'
 const bloco = 'rounded-lg border border-border p-4'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
-const brlFmt = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 const profileIcons: Record<EventProfile, typeof Music> = {
   balada: Music, casamento: Heart, festival: Mic,
@@ -348,11 +348,11 @@ export default function EventPlanner() {
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-muted-foreground">Receita bruta projetada</dt>
-                  <dd className="font-medium tabular-nums text-foreground">{brlFmt(calculations.totalTicketRevenue)}</dd>
+                  <dd className="font-medium tabular-nums text-foreground">{brl(calculations.totalTicketRevenue)}</dd>
                 </div>
                 <div className="flex items-center justify-between">
                   <dt className="text-muted-foreground">Preço médio</dt>
-                  <dd className="font-medium tabular-nums text-foreground">{brlFmt(calculations.avgTicketPrice)}</dd>
+                  <dd className="font-medium tabular-nums text-foreground">{brl(calculations.avgTicketPrice)}</dd>
                 </div>
               </dl>
             )}
@@ -380,8 +380,8 @@ export default function EventPlanner() {
 
             {calculations.totalExpenses > 0 && (
               <dl className="space-y-1 rounded-lg bg-muted p-4 text-xs">
-                <div className="flex justify-between"><dt className="text-muted-foreground">Custo total</dt><dd className="font-medium tabular-nums text-foreground">{brlFmt(calculations.totalExpenses)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Custo por pessoa</dt><dd className="font-medium tabular-nums text-foreground">{brlFmt(calculations.costPerPerson)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Custo total</dt><dd className="font-medium tabular-nums text-foreground">{brl(calculations.totalExpenses)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Custo por pessoa</dt><dd className="font-medium tabular-nums text-foreground">{brl(calculations.costPerPerson)}</dd></div>
               </dl>
             )}
 
@@ -432,7 +432,7 @@ export default function EventPlanner() {
                     <span className="truncate text-foreground">{b.name}</span>
                     <span className="flex shrink-0 items-center gap-3 tabular-nums">
                       <span className="text-muted-foreground">{b.quantity || 0} ingressos</span>
-                      <span className="font-medium text-foreground">{brlFmt(Number(b.price) || 0)}</span>
+                      <span className="font-medium text-foreground">{brl(Number(b.price) || 0)}</span>
                     </span>
                   </li>
                 ))}
@@ -454,17 +454,17 @@ export default function EventPlanner() {
                 ].map(k => (
                   <div key={k.label} className="rounded-lg bg-muted p-3">
                     <dt className="text-xs text-muted-foreground">{k.label}</dt>
-                    <dd className={`text-base font-semibold tabular-nums ${k.valor < 0 ? 'text-destructive' : 'text-foreground'}`}>{brlFmt(k.valor)}</dd>
+                    <dd className={`text-base font-semibold tabular-nums ${k.valor < 0 ? 'text-destructive' : 'text-foreground'}`}>{brl(k.valor)}</dd>
                   </div>
                 ))}
               </dl>
               <dl className="mt-3 space-y-2 border-t border-border pt-3 text-xs">
-                <div className="flex justify-between"><dt className="text-muted-foreground">Receita líquida (após taxas)</dt><dd className="tabular-nums text-foreground">{brlFmt(calculations.netRevenue)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Preço médio do ingresso</dt><dd className="tabular-nums text-foreground">{brlFmt(calculations.avgTicketPrice)}</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Custo por pessoa</dt><dd className="tabular-nums text-foreground">{brlFmt(calculations.costPerPerson)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Receita líquida (após taxas)</dt><dd className="tabular-nums text-foreground">{brl(calculations.netRevenue)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Preço médio do ingresso</dt><dd className="tabular-nums text-foreground">{brl(calculations.avgTicketPrice)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Custo por pessoa</dt><dd className="tabular-nums text-foreground">{brl(calculations.costPerPerson)}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted-foreground">Ponto de equilíbrio (ingressos)</dt><dd className="font-medium tabular-nums text-foreground">{calculations.breakEvenTickets}</dd></div>
                 <div className="flex justify-between"><dt className="text-muted-foreground">Margem de lucro</dt><dd className={`font-medium tabular-nums ${Number(calculations.profitMargin) < 0 ? 'text-destructive' : 'text-foreground'}`}>{calculations.profitMargin.replace('.', ',')}%</dd></div>
-                <div className="flex justify-between"><dt className="text-muted-foreground">Preço mínimo recomendado</dt><dd className="font-medium tabular-nums text-foreground">{brlFmt(calculations.minTicketPrice)}</dd></div>
+                <div className="flex justify-between"><dt className="text-muted-foreground">Preço mínimo recomendado</dt><dd className="font-medium tabular-nums text-foreground">{brl(calculations.minTicketPrice)}</dd></div>
               </dl>
             </section>
 

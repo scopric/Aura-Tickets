@@ -31,6 +31,15 @@ export function erroAoExcluir(err: unknown): { mensagem: string; oferecerCancela
   return { mensagem: 'Não foi possível excluir o evento.', oferecerCancelar: false }
 }
 
+// Texto da confirmação de cancelar. Com venda (ou sem saber se há: contagem não carregou), avisa que não há aviso
+// nem reembolso automático: o reembolso ainda não existe (M12).
+export function confirmacaoCancelar(titulo: string, vendidos: number | undefined): string {
+  const base = `Cancelar o evento "${titulo}"? A situação passa a ser Cancelado.`
+  return vendidos === 0
+    ? base
+    : `${base}\n\nOs compradores não são avisados nem reembolsados automaticamente. Fale com o suporte da Evokaa antes de cancelar.`
+}
+
 // Cópia como rascunho, com os mesmos tipos de ingresso (sem vendas)
 export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: Partial<DbTicketType>[] } {
   return {
@@ -65,6 +74,7 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       capacity: t.quantity_total ?? t.capacity,
       type: t.type,
       perks: t.perks,
+      is_active: t.is_active, // tipo oculto continua oculto na cópia
     })),
   }
 }

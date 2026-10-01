@@ -821,34 +821,40 @@ export function useEventCertificates(eventId: string | null) {
 
 // Emissão (B3, docs/sql/20261005_produtor_acesso.sql, DECISÕES 16): o produtor insere só (certificate_id, user_id)
 // para quem tem ingresso ativo ou usado do evento; um por pessoa (23505); revogar = apagar.
+// Sem e-mail: a tela não usa (minimização, LGPD)
 export interface Participante {
   user_id: string
   nome: string
-  email: string
   checkin: boolean // algum ingresso da pessoa está 'used'
 }
 
 export function useParticipantesCertificado(eventId: string | null) {
   const { user } = useAuth()
 
-  return useQuery<Participante[]>({
+  return useQuery<{ lista: Participante[]; cortado: boolean }>({
     queryKey: ['certificado-participantes', eventId],
     queryFn: async () => {
-      // a regra "Produtores leem ingressos dos próprios eventos" deixa ler os do evento dele
-      const { data, error } = await supabase
+      // a regra "Produtores leem ingressos dos próprios eventos" deixa ler os do evento dele.
+      // ponytail: cortado no max_rows (1.000) do PostgREST; o count diz se cortou e a tela avisa. Paginar ou RPC
+      // quando um evento passar de 1.000 ingressos.
+      const { data, error, count } = await supabase
         .from('tickets')
-        .select('user_id, buyer_name, buyer_email, status')
+        .select('user_id, buyer_name, status', { count: 'exact' })
         .eq('event_id', eventId!)
         .in('status', ['active', 'used'])
       if (error) throw error
       // uma linha por pessoa: quem tem vários ingressos aparece uma vez; check-in se algum foi usado
       const porPessoa = new Map<string, Participante>()
-      for (const t of (data ?? []) as unknown as { user_id: string; buyer_name: string; buyer_email: string; status: string }[]) {
+      const linhas = (data ?? []) as unknown as { user_id: string; buyer_name: string; status: string }[]
+      for (const t of linhas) {
         const p = porPessoa.get(t.user_id)
         if (p) p.checkin ||= t.status === 'used'
-        else porPessoa.set(t.user_id, { user_id: t.user_id, nome: t.buyer_name, email: t.buyer_email, checkin: t.status === 'used' })
+        else porPessoa.set(t.user_id, { user_id: t.user_id, nome: t.buyer_name, checkin: t.status === 'used' })
       }
-      return [...porPessoa.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'))
+      return {
+        lista: [...porPessoa.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        cortado: (count ?? 0) > linhas.length,
+      }
     },
     enabled: !!user?.id && !!eventId,
   })
@@ -891,8 +897,11 @@ export function useEmitirCertificados() {
       if ((data ?? []).length !== userIds.length) throw new Error('Nem todos os certificados foram emitidos')
       return data
     },
+    // inserção única (tudo ou nada): se um ingresso foi cancelado depois da carga, o banco recusa o lote inteiro.
+    // Sucesso ou erro, relê emitidos e participantes.
     onSettled: (_d, _e, v) => {
       queryClient.invalidateQueries({ queryKey: ['certificados-emitidos', v.certificateId] })
+      queryClient.invalidateQueries({ queryKey: ['certificado-participantes'] })
     },
   })
 }
