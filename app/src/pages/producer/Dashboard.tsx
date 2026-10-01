@@ -1,338 +1,269 @@
-import { useEffect, useRef } from 'react'
+import { useLayoutEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Calendar, Users, DollarSign, Ticket, TrendingUp, ArrowUpRight, Plus, Palette, BarChart3, AlertTriangle } from 'lucide-react'
+import { Check, Plus } from 'lucide-react'
 import gsap from 'gsap'
-import { useProducerEvents } from '../../hooks/useEvents'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { brl } from '../../lib/taxa'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 
-// Helper: envolve uma promise com timeout
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms)),
-  ])
+// Tipos locais: o types/database.ts está desatualizado (sem approval_status/checked_in_at; orders e producer_profiles viram never)
+type Evento = {
+  id: string
+  title: string
+  status: 'draft' | 'published' | 'cancelled' | 'ended'
+  approval_status: 'pending' | 'approved' | 'rejected' | null
+  date: string | null
+  start_date: string
+  capacity: number | null
+  ticket_types: { quantity_total: number | null; capacity: number | null }[]
+}
+type Ingresso = { event_id: string; checked_in_at: string | null }
+
+const inteiro = (n: number) => Math.round(n).toLocaleString('pt-BR')
+
+// Conta de 0 até o valor (só aqui, Decisão 112); sem animação com prefers-reduced-motion
+function Contagem({ valor, formato }: { valor: number; formato: (n: number) => string }) {
+  const ref = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || valor === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const obj = { n: 0 }
+    const tween = gsap.to(obj, { n: valor, duration: 0.8, ease: 'power2.out', onUpdate: () => { el.textContent = formato(obj.n) } })
+    return () => { tween.kill(); el.textContent = formato(valor) }
+  }, [valor, formato])
+  return <span ref={ref}>{formato(valor)}</span>
+}
+
+function situacao(e: Evento): string {
+  if (e.status === 'draft') return 'Rascunho'
+  if (e.status === 'ended') return 'Encerrado'
+  if (e.status === 'cancelled') return 'Cancelado'
+  if (e.approval_status === 'approved') return 'Publicado'
+  if (e.approval_status === 'rejected') return 'Recusado'
+  return 'Em análise'
+}
+
+const dataDo = (e: Evento) => (e.date ? new Date(`${e.date}T00:00:00`) : new Date(e.start_date))
+
+function saudacao(): string {
+  const h = new Date().getHours()
+  return h >= 5 && h < 12 ? 'Bom dia' : h >= 12 && h < 18 ? 'Boa tarde' : 'Boa noite'
 }
 
 export default function ProducerDashboard() {
-  const ref = useRef<HTMLDivElement>(null)
   const { user } = useAuth()
-  const { data: events, isLoading: isEventsLoading, error: eventsError } = useProducerEvents()
 
-  // Buscar pedidos recentes reais
-  const { data: recentOrders, isLoading: isOrdersLoading, error: ordersError } = useQuery({
-    queryKey: ['producer-recent-orders', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return []
-
-      const fetchPromise = async () => {
-        const { data: producerEvents } = await supabase
-          .from('events')
-          .select('id')
-          .eq('producer_id', user.id)
-
-        if (!producerEvents || producerEvents.length === 0) return []
-        const eventIds = producerEvents.map(e => e.id)
-
-        const { data: orders, error } = await supabase
-          .from('orders')
-          .select(`
-            id,
-            created_at,
-            total,
-            user_id,
-            event_id,
-            events (title),
-            profiles (full_name)
-          `)
-          .in('event_id', eventIds)
-          .eq('status', 'paid')
-          .order('created_at', { ascending: false })
-          .limit(5)
-
-        if (error) throw error
-        return orders || []
-      }
-
-      return withTimeout(fetchPromise(), 6000, [])
-    },
+  const { data, isPending, isError, refetch, isFetching } = useQuery({
+    queryKey: ['producer-inicio', user?.id],
     enabled: !!user?.id,
+    retry: 1,
+    queryFn: async () => {
+      const id = user!.id
+      // ponytail: limite único de 10 s para as consultas da tela; estourou, vira erro com "Tentar de novo"
+      const sinal = AbortSignal.timeout(10000)
+      const [ev, perfil] = await Promise.all([
+        supabase.from('events')
+          .select('id, title, status, approval_status, date, start_date, capacity, ticket_types(quantity_total, capacity)')
+          .eq('producer_id', id).abortSignal(sinal),
+        // sem permissão ou sem linha: o passo "perfil da empresa" fica como não feito
+        supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
+      ])
+      if (ev.error) throw ev.error
+      const eventos = (ev.data ?? []) as unknown as Evento[]
+
+      let vendas = 0
+      let pedidos = 0
+      let ingressos: Ingresso[] = []
+      if (eventos.length > 0) {
+        const ids = eventos.map(e => e.id)
+        const [o, t] = await Promise.all([
+          supabase.from('orders').select('total').in('event_id', ids).eq('status', 'paid').abortSignal(sinal),
+          // vendido = ativo, usado ou transferido; cancelado e reembolsado não contam
+          supabase.from('tickets').select('event_id, checked_in_at').in('event_id', ids)
+            .in('status', ['active', 'used', 'transferred']).abortSignal(sinal),
+        ])
+        if (o.error) throw o.error
+        if (t.error) throw t.error
+        pedidos = o.data.length
+        // ponytail: "bruto" = orders.total dos pagos; o checkout ainda não grava service_fee/processing_fee
+        // e o total inclui a taxa do comprador (Decisões 88 e 111). Receita líquida quando a F2 gravar as taxas.
+        vendas = (o.data as { total: number }[]).reduce((s, x) => s + (Number(x.total) || 0), 0)
+        ingressos = t.data as unknown as Ingresso[]
+      }
+      return { eventos, vendas, pedidos, ingressos, empresa: !perfil.error && !!(perfil.data as { company_name: string | null } | null)?.company_name?.trim() }
+    },
   })
 
-  // Buscar consolidado financeiro real via orders + tickets
-  const { data: financeSummary, isLoading: isFinanceLoading, error: financeError } = useQuery({
-    queryKey: ['producer-finance-summary', user?.id],
-    queryFn: async () => {
-      const fallbackVal = { tickets_sold: 0, total_revenue: 0, unique_buyers: 0 }
-      if (!user?.id) return fallbackVal
+  const primeiroNome = user?.name?.trim().split(/\s+/)[0]
 
-      const fetchPromise = async () => {
-        const { data: producerEvents } = await supabase
-          .from('events')
-          .select('id')
-          .eq('producer_id', user.id)
-
-        if (!producerEvents || producerEvents.length === 0) return fallbackVal
-        const eventIds = producerEvents.map(e => e.id)
-
-        const { data: orders, error: ordersError } = await supabase
-          .from('orders')
-          .select('total, user_id')
-          .in('event_id', eventIds)
-          .eq('status', 'paid')
-
-        if (ordersError) throw ordersError
-
-        const { data: tickets, error: ticketsError } = await supabase
-          .from('tickets')
-          .select('id')
-          .in('event_id', eventIds)
-          .in('status', ['active', 'used', 'transferred']) // sem ingresso de pedido não pago ou reembolsado
-
-        if (ticketsError) throw ticketsError
-
-        const totalRevenue = orders?.reduce((acc, o) => acc + (Number(o.total) || 0), 0) || 0
-        const ticketsSold = tickets?.length || 0
-        const uniqueBuyers = new Set(orders?.map(o => o.user_id) || []).size
-
-        return {
-          tickets_sold: ticketsSold,
-          total_revenue: totalRevenue,
-          unique_buyers: uniqueBuyers,
-        }
+  const header = (
+    <PageHeader
+      title="Início"
+      description={primeiroNome ? `${saudacao()}, ${primeiroNome}` : saudacao()}
+      actions={
+        <Button asChild>
+          <Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link>
+        </Button>
       }
+    />
+  )
 
-      return withTimeout(fetchPromise(), 6000, fallbackVal)
-    },
-    enabled: !!user?.id,
-  })
-
-  useEffect(() => {
-    if (!isEventsLoading && !isFinanceLoading) {
-      const ctx = gsap.context(() => {
-        gsap.fromTo('.dash-card', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6, stagger: 0.08, ease: 'power3.out' })
-      }, ref)
-      return () => ctx.revert()
-    }
-  }, [isEventsLoading, isFinanceLoading])
-
-  const activeEventsCount = events?.filter(e => e.status === 'published').length || 0
-  const totalTicketsSold = financeSummary?.tickets_sold ?? 0
-  const totalRevenue = financeSummary?.total_revenue ?? 0
-  const totalCapacity = events?.reduce((total, event) => {
-    return total + (event.ticket_types?.reduce((sum, t) => sum + (t.capacity || 0), 0) || 0)
-  }, 0) || 0
-  const uniqueBuyers = financeSummary?.unique_buyers ?? 0
-
-  const stats = [
-    { label: 'Eventos Ativos', value: activeEventsCount.toString(), icon: Calendar, change: 'Eventos no ar', color: 'plum' },
-    { label: 'Total de Vendas', value: `R$ ${totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, icon: DollarSign, change: 'Receita acumulada', color: 'green' },
-    { label: 'Ingressos Vendidos', value: totalTicketsSold.toLocaleString('pt-BR'), icon: Ticket, change: `${totalCapacity > 0 ? Math.round((totalTicketsSold / totalCapacity) * 100) : 0}% ocupação média`, color: 'plum' },
-    { label: 'Compradores Únicos', value: uniqueBuyers.toLocaleString('pt-BR'), icon: Users, change: 'Participantes individuais', color: 'green' },
-  ]
-
-  const formatTimeElapsed = (dateStr: string) => {
-    try {
-      const diffMs = new Date().getTime() - new Date(dateStr).getTime()
-      const diffMins = Math.floor(diffMs / 60000)
-      if (diffMins < 1) return 'Agora mesmo'
-      if (diffMins < 60) return `Há ${diffMins} minutos`
-      const diffHours = Math.floor(diffMins / 60)
-      if (diffHours < 24) return `Há ${diffHours} horas`
-      return new Date(dateStr).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
-    } catch {
-      return ''
-    }
+  // isPending (não isLoading): sem usuário ainda a consulta fica parada e a tela segue no esqueleto
+  if (isPending) {
+    return (
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        </div>
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
   }
 
-  const hasAnyError = eventsError || ordersError || financeError
-  const isLoading = isEventsLoading || isFinanceLoading || isOrdersLoading
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar seus números agora.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const { eventos, vendas, pedidos, ingressos, empresa } = data
+  const vendidos = ingressos.length
+  const publicados = eventos.filter(e => e.status === 'published').length
+
+  const hoje = new Date()
+  hoje.setHours(0, 0, 0, 0)
+  const proximos = eventos
+    .filter(e => (e.status === 'draft' || e.status === 'published') && dataDo(e) >= hoje)
+    .sort((a, b) => dataDo(a).getTime() - dataDo(b).getTime())
+    .slice(0, 5)
+
+  const passos = [
+    { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/planner' },
+    {
+      feito: eventos.some(e => e.approval_status === 'approved' || (e.status === 'published' && e.approval_status !== 'rejected')),
+      texto: 'Enviar um evento para análise',
+      to: '/producer/events',
+    },
+    { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/events' },
+    { feito: empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings' },
+    { feito: ingressos.some(i => i.checked_in_at), texto: 'Testar o check-in', to: '/producer/checkin' },
+  ]
+  const feitos = passos.filter(p => p.feito).length
 
   return (
-    <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Dashboard</h1>
-          <p className="text-sm text-espresso/70 mt-1">Visão geral dos seus eventos com dados reais</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Link
-            to="/producer/finance"
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum/10 text-plum text-sm font-medium rounded-full hover:bg-plum/20 transition-all"
-          >
-            <BarChart3 className="w-4 h-4" />
-            Ver Financeiro
-          </Link>
-          <Link
-            to="/producer/planner"
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Evento
-          </Link>
-        </div>
-      </div>
+    <div>
+      {header}
 
-      {hasAnyError && (
-        <div className="p-6 mb-6 bg-red-50/50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">Erro ao carregar dados do dashboard: {(eventsError as any)?.message || (ordersError as any)?.message || (financeError as any)?.message || 'Erro desconhecido'}</p>
+      <section aria-labelledby="numeros">
+        <h2 id="numeros" className="sr-only">Números</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <Stat label="Vendas (bruto)" value={<Contagem valor={vendas} formato={brl} />} hint="Pedidos pagos, com a taxa do comprador" />
+          <Stat label="Ingressos vendidos" value={<Contagem valor={vendidos} formato={inteiro} />} />
+          <Stat label="Ticket médio" value={<Contagem valor={vendidos ? vendas / vendidos : 0} formato={brl} />} />
+          <Stat label="Eventos publicados" value={<Contagem valor={publicados} formato={inteiro} />} />
         </div>
+        {pedidos === 0 && (
+          <p className="mt-3 text-sm text-muted-foreground">As vendas aparecem aqui quando o pagamento estiver ligado.</p>
+        )}
+      </section>
+
+      {feitos < passos.length && (
+        <section aria-labelledby="primeiros-passos" className="mt-6 rounded-[10px] border border-border bg-card p-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 id="primeiros-passos" className="text-base font-semibold text-foreground">Primeiros passos</h2>
+            <span className="text-sm tabular-nums text-muted-foreground">{feitos} de {passos.length}</span>
+          </div>
+          <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+            <div className="h-full bg-primary" style={{ width: `${(feitos / passos.length) * 100}%` }} />
+          </div>
+          <ul className="mt-3 divide-y divide-border">
+            {passos.map(p => (
+              <li key={p.texto} className="flex items-center gap-3 py-2.5 text-sm">
+                <span
+                  className={`flex size-5 shrink-0 items-center justify-center rounded-full border ${p.feito ? 'border-primary bg-primary text-primary-foreground' : 'border-border'}`}
+                  aria-hidden="true"
+                >
+                  {p.feito && <Check className="size-3" />}
+                </span>
+                {p.feito ? (
+                  <span className="text-muted-foreground line-through">{p.texto}<span className="sr-only"> (feito)</span></span>
+                ) : (
+                  <Link to={p.to} className="text-foreground hover:text-primary hover:underline underline-offset-4">{p.texto}</Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {isLoading ? (
-          [1, 2, 3, 4].map(n => (
-            <div key={n} className="dash-card p-5 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md animate-pulse h-[142px]">
-              <div className="w-10 h-10 bg-white/[0.05] rounded-xl mb-3" />
-              <div className="h-6 bg-white/[0.05] rounded w-24 mb-2" />
-              <div className="h-4 bg-white/[0.05] rounded w-16" />
-            </div>
-          ))
-        ) : (
-          stats.map((stat) => (
-            <div key={stat.label} className="dash-card p-5 rounded-2xl surface">
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl bg-${stat.color === 'plum' ? 'plum' : 'green-600'}/10 flex items-center justify-center`}>
-                  <stat.icon className={`w-5 h-5 text-${stat.color === 'plum' ? 'plum' : 'green-600'}`} />
-                </div>
-                <TrendingUp className="w-4 h-4 text-green-500" />
-              </div>
-              <div className="font-serif text-xl lg:text-2xl text-espresso break-words">{stat.value}</div>
-              <div className="text-xs text-espresso/70 mt-1">{stat.label}</div>
-              <div className="text-[10px] text-green-400 mt-2">{stat.change}</div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Events list */}
-        <div className="lg:col-span-2">
-          <div className="dash-card p-6 rounded-2xl surface">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-serif text-xl text-espresso">Meus Eventos Recentes</h2>
-              <Link to="/producer/events" className="text-xs text-plum hover:underline flex items-center gap-1">
-                Ver todos <ArrowUpRight className="w-3 h-3" />
-              </Link>
-            </div>
-
-            {isEventsLoading ? (
-              <div className="space-y-3">
-                {[1, 2].map(n => (
-                  <div key={n} className="h-20 bg-white/[0.02] border border-white/[0.05] rounded-xl animate-pulse" />
-                ))}
-              </div>
-            ) : !events || events.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-espresso/70 mb-4">Você ainda não tem eventos cadastrados.</p>
-                <Link
-                  to="/producer/planner"
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all"
-                >
-                  <Plus className="w-3 h-3" /> Criar meu primeiro evento
-                </Link>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {events.slice(0, 4).map((event) => {
-                  const ticketTypes = event.ticket_types || []
-                  const eventSold = ticketTypes.reduce((s, t) => s + (t.sold || 0), 0)
-                  const eventRevenue = ticketTypes.reduce((s, t) => s + (t.price * (t.sold || 0)), 0)
-
-                  return (
-                    <Link
-                      key={event.id}
-                      to={`/producer/events`}
-                      className="flex items-center gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] hover:border-plum/20 hover:bg-white/[0.04] transition-all group"
-                    >
-                      <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                        <img src={event.cover_image || '/images/hero-bg.jpg'} alt={event.title} className="w-full h-full object-cover" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-sm font-medium text-espresso group-hover:text-plum transition-colors truncate">{event.title}</h3>
-                        <p className="text-xs text-espresso/70 truncate">
-                          {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Sem data'} · {event.venue_name || 'Sem local'}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-espresso">R$ {eventRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                        <div className="text-[10px] text-espresso/70">{eventSold} vendidos</div>
-                      </div>
-                      <ArrowUpRight className="w-4 h-4 text-espresso/20 group-hover:text-plum transition-colors" />
-                    </Link>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Activity list */}
-        <div className="dash-card p-6 rounded-2xl surface">
-          <h2 className="font-serif text-xl text-espresso mb-6">Atividade Recente</h2>
-
-          {isOrdersLoading ? (
-            <div className="space-y-4 animate-pulse">
-              {[1, 2, 3].map(n => (
-                <div key={n} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-white/[0.05]" />
-                  <div className="space-y-1.5 flex-1">
-                    <div className="h-3.5 bg-white/[0.05] rounded w-32" />
-                    <div className="h-3 bg-white/[0.05] rounded w-20" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : !recentOrders || recentOrders.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-xs text-espresso/70">Nenhuma venda registrada recentemente.</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recentOrders.map((order: any, i) => (
-                <div key={order.id || i} className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-green-500/10">
-                    <DollarSign className="w-3.5 h-3.5 text-green-400" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-espresso">
-                      Ingresso vendido para <span className="font-medium">{order.profiles?.full_name || 'Cliente'}</span>
-                    </p>
-                    <p className="text-xs text-espresso/70 truncate max-w-[180px]">{order.events?.title || 'Evento'}</p>
-                    <p className="text-[10px] text-espresso/70 mt-0.5">{formatTimeElapsed(order.created_at)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+      <section aria-labelledby="proximos" className="mt-6">
+        <div className="mb-3 flex items-baseline justify-between gap-3">
+          <h2 id="proximos" className="text-base font-semibold text-foreground">Próximos eventos</h2>
+          {eventos.length > 0 && (
+            <Link to="/producer/events" className="text-sm text-primary hover:underline underline-offset-4">Ver todos</Link>
           )}
         </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="dash-card mt-6 p-6 rounded-2xl surface text-espresso">
-        <h2 className="font-serif text-xl mb-4 text-espresso">Ações Rápidas</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Planejar Evento', to: '/producer/planner', icon: Plus },
-            { label: 'Editar Marca', to: '/producer/brand', icon: Palette },
-            { label: 'Ver Contatos', to: '/producer/crm', icon: Users },
-            { label: 'Financeiro', to: '/producer/finance', icon: BarChart3 },
-          ].map((action) => (
-            <Link
-              key={action.label}
-              to={action.to}
-              className="flex items-center gap-3 p-4 rounded-xl bg-slate-50/50 dark:bg-white/[0.02] border border-slate-200/60 dark:border-white/[0.08] hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:border-plum/30 dark:hover:border-plum/30 transition-all group"
-            >
-              <action.icon className="w-5 h-5 text-plum" />
-              <span className="text-sm text-espresso/80 group-hover:text-plum transition-colors">{action.label}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
+        {eventos.length === 0 ? (
+          <EmptyState
+            title="Você ainda não tem eventos"
+            description="Crie o primeiro e acompanhe as vendas por aqui."
+            action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+          />
+        ) : proximos.length === 0 ? (
+          <EmptyState
+            title="Nenhum evento com data pela frente"
+            action={<Button asChild variant="outline"><Link to="/producer/events">Ver meus eventos</Link></Button>}
+          />
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+            {proximos.map(e => {
+              const vendidosEv = ingressos.filter(i => i.event_id === e.id).length
+              const cap = e.ticket_types.reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || e.capacity || 0
+              const st = situacao(e)
+              return (
+                <li key={e.id}>
+                  <Link
+                    to={`/producer/events/${e.id}/edit`}
+                    className="grid grid-cols-[3.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-2 p-3 transition-colors hover:bg-foreground/5 sm:grid-cols-[3.5rem_minmax(0,1fr)_10rem]"
+                  >
+                    <span className="text-sm tabular-nums text-muted-foreground">
+                      {dataDo(e).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                    </span>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">{e.title}</span>
+                      <Badge variant={st === 'Publicado' ? 'default' : 'secondary'}>{st}</Badge>
+                    </span>
+                    <span className="col-start-2 sm:col-start-auto">
+                      <span className="block text-xs tabular-nums text-muted-foreground">
+                        {cap > 0 ? `${inteiro(vendidosEv)} de ${inteiro(cap)} vendidos` : `${inteiro(vendidosEv)} vendidos`}
+                      </span>
+                      {cap > 0 && (
+                        <span className="mt-1 block h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                          <span className="block h-full bg-primary" style={{ width: `${Math.min(100, (vendidosEv / cap) * 100)}%` }} />
+                        </span>
+                      )}
+                    </span>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </section>
     </div>
   )
 }
