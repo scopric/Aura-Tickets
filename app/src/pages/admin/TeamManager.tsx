@@ -31,6 +31,7 @@ const PERMISSIONS = [
   { id: 'manage_support', label: 'Atendimento (chat)', desc: 'Responder as conversas do chat, fazer notas internas, atribuir, mudar setor e resolver.' },
   { id: 'manage_newsletter', label: 'Campanhas de Newsletter', desc: 'Criar, editar e disparar informativos para a base de e-mails.' },
   { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
+  { id: 'moderate_mesa', label: 'Moderar Match de Mesa', desc: 'Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.' },
   { id: 'manage_team', label: 'Ver Equipe Admin', desc: 'Permite ver a equipe administrativa. Promover, rebaixar e alterar permissões é só do Super Admin.' },
 ]
 

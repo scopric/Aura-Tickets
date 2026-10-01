@@ -15,6 +15,7 @@ import {
   useMesaDenunciar,
   consentimentoVigente,
   redeVigente,
+  MOTIVO_DENUNCIA,
   type MesaCartao,
   type MotivoDenuncia,
 } from '../hooks/useMatchmaking'
@@ -34,13 +35,6 @@ function formaEmTexto(iso: string): string {
     }).formatToParts(new Date(iso)).map(x => [x.type, x.value])
   )
   return `${p.day}/${p.month} às ${p.hour}:${p.minute}`
-}
-
-const MOTIVOS: Record<MotivoDenuncia, string> = {
-  assedio: 'Assédio',
-  perfil_falso: 'Perfil falso',
-  conteudo_improprio: 'Conteúdo impróprio',
-  outro: 'Outro motivo',
 }
 
 const MOTIVO_ESCOLHA: Record<string, string> = {
@@ -209,10 +203,10 @@ function Denunciar({ alvo, onFechar }: { alvo: MesaCartao; onFechar: () => void 
         <p className="text-xs text-cream/70 mb-4">A denúncia vai para a equipe da Evokaa, que analisa. Ninguém é bloqueado automaticamente. Depois da análise da equipe da Evokaa, a organização do evento pode ver o motivo e quem foi denunciado; seu nome e o detalhe não são mostrados a ela.</p>
         <fieldset className="space-y-2 mb-4">
           <legend className="text-sm text-cream mb-2">Motivo</legend>
-          {(Object.keys(MOTIVOS) as MotivoDenuncia[]).map(m => (
+          {(Object.keys(MOTIVO_DENUNCIA) as MotivoDenuncia[]).map(m => (
             <label key={m} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 cursor-pointer text-sm text-cream/80">
               <input type="radio" name="motivo" className="accent-plum" checked={motivo === m} onChange={() => setMotivo(m)} />
-              {MOTIVOS[m]}
+              {MOTIVO_DENUNCIA[m]}
             </label>
           ))}
         </fieldset>
