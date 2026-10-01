@@ -24,18 +24,28 @@
 --    um produtor prende o lead à etapa de outro e trava a exclusão dela pela FK).
 -- 5. event_budget_boxes tinha DUAS regras permissivas para o dono ("Produtor gerencia budget boxes" e
 --    gf_budget_boxes_all = dono OU admin). Permissivas somam (OR): consertar só uma deixava a brecha aberta pela
---    outra. A gf_budget_boxes_all vira gf_budget_boxes_admin (só admin); a do dono ganha a checagem do evento.
+--    outra. A gf_budget_boxes_all passa a valer só para admin (mesmo nome de propósito: o seg6 faz
+--    "alter policy gf_budget_boxes_all" e, com outro nome, reaplicar o seg6 depois deste SQL abortaria);
+--    a do dono ganha a checagem do evento.
 -- 6. coupons: só a regra do produtor muda (a do admin exige producer_id nulo e a do afiliado é só leitura).
 -- 7. affiliates: o produtor NÃO grava direto. Inserir só pela vincular_afiliado (senão a trava de 18 anos e o
 --    limite de chamadas viram enfeite: bastaria um insert pela API). UPDATE só nas colunas commission_percent e
---    status (grant por coluna): sales e total_earned são dinheiro do afiliado e não podem ser editados pelo
---    produtor pela API. CHECK de comissão entre 0,01 e 100 (0 linhas hoje) vale também para o update.
+--    status (grant por coluna): sales, total_earned (dinheiro do afiliado), producer_id, event_id e
+--    affiliate_user_id não mudam pela API. Sem DELETE (nem regra nem grant): o vínculo se encerra com
+--    status = 'inactive'; apagar levaria junto vendas e ganhos do afiliado e o rastro da DECISÕES 10.
+--    SELECT por coluna, sem affiliate_user_id: o produtor não lê o uuid de quem vinculou (a tela usa
+--    listar_afiliados no B4). Efeito: "select *" em affiliates passa a dar 42501 para qualquer usuário logado
+--    (inclusive o afiliado lendo a própria linha); é preciso listar as colunas. Hoje nenhuma tela do afiliado
+--    lê esta tabela (AffiliateArea lê platform_affiliates e coupons), e a do produtor já não funcionava: é o
+--    menor risco. A regra do afiliado (affiliate_user_id = auth.uid()) continua valendo: o privilégio de
+--    coluna não se aplica à expressão da regra. Coluna nova em affiliates nasce sem SELECT para a API.
+--    CHECK de comissão entre 0,01 e 100 (0 linhas hoje) vale também para o update.
 --    Índice único (affiliate_user_id, event_id): "já vinculado" sem corrida entre duas chamadas.
---    Hoje a tela de Afiliados grava direto e já não funciona (a tabela não tinha regra): nada piora; a tela
---    passa a usar as funções no B4.
 -- 8. caixinha_movimentar é SECURITY INVOKER: roda com as regras de acesso de quem chama (2FA e dono pelas
 --    regras), mais a checagem explícita producer_id = auth.uid(). O select ... for update trava a linha da
 --    caixinha até o fim da transação: duas operações ao mesmo tempo esperam uma pela outra, sem sobrescrever.
+--    Valor: arredondado a centavos e aceito só entre 0 e 1 bilhão (exclusive). "NaN" e "Infinity" são valores
+--    válidos de numeric e NaN é maior que tudo no Postgres: "p_valor <= 0" sozinho deixava passar.
 --    ponytail: a gravação direta em event_budget_boxes.saved e piggy_transactions continua aberta para o
 --    dono (a tela atual usa); fechar depois que o B4 passar a tela para a função.
 -- 9. vincular_afiliado é SECURITY DEFINER porque precisa achar a pessoa pelo e-mail em auth.users e ler a data
@@ -43,23 +53,33 @@
 --    vazio, gf_mfa_ok() obrigatório, dono do evento conferido no corpo, e devolve só um código (nunca id/nome).
 --    E-mail: procura em auth.users (o e-mail do login, confirmado). profiles.email não serve: o próprio usuário
 --    pode editá-lo e se passar por outra pessoa.
--- 10. Enumeração (descobrir quem tem conta): "ok" revela que a conta existe, e isso é inevitável (o vínculo é
---    criado e aparece para o afiliado, deixando rastro). Para não criar um segundo oráculo sem rastro, conta
---    inexistente, e-mail não confirmado, menor de 18 e conta sem data de nascimento devolvem o MESMO código
---    'nao_encontrado' (a tela explica: "precisa ter conta na Evokaa, ser maior de 18 anos e ter a data de
---    nascimento no perfil"). Assim ninguém descobre pela API que um e-mail é de um menor de idade.
---    'ja_vinculado' e 'proprio' só revelam o que o produtor já sabe. Não há código 'menor' separado.
--- 11. Limite: 20 chamadas por produtor por hora, contadas numa tabela pequena (afiliado_tentativas), com RLS
---    ligada, sem regra permissiva e sem grant para a API. Contar vínculos criados em affiliates seria mais
---    curto, mas burlável: vincula, apaga, vincula de novo. A tabela conta toda tentativa que chega à busca.
+-- 10. Enumeração (descobrir quem tem conta): "ok" revela que a conta existe, e isso é inevitável. O que limita
+--    o abuso é o rastro: o vínculo criado não pode ser apagado pelo produtor (sem DELETE, DECISÕES 7), fica
+--    visível para o afiliado e para o admin, e cada "ok" é um vínculo permanente no evento. Some-se a isso o
+--    limite (DECISÕES 11) e a exigência de conta de produtor com mais de 24 h (conta descartável recém-criada
+--    não sonda). Para não criar um segundo oráculo sem rastro, conta inexistente, e-mail não confirmado,
+--    menor de 18 e conta sem data de nascimento devolvem o MESMO código 'nao_encontrado' (a tela explica:
+--    "precisa ter conta na Evokaa, ser maior de 18 anos e ter a data de nascimento no perfil"). Assim ninguém
+--    descobre pela API que um e-mail é de um menor de idade. 'ja_vinculado' e 'proprio' só revelam o que o
+--    produtor já sabe; 'email_invalido' (vazio ou acima de 254 caracteres) e 'conta_recente' não dependem de
+--    quem é o e-mail. Não há código 'menor' separado.
+-- 11. Limite: 20 tentativas por produtor por hora e 100 por dia, contadas numa tabela pequena
+--    (afiliado_tentativas), com RLS ligada, sem regra permissiva e sem grant para a API. Contar vínculos
+--    criados em affiliates não serviria: só conta os acertos. A tabela conta toda tentativa que chega à busca.
 -- 12. Idade: "18 anos" pela data de hoje do servidor (UTC). No dia do aniversário, entre 21h e 0h de Brasília,
 --    ainda conta como 17. Aceito.
--- 13. listar_afiliados é SECURITY DEFINER para devolver primeiro nome e e-mail mascarado (jo***@gmail.com) que
---    a regra de profiles esconde; filtra por producer_id = auth.uid() e gf_mfa_ok() (como a
---    affiliate_my_producers). O produtor ainda lê affiliate_user_id na tabela (uuid, sem nome nem e-mail).
+-- 13. listar_afiliados é SECURITY DEFINER para devolver o e-mail mascarado (jo***@gmail.com; com 1 ou 2 letras
+--    antes do @, "****@gmail.com"), que a regra de profiles esconde. NÃO devolve nome nem o uuid do usuário:
+--    o nome só aparece depois que existir aceite do afiliado (fica para o B4/M7). Filtra por
+--    producer_id = auth.uid() e gf_mfa_ok() (como a affiliate_my_producers).
 -- 14. Etapas do CRM: nada é criado ao abrir a tela. crm_criar_etapas_padrao() (botão) cria 5 etapas só se o
 --    produtor não tiver nenhuma; trava por produtor (pg_advisory_xact_lock) para dois cliques não criarem 10.
 -- 15. Funções: revoke de public e anon, grant só a authenticated.
+-- 16. issued_certificates: emitir = inserir, revogar = apagar; o produtor não tem UPDATE (nenhuma coluna precisa
+--    mudar: trocar user_id ou certificate_id de um certificado emitido é emitir outro). Só emite para quem tem
+--    ingresso do evento com status 'active' ou 'used' (tickets_status_check: active, used, cancelled,
+--    refunded, transferred). A subconsulta em tickets roda como o produtor: a regra "Produtores leem
+--    ingressos dos próprios eventos" deixa ele ler os ingressos do evento dele.
 -- =============================================================================
 begin;
 
@@ -93,7 +113,7 @@ create policy gf_menu_items_dono on public.menu_items as permissive for all to a
               and (event_id is null or exists (select 1 from public.events e
                                                where e.id = event_id and e.producer_id = (select auth.uid()))));
 
--- affiliates (DECISÕES 7): dono lê, altera (só comissão e status) e apaga; afiliado só lê a própria linha
+-- affiliates (DECISÕES 7): dono lê e altera (só comissão e status), sem apagar; afiliado só lê a própria linha
 drop policy if exists gf_affiliates_dono_select on public.affiliates;
 drop policy if exists gf_affiliates_dono_update on public.affiliates;
 drop policy if exists gf_affiliates_dono_delete on public.affiliates;
@@ -103,25 +123,38 @@ create policy gf_affiliates_dono_select on public.affiliates as permissive for s
 create policy gf_affiliates_dono_update on public.affiliates as permissive for update to authenticated
   using (producer_id = (select auth.uid()))
   with check (producer_id = (select auth.uid()));
-create policy gf_affiliates_dono_delete on public.affiliates as permissive for delete to authenticated
-  using (producer_id = (select auth.uid()));
 create policy gf_affiliates_afiliado_select on public.affiliates as permissive for select to authenticated
   using (affiliate_user_id = (select auth.uid()));
-revoke insert, update on public.affiliates from anon, authenticated;
+revoke select, insert, update, delete on public.affiliates from anon, authenticated;
+grant select (id, producer_id, event_id, commission_percent, sales, total_earned, status, created_at)
+  on public.affiliates to authenticated;
 grant update (commission_percent, status) on public.affiliates to authenticated;
 alter table public.affiliates drop constraint if exists affiliates_commission_percent_check;
 alter table public.affiliates add constraint affiliates_commission_percent_check
   check (commission_percent >= 0.01 and commission_percent <= 100);
 create unique index if not exists affiliates_afiliado_evento_key on public.affiliates (affiliate_user_id, event_id);
 
--- issued_certificates: o produtor dono do evento do certificado gerencia; o participante lê o próprio
+-- issued_certificates (DECISÕES 16): o produtor dono do evento lê, emite (só para quem tem ingresso válido do
+-- evento) e revoga (apaga); o participante lê o próprio
 drop policy if exists gf_issued_certificates_produtor on public.issued_certificates;
+drop policy if exists gf_issued_certificates_produtor_select on public.issued_certificates;
+drop policy if exists gf_issued_certificates_produtor_insert on public.issued_certificates;
+drop policy if exists gf_issued_certificates_produtor_delete on public.issued_certificates;
 drop policy if exists gf_issued_certificates_participante on public.issued_certificates;
-create policy gf_issued_certificates_produtor on public.issued_certificates as permissive for all to authenticated
+create policy gf_issued_certificates_produtor_select on public.issued_certificates as permissive for select to authenticated
   using (exists (select 1 from public.certificates c join public.events e on e.id = c.event_id
-                 where c.id = certificate_id and e.producer_id = (select auth.uid())))
-  with check (exists (select 1 from public.certificates c join public.events e on e.id = c.event_id
-                      where c.id = certificate_id and e.producer_id = (select auth.uid())));
+                 where c.id = issued_certificates.certificate_id and e.producer_id = (select auth.uid())));
+create policy gf_issued_certificates_produtor_insert on public.issued_certificates as permissive for insert to authenticated
+  with check (exists (select 1 from public.certificates c
+                        join public.events e on e.id = c.event_id
+                        join public.tickets t on t.event_id = c.event_id
+                       where c.id = issued_certificates.certificate_id
+                         and e.producer_id = (select auth.uid())
+                         and t.user_id = issued_certificates.user_id
+                         and t.status in ('active', 'used')));
+create policy gf_issued_certificates_produtor_delete on public.issued_certificates as permissive for delete to authenticated
+  using (exists (select 1 from public.certificates c join public.events e on e.id = c.event_id
+                 where c.id = issued_certificates.certificate_id and e.producer_id = (select auth.uid())));
 create policy gf_issued_certificates_participante on public.issued_certificates as permissive for select to authenticated
   using (user_id = (select auth.uid()));
 
@@ -136,13 +169,13 @@ create policy "Produtor gerencia coupons" on public.coupons as permissive for al
 -- DECISÕES 5
 drop policy if exists "Produtor gerencia budget boxes" on public.event_budget_boxes;
 drop policy if exists gf_budget_boxes_all on public.event_budget_boxes;
-drop policy if exists gf_budget_boxes_admin on public.event_budget_boxes;
+drop policy if exists gf_budget_boxes_admin on public.event_budget_boxes; -- nome usado na 1ª versão deste arquivo
 create policy "Produtor gerencia budget boxes" on public.event_budget_boxes as permissive for all to authenticated
   using (producer_id = (select auth.uid()))
   with check (producer_id = (select auth.uid())
               and (event_id is null or exists (select 1 from public.events e
                                                where e.id = event_id and e.producer_id = (select auth.uid()))));
-create policy gf_budget_boxes_admin on public.event_budget_boxes as permissive for all to authenticated
+create policy gf_budget_boxes_all on public.event_budget_boxes as permissive for all to authenticated
   using ((select public.gf_is_admin()))
   with check ((select public.gf_is_admin()));
 
@@ -155,12 +188,14 @@ set search_path = ''
 as $$
 declare
   v_saldo numeric;
+  v_valor numeric := round(p_valor, 2);
 begin
   if p_tipo is null or p_tipo not in ('deposit', 'withdraw') then
     raise exception 'Tipo de movimento inválido' using errcode = '22023';
   end if;
-  if p_valor is null or p_valor <= 0 then
-    raise exception 'O valor precisa ser maior que zero' using errcode = '22023';
+  -- DECISÕES 8: NaN é maior que tudo no Postgres; "not (... and ...)" recusa NaN, Infinity e nulo
+  if v_valor is null or not (v_valor > 0 and v_valor < 1e9) then
+    raise exception 'Valor inválido (entre 0,01 e 999.999.999,99)' using errcode = '22023';
   end if;
   -- trava a linha: outra movimentação da mesma caixinha espera esta terminar
   select coalesce(b.saved, 0) into v_saldo
@@ -170,12 +205,12 @@ begin
   if not found then
     raise exception 'Caixinha não encontrada' using errcode = '42501';
   end if;
-  v_saldo := v_saldo + case when p_tipo = 'deposit' then p_valor else -p_valor end;
+  v_saldo := v_saldo + case when p_tipo = 'deposit' then v_valor else -v_valor end;
   if v_saldo < 0 then
     raise exception 'Saldo insuficiente' using errcode = '23514';
   end if;
   update public.event_budget_boxes set saved = v_saldo, updated_at = now() where id = p_box;
-  insert into public.piggy_transactions (box_id, type, amount, note) values (p_box, p_tipo, p_valor, p_nota);
+  insert into public.piggy_transactions (box_id, type, amount, note) values (p_box, p_tipo, v_valor, p_nota);
   return v_saldo;
 end;
 $$;
@@ -217,14 +252,23 @@ begin
      or not exists (select 1 from public.events where id = p_evento and producer_id = v_uid) then
     return 'sem_permissao';
   end if;
+  -- conta de produtor descartável recém-criada não sonda e-mails (DECISÕES 10)
+  if exists (select 1 from public.profiles where id = v_uid and created_at > now() - interval '24 hours') then
+    return 'conta_recente';
+  end if;
+  if p_email is null or btrim(p_email) = '' or length(p_email) > 254 then
+    return 'email_invalido';
+  end if;
   if p_comissao is null or p_comissao < 0.01 or p_comissao > 100 then
     return 'comissao_invalida';
   end if;
 
-  -- limite: 20 tentativas por produtor por hora (DECISÕES 11); a trava serializa as chamadas do mesmo produtor
+  -- limite: 20 tentativas por hora e 100 por dia por produtor (DECISÕES 11); a trava serializa as chamadas
   perform pg_advisory_xact_lock(hashtextextended('vincular_afiliado:' || v_uid::text, 0));
-  delete from public.afiliado_tentativas where producer_id = v_uid and criado_em < now() - interval '1 hour';
-  if (select count(*) from public.afiliado_tentativas where producer_id = v_uid) >= 20 then
+  delete from public.afiliado_tentativas where producer_id = v_uid and criado_em < now() - interval '24 hours';
+  if (select count(*) from public.afiliado_tentativas where producer_id = v_uid) >= 100
+     or (select count(*) from public.afiliado_tentativas
+          where producer_id = v_uid and criado_em > now() - interval '1 hour') >= 20 then
     return 'limite';
   end if;
   insert into public.afiliado_tentativas (producer_id) values (v_uid);
@@ -255,8 +299,11 @@ begin
 end;
 $$;
 
-create or replace function public.listar_afiliados()
-returns table (id uuid, primeiro_nome text, email_mascarado text, commission_percent numeric, status text,
+-- muda o retorno (sem primeiro_nome): create or replace não troca colunas de saída
+drop function if exists public.listar_afiliados();
+-- sem nome nem uuid do afiliado até existir o aceite dele (B4/M7; DECISÕES 13)
+create function public.listar_afiliados()
+returns table (id uuid, email_mascarado text, commission_percent numeric, status text,
                event_id uuid, evento text, sales integer, total_earned numeric, created_at timestamptz)
 language sql
 stable
@@ -264,12 +311,10 @@ security definer
 set search_path = ''
 as $$
   select a.id,
-         nullif(split_part(btrim(coalesce(p.full_name, '')), ' ', 1), ''),
-         left(split_part(u.email, '@', 1), case when length(split_part(u.email, '@', 1)) > 2 then 2 else 1 end)
+         case when length(split_part(u.email, '@', 1)) > 2 then left(u.email, 2) else '*' end
            || '***@' || split_part(u.email, '@', 2),
          a.commission_percent, a.status, a.event_id, e.title, a.sales, a.total_earned, a.created_at
     from public.affiliates a
-    join public.profiles p on p.id = a.affiliate_user_id
     join auth.users u on u.id = a.affiliate_user_id
     left join public.events e on e.id = a.event_id
    where a.producer_id = (select auth.uid()) and public.gf_mfa_ok()
@@ -343,7 +388,16 @@ begin
     raise exception 'regra com nome corrompido (erro 17)';
   end if;
   if has_table_privilege('authenticated', 'public.affiliates', 'insert')
+     or has_table_privilege('authenticated', 'public.affiliates', 'delete')
+     or has_column_privilege('authenticated', 'public.affiliates', 'affiliate_user_id', 'select')
+     or has_column_privilege('authenticated', 'public.affiliates', 'sales', 'update')
      or has_column_privilege('authenticated', 'public.affiliates', 'total_earned', 'update')
+     or has_column_privilege('authenticated', 'public.affiliates', 'producer_id', 'update')
+     or has_column_privilege('authenticated', 'public.affiliates', 'event_id', 'update')
+     or has_column_privilege('authenticated', 'public.affiliates', 'affiliate_user_id', 'update')
+     or exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('affiliates', 'issued_certificates')
+                and cmd in ('DELETE', 'ALL', 'UPDATE') and policyname <> 'gf_mfa_aal2'
+                and policyname not in ('gf_affiliates_dono_update', 'gf_issued_certificates_produtor_delete'))
      or has_table_privilege('authenticated', 'public.afiliado_tentativas', 'select') then
     raise exception 'affiliates/afiliado_tentativas: privilégio a mais para authenticated';
   end if;
@@ -370,18 +424,19 @@ commit;
 -- drop policy if exists gf_menu_items_dono on public.menu_items;
 -- drop policy if exists gf_affiliates_dono_select on public.affiliates;
 -- drop policy if exists gf_affiliates_dono_update on public.affiliates;
--- drop policy if exists gf_affiliates_dono_delete on public.affiliates;
 -- drop policy if exists gf_affiliates_afiliado_select on public.affiliates;
--- grant insert, update on public.affiliates to authenticated;
+-- grant select, insert, update, delete on public.affiliates to authenticated;
 -- alter table public.affiliates drop constraint if exists affiliates_commission_percent_check;
 -- drop index if exists public.affiliates_afiliado_evento_key;
--- drop policy if exists gf_issued_certificates_produtor on public.issued_certificates;
+-- drop policy if exists gf_issued_certificates_produtor_select on public.issued_certificates;
+-- drop policy if exists gf_issued_certificates_produtor_insert on public.issued_certificates;
+-- drop policy if exists gf_issued_certificates_produtor_delete on public.issued_certificates;
 -- drop policy if exists gf_issued_certificates_participante on public.issued_certificates;
 -- drop policy if exists "Produtor gerencia coupons" on public.coupons;
 -- create policy "Produtor gerencia coupons" on public.coupons for all to authenticated
 --   using (producer_id = auth.uid()) with check (producer_id = auth.uid());
 -- drop policy if exists "Produtor gerencia budget boxes" on public.event_budget_boxes;
--- drop policy if exists gf_budget_boxes_admin on public.event_budget_boxes;
+-- drop policy if exists gf_budget_boxes_all on public.event_budget_boxes;
 -- create policy "Produtor gerencia budget boxes" on public.event_budget_boxes for all to authenticated
 --   using (producer_id = auth.uid()) with check (producer_id = auth.uid());
 -- create policy gf_budget_boxes_all on public.event_budget_boxes for all to authenticated
