@@ -278,6 +278,7 @@ as $$
 declare
   v_cfg jsonb;
   v_user uuid;
+  v_aviso constant text := 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.';
 begin
   select c.user_id into v_user from public.conversations c where c.id = p_conv and c.status = 'open' and c.bot_state = 'bot';
   if not found then
@@ -286,9 +287,13 @@ begin
   if p_motivo not in ('erro', 'atendente') then
     perform pg_advisory_xact_lock(hashtext('chat:' || v_user::text));
     if (select count(*) from public.conversations c where c.user_id = v_user and c.status = 'open' and c.bot_state = 'humano') >= 3 then
-      insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
-      values (p_conv, null, 'bot', 'Assistente Evokaa',
-              'Você já tem conversas abertas com a nossa equipe; continue por uma delas.', clock_timestamp());
+      -- o aviso não se repete seguido (botão e "Não" de novo, sem nada escrito entre eles)
+      if (select m.sender_role is distinct from 'bot' or m.body is distinct from v_aviso
+          from public.conversation_messages m where m.conversation_id = p_conv
+          order by m.created_at desc, m.id desc limit 1) is not false then
+        insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
+        values (p_conv, null, 'bot', 'Assistente Evokaa', v_aviso, clock_timestamp());
+      end if;
       return false;
     end if;
   end if;
@@ -1516,7 +1521,7 @@ begin
 end $t$;
 
 -- T13. Limite de 3 humanas abertas na passagem (D3): botão, "Não", pedido escrito e sem resposta não
---      passam e o assistente avisa (o botão devolve ok: o aviso já está na conversa); pergunta sem resposta
+--      passam e o assistente avisa uma vez (o botão devolve ok: o aviso já está na conversa); pergunta sem resposta
 --      no limite não é anotada; erro do assistente passa mesmo assim; abaixo do limite passa
 do $t$
 declare r jsonb; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000021';
@@ -1533,8 +1538,17 @@ begin
   perform public.chat_bot_responder(cv, 'quero falar com uma pessoa');
   perform public.chat_bot_responder(cv, 'xyzqwe blablu');
   assert (select bot_state = 'bot' and handoff_at is null from public.conversations where id = cv), 'T13: passou no limite';
+  -- 4 tentativas seguidas sem nada escrito pelo cliente entre elas: 1 aviso só
   assert (select count(*) from public.conversation_messages where conversation_id = cv and sender_role = 'bot' and bot_layer is null
-          and body = 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.') = 4, 'T13: aviso do limite';
+          and body = 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.') = 1, 'T13: aviso do limite repetido';
+  -- o cliente escreve de novo pedindo uma pessoa: avisa de novo (a última mensagem agora é a dele). Teste numa
+  -- transação só: a mensagem do cliente leva now() (início dela), então o aviso anterior vai para trás
+  update public.conversation_messages set created_at = created_at - interval '1 minute' where conversation_id = cv;
+  perform pg_temp.como(u);
+  r := public.chat_send(cv, 'quero falar com uma pessoa', false, null, null);
+  perform pg_temp.como(null);
+  assert (select count(*) from public.conversation_messages where conversation_id = cv and sender_role = 'bot' and bot_layer is null
+          and body = 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.') = 2, 'T13: sem aviso depois da mensagem do cliente';
   assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'system'), 'T13: aviso de passagem no limite';
   assert not exists (select 1 from public.kb_perguntas_sem_resposta where texto = 'blablu xyzqwe'), 'T13: anotou pergunta de quem ficou com o assistente';
   assert public.chat_bot_passar(cv, 'erro'), 'T13: erro não passou no limite';
