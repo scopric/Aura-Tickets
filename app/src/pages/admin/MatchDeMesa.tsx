@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2, Camera, Flag, UserX, ShieldAlert, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAdminEvents } from '../../hooks/useEvents'
@@ -6,7 +6,7 @@ import { useTwoFactor } from '../../hooks/useTwoFactor'
 import {
   useFotosParaRevisar, useFotoDecidir, useMesaDenuncias, useDenunciaStatus, useDenunciaLiberar,
   useMesaTravas, useMesaDestravar, erroMesaAdmin, precisa2fa,
-  STATUS_DENUNCIA, MOTIVO_REMOCAO, DECISAO_IA, MOTIVO_IA, RESULTADO_DENUNCIA, EXPLICACAO_MIN, EXPLICACAO_MAX,
+  STATUS_DENUNCIA, MOTIVO_REMOCAO, DECISAO_IA, MOTIVO_IA, RESULTADO_DENUNCIA, EXPLICACAO_MIN, EXPLICACAO_MAX, explicacaoValida,
   type StatusDenuncia, type ResultadoDenuncia,
 } from '../../hooks/useMesaAdmin'
 import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
@@ -165,7 +165,11 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   const [resolvendo, setResolvendo] = useState<string | null>(null)
   const [resultado, setResultado] = useState<ResultadoDenuncia | ''>('')
   const [explicacao, setExplicacao] = useState('')
-  const explicacaoOk = explicacao.trim().length >= EXPLICACAO_MIN && explicacao.trim().length <= EXPLICACAO_MAX
+  const explicacaoOk = explicacaoValida(explicacao)
+  const primeiraOpcao = useRef<HTMLInputElement>(null)
+  // ao abrir o formulário, o foco vai para a primeira opção
+  useEffect(() => { if (resolvendo) primeiraOpcao.current?.focus() }, [resolvendo])
+  const falta = !resultado ? 'Falta escolher o resultado.' : !explicacaoOk ? `Falta a explicação (de ${EXPLICACAO_MIN} a ${EXPLICACAO_MAX} caracteres, com letra ou número).` : ''
 
   if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
   if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
@@ -204,9 +208,9 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
             <div className="mt-3 p-3 rounded-xl bg-white/60 border border-plum/20 space-y-2">
               <fieldset className="space-y-1">
                 <legend className="text-[11px] text-espresso/70">Resultado (obrigatório)</legend>
-                {(Object.keys(RESULTADO_DENUNCIA) as ResultadoDenuncia[]).map(r => (
+                {(Object.keys(RESULTADO_DENUNCIA) as ResultadoDenuncia[]).map((r, i) => (
                   <label key={r} className="flex items-center gap-2 text-xs text-espresso">
-                    <input type="radio" name={`resultado-${d.id}`} checked={resultado === r} onChange={() => setResultado(r)} /> {RESULTADO_DENUNCIA[r]}
+                    <input ref={i === 0 ? primeiraOpcao : undefined} type="radio" name={`resultado-${d.id}`} checked={resultado === r} onChange={() => setResultado(r)} /> {RESULTADO_DENUNCIA[r]}
                   </label>
                 ))}
               </fieldset>
@@ -215,8 +219,9 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
                 <textarea value={explicacao} onChange={e => setExplicacao(e.target.value)} maxLength={EXPLICACAO_MAX} rows={3}
                   className="mt-1 w-full px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none" />
               </label>
+              <p id={`resolver-falta-${d.id}`} aria-live="polite" className="text-[11px] text-amber-700">{falta}</p>
               <div className="flex gap-2">
-                <button disabled={!resultado || !explicacaoOk || mudarStatus.isPending} className={`${botao} bg-plum text-cream`}
+                <button disabled={!resultado || !explicacaoOk || mudarStatus.isPending} aria-describedby={`resolver-falta-${d.id}`} className={`${botao} bg-plum text-cream`}
                   onClick={() => resultado && mudarStatus.mutate({ id: d.id, status: 'resolvida', resultado, explicacao }, {
                     onSuccess: () => { setResolvendo(null); toast.success('Status atualizado.') },
                     onError: err => toast.error(erroMesaAdmin(err)),
@@ -226,7 +231,7 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
             </div>
           )}
           {d.status === 'resolvida' && d.resultado && (
-            <p className="mt-2 text-xs text-espresso">
+            <p className="mt-2 text-xs text-espresso whitespace-pre-line break-words">
               <span className="font-bold">{d.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}</span>
               {d.resultado_explicacao ? ` · ${d.resultado_explicacao}` : ''}
             </p>
@@ -275,6 +280,12 @@ function Remocoes({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
             <div className="text-espresso/70">Removida por {t.por || 'conta excluída'} em {dataBr(t.em)}</div>
           </div>
           {t.detalhe && <p className="mt-2 text-xs text-espresso/70 whitespace-pre-line break-words">{t.detalhe}</p>}
+          {t.denuncia_resultado && (
+            <div className="mt-1 text-xs text-espresso/70">
+              Denúncia {t.denuncia_resultado === 'procedente' ? 'procedente' : 'improcedente'}
+              {t.denuncia_resultado === 'improcedente' && t.destravada_em ? ' — remoção desfeita' : ''}
+            </div>
+          )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {t.destravada_em ? (
               <span className="text-[11px] text-green-600">Desfeita em {dataBr(t.destravada_em)}{t.destravada_por ? ` por ${t.destravada_por}` : ''}</span>

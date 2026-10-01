@@ -56,6 +56,8 @@ export interface MesaTrava {
   em: string
   destravada_em: string | null
   destravada_por: string | null
+  denuncia_motivo: MotivoDenuncia | null
+  denuncia_resultado: ResultadoDenuncia | null
 }
 
 export interface FotoParaRevisar {
@@ -89,6 +91,14 @@ export const RESULTADO_DENUNCIA: Record<ResultadoDenuncia, string> = {
 // o banco aceita a explicação de 10 a 1000 caracteres
 export const EXPLICACAO_MIN = 10
 export const EXPLICACAO_MAX = 1000
+// tira os caracteres que o CHECK do banco recusa (controle e direção de texto), sem os espaços nem quebras de linha
+// eslint-disable-next-line no-control-regex
+export const limparTexto = (t: string) => t.replace(/[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+// o banco conta caracteres (não unidades UTF-16) e exige ao menos uma letra ou número
+export const explicacaoValida = (t: string) => {
+  const n = [...limparTexto(t).trim()].length
+  return n >= EXPLICACAO_MIN && n <= EXPLICACAO_MAX && /[\p{L}\p{N}]/u.test(t)
+}
 
 export const MOTIVO_REMOCAO: Record<MotivoRemocao, string> = {
   denuncia_triada: 'Denúncia apurada',
@@ -121,7 +131,8 @@ export const MOTIVO_IA: Record<string, string> = {
 
 export const precisa2fa = (err: unknown) => /^Ative o 2FA/.test((err as Error | null)?.message ?? '')
 
-// 23514 = CHECK do banco (detalhe fora de 3 a 500 caracteres ou com caractere de controle).
+// 23514 = CHECK do banco (texto fora do tamanho ou com caractere de controle; vale para o detalhe e para a
+// explicação do resultado, que têm limites diferentes: a mensagem é genérica).
 // 42501 sem ser o do 2FA = "Acesso negado": nem produtor do evento nem moderador.
 export function erroMesaAdmin(err: unknown): string {
   const e = err as { code?: string; message?: string } | null
@@ -129,7 +140,7 @@ export function erroMesaAdmin(err: unknown): string {
     return 'Sem permissão: só o produtor do evento e quem tem a permissão "Moderar Match de Mesa" (com 2FA) acessam o Match de Mesa.'
   }
   if (e?.code === '22023' && /^Só é possível remover/.test(e.message ?? '')) return 'Só é possível remover quem tem denúncia neste evento.'
-  if (e?.code === '23514') return 'O banco recusou o texto: use de 3 a 500 caracteres, sem símbolos especiais.'
+  if (e?.code === '23514') return 'Texto fora do tamanho permitido ou com caractere não aceito.'
   return e?.message || 'Não foi possível concluir agora. Tente de novo em instantes.'
 }
 
@@ -214,7 +225,7 @@ export function useDenunciaStatus() {
   // 'resolvida' exige resultado e explicação; nos outros status os dois não vão
   return useMesaAdminMutation(['mesa-denuncias'], (d: { id: string; status: StatusDenuncia; resultado?: ResultadoDenuncia; explicacao?: string }) =>
     rpc('mesa_denuncia_status', d.status === 'resolvida'
-      ? { p_id: d.id, p_status: d.status, p_resultado: d.resultado, p_explicacao: d.explicacao?.trim() }
+      ? { p_id: d.id, p_status: d.status, p_resultado: d.resultado, p_explicacao: d.explicacao === undefined ? undefined : limparTexto(d.explicacao).trim() }
       : { p_id: d.id, p_status: d.status }))
 }
 

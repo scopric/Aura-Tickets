@@ -199,8 +199,12 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     const confirmarResolucao = page.getByRole('button', { name: 'Confirmar resolução' })
     await expect(page.getByText(/Explique por que está resolvida/)).toBeVisible()
     await expect(confirmarResolucao).toBeDisabled() // faltam os dois
+    await expect(page.getByLabel(/Procedente \(a denúncia era verdadeira\)/)).toBeFocused() // o foco vai para a primeira opção
+    await expect(confirmarResolucao).toHaveAttribute('aria-describedby', 'resolver-falta-d1')
+    await expect(page.locator('#resolver-falta-d1')).toHaveText('Falta escolher o resultado.')
     await page.getByLabel(/Procedente \(a denúncia era verdadeira\)/).check()
     await expect(confirmarResolucao).toBeDisabled() // falta a explicação
+    await expect(page.locator('#resolver-falta-d1')).toHaveText(/^Falta a explicação/)
     await page.getByLabel(/Explique por que está resolvida/).fill('curta')
     await expect(confirmarResolucao).toBeDisabled() // menos de 10 caracteres
     await page.getByLabel(/Explique por que está resolvida/).fill('Confirmado pelo produtor no local')
@@ -222,10 +226,40 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     ])
   })
 
+  test('explicação do resultado em texto puro; 23514 mostra a mensagem genérica', async ({ page }) => {
+    const denuncia = {
+      id: 'd2', criado_em: '2026-12-15T23:00:00Z', motivo: 'outro', detalhe: null, status: 'resolvida',
+      mesa: 'Mesa 3', denunciante: 'Ana Souza', denunciado: 'Bruno Lima', mesma_mesa: false,
+      sobreposicao_inicio: null, sobreposicao_fim: null, status_mudado_em: null, liberada_produtor_em: null,
+      resultado: 'improcedente', resultado_explicacao: '<b id="injetado2">não</b> se confirmou',
+    }
+    const aberta = { ...denuncia, id: 'd3', denunciado: 'Carla Dias', status: 'aberta', resultado: null, resultado_explicacao: null }
+    const chamadas = await mockRpc(page, {
+      mesa_fotos_para_revisar: [],
+      mesa_denuncias_do_evento: [denuncia, aberta],
+      mesa_denuncia_status: () => erro('23514', 'new row for relation "mesa_denuncias" violates check constraint'),
+    })
+    await page.goto(`${ALPHA}/admin/match-de-mesa`)
+    await page.getByRole('tab', { name: 'Denúncias' }).click()
+    await page.getByLabel('Evento').selectOption(EVENTO)
+    await expect(page.getByText('<b id="injetado2">não</b> se confirmou', { exact: false })).toBeVisible()
+    await expect(page.locator('#injetado2')).toHaveCount(0)
+
+    // caracteres de direção são tirados antes de enviar; o erro 23514 do banco vira a mensagem genérica
+    await page.getByLabel('Status da denúncia contra Carla Dias').selectOption('resolvida')
+    await page.getByLabel(/Improcedente \(a denúncia não se confirmou\)/).check()
+    await page.getByLabel(/Explique por que está resolvida/).fill('Não se confirmou \u202E no local')
+    await page.getByRole('button', { name: 'Confirmar resolução' }).click()
+    await expect(page.getByText('Texto fora do tamanho permitido ou com caractere não aceito.')).toBeVisible()
+    expect(chamadas.find((c) => c.nome === 'mesa_denuncia_status')?.body).toEqual(
+      { p_id: 'd3', p_status: 'resolvida', p_resultado: 'improcedente', p_explicacao: 'Não se confirmou  no local' })
+  })
+
   test('remoções: desfazer com confirmação na tela', async ({ page }) => {
     const trava = {
       id: 'tr1', pessoa: 'Bruno Lima', motivo: 'comportamento_no_local', detalhe: null, por: 'Produtor Teste',
       em: '2026-12-15T23:30:00Z', destravada_em: null as string | null, destravada_por: null as string | null,
+      denuncia_motivo: 'assedio', denuncia_resultado: 'procedente',
     }
     const chamadas = await mockRpc(page, {
       mesa_fotos_para_revisar: [],
@@ -237,6 +271,7 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await page.getByLabel('Evento').selectOption(EVENTO)
     await expect(page.getByText('Bruno Lima', { exact: true })).toBeVisible()
     await expect(page.getByText(/Comportamento no local/)).toBeVisible()
+    await expect(page.getByText('Denúncia procedente')).toBeVisible()
 
     await page.getByRole('button', { name: 'Desfazer' }).click()
     await page.getByRole('button', { name: 'Cancelar' }).click()
