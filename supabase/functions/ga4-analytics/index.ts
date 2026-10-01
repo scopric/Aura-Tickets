@@ -1,7 +1,7 @@
 // Números do Google Analytics 4 para a aba "Tráfego & Audiência" do Admin → Analytics.
 //
 // Chamada: POST com o JWT do admin (supabase.functions.invoke('ga4-analytics', { body })).
-//   { periodo: '7d' | '30d' | 'all' } → { ok:true, totais, porDia, paginas, origens, paises, aparelhos, agora }
+//   { periodo: '7d' | '30d' | 'all' | { de, ate: 'AAAA-MM-DD' }, filtros?: [{ campo, valor }] (até 4) } → { ok:true, totais, porDia, paginas, origens, paises, aparelhos, agora }
 // Mesmo formato da vercel-analytics, para a tela reaproveitar; aqui "visitantes" = activeUsers.
 // Recusas voltam 200 com { ok:false, motivo }; 401 só sem login.
 // Permissão: gf_admin_can('view_analytics'), com o JWT de quem pede (sem service role).
@@ -84,7 +84,15 @@ type Relatorio = { rows?: { dimensionValues?: { value: string }[]; metricValues:
 const num = (v?: { value: string }) => Number(v?.value ?? 0)
 // Linhas "(not set)" e "(direct)" do GA4 viram rótulos que a tela já traduz.
 const lista = (rel: Relatorio, nome: (v: string) => string) =>
-  (rel.rows ?? []).map(l => ({ nome: nome(l.dimensionValues?.[0]?.value ?? ''), visitantes: num(l.metricValues[0]), paginas: num(l.metricValues[1]) }))
+  (rel.rows ?? []).map(l => {
+    const cru = l.dimensionValues?.[0]?.value ?? ''
+    return { nome: nome(cru), valor: cru, visitantes: num(l.metricValues[0]), paginas: num(l.metricValues[1]) }
+  })
+
+// Filtros: lista fechada de campos; o valor vai num filtro JSON exato do GA4 (sem texto
+// montado), então só limitamos tamanho e caracteres de controle.
+const CAMPOS: Record<string, string> = { pais: 'countryId', aparelho: 'deviceCategory', pagina: 'pagePath', origem: 'sessionSource' }
+const ehDia = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
 const semNotSet = (v: string) => (v === '(not set)' ? '' : v)
 
 // Datas em AAAA-MM-DD no fuso de Brasília (o da propriedade), nunca no relógio UTC da função.
@@ -114,7 +122,32 @@ Deno.serve(async (req: Request) => {
   } catch {
     // corpo inválido cai em entrada_invalida
   }
-  if (!Object.hasOwn(DIAS, b?.periodo)) return json(200, { ok: false, motivo: 'entrada_invalida' })
+  const hoje = hojeBrasilia()
+  let desde: string
+  let ate: string
+  if (typeof b?.periodo === 'string' && Object.hasOwn(DIAS, b.periodo)) {
+    ate = hoje
+    desde = DIAS[b.periodo] ? somaDias(hoje, -(DIAS[b.periodo] - 1)) : INICIO_GA4
+  } else if (ehDia(b?.periodo?.de) && ehDia(b?.periodo?.ate) && b.periodo.de <= b.periodo.ate && b.periodo.ate <= hoje) {
+    // antes de 27/09 não há dado: período todo antes disso é recusado; parte antes é cortada (a tela mostra `de`)
+    if (b.periodo.ate < INICIO_GA4) return json(200, { ok: false, motivo: 'fora_da_janela' })
+    desde = b.periodo.de < INICIO_GA4 ? INICIO_GA4 : b.periodo.de
+    ate = b.periodo.ate
+  } else {
+    return json(200, { ok: false, motivo: 'entrada_invalida' })
+  }
+
+  const filtrosIn = b?.filtros ?? []
+  if (!Array.isArray(filtrosIn) || filtrosIn.length > 4) return json(200, { ok: false, motivo: 'entrada_invalida' })
+  const expressoes = []
+  for (const f of filtrosIn) {
+    const fieldName = typeof f?.campo === 'string' && Object.hasOwn(CAMPOS, f.campo) ? CAMPOS[f.campo] : null
+    if (!fieldName || typeof f.valor !== 'string' || f.valor.length > 200 || /[\u0000-\u001f\u007f]/.test(f.valor)) {
+      return json(200, { ok: false, motivo: 'entrada_invalida' })
+    }
+    expressoes.push({ filter: { fieldName, stringFilter: { value: f.valor, matchType: 'EXACT' } } })
+  }
+  const dimensionFilter = expressoes.length ? { dimensionFilter: { andGroup: { expressions: expressoes } } } : {}
   if (!CONTA_B64) return json(200, { ok: false, motivo: 'sem_chave' })
 
   let conta: { client_email: string; private_key: string }
@@ -125,10 +158,13 @@ Deno.serve(async (req: Request) => {
     return json(200, { ok: false, motivo: 'sem_chave' })
   }
 
-  const ate = hojeBrasilia()
-  const dias = DIAS[b.periodo]
-  const desde = dias ? somaDias(ate, -(dias - 1)) : INICIO_GA4
   const dateRanges = [{ startDate: desde, endDate: ate }]
+  // Comparação com dias completos (sem hoje): os N dias até ontem (ou até `ate`) contra os N
+  // anteriores; só se o anterior começa depois que o GA4 entrou no ar.
+  const fimComp = ate < hoje ? ate : somaDias(hoje, -1)
+  const n = Math.round((Date.parse(`${fimComp}T00:00:00Z`) - Date.parse(`${desde}T00:00:00Z`)) / 86_400_000) + 1
+  const inicioAnterior = somaDias(desde, -n)
+  const comparar = n >= 1 && inicioAnterior >= INICIO_GA4
   const pessoasEPaginas = [{ name: 'activeUsers' }, { name: 'screenPageViews' }]
   const top = (dimensao: string, ordem: string) => ({
     dateRanges,
@@ -136,26 +172,39 @@ Deno.serve(async (req: Request) => {
     metrics: pessoasEPaginas,
     orderBys: [{ metric: { metricName: ordem }, desc: true }],
     limit: 8,
+    ...dimensionFilter,
   })
 
   try {
     const token = await tokenGoogle(conta)
-    const [a, bb, tempoReal] = await Promise.all([
+    const [a, bb, tempoReal, comp] = await Promise.all([
       google(token, 'batchRunReports', {
         requests: [
-          { dateRanges, metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }, { name: 'sessions' }] },
+          { dateRanges, metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }, { name: 'sessions' }], ...dimensionFilter },
           // ponytail: 1000 dias cobre "Todo período" até ~2029
-          { dateRanges, dimensions: [{ name: 'date' }], metrics: pessoasEPaginas, limit: 1000 },
+          { dateRanges, dimensions: [{ name: 'date' }], metrics: pessoasEPaginas, limit: 1000, ...dimensionFilter },
           top('pagePath', 'screenPageViews'),
           top('sessionSource', 'activeUsers'),
         ],
       }),
       google(token, 'batchRunReports', { requests: [top('countryId', 'activeUsers'), top('deviceCategory', 'activeUsers')] }),
-      // cota própria; se falhar, o painel sai sem o "agora"
-      google(token, 'runRealtimeReport', { metrics: [{ name: 'activeUsers' }] }).catch(() => null),
+      // cota própria; se falhar, o painel sai sem o "agora". Com filtro não há "agora" (o tempo real tem outras dimensões).
+      expressoes.length ? null : google(token, 'runRealtimeReport', { metrics: [{ name: 'activeUsers' }] }).catch(() => null),
+      // Com dois períodos o GA4 acrescenta a dimensão do período: a linha é escolhida pelo nome.
+      comparar
+        ? google(token, 'runReport', {
+          dateRanges: [{ startDate: desde, endDate: fimComp, name: 'atual' }, { startDate: inicioAnterior, endDate: somaDias(desde, -1), name: 'anterior' }],
+          metrics: [{ name: 'activeUsers' }, { name: 'screenPageViews' }, { name: 'sessions' }],
+          ...dimensionFilter,
+        }).catch(() => null)
+        : null,
     ])
     const [totais, porDiaRel, paginas, origens] = a.reports as Relatorio[]
     const [paises, aparelhos] = bb.reports as Relatorio[]
+    const doPeriodo = (nome: string) => {
+      const m = (comp as Relatorio | null)?.rows?.find(r => r.dimensionValues?.some(d => d.value === nome))?.metricValues
+      return { visitantes: num(m?.[0]), paginas: num(m?.[1]), sessoes: num(m?.[2]) }
+    }
 
     // O GA4 omite os dias sem visita: completa com zero. `date` vem como AAAAMMDD.
     const doDia = new Map((porDiaRel.rows ?? []).map(l => {
@@ -171,7 +220,11 @@ Deno.serve(async (req: Request) => {
     const t = totais.rows?.[0]?.metricValues
     return json(200, {
       ok: true,
+      de: desde,
+      ate,
       totais: { visitantes: num(t?.[0]), paginas: num(t?.[1]), sessoes: num(t?.[2]) },
+      comparacao: comp ? { atual: doPeriodo('atual'), anterior: doPeriodo('anterior'), dias: n } : null,
+      semComparacao: comp ? null : comparar ? 'falha' : 'periodo',
       porDia,
       paginas: lista(paginas, v => (v === '(not set)' ? 'Desconhecido' : v)),
       origens: lista(origens, v => (v === '(direct)' ? '' : v === '(not set)' ? 'Desconhecido' : v)),
