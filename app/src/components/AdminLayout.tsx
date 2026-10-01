@@ -271,6 +271,10 @@ export default function AdminLayout() {
       <div className={cn('min-w-0 flex-1 transition-all duration-300 min-h-screen', collapsed ? 'lg:ml-16' : 'lg:ml-60')}>
         {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
         <div className="sticky top-0 z-30 flex h-16 items-center justify-between lg:justify-end px-4 pointer-events-none">
+          {/* Faixa esmaecida: o conteúdo some suavemente sob os botões ao rolar (borda do Liquid Glass).
+              Elemento à parte: máscara e blur no pai esmaeceriam os botões e cortariam o vidro deles.
+              Com "reduzir transparência" vira faixa sólida, como o .glass-bar. */}
+          <div aria-hidden="true" className="absolute inset-x-0 top-0 -z-10 h-20 bg-background/40 backdrop-blur-md [mask-image:linear-gradient(to_bottom,black_45%,transparent)] [@media(prefers-reduced-transparency:reduce)]:bg-background [@media(prefers-reduced-transparency:reduce)]:backdrop-blur-none" />
           <button
             ref={menuBtnRef}
             type="button"
