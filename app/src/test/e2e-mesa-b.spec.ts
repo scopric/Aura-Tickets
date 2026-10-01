@@ -463,7 +463,7 @@ test('foto fora do formato da fila (sem foto ou longa demais): pede foto no Perf
   for (const foto of [null, 'https://lh3.googleusercontent.com/a/foto.jpg', `data:image/jpeg;base64,${'A'.repeat(60000)}`]) {
     avatar = foto
     await page.goto(`/event/${EVENTO}`)
-    await expect(page.getByText('Adicione uma foto do seu rosto no Perfil para aparecer na mesa.')).toBeVisible()
+    await expect(page.getByText('Para aparecer na mesa, envie uma foto do seu rosto.')).toBeVisible()
     await expect(page.getByRole('link', { name: 'Trocar foto' })).toHaveAttribute('href', /\/app\/profile$/)
     await expect(page.getByText(/Sua foto está em análise/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
@@ -486,9 +486,20 @@ test('foto recusada com pedido negado: ao trocar a foto (pendente) o texto de ne
 
   situacao = 'pendente' // o banco volta a 'pendente' com a foto nova; o upload relê o aviso
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
-  await page.locator('input[type="file"]').first().setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png })
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Trocar foto', exact: true }).click()])
+  await chooser.setFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png })
   await expect(page.getByText('Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.')).toBeVisible()
   await expect(page.getByText('Esta recusa não pode ser contestada por aqui.')).toHaveCount(0)
+})
+
+test('perfil sem foto: texto único e botão "Enviar foto" abre o seletor', async ({ page }) => {
+  await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [] })
+  await mockPerfil(page, PERFIL_OK)
+  await mockFoto(page, () => 'pendente', null)
+  await page.goto('/app/profile')
+  await expect(page.getByText('Para aparecer na mesa, envie uma foto do seu rosto.')).toBeVisible()
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.getByRole('button', { name: 'Enviar foto', exact: true }).click()])
+  expect(chooser.isMultiple()).toBe(false)
 })
 
 test('dois tipos coletivos no evento: só um aviso de foto', async ({ page }) => {

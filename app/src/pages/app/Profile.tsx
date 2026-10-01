@@ -206,7 +206,7 @@ export default function ParticipantProfile() {
             )}
           </button>
         </div>
-        {user && consentimentoVigente(perfilMesa) && <div className="mt-4"><FotoModeracaoAviso onTrocar={() => fotoRef.current?.click()} /></div>}
+        {user && consentimentoVigente(perfilMesa) && <div className="mt-4"><FotoModeracaoAviso onTrocar={() => fotoRef.current?.click()} trocarDesativado={enviandoFoto} /></div>}
       </div>
 
       {/* Stats */}

@@ -155,19 +155,20 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
 
 // Situação da própria foto na moderação (aqui e em "Sua mesa"). O motivo da recusa não chega à pessoa
 // (sem leitura de mesa_moderacoes): só o texto genérico. Aprovada ou sem a coluna: nada.
-export function FotoModeracaoAviso({ onTrocar }: { onTrocar?: () => void }) {
+export function FotoModeracaoAviso({ onTrocar, trocarDesativado }: { onTrocar?: () => void; trocarDesativado?: boolean }) {
   const { data: situacao } = useMinhaFotoModeracao()
   const contestar = useMesaFotoContestar()
   const [resposta, setResposta] = useState('')
   const [negada, setNegada] = useState(false) // o banco não aceita contestar esta recusa: some o botão
   const acoes = useRef<HTMLDivElement>(null)
 
-  // foto nova (pendente) ou removida (sem_foto): os textos da recusa anterior não valem mais
+  // a situação mudou (foto nova, outra revisão): os textos da recusa anterior não valem mais, salvo ao ir para
+  // 'revisar', onde o "Pedido enviado" tem de ficar
   // (ajuste durante a renderização, não em efeito: o lint do projeto barra setState dentro de useEffect)
   const [situacaoVista, setSituacaoVista] = useState(situacao)
   if (situacao !== situacaoVista) {
     setSituacaoVista(situacao)
-    if (situacao === 'pendente' || situacao === 'sem_foto') { setNegada(false); setResposta('') }
+    if (situacao !== 'revisar') { setNegada(false); setResposta('') }
   }
   // o botão sumiu: o foco vai para "Trocar foto" em vez de se perder
   useEffect(() => {
@@ -185,8 +186,7 @@ export function FotoModeracaoAviso({ onTrocar }: { onTrocar?: () => void }) {
     })
   }
 
-  const texto = situacao === 'sem_foto'
-      ? (onTrocar ? 'Sua foto atual não serve para a mesa. Envie uma foto do seu rosto pelo app.' : 'Adicione uma foto do seu rosto no Perfil para aparecer na mesa.')
+  const texto = situacao === 'sem_foto' ? 'Para aparecer na mesa, envie uma foto do seu rosto.'
     : situacao === 'pendente' ? 'Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.'
     : situacao === 'revisar' ? 'Sua foto está com a nossa equipe para análise.'
     : situacao === 'recusada' ? 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se a recusa foi automática e você acha que foi engano, peça revisão de uma pessoa da equipe.'
@@ -204,8 +204,8 @@ export function FotoModeracaoAviso({ onTrocar }: { onTrocar?: () => void }) {
       {trocar && (
         <div ref={acoes} className="flex flex-wrap gap-2">
           {onTrocar ? (
-            <button onClick={onTrocar} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
-              Trocar foto
+            <button onClick={onTrocar} disabled={trocarDesativado} className="disabled:opacity-50 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
+              {situacao === 'sem_foto' ? 'Enviar foto' : 'Trocar foto'}
             </button>
           ) : (
             <a href={appUrl('/app/profile')} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
@@ -221,7 +221,7 @@ export function FotoModeracaoAviso({ onTrocar }: { onTrocar?: () => void }) {
       )}
       {/* sempre montado: leitor de tela só anuncia mudança dentro de uma região que já existia */}
       <p role="status" className="text-xs text-cream/80 empty:sr-only">
-        {negada ? (
+        {negada && recusada ? (
           <>Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe <a href={siteUrl('/contato')} className="text-plum-light underline">pelo formulário de contato</a>.</>
         ) : resposta}
       </p>
