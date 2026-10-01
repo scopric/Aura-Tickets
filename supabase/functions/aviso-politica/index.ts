@@ -11,7 +11,7 @@
 // O log leva só user_id e status HTTP: nunca o e-mail nem a chave.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { corsHeaders } from '../_shared/cors.ts'
-import { mfaOk } from '../_shared/mfa.ts'
+import { adminCan, mfaOk } from '../_shared/mfa.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -86,13 +86,12 @@ Deno.serve(async (req: Request) => {
   // Admin com 2FA: só com o código confirmado nesta sessão (a senha sozinha não dispara e-mail em massa)
   if (!(await mfaOk(req))) return json(403, { ok: false, motivo: 'nao_autorizado' })
 
+  // o banco decide (gf_admin_can: admin só com 2FA e o código, Decisão 99)
+  // null = o banco não respondeu: "tente de novo", não "não autorizado"
+  const pode = await adminCan(req, 'manage_settings')
+  if (pode === null) return json(503, { ok: false, motivo: 'indisponivel', message: 'Tente de novo em instantes.' })
+  if (!pode) return json(200, { ok: false, motivo: 'nao_autorizado' })
   const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const { data: perfil } = await admin.from('profiles').select('role, admin_permissions').eq('id', caller.id).maybeSingle()
-  // mesma regra do gf_admin_can('manage_settings') no banco
-  const perms: string[] = perfil?.admin_permissions ?? []
-  if (!(perfil?.role === 'admin' && (perms.includes('super_admin') || perms.includes('manage_settings')))) {
-    return json(200, { ok: false, motivo: 'nao_autorizado' })
-  }
 
   let b: any = null
   try {

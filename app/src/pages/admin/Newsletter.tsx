@@ -34,6 +34,39 @@ const BRAND_COLORS = [
   { name: 'Espresso', value: '#431a06', cls: 'bg-amber-950' },
 ]
 
+// E-mail não tem "site atual": caminho relativo (/images/...) sai quebrado no Gmail/Outlook
+const abs = (url: string) => (url.startsWith('/') ? `https://www.evokaa.com.br${url}` : url)
+
+// Mesma função da send-email. Título, categoria, cidade e capa do evento são escritos pelo produtor e vão
+// para a caixa de todos os assinantes: sem escapar, um título com <a href> vira link de phishing no e-mail.
+export function escapeHtml(value: string): string {
+  return value.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+}
+
+// Capa só se for https:// ou caminho do site (/...); qualquer outra coisa (javascript:, data:, http://, //outro-site) some.
+export function eventoNewsletterHtml(evt: DbEvent, primaryColor: string) {
+  const capa = evt.cover_image && /^(https:\/\/|\/[^/])/.test(evt.cover_image) ? evt.cover_image : null
+  return `
+    <div style="background-color: #ffffff; border: 1px solid #f1eeeb; border-radius: 12px; padding: 18px; margin: 18px 0; text-align: left; font-family: sans-serif;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+        <tr>
+          ${capa ? `
+          <td width="90" style="vertical-align: top; padding-right: 15px;">
+            <img src="${escapeHtml(abs(capa))}" alt="" width="90" height="90" style="object-fit: cover; border-radius: 8px; display: block;" />
+          </td>
+          ` : ''}
+          <td style="vertical-align: top;">
+            <span style="font-size: 10px; font-weight: bold; color: ${primaryColor}; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(evt.category || 'Geral')}</span>
+            <h3 style="margin: 3px 0 5px 0; font-size: 15px; color: #2d2421; font-weight: bold;">${escapeHtml(evt.title)}</h3>
+            <p style="margin: 0 0 12px 0; font-size: 12px; color: #8e7a72;">📍 ${escapeHtml(evt.venue_city || 'Cidade a definir')} | 📅 ${evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'}) : 'A definir'}</p>
+            <a href="https://evokaa.com.br/event/${evt.id}" style="background-color: ${primaryColor}; color: #ffffff; text-decoration: none; padding: 7px 14px; border-radius: 8px; font-size: 11px; font-weight: bold; display: inline-block;">Garantir Ingresso</a>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `
+}
+
 export default function AdminNewsletter() {
   const containerRef = useRef<HTMLDivElement>(null)
   
@@ -207,27 +240,7 @@ export default function AdminNewsletter() {
     ctaUrl: string
     selectedEvents: DbEvent[]
   }) => {
-    // E-mail não tem "site atual": caminho relativo (/images/...) sai quebrado no Gmail/Outlook
-    const abs = (url: string) => (url.startsWith('/') ? `https://www.evokaa.com.br${url}` : url)
-    const eventsHtml = config.selectedEvents.map(evt => `
-      <div style="background-color: #ffffff; border: 1px solid #f1eeeb; border-radius: 12px; padding: 18px; margin: 18px 0; text-align: left; font-family: sans-serif;">
-        <table border="0" cellpadding="0" cellspacing="0" width="100%">
-          <tr>
-            ${evt.cover_image ? `
-            <td width="90" style="vertical-align: top; padding-right: 15px;">
-              <img src="${abs(evt.cover_image)}" alt="" width="90" height="90" style="object-fit: cover; border-radius: 8px; display: block;" />
-            </td>
-            ` : ''}
-            <td style="vertical-align: top;">
-              <span style="font-size: 10px; font-weight: bold; color: ${config.primaryColor}; text-transform: uppercase; letter-spacing: 0.5px;">${evt.category || 'Geral'}</span>
-              <h3 style="margin: 3px 0 5px 0; font-size: 15px; color: #2d2421; font-weight: bold;">${evt.title}</h3>
-              <p style="margin: 0 0 12px 0; font-size: 12px; color: #8e7a72;">📍 ${evt.venue_city || 'Cidade a definir'} | 📅 ${evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'}) : 'A definir'}</p>
-              <a href="https://evokaa.com.br/event/${evt.id}" style="background-color: ${config.primaryColor}; color: #ffffff; text-decoration: none; padding: 7px 14px; border-radius: 8px; font-size: 11px; font-weight: bold; display: inline-block;">Garantir Ingresso</a>
-            </td>
-          </tr>
-        </table>
-      </div>
-    `).join('')
+    const eventsHtml = config.selectedEvents.map(evt => eventoNewsletterHtml(evt, config.primaryColor)).join('')
 
     const logoBlock = config.includeLogo 
       ? `<img src="${abs(config.logoUrl)}" alt="Evokaa" style="max-height: 45px; display: block; margin: 0 auto 10px auto;" />`

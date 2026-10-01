@@ -41,7 +41,7 @@ export default function ContactSection() {
       }, 5000)
     } catch (err) {
       console.error('[ContactSection]', err)
-      toast.error('Erro ao enviar mensagem. Tente novamente.')
+      toast.error((err as { mensagem?: string })?.mensagem || 'Erro ao enviar mensagem. Tente novamente.')
     }
   }
 
@@ -189,6 +189,7 @@ export default function ContactSection() {
                       <div className={inputWrapperClasses('sec-name')}>
                         <input
                           id="sec-name"
+                          maxLength={120}
                           type="text"
                           value={form.name}
                           onChange={e => setForm({ ...form, name: e.target.value })}
@@ -208,6 +209,7 @@ export default function ContactSection() {
                       <div className={inputWrapperClasses('sec-email')}>
                         <input
                           id="sec-email"
+                          maxLength={254}
                           type="email"
                           value={form.email}
                           onChange={e => setForm({ ...form, email: e.target.value })}
@@ -230,6 +232,7 @@ export default function ContactSection() {
                       <div className={inputWrapperClasses('sec-phone')}>
                         <input
                           id="sec-phone"
+                          maxLength={30}
                           type="tel"
                           value={form.phone}
                           onChange={e => setForm({ ...form, phone: e.target.value })}
@@ -277,6 +280,7 @@ export default function ContactSection() {
                     <div className={inputWrapperClasses('sec-message')}>
                       <textarea
                         id="sec-message"
+                        maxLength={5000}
                         value={form.message}
                         onChange={e => setForm({ ...form, message: e.target.value })}
                         onFocus={() => setFocusedField('sec-message')}

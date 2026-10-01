@@ -14,6 +14,7 @@ function maiorDe18(iso: string) {
   limite.setFullYear(limite.getFullYear() - 18)
   return n <= limite && n.getFullYear() >= 1900
 }
+import { resumoCarrinho, brl, textoPreco, TAXA_PERCENTUAL, TAXA_MINIMA } from '../../lib/taxa'
 
 export default function Checkout() {
   const location = useLocation()
@@ -238,11 +239,10 @@ export default function Checkout() {
     return { ...ticket, qty, total: (ticket.price || 0) * qty }
   }).filter(Boolean) as any[]
 
-  const total = items.reduce((s, i) => s + (i.total || 0), 0)
+  const resumo = resumoCarrinho(items.map(i => ({ preco: i.price || 0, qtd: i.qty })))
+  const grandTotal = resumo.total
   const temColetiva = items.some(i => i.type === 'coletiva')
   const nascimentoPerfil = user?.birth_date || null
-  const fees = Number((total * 0.05).toFixed(2)) // 5% fee
-  const grandTotal = total + fees
 
   const handleSeatClick = (seat: any) => {
     if (seat.status === 'contact') {
@@ -448,7 +448,7 @@ export default function Checkout() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-espresso">{ticket.name}</div>
-                        <div className="text-xs text-espresso/70">R$ {ticket.price} cada</div>
+                        <div className="text-xs text-espresso/70">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
                       </div>
                       <div className="flex items-center gap-2">
                         {chooseViaMap ? (
@@ -892,16 +892,16 @@ export default function Checkout() {
               
               <div className="border-t border-white/10 pt-4 space-y-2">
                 <div className="flex justify-between text-sm text-cream/70">
-                  <span>Subtotal</span>
-                  <span>R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>Ingressos</span>
+                  <span>{brl(resumo.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-cream/70">
-                  <span>Taxas (5%)</span>
-                  <span>R$ {fees.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>Taxa de serviço ({TAXA_PERCENTUAL}%, mín. {brl(TAXA_MINIMA)} por ingresso)</span>
+                  <span>{brl(resumo.taxa)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-serif pt-2 border-t border-white/10">
                   <span>Total</span>
-                  <span>R$ {grandTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                  <span>{brl(grandTotal)}</span>
                 </div>
               </div>
               
@@ -936,7 +936,7 @@ export default function Checkout() {
               <h3 className="font-serif text-lg text-espresso">Identificar Assento</h3>
             </div>
             <p className="text-xs text-espresso/70 font-medium">
-              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: R$ {occupantModal.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}).
+              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: {textoPreco(ticketTypes.find(t => t.id === occupantModal.ticketTypeId)?.price ?? occupantModal.price)}).
             </p>
             <div>
               <label htmlFor="modal-occ-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Nome do Ocupante</label>

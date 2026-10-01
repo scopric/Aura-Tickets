@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { PRIVACY_VERSION } from '../lib/legal'
 
@@ -19,6 +19,8 @@ function jaFechado() {
 
 export default function AvisoPolitica() {
   const [aberto, setAberto] = useState(() => !jaFechado())
+  // no painel do produtor, celular e tablet: abaixo da barra de 56 px do topo (menu, sino e feedback)
+  const produtor = useLocation().pathname.startsWith('/producer')
   if (!aberto) return null
 
   const fechar = () => {
@@ -33,7 +35,7 @@ export default function AvisoPolitica() {
   return (
     <div
       role="status"
-      className="glass-panel fixed inset-x-3 top-3 z-50 mx-auto flex max-w-xl items-start gap-3 !rounded-2xl px-4 py-3 text-sm shadow-lg"
+      className={`glass-panel fixed inset-x-3 top-3 z-50 mx-auto${produtor ? ' max-lg:top-[64px]' : ''} flex max-w-xl items-start gap-3 !rounded-2xl px-4 py-3 text-sm shadow-lg`}
     >
       <p className="flex-1 leading-relaxed">
         Atualizamos a nossa{' '}

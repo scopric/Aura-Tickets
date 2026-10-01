@@ -1,16 +1,27 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useId } from 'react'
 import {
-  Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw
+  Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw,
+  Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info,
+  X, ArrowUpRight, ArrowDownRight, Filter
 } from 'lucide-react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import gsap from 'gsap'
 
-type ItemTop = { nome: string; visitantes: number; paginas: number }
+// `valor` é o valor cru que a API aceita como filtro (null = não filtrável, ex.: "Outros")
+type ItemTop = { nome: string; valor?: string | null; visitantes: number; paginas: number }
+type Totais = { visitantes: number; paginas: number; sessoes?: number }
+type Campo = 'pais' | 'aparelho' | 'pagina' | 'origem'
+export type FiltroAtivo = { campo: Campo; valor: string; rotulo: string }
+type Periodo = '7d' | '30d' | 'all' | { de: string; ate: string }
 // Mesmo formato nas duas funções (vercel-analytics e ga4-analytics); sessoes e agora só no GA4
 interface Trafego {
-  periodo: string
-  totais: { visitantes: number; paginas: number; sessoes?: number }
+  chave: string
+  de?: string
+  ate?: string
+  totais: Totais
+  comparacao?: { atual: Totais; anterior: Totais; dias: number } | null
+  semComparacao?: 'periodo' | 'falha' | null
   porDia: { dia: string; visitantes: number; paginas: number }[]
   paginas: ItemTop[]
   origens: ItemTop[]
@@ -25,7 +36,8 @@ const MOTIVOS_VERCEL: Record<string, string> = {
   token_invalido: 'a chave da Vercel venceu ou perdeu o acesso ao projeto. Crie uma nova e troque no Supabase.',
   limite: 'a Vercel limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
   vercel_erro: 'a Vercel não respondeu. Tente de novo em instantes.',
-  entrada_invalida: 'período inválido.',
+  entrada_invalida: 'período ou filtro inválido.',
+  fora_da_janela: 'a Vercel guarda só os últimos 30 dias no plano atual. Escolha datas mais recentes.',
 }
 
 const MOTIVOS_GA4: Record<string, string> = {
@@ -34,7 +46,8 @@ const MOTIVOS_GA4: Record<string, string> = {
   credencial_invalida: 'a credencial do Google foi apagada ou perdeu o acesso à propriedade do GA4.',
   limite: 'o Google limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
   google_erro: 'o Google não respondeu. Tente de novo em instantes.',
-  entrada_invalida: 'período inválido.',
+  entrada_invalida: 'período ou filtro inválido.',
+  fora_da_janela: 'o Google Analytics só tem dados desde 27/09/2026. Escolha datas a partir daí.',
 }
 
 // Nomes que a Vercel e o Google devolvem vazios ou em inglês
@@ -50,7 +63,10 @@ const nomePais = (n: string) => {
 }
 
 // Busca de uma fonte de tráfego (função do Supabase), só com a aba aberta; sem atualização automática
-function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivos: Record<string, string>) {
+function useFonteTrafego(funcao: string, periodo: Periodo, filtros: FiltroAtivo[], ativo: boolean, motivos: Record<string, string>) {
+  // chave em texto: período e filtros viram objetos novos a cada render; a busca só refaz quando o conteúdo muda
+  const corpo = { periodo, filtros: filtros.map(f => ({ campo: f.campo, valor: f.valor })) }
+  const chave = JSON.stringify(corpo)
   const [dados, setDados] = useState<Trafego | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
@@ -61,13 +77,13 @@ function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivo
     const pedido = ++pedidoAtual.current
     setCarregando(true)
     setErro(null)
-    const { data, error } = await supabase.functions.invoke(funcao, { body: { periodo } })
+    const { data, error } = await supabase.functions.invoke(funcao, { body: corpo })
     if (pedido !== pedidoAtual.current) return // resposta de um período antigo
     if (error || !data?.ok) {
       setDados(null)
       setErro(motivos[data?.motivo] ?? 'não foi possível falar com o servidor.')
     } else {
-      setDados({ ...data, periodo })
+      setDados({ ...data, chave })
       setHora(new Date())
     }
     setCarregando(false)
@@ -75,14 +91,133 @@ function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivo
 
   useEffect(() => {
     if (ativo) carregar()
-  }, [ativo, periodo])
+  }, [ativo, chave])
 
-  // números de outro período não ficam na tela enquanto o novo carrega
-  return { dados: dados?.periodo === periodo ? dados : null, erro, carregando, hora, carregar }
+  // números de outro período ou filtro não ficam na tela enquanto o novo carrega
+  return { dados: dados?.chave === chave ? dados : null, erro, carregando, hora, carregar }
 }
 
-function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPainel, pessoas, abrev, nota, extras = [] }: {
+// Cores do gráfico validadas no dataviz/validate_palette.js (claro e escuro, daltonismo e contraste)
+const COR_PAGINAS = '#7c3aed'
+const COR_PESSOAS = '#0d9488'
+
+const fmtNum = (n: number) => n.toLocaleString('pt-BR')
+const diaCurto = (dia: string) => `${dia.slice(8, 10)}/${dia.slice(5, 7)}`
+const diaLongo = (dia: string) => new Date(`${dia}T12:00:00Z`).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'UTC' })
+
+// Bandeira em emoji a partir do código ISO de 2 letras (mesmo padrão do PhoneInput); no Windows aparece como as letras
+const bandeira = (iso: string) =>
+  /^[A-Za-z]{2}$/.test(iso) ? String.fromCodePoint(...[...iso.toUpperCase()].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : null
+
+const iconeAparelho = (n: string) => {
+  const Icone = ({ desktop: Monitor, mobile: Smartphone, tablet: Tablet, 'smart tv': Tv } as Record<string, typeof Monitor>)[n] ?? HelpCircle
+  return <Icone className="w-4 h-4 text-muted-foreground" />
+}
+const iconeOrigem = (n: string) => {
+  const Icone = !n ? MousePointerClick : /google|bing|duckduckgo|yahoo/i.test(n) ? Search : Link2
+  return <Icone className="w-4 h-4 text-muted-foreground" />
+}
+const iconePais = (n: string) => {
+  const b = bandeira(n)
+  return b ? <span className="text-base leading-none" aria-hidden>{b}</span> : <Globe className="w-4 h-4 text-muted-foreground" />
+}
+
+// Variação contra o período anterior (dias completos); seta e texto, não só cor
+function Variacao({ atual, anterior, dias }: { atual: number; anterior: number; dias: number }) {
+  if (anterior === 0) return <div className="text-xs text-muted-foreground mt-1">{atual === 0 ? 'sem mudança' : 'novo no período'} · {dias} dias completos</div>
+  const pct = Math.round(((atual - anterior) / anterior) * 100)
+  const contra = <span className="text-muted-foreground">vs {dias} {dias === 1 ? 'dia anterior' : 'dias anteriores'} (dias completos)</span>
+  if (pct === 0) return <div className="text-xs mt-1 text-muted-foreground">estável {contra}</div>
+  const sobe = atual > anterior
+  const Seta = sobe ? ArrowUpRight : ArrowDownRight
+  return (
+    <div className={`text-xs mt-1 flex flex-wrap items-center gap-1 ${sobe ? 'text-emerald-600' : 'text-red-600'}`}>
+      <Seta className="w-3.5 h-3.5" aria-hidden />
+      <span>{sobe ? '+' : ''}{pct}%</span>
+      {contra}
+    </div>
+  )
+}
+
+function Numero({ icone: Icone, rotulo, valor, apoio, destaque, variacao }: { icone: typeof Users; rotulo: string; valor: string; apoio?: string; destaque?: boolean; variacao?: React.ReactNode }) {
+  return (
+    <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+      <div className="flex items-center gap-3">
+        <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${destaque ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
+          <Icone className="w-4 h-4" />
+        </span>
+        <span className="text-sm text-muted-foreground">{rotulo}</span>
+      </div>
+      <div className="font-serif text-3xl text-foreground mt-4 tabular-nums">{valor}</div>
+      {apoio && <div className="text-xs text-muted-foreground mt-1">{apoio}</div>}
+      {variacao}
+    </div>
+  )
+}
+
+function DicaGrafico({ active, payload, label, pessoas }: { active?: boolean; payload?: { payload: Trafego['porDia'][number] }[]; label?: string; pessoas: string }) {
+  if (!active || !payload?.length) return null
+  const d = payload[0].payload
+  return (
+    <div className="rounded-xl border border-border bg-card px-3 py-2 text-xs shadow-lg backdrop-blur">
+      <div className="font-medium text-foreground mb-1 first-letter:uppercase">{diaLongo(label ?? '')}</div>
+      <div className="flex items-center gap-2 text-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: COR_PAGINAS }} />Páginas vistas <b className="ml-auto pl-3 tabular-nums">{fmtNum(d.paginas)}</b></div>
+      <div className="flex items-center gap-2 text-foreground"><span className="w-2.5 h-2.5 rounded-full" style={{ background: COR_PESSOAS }} />{pessoas} <b className="ml-auto pl-3 tabular-nums">{fmtNum(d.visitantes)}</b></div>
+    </div>
+  )
+}
+
+function GraficoDias({ dados, pessoas, nota }: { dados: Trafego; pessoas: string; nota: string }) {
+  const id = useId().replace(/:/g, '')
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+        <span className="flex items-center gap-2"><span className="w-3 h-0.5 rounded" style={{ background: COR_PAGINAS }} />Páginas vistas</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-0.5 rounded" style={{ background: COR_PESSOAS }} />{pessoas}</span>
+      </div>
+      <div className="h-64 -ml-2" role="img" aria-label={`Gráfico de páginas vistas e ${pessoas.toLowerCase()} por dia`}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={dados.porDia} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+            <defs>
+              <linearGradient id={`g${id}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={COR_PAGINAS} stopOpacity={0.22} />
+                <stop offset="100%" stopColor={COR_PAGINAS} stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid stroke="hsl(var(--border))" strokeWidth={1} vertical={false} />
+            <XAxis dataKey="dia" tickFormatter={diaCurto} tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} minTickGap={16} />
+            <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} allowDecimals={false} width={36} />
+            <Tooltip content={<DicaGrafico pessoas={pessoas} />} cursor={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1, strokeOpacity: 0.4 }} />
+            <Area type="monotone" dataKey="paginas" stroke={COR_PAGINAS} strokeWidth={2} fill={`url(#g${id})`} dot={false} activeDot={{ r: 5, stroke: 'hsl(var(--background))', strokeWidth: 2 }} />
+            <Area type="monotone" dataKey="visitantes" stroke={COR_PESSOAS} strokeWidth={2} fill="none" dot={false} activeDot={{ r: 5, stroke: 'hsl(var(--background))', strokeWidth: 2 }} />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[11px] text-muted-foreground">{nota}</p>
+        <details className="text-xs text-muted-foreground">
+          <summary className="cursor-pointer hover:text-foreground">Ver dados em tabela</summary>
+          <table className="mt-2 w-full max-w-sm text-left">
+            <thead><tr><th className="py-1 pr-4 font-medium">Dia</th><th className="py-1 pr-4 font-medium text-right">Páginas</th><th className="py-1 font-medium text-right">{pessoas}</th></tr></thead>
+            <tbody>
+              {dados.porDia.map(d => (
+                <tr key={d.dia} className="border-t border-border"><td className="py-1 pr-4">{diaCurto(d.dia)}</td><td className="py-1 pr-4 text-right tabular-nums">{fmtNum(d.paginas)}</td><td className="py-1 text-right tabular-nums">{fmtNum(d.visitantes)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      </div>
+    </div>
+  )
+}
+
+const NOME_CAMPO: Record<Campo, string> = { pais: 'País', aparelho: 'Aparelho', pagina: 'Página', origem: 'Origem' }
+
+function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personalizado, linkPainel, pessoas, abrev, nota, extras = [], filtros, onFiltros }: {
   fonte: ReturnType<typeof useFonteTrafego>
+  personalizado: boolean
+  filtros: FiltroAtivo[]
+  onFiltros: (f: FiltroAtivo[]) => void
   legenda: string
   titulo: string
   deQuem: string
@@ -94,106 +229,157 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
   extras?: [string, number][]
 }) {
   const { dados, erro, carregando, hora, carregar } = fonte
+  const icones = [Users, Eye, Activity, Radio]
+  // um filtro por campo: clicar noutro país troca o país; no máximo os 4 campos
+  const filtrar = (campo: Campo, valor: string, rotulo: string, tirar?: boolean) =>
+    onFiltros([...filtros.filter(f => f.campo !== campo), ...(tirar ? [] : [{ campo, valor, rotulo }])])
+  const comp = dados?.comparacao
+  const chaveComp: Record<string, keyof Totais> = { [pessoas]: 'visitantes', 'Páginas vistas': 'paginas', 'Sessões': 'sessoes' }
   return (
-    <>
-      <div className="p-6 rounded-2xl bg-card border border-border shadow-sm space-y-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{legenda}</span>
-            <h3 className="font-serif text-xl text-foreground mt-1">{titulo}</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {periodoTexto}
-              {dados && hora && ` · atualizado às ${hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={carregar}
-              disabled={carregando}
-              className="py-2 px-3 bg-background border border-border text-foreground hover:bg-muted rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all disabled:opacity-60"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
-            </button>
-            <a href={linkPainel} target="_blank" rel="noreferrer" className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5">
-              Painel completo <ExternalLink className="w-3.5 h-3.5" />
-            </a>
-          </div>
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{legenda}</span>
+          <h2 className="font-serif text-2xl text-foreground mt-1">{titulo}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {personalizado && dados?.de && dados?.ate ? `De ${dados.de.split('-').reverse().join('/')} a ${dados.ate.split('-').reverse().join('/')}` : periodoTexto}
+            {dados && hora && ` · atualizado às ${hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
+          </p>
         </div>
-
-        {erro ? (
-          <div role="alert" className="p-4 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
-            Não foi possível carregar os dados {deQuem}: {erro}
-          </div>
-        ) : !dados ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 text-primary animate-spin" />
-          </div>
-        ) : (
-          <>
-            <div className={`grid gap-4 ${extras.length ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-2'}`}>
-              {([[pessoas, dados.totais.visitantes], ['Páginas vistas', dados.totais.paginas], ...extras] as [string, number][]).map(([l, v]) => (
-                <div key={l} className="p-4 rounded-xl bg-muted/40 border border-border">
-                  <div className="text-xs text-muted-foreground">{l}</div>
-                  <div className="font-serif text-2xl text-foreground mt-1">{v}</div>
-                </div>
-              ))}
-            </div>
-
-            {dados.totais.paginas === 0 ? (
-              <p className="text-xs text-muted-foreground italic py-6 text-center">Nenhuma visita no período.</p>
-            ) : (
-              <div>
-                <div className="h-56" role="img" aria-label={`Gráfico de ${pessoas.toLowerCase()} e páginas vistas por dia`}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={dados.porDia.map(d => ({ ...d, rotulo: d.dia.slice(8, 10) + '/' + d.dia.slice(5, 7) }))}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                      <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                      <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
-                      <Tooltip
-                        formatter={(v: number, nome: string) => [v, nome === 'paginas' ? 'Páginas vistas' : pessoas]}
-                        cursor={{ fill: 'rgba(128,128,128,0.12)' }}
-                        contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 12, fontSize: 12 }}
-                        labelStyle={{ color: 'hsl(var(--foreground))' }}
-                        itemStyle={{ color: 'hsl(var(--foreground))' }}
-                      />
-                      <Bar dataKey="paginas" fill="#8f33f5" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="visitantes" fill="#c084fc" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">Barras escuras: páginas vistas · claras: {pessoas.toLowerCase()}. {nota}</p>
-              </div>
-            )}
-          </>
-        )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={carregar}
+            disabled={carregando}
+            className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
+          </button>
+          <a href={linkPainel} target="_blank" rel="noreferrer" className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5">
+            Painel completo <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
       </div>
 
-      {dados && !erro && dados.totais.paginas > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <ListaTop titulo="Páginas mais vistas" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} />
-          <ListaTop titulo="De onde vêm" itens={dados.origens} rotulo={nomeOrigem} abrev={abrev} />
-          <ListaTop titulo="Países" itens={dados.paises} rotulo={nomePais} abrev={abrev} />
-          <ListaTop titulo="Aparelhos" itens={dados.aparelhos} rotulo={nomeAparelho} abrev={abrev} />
+      {filtros.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+          {filtros.map(f => (
+            <span key={f.campo} className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              {NOME_CAMPO[f.campo]}: {f.rotulo}
+              <button onClick={() => onFiltros(filtros.filter(x => x.campo !== f.campo))} aria-label={`Tirar o filtro ${NOME_CAMPO[f.campo]}: ${f.rotulo}`} className="p-0.5 rounded-full hover:bg-primary/20">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          <button onClick={() => onFiltros([])} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Limpar filtros</button>
         </div>
       )}
-    </>
+
+      {erro ? (
+        <div role="alert" className="p-4 rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
+          Não foi possível carregar os dados {deQuem}: {erro}
+        </div>
+      ) : !dados ? (
+        <div className="flex items-center justify-center py-16 rounded-2xl bg-card border border-border">
+          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+        </div>
+      ) : (
+        <>
+          <div className={`grid gap-4 sm:gap-5 ${extras.length === 2 ? 'grid-cols-2 xl:grid-cols-4' : extras.length === 1 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
+            {([[pessoas, dados.totais.visitantes], ['Páginas vistas', dados.totais.paginas], ...extras] as [string, number][]).map(([l, v], i) => (
+              <Numero
+                key={l}
+                icone={icones[i] ?? Activity}
+                rotulo={l}
+                valor={fmtNum(v)}
+                destaque={l.startsWith('Agora')}
+                apoio={l.startsWith('Agora') ? 'Últimos 30 minutos' : undefined}
+                variacao={
+                  l.startsWith('Agora') ? undefined
+                    : comp && chaveComp[l] ? <Variacao atual={comp.atual[chaveComp[l]] ?? 0} anterior={comp.anterior[chaveComp[l]] ?? 0} dias={comp.dias} />
+                      : <div className="text-xs text-muted-foreground mt-1">{dados?.semComparacao === 'falha' ? 'comparação indisponível agora' : 'sem comparação neste período'}</div>
+                }
+              />
+            ))}
+          </div>
+
+          <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+            {dados.totais.paginas === 0 ? (
+              <p className="text-sm text-muted-foreground italic py-10 text-center">Nenhuma visita no período.</p>
+            ) : (
+              <GraficoDias dados={dados} pessoas={pessoas} nota={nota} />
+            )}
+          </div>
+
+          {dados.totais.paginas > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+              <ListaTop titulo="Páginas mais vistas" campo="pagina" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} mono filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="De onde vêm" campo="origem" itens={dados.origens} rotulo={nomeOrigem} icone={iconeOrigem} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="Países" campo="pais" itens={dados.paises} rotulo={nomePais} icone={iconePais} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="Aparelhos" campo="aparelho" itens={dados.aparelhos} rotulo={nomeAparelho} icone={iconeAparelho} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+            </div>
+          )}
+        </>
+      )}
+    </section>
   )
 }
 
-function ListaTop({ titulo, itens, rotulo, abrev }: { titulo: string; itens: ItemTop[]; rotulo: (n: string) => string; abrev: string }) {
+function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, onFiltrar }: {
+  titulo: string
+  campo: Campo
+  filtros: FiltroAtivo[]
+  onFiltrar: (campo: Campo, valor: string, rotulo: string, tirar?: boolean) => void
+  itens: ItemTop[]
+  rotulo: (n: string) => string
+  icone?: (n: string) => React.ReactNode
+  abrev: string
+  mono?: boolean
+}) {
+  // ordena pelo mesmo número que desenha a barra (o GA4 manda alguns tops ordenados por usuários)
+  const ordem = [...itens].sort((a, b) => Number(a.nome === 'Outros') - Number(b.nome === 'Outros') || b.paginas - a.paginas)
+  const maior = Math.max(1, ...itens.map(i => i.paginas))
   return (
-    <div className="p-5 rounded-2xl bg-card border border-border shadow-sm">
-      <h4 className="text-xs font-semibold text-foreground mb-3">{titulo}</h4>
+    <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+      <div className="flex items-baseline justify-between mb-4">
+        <h3 className="text-sm font-semibold text-foreground">{titulo}</h3>
+        <span className="text-[11px] text-muted-foreground">clique para filtrar · páginas · {abrev.replace('.', '')}</span>
+      </div>
       {itens.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">Sem dados no período.</p>
       ) : (
-        <ul className="space-y-2">
-          {itens.map(i => (
-            <li key={i.nome} className="flex items-center justify-between gap-3 text-xs">
-              <span className="text-foreground truncate min-w-0" title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
-              <span className="text-muted-foreground tabular-nums flex-shrink-0">{i.visitantes} {abrev} · {i.paginas} pág.</span>
+        <ul className="space-y-3.5">
+          {ordem.map(i => {
+            // filtrável quando a API aceita o valor (o servidor manda null para "Outros" e valores fora do formato);
+            // clicar no item ativo tira o filtro
+            const ativo = filtros.some(f => f.campo === campo && f.valor === i.valor)
+            const filtravel = typeof i.valor === 'string'
+            const Elemento = filtravel ? 'button' : 'div'
+            return (
+            <li key={i.valor ?? i.nome}>
+              <Elemento
+                {...(filtravel ? {
+                  type: 'button' as const,
+                  'aria-pressed': ativo,
+                  onClick: () => (ativo ? onFiltrar(campo, '', '', true) : onFiltrar(campo, i.valor as string, rotulo(i.nome))),
+                  title: ativo ? 'Tirar este filtro' : `Filtrar por ${rotulo(i.nome)}`,
+                } : {})}
+                className={`block w-full text-left rounded-lg -mx-2 px-2 py-1 transition-colors ${filtravel ? 'hover:bg-muted/60 cursor-pointer' : ''} ${ativo ? 'bg-primary/10' : ''}`}
+              >
+              <span className="flex items-center gap-3 text-sm">
+                {icone && <span className="w-5 flex justify-center shrink-0">{icone(i.nome)}</span>}
+                <span className={`text-foreground truncate min-w-0 ${mono ? 'font-mono text-xs' : ''}`} title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-foreground font-medium">{fmtNum(i.paginas)}</span>
+                <span className="w-12 shrink-0 text-right tabular-nums text-xs text-muted-foreground">{fmtNum(i.visitantes)}</span>
+              </span>
+              <span className={`block mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden ${icone ? 'ml-8' : ''}`}>
+                {/* "Outros" é a soma do resto: barra neutra para não parecer o primeiro lugar */}
+                <span className={`block h-full rounded-full ${i.nome === 'Outros' ? 'bg-muted-foreground/40' : ''}`} style={{ width: `${(i.paginas / maior) * 100}%`, ...(i.nome === 'Outros' ? {} : { background: COR_PAGINAS, opacity: 0.55 }) }} />
+              </span>
+              </Elemento>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </div>
@@ -214,7 +400,13 @@ interface ActivityLog {
 export default function AdminAnalytics() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users_engagement' | 'traffic' | 'funnel'>('overview')
-  const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d')
+  const [period, setPeriod] = useState<'7d' | '30d' | 'all' | 'custom'>('7d')
+  // período personalizado (só na aba Tráfego); datas em AAAA-MM-DD, aplicadas pelo botão
+  const hojeIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+  const [rascunho, setRascunho] = useState({ de: '', ate: '' })
+  const [personalizado, setPersonalizado] = useState<{ de: string; ate: string } | null>(null)
+  const [filtrosVercel, setFiltrosVercel] = useState<FiltroAtivo[]>([])
+  const [filtrosGa4, setFiltrosGa4] = useState<FiltroAtivo[]>([])
 
   const [recentLogs, setRecentLogs] = useState<ActivityLog[]>([])
   const [totalUsers, setTotalUsers] = useState<number | null>(0)
@@ -347,15 +539,18 @@ export default function AdminAnalytics() {
   }
 
   useEffect(() => {
-    loadAnalyticsData()
+    if (period !== 'custom') loadAnalyticsData() // o personalizado é só do Tráfego
   }, [period])
 
   // Tráfego: cada fonte busca só com a aba aberta. A Vercel (Hobby) guarda 1 mês: "Todo período" = 30 dias.
-  const vercel = useFonteTrafego('vercel-analytics', period === '7d' ? '7d' : '30d', activeSubTab === 'traffic', MOTIVOS_VERCEL)
-  const ga4 = useFonteTrafego('ga4-analytics', period, activeSubTab === 'traffic', MOTIVOS_GA4)
+  const custom = period === 'custom' && personalizado ? personalizado : null
+  const vercel = useFonteTrafego('vercel-analytics', custom ?? (period === '7d' || period === 'custom' ? '7d' : '30d'), filtrosVercel, activeSubTab === 'traffic', MOTIVOS_VERCEL)
+  const ga4 = useFonteTrafego('ga4-analytics', custom ?? (period === 'custom' ? '7d' : period), filtrosGa4, activeSubTab === 'traffic', MOTIVOS_GA4)
+  const textoCustom = custom ? `De ${custom.de.split('-').reverse().join('/')} a ${custom.ate.split('-').reverse().join('/')}` : ''
 
   useEffect(() => {
-    if (!isLoading) {
+    // a aba Tráfego não anima (não pisca ao trocar o período)
+    if (!isLoading && activeSubTab !== 'traffic') {
       const ctx = gsap.context(() => {
         gsap.fromTo('.an-anim', 
           { y: 15, opacity: 0 }, 
@@ -366,224 +561,218 @@ export default function AdminAnalytics() {
     }
   }, [isLoading, activeSubTab])
 
+  const abas = [
+    { id: 'overview' as const, rotulo: 'Visão geral', icone: BarChart3 },
+    { id: 'users_engagement' as const, rotulo: 'Atividades recentes', icone: Users },
+    { id: 'traffic' as const, rotulo: 'Tráfego e audiência', icone: Globe },
+  ]
+  const periodos = [
+    { id: '7d' as const, rotulo: '7 dias' },
+    { id: '30d' as const, rotulo: '30 dias' },
+    { id: 'all' as const, rotulo: 'Todo período' },
+  ]
+
   return (
-    <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+    <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl space-y-8">
+      <header className="space-y-5">
         <div>
           <h1 className="font-serif text-3xl text-foreground">Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Estatísticas reais de tráfego, audiência e registros de atividade na plataforma.</p>
+          <p className="text-sm text-muted-foreground mt-1">Tráfego, audiência e registros de atividade da plataforma.</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Filtro de período */}
-          <div className="flex bg-card p-1 border border-border rounded-xl">
-            {(['7d', '30d', 'all'] as const).map(p => (
+        <div className="space-y-3">
+          <div role="group" aria-label="Seções do Analytics" className="inline-flex flex-wrap gap-1 p-1 bg-card border border-border rounded-2xl">
+            {abas.map(a => (
               <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  period === p ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                key={a.id}
+                aria-pressed={activeSubTab === a.id}
+                onClick={() => {
+                  setActiveSubTab(a.id)
+                  if (a.id !== 'traffic' && period === 'custom') setPeriod('7d') // o personalizado é só do Tráfego
+                }}
+                className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors ${
+                  activeSubTab === a.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}
               >
-                {p === '7d' ? '7 dias' : p === '30d' ? '30 dias' : 'Todo período'}
+                <a.icone className="w-4 h-4" /> {a.rotulo}
               </button>
             ))}
           </div>
 
-          {/* Sub-tabs */}
-          <div className="flex bg-card p-1 border border-border rounded-xl">
-            <button 
-              onClick={() => setActiveSubTab('overview')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeSubTab === 'overview' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" /> Visão Geral
-            </button>
-            <button 
-              onClick={() => setActiveSubTab('users_engagement')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeSubTab === 'users_engagement' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" /> Atividades Recentes
-            </button>
-            <button 
-              onClick={() => setActiveSubTab('traffic')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                activeSubTab === 'traffic' 
-                  ? 'bg-primary text-primary-foreground shadow-sm' 
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" /> Tráfego & Audiência
-            </button>
-          </div>
-        </div>
-      </div>
+          {activeSubTab !== 'users_engagement' && (
+            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
+              <span className="text-xs text-muted-foreground mr-1">Período</span>
+              {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
+                <button
+                  key={p.id}
+                  aria-pressed={period === p.id}
+                  onClick={() => {
+                    if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
+                    setPeriod(p.id)
+                  }}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                    period === p.id ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
+                  }`}
+                >
+                  {p.rotulo}
+                </button>
+              ))}
+            </div>
+          )}
 
-      {loadError && (
-        <div role="alert" className="mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+          {activeSubTab === 'traffic' && period === 'custom' && (
+            <form
+              className="flex flex-wrap items-end gap-3 p-3 rounded-2xl bg-card border border-border w-fit"
+              onSubmit={e => {
+                e.preventDefault()
+                if (rascunho.de && rascunho.ate && rascunho.de <= rascunho.ate) setPersonalizado({ ...rascunho })
+              }}
+            >
+              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+                De
+                <input type="date" required max={rascunho.ate || hojeIso} value={rascunho.de} onChange={e => setRascunho(r => ({ ...r, de: e.target.value }))}
+                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+              </label>
+              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+                Até
+                <input type="date" required min={rascunho.de || undefined} max={hojeIso} value={rascunho.ate} onChange={e => setRascunho(r => ({ ...r, ate: e.target.value }))}
+                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+              </label>
+              <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold">Aplicar</button>
+              <span className="text-[11px] text-muted-foreground basis-full">A Vercel guarda só os últimos 30 dias; o Google, desde 27/09/2026.</span>
+            </form>
+          )}
+        </div>
+      </header>
+
+      {loadError && activeSubTab === 'overview' && (
+        <div role="alert" className="p-4 rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
           Não foi possível carregar todos os dados de analytics: {loadError}. Os números abaixo podem estar incompletos.
         </div>
       )}
 
-      {isLoading ? (
+      {activeSubTab === 'traffic' ? (
+        <div className="space-y-10">
+          <div className="flex items-start gap-3 p-4 rounded-2xl bg-muted/30 border border-border text-xs text-muted-foreground">
+            <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <span>A Vercel conta todos os acessos, sem cookies; o Google conta só quem aceitou os cookies. Os dois medem coisas diferentes e os números não se comparam.</span>
+          </div>
+          <PainelTrafego
+            fonte={vercel}
+            legenda="Sem cookies · todos os visitantes"
+            titulo="Vercel Web Analytics"
+            deQuem="da Vercel"
+            periodoTexto={custom ? textoCustom : period === '7d' || period === 'custom' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
+            personalizado={!!custom}
+            filtros={filtrosVercel}
+            onFiltros={setFiltrosVercel}
+            linkPainel="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
+            pessoas="Visitantes"
+            abrev="vis."
+            nota="Dias contados no horário UTC (3 h à frente de Brasília)."
+          />
+          <PainelTrafego
+            fonte={ga4}
+            legenda="Com consentimento · só quem aceitou cookies"
+            titulo="Google Analytics 4"
+            deQuem="do Google"
+            periodoTexto={custom ? textoCustom : period === '7d' || period === 'custom' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Desde 27/09/2026, quando o GA4 entrou no ar'}
+            personalizado={!!custom}
+            filtros={filtrosGa4}
+            onFiltros={setFiltrosGa4}
+            linkPainel="https://analytics.google.com"
+            pessoas="Usuários ativos"
+            abrev="usu."
+            nota="Dias no horário de Brasília. O Google pode levar até 48 h para fechar os números de um dia."
+            extras={ga4.dados ? [['Sessões', ga4.dados.totais.sessoes ?? 0], ...(ga4.dados.agora == null ? [] : [['Agora no site', ga4.dados.agora] as [string, number]])] : []}
+          />
+        </div>
+      ) : isLoading ? (
         <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
-      ) : (
-        <>
-          {/* KPIs reais consolidados */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[
-              { label: 'Total de Contas', value: totalUsers === null ? '—' : totalUsers.toString(), icon: Users, desc: 'Perfis registrados', color: 'text-primary' },
-              { label: 'Sessões Ativas', value: activityStats.sessoes.toString(), icon: Activity, desc: `Período: ${period}`, color: 'text-emerald-600' },
-              { label: 'Visualizações de Página', value: activityStats.visualizacoes.toString(), icon: Eye, desc: 'Páginas acessadas', color: 'text-blue-600' },
-              { label: 'Logins no Período', value: activityStats.logins.toString(), icon: Clock, desc: 'Autenticações', color: 'text-violet-600' },
-            ].map(k => (
-              <div key={k.label} className="an-anim p-5 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between mb-3">
-                  <k.icon className={`w-4 h-4 ${k.color}`} />
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{k.desc}</span>
-                </div>
-                <div>
-                  <div className="font-serif text-2xl text-foreground">{k.value}</div>
-                  <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">{k.label}</div>
-                </div>
-              </div>
-            ))}
+      ) : activeSubTab === 'overview' ? (
+        <div className="space-y-6">
+          <div className="an-anim grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
+            <Numero icone={Users} rotulo="Contas" valor={totalUsers === null ? '—' : fmtNum(totalUsers)} apoio="Perfis registrados (total)" />
+            <Numero icone={Activity} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período escolhido" />
+            <Numero icone={Eye} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período escolhido" />
+            <Numero icone={Clock} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período escolhido" />
           </div>
 
-          {activeSubTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="an-anim p-6 rounded-2xl bg-card border border-border shadow-sm">
-                <h3 className="text-sm font-semibold text-foreground mb-1">Métricas de Engajamento Real</h3>
-                <p className="text-xs text-muted-foreground mb-6">Métricas calculadas dinamicamente pela função analítica interna do Supabase.</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-muted/40 border border-border">
-                    <div className="text-xs text-muted-foreground font-medium">Contas Ativas no Período</div>
-                    <div className="font-serif text-2xl text-foreground mt-1">{activityStats.contas_ativas}</div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Usuários únicos com ações registradas</div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-muted/40 border border-border">
-                    <div className="text-xs text-muted-foreground font-medium">Visualizações por Sessão</div>
-                    <div className="font-serif text-2xl text-foreground mt-1">
-                      {activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1) : '—'}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Média de páginas vistas</div>
-                  </div>
-                  <div className="p-4 rounded-xl bg-muted/40 border border-border">
-                    <div className="text-xs text-muted-foreground font-medium">Logins por Conta</div>
-                    <div className="font-serif text-2xl text-foreground mt-1">
-                      {activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1) : '—'}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-0.5">Média de sessões autenticadas</div>
-                  </div>
+          <div className="an-anim p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+            <h2 className="text-sm font-semibold text-foreground">Métricas de Engajamento Real</h2>
+            <p className="text-xs text-muted-foreground mt-1 mb-5">Métricas calculadas dinamicamente pela função analítica interna do Supabase.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[
+                { icone: UserCheck, rotulo: 'Contas ativas no período', valor: fmtNum(activityStats.contas_ativas), apoio: 'Usuários únicos com ações registradas' },
+                { icone: Eye, rotulo: 'Páginas por sessão', valor: activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1).replace('.', ',') : '—', apoio: 'Média de páginas vistas' },
+                { icone: Clock, rotulo: 'Logins por conta', valor: activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1).replace('.', ',') : '—', apoio: 'Média de entradas por conta ativa' },
+              ].map(m => (
+                <div key={m.rotulo} className="p-4 rounded-xl bg-muted/40 border border-border">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><m.icone className="w-3.5 h-3.5" />{m.rotulo}</div>
+                  <div className="font-serif text-2xl text-foreground mt-2 tabular-nums">{m.valor}</div>
+                  <div className="text-[11px] text-muted-foreground mt-1">{m.apoio}</div>
                 </div>
-              </div>
-
-              {/* Informações sobre telemetria e privacidade */}
-              <div className="an-anim p-5 rounded-2xl bg-muted/30 border border-border flex items-start gap-3">
-                <Globe className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <div className="text-xs text-muted-foreground space-y-1">
-                  <span className="font-semibold text-foreground block">Telemetria e Privacidade (LGPD):</span>
-                  <span>
-                    A plataforma utiliza uma política rigorosa de consentimento. O tráfego geral sem cookies é medido pelo **Vercel Web Analytics**. Eventos detalhados e dados do Google Analytics 4 são gravados apenas após consentimento expresso do visitante no banner de cookies.
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
-          )}
+          </div>
 
-          {activeSubTab === 'users_engagement' && (
-            <div className="an-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-border bg-muted/20">
-                <h3 className="text-sm font-semibold text-foreground">Registro de Acessos Recentes</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Últimas 20 ações auditadas na tabela de atividades de usuários.</p>
-              </div>
+          <div className="an-anim p-5 rounded-2xl bg-muted/30 border border-border flex items-start gap-3">
+            <Globe className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+            <div className="text-xs text-muted-foreground space-y-1">
+              <span className="font-semibold text-foreground block">Telemetria e Privacidade (LGPD):</span>
+              <span>
+                A plataforma utiliza uma política rigorosa de consentimento. O tráfego geral sem cookies é medido pelo <strong className="text-foreground font-medium">Vercel Web Analytics</strong>. Eventos detalhados e dados do Google Analytics 4 são gravados apenas após consentimento expresso do visitante no banner de cookies.
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="an-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+          <div className="p-5 sm:p-6 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Registro de acessos recentes</h2>
+            <p className="text-xs text-muted-foreground mt-1">As últimas 20 ações registradas no histórico de atividades.</p>
+          </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Usuário</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Ação Realizada</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase hidden sm:table-cell">Dispositivo</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase hidden md:table-cell">Papel</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-bold text-muted-foreground uppercase">Horário</th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground">Usuário</th>
+                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground">Ação</th>
+                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground hidden sm:table-cell">Dispositivo</th>
+                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground hidden md:table-cell">Papel</th>
+                  <th className="px-5 py-3 text-right text-[11px] font-semibold text-muted-foreground">Quando</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {recentLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-16 text-center text-sm text-muted-foreground italic">
+                      Nenhuma atividade registrada ainda.
+                    </td>
+                  </tr>
+                ) : (
+                  recentLogs.map(log => (
+                    <tr key={log.id} className="hover:bg-muted/40 transition-colors">
+                      <td className="px-5 py-4">
+                        <div className="text-sm font-medium text-foreground">{log.name}</div>
+                        <div className="text-xs text-muted-foreground">{log.email}</div>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-foreground">{log.action}</td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground hidden sm:table-cell">{log.device}</td>
+                      <td className="px-5 py-4 hidden md:table-cell">
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">{log.role}</span>
+                      </td>
+                      <td className="px-5 py-4 text-right text-xs text-muted-foreground whitespace-nowrap">{log.time}</td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {recentLogs.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-16 text-center text-xs text-muted-foreground italic">
-                          Nenhum registro de atividade recente no banco de dados.
-                        </td>
-                      </tr>
-                    ) : (
-                      recentLogs.map(log => (
-                        <tr key={log.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="px-4 py-3">
-                            <div className="text-xs font-semibold text-foreground">{log.name}</div>
-                            <div className="text-[11px] text-muted-foreground">{log.email}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="text-xs text-foreground font-medium">{log.action}</span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{log.device}</td>
-                          <td className="px-4 py-3 hidden md:table-cell">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground border border-border">
-                              {log.role}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-xs text-muted-foreground">{log.time}</td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {activeSubTab === 'traffic' && (
-            <div className="space-y-6 an-anim">
-              <p className="text-xs text-muted-foreground">
-                A Vercel conta todos os acessos, sem cookies; o Google conta só quem aceitou os cookies. Os dois medem coisas diferentes e os números não se comparam.
-              </p>
-              <PainelTrafego
-                fonte={vercel}
-                legenda="Sem cookies · todos os visitantes"
-                titulo="Vercel Web Analytics"
-                deQuem="da Vercel"
-                periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
-                linkPainel="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
-                pessoas="Visitantes"
-                abrev="vis."
-                nota="Dias contados no horário UTC (3 h à frente de Brasília)."
-              />
-              <PainelTrafego
-                fonte={ga4}
-                legenda="Com consentimento · só quem aceitou cookies"
-                titulo="Google Analytics 4"
-                deQuem="do Google"
-                periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Desde 27/09/2026, quando o GA4 entrou no ar'}
-                linkPainel="https://analytics.google.com"
-                pessoas="Usuários ativos"
-                abrev="usu."
-                nota="Dias no horário de Brasília. O Google pode levar até 48 h para fechar os números de um dia."
-                extras={ga4.dados ? [['Sessões', ga4.dados.totais.sessoes ?? 0], ...(ga4.dados.agora == null ? [] : [['Agora no site (últimos 30 min)', ga4.dados.agora] as [string, number]])] : []}
-              />
-            </div>
-          )}
-        </>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   )

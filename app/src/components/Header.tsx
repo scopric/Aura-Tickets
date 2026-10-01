@@ -48,7 +48,7 @@ export default function Header() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <img
-              src="/images/logo-evokaa.png"
+              src="/images/logo-evokaa-sm.png"
               alt="Evokaa"
               className={cn(
                 "w-auto transition-all duration-300 group-hover:scale-105",
@@ -110,7 +110,7 @@ export default function Header() {
                   )}
                 >
                   <img
-                    src={user.avatar_url || '/images/logo-evokaa.png'}
+                    src={user.avatar_url || '/images/logo-evokaa-sm.png'}
                     alt=""
                     className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200"
                   />

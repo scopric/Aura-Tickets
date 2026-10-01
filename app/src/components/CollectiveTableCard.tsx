@@ -9,6 +9,7 @@ import {
   useMatchmakingProfile, useMesaConsentir, useMesaRede, useMinhaFotoModeracao, useMesaFotoContestar, consentimentoVigente,
 } from '../hooks/useMatchmaking'
 import { appUrl, siteUrl } from '../lib/appHost'
+import { calcularTaxa, brl, textoPreco } from '../lib/taxa'
 
 interface Props {
   ticket: Ticket
@@ -69,8 +70,9 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
           <p className="text-sm text-cream/70 mb-4 leading-relaxed">{ticket.description}</p>
 
           <div className="font-serif text-4xl text-cream mb-4">
-            R$ {ticket.price}
-            <span className="text-sm text-cream/70 font-sans ml-2">/pessoa</span>
+            {ticket.price > 0 ? brl(calcularTaxa(ticket.price).total) : 'Gratuito'}
+            {ticket.price > 0 && <span className="text-sm text-cream/70 font-sans ml-2">/pessoa</span>}
+            {ticket.price > 0 && <p className="text-xs text-cream/60 font-sans mt-1">{brl(ticket.price)} + taxa {brl(calcularTaxa(ticket.price).taxa)}</p>}
           </div>
 
           {/* Progress */}
@@ -123,7 +125,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
                 <span className="text-cream font-medium">{cartQty}</span>
                 <button onClick={() => onQuantityChange(cartQty + 1)} disabled={cartQty >= 1} aria-label="Mais um Match de Mesa" title="1 lugar por conta em cada evento" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">+</button>
               </div>
-              <span className="text-cream/70 text-sm">R$ {ticket.price * cartQty}</span>
+              <span className="text-cream/70 text-xs text-right">{textoPreco(ticket.price, cartQty)}</span>
             </div>
           ) : (
             <button
