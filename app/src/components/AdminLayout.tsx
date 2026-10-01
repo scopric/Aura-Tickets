@@ -142,7 +142,7 @@ export default function AdminLayout() {
         {/* Logo */}
         <div className={cn('flex items-center gap-3 px-4 h-16 border-b border-white/10', collapsed && 'justify-center px-2')}>
           <img
-            src="/images/logo-evokaa.png"
+            src="/images/logo-evokaa-sm.png"
             alt="Evokaa"
             className={cn("w-auto flex-shrink-0 transition-all", collapsed ? "h-7" : "h-11")}
           />
@@ -186,7 +186,7 @@ export default function AdminLayout() {
             {!collapsed ? (
               <div className="flex items-center gap-3">
                 <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
-                  <img src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                  <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-3.5 h-3.5 text-white" />
                   </div>
@@ -198,7 +198,7 @@ export default function AdminLayout() {
               </div>
             ) : (
               <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
-                <img src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-3.5 h-3.5 text-white" />
                 </div>
