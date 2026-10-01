@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Copy, Archive, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, erroAoCancelar, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, copiaDoEvento, confirmacaoCancelar, confirmacaoArquivar, SAIR_DO_AR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -64,12 +64,17 @@ export default function EventManager() {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status }, tickets: [] })
       toast.success(ok)
     } catch (err) {
-      toast.error(status === 'cancelled' ? erroAoCancelar(err) : 'Não foi possível atualizar o evento.')
+      toast.error(erroDeStatus(err, 'Não foi possível atualizar o evento.'))
     }
   }
 
-  const handleArchive = (event: DbEvent) =>
-    mudarStatus(event, 'ended', `Arquivar "${event.title}"? A situação passa a ser Encerrado.`, 'Evento arquivado.')
+  // Decisão 129: com venda e data por vir, arquivar (= encerrar) tira do ar; não oferece, mostra o suporte
+  const handleArchive = (event: DbEvent) => {
+    const v = vendidosDe(vendidos, event.id)
+    const porVir = dataPorVir(event)
+    if ((v ?? 0) > 0 && porVir) { toast.error(SAIR_DO_AR_COM_VENDA); return }
+    mudarStatus(event, 'ended', confirmacaoArquivar(event.title, v, porVir), 'Evento arquivado.')
+  }
 
   const handleDelete = async (event: DbEvent) => {
     if (!window.confirm(`Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.`)) return
@@ -77,12 +82,12 @@ export default function EventManager() {
       await deleteEvent.mutateAsync(event.id)
       toast.success('Evento excluído.')
     } catch (err) {
-      const { mensagem, oferecerCancelar } = erroAoExcluir(err, vendidos ? vendidoDe(event.id) : undefined) // Decisão 129
+      const { mensagem, oferecerCancelar } = erroAoExcluir(err, vendidosDe(vendidos, event.id)) // Decisão 129
       toast.error(mensagem, oferecerCancelar && event.status !== 'cancelled'
         ? {
             action: {
               label: 'Cancelar evento',
-              onClick: () => mudarStatus(event, 'cancelled', confirmacaoCancelar(event.title, vendidos ? vendidoDe(event.id) : undefined), 'Evento cancelado.'),
+              onClick: () => mudarStatus(event, 'cancelled', confirmacaoCancelar(event.title, vendidosDe(vendidos, event.id)), 'Evento cancelado.'),
             },
             duration: 10000,
           }

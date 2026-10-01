@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoEvento, erroAoExcluir, erroAoCancelar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA } from '../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -39,13 +39,45 @@ describe('erroAoExcluir', () => {
   })
 })
 
-describe('erroAoCancelar (Decisão 129)', () => {
-  it('EV001 do gatilho vira a mensagem do suporte', () => {
-    expect(erroAoCancelar({ code: 'EV001', message: 'qualquer' })).toBe('Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.')
+describe('erroDeStatus (Decisão 129)', () => {
+  it('EV001 do gatilho vira a mensagem de cancelar com venda', () => {
+    expect(erroDeStatus({ code: 'EV001', message: 'qualquer' }, 'x')).toBe('Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.')
   })
-  it('outro erro (inclusive P0001 genérico) vira a mensagem genérica', () => {
-    expect(erroAoCancelar({ code: 'P0001' })).toBe('Não foi possível cancelar o evento.')
-    expect(erroAoCancelar(null)).toBe('Não foi possível cancelar o evento.')
+  it('EV002 (rascunho ou encerrar antes da data) vira a mensagem de sair do ar', () => {
+    expect(erroDeStatus({ code: 'EV002' }, 'x')).toBe('Este evento tem ingressos vendidos e não pode sair do ar. Fale com o suporte da Evokaa.')
+    expect(erroDeStatus({ code: 'EV002' }, 'x')).toBe(SAIR_DO_AR_COM_VENDA)
+  })
+  it('outro erro (inclusive P0001 genérico) vira a mensagem padrão', () => {
+    expect(erroDeStatus({ code: 'P0001' }, 'Não foi possível cancelar o evento.')).toBe('Não foi possível cancelar o evento.')
+    expect(erroDeStatus(null, 'padrão')).toBe('padrão')
+  })
+})
+
+describe('vendidosDe', () => {
+  it('sem contagem carregada: não sei', () => {
+    expect(vendidosDe(undefined, 'e1')).toBeUndefined()
+  })
+  it('lista completa: zero é zero', () => {
+    expect(vendidosDe({ porEvento: { e1: 3 }, cortado: false }, 'e2')).toBe(0)
+    expect(vendidosDe({ porEvento: { e1: 3 }, cortado: false }, 'e1')).toBe(3)
+  })
+  it('lista cortada (mais de 1.000): zero vira "não sei", mas venda na lista continua venda', () => {
+    expect(vendidosDe({ porEvento: { e1: 3 }, cortado: true }, 'e2')).toBeUndefined()
+    expect(vendidosDe({ porEvento: { e1: 3 }, cortado: true }, 'e1')).toBe(3)
+  })
+})
+
+describe('dataPorVir e confirmacaoArquivar', () => {
+  const agora = Date.parse('2026-10-01T12:00:00Z')
+  it('usa o fim e, sem fim, o início', () => {
+    expect(dataPorVir({ start_date: '2026-09-30T20:00:00Z', end_date: '2026-10-02T04:00:00Z' }, agora)).toBe(true)
+    expect(dataPorVir({ start_date: '2026-10-05T20:00:00Z', end_date: null }, agora)).toBe(true)
+    expect(dataPorVir({ start_date: '2026-09-30T20:00:00Z', end_date: null }, agora)).toBe(false)
+  })
+  it('só avisa do suporte quando não se sabe a venda e a data está por vir', () => {
+    expect(confirmacaoArquivar('Festa', undefined, true)).toMatch(/não pode sair do ar antes da data: fale com o suporte/)
+    expect(confirmacaoArquivar('Festa', 0, true)).not.toMatch(/suporte/)
+    expect(confirmacaoArquivar('Festa', undefined, false)).not.toMatch(/suporte/)
   })
 })
 

@@ -221,7 +221,7 @@ export default function ProducerPiggyBank() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="orc-nome">Nome</Label>
-              <Input id="orc-nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Som e luz" />
+              <Input id="orc-nome" maxLength={120} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex.: Som e luz" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
@@ -237,7 +237,7 @@ export default function ProducerPiggyBank() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="orc-nota">Anotação (opcional)</Label>
-              <Textarea id="orc-nota" value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
+              <Textarea id="orc-nota" maxLength={1000} value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
           </form>
           <DialogFooter>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Eye, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, erroAoCancelar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -32,8 +32,8 @@ export default function ProducerEvents() {
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
 
-  // undefined = contagem não carregou
-  const vendidoDe = (id: string) => (vendidos ? vendidos.porEvento[id] ?? 0 : undefined)
+  // undefined = não se sabe (contagem não carregou ou veio cortada)
+  const vendidoDe = (id: string) => vendidosDe(vendidos, id)
 
   const cancelar = async (event: DbEvent) => {
     if ((vendidoDe(event.id) ?? 0) > 0) { toast.error(CANCELAR_COM_VENDA); return } // Decisão 129
@@ -42,7 +42,7 @@ export default function ProducerEvents() {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status: 'cancelled' }, tickets: [] })
       toast.success('Evento cancelado.')
     } catch (err) {
-      toast.error(erroAoCancelar(err))
+      toast.error(erroDeStatus(err, 'Não foi possível cancelar o evento.'))
     }
   }
 
