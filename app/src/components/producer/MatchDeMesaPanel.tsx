@@ -139,7 +139,7 @@ export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
         <ul className="space-y-2">
           {denuncias.data.map((x, i) => (
             <li key={i} className="text-xs text-espresso p-3 rounded-xl bg-white/40 border border-white/60">
-              <span className="font-bold">{x.denunciado || 'Conta excluída'}</span> · {MOTIVO_DENUNCIA[x.motivo] ?? x.motivo}{x.mesa ? ` · ${x.mesa}` : ''}
+              <span className="font-bold">{x.denunciado || 'Conta excluída'}</span> · {MOTIVO_DENUNCIA[x.motivo] ?? x.motivo}{x.mesa ? ` · ${x.mesa}` : ''}{x.resultado ? ` · ${x.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}` : ''}
             </li>
           ))}
         </ul>

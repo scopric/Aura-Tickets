@@ -35,6 +35,8 @@ export interface DenunciaModerador {
   sobreposicao_fim: string | null
   status_mudado_em: string | null
   liberada_produtor_em: string | null
+  resultado: ResultadoDenuncia | null
+  resultado_explicacao: string | null // apagada 180 dias depois do evento
 }
 
 // mesa_denuncias_do_evento, visão do produtor (só as liberadas)
@@ -42,6 +44,7 @@ export interface DenunciaProdutor {
   denunciado: string | null
   motivo: MotivoDenuncia
   mesa: string | null
+  resultado: ResultadoDenuncia | null // sem a explicação
 }
 
 export interface MesaTrava {
@@ -68,6 +71,7 @@ export interface FotoParaRevisar {
 }
 
 export type StatusDenuncia = 'aberta' | 'em_apuracao' | 'resolvida' | 'judicial'
+export type ResultadoDenuncia = 'procedente' | 'improcedente'
 export type MotivoRemocao = 'denuncia_triada' | 'comportamento_no_local' | 'pedido_da_pessoa' | 'outro'
 
 // Listas fechadas do banco (CHECK de mesa_denuncias e mesa_travas)
@@ -77,6 +81,14 @@ export const STATUS_DENUNCIA: Record<StatusDenuncia, string> = {
   resolvida: 'Resolvida',
   judicial: 'Judicial',
 }
+
+export const RESULTADO_DENUNCIA: Record<ResultadoDenuncia, string> = {
+  procedente: 'Procedente (a denúncia era verdadeira)',
+  improcedente: 'Improcedente (a denúncia não se confirmou)',
+}
+// o banco aceita a explicação de 10 a 1000 caracteres
+export const EXPLICACAO_MIN = 10
+export const EXPLICACAO_MAX = 1000
 
 export const MOTIVO_REMOCAO: Record<MotivoRemocao, string> = {
   denuncia_triada: 'Denúncia apurada',
@@ -199,8 +211,11 @@ export function useRemoverMembro(eventId: string) {
 }
 
 export function useDenunciaStatus() {
-  return useMesaAdminMutation(['mesa-denuncias'], (d: { id: string; status: StatusDenuncia }) =>
-    rpc('mesa_denuncia_status', { p_id: d.id, p_status: d.status }))
+  // 'resolvida' exige resultado e explicação; nos outros status os dois não vão
+  return useMesaAdminMutation(['mesa-denuncias'], (d: { id: string; status: StatusDenuncia; resultado?: ResultadoDenuncia; explicacao?: string }) =>
+    rpc('mesa_denuncia_status', d.status === 'resolvida'
+      ? { p_id: d.id, p_status: d.status, p_resultado: d.resultado, p_explicacao: d.explicacao?.trim() }
+      : { p_id: d.id, p_status: d.status }))
 }
 
 export function useDenunciaLiberar() {

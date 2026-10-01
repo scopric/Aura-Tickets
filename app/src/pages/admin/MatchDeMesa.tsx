@@ -6,7 +6,8 @@ import { useTwoFactor } from '../../hooks/useTwoFactor'
 import {
   useFotosParaRevisar, useFotoDecidir, useMesaDenuncias, useDenunciaStatus, useDenunciaLiberar,
   useMesaTravas, useMesaDestravar, erroMesaAdmin, precisa2fa,
-  STATUS_DENUNCIA, MOTIVO_REMOCAO, DECISAO_IA, MOTIVO_IA, type StatusDenuncia,
+  STATUS_DENUNCIA, MOTIVO_REMOCAO, DECISAO_IA, MOTIVO_IA, RESULTADO_DENUNCIA, EXPLICACAO_MIN, EXPLICACAO_MAX,
+  type StatusDenuncia, type ResultadoDenuncia,
 } from '../../hooks/useMesaAdmin'
 import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 
@@ -160,6 +161,11 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   const mudarStatus = useDenunciaStatus()
   const liberar = useDenunciaLiberar()
   const [confirmar, setConfirmar] = useState<string | null>(null)
+  // "Resolvida" só vai ao banco com o resultado e a explicação
+  const [resolvendo, setResolvendo] = useState<string | null>(null)
+  const [resultado, setResultado] = useState<ResultadoDenuncia | ''>('')
+  const [explicacao, setExplicacao] = useState('')
+  const explicacaoOk = explicacao.trim().length >= EXPLICACAO_MIN && explicacao.trim().length <= EXPLICACAO_MAX
 
   if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
   if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
@@ -181,14 +187,50 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
               </div>
             </div>
             <select aria-label={`Status da denúncia contra ${d.denunciado ?? 'conta excluída'}`} value={d.status} disabled={mudarStatus.isPending}
-              onChange={e => mudarStatus.mutate({ id: d.id, status: e.target.value as StatusDenuncia }, {
-                onSuccess: () => toast.success('Status atualizado.'),
-                onError: err => toast.error(erroMesaAdmin(err)),
-              })}
+              onChange={e => {
+                const status = e.target.value as StatusDenuncia
+                if (status === 'resolvida') { setResolvendo(d.id); setResultado(''); setExplicacao(''); return }
+                setResolvendo(null)
+                mudarStatus.mutate({ id: d.id, status }, {
+                  onSuccess: () => toast.success('Status atualizado.'),
+                  onError: err => toast.error(erroMesaAdmin(err)),
+                })
+              }}
               className="px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none">
               {(Object.keys(STATUS_DENUNCIA) as StatusDenuncia[]).map(s => <option key={s} value={s}>{STATUS_DENUNCIA[s]}</option>)}
             </select>
           </div>
+          {resolvendo === d.id && d.status !== 'resolvida' && (
+            <div className="mt-3 p-3 rounded-xl bg-white/60 border border-plum/20 space-y-2">
+              <fieldset className="space-y-1">
+                <legend className="text-[11px] text-espresso/70">Resultado (obrigatório)</legend>
+                {(Object.keys(RESULTADO_DENUNCIA) as ResultadoDenuncia[]).map(r => (
+                  <label key={r} className="flex items-center gap-2 text-xs text-espresso">
+                    <input type="radio" name={`resultado-${d.id}`} checked={resultado === r} onChange={() => setResultado(r)} /> {RESULTADO_DENUNCIA[r]}
+                  </label>
+                ))}
+              </fieldset>
+              <label className="block">
+                <span className="text-[11px] text-espresso/70">Explique por que está resolvida (obrigatório, de {EXPLICACAO_MIN} a {EXPLICACAO_MAX} caracteres)</span>
+                <textarea value={explicacao} onChange={e => setExplicacao(e.target.value)} maxLength={EXPLICACAO_MAX} rows={3}
+                  className="mt-1 w-full px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none" />
+              </label>
+              <div className="flex gap-2">
+                <button disabled={!resultado || !explicacaoOk || mudarStatus.isPending} className={`${botao} bg-plum text-cream`}
+                  onClick={() => resultado && mudarStatus.mutate({ id: d.id, status: 'resolvida', resultado, explicacao }, {
+                    onSuccess: () => { setResolvendo(null); toast.success('Status atualizado.') },
+                    onError: err => toast.error(erroMesaAdmin(err)),
+                  })}>Confirmar resolução</button>
+                <button onClick={() => setResolvendo(null)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
+              </div>
+            </div>
+          )}
+          {d.status === 'resolvida' && d.resultado && (
+            <p className="mt-2 text-xs text-espresso">
+              <span className="font-bold">{d.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}</span>
+              {d.resultado_explicacao ? ` · ${d.resultado_explicacao}` : ''}
+            </p>
+          )}
           {/* texto livre de quem denunciou: sempre texto puro */}
           {d.detalhe && <p className="mt-2 text-xs text-espresso/70 leading-relaxed whitespace-pre-line break-words">{d.detalhe}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2">

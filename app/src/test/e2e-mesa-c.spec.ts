@@ -169,11 +169,17 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
       id: 'd1', criado_em: '2026-12-15T23:00:00Z', motivo: 'assedio', detalhe: '<b id="injetado">oi</b> na mesa', status: 'aberta',
       mesa: 'Mesa 3', denunciante: 'Ana Souza', denunciado: 'Bruno Lima', mesma_mesa: true,
       sobreposicao_inicio: '2026-12-15T21:00:00Z', sobreposicao_fim: '2026-12-15T22:30:00Z', status_mudado_em: null, liberada_produtor_em: null as string | null,
+      resultado: null as string | null, resultado_explicacao: null as string | null,
     }
     const chamadas = await mockRpc(page, {
       mesa_fotos_para_revisar: [],
       mesa_denuncias_do_evento: () => ({ json: [denuncia] }),
-      mesa_denuncia_status: (b) => { denuncia.status = b.p_status as string; return { json: null } },
+      mesa_denuncia_status: (b) => {
+        denuncia.status = b.p_status as string
+        denuncia.resultado = (b.p_resultado as string) ?? null
+        denuncia.resultado_explicacao = (b.p_explicacao as string) ?? null
+        return { json: null }
+      },
       mesa_denuncia_liberar: () => { denuncia.liberada_produtor_em = '2026-12-16T10:00:00Z'; return { json: null } },
     })
     await page.goto(`${ALPHA}/admin/match-de-mesa`)
@@ -188,6 +194,20 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await page.getByLabel('Status da denúncia contra Bruno Lima').selectOption('em_apuracao')
     await expect(page.getByText('Status atualizado.')).toBeVisible()
 
+    // resolvida pede resultado e explicação (10 a 1000 caracteres); só então vai ao banco
+    await page.getByLabel('Status da denúncia contra Bruno Lima').selectOption('resolvida')
+    const confirmarResolucao = page.getByRole('button', { name: 'Confirmar resolução' })
+    await expect(page.getByText(/Explique por que está resolvida/)).toBeVisible()
+    await expect(confirmarResolucao).toBeDisabled() // faltam os dois
+    await page.getByLabel(/Procedente \(a denúncia era verdadeira\)/).check()
+    await expect(confirmarResolucao).toBeDisabled() // falta a explicação
+    await page.getByLabel(/Explique por que está resolvida/).fill('curta')
+    await expect(confirmarResolucao).toBeDisabled() // menos de 10 caracteres
+    await page.getByLabel(/Explique por que está resolvida/).fill('Confirmado pelo produtor no local')
+    await confirmarResolucao.click()
+    await expect(page.getByText('Procedente', { exact: true })).toBeVisible()
+    await expect(page.getByText(/Confirmado pelo produtor no local/)).toBeVisible()
+
     await page.getByRole('button', { name: 'Liberar para a organização' }).click()
     await expect(page.getByText(/A organização verá o denunciado, o motivo e a mesa/)).toBeVisible()
     await page.getByRole('button', { name: 'Confirmar liberação' }).click()
@@ -197,6 +217,7 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     expect(chamadas.find((c) => c.nome === 'mesa_denuncias_do_evento')?.body).toEqual({ p_event_id: EVENTO })
     expect(chamadas.filter((c) => c.nome.startsWith('mesa_denuncia_')).map((c) => [c.nome, c.body])).toEqual([
       ['mesa_denuncia_status', { p_id: 'd1', p_status: 'em_apuracao' }],
+      ['mesa_denuncia_status', { p_id: 'd1', p_status: 'resolvida', p_resultado: 'procedente', p_explicacao: 'Confirmado pelo produtor no local' }],
       ['mesa_denuncia_liberar', { p_id: 'd1' }],
     ])
   })
@@ -282,7 +303,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     const chamadas = await mockRpc(page, {
       mesas_do_evento: () => ({ json: mesas }),
       formar_mesas: () => ({ json: 3 }),
-      mesa_denuncias_do_evento: [{ denunciado: 'Bruno Lima', motivo: 'perfil_falso', mesa: 'Mesa 1' }, { denunciado: 'Carla Dias', motivo: 'assedio', mesa: 'Mesa 1' }],
+      mesa_denuncias_do_evento: [{ denunciado: 'Bruno Lima', motivo: 'perfil_falso', mesa: 'Mesa 1', resultado: 'procedente' }, { denunciado: 'Carla Dias', motivo: 'assedio', mesa: 'Mesa 1', resultado: null }],
       mesa_remover_membro: (b) => {
         mesas = mesas.map((m) => ({ ...m, membros: m.membros.filter((p) => p.ingresso !== b.p_ticket_id) }))
         return { json: null }
@@ -308,7 +329,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
 
     // denúncias liberadas: só denunciado, motivo e mesa
     await expect(painel.getByText('Denúncias liberadas pela moderação')).toBeVisible()
-    await expect(painel.locator('li', { hasText: 'Perfil falso' })).toHaveText('Bruno Lima · Perfil falso · Mesa 1')
+    await expect(painel.locator('li', { hasText: 'Perfil falso' })).toHaveText('Bruno Lima · Perfil falso · Mesa 1 · Procedente')
 
     // sem denúncia liberada, sem botão de remover
     const ana = painel.locator('li', { hasText: 'Ana Souza' })
