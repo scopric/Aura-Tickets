@@ -265,8 +265,8 @@ $$;
 --     aparecer como não lida e sai no e-mail da equipe) e avisa o cliente. Mensagem com clock_timestamp():
 --     na mesma transação, now() empataria com a do cliente.
 --     Limite de 3 conversas humanas abertas (como no chat_start), com a mesma trava por pessoa; no limite,
---     não passa e o assistente avisa. Erro do assistente e assistente desligado passam sempre (a mensagem
---     não pode ficar sem ninguém).
+--     não passa e o assistente avisa (também com o assistente desligado: senão, desligar abriria a porta para
+--     passar de 3). Só o erro do assistente e a equipe assumindo passam sempre.
 --     Devolve se passou. Retorno mudou (void → boolean): drop + create.
 drop function if exists public.chat_bot_passar(uuid, text);
 create function public.chat_bot_passar(p_conv uuid, p_motivo text)
@@ -283,7 +283,7 @@ begin
   if not found then
     return false;
   end if;
-  if p_motivo not in ('erro', 'atendente', 'desligado') then
+  if p_motivo not in ('erro', 'atendente') then
     perform pg_advisory_xact_lock(hashtext('chat:' || v_user::text));
     if (select count(*) from public.conversations c where c.user_id = v_user and c.status = 'open' and c.bot_state = 'humano') >= 3 then
       insert into public.conversation_messages (conversation_id, sender_id, sender_role, sender_name, body, created_at)
@@ -353,7 +353,7 @@ begin
   if v_c.bot_state is distinct from 'bot' then
     return;
   end if;
-  -- desligado com a conversa já aberta com ele: a mensagem vai para a equipe (fora do limite de 3)
+  -- desligado com a conversa já aberta com ele: a mensagem vai para a equipe (no limite de 3, o aviso dele)
   if not coalesce((select s.bot_enabled from public.chat_settings s where s.id = 1), false) then
     perform public.chat_bot_passar(p_conv, 'desligado');
     return;
@@ -728,8 +728,11 @@ begin
 
   if v_role = 'customer' then
     -- reabrir conta no limite de 3 abertas, como no chat_start
-    -- NOVO (3a): só as humanas contam, e reabrir conversa do assistente não esbarra no limite
-    if (select c.status = 'resolved' and c.bot_state = 'humano' from public.conversations c where c.id = p_conv)
+    -- NOVO (3a): só as humanas contam, e reabrir conversa do assistente só não esbarra no limite com ele ligado
+    -- (desligado, a mensagem vai para a equipe: conta como humana)
+    if (select c.status = 'resolved'
+               and (c.bot_state = 'humano' or not coalesce((select s.bot_enabled from public.chat_settings s where s.id = 1), false))
+        from public.conversations c where c.id = p_conv)
        and (select count(*) from public.conversations c where c.user_id = v_uid and c.status = 'open' and c.bot_state = 'humano') >= 3 then
       return jsonb_build_object('ok', false, 'motivo', 'limite_abertas');
     end if;
@@ -1199,7 +1202,7 @@ $$;
 commit;
 
 -- =============================================================================
--- Testes T1–T17 (rodar num banco descartável: imagem supabase/postgres com os stubs do chat, depois de
+-- Testes T1–T18 (rodar num banco descartável: imagem supabase/postgres com os stubs do chat, depois de
 -- 20261001 → 20261002 → 20260930 → este arquivo → 20261003_kb_seed.sql). Tudo em begin … rollback.
 -- Cada teste termina com "NOTICE: Tn OK"; falha = ERROR. O T12 usa frases candidatas que o Ricardo
 -- ainda revisa (lista no relatório do PR); falha com qualquer resposta confiante e errada, pedido ou passagem
@@ -1467,7 +1470,7 @@ begin
 end $t$;
 
 -- T10. Interruptor: só manage_support muda; desligado, conversa nasce humana e a que já estava com o
---      assistente passa na mensagem seguinte (motivo 'desligado', mesmo no limite de 3)
+--      assistente passa na mensagem seguinte (motivo 'desligado'), respeitando o limite de 3 humanas
 do $t$
 declare r jsonb; cv uuid; ad uuid := 'f0000000-0000-4000-8000-000000000004'; ax uuid := 'f0000000-0000-4000-8000-000000000005'; cli uuid := 'f0000000-0000-4000-8000-000000000001';
   cli2 uuid := 'f0000000-0000-4000-8000-000000000002';
@@ -1486,16 +1489,28 @@ begin
   r := public.chat_start(pg_temp.topico('participant_evokaa', 'Outros assuntos'), null, 'Carla', '5511987654321', false, 'esqueci minha senha');
   assert (select bot_state = 'humano' from public.conversations where id = (r->>'id')::uuid), 'T10: desligado e nasceu com o assistente';
   assert not exists (select 1 from public.conversation_messages where conversation_id = (r->>'id')::uuid and sender_role = 'bot'), 'T10: respondeu desligado';
+  -- no limite de 3: a mensagem entra, a conversa fica com o assistente e ele avisa (sem passar)
+  perform pg_temp.como(cli2);
+  r := public.chat_send(cv, 'esqueci minha senha', false, null, null);
+  assert (r->>'ok')::boolean, format('T10 send no limite: %s', r);
+  assert (select bot_state = 'bot' and handoff_at is null from public.conversations where id = cv), 'T10: desligado passou no limite de 3';
+  assert (select count(*) from public.conversations where user_id = cli2 and status = 'open' and bot_state = 'humano') = 3, 'T10: passou de 3 humanas';
+  assert (select count(*) from public.conversation_messages where conversation_id = cv and sender_role = 'bot'
+          and body = 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.') = 1, 'T10: sem o aviso do limite';
+  assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'system'), 'T10: aviso de passagem no limite';
+  -- com 2: passa com 'desligado'
+  perform pg_temp.como(null);
+  update public.conversations set status = 'resolved' where id = (select id from public.conversations where user_id = cli2 and status = 'open' and bot_state = 'humano' limit 1);
   perform pg_temp.como(cli2);
   r := public.chat_send(cv, 'esqueci minha senha', false, null, null);
   assert (r->>'ok')::boolean, format('T10 send: %s', r);
   assert (select bot_state = 'humano' and handoff_reason = 'desligado' from public.conversations where id = cv), 'T10: aberta com o assistente não passou ao desligar';
-  assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'bot'), 'T10: assistente respondeu desligado';
+  assert not exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'bot' and body <> 'Você já tem conversas abertas com a nossa equipe; continue por uma delas.'), 'T10: assistente respondeu desligado';
   assert exists (select 1 from public.conversation_messages where conversation_id = cv and sender_role = 'system' and body like 'Vou passar sua conversa%'), 'T10: sem aviso da passagem';
   perform pg_temp.como(ad);
   r := public.chat_bot_ligar(true);
   perform pg_temp.como(null);
-  raise notice 'T10 OK: interruptor só com manage_support; desligado não responde e passa a conversa aberta com o assistente';
+  raise notice 'T10 OK: interruptor só com manage_support; desligado não responde e passa a conversa aberta com o assistente, no limite de 3';
 end $t$;
 
 -- T13. Limite de 3 humanas abertas na passagem (D3): botão, "Não", pedido escrito e sem resposta não
@@ -1632,6 +1647,43 @@ begin
   assert not exists (select 1 from public.kb_perguntas_sem_resposta where texto = 't17 velha')
      and exists (select 1 from public.kb_perguntas_sem_resposta where texto = 't17 recente'), 'T17: limpeza de 30 dias';
   raise notice 'T17 OK: pergunta sem resposta só com termos mascarados; limpeza de 30 dias';
+end $t$;
+
+-- T18. Desligar o assistente não fura o limite de 3 humanas: com 3 humanas, mensagem em cada conversa do
+--      assistente (abertas e resolvidas no Sim) e conversa nova não passam de 3
+do $t$
+declare r jsonb; c record; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000024'; ad uuid := 'f0000000-0000-4000-8000-000000000004'; n_lim int := 0;
+begin
+  insert into auth.users (id, email) values (u, 'tom@teste.evokaa.invalid');
+  insert into public.profiles (id, email, full_name, role) values (u, 'tom@teste.evokaa.invalid', 'Tom Teste', 'user');
+  insert into public.conversations (user_id, kind, status, bot_state) select u, 'evokaa', 'open', 'humano' from generate_series(1, 3);
+  perform pg_temp.conversa_bot(u) from generate_series(1, 3);  -- 3 abertas com o assistente
+  for c in select pg_temp.conversa_bot(u) as id from generate_series(1, 3) loop  -- 3 resolvidas no Sim
+    perform pg_temp.como(u);
+    r := public.chat_bot_feedback(c.id, true);
+    perform pg_temp.como(null);
+  end loop;
+  perform pg_temp.como(ad);
+  r := public.chat_bot_ligar(false);
+  perform pg_temp.como(u);
+  for c in select id, status from public.conversations where user_id = u and bot_state = 'bot' loop
+    r := public.chat_send(c.id, 'oi', false, null, null);
+    if c.status = 'resolved' then
+      assert r->>'motivo' = 'limite_abertas', format('T18: reabriu resolvida no limite: %s', r);
+      n_lim := n_lim + 1;
+    else
+      assert (r->>'ok')::boolean, format('T18: send: %s', r);
+    end if;
+  end loop;
+  r := public.chat_start(pg_temp.topico('participant_evokaa', 'Outros assuntos'), null, 'Tom', '5511987654321', false, 'oi');
+  assert r->>'motivo' = 'limite_abertas', format('T18: conversa nova desligado: %s', r);
+  perform pg_temp.como(null);
+  assert n_lim = 3, 'T18: resolvidas';
+  assert (select count(*) from public.conversations where user_id = u and status = 'open' and bot_state = 'humano') = 3, 'T18: passou de 3 humanas';
+  perform pg_temp.como(ad);
+  r := public.chat_bot_ligar(true);
+  perform pg_temp.como(null);
+  raise notice 'T18 OK: assistente desligado não fura o limite de 3 humanas';
 end $t$;
 
 -- T11. Base: sem manage_support não lê nem grava; admin grava só manual/atendente; excluir guarda o slug;
