@@ -27,7 +27,7 @@ const logs: string[] = []
 function novoEstado(mudar: Partial<Estado> = {}): void {
   estado = {
     usuario: 'u-super', mfa: true, superAdmin: true, rpc: {}, convite: { email: 'convidada@teste.invalid' },
-    criarConta: { status: 200, body: { id: 'u-nova', email: 'convidada@teste.invalid' } },
+    criarConta: { status: 200, body: { id: 'u-nova', email: 'convidada@teste.invalid', created_at: '2026-10-01T17:30:00Z' } },
     limiteContagem: 1, marcados: [{ id: 'conv-1' }], supers: [{ email: 'super1@teste.invalid' }, { email: 'super2@teste.invalid' }],
     resendOk: true, ...mudar,
   }
@@ -46,7 +46,9 @@ globalThis.fetch = (async (entrada: string | URL | Request, init?: RequestInit) 
   const objeto = (req.headers.get('Accept') ?? '').includes('vnd.pgrst.object')
   if (url.hostname === 'api.resend.com') return estado.resendOk ? resp(200, { id: 'email-1' }) : resp(422, { message: 'recusado' })
   if (url.pathname === '/auth/v1/user') {
-    return estado.usuario ? resp(200, { id: estado.usuario, aud: 'authenticated', email: 'quem@teste.invalid' }) : resp(401, { msg: 'invalid JWT' })
+    return estado.usuario
+      ? resp(200, { id: estado.usuario, aud: 'authenticated', email: 'quem@teste.invalid', created_at: '2026-09-30T13:05:00Z' })
+      : resp(401, { msg: 'invalid JWT' })
   }
   if (url.pathname === '/auth/v1/admin/users') return resp(estado.criarConta.status, estado.criarConta.body)
   if (url.pathname.startsWith('/rest/v1/rpc/')) {
@@ -203,6 +205,16 @@ Deno.test({ name: 'criar-conta: sem login, cria a conta confirmada com o e-mail 
   assertEquals(criada.email, 'convidada@teste.invalid')
   assertEquals(criada.password, SENHA)
   assertEquals(criada.email_confirm, true)
+  // a dona do e-mail é avisada da conta criada, com a hora de Brasília
+  const [aviso] = emails()
+  assertEquals(aviso.to, ['convidada@teste.invalid'])
+  assertEquals(aviso.subject, 'Sua conta de colaborador da Evokaa foi criada')
+  assert(aviso.html.includes('1 de outubro de 2026 às 14:30') && aviso.html.includes('Se não foi você'), aviso.html)
+  // limite por IP com chave própria, separada da do formulário de contato
+  const hit = JSON.parse(chamadas.find((c) => c.metodo === 'POST' && c.url.includes('contact_rate_limit_hits'))!.corpo)
+  assertEquals(hit.ip, 'convite-conta:203.0.113.9')
+  const conta = new URL(chamadas.find((c) => c.metodo === 'HEAD')!.url)
+  assertEquals(conta.searchParams.get('ip'), 'eq.convite-conta:203.0.113.9')
   // nada de token, senha ou e-mail no log
   const tudo = logs.join('\n')
   assert(!tudo.includes(TOKEN) && !tudo.includes(SENHA) && !tudo.includes('convidada@'), tudo)
@@ -231,10 +243,15 @@ Deno.test({ name: 'criar-conta: convite inválido, token fora do formato, senha 
   assert(!chamadas.some((c) => c.url.includes('/admin_invites')), 'consultou o convite acima do limite')
 } })
 
-Deno.test({ name: 'avisar-aceite: só quem usou o convite; e-mail aos super_admins com o nome escapado; não repete', ...opts, fn: async () => {
-  novoEstado({ usuario: 'u-clara' })
-  let r = await chamar({ acao: 'avisar-aceite' })
-  assertEquals(r.body, { ok: true, enviados: 2 })
+const DADOS = { nome_completo: 'Clara', cpf: '52998224725' }
+
+Deno.test({ name: 'aceitar: convite_aceitar com o JWT de quem chama e, na mesma requisição, o aviso aos super_admins', ...opts, fn: async () => {
+  novoEstado({ usuario: 'u-clara', rpc: { convite_aceitar: { status: 204, body: undefined } } })
+  let r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
+  assertEquals(r.body, { ok: true, avisados: 2 })
+  const aceite = chamadas.find((c) => c.url.endsWith('/rpc/convite_aceitar'))!
+  assertEquals(aceite.headers.get('Authorization'), 'Bearer jwt-teste')
+  assertEquals(JSON.parse(aceite.corpo), { p_token: TOKEN, p_dados: DADOS })
   const marcar = new URL(chamadas.find((c) => c.metodo === 'PATCH')!.url)
   assertEquals(marcar.searchParams.get('used_by'), 'eq.u-clara')
   assertEquals(marcar.searchParams.get('status'), 'eq.usado')
@@ -243,16 +260,39 @@ Deno.test({ name: 'avisar-aceite: só quem usou o convite; e-mail aos super_admi
   assertEquals(enviados.map((m) => m.to[0]), ['super1@teste.invalid', 'super2@teste.invalid'])
   assertEquals(enviados[0].subject, 'Clara <b>Teste</b> concluiu o cadastro como colaborador(a) da Evokaa')
   assert(enviados[0].html.includes('Clara &lt;b&gt;Teste&lt;/b&gt;') && !enviados[0].html.includes('<b>Teste'), 'nome sem escape no HTML')
+  // e-mail da conta e a hora em que ela foi criada (Brasília)
+  assert(enviados[0].html.includes('quem@teste.invalid') && enviados[0].html.includes('30 de setembro de 2026 às 10:05'), enviados[0].html)
   assert(enviados[0].html.includes('https://alpha.evokaa.com.br/admin/team'))
-  // não é super_admin: não precisa ser; mas precisa do 2FA
-  assert(!rpcs().includes('gf_admin_can'))
-  novoEstado({ usuario: 'u-clara', marcados: [] })
-  r = await chamar({ acao: 'avisar-aceite' })
-  assertEquals(r.body, { ok: true, enviados: 0 })
+  assert(!rpcs().includes('gf_admin_can'), 'aceitar não exige super_admin')
+
+  // aviso já dado: aceita sem repetir
+  novoEstado({ usuario: 'u-clara', marcados: [], rpc: { convite_aceitar: { status: 204, body: undefined } } })
+  r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
+  assertEquals(r.body, { ok: true, avisados: 0 })
   assertEquals(emails().length, 0)
+
+  // Resend fora: o aceite vale, o aviso fica desmarcado
+  novoEstado({ usuario: 'u-clara', resendOk: false, rpc: { convite_aceitar: { status: 204, body: undefined } } })
+  r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
+  assertEquals(r.body, { ok: true, avisados: 0 })
+  assertEquals(chamadas.filter((c) => c.metodo === 'PATCH').map((c) => JSON.parse(c.corpo).aviso_em === null), [false, true])
+} })
+
+Deno.test({ name: 'aceitar: recusa do banco volta para a tela, sem aviso; token inválido, dados ausentes e sem 2FA', ...opts, fn: async () => {
+  novoEstado({ usuario: 'u-outra', rpc: { convite_aceitar: { status: 403, body: { code: '42501', message: 'Entre com a conta do e-mail que recebeu o convite.' } } } })
+  let r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
+  assertEquals(r.body, { ok: false, motivo: 'recusado', message: 'Entre com a conta do e-mail que recebeu o convite.' })
+  assert(!chamadas.some((c) => c.metodo === 'PATCH') && emails().length === 0, 'avisou sem aceite')
+  novoEstado({ usuario: 'u-clara', rpc: { convite_aceitar: { status: 204, body: undefined } } })
+  r = await chamar({ acao: 'aceitar', token: 'curto', dados: DADOS })
+  assertEquals(r.body.motivo, 'convite_invalido')
+  r = await chamar({ acao: 'aceitar', token: TOKEN, dados: ['x'] })
+  assertEquals(r.status, 400)
+  assert(!rpcs().includes('convite_aceitar'))
   novoEstado({ usuario: 'u-clara', mfa: false })
-  assertEquals((await chamar({ acao: 'avisar-aceite' })).status, 403)
-  assert(!chamadas.some((c) => c.metodo === 'PATCH'))
+  assertEquals((await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })).status, 403)
+  assert(!rpcs().includes('convite_aceitar'))
+  assertEquals((await chamar({ acao: 'avisar-aceite' })).status, 400) // ação antiga não existe mais
 } })
 
 Deno.test({ name: 'ação desconhecida 400; GET 405; OPTIONS com CORS', ...opts, fn: async () => {

@@ -88,8 +88,10 @@ function clientIp(headers: Headers): string | null {
 // em paralelo passar inteira pela contagem. A tentativa recusada apaga o próprio registro (senão quem insiste
 // ficaria bloqueado para sempre, e com ele o /64 inteiro); a aceita nunca é apagada, então a rajada segue barrada.
 // Devolve a resposta de recusa, ou null para seguir.
-export async function limitarPorIp(req: Request, supabaseAdmin: SupabaseClient, json: (b: unknown, s?: number) => Response) {
-  const ip = clientIp(req.headers);
+// prefixo: chave separada por canal (ex. 'convite-conta:'), na mesma tabela e com o mesmo limite.
+export async function limitarPorIp(req: Request, supabaseAdmin: SupabaseClient, json: (b: unknown, s?: number) => Response, prefixo = "") {
+  const chave = clientIp(req.headers);
+  const ip = chave && prefixo + chave;
   if (!ip) return json({ error: "Não foi possível identificar a origem da requisição." }, 400);
   const { data: hit, error: hitError } = await supabaseAdmin.from("contact_rate_limit_hits").insert({ ip }).select("id").single();
   const since = new Date(Date.now() - 10 * 60_000).toISOString();

@@ -101,13 +101,15 @@ Deno.serve(async (req) => {
     }).eq('user_id', uid)],
     ['support_messages', () => admin.from('support_messages').delete().eq('sender_id', uid)],
     ['support_sessions', () => admin.from('support_sessions').update({ user_id: null }).eq('user_id', uid)],
+    // Convites de colaborador para o e-mail da conta (o banco guarda o e-mail em minúsculas)
+    ['admin_invites', () => admin.from('admin_invites').delete().eq('email', (user.email ?? '').toLowerCase())],
     // Tabelas só pessoais, sem valor fiscal. ai_usage é o registro de uso do Evo, que a Política
     // (seção 8) guarda "até você pedir a eliminação": apagar, não anonimizar (o rascunho criado
     // pelo Evo guarda o id da linha em events.settings e religaria a pessoa).
     // ponytail: pergunta ao Evo nos segundos da exclusão ainda pode gravar 1 linha (ai_log); fechar exige barrar no SQL
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
         'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists',
-        'ai_usage', 'ai_credit_grants', 'staff_profiles']
+        'ai_usage', 'ai_credit_grants', 'staff_profiles', 'staff_profiles_historico_pagamento']
       .map((t): [string, () => PromiseLike<{ error: { message: string } | null }>] =>
         [t, () => admin.from(t).delete().eq('user_id', uid)]),
   ]

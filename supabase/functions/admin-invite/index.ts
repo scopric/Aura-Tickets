@@ -6,10 +6,13 @@
 //     { acao: 'reenviar', id }                              → { ok:true } (token novo; o link antigo para de valer)
 //     { acao: 'cancelar', id }                              → { ok:true }
 //     { acao: 'listar' }                                    → { ok:true, convites }
-//   Sem login (o token prova que a pessoa leu o e-mail convidado), com limite por IP:
-//     { acao: 'criar-conta', token, senha } → { ok:true, email } ou { ok:false, motivo:'conta_existe' }
-//   Quem acabou de aceitar (com 2FA):
-//     { acao: 'avisar-aceite' } → e-mail aos super_admins; um aviso por convite
+//   Sem login (o token prova que a pessoa leu o e-mail convidado), com limite próprio por IP (5 em 10 min):
+//     { acao: 'criar-conta', token, senha } → { ok:true, email } ou { ok:false, motivo:'conta_existe' };
+//       a pessoa recebe o e-mail "Sua conta de colaborador da Evokaa foi criada em …" (se não foi ela, avisa)
+//   Quem está aceitando (com 2FA; o banco confere o resto com o JWT dela):
+//     { acao: 'aceitar', token, dados } → convite_aceitar e, na mesma requisição, o e-mail aos super_admins (com o
+//       e-mail da conta e a hora em que ela foi criada); um aviso por convite. Se o aviso falhar, o aceite vale e o
+//       convite aparece sem aviso em "Aceitos recentemente" (convites_listar).
 // Respostas: 401 sem login, 403 sem 2FA ou sem super_admin, 429 no limite por IP, 503 sem banco ou sem Resend.
 // Recusa de regra (convite repetido, inválido etc.) volta 200 com { ok:false, motivo, message }.
 // O token (32 bytes aleatórios) só existe no link do e-mail (alpha.evokaa.com.br/convite#<token>, o # não vai
@@ -52,8 +55,12 @@ async function getCaller(req: Request) {
   if (!token || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return null
   const { data, error } = await createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY).auth.getUser(token)
   if (error || !data.user) return null
-  return { id: data.user.id }
+  return { id: data.user.id, email: data.user.email ?? '', criadaEm: data.user.created_at }
 }
+
+// "1 de outubro de 2026 às 14:30" no horário de Brasília
+export const horaBrasilia = (iso: string) =>
+  new Intl.DateTimeFormat('pt-BR', { timeZone: 'America/Sao_Paulo', dateStyle: 'long', timeStyle: 'short' }).format(new Date(iso))
 
 const ASSUNTO_CONVITE = 'Você foi convidado para a equipe de colaboradores da Evokaa'
 const htmlConvite = (link: string) => emailShell(
@@ -64,6 +71,46 @@ const htmlConvite = (link: string) => emailShell(
   'Aceitar o convite',
   link,
 )
+
+// Aviso aos super_admins de um aceite (Decisão 125). Marca antes de mandar: repetir não duplica. Só convite usado
+// por quem chama. Devolve quantos e-mails saíram; se nenhum saiu, desmarca (fica "sem aviso" na lista).
+async function avisarSuperAdmins(caller: { id: string; email: string; criadaEm: string }): Promise<number> {
+  if (!RESEND_API_KEY) return 0
+  const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const { data: marcados, error } = await admin.from('admin_invites').update({ aviso_em: new Date().toISOString() })
+    .eq('used_by', caller.id).eq('status', 'usado').is('aviso_em', null).select('id')
+  if (error) { console.error('[admin-invite] aviso: marcar', error.code); return 0 }
+  if (!marcados?.length) return 0
+  const desmarcar = () => admin.from('admin_invites').update({ aviso_em: null }).in('id', marcados.map((m) => m.id))
+
+  const [{ data: ficha }, { data: supers, error: e2 }] = await Promise.all([
+    admin.from('staff_profiles').select('nome_completo').eq('user_id', caller.id).maybeSingle(),
+    admin.from('profiles').select('email').eq('role', 'admin').contains('admin_permissions', ['super_admin']),
+  ])
+  if (e2) { console.error('[admin-invite] aviso: super_admins', e2.code); await desmarcar(); return 0 }
+  const nome = String(ficha?.nome_completo ?? 'Uma pessoa').replace(CONTROLE, ' ').trim()
+  const assunto = `${nome} concluiu o cadastro como colaborador(a) da Evokaa`
+  const html = emailShell(
+    'Novo colaborador',
+    `${escapeHtml(nome)} aceitou o convite e concluiu o cadastro como colaborador(a) da Evokaa. O acesso já está liberado, com as funções escolhidas no convite.`,
+    `<p style="line-height: 1.6; font-size: 14px; color: ${colors.textDark};">Conta: ${escapeHtml(caller.email)}, criada em ${escapeHtml(horaBrasilia(caller.criadaEm))} (horário de Brasília).</p>
+     <p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">Na tela Equipe você vê o cadastro, muda as funções ou remove o acesso.</p>`,
+    'Abrir a Equipe',
+    `${ALPHA}/admin/team`,
+  )
+  let enviados = 0
+  for (const s of supers ?? []) {
+    if (!s.email) continue
+    try {
+      await sendMail(s.email, assunto, html, REMETENTE)
+      enviados++
+    } catch {
+      console.error('[admin-invite] resend recusou o aviso')
+    }
+  }
+  if (!enviados) await desmarcar()
+  return enviados
+}
 
 Deno.serve(async (req: Request) => {
   const cors = corsHeaders(req)
@@ -103,7 +150,8 @@ Deno.serve(async (req: Request) => {
   if (acao === 'criar-conta') {
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) return json(503, { ok: false, motivo: 'indisponivel' })
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    const limite = await limitarPorIp(req, admin, (body, s = 200) => json(s, body))
+    // limite próprio (chave separada da do formulário de contato), 5 tentativas a cada 10 minutos
+    const limite = await limitarPorIp(req, admin, (body, s = 200) => json(s, body), 'convite-conta:')
     if (limite) return limite
     const token = typeof b.token === 'string' ? b.token : ''
     const senha = typeof b.senha === 'string' ? b.senha : ''
@@ -118,7 +166,7 @@ Deno.serve(async (req: Request) => {
     if (!convite) return recusa('convite_invalido', 'Convite inválido ou expirado.')
 
     // O link chegou no e-mail convidado: a conta já nasce com o e-mail confirmado
-    const { error: e } = await admin.auth.admin.createUser({ email: convite.email, password: senha, email_confirm: true })
+    const { data: criada, error: e } = await admin.auth.admin.createUser({ email: convite.email, password: senha, email_confirm: true })
     if (e) {
       const codigo = (e as { code?: string }).code
       if (codigo === 'email_exists' || e.status === 422 && /already|exists|registered/i.test(e.message)) {
@@ -128,10 +176,23 @@ Deno.serve(async (req: Request) => {
       console.error('[admin-invite] createUser falhou', e.status, codigo)
       return json(503, { ok: false, motivo: 'indisponivel', message: 'Não foi possível criar a conta agora. Tente de novo.' })
     }
+    // Quem pegou o link de outra pessoa cria a conta dela: o e-mail avisa a dona do endereço. Falha não desfaz a conta.
+    const quando = horaBrasilia(criada?.user?.created_at ?? new Date().toISOString())
+    try {
+      await sendMail(convite.email, 'Sua conta de colaborador da Evokaa foi criada', emailShell(
+        'Conta criada',
+        `Sua conta de colaborador da Evokaa foi criada em ${quando} (horário de Brasília).`,
+        `<p style="line-height: 1.6; font-size: 15px; color: ${colors.textDark};">Se não foi você, responda este e-mail ou avise a Evokaa em contato@evokaa.com.br.</p>`,
+        'Abrir o convite',
+        `${ALPHA}/convite`,
+      ), REMETENTE)
+    } catch {
+      console.error('[admin-invite] resend recusou o aviso de conta criada')
+    }
     return json(200, { ok: true, email: convite.email })
   }
 
-  if (!['criar', 'reenviar', 'cancelar', 'listar', 'avisar-aceite'].includes(acao as string)) {
+  if (!['criar', 'reenviar', 'cancelar', 'listar', 'aceitar'].includes(acao as string)) {
     return json(400, { ok: false, motivo: 'entrada_invalida' })
   }
   const caller = await getCaller(req)
@@ -141,49 +202,19 @@ Deno.serve(async (req: Request) => {
     return json(403, { ok: false, motivo: 'sem_2fa', message: 'Confirme o código da verificação em duas etapas (saia e entre de novo).' })
   }
 
-  // ---- Quem acabou de aceitar: aviso aos super_admins ----
-  if (acao === 'avisar-aceite') {
-    if (!RESEND_API_KEY) return json(503, { ok: false, motivo: 'sem_resend' })
-    const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-    // Marca antes de mandar: chamar de novo não repete o aviso. Só convite usado por quem chama.
-    const { data: marcados, error } = await admin.from('admin_invites').update({ aviso_em: new Date().toISOString() })
-      .eq('used_by', caller.id).eq('status', 'usado').is('aviso_em', null).select('id')
-    if (error) return erroBanco('avisar-aceite marcar', error)
-    if (!marcados?.length) return json(200, { ok: true, enviados: 0 })
-    const desmarcar = () => admin.from('admin_invites').update({ aviso_em: null }).in('id', marcados.map((m) => m.id))
-
-    const [{ data: ficha }, { data: supers, error: e2 }] = await Promise.all([
-      admin.from('staff_profiles').select('nome_completo').eq('user_id', caller.id).maybeSingle(),
-      admin.from('profiles').select('email').eq('role', 'admin').contains('admin_permissions', ['super_admin']),
-    ])
-    if (e2) {
-      await desmarcar()
-      return erroBanco('avisar-aceite super_admins', e2)
+  // ---- Aceitar: o banco aplica (com o JWT de quem chama) e o aviso sai na mesma requisição ----
+  if (acao === 'aceitar') {
+    const token = typeof b.token === 'string' ? b.token : ''
+    const dados = b.dados
+    if (!TOKEN_RE.test(token)) return recusa('convite_invalido', 'Convite inválido ou expirado.')
+    if (!dados || typeof dados !== 'object' || Array.isArray(dados)) return json(400, { ok: false, motivo: 'entrada_invalida' })
+    const { error } = await comoQuemChamou(req).rpc('convite_aceitar', { p_token: token, p_dados: dados })
+    if (error) {
+      // aqui o 42501 é regra escrita para a tela (e-mail de outra conta, 2FA)
+      if (['42501', 'P0001', '22023'].includes(error.code ?? '')) return recusa('recusado', error.message)
+      return erroBanco('aceitar', error)
     }
-    const nome = String(ficha?.nome_completo ?? 'Uma pessoa').replace(CONTROLE, ' ').trim()
-    const assunto = `${nome} concluiu o cadastro como colaborador(a) da Evokaa`
-    const html = emailShell(
-      'Novo colaborador',
-      `${escapeHtml(nome)} aceitou o convite e concluiu o cadastro como colaborador(a) da Evokaa. O acesso já está liberado, com as funções escolhidas no convite.`,
-      `<p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">Na tela Equipe você vê o cadastro, muda as funções ou remove o acesso.</p>`,
-      'Abrir a Equipe',
-      `${ALPHA}/admin/team`,
-    )
-    let enviados = 0
-    for (const s of supers ?? []) {
-      if (!s.email) continue
-      try {
-        await sendMail(s.email, assunto, html, REMETENTE)
-        enviados++
-      } catch {
-        console.error('[admin-invite] resend recusou o aviso')
-      }
-    }
-    if (!enviados) {
-      await desmarcar()
-      return json(503, { ok: false, motivo: 'indisponivel', message: 'O aviso não saiu.' })
-    }
-    return json(200, { ok: true, enviados })
+    return json(200, { ok: true, avisados: await avisarSuperAdmins(caller) })
   }
 
   // ---- Super_admin ----
