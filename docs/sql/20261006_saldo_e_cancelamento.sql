@@ -48,8 +48,15 @@
 --      a) status passa a 'cancelled' (de qualquer status, inclusive de 'ended')         -> EV001
 --      b) status passa a 'draft' vindo de 'published'                                   -> EV002
 --      c) status passa a 'ended' com a data do evento ainda por vir                     -> EV002
---         ("data" = coalesce(end_date, start_date) da linha ANTIGA; start_date é NOT NULL. Usar a antiga impede
---         mudar a data e encerrar no mesmo update; mudar a data com venda já é barrado pela F0a.)
+--      d) status sai de 'cancelled' (reabrir: publicar ou rascunho)                     -> EV003 (só admin reabre)
+--         "Data por vir" = a MAIOR data conhecida da linha ANTIGA ainda está no futuro (favorece o bloqueio):
+--         greatest(end_date, start_date, date + coalesce(time, 23:59:59) no fuso America/Sao_Paulo).
+--         greatest ignora nulos. Precisa do date/time: NewEvent e EventPlanner gravam só date e time, e
+--         useCreateEvent põe start_date = hora da criação (em 01/10/2026, 2 dos 4 eventos da produção tinham
+--         date futura com start_date no passado: só com start_date a trava não dispararia). date é "date" e
+--         time é "time without time zone" (baseline); date + time dá timestamp sem fuso, e "at time zone
+--         'America/Sao_Paulo'" o lê como hora de Brasília. Usar a linha antiga impede mudar a data e encerrar
+--         no mesmo update; mudar a data com venda já é barrado pela F0a.
 --    Encerrar depois da data continua permitido. Evento sem venda: tudo permitido.
 --    "Vendido" = ingresso com status fora de ('cancelled', 'refunded'), inclusive 'transferred': o MESMO
 --    critério da trava de data e local da F0a (gf_protect_event_moderation). A tela (useVendidosPorEvento)
@@ -65,7 +72,8 @@
 --    Códigos (SQLSTATE próprios, fora das classes do Postgres; P0001 é o de qualquer "raise exception" sem
 --    errcode e a tela confundiria): EV001 = cancelar ("Este evento tem ingressos vendidos. Para cancelar, fale
 --    com o suporte da Evokaa."), EV002 = rascunho/encerrar antes ("Este evento tem ingressos vendidos e não
---    pode sair do ar. Fale com o suporte da Evokaa."). O PostgREST repassa o código em error.code (HTTP 400);
+--    pode sair do ar. Fale com o suporte da Evokaa."), EV003 = reabrir cancelado ("Evento cancelado com
+--    ingressos vendidos só é reaberto pelo suporte da Evokaa."). O PostgREST repassa o código em error.code (HTTP 400);
 --    lib/eventoProdutor.ts (erroDeStatus) troca pela mensagem.
 -- 8. Limites de texto: piggy_transactions.note <= 500 (e a função recusa antes, com 22023);
 --    event_budget_boxes.name <= 120 e notes <= 1000. CHECK simples (valida as linhas existentes na hora):
@@ -153,7 +161,7 @@ alter table public.event_budget_boxes add constraint event_budget_boxes_name_len
 alter table public.event_budget_boxes drop constraint if exists event_budget_boxes_notes_len;
 alter table public.event_budget_boxes add constraint event_budget_boxes_notes_len check (length(notes) <= 1000);
 
--- 7. (Decisão 129, ampliada) Evento com ingresso vendido não sai do ar pelo produtor
+-- 7. (Decisão 129, ampliada) Evento com ingresso vendido não sai do ar nem é reaberto pelo produtor
 create or replace function public.gf_protect_event_cancel()
 returns trigger
 language plpgsql
@@ -171,12 +179,19 @@ begin
                  where t.event_id = old.id and coalesce(t.status, 'active') not in ('cancelled', 'refunded')) then
     return new;
   end if;
+  if old.status = 'cancelled' then
+    raise exception 'Evento cancelado com ingressos vendidos só é reaberto pelo suporte da Evokaa.'
+      using errcode = 'EV003';
+  end if;
   if new.status = 'cancelled' then
     raise exception 'Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.'
       using errcode = 'EV001';
   end if;
+  -- maior data conhecida da linha antiga (DECISÕES 7)
   if (new.status = 'draft' and old.status = 'published')
-     or (new.status = 'ended' and coalesce(old.end_date, old.start_date) > now()) then
+     or (new.status = 'ended'
+         and greatest(old.end_date, old.start_date,
+                      (old.date + coalesce(old.time, time '23:59:59')) at time zone 'America/Sao_Paulo') > now()) then
     raise exception 'Este evento tem ingressos vendidos e não pode sair do ar. Fale com o suporte da Evokaa.'
       using errcode = 'EV002';
   end if;
@@ -188,7 +203,7 @@ drop trigger if exists gf_protect_event_cancel on public.events;
 create trigger gf_protect_event_cancel
   before update of status on public.events
   for each row
-  when (old.status is distinct from new.status and new.status in ('cancelled', 'draft', 'ended'))
+  when (old.status is distinct from new.status and (new.status in ('cancelled', 'draft', 'ended') or old.status = 'cancelled'))
   execute function public.gf_protect_event_cancel();
 
 -- Conferência obrigatória: se algo faltar, nada deste arquivo é gravado.

@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(22);
+select plan(29);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -31,19 +31,24 @@ update public.profiles set role = 'admin', admin_permissions = '{manage_events}'
 --   e7 só transferred | e8 active, data futura (rascunho) | e9 active, data futura (encerrar)
 --   e10 active, data passada (encerrar e depois cancelar) | e11 active (claim forjada) | e12 active (admin aal1)
 --   e13 active (moderação do admin: recusa e volta a rascunho)
+--   e14 active, só date futura (start_date no passado, como grava o NewEvent) | e15 active, date passada
+--   e16 active, date/time de Brasília daqui a 2 h (em UTC já teria passado) | e17 active, date/time de Brasília
+--   há 2 h (passado) | e18 active, já cancelado (reabrir). Só o e16 distingue o fuso: Brasília é UTC-3, então
+--   ler a hora local como UTC a joga 3 h para trás (e16 viraria passado; e17 continua passado nos dois casos).
 insert into public.events (id, producer_id, title, slug, status, start_date)
 select ('c4000000-0000-4000-8000-0000000000' || lpad(n::text, 2, '0'))::uuid, 'c4000000-0000-4000-8000-000000000001',
        'Evento ' || n, 'canc-e' || n, 'published',
-       case when n in (8, 9) then now() + interval '30 days' when n = 10 then now() - interval '2 days' else now() end
-from generate_series(1, 13) n;
+       case when n in (8, 9) then now() + interval '30 days' when n in (10, 14, 15, 16, 17) then now() - interval '10 days'
+            else now() end
+from generate_series(1, 18) n;
 insert into public.orders (id, user_id, event_id)
 select ('c4000000-0000-4000-8000-0000000001' || lpad(n::text, 2, '0'))::uuid, 'c4000000-0000-4000-8000-000000000002',
        ('c4000000-0000-4000-8000-0000000000' || lpad(n::text, 2, '0'))::uuid
-from generate_series(2, 13) n;
+from generate_series(2, 18) n;
 insert into public.ticket_types (id, event_id, name)
 select ('c4000000-0000-4000-8000-0000000002' || lpad(n::text, 2, '0'))::uuid,
        ('c4000000-0000-4000-8000-0000000000' || lpad(n::text, 2, '0'))::uuid, 'Pista'
-from generate_series(2, 13) n;
+from generate_series(2, 18) n;
 insert into public.tickets (order_id, ticket_type_id, event_id, user_id, buyer_name, buyer_email, status)
 select ('c4000000-0000-4000-8000-0000000001' || lpad(n::text, 2, '0'))::uuid,
        ('c4000000-0000-4000-8000-0000000002' || lpad(n::text, 2, '0'))::uuid,
@@ -51,7 +56,19 @@ select ('c4000000-0000-4000-8000-0000000001' || lpad(n::text, 2, '0'))::uuid,
        'c4000000-0000-4000-8000-000000000002', 'Comprador', 'canc-comp@teste.local', st
 from (values (2, 'active'), (3, 'used'), (4, 'cancelled'), (4, 'refunded'), (5, 'active'), (6, 'active'),
              (7, 'transferred'), (8, 'active'), (9, 'active'), (10, 'active'), (11, 'active'), (12, 'active'),
-             (13, 'active')) v(n, st);
+             (13, 'active'), (14, 'active'), (15, 'active'), (16, 'active'), (17, 'active'), (18, 'active')) v(n, st);
+-- datas só em date/time (hora de Brasília) e o e18 já cancelado (como postgres: os gatilhos não barram)
+update public.events set date = ((now() at time zone 'America/Sao_Paulo') + interval '30 days')::date, time = null
+ where id = 'c4000000-0000-4000-8000-000000000014';
+update public.events set date = ((now() at time zone 'America/Sao_Paulo') - interval '5 days')::date, time = '20:00'
+ where id = 'c4000000-0000-4000-8000-000000000015';
+update public.events set date = ((now() at time zone 'America/Sao_Paulo') + interval '2 hours')::date,
+                         time = ((now() at time zone 'America/Sao_Paulo') + interval '2 hours')::time
+ where id = 'c4000000-0000-4000-8000-000000000016';
+update public.events set date = ((now() at time zone 'America/Sao_Paulo') - interval '2 hours')::date,
+                         time = ((now() at time zone 'America/Sao_Paulo') - interval '2 hours')::time
+ where id = 'c4000000-0000-4000-8000-000000000017';
+update public.events set status = 'cancelled' where id = 'c4000000-0000-4000-8000-000000000018';
 
 select ok(exists (select 1 from pg_trigger where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_cancel'),
   'gatilho gf_protect_event_cancel existe');
@@ -92,6 +109,19 @@ select throws_ok($$update events set status = 'cancelled' where id = 'c4000000-0
   'EV001', null, 'de encerrado para cancelado, com venda: recusado');
 select results_eq($$with u as (update events set status = 'draft' where id = 'c4000000-0000-4000-8000-000000000001'
   returning status) select * from u$$, array['draft'], 'evento sem venda: de cancelado para rascunho continua livre');
+select throws_ok($$update events set status = 'ended' where id = 'c4000000-0000-4000-8000-000000000014'$$,
+  'EV002', null, 'só date futura (start_date no passado): encerrar com venda é recusado');
+select results_eq($$with u as (update events set status = 'ended' where id = 'c4000000-0000-4000-8000-000000000015'
+  returning status) select * from u$$, array['ended'], 'date no passado: encerra');
+select throws_ok($$update events set status = 'ended' where id = 'c4000000-0000-4000-8000-000000000016'$$,
+  'EV002', null, 'fuso: hora de Brasília daqui a 2 h ainda é futuro (lida como UTC já teria passado)');
+select results_eq($$with u as (update events set status = 'ended' where id = 'c4000000-0000-4000-8000-000000000017'
+  returning status) select * from u$$, array['ended'], 'date/time de Brasília de 2 h atrás já passou: encerra');
+select throws_ok($$update events set status = 'published' where id = 'c4000000-0000-4000-8000-000000000018'$$,
+  'EV003', 'Evento cancelado com ingressos vendidos só é reaberto pelo suporte da Evokaa.',
+  'produtor não republica evento cancelado com venda');
+select throws_ok($$update events set status = 'draft' where id = 'c4000000-0000-4000-8000-000000000018'$$,
+  'EV003', null, 'produtor não volta a rascunho evento cancelado com venda');
 
 -- Claim role forjada: sessão authenticated com "role": "service_role" no JWT
 select set_config('request.jwt.claims',
@@ -110,6 +140,8 @@ select results_eq($$with u as (update events set status = 'cancelled' where id =
 select results_eq($$with u as (update events set approval_status = 'rejected', rejection_reason = 'teste', status = 'draft'
   where id = 'c4000000-0000-4000-8000-000000000013' returning status) select * from u$$, array['draft'],
   'moderação do admin (recusar e voltar a rascunho) não é afetada');
+select results_eq($$with u as (update events set status = 'published' where id = 'c4000000-0000-4000-8000-000000000018'
+  returning status) select * from u$$, array['published'], 'admin (aal2) reabre evento cancelado com venda');
 select pg_temp.como('postgres');
 select results_eq($$select status from events where id = 'c4000000-0000-4000-8000-000000000012'$$, array['published'],
   'o evento do teste do admin aal1 continua publicado');
