@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { searchAddressByPostalCode } from '../../lib/cepService'
+import { cpfValido, maiorDeIdade, UFS } from '../../lib/formatters'
 
 // Afiliados Evokaa = quem revende a PLATAFORMA aos produtores (Decisão 64).
 // Não confundir com os afiliados de evento que o produtor cadastra (tabela `affiliates`).
@@ -66,7 +67,6 @@ const ORIGEM: Record<Vinculo['source'], string> = {
   coupon: 'Cupom',
 }
 
-const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 const CODE_RE = /^[A-Z0-9_-]{3,30}$/
 const RECORRENCIAS = Array.from({ length: 11 }, (_, i) => 15 + i) // 15% a 25%
 
@@ -103,17 +103,6 @@ const digitos = (s: string) => s.replace(/\D/g, '')
 const sugerirCodigo = (nome: string) =>
   nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
 
-// Mesma regra de gf_cpf_valido no banco (dígitos verificadores)
-export function cpfValido(cpf: string) {
-  const d = digitos(cpf)
-  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false
-  const n = d.split('').map(Number)
-  const dv = (ate: number) => {
-    const s = n.slice(0, ate).reduce((acc, x, i) => acc + x * (ate + 1 - i), 0)
-    return s % 11 < 2 ? 0 : 11 - (s % 11)
-  }
-  return dv(9) === n[9] && dv(10) === n[10]
-}
 const fmtCpf = (s: string) => digitos(s).replace(/(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4')
 const mascararCpf = (s: string | null) => (s && s.length === 11 ? `***.${s.slice(3, 6)}.${s.slice(6, 9)}-**` : '—')
 const fmtTel = (s: string | null) => {
@@ -133,13 +122,6 @@ function tempoDesde(iso: string) {
   const anos = Math.floor(meses / 12)
   const resto = meses % 12
   return `há ${anos} ano${anos === 1 ? '' : 's'}${resto ? ` e ${resto} ${resto === 1 ? 'mês' : 'meses'}` : ''}`
-}
-
-function maiorDeIdade(iso: string) {
-  const n = new Date(iso + 'T00:00:00')
-  const limite = new Date()
-  limite.setFullYear(limite.getFullYear() - 18)
-  return n <= limite && n.getFullYear() >= 1900
 }
 
 function validar(f: Form): string | null {

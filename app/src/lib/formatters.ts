@@ -14,6 +14,28 @@ export function formatCPF(value: string): string {
   return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
 }
 
+// CPF com dígitos verificadores: mesma regra de gf_cpf_valido no banco
+export function cpfValido(cpf: string) {
+  const d = cpf.replace(/\D/g, '');
+  if (d.length !== 11 || /^(\d)\1{10}$/.test(d)) return false;
+  const n = d.split('').map(Number);
+  const dv = (ate: number) => {
+    const s = n.slice(0, ate).reduce((acc, x, i) => acc + x * (ate + 1 - i), 0);
+    return s % 11 < 2 ? 0 : 11 - (s % 11);
+  };
+  return dv(9) === n[9] && dv(10) === n[10];
+}
+
+// 18 anos ou mais na data de hoje (data AAAA-MM-DD)
+export function maiorDeIdade(iso: string) {
+  const n = new Date(iso + 'T00:00:00');
+  const limite = new Date();
+  limite.setFullYear(limite.getFullYear() - 18);
+  return n <= limite && n.getFullYear() >= 1900;
+}
+
+export const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
+
 /**
  * Formata CNPJ para o padrão "xx.xxx.xxx/xxxx-xx"
  */
