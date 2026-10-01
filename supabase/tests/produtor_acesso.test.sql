@@ -73,7 +73,7 @@ select policies_are('public', 'coupons', array['Admin gerencia coupons da plataf
   'Afiliado le os proprios cupons', 'Produtor gerencia coupons', 'gf_mfa_aal2'],
   'coupons: regras de admin e afiliado intactas');
 select policies_are('public', 'event_budget_boxes', array['Produtor gerencia budget boxes', 'gf_budget_boxes_all',
-  'gf_mfa_aal2'], 'event_budget_boxes: só as 3 regras esperadas');
+  'gf_mfa_aal2', 'gf_budget_boxes_insert_saldo_zero'], 'event_budget_boxes: só as 4 regras esperadas (a 4ª é do B3b, 20261006)');
 select ok((select qual from pg_policies where tablename = 'event_budget_boxes' and policyname = 'gf_budget_boxes_all')
   not like '%producer_id%', 'gf_budget_boxes_all só para admin (sem o atalho do dono)');
 select ok(not has_function_privilege('anon', 'public.vincular_afiliado(text, uuid, numeric)', 'execute')
