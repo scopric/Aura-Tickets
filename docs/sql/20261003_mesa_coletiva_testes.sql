@@ -863,6 +863,8 @@ begin
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L)', d1, 'resolvida', 'procedente')) like '22023 Para marcar como resolvida%', 'resolvida sem explicação';
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', null, 'explicação comprida o bastante')) like '22023 Para marcar como resolvida%', 'resolvida sem resultado (com explicação)';
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'curta')) like '23514%', 'explicação curta';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', repeat(chr(9), 6) || repeat(chr(10), 6))) like '22023 Para marcar como resolvida%', 'explicação só de tabulação e quebra de linha';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', '...........  ---')) like '23514%', 'explicação sem letra nem número';
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'x' || chr(8238) || 'yz explicação')) like '23514%', 'explicação com bidi';
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'talvez', 'explicação comprida o bastante')) like '23514%', 'resultado fora da lista';
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', repeat('x', 1001))) like '23514%', 'explicação longa';
@@ -1347,6 +1349,11 @@ begin
   perform pg_temp.rpc2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'comportamento_no_local'));
   assert (select tr.denuncia_id = d.id from public.mesa_travas tr join public.mesa_denuncias d on d.evento = tr.evento and d.denunciado = tr.user_id
           where tr.evento = pg_temp.u(904) and tr.user_id = pg_temp.u(15)), 'denuncia_id do 15 não gravado';
+  -- resolvida e procedente: a trava do 15 continua vigente e a lista mostra o resultado da denúncia
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', (select id from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15)),
+                                 'resolvida', 'procedente', 'Confirmado de novo no local'));
+  assert (select destravada_em is null from public.mesa_travas where evento = pg_temp.u(904) and user_id = pg_temp.u(15)), 'procedente destravou';
+  assert pg_temp.rpc2(3, format('public.mesa_travas_do_evento(%L)', pg_temp.u(904)))::text like '%"denuncia_resultado": "procedente"%', 'lista sem denuncia_resultado';
   -- o produtor P remove o admin 3 do evento 904
   perform pg_temp.ingresso(4003, 914, 904, 3);
   perform pg_temp.escolhe(3, 904, null);
@@ -1405,6 +1412,13 @@ begin
   assert r::text like '%Pessoa19 Sobrenome%' and r::text not like '%Pessoa17 Sobrenome%', format('travas do moderador-produtor: %s', r);
   assert pg_temp.err2(3, format('public.mesa_destravar(%L, %L)', pg_temp.u(907), (select id from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(17))))
          = '22023 Trava não encontrada', 'destravou a trava da equipe';
+  -- o 19 foi removido com a denúncia em aberto/analisada; ao resolver como improcedente a trava cai sozinha
+  assert (select destravada_em is null from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'preparo: trava do 19 vigente';
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', (select id from public.mesa_denuncias where evento = pg_temp.u(907) and denunciado = pg_temp.u(19)),
+                                 'resolvida', 'improcedente', 'Não se confirmou nas câmeras'));
+  assert (select destravada_em is not null and destravada_por = pg_temp.u(3) from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'improcedente não destravou';
+  assert not public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'ainda travado depois de improcedente';
+  assert pg_temp.rpc2(3, format('public.mesa_travas_do_evento(%L)', pg_temp.u(907)))::text like '%"denuncia_resultado": "improcedente"%', 'lista sem o resultado improcedente';
   r := pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(907)));
   assert jsonb_array_length(r) = 1 and r -> 0 ->> 'denunciado' = 'Pessoa19 Sobrenome', format('moderador-produtor vê a equipe: %s', r);
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d, 'resolvida', 'procedente', 'Explicação do resultado de teste')) = '22023 Denúncia não encontrada', 'decidiu contra a equipe';

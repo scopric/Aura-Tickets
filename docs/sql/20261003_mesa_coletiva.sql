@@ -472,7 +472,8 @@ create table if not exists public.mesa_denuncias (
   -- só exige o resultado; o resultado fica com o registro (3 anos). Só o moderador lê a explicação.
   resultado text check (resultado in ('procedente', 'improcedente')),
   resultado_explicacao text check (char_length(resultado_explicacao) between 10 and 1000
-    and resultado_explicacao !~ '[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f؜‎‏‪-‮⁦-⁩]'),
+    and resultado_explicacao !~ '[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f؜‎‏‪-‮⁦-⁩]'
+    and resultado_explicacao ~ '[[:alnum:]]'),
   unique (denunciante, denunciado, evento),
   check (motivo <> 'assedio' or mesma_mesa),
   check (case when status = 'resolvida' then resultado is not null
@@ -1478,17 +1479,23 @@ set search_path = ''
 as $$
 begin
   perform public.mesa_moderador();
-  if p_status = 'resolvida' and (p_resultado is null or nullif(trim(p_explicacao), '') is null) then
+  if p_status = 'resolvida' and (p_resultado is null or nullif(btrim(p_explicacao, E' \t\r\n'), '') is null) then
     raise exception 'Para marcar como resolvida, informe o resultado (procedente ou improcedente) e a explicação'
       using errcode = '22023';
   end if;
   update public.mesa_denuncias
   set status = p_status, status_mudado_por = auth.uid(), status_mudado_em = now(),
       resultado = case when p_status = 'resolvida' then p_resultado end,
-      resultado_explicacao = case when p_status = 'resolvida' then trim(p_explicacao) end
+      resultado_explicacao = case when p_status = 'resolvida' then btrim(p_explicacao, E' \t\r\n') end
   where id = p_id and not coalesce(public.mesa_conflito(evento, denunciado), false);
   if not found then
     raise exception 'Denúncia não encontrada' using errcode = '22023';
+  end if;
+  -- improcedente: quem foi removido por esta denúncia volta a poder escolher mesa (ninguém fica fora sem
+  -- denúncia válida); mesmo registro de mesa_destravar, que não gera aviso
+  if p_status = 'resolvida' and p_resultado = 'improcedente' then
+    update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
+    where denuncia_id = p_id and destravada_em is null;
   end if;
 end;
 $$;
@@ -1595,7 +1602,7 @@ begin
   perform public.mesa_moderador();
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-             'id', tr.id, 'pessoa', pu.full_name, 'motivo', tr.motivo, 'detalhe', tr.detalhe, 'denuncia_motivo', dn.motivo,
+             'id', tr.id, 'pessoa', pu.full_name, 'motivo', tr.motivo, 'detalhe', tr.detalhe, 'denuncia_motivo', dn.motivo, 'denuncia_resultado', dn.resultado,
              'por', pp.full_name, 'em', tr.em, 'destravada_em', tr.destravada_em, 'destravada_por', pd.full_name)
            order by tr.em desc, tr.id)
     from public.mesa_travas tr
