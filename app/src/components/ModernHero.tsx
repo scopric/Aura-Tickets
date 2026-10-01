@@ -155,16 +155,11 @@ export default function ModernHero() {
   // GSAP text animations
   useEffect(() => {
     if (!isLoaded) return
-    // O título (mh-line-*) não anima: ele é o maior elemento da primeira tela e precisa aparecer na primeira pintura (LCP)
+    // Título e parágrafo não animam: são os maiores elementos da primeira tela e precisam aparecer na primeira pintura (LCP)
     const tl = gsap.timeline({ delay: 0.2 })
     tl.fromTo('.mh-badge',
       { scale: 0.8, opacity: 0 },
       { scale: 1, opacity: 1, duration: 0.7, ease: 'back.out(1.7)' }
-    )
-    .fromTo('.mh-desc',
-      { y: 30, opacity: 0 },
-      { y: 0, opacity: 1, duration: 0.9, ease: 'power3.out' },
-      '-=0.4'
     )
     .fromTo('.mh-cta-group',
       { y: 25, opacity: 0 },
