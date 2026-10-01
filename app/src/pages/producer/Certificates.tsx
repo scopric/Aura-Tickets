@@ -4,23 +4,25 @@ import {
   ArrowLeft, Award, FileText, CheckCircle2, Users,
   Search, GraduationCap, Calendar, Palette, Loader2
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
-import { useEventCertificates, useIssueCertificate, useBulkIssueCertificates } from '../../hooks/useProducerTools'
+import { useEventCertificates } from '../../hooks/useProducerTools'
+
+// emissão grava em issued_certificates, que ainda não tem regra de acesso do produtor (fase B3)
+const EMISSAO_EM_BREVE = 'Emissão disponível em breve'
 
 export default function Certificates() {
   const { data: events = [], isLoading: eventsLoading } = useProducerEvents()
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(events[0]?.id || null)
+  const [pickedEventId, setPickedEventId] = useState<string | null>(null)
+  // a lista chega depois do 1º render: sem escolha, vale o primeiro evento
+  const selectedEventId = pickedEventId ?? events[0]?.id ?? null
 
   const { data: certs = [], isLoading: certsLoading } = useEventCertificates(selectedEventId)
-  const issueCert = useIssueCertificate()
-  const bulkIssue = useBulkIssueCertificates()
 
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
 
   const filtered = certs.filter(c =>
-    c.participant_name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.participant_name || '').toLowerCase().includes(search.toLowerCase()) ||
     (c.participant_email || '').toLowerCase().includes(search.toLowerCase())
   )
 
@@ -37,27 +39,6 @@ export default function Certificates() {
       setSelected([])
     } else {
       setSelected(unissued)
-    }
-  }
-
-  const handleIssue = async () => {
-    if (!selectedEventId || selected.length === 0) return
-    try {
-      await bulkIssue.mutateAsync({ event_id: selectedEventId, ids: selected })
-      toast.success(`${selected.length} certificados emitidos!`)
-      setSelected([])
-    } catch {
-      toast.error('Erro ao emitir certificados')
-    }
-  }
-
-  const handleIssueOne = async (id: string) => {
-    if (!selectedEventId) return
-    try {
-      await issueCert.mutateAsync({ id, event_id: selectedEventId })
-      toast.success('Certificado emitido!')
-    } catch {
-      toast.error('Erro ao emitir certificado')
     }
   }
 
@@ -84,7 +65,7 @@ export default function Certificates() {
         </div>
         <select
           value={selectedEventId || ''}
-          onChange={e => setSelectedEventId(e.target.value || null)}
+          onChange={e => setPickedEventId(e.target.value || null)}
           className="px-4 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
         >
           <option value="">Selecione um evento</option>
@@ -126,8 +107,8 @@ export default function Certificates() {
             {selected.length > 0 ? 'Desmarcar' : 'Selecionar Pendentes'}
           </button>
           {selected.length > 0 && (
-            <button onClick={handleIssue} disabled={bulkIssue.isPending} className="px-4 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2 disabled:opacity-50">
-              {bulkIssue.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Award className="w-4 h-4" /> Emitir {selected.length}</>}
+            <button disabled className="px-4 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2 disabled:opacity-50">
+              <Award className="w-4 h-4" /> {EMISSAO_EM_BREVE}
             </button>
           )}
         </div>
@@ -170,7 +151,7 @@ export default function Certificates() {
             </div>
             <div className="col-span-2 flex items-center gap-1">
               {!cert.issued && (
-                <button onClick={() => handleIssueOne(cert.id)} className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors" title="Emitir">
+                <button disabled className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors disabled:opacity-50" title={EMISSAO_EM_BREVE} aria-label={EMISSAO_EM_BREVE}>
                   <Award className="w-3.5 h-3.5" />
                 </button>
               )}

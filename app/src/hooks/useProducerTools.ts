@@ -217,16 +217,16 @@ export function useDeletePartner() {
 export interface DbCoupon {
   id: string
   producer_id: string
+  event_id: string | null
   code: string
-  type: 'percent' | 'fixed'
-  value: number
-  min_purchase: number
-  max_uses: number
-  used: number
-  status: 'ativo' | 'expirado' | 'esgotado' | 'desativado'
-  event_name: string | null
-  start_date: string | null
-  end_date: string | null
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_order_value: number | null
+  max_uses: number | null
+  uses: number
+  is_active: boolean
+  valid_from: string | null
+  valid_until: string | null
   description: string | null
   created_at: string
   updated_at: string
@@ -248,8 +248,8 @@ export function useProducerCoupons() {
       if (error) throw error
       return (data || []).map((c: any) => ({
         ...c,
-        value: Number(c.value) || 0,
-        min_purchase: Number(c.min_purchase) || 0,
+        discount_value: Number(c.discount_value) || 0,
+        min_order_value: c.min_order_value == null ? null : Number(c.min_order_value),
       })) as DbCoupon[]
     },
     enabled: !!user?.id,
@@ -825,49 +825,7 @@ export function useEventCertificates(eventId: string | null) {
   })
 }
 
-export function useIssueCertificate() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, event_id }: { id: string; event_id: string }) => {
-      const { data, error } = await supabase
-        .from('certificates')
-        .update({ issued: true, issue_date: new Date().toISOString() })
-        .eq('id', id)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['event-certificates', variables.event_id] })
-    },
-  })
-}
-
-export function useBulkIssueCertificates() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ event_id, ids }: { event_id: string; ids: string[] }) => {
-      const { data, error } = await supabase
-        .from('certificates')
-        .update({ issued: true, issue_date: new Date().toISOString() })
-        .in('id', ids)
-        .eq('event_id', event_id)
-        .select()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['event-certificates', variables.event_id] })
-    },
-  })
-}
+// Emissão (issued_certificates) fica para a fase B3: ainda não há regra de acesso do produtor.
 
 // ─── Budget Boxes / PiggyBank ───
 export interface DbBudgetBox {
@@ -1016,21 +974,25 @@ export function useCreatePiggyTransaction() {
       if (txError) throw txError
 
       // Update box saved amount
-      const { data: box } = await supabase
+      const { data: box, error: boxError } = await supabase
         .from('event_budget_boxes')
         .select('saved')
         .eq('id', box_id)
         .single()
 
+      if (boxError) throw boxError
+
       const currentSaved = Number(box?.saved) || 0
       const newSaved = type === 'deposit' ? currentSaved + amount : currentSaved - amount
 
-      const { error: updateError } = await supabase
+      const { data: updated, error: updateError } = await supabase
         .from('event_budget_boxes')
         .update({ saved: newSaved })
         .eq('id', box_id)
+        .select('id')
 
       if (updateError) throw updateError
+      if (!updated?.length) throw new Error('Saldo da caixinha não foi atualizado')
 
       return tx
     },

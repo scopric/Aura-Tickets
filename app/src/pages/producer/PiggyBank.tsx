@@ -11,6 +11,7 @@ import {
   useDeleteBudgetBox,
   useCreatePiggyTransaction,
 } from '../../hooks/useProducerTools'
+import { useProducerEvents } from '../../hooks/useEvents'
 
 const categories = [
   { id: 'marketing', label: 'Marketing', color: '#8b5cf6' },
@@ -23,12 +24,13 @@ const categories = [
 
 export default function ProducerPiggyBank() {
   const { data: boxes = [], isLoading } = useBudgetBoxes()
+  const { data: events = [] } = useProducerEvents()
   const createBox = useCreateBudgetBox()
   const deleteBox = useDeleteBudgetBox()
   const createTransaction = useCreatePiggyTransaction()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ eventName: '', name: '', target: '', category: 'marketing', notes: '' })
+  const [form, setForm] = useState({ eventId: '', name: '', target: '', category: 'marketing', notes: '' })
   const [depositBox, setDepositBox] = useState<string | null>(null)
   const [depositAmount, setDepositAmount] = useState('')
 
@@ -45,14 +47,14 @@ export default function ProducerPiggyBank() {
     if (!form.name || !form.target) { toast.error('Preencha nome e meta'); return }
     try {
       await createBox.mutateAsync({
-        event_name: form.eventName || null,
+        event_id: form.eventId || null,
         name: form.name,
         target: Number(form.target),
         saved: 0,
         category: form.category,
         notes: form.notes || null,
       })
-      setForm({ eventName: '', name: '', target: '', category: 'marketing', notes: '' })
+      setForm({ eventId: '', name: '', target: '', category: 'marketing', notes: '' })
       setShowForm(false)
       toast.success('Caixinha criada!')
     } catch {
@@ -153,7 +155,7 @@ export default function ProducerPiggyBank() {
                   </div>
                   <div>
                     <h3 className="text-sm font-medium text-espresso">{box.name}</h3>
-                    <p className="text-[10px] text-espresso/70">{box.event_name || 'Evento'}</p>
+                    <p className="text-[10px] text-espresso/70">{events.find(ev => ev.id === box.event_id)?.title || 'Evento'}</p>
                   </div>
                 </div>
                 <button onClick={() => handleDelete(box.id)} className="p-1 rounded hover:bg-red-50 text-espresso/50 hover:text-red-400 transition-colors">
@@ -208,7 +210,10 @@ export default function ProducerPiggyBank() {
               <button onClick={() => setShowForm(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <div className="space-y-3">
-              <input value={form.eventName} onChange={e => setForm({ ...form, eventName: e.target.value })} placeholder="Nome do evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+              <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                <option value="">Sem evento</option>
+                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </select>
               <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Nome da caixinha *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <input type="number" value={form.target} onChange={e => setForm({ ...form, target: e.target.value })} placeholder="Meta (R$) *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
               <div>

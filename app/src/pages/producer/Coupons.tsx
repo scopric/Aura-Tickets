@@ -8,6 +8,7 @@ import {
   useDeleteCoupon,
   type DbCoupon,
 } from '../../hooks/useProducerTools'
+import { useProducerEvents } from '../../hooks/useEvents'
 
 const statusOptions = ['Todos', 'Ativo', 'Expirado', 'Esgotado', 'Desativado']
 const typeOptions = ['Todos', 'Percentual', 'Valor Fixo']
@@ -19,47 +20,68 @@ const statusColors: Record<string, string> = {
   desativado: 'bg-red-50 text-red-500 border-red-100',
 }
 
+// status não é coluna: sai de is_active, valid_until e uses/max_uses
+const couponStatus = (c: DbCoupon) =>
+  !c.is_active ? 'desativado'
+  : c.valid_until && new Date(c.valid_until) < new Date() ? 'expirado'
+  : c.max_uses != null && c.uses >= c.max_uses ? 'esgotado'
+  : 'ativo'
+
+const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
+
 export default function ProducerCoupons() {
   const { data: coupons = [], isLoading } = useProducerCoupons()
+  const { data: events = [] } = useProducerEvents()
   const createCoupon = useCreateCoupon()
   const updateCoupon = useUpdateCoupon()
   const deleteCoupon = useDeleteCoupon()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ code: '', type: 'percent' as DbCoupon['type'], value: '', minPurchase: '', maxUses: '999', eventName: '', startDate: '', endDate: '', description: '' })
+  const [form, setForm] = useState(emptyForm)
   const [filterStatus, setFilterStatus] = useState('Todos')
   const [filterType, setFilterType] = useState('Todos')
   const [copied, setCopied] = useState<string | null>(null)
 
   const filtered = coupons
-    .filter(c => filterStatus === 'Todos' || c.status === filterStatus.toLowerCase())
-    .filter(c => filterType === 'Todos' || (c.type === 'percent' ? 'Percentual' : 'Valor Fixo') === filterType)
+    .filter(c => filterStatus === 'Todos' || couponStatus(c) === filterStatus.toLowerCase())
+    .filter(c => filterType === 'Todos' || (c.discount_type === 'percent' ? 'Percentual' : 'Valor Fixo') === filterType)
 
   const total = coupons.length
-  const active = coupons.filter(c => c.status === 'ativo').length
-  const totalUses = coupons.reduce((s, c) => s + (c.used || 0), 0)
+  const active = coupons.filter(c => couponStatus(c) === 'ativo').length
+  const totalUses = coupons.reduce((s, c) => s + (c.uses || 0), 0)
 
   const addCoupon = async () => {
-    if (!form.code) return
+    const code = form.code.trim().toUpperCase()
+    if (!code) { toast.error('Informe o código'); return }
+    const value = Number(form.value)
+    if (!(value > 0)) { toast.error('O desconto precisa ser maior que zero'); return }
+    if (form.type === 'percent' && value > 100) { toast.error('Percentual não pode passar de 100'); return }
+    const maxUses = form.maxUses ? Number(form.maxUses) : null
+    if (maxUses !== null && !(Number.isInteger(maxUses) && maxUses >= 1)) { toast.error('Limite de usos precisa ser 1 ou mais'); return }
+    const minOrder = form.minPurchase ? Number(form.minPurchase) : null
+    if (minOrder !== null && !(minOrder >= 0)) { toast.error('Compra mínima inválida'); return }
+    // data do campo é dia local: início às 00:00, fim às 23:59:59
+    const validFrom = form.startDate ? new Date(`${form.startDate}T00:00:00`).toISOString() : null
+    const validUntil = form.endDate ? new Date(`${form.endDate}T23:59:59`).toISOString() : null
+    if (validFrom && validUntil && validUntil <= validFrom) { toast.error('A data final precisa ser depois da inicial'); return }
     try {
       await createCoupon.mutateAsync({
-        code: form.code.toUpperCase(),
-        type: form.type,
-        value: Number(form.value) || 0,
-        min_purchase: Number(form.minPurchase) || 0,
-        max_uses: Number(form.maxUses) || 999,
-        used: 0,
-        status: 'ativo',
-        event_name: form.eventName || null,
-        start_date: form.startDate || null,
-        end_date: form.endDate || null,
+        code,
+        discount_type: form.type,
+        discount_value: value,
+        min_order_value: minOrder,
+        max_uses: maxUses,
+        event_id: form.eventId || null,
+        valid_from: validFrom,
+        valid_until: validUntil,
         description: form.description || null,
+        is_active: true,
       })
-      setForm({ code: '', type: 'percent', value: '', minPurchase: '', maxUses: '999', eventName: '', startDate: '', endDate: '', description: '' })
+      setForm(emptyForm)
       setShowForm(false)
       toast.success('Cupom criado!')
-    } catch {
-      toast.error('Erro ao criar cupom')
+    } catch (e) {
+      toast.error((e as { code?: string })?.code === '23505' ? 'Esse código já existe' : 'Erro ao criar cupom')
     }
   }
 
@@ -71,10 +93,10 @@ export default function ProducerCoupons() {
   }
 
   const toggleStatus = async (coupon: DbCoupon) => {
-    const newStatus = coupon.status === 'ativo' ? 'desativado' : 'ativo'
+    const isActive = !coupon.is_active
     try {
-      await updateCoupon.mutateAsync({ id: coupon.id, status: newStatus })
-      toast.success(`Cupom ${newStatus === 'ativo' ? 'ativado' : 'desativado'}!`)
+      await updateCoupon.mutateAsync({ id: coupon.id, is_active: isActive })
+      toast.success(`Cupom ${isActive ? 'ativado' : 'desativado'}!`)
     } catch {
       toast.error('Erro ao atualizar status')
     }
@@ -151,7 +173,7 @@ export default function ProducerCoupons() {
             <div className="space-y-3">
               <input value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="Codigo (ex: AURA20)" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
               <div className="grid grid-cols-2 gap-3">
-                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['type'] })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
                   <option value="percent">% Percentual</option>
                   <option value="fixed">R$ Valor Fixo</option>
                 </select>
@@ -161,7 +183,10 @@ export default function ProducerCoupons() {
                 <input value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} placeholder="Compra min. R$" type="number" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 <input value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} placeholder="Limite usos" type="number" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
               </div>
-              <input value={form.eventName} onChange={e => setForm({ ...form, eventName: e.target.value })} placeholder="Evento (opcional)" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+                <option value="">Todos os eventos</option>
+                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </select>
               <div className="grid grid-cols-2 gap-3">
                 <input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
                 <input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
@@ -177,10 +202,12 @@ export default function ProducerCoupons() {
 
       {/* Coupons Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {filtered.map(coupon => (
+        {filtered.map(coupon => {
+          const status = couponStatus(coupon)
+          return (
           <div key={coupon.id} className="p-5 rounded-2xl bg-white/60 border border-white/60 hover:shadow-md transition-all">
             <div className="flex items-center justify-between mb-4">
-              <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full border ${statusColors[coupon.status] || statusColors.ativo}`}>{coupon.status}</span>
+              <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full border ${statusColors[status]}`}>{status}</span>
               <div className="flex items-center gap-1">
                 <button onClick={() => copyCode(coupon.code)} className="p-1.5 rounded-lg text-espresso/50 hover:text-plum hover:bg-plum/10 transition-colors">
                   {copied === coupon.code ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -203,26 +230,27 @@ export default function ProducerCoupons() {
               <div className="text-center flex-1">
                 <div className="text-xs text-espresso/70">Desconto</div>
                 <div className="text-sm font-medium text-espresso">
-                  {coupon.type === 'percent' ? `${coupon.value}%` : `R$ ${Number(coupon.value || 0).toLocaleString('pt-BR')}`}
+                  {coupon.discount_type === 'percent' ? `${coupon.discount_value}%` : `R$ ${Number(coupon.discount_value || 0).toLocaleString('pt-BR')}`}
                 </div>
               </div>
               <div className="w-px h-8 bg-espresso/5" />
               <div className="text-center flex-1">
                 <div className="text-xs text-espresso/70">Usado</div>
-                <div className="text-sm font-medium text-espresso">{coupon.used || 0}/{coupon.max_uses || '-'}</div>
+                <div className="text-sm font-medium text-espresso">{coupon.uses || 0}/{coupon.max_uses || '-'}</div>
               </div>
               <div className="w-px h-8 bg-espresso/5" />
               <div className="text-center flex-1">
                 <div className="text-xs text-espresso/70">Minimo</div>
-                <div className="text-sm font-medium text-espresso">R$ {Number(coupon.min_purchase || 0).toLocaleString('pt-BR')}</div>
+                <div className="text-sm font-medium text-espresso">R$ {Number(coupon.min_order_value || 0).toLocaleString('pt-BR')}</div>
               </div>
             </div>
 
             <div className="flex items-center justify-between mt-3 text-[10px] text-espresso/70">
-              <span>Valido: {coupon.start_date ? new Date(coupon.start_date).toLocaleDateString('pt-BR') : 'Sempre'} {coupon.end_date ? `- ${new Date(coupon.end_date).toLocaleDateString('pt-BR')}` : ''}</span>
+              <span>Valido: {coupon.valid_from ? new Date(coupon.valid_from).toLocaleDateString('pt-BR') : 'Sempre'} {coupon.valid_until ? `- ${new Date(coupon.valid_until).toLocaleDateString('pt-BR')}` : ''}</span>
             </div>
           </div>
-        ))}
+          )
+        })}
       </div>
 
       {filtered.length === 0 && (
