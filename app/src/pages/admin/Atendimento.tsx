@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, Inbox, Info, Loader2, MessageSquare, RotateCcw, Scale, Search, User, UserCheck, UserX, X,
+  AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Inbox, Info, Loader2, MessageSquare, RotateCcw, Scale, Search, User, UserCheck, UserX, X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { atualizarConversa, depois, iniciais, marcarLida, mensagemDeErro, quando } from '../../hooks/useConversas'
 import ChatThread, { BotaoSom } from '../../components/chat/ChatThread'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
 
-// Caixa de entrada do atendimento (etapa 1a do chat estilo Intercom), estilo Intercom em 4 colunas:
-// filtros + busca · lista (chat_inbox) · conversa (ChatThread com nota interna) · contato e ações.
+// Caixa de entrada do atendimento (etapa 1a do chat estilo Intercom), em 3 colunas:
+// lista (chat_inbox, com filtros em menu e busca) · conversa (ChatThread com nota interna) · contato e ações.
 // Tudo passa pelo RLS e pelas funções chat_* do banco; nada é gravado direto nas tabelas.
 
 type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'resolvidas'
@@ -175,6 +176,8 @@ export default function Atendimento() {
   const [sel, setSel] = useState<string | null>(null)
   const [detalhes, setDetalhes] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const botaoDetalhes = useRef<HTMLButtonElement>(null)
+  const botaoFechar = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     // a partir de 2 caracteres (1 letra casaria quase tudo e a busca no texto é cara)
@@ -211,6 +214,7 @@ export default function Atendimento() {
   const c = conversa.data
   const extra = useExtra(c?.user_id ?? null, sel)
   const { setores, atendentes, erroAtendentes } = useOpcoes()
+  const atual = FILTROS.find((f) => f.id === filtro)!
   const naoLida = !!c && depois(c.last_customer_message_at, c.agent_last_read_at)
 
   useEffect(() => {
@@ -236,37 +240,56 @@ export default function Atendimento() {
     }
   }
 
+  const fecharDetalhes = () => {
+    setDetalhes(false)
+    botaoDetalhes.current?.focus()
+  }
+
+  // Abaixo de xl o painel cobre a conversa: Esc fecha e devolve o foco ao botão Detalhes
+  useEffect(() => {
+    if (!detalhes) return
+    botaoFechar.current?.focus()
+    const aoTeclar = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
+        setDetalhes(false)
+        botaoDetalhes.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', aoTeclar)
+    return () => document.removeEventListener('keydown', aoTeclar)
+  }, [detalhes])
+
   const abrir = (id: string) => {
     setSel(id)
     setDetalhes(false)
   }
 
   return (
-    <div className="relative flex h-[calc(100vh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
-      {/* 1. Filtros + busca */}
-      <nav aria-label="Filtros do atendimento" className={`${sel ? 'hidden lg:flex' : 'flex'} w-44 shrink-0 flex-col gap-1 border-r border-border bg-card p-3`}>
-        <div className="mb-2 flex items-center gap-1 px-2">
-          <h1 className="flex items-center gap-2 text-base font-semibold">
-            <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Atendimento
-          </h1>
-          <BotaoSom className="ml-auto text-muted-foreground hover:bg-muted hover:text-foreground" />
-        </div>
-        {FILTROS.map((f) => (
-          <button
-            key={f.id}
-            type="button"
-            aria-pressed={filtro === f.id}
-            onClick={() => setFiltro(f.id)}
-            className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm ${foco} ${filtro === f.id ? 'bg-primary/10 font-semibold text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}
-          >
-            <f.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {f.rotulo}
-          </button>
-        ))}
-      </nav>
-
-      {/* 2. Lista */}
+    <div className="relative flex h-[calc(100dvh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
+      {/* 1. Lista: título, som, filtros (menu) e busca */}
       <div className={`${sel ? 'hidden lg:flex' : 'flex'} w-full shrink-0 flex-col border-r border-border lg:w-80`}>
-        <div className="border-b border-border p-3">
+        <div className="space-y-2 border-b border-border p-3">
+          <div className="flex items-center gap-1 px-1">
+            <h1 className="flex items-center gap-2 text-base font-semibold">
+              <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Atendimento
+            </h1>
+            <BotaoSom className="ml-auto text-muted-foreground hover:bg-muted hover:text-foreground" />
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className={`flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-sm font-medium ${foco}`} aria-label={`Filtro: ${atual.rotulo}`}>
+              <atual.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {atual.rotulo}
+              <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-56">
+              <DropdownMenuRadioGroup value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
+                {FILTROS.map((f) => (
+                  <DropdownMenuRadioItem key={f.id} value={f.id}>
+                    <f.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {f.rotulo}
+                  </DropdownMenuRadioItem>
+                ))}
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <label htmlFor="atendimento-busca" className="sr-only">Buscar por nome, e-mail, telefone ou texto</label>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
@@ -343,7 +366,7 @@ export default function Atendimento() {
         </div>
       </div>
 
-      {/* 3. Conversa */}
+      {/* 2. Conversa */}
       <div className={`${sel ? 'flex' : 'hidden lg:flex'} relative min-w-0 flex-1 flex-col`}>
         {!sel ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
@@ -374,20 +397,20 @@ export default function Atendimento() {
                 </p>
               </div>
               {c.assignee_id !== user?.id && c.status === 'open' && (
-                <button type="button" disabled={salvando} onClick={() => mudar({ assignee_id: user!.id }, 'Você assumiu a conversa')} className={`hidden items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 sm:flex ${foco}`}>
+                <button type="button" disabled={salvando} onClick={() => mudar({ assignee_id: user!.id }, 'Você assumiu a conversa')} className={`hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 sm:flex ${foco}`}>
                   <UserCheck className="h-3.5 w-3.5" aria-hidden="true" /> Assumir
                 </button>
               )}
               {c.status === 'open' ? (
-                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'resolved' }, 'Conversa resolvida')} className={`flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 ${foco}`}>
+                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'resolved' }, 'Conversa resolvida')} className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 ${foco}`}>
                   <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Resolver
                 </button>
               ) : (
-                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'open' }, 'Conversa reaberta')} className={`flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 ${foco}`}>
+                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'open' }, 'Conversa reaberta')} className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 ${foco}`}>
                   <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reabrir
                 </button>
               )}
-              <button type="button" onClick={() => setDetalhes((d) => !d)} aria-expanded={detalhes} aria-controls="atendimento-contato" aria-label="Detalhes do contato" className={`rounded-lg p-1.5 hover:bg-muted xl:hidden ${foco}`}>
+              <button ref={botaoDetalhes} type="button" onClick={() => setDetalhes((d) => !d)} aria-expanded={detalhes} aria-controls="atendimento-contato" aria-label="Detalhes do contato" className={`shrink-0 rounded-lg p-1.5 hover:bg-muted xl:hidden ${foco}`}>
                 <Info className="h-4 w-4" aria-hidden="true" />
               </button>
             </header>
@@ -406,14 +429,15 @@ export default function Atendimento() {
             />
           </>
         )}
+        {c && detalhes && <div onClick={fecharDetalhes} aria-hidden="true" className="absolute inset-0 z-10 bg-black/50 xl:hidden" />}
       </div>
 
-      {/* 4. Contato e ações */}
+      {/* 3. Contato e ações: fixo a partir de xl; abaixo, painel sobre a conversa com fundo escurecido */}
       {c && (
         <aside
           id="atendimento-contato"
           aria-label="Contato e ações"
-          className={`${detalhes ? 'absolute inset-y-0 right-0 z-10 flex shadow-xl' : 'hidden'} w-72 shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-card p-4 xl:static xl:flex xl:shadow-none`}
+          className={`${detalhes ? 'absolute inset-y-0 right-0 z-20 flex shadow-xl' : 'hidden'} w-72 max-w-full shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-background p-4 xl:static xl:flex xl:bg-card xl:shadow-none`}
         >
           <div className="flex items-start gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">{iniciais(c.chat_contacts?.name ?? '?')}</span>
@@ -421,7 +445,7 @@ export default function Atendimento() {
               <p className="truncate font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</p>
               <p className="text-xs text-muted-foreground">Desde {data(c.created_at)}</p>
             </div>
-            <button type="button" onClick={() => setDetalhes(false)} aria-label="Fechar detalhes" className={`rounded-lg p-1 hover:bg-muted xl:hidden ${foco}`}>
+            <button ref={botaoFechar} type="button" onClick={fecharDetalhes} aria-label="Fechar detalhes" className={`rounded-lg p-1 hover:bg-muted xl:hidden ${foco}`}>
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>

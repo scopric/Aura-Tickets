@@ -149,7 +149,7 @@ export default function AdminLayout() {
           )}
         </div>
 
-        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] sidebar-dark-scroll">
+        <nav className="min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
           {filteredNavItems.map((item) => (
             <Link
               key={item.to}
@@ -225,7 +225,7 @@ export default function AdminLayout() {
         </button>
       </aside>
 
-      <div className={cn('flex-1 transition-all duration-300 min-h-screen', collapsed ? 'ml-16' : 'ml-60')}>
+      <div className={cn('min-w-0 flex-1 transition-all duration-300 min-h-screen', collapsed ? 'ml-16' : 'ml-60')}>
         {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
         <div className="sticky top-0 z-30 flex h-16 items-center justify-end px-4 pointer-events-none">
           <div className="glass-bar pointer-events-auto flex items-center gap-1 rounded-full border p-0.5">
