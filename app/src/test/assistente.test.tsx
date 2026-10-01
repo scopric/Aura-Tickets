@@ -108,9 +108,9 @@ describe('assistente: "Isso resolveu?"', () => {
 
 describe('assistente: rótulos da conversa', () => {
   it('mensagem do sistema centralizada, sem selo nem avatar', async () => {
-    respostas.conversation_messages = [msg({ sender_role: 'system', sender_id: null, sender_name: 'Evokaa', body: 'Vou passar sua conversa para um atendente humano.', created_at: '2026-09-30T12:00:02Z' }), msg({ body: 'quero uma pessoa' })]
+    respostas.conversation_messages = [msg({ sender_role: 'system', sender_id: null, sender_name: 'Evokaa', body: 'Certo! Sua conversa foi para a nossa equipe.', created_at: '2026-09-30T12:00:02Z' }), msg({ body: 'quero uma pessoa' })]
     montar(<ChatThread conversaId="c1" souEquipe={false} podeAnexar />)
-    const aviso = await screen.findByText('Vou passar sua conversa para um atendente humano.')
+    const aviso = await screen.findByText('Certo! Sua conversa foi para a nossa equipe.')
     expect(aviso.closest('li')).toHaveClass('text-center')
     expect(screen.queryByText('Sistema')).toBeNull()
   })
