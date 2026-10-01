@@ -286,7 +286,7 @@ export function useUpdateCoupon() {
     mutationFn: async ({ id, ...updates }: { id: string } & Partial<DbCoupon>) => {
       const { data, error } = await supabase
         .from('coupons')
-        .update(updates)
+        .update({ ...updates, updated_at: new Date().toISOString() }) // sem trigger de updated_at no banco
         .eq('id', id)
         .eq('producer_id', user?.id)
         .select()
@@ -794,15 +794,9 @@ export function useEventZones(eventId: string | null) {
 export interface DbCertificate {
   id: string
   event_id: string
-  ticket_id: string | null
-  participant_name: string
-  participant_email: string | null
-  hours: number
-  issued: boolean
-  issue_date: string | null
-  template_id: string | null
+  template: unknown
+  is_active: boolean
   created_at: string
-  updated_at: string
 }
 
 export function useEventCertificates(eventId: string | null) {
@@ -819,7 +813,7 @@ export function useEventCertificates(eventId: string | null) {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data || []).map((c: any) => ({ ...c, hours: Number(c.hours) || 0 })) as DbCertificate[]
+      return (data || []) as DbCertificate[]
     },
     enabled: !!user?.id && !!eventId,
   })
@@ -965,15 +959,7 @@ export function useCreatePiggyTransaction() {
     mutationFn: async ({ box_id, type, amount, note }: { box_id: string; type: 'deposit' | 'withdraw'; amount: number; note?: string }) => {
       if (!user?.id) throw new Error('Nao autenticado')
 
-      const { data: tx, error: txError } = await supabase
-        .from('piggy_transactions')
-        .insert({ box_id, type, amount, note: note || null })
-        .select()
-        .single()
-
-      if (txError) throw txError
-
-      // Update box saved amount
+      // ponytail: ler-calcular-gravar tem corrida entre duas abas; só some com RPC atômica (fase B3)
       const { data: box, error: boxError } = await supabase
         .from('event_budget_boxes')
         .select('saved')
@@ -985,6 +971,7 @@ export function useCreatePiggyTransaction() {
       const currentSaved = Number(box?.saved) || 0
       const newSaved = type === 'deposit' ? currentSaved + amount : currentSaved - amount
 
+      // saldo antes da transação: se a atualização falhar, não fica transação órfã
       const { data: updated, error: updateError } = await supabase
         .from('event_budget_boxes')
         .update({ saved: newSaved })
@@ -993,6 +980,18 @@ export function useCreatePiggyTransaction() {
 
       if (updateError) throw updateError
       if (!updated?.length) throw new Error('Saldo da caixinha não foi atualizado')
+
+      const { data: tx, error: txError } = await supabase
+        .from('piggy_transactions')
+        .insert({ box_id, type, amount, note: note || null })
+        .select()
+        .single()
+
+      if (txError) {
+        // devolve o saldo para não ficar valor sem transação registrada
+        await supabase.from('event_budget_boxes').update({ saved: currentSaved }).eq('id', box_id)
+        throw txError
+      }
 
       return tx
     },

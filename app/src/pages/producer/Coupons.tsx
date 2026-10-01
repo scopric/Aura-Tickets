@@ -10,11 +10,12 @@ import {
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
 
-const statusOptions = ['Todos', 'Ativo', 'Expirado', 'Esgotado', 'Desativado']
+const statusOptions = ['Todos', 'Ativo', 'Agendado', 'Expirado', 'Esgotado', 'Desativado']
 const typeOptions = ['Todos', 'Percentual', 'Valor Fixo']
 
 const statusColors: Record<string, string> = {
   ativo: 'bg-green-50 text-green-700 border-green-100',
+  agendado: 'bg-blue-50 text-blue-700 border-blue-100',
   expirado: 'bg-amber-50 text-amber-700 border-amber-100',
   esgotado: 'bg-espresso/5 text-espresso/70 border-espresso/10',
   desativado: 'bg-red-50 text-red-500 border-red-100',
@@ -24,6 +25,7 @@ const statusColors: Record<string, string> = {
 const couponStatus = (c: DbCoupon) =>
   !c.is_active ? 'desativado'
   : c.valid_until && new Date(c.valid_until) < new Date() ? 'expirado'
+  : c.valid_from && new Date(c.valid_from) > new Date() ? 'agendado'
   : c.max_uses != null && c.uses >= c.max_uses ? 'esgotado'
   : 'ativo'
 
@@ -54,7 +56,8 @@ export default function ProducerCoupons() {
     const code = form.code.trim().toUpperCase()
     if (!code) { toast.error('Informe o código'); return }
     const value = Number(form.value)
-    if (!(value > 0)) { toast.error('O desconto precisa ser maior que zero'); return }
+    // discount_value é numeric(10,2)
+    if (!(value >= 0.01 && value <= 99999999.99)) { toast.error('O desconto precisa ficar entre 0,01 e 99.999.999,99'); return }
     if (form.type === 'percent' && value > 100) { toast.error('Percentual não pode passar de 100'); return }
     const maxUses = form.maxUses ? Number(form.maxUses) : null
     if (maxUses !== null && !(Number.isInteger(maxUses) && maxUses >= 1)) { toast.error('Limite de usos precisa ser 1 ou mais'); return }
@@ -64,6 +67,7 @@ export default function ProducerCoupons() {
     const validFrom = form.startDate ? new Date(`${form.startDate}T00:00:00`).toISOString() : null
     const validUntil = form.endDate ? new Date(`${form.endDate}T23:59:59`).toISOString() : null
     if (validFrom && validUntil && validUntil <= validFrom) { toast.error('A data final precisa ser depois da inicial'); return }
+    if (validUntil && validUntil <= new Date().toISOString()) { toast.error('A data final já passou'); return }
     try {
       await createCoupon.mutateAsync({
         code,
