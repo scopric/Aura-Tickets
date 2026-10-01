@@ -11,6 +11,12 @@ import {
   type DbBanner,
 } from '../../hooks/useProducerTools'
 
+// Só https com domínio; null se inválido
+function urlImagem(v: string): string | null {
+  try { const u = new URL(v.trim()); if (u.protocol === 'https:' && u.hostname.includes('.')) return v.trim() } catch { /* inválido */ }
+  return null
+}
+
 const positionLabels: Record<string, string> = {
   hero: 'Capa do Evento',
   top: 'Topo da Pagina',
@@ -26,21 +32,33 @@ export default function ProducerEventBanners() {
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({ eventName: '', name: '', position: 'hero' as DbBanner['position'] })
   const [previewImage, setPreviewImage] = useState<string | null>(null)
+  const [url, setUrl] = useState('')
   const [previewBanner, setPreviewBanner] = useState<DbBanner | null>(null)
 
+  // a imagem entra no blur, no Enter ou no salvar (validada aqui também)
+  const aplicarUrl = () => {
+    if (!url.trim()) return
+    const ok = urlImagem(url)
+    if (ok) setPreviewImage(ok)
+    else toast.error('Use um endereço de imagem que comece com https://')
+  }
+
   const addBanner = async () => {
-    if (!form.name || !previewImage) { toast.error('Preencha nome e imagem'); return }
+    const imagem = previewImage ?? urlImagem(url)
+    if (!form.name.trim()) { toast.error('Preencha o nome do banner'); return }
+    if (!imagem) { toast.error('Cole o endereço (https://) da imagem'); return }
     try {
       await createBanner.mutateAsync({
         event_name: form.eventName || null,
         name: form.name,
-        image_url: previewImage,
+        image_url: imagem,
         position: form.position,
         active: true,
         clicks: 0,
       })
       setForm({ eventName: '', name: '', position: 'hero' })
       setPreviewImage(null)
+      setUrl('')
       setShowForm(false)
       toast.success('Banner criado!')
     } catch {
@@ -175,14 +193,14 @@ export default function ProducerEventBanners() {
               <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-8 text-center hover:border-plum/30 transition-colors">
                 {previewImage ? (
                   <div className="relative">
-                    <img src={previewImage} alt="Preview" onError={() => { setPreviewImage(null); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-32 object-cover rounded-xl" />
-                    <button onClick={() => setPreviewImage(null)} className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
+                    <img src={previewImage} alt="Preview" onError={() => { setPreviewImage(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-32 object-cover rounded-xl" />
+                    <button onClick={() => { setPreviewImage(null); setUrl('') }} aria-label="Trocar imagem" className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
                     <p className="text-sm text-espresso/70">Cole o endereço (https://) da imagem</p>
-                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} onBlur={e => { const v = e.target.value.trim(); try { const u = new URL(v); if (u.protocol === 'https:' && u.hostname.includes('.')) setPreviewImage(v); else if (v) toast.error('Use um endereço que comece com https://') } catch { if (v) toast.error('Endereço de imagem inválido') } }} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
+                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicarUrl() } }} onBlur={aplicarUrl} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
                   </div>
                 )}
               </div>

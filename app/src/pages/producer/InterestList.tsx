@@ -1,8 +1,8 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  ArrowLeft, Mail, Users, TrendingUp, Bell, Send, Clock,
-  CheckCircle2, MailOpen, Trash2, Loader2
+  ArrowLeft, Users, TrendingUp, Bell, Clock,
+  CheckCircle2, Trash2, Loader2, Copy
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -20,7 +20,6 @@ export default function ProducerInterestList() {
 
   const [filter, setFilter] = useState<'all' | 'notified' | 'pending'>('all')
   const [showNotifyModal, setShowNotifyModal] = useState(false)
-  const [notifyMessage, setNotifyMessage] = useState('As vendas ja comecaram! Garanta seu ingresso antes que acabe.')
 
   const filtered = leads.filter(i => {
     if (filter === 'notified') return i.notified
@@ -32,23 +31,35 @@ export default function ProducerInterestList() {
   const notifiedCount = leads.filter(i => i.notified).length
   const pendingCount = leads.filter(i => !i.notified).length
   const cities = [...new Set(leads.map(i => i.city).filter(Boolean))].length
+  const emails = [...new Set(filtered.map(i => i.email?.trim()).filter(Boolean))] as string[]
+
+  // "Avisado" só marca na lista: o e-mail em massa chega com o módulo de Comunicação (M6). Até lá, o produtor copia
+  // os e-mails e avisa por conta própria.
+  const copiarEmails = async () => {
+    try {
+      await navigator.clipboard.writeText(emails.join(', '))
+      toast.success(`${emails.length} e-mails copiados.`)
+    } catch {
+      toast.error('Não foi possível copiar. Tente de novo.')
+    }
+  }
 
   const handleNotify = async () => {
     try {
       const result = await notifyAll.mutateAsync()
       setShowNotifyModal(false)
-      toast.success(`${result?.length || 0} pessoas notificadas!`)
+      toast.success(`${result?.length || 0} marcados como avisados.`)
     } catch {
-      toast.error('Erro ao notificar interessados')
+      toast.error('Não foi possível marcar como avisados.')
     }
   }
 
   const handleNotifyOne = async (id: string) => {
     try {
       await notifyLead.mutateAsync(id)
-      toast.success('Notificado!')
+      toast.success('Marcado como avisado.')
     } catch {
-      toast.error('Erro ao notificar')
+      toast.error('Não foi possível marcar como avisado.')
     }
   }
 
@@ -80,10 +91,16 @@ export default function ProducerInterestList() {
         <div className="flex-1">
           <h1 className="font-serif text-3xl text-espresso">Lista de Interesse</h1>
           <p className="text-sm text-espresso/70 mt-1">Pessoas interessadas antes das vendas abrirem</p>
+          <p className="text-xs text-espresso/70 mt-1">"Marcar como avisado" só registra aqui. O e-mail em massa chega com o módulo de Comunicação.</p>
         </div>
+        {emails.length > 0 && (
+          <button onClick={copiarEmails} className="px-5 py-2.5 border border-espresso/15 text-espresso text-sm font-medium rounded-full flex items-center gap-2">
+            <Copy className="w-4 h-4" /> Copiar e-mails
+          </button>
+        )}
         {pendingCount > 0 && (
           <button onClick={() => setShowNotifyModal(true)} className="px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-            <Bell className="w-4 h-4" /> Notificar {pendingCount}
+            <Bell className="w-4 h-4" /> Marcar {pendingCount} como avisados
           </button>
         )}
       </div>
@@ -92,7 +109,7 @@ export default function ProducerInterestList() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         {[
           { label: 'Interessados', value: total.toString(), icon: Users },
-          { label: 'Notificados', value: notifiedCount.toString(), icon: CheckCircle2 },
+          { label: 'Avisados', value: notifiedCount.toString(), icon: CheckCircle2 },
           { label: 'Pendentes', value: pendingCount.toString(), icon: Clock },
           { label: 'Cidades', value: cities.toString(), icon: TrendingUp },
         ].map(k => (
@@ -109,7 +126,7 @@ export default function ProducerInterestList() {
         {(['all', 'pending', 'notified'] as const).map(f => (
           <button key={f} onClick={() => setFilter(f)}
             className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filter === f ? 'bg-plum text-cream' : 'bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
-            {f === 'all' ? 'Todos' : f === 'pending' ? `Pendentes (${pendingCount})` : `Notificados (${notifiedCount})`}
+            {f === 'all' ? 'Todos' : f === 'pending' ? `Pendentes (${pendingCount})` : `Avisados (${notifiedCount})`}
           </button>
         ))}
       </div>
@@ -143,11 +160,11 @@ export default function ProducerInterestList() {
             </div>
             <div className="col-span-1 flex items-center justify-end gap-1">
               {!item.notified && (
-                <button onClick={() => handleNotifyOne(item.id)} title="Notificar" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors">
-                  <Mail className="w-3.5 h-3.5" />
+                <button onClick={() => handleNotifyOne(item.id)} aria-label={`Marcar ${item.full_name} como avisado`} title="Marcar como avisado" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum transition-colors">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
                 </button>
               )}
-              <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
+              <button onClick={() => handleDelete(item.id)} aria-label={`Remover ${item.full_name}`} title="Remover" className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -168,22 +185,14 @@ export default function ProducerInterestList() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowNotifyModal(false)} />
           <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="w-14 h-14 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-              <MailOpen className="w-6 h-6 text-plum" />
-            </div>
-            <h3 className="font-serif text-xl text-espresso text-center mb-2">Notificar Interessados</h3>
-            <p className="text-xs text-espresso/70 text-center mb-4">{pendingCount} pessoas serao notificadas que as vendas comecaram.</p>
-            <div className="mb-4">
-              <label className="text-xs text-espresso/70 mb-1 block">Mensagem</label>
-              <textarea value={notifyMessage} onChange={e => setNotifyMessage(e.target.value)}
-                rows={3} className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-            </div>
+            <h3 className="font-serif text-xl text-espresso text-center mb-2">Marcar como avisados</h3>
+            <p className="text-xs text-espresso/70 text-center mb-4">{pendingCount} pessoas serão marcadas como avisadas. Nenhum e-mail é enviado: o envio em massa chega com o módulo de Comunicação.</p>
             <div className="flex gap-2">
               <button onClick={() => setShowNotifyModal(false)} className="flex-1 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all">
                 Cancelar
               </button>
               <button onClick={handleNotify} disabled={notifyAll.isPending} className="flex-1 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50">
-                {notifyAll.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-4 h-4" /> Enviar</>}
+                {notifyAll.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Marcar como avisados'}
               </button>
             </div>
           </div>

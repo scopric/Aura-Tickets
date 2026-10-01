@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import {
-  ImagePlus, Upload, X, Grid3X3, List, Heart, MessageCircle,
+  ImagePlus, Upload, X, Grid3X3, List,
   Trash2, Download, Eye, Check, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -11,6 +11,12 @@ import {
   useDeletePhoto,
   type DbPhoto,
 } from '../../hooks/useProducerTools'
+
+// Só https com domínio; null se inválido
+function urlImagem(v: string): string | null {
+  try { const u = new URL(v.trim()); if (u.protocol === 'https:' && u.hostname.includes('.')) return v.trim() } catch { /* inválido */ }
+  return null
+}
 
 export default function ProducerEventGallery() {
   const { data: photos = [], isLoading } = useEventPhotos()
@@ -23,24 +29,35 @@ export default function ProducerEventGallery() {
   const [showUpload, setShowUpload] = useState(false)
   const [uploadForm, setUploadForm] = useState({ eventName: '', caption: '', featured: false })
   const [uploadPreview, setUploadPreview] = useState<string | null>(null)
+  const [url, setUrl] = useState('')
 
   const events = [...new Set(photos.map(p => p.event_name).filter(Boolean))]
   const [activeEvent, setActiveEvent] = useState('Todos')
 
   const filtered = activeEvent === 'Todos' ? photos : photos.filter(p => p.event_name === activeEvent)
 
+  // a imagem entra no blur, no Enter ou no salvar (validada aqui também)
+  const aplicarUrl = () => {
+    if (!url.trim()) return
+    const ok = urlImagem(url)
+    if (ok) setUploadPreview(ok)
+    else toast.error('Use um endereço de imagem que comece com https://')
+  }
+
   const addPhoto = async () => {
-    if (!uploadPreview) { toast.error('Cole o endereço da imagem'); return }
+    const imagem = uploadPreview ?? urlImagem(url)
+    if (!imagem) { toast.error('Cole o endereço (https://) da imagem'); return }
     try {
       await createPhoto.mutateAsync({
         event_name: uploadForm.eventName || null,
-        url: uploadPreview,
+        url: imagem,
         caption: uploadForm.caption || null,
         featured: uploadForm.featured,
         size: null, // tamanho desconhecido (imagem por endereço)
       })
       setUploadForm({ eventName: '', caption: '', featured: false })
       setUploadPreview(null)
+      setUrl('')
       setShowUpload(false)
       toast.success('Foto adicionada!')
     } catch {
@@ -57,6 +74,7 @@ export default function ProducerEventGallery() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Apagar esta foto da galeria?')) return
     try {
       await deletePhoto.mutateAsync(id)
       setSelectedPhoto(null)
@@ -121,12 +139,11 @@ export default function ProducerEventGallery() {
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                 <div className="absolute bottom-0 left-0 right-0 p-3">
                   <p className="text-xs text-white font-medium truncate">{photo.caption || 'Sem legenda'}</p>
-                  <div className="flex items-center gap-3 mt-1 text-[10px] text-white/60">
-                    <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {photo.likes || 0}</span>
-                    <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {photo.comments || 0}</span>
-                  </div>
                 </div>
               </div>
+              <button onClick={e => { e.stopPropagation(); handleDelete(photo.id) }} aria-label="Apagar foto" title="Apagar" className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
               {photo.featured && (
                 <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-plum/90 text-white text-[9px] font-medium rounded-md">Destaque</div>
               )}
@@ -146,10 +163,6 @@ export default function ProducerEventGallery() {
               <div className="flex-1 min-w-0">
                 <h3 className="text-sm font-medium text-espresso truncate">{photo.caption || 'Sem legenda'}</h3>
                 <p className="text-[10px] text-espresso/70">{photo.event_name || 'Evento'} · {new Date(photo.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {photo.size || '-'}</p>
-                <div className="flex items-center gap-3 mt-1 text-[10px] text-espresso/70">
-                  <span className="flex items-center gap-1"><Heart className="w-3 h-3" /> {photo.likes || 0}</span>
-                  <span className="flex items-center gap-1"><MessageCircle className="w-3 h-3" /> {photo.comments || 0}</span>
-                </div>
               </div>
               <div className="flex items-center gap-1 flex-shrink-0">
                 <button onClick={() => toggleFeatured(photo)} className={`p-2 rounded-lg transition-colors ${photo.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-50'}`} title={photo.featured ? 'Remover destaque' : 'Destacar'}>
@@ -188,14 +201,14 @@ export default function ProducerEventGallery() {
               <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-8 text-center hover:border-plum/30 transition-colors">
                 {uploadPreview ? (
                   <div className="relative">
-                    <img src={uploadPreview} alt="Preview" onError={() => { setUploadPreview(null); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-40 object-cover rounded-xl" />
-                    <button onClick={() => setUploadPreview(null)} className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
+                    <img src={uploadPreview} alt="Preview" onError={() => { setUploadPreview(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-40 object-cover rounded-xl" />
+                    <button onClick={() => { setUploadPreview(null); setUrl('') }} aria-label="Trocar imagem" className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
                     <p className="text-sm text-espresso/70">Cole o endereço (https://) da imagem</p>
-                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} onBlur={e => { const v = e.target.value.trim(); try { const u = new URL(v); if (u.protocol === 'https:' && u.hostname.includes('.')) setUploadPreview(v); else if (v) toast.error('Use um endereço que comece com https://') } catch { if (v) toast.error('Endereço de imagem inválido') } }} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
+                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicarUrl() } }} onBlur={aplicarUrl} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
                   </div>
                 )}
               </div>
@@ -239,10 +252,6 @@ export default function ProducerEventGallery() {
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
-              </div>
-              <div className="flex items-center gap-4 mt-4 pt-4 border-t border-espresso/5 text-sm text-espresso/70">
-                <span className="flex items-center gap-1"><Heart className="w-4 h-4" /> {selectedPhoto.likes || 0} curtidas</span>
-                <span className="flex items-center gap-1"><MessageCircle className="w-4 h-4" /> {selectedPhoto.comments || 0} comentarios</span>
               </div>
             </div>
           </div>

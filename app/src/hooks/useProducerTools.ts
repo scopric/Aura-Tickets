@@ -307,13 +307,15 @@ export function useDeleteCoupon() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('coupons')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
@@ -512,13 +514,15 @@ export function useDeleteLead() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('crm_leads')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
@@ -612,13 +616,15 @@ export function useDeleteBanner() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('event_banners')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
@@ -713,13 +719,15 @@ export function useDeletePhoto() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('event_photos')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
