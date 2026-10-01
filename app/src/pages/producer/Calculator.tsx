@@ -1,8 +1,40 @@
-import { useState, useEffect } from 'react'
-import {
-  TrendingUp, Users, Percent,
-  RotateCcw, Sparkles
-} from 'lucide-react'
+import { useState, useEffect, type ReactNode } from 'react'
+import { RotateCcw } from 'lucide-react'
+import { brl } from '../../lib/taxa'
+import { PageHeader } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+
+const pct = (n: number | string) => `${String(n).replace('.', ',')}%`
+
+function Cartao({ titulo, descricao, children }: { titulo: string; descricao: string; children: ReactNode }) {
+  return (
+    <section className="rounded-[10px] border border-border bg-card p-4 sm:p-5">
+      <h2 className="text-sm font-medium text-foreground">{titulo}</h2>
+      <p className="text-xs text-muted-foreground">{descricao}</p>
+      <div className="mt-4 space-y-4">{children}</div>
+    </section>
+  )
+}
+
+function Campo({ id, label, ...props }: { id: string; label: string } & React.ComponentProps<'input'>) {
+  return (
+    <div className="grid gap-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <Input id={id} type="number" inputMode="decimal" {...props} />
+    </div>
+  )
+}
+
+function Linha({ label, valor, forte }: { label: string; valor: ReactNode; forte?: boolean }) {
+  return (
+    <div className="flex justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`tabular-nums ${forte ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>{valor}</span>
+    </div>
+  )
+}
 
 // ─── Markup Calculator ───
 function MarkupCalc() {
@@ -46,45 +78,26 @@ function MarkupCalc() {
   const reset = () => { setCost(''); setMarkup(''); setMargin(''); setPrice('') }
 
   return (
-    <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-9 h-9 rounded-xl bg-plum/10 flex items-center justify-center"><Percent className="w-4 h-4 text-plum" /></div>
-        <div><h3 className="text-sm font-medium text-espresso">Precificacao</h3><p className="text-[10px] text-espresso/70">Calcule markup, margem e preco</p></div>
+    <Cartao titulo="Precificação" descricao="Calcule markup, margem e preço de venda">
+      <Campo id="calc-custo" label="Custo (R$)" value={cost} onChange={e => setCost(e.target.value)} placeholder="0,00" />
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id="calc-markup" label="Markup (%)" value={markup} onChange={e => setMarkup(e.target.value)} onBlur={calcFromMarkup} placeholder="0" />
+        <Campo id="calc-margem" label="Margem (%)" value={margin} onChange={e => setMargin(e.target.value)} onBlur={calcFromMargin} placeholder="0" />
       </div>
+      <Campo id="calc-preco" label="Preço de venda (R$)" value={price} onChange={e => setPrice(e.target.value)} onBlur={calcFromPrice} placeholder="0,00" />
 
-      <div className="space-y-4">
-        <div>
-          <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Custo (R$)</label>
-          <input type="number" value={cost} onChange={e => setCost(e.target.value)} placeholder="0,00" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+      {price && cost && (
+        <div className="space-y-1 rounded-md border border-border p-3">
+          <Linha label="Lucro unitário" valor={brl(Number(price) - Number(cost))} />
+          <Linha label="Markup" valor={pct(markup)} />
+          <Linha label="Margem" valor={pct(margin)} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Markup (%)</label>
-            <input type="number" value={markup} onChange={e => setMarkup(e.target.value)} onBlur={calcFromMarkup} placeholder="0%" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Margem (%)</label>
-            <input type="number" value={margin} onChange={e => setMargin(e.target.value)} onBlur={calcFromMargin} placeholder="0%" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Preco de Venda (R$)</label>
-          <input type="number" value={price} onChange={e => setPrice(e.target.value)} onBlur={calcFromPrice} placeholder="0,00" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 font-semibold" />
-        </div>
+      )}
 
-        {price && cost && (
-          <div className="p-4 rounded-xl bg-green-50 border border-green-100">
-            <div className="flex justify-between text-sm mb-1"><span className="text-espresso/70">Lucro unitario</span><span className="text-green-600 font-medium">R$ {(Number(price) - Number(cost)).toFixed(2)}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-espresso/70">Markup</span><span className="text-green-600 font-medium">{markup}%</span></div>
-            <div className="flex justify-between text-sm"><span className="text-espresso/70">Margem</span><span className="text-green-600 font-medium">{margin}%</span></div>
-          </div>
-        )}
-
-        <button onClick={reset} className="flex items-center gap-2 text-xs text-espresso/70 hover:text-espresso transition-colors mx-auto">
-          <RotateCcw className="w-3 h-3" /> Limpar
-        </button>
-      </div>
-    </div>
+      <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground hover:text-foreground">
+        <RotateCcw aria-hidden="true" />Limpar
+      </Button>
+    </Cartao>
   )
 }
 
@@ -110,56 +123,48 @@ function SplitCalc() {
   }, [pCount])
 
   return (
-    <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-9 h-9 rounded-xl bg-plum/10 flex items-center justify-center"><Users className="w-4 h-4 text-plum" /></div>
-        <div><h3 className="text-sm font-medium text-espresso">Divisao de Conta</h3><p className="text-[10px] text-espresso/70">Split entre amigos ou equipe</p></div>
+    <Cartao titulo="Divisão de conta" descricao="Divida um valor entre pessoas da equipe">
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id="div-total" label="Total (R$)" value={total} onChange={e => setTotal(e.target.value)} placeholder="0,00" />
+        <Campo id="div-pessoas" label="Pessoas" inputMode="numeric" min={2} value={people || ''} onChange={e => setPeople(e.target.value)} placeholder="2" />
+      </div>
+      <div className="grid gap-1.5">
+        <span id="div-gorjeta" className="text-sm font-medium text-foreground">Gorjeta ou taxa</span>
+        <div role="group" aria-labelledby="div-gorjeta" className="grid grid-cols-4 gap-1">
+          {['0', '10', '15', '20'].map(t => (
+            <Button key={t} size="sm" variant={tip === t ? 'secondary' : 'ghost'} aria-pressed={tip === t} onClick={() => setTip(t)}>
+              {t}%
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Total (R$)</label>
-            <input type="number" value={total} onChange={e => setTotal(e.target.value)} placeholder="0,00" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+      {grandTotal > 0 && (
+        <>
+          <div className="space-y-1 rounded-md border border-border p-3">
+            <Linha label="Subtotal" valor={brl(subtotal)} />
+            <Linha label={`Gorjeta (${tip}%)`} valor={brl(tipAmount)} />
+            <div className="border-t border-border pt-1"><Linha label="Total" valor={brl(grandTotal)} forte /></div>
+            <Linha label="Por pessoa" valor={brl(perPerson)} forte />
           </div>
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Pessoas</label>
-            <input type="number" min={2} value={people || ''} onChange={e => setPeople(e.target.value)} placeholder="2" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Gorjeta/Taxa (%)</label>
-          <div className="flex items-center gap-2">
-            {['0', '10', '15', '20'].map(t => (
-              <button key={t} onClick={() => setTip(t)} className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${tip === t ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70'}`}>
-                {t}%
-              </button>
+
+          <div className="space-y-2">
+            {names.slice(0, pCount).map((n, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Input
+                  aria-label={`Nome da pessoa ${i + 1}`}
+                  value={n}
+                  onChange={e => { const nn = [...names]; nn[i] = e.target.value; setNames(nn) }}
+                  placeholder={`Pessoa ${i + 1}`}
+                  className="flex-1"
+                />
+                <span className="shrink-0 text-sm tabular-nums text-foreground">{brl(perPerson)}</span>
+              </div>
             ))}
           </div>
-        </div>
-
-        {grandTotal > 0 && (
-          <>
-            <div className="p-4 rounded-xl bg-plum/5 border border-plum/10 space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-espresso/70">Subtotal</span><span className="text-espresso font-medium">R$ {subtotal.toFixed(2)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-espresso/70">Gorjeta ({tip}%)</span><span className="text-espresso font-medium">R$ {tipAmount.toFixed(2)}</span></div>
-              <div className="border-t border-plum/10 pt-2 flex justify-between"><span className="text-sm font-medium text-espresso">Total</span><span className="text-lg font-serif text-plum">R$ {grandTotal.toFixed(2)}</span></div>
-              <div className="border-t border-plum/10 pt-2 flex justify-between"><span className="text-sm text-espresso/70">Por pessoa</span><span className="text-sm font-semibold text-plum">R$ {perPerson.toFixed(2)}</span></div>
-            </div>
-
-            <div className="space-y-2">
-              {names.slice(0, pCount).map((n, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="text-xs text-espresso/70 w-6">{i + 1}</span>
-                  <input value={n} onChange={e => { const nn = [...names]; nn[i] = e.target.value; setNames(nn) }} placeholder={`Pessoa ${i + 1}`} className="flex-1 px-3 py-2 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-                  <span className="text-xs text-plum font-medium">R$ {perPerson.toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+    </Cartao>
   )
 }
 
@@ -179,76 +184,40 @@ function ProjectionCalc() {
   const breakeven = Number(price) > 0 ? Math.ceil(totalCosts / Number(price)) : 0
 
   return (
-    <div className="p-6 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-      <div className="flex items-center gap-2 mb-6">
-        <div className="w-9 h-9 rounded-xl bg-plum/10 flex items-center justify-center"><TrendingUp className="w-4 h-4 text-plum" /></div>
-        <div><h3 className="text-sm font-medium text-espresso">Projecao de Evento</h3><p className="text-[10px] text-espresso/70">Estime receita, lucro e ponto de equilibrio</p></div>
+    <Cartao titulo="Projeção do evento" descricao="Estime receita, lucro e ponto de equilíbrio">
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id="proj-ingressos" label="Ingressos vendidos" inputMode="numeric" value={tickets} onChange={e => setTickets(e.target.value)} placeholder="0" />
+        <Campo id="proj-capacidade" label="Capacidade" inputMode="numeric" value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="0" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Campo id="proj-preco" label="Preço médio (R$)" value={price} onChange={e => setPrice(e.target.value)} placeholder="0,00" />
+        <Campo id="proj-custos" label="Custos totais (R$)" value={costs} onChange={e => setCosts(e.target.value)} placeholder="0,00" />
       </div>
 
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Ingressos (vendidos)</label>
-            <input type="number" value={tickets} onChange={e => setTickets(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Capacidade total</label>
-            <input type="number" value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="0" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
+      {totalRevenue > 0 && (
+        <div className="space-y-1 rounded-md border border-border p-3">
+          <Linha label="Receita estimada" valor={brl(totalRevenue)} />
+          <Linha label="Lucro estimado" valor={<span className={profit < 0 ? 'text-destructive' : undefined}>{brl(profit)}</span>} />
+          <Linha label="Margem" valor={pct(profitMargin)} />
+          <Linha label="Ocupação" valor={`${occupancy}%`} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Preco medio (R$)</label>
-            <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0,00" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Custos totais (R$)</label>
-            <input type="number" value={costs} onChange={e => setCosts(e.target.value)} placeholder="0,00" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-          </div>
-        </div>
+      )}
 
-        {totalRevenue > 0 && (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-4 rounded-xl bg-green-50 border border-green-100 text-center">
-              <div className="text-[10px] text-espresso/70 mb-1">Receita Estimada</div>
-              <div className="text-lg font-serif text-green-600">R$ {totalRevenue.toLocaleString()}</div>
-            </div>
-            <div className={`p-4 rounded-xl border text-center ${profit >= 0 ? 'bg-green-50 border-green-100' : 'bg-red-50 border-red-100'}`}>
-              <div className="text-[10px] text-espresso/70 mb-1">Lucro Estimado</div>
-              <div className={`text-lg font-serif ${profit >= 0 ? 'text-green-600' : 'text-red-500'}`}>R$ {profit.toLocaleString()}</div>
-            </div>
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-100 text-center">
-              <div className="text-[10px] text-espresso/70 mb-1">Margem</div>
-              <div className="text-lg font-serif text-amber-600">{profitMargin}%</div>
-            </div>
-            <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 text-center">
-              <div className="text-[10px] text-espresso/70 mb-1">Ocupacao</div>
-              <div className="text-lg font-serif text-blue-600">{occupancy}%</div>
-            </div>
-          </div>
-        )}
-
-        {breakeven > 0 && (
-          <div className="p-4 rounded-xl bg-plum/5 border border-plum/10">
-            <div className="flex items-center gap-2 mb-1"><Sparkles className="w-3.5 h-3.5 text-plum" /><span className="text-xs font-medium text-espresso/70">Ponto de Equilibrio</span></div>
-            <p className="text-sm text-espresso/70">Voce precisa vender <strong className="text-plum">{breakeven} ingressos</strong> para cobrir os custos.</p>
-          </div>
-        )}
-      </div>
-    </div>
+      {breakeven > 0 && (
+        <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
+          Ponto de equilíbrio: você precisa vender <strong className="font-semibold text-foreground">{breakeven.toLocaleString('pt-BR')} {breakeven === 1 ? 'ingresso' : 'ingressos'}</strong> para cobrir os custos.
+        </p>
+      )}
+    </Cartao>
   )
 }
 
 // ─── Main ───
 export default function ProducerCalculator() {
   return (
-    <div className="p-6 lg:p-10 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Calculadora</h1>
-        <p className="text-sm text-espresso/70 mt-1">Ferramentas para precificacao, divisao e projecao</p>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div>
+      <PageHeader title="Calculadora de preço" description="Precificação, divisão de conta e projeção do evento" />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <MarkupCalc />
         <SplitCalc />
         <ProjectionCalc />

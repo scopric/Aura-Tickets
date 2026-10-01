@@ -5,7 +5,7 @@ import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import {
   User, Lock, CreditCard, Bell, Users, Save,
   Eye, EyeOff, Instagram, Globe,
-  Shield, Smartphone, Mail, AlertTriangle, Loader2
+  Shield, Smartphone, AlertTriangle, Loader2
 } from 'lucide-react'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -13,13 +13,26 @@ import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
+import { PageHeader } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe'
+
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 
 export default function ProducerSettings() {
   const {
     data,
     isLoading,
+    isError,
+    refetch,
+    isFetching,
     saveProfile,
     isSavingProfile,
     saveProducerProfile,
@@ -82,7 +95,7 @@ export default function ProducerSettings() {
         instagram: data.profile.instagram || '',
         tiktok: data.profile.tiktok || '',
         linkedin: data.profile.linkedin || '',
-        avatar: data.profile.avatar_url || 'https://i.pravatar.cc/150?img=11',
+        avatar: data.profile.avatar_url || '', // sem foto: iniciais (nada de avatar de terceiros)
       })
       const ba = data.producer_profile?.bank_account || {}
       setPayment({
@@ -239,285 +252,302 @@ export default function ProducerSettings() {
 
   const sidebarItems: { id: Section; label: string; icon: typeof User }[] = [
     { id: 'perfil', label: 'Perfil', icon: User },
-    { id: 'conta', label: 'Conta & Seguranca', icon: Lock },
+    { id: 'conta', label: 'Conta e segurança', icon: Lock },
     { id: 'pagamento', label: 'Pagamento', icon: CreditCard },
-    { id: 'notificacoes', label: 'Notificacoes', icon: Bell },
+    { id: 'notificacoes', label: 'Notificações', icon: Bell },
     { id: 'equipe', label: 'Equipe', icon: Users },
   ]
 
+  const header = <PageHeader title="Configurações" description="Sua conta, seus dados e suas preferências" />
+
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-6xl flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-plum animate-spin" />
+      <div aria-busy="true">
+        {header}
+        <div className="flex flex-col gap-6 lg:flex-row">
+          <Skeleton className="h-10 rounded-[10px] bg-muted lg:h-56 lg:w-56" />
+          <Skeleton className="h-96 flex-1 rounded-[10px] bg-muted" />
+        </div>
       </div>
     )
   }
 
-  return (
-    <div className="p-6 lg:p-10 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Configuracoes</h1>
-        <p className="text-sm text-espresso/70 mt-1">Gerencie sua conta e preferencias</p>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* Sidebar */}
-        <div className="lg:w-56 flex-shrink-0">
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
-            {sidebarItems.map(item => (
-              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-plum/10 text-plum font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
-                <item.icon className="w-4 h-4" />{item.label}
-              </button>
-            ))}
-          </nav>
+  // Sem os dados, o formulário viria vazio e "Salvar" gravaria campos em branco por cima do perfil
+  if (isError || !data) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar as configurações.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
         </div>
+      </div>
+    )
+  }
 
-        {/* Content */}
-        <div className="flex-1 min-w-0">
+  const iniciais = (profile.name || profile.email || '?').trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase()).join('')
+
+  return (
+    <div>
+      {header}
+
+      <div className="flex flex-col gap-6 lg:flex-row">
+        <nav aria-label="Seções das configurações" className="lg:w-56 lg:shrink-0">
+          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:flex-col lg:overflow-visible">
+            {sidebarItems.map(item => (
+              <Button
+                key={item.id}
+                variant={section === item.id ? 'secondary' : 'ghost'}
+                aria-pressed={section === item.id}
+                onClick={() => setSection(item.id)}
+                className={`shrink-0 justify-start ${section === item.id ? '' : 'text-muted-foreground hover:text-foreground'}`}
+              >
+                <item.icon aria-hidden="true" />{item.label}
+              </Button>
+            ))}
+          </div>
+        </nav>
+
+        <div className="min-w-0 flex-1">
           {/* PERFIL */}
           {section === 'perfil' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Perfil Publico</h2>
+            <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
+              <h2 className="text-base font-semibold text-foreground">Perfil público</h2>
 
-              {/* Avatar */}
               <div className="flex items-center gap-4">
-                <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                <img src={profile.avatar} alt="" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-canvas" />
+                <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} aria-label="Escolher foto" />
+                {profile.avatar
+                  ? <img src={profile.avatar} alt="" className="size-16 rounded-full border border-border object-cover" />
+                  : <div aria-hidden="true" className="flex size-16 items-center justify-center rounded-full border border-border bg-muted text-lg font-semibold text-muted-foreground">{iniciais}</div>}
                 <div>
-                  <button className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all" onClick={triggerAvatarUpload}>Alterar foto</button>
-                  <p className="text-[10px] text-espresso/70 mt-1">JPG, PNG. Max 2MB</p>
+                  <Button variant="outline" size="sm" onClick={triggerAvatarUpload}>Alterar foto</Button>
+                  <p className="mt-1 text-xs text-muted-foreground">JPG ou PNG, até 2 MB</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Nome</label>
-                  <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-nome">Nome</Label>
+                  <Input id="cfg-nome" value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} />
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
-                  <input value={profile.email} disabled className="w-full px-4 py-2.5 bg-white/30 dark:bg-white/5 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none cursor-not-allowed" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-email">E-mail</Label>
+                  <Input id="cfg-email" value={profile.email} disabled />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/70 mb-1 block">Telefone</label>
-                  <PhoneInput value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
+                <div className="grid gap-1.5 md:col-span-2">
+                  <Label htmlFor="cfg-telefone">Telefone</Label>
+                  <PhoneInput id="cfg-telefone" value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Empresa (Razão Social)</label>
-                  <input value={profile.company} onChange={e => setProfile({ ...profile, company: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-empresa">Empresa (razão social)</Label>
+                  <Input id="cfg-empresa" value={profile.company} onChange={e => setProfile({ ...profile, company: e.target.value })} />
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">CNPJ</label>
-                  <input value={profile.cnpj} placeholder="00.000.000/0000-00" onChange={e => setProfile({ ...profile, cnpj: formatCNPJ(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-cnpj">CNPJ (opcional)</Label>
+                  <Input id="cfg-cnpj" inputMode="numeric" value={profile.cnpj} placeholder="00.000.000/0000-00" onChange={e => setProfile({ ...profile, cnpj: formatCNPJ(e.target.value) })} />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/70 mb-1 block">Bio</label>
-                  <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />Website</label>
-                  <input value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Instagram className="w-3 h-3" />Instagram</label>
-                  <input value={profile.instagram} onChange={e => setProfile({ ...profile, instagram: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />TikTok</label>
-                  <input value={profile.tiktok} onChange={e => setProfile({ ...profile, tiktok: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Globe className="w-3 h-3" />LinkedIn</label>
-                  <input value={profile.linkedin} onChange={e => setProfile({ ...profile, linkedin: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5 md:col-span-2">
+                  <Label htmlFor="cfg-bio">Bio</Label>
+                  <Textarea id="cfg-bio" value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={3} className="resize-none" />
                 </div>
               </div>
 
-              <div className="flex justify-end gap-3">
-                <button onClick={handleSaveCompany} disabled={isSaving} className="px-6 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-white transition-all flex items-center gap-2">
-                  <Save className="w-4 h-4" />Salvar Empresa
-                </button>
-                <button onClick={handleSaveProfile} disabled={isSaving} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  {isSavingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar Perfil
-                </button>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-site"><Globe aria-hidden="true" className="size-3.5" />Site</Label>
+                  <Input id="cfg-site" value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-instagram"><Instagram aria-hidden="true" className="size-3.5" />Instagram</Label>
+                  <Input id="cfg-instagram" value={profile.instagram} onChange={e => setProfile({ ...profile, instagram: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-tiktok"><Smartphone aria-hidden="true" className="size-3.5" />TikTok</Label>
+                  <Input id="cfg-tiktok" value={profile.tiktok} onChange={e => setProfile({ ...profile, tiktok: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-linkedin"><Globe aria-hidden="true" className="size-3.5" />LinkedIn</Label>
+                  <Input id="cfg-linkedin" value={profile.linkedin} onChange={e => setProfile({ ...profile, linkedin: e.target.value })} />
+                </div>
               </div>
-            </div>
+
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <Button variant="outline" onClick={handleSaveCompany} disabled={isSaving}>
+                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar empresa
+                </Button>
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSavingProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar perfil
+                </Button>
+              </div>
+            </section>
           )}
 
           {/* CONTA */}
           {section === 'conta' && (
-            <div className="space-y-8">
-              <div>
-                <h2 className="text-lg font-medium text-espresso mb-4">Alterar Senha</h2>
-                <div className="space-y-4 max-w-md">
-                  {['current', 'new', 'confirm'].map((field) => (
-                    <div key={field}>
-                      <label className="text-xs text-espresso/70 mb-1 block">
-                        {field === 'current' ? 'Senha atual' : field === 'new' ? 'Nova senha' : 'Confirmar nova senha'}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPw[field] ? 'text' : 'password'}
-                          value={password[field as keyof typeof password]}
-                          onChange={e => setPassword({ ...password, [field]: e.target.value })}
-                          className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso pr-10 focus:outline-none focus:border-plum/30"
-                        />
-                        <button onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70">
-                          {showPw[field] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
+            <div className="space-y-6">
+              <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
+                <h2 className="text-base font-semibold text-foreground">Alterar senha</h2>
+                <div className="mt-4 max-w-md space-y-4">
+                  {(['current', 'new', 'confirm'] as const).map((field) => {
+                    const rotulo = field === 'current' ? 'Senha atual' : field === 'new' ? 'Nova senha' : 'Confirmar nova senha'
+                    return (
+                      <div key={field} className="grid gap-1.5">
+                        <Label htmlFor={`cfg-senha-${field}`}>{rotulo}</Label>
+                        <div className="relative">
+                          <Input
+                            id={`cfg-senha-${field}`}
+                            type={showPw[field] ? 'text' : 'password'}
+                            autoComplete={field === 'current' ? 'current-password' : 'new-password'}
+                            value={password[field]}
+                            onChange={e => setPassword({ ...password, [field]: e.target.value })}
+                            className="pr-10"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => setShowPw({ ...showPw, [field]: !showPw[field] })}
+                            aria-label={showPw[field] ? `Ocultar ${rotulo.toLowerCase()}` : `Mostrar ${rotulo.toLowerCase()}`}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          >
+                            {showPw[field] ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                          </Button>
+                        </div>
+                        {field === 'new' && <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>}
                       </div>
-                      {field === 'new' && <p className="text-[10px] text-espresso/70 mt-1">{PASSWORD_HINT}</p>}
-                    </div>
-                  ))}
-                  <button onClick={handlePassword} className="px-5 py-2 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all">Atualizar senha</button>
+                    )
+                  })}
+                  <Button onClick={handlePassword}>Atualizar senha</Button>
                 </div>
-              </div>
+              </section>
 
-              <div className="border-t border-espresso/5 pt-6">
-                <h2 className="text-lg font-medium text-espresso mb-4 flex items-center gap-2"><Shield className="w-5 h-5 text-plum" />Verificação em Duas Etapas</h2>
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                  <div>
-                    <div className="text-sm text-espresso">Autenticação 2FA (Google Authenticator)</div>
-                    <div className="text-[10px] text-espresso/70">
-                      {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativo — Login exige código do autenticador' : 'Inativo — Proteja sua conta com código de segurança'}
-                    </div>
+              <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-foreground"><Shield aria-hidden="true" className="size-4 text-muted-foreground" />Verificação em duas etapas</h2>
+                <div className="mt-4 flex items-center justify-between gap-4">
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground">Autenticação 2FA (app autenticador)</p>
+                    <p className="text-xs text-muted-foreground">
+                      {mfa.loading ? 'Carregando…' : mfa.enabled ? 'Ativa: o login pede o código do aplicativo' : 'Inativa: proteja sua conta com um código de segurança'}
+                    </p>
                   </div>
-                  <button 
+                  <button
                     disabled={mfa.loading}
                     aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
                     aria-pressed={mfa.enabled}
-                    onClick={mfa.toggle} 
-                    className={`relative w-11 h-6 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-espresso/10'} disabled:opacity-55`}
+                    onClick={mfa.toggle}
+                    className={`relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50 ${mfa.enabled ? 'bg-primary' : 'bg-muted'}`}
                   >
-                    <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+                    <span aria-hidden="true" className={`absolute top-0.5 size-5 rounded-full bg-background shadow-sm transition-transform motion-reduce:transition-none ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
-              </div>
+              </section>
 
-              <div className="border-t border-espresso/5 pt-6">
-                <h2 className="text-lg font-medium text-red-500 mb-4 flex items-center gap-2"><AlertTriangle className="w-5 h-5" />Zona de Perigo</h2>
-                <div className="p-4 rounded-xl bg-red-50/50 border border-red-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm text-espresso">Excluir conta</div>
-                      <div className="text-[10px] text-espresso/70">Esta acao nao pode ser desfeita</div>
-                    </div>
-                    <button className="px-4 py-2 bg-red-500 text-white text-xs rounded-full hover:bg-red-600 transition-all" onClick={() => { setDeleteConfirm(''); setShowDelete(true) }}>Excluir</button>
+              <section className="rounded-[10px] border border-destructive/40 bg-card p-4 sm:p-6">
+                <h2 className="flex items-center gap-2 text-base font-semibold text-destructive"><AlertTriangle aria-hidden="true" className="size-4" />Zona de perigo</h2>
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-foreground">Excluir conta</p>
+                    <p className="text-xs text-muted-foreground">Esta ação não pode ser desfeita.</p>
                   </div>
+                  <Button variant="destructive" onClick={() => { setDeleteConfirm(''); setShowDelete(true) }}>Excluir conta</Button>
                 </div>
-              </div>
+              </section>
             </div>
           )}
 
           {/* PAGAMENTO */}
           {section === 'pagamento' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Dados Bancarios</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Banco</label>
-                  <select value={payment.bankName} onChange={e => setPayment({ ...payment, bankName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                    <option>Itau</option><option>Bradesco</option><option>Nubank</option><option>Santander</option><option>Inter</option>
+            <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
+              <div>
+                <h2 className="text-base font-semibold text-foreground">Dados bancários</h2>
+                <p className="mt-1 text-sm text-muted-foreground">Ficam guardados para o repasse, que começa quando o pagamento estiver ligado.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-banco">Banco</Label>
+                  <select id="cfg-banco" value={payment.bankName} onChange={e => setPayment({ ...payment, bankName: e.target.value })} className={select}>
+                    <option value="Itau">Itaú</option><option>Bradesco</option><option>Nubank</option><option>Santander</option><option>Inter</option>
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Tipo de Conta</label>
-                  <select value={payment.accountType} onChange={e => setPayment({ ...payment, accountType: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                    <option value="corrente">Conta Corrente</option><option value="poupanca">Poupanca</option>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-tipo-conta">Tipo de conta</Label>
+                  <select id="cfg-tipo-conta" value={payment.accountType} onChange={e => setPayment({ ...payment, accountType: e.target.value })} className={select}>
+                    <option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option>
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Agencia</label>
-                  <input value={payment.agency} onChange={e => setPayment({ ...payment, agency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-agencia">Agência</Label>
+                  <Input id="cfg-agencia" inputMode="numeric" value={payment.agency} onChange={e => setPayment({ ...payment, agency: e.target.value })} />
                 </div>
-                <div>
-                  <label className="text-xs text-espresso/70 mb-1 block">Conta</label>
-                  <input value={payment.account} onChange={e => setPayment({ ...payment, account: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cfg-conta">Conta</Label>
+                  <Input id="cfg-conta" inputMode="numeric" value={payment.account} onChange={e => setPayment({ ...payment, account: e.target.value })} />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/70 mb-1 block">Titular</label>
-                  <input value={payment.holder} onChange={e => setPayment({ ...payment, holder: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5 md:col-span-2">
+                  <Label htmlFor="cfg-titular">Titular</Label>
+                  <Input id="cfg-titular" value={payment.holder} onChange={e => setPayment({ ...payment, holder: e.target.value })} />
                 </div>
-                <div className="md:col-span-2">
-                  <label className="text-xs text-espresso/70 mb-1 block flex items-center gap-1"><Smartphone className="w-3 h-3" />Chave Pix</label>
-                  <input value={payment.pixKey} onChange={e => setPayment({ ...payment, pixKey: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid gap-1.5 md:col-span-2">
+                  <Label htmlFor="cfg-pix">Chave Pix</Label>
+                  <Input id="cfg-pix" value={payment.pixKey} onChange={e => setPayment({ ...payment, pixKey: e.target.value })} />
                 </div>
               </div>
               <div className="flex justify-end">
-                <button onClick={handleSavePayment} disabled={isSavingProducerProfile} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  {isSavingProducerProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar
-                </button>
+                <Button onClick={handleSavePayment} disabled={isSavingProducerProfile}>
+                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar
+                </Button>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* NOTIFICACOES */}
+          {/* NOTIFICAÇÕES */}
           {section === 'notificacoes' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Notificacoes</h2>
+            <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
+              <h2 className="text-base font-semibold text-foreground">Notificações</h2>
 
-              <div className="space-y-3">
+              <ul className="divide-y divide-border">
                 {[
-                  { key: 'newSale', label: 'Nova venda', desc: 'Receba alerta quando um ingresso for vendido', icon: CreditCard },
-                  { key: 'newMessage', label: 'Nova mensagem', desc: 'Notificacao de mensagens no chat', icon: Mail },
-                  { key: 'eventReminder', label: 'Lembretes de evento', desc: 'Alertas 7, 3 e 1 dia antes do evento', icon: Bell },
-                  { key: 'payoutComplete', label: 'Saque concluido', desc: 'Confirmacao quando o dinheiro cair na conta', icon: CreditCard },
-                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promocoes da Evokaa', icon: Mail },
+                  { key: 'newSale', label: 'Nova venda', desc: 'Aviso quando um ingresso for vendido' },
+                  { key: 'newMessage', label: 'Nova mensagem', desc: 'Aviso de mensagens no chat' },
+                  { key: 'eventReminder', label: 'Lembretes de evento', desc: 'Alertas 7, 3 e 1 dia antes do evento' },
+                  { key: 'payoutComplete', label: 'Saque concluído', desc: 'Confirmação quando o dinheiro cair na conta' },
+                  { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promoções da Evokaa' },
+                  { key: 'pushEnabled', label: 'Push no navegador', desc: 'Canal de envio' },
+                  { key: 'smsEnabled', label: 'SMS', desc: 'Canal de envio' },
                 ].map(item => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                    <div className="flex items-center gap-3">
-                      <item.icon className="w-4 h-4 text-plum" />
-                      <div>
-                        <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
-                      </div>
+                  <li key={item.key} className="flex items-center justify-between gap-4 py-3">
+                    <div className="min-w-0">
+                      <Label htmlFor={`cfg-not-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
+                      <p className="text-xs text-muted-foreground">{item.desc}</p>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={notifications[item.key as keyof typeof notifications]} onChange={e => setNotifications({ ...notifications, [item.key]: e.target.checked })} className="sr-only peer" />
-                      <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-plum transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </label>
-                  </div>
+                    <Switch
+                      id={`cfg-not-${item.key}`}
+                      checked={notifications[item.key as keyof typeof notifications]}
+                      onCheckedChange={v => setNotifications({ ...notifications, [item.key]: v })}
+                    />
+                  </li>
                 ))}
-              </div>
-
-              <div className="border-t border-espresso/5 pt-4">
-                <h3 className="text-sm font-medium text-espresso mb-3">Canais</h3>
-                {[
-                  { key: 'pushEnabled', label: 'Push no navegador', icon: Smartphone },
-                  { key: 'smsEnabled', label: 'SMS', icon: Smartphone },
-                ].map(item => (
-                  <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60 mb-2">
-                    <div className="flex items-center gap-3">
-                      <item.icon className="w-4 h-4 text-plum" />
-                      <span className="text-sm text-espresso">{item.label}</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" checked={notifications[item.key as keyof typeof notifications]} onChange={e => setNotifications({ ...notifications, [item.key]: e.target.checked })} className="sr-only peer" />
-                      <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-plum transition-colors" />
-                      <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                    </label>
-                  </div>
-                ))}
-              </div>
+              </ul>
 
               <div className="flex justify-end">
-                <button onClick={handleSaveNotifications} disabled={isSavingProducerProfile} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-                  {isSavingProducerProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Salvar
-                </button>
+                <Button onClick={handleSaveNotifications} disabled={isSavingProducerProfile}>
+                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar
+                </Button>
               </div>
-            </div>
+            </section>
           )}
 
           {/* EQUIPE: a gestão fica na tela Equipe (o módulo M3 refaz); aqui só o atalho */}
           {section === 'equipe' && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-medium text-espresso">Equipe</h2>
-              <p className="text-sm text-espresso/70">Convites e funções da sua equipe ficam na tela Equipe.</p>
-              <Link to="/producer/team" className="inline-block px-5 py-2 bg-plum text-cream text-sm rounded-full">Gerenciar equipe</Link>
-            </div>
+            <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
+              <h2 className="text-base font-semibold text-foreground">Equipe</h2>
+              <p className="mt-1 text-sm text-muted-foreground">Convites e funções da sua equipe ficam na tela Equipe.</p>
+              <Button asChild className="mt-4">
+                <Link to="/producer/team">Gerenciar equipe</Link>
+              </Button>
+            </section>
           )}
 
           {/* Aba "Integrações" (API Key, Webhook, Widget) retirada: não existe API, webhook nem widget para
@@ -527,24 +557,24 @@ export default function ProducerSettings() {
 
       {mfa.modal}
 
-      {showDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowDelete(false)} />
-          <div className="glass-panel relative w-full max-w-sm p-6">
-            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-500" /></div>
-            <h3 className="font-serif text-xl text-espresso text-center mb-2">Excluir conta</h3>
-            <p className="text-xs text-espresso/70 text-center mb-4">Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.</p>
-            <div className="p-3 rounded-xl bg-red-50 border border-red-100 mb-4">
-              <p className="text-xs text-red-500 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-red-200 rounded-lg text-sm text-red-500 placeholder:text-red-300 focus:outline-none focus:border-red-400" />
-            </div>
-            <div className="space-y-2">
-              <button onClick={handleDeleteAccount} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
-              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-espresso/70 hover:text-espresso transition-colors">Voltar</button>
-            </div>
+      <Dialog open={showDelete} onOpenChange={setShowDelete}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Excluir conta</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível. Seu perfil, dados bancários e chaves serão removidos e o login desativado. Pedidos e ingressos já emitidos ficam guardados por obrigação fiscal. Eventos publicados com data futura e saques em andamento impedem a exclusão.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-1.5">
+            <Label htmlFor="cfg-excluir">Digite <strong>EXCLUIR</strong> para confirmar</Label>
+            <Input id="cfg-excluir" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" autoComplete="off" />
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDelete(false)}>Voltar</Button>
+            <Button variant="destructive" onClick={handleDeleteAccount}>Confirmar exclusão</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

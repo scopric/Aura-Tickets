@@ -45,14 +45,14 @@ test.describe('Fluxo do Produtor', () => {
   test('deve acessar configurações do produtor', async ({ page }) => {
     await page.goto('/producer/settings')
 
-    await expect(page.getByText('Configuracoes')).toBeVisible()
-    await expect(page.getByText('Perfil')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Configurações' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Perfil público' })).toBeVisible()
 
     // Testar navegação entre abas
     await page.getByRole('button', { name: 'Pagamento' }).click()
-    await expect(page.getByText('Dados Bancarios')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Dados bancários' })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Notificacoes' }).click()
-    await expect(page.getByText('Notificacoes')).toBeVisible()
+    await page.getByRole('button', { name: 'Notificações' }).click()
+    await expect(page.getByRole('heading', { name: 'Notificações' })).toBeVisible()
   })
 })

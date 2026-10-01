@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard, Calendar, CalendarPlus, FolderOpen, Armchair, Clock, CheckSquare, Award, BarChart2,
-  TicketPercent, Users, Handshake, Images, ClipboardList, Contact, ScanLine, Camera, Wine, UsersRound, PiggyBank,
+  TicketPercent, Users, Handshake, Images, ClipboardList, Contact, ScanLine, Camera, Wine, UsersRound, Target,
   BarChart3, Wallet, Calculator, LayoutGrid, Settings, HelpCircle, GraduationCap, Smartphone,
   Receipt, Palette, ShoppingBag, Megaphone, FileText, Zap, CreditCard, Mail, Crown,
   LogOut, Menu, PanelLeftClose, PanelLeftOpen,
@@ -84,7 +84,6 @@ const menuGroups: MenuGroup[] = [
       { to: '/producer/menu', icon: Wine, label: 'Cardápio' },
       { to: '/producer/parceiros', icon: Handshake, label: 'Parceiros' },
       { to: '/producer/team', icon: UsersRound, label: 'Equipe' },
-      { to: '/producer/caixinha', icon: PiggyBank, label: 'Caixinha' },
     ]
   },
   {
@@ -92,6 +91,7 @@ const menuGroups: MenuGroup[] = [
     items: [
       { to: '/producer/finance', icon: BarChart3, label: 'Financeiro' },
       { to: '/producer/wallet', icon: Wallet, label: 'Carteira' },
+      { to: '/producer/caixinha', icon: Target, label: 'Orçamento do evento' }, // ex-Caixinha (Decisão 120); a rota fica
       { to: '/producer/calculator', icon: Calculator, label: 'Calculadora de preço' },
       { to: '/producer/tables', icon: LayoutGrid, label: 'Calculadora de mesas' },
       { to: '/producer/bordero', icon: FileText, label: 'Borderô', comingSoon: true },
