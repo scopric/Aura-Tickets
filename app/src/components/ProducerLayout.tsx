@@ -342,6 +342,11 @@ export default function ProducerLayout() {
         <Tour key={tourId} tour={tour} onFim={puladas => {
           void registrar(`tour:${tourId}`, { skipped: puladas })
           tirarParametro()
+          // depois que o Tour desmonta e tira o inert do #root: foco no título da tela, não no body
+          setTimeout(() => {
+            const h1 = paginaRef.current?.querySelector('h1')
+            if (h1) { h1.tabIndex = -1; h1.focus() }
+          }, 0)
         }} />
       )}
     </div>

@@ -41,7 +41,7 @@ export const TOURS: Record<string, Tour> = {
   checkin: {
     rota: '/producer/checkin',
     passos: [
-      { alvo: 'checkin-evento', titulo: 'Escolha o evento', texto: 'Selecione qual evento publicado você vai validar na portaria.' },
+      { alvo: 'checkin-evento', titulo: 'Escolha o evento', texto: 'Selecione qual evento publicado você vai validar na portaria. Sem evento publicado, o seletor aparece aqui depois da aprovação.' },
       { alvo: 'checkin-modo', titulo: 'Leitor ou lista', texto: 'O leitor valida pelo código do ingresso. A lista mostra os participantes.' },
       { alvo: 'checkin-numeros', titulo: 'Acompanhe a entrada', texto: 'Total emitido, check-ins feitos, pendentes e cancelados.' },
       { alvo: 'checkin-leitor', titulo: 'Valide um ingresso', texto: 'Aproxime o leitor ou digite o código do ingresso e confirme com Enter.' },
