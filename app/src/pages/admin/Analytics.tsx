@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useId } from 'react'
 import {
   Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw,
   Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info,
-  X, ArrowUpRight, ArrowDownRight, Filter, Ticket
+  X, ArrowUpRight, ArrowDownRight, Filter, Ticket, Download, Megaphone
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { toCsv, downloadCsv, csvFilename } from '../../lib/exportCsv'
 import { montarEventos, type LinhaEvento, type VisitaEvento } from '../../lib/analyticsEventos'
 import gsap from 'gsap'
 
@@ -31,6 +32,7 @@ interface Trafego {
   paises: ItemTop[]
   aparelhos: ItemTop[]
   agora?: number | null
+  campanhas?: { campanha: string; origem: string; meio: string; visitantes: number; sessoes: number }[] | null
 }
 
 const MOTIVOS_VERCEL: Record<string, string> = {
@@ -238,6 +240,26 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
     onFiltros([...filtros.filter(f => f.campo !== campo), ...(tirar ? [] : [{ campo, valor, rotulo }])])
   const comp = dados?.comparacao
   const chaveComp: Record<string, keyof Totais> = { [pessoas]: 'visitantes', 'Páginas vistas': 'paginas', 'Sessões': 'sessoes' }
+  // Vercel conta os dias em UTC; o GA4 em Brasília
+  const hoje = deQuem === 'da Vercel' ? new Date().toISOString().slice(0, 10) : new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+  const hojeNoGrafico = dados?.ate === hoje
+  // Um arquivo por painel, uma linha por número: período e filtros no topo, depois dias, listas e campanhas
+  const baixarCsv = () => {
+    if (!dados) return
+    const item = (secao: string, rotulo: (n: string) => string) => (i: ItemTop) => ({ secao, nome: rotulo(i.nome), visitantes: i.visitantes, paginas: i.paginas })
+    const linhas: Record<string, unknown>[] = [
+      { secao: 'periodo', nome: `${dados.de ?? ''} a ${dados.ate ?? ''}` },
+      ...filtros.map(f => ({ secao: 'filtro', nome: `${NOME_CAMPO[f.campo]}: ${f.rotulo}` })),
+      { secao: 'total', nome: 'período', visitantes: dados.totais.visitantes, paginas: dados.totais.paginas, sessoes: dados.totais.sessoes },
+      ...dados.porDia.map(d => ({ secao: 'dia', nome: d.dia, visitantes: d.visitantes, paginas: d.paginas })),
+      ...dados.paginas.map(item('pagina', n => n || '/')),
+      ...dados.origens.map(item('origem', nomeOrigem)),
+      ...dados.paises.map(item('pais', nomePais)),
+      ...dados.aparelhos.map(item('aparelho', nomeAparelho)),
+      ...(dados.campanhas ?? []).map(c => ({ secao: 'campanha', nome: `${c.campanha} (${c.origem || '—'} / ${c.meio || '—'})`, visitantes: c.visitantes, sessoes: c.sessoes })),
+    ]
+    downloadCsv(csvFilename(`analytics-${deQuem.split(' ').pop()!.toLowerCase()}`), toCsv(linhas, ['secao', 'nome', 'visitantes', 'paginas', 'sessoes']))
+  }
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -256,6 +278,13 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
             className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
+          </button>
+          <button
+            onClick={baixarCsv}
+            disabled={!dados}
+            className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+          >
+            <Download className="w-3.5 h-3.5" /> CSV
           </button>
           <a href={linkPainel} target="_blank" rel="noreferrer" className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5">
             Painel completo <ExternalLink className="w-3.5 h-3.5" />
@@ -310,16 +339,51 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
             {dados.totais.paginas === 0 ? (
               <p className="text-sm text-muted-foreground italic py-10 text-center">Nenhuma visita no período.</p>
             ) : (
-              <GraficoDias dados={dados} pessoas={pessoas} nota={nota} />
+              <GraficoDias dados={dados} pessoas={pessoas} nota={hojeNoGrafico ? `${nota} O último dia é hoje, ainda em andamento: a queda no fim é isso.` : nota} />
             )}
           </div>
 
           {dados.totais.paginas > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-              <ListaTop titulo="Páginas mais vistas" campo="pagina" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} mono filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="Páginas mais visitadas" campo="pagina" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} mono filtros={filtros} onFiltrar={filtrar} />
               <ListaTop titulo="De onde vêm" campo="origem" itens={dados.origens} rotulo={nomeOrigem} icone={iconeOrigem} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
               <ListaTop titulo="Países" campo="pais" itens={dados.paises} rotulo={nomePais} icone={iconePais} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
               <ListaTop titulo="Aparelhos" campo="aparelho" itens={dados.aparelhos} rotulo={nomeAparelho} icone={iconeAparelho} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+            </div>
+          )}
+
+          {dados.campanhas !== undefined && (
+            <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm space-y-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Megaphone className="w-4 h-4 text-muted-foreground" /> Campanhas</h3>
+              {dados.campanhas === null ? (
+                <p className="text-sm text-muted-foreground">Não foi possível carregar as campanhas agora. Tente atualizar.</p>
+              ) : dados.campanhas.length === 0 ? (
+                <p className="text-sm text-muted-foreground italic">Nenhuma visita com campanha no período. Links com <span className="font-mono not-italic">utm_campaign</span> e anúncios do Google aparecem aqui.</p>
+              ) : (
+                <div className="overflow-x-auto -mx-2">
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="text-[11px] text-muted-foreground border-b border-border">
+                        <th className="px-2 py-2 font-semibold">Campanha</th>
+                        <th className="px-2 py-2 font-semibold">Origem / meio</th>
+                        <th className="px-2 py-2 font-semibold text-right">{pessoas}</th>
+                        <th className="px-2 py-2 font-semibold text-right">Sessões</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {dados.campanhas.map((c, i) => (
+                        <tr key={i}>
+                          <td className="px-2 py-3 text-foreground">{c.campanha}</td>
+                          <td className="px-2 py-3 text-muted-foreground">{c.origem || '—'} / {c.meio || '—'}</td>
+                          <td className="px-2 py-3 text-right tabular-nums">{fmtNum(c.visitantes)}</td>
+                          <td className="px-2 py-3 text-right tabular-nums">{fmtNum(c.sessoes)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              <p className="text-[11px] text-muted-foreground">Conta só quem aceitou os cookies de análise. Quem aceita depois de trocar de página perde a campanha, então o número pode sair menor que o real.</p>
             </div>
           )}
         </>
@@ -410,10 +474,19 @@ function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtros
 
   return (
     <section className="space-y-5">
-      <div>
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vercel + pedidos do banco · todos os visitantes</span>
-        <h2 className="font-serif text-2xl text-foreground mt-1">Eventos</h2>
-        <p className="text-xs text-muted-foreground mt-1">Visitas às páginas de evento no mesmo período, cruzadas com os pedidos. Clique num evento para ver o funil.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vercel + pedidos do banco · todos os visitantes</span>
+          <h2 className="font-serif text-2xl text-foreground mt-1">Eventos</h2>
+          <p className="text-xs text-muted-foreground mt-1">Visitas às páginas de evento no mesmo período, cruzadas com os pedidos. Clique num evento para ver o funil.</p>
+        </div>
+        <button
+          onClick={() => ordenadas && downloadCsv(csvFilename('analytics-eventos'), toCsv(ordenadas.map(l => ({ ...l, de: dados.de, ate: dados.ate, conversao: fmtPct(l.conversao), receita: l.receita.toFixed(2) })), ['de', 'ate', 'titulo', 'visitantes', 'paginas', 'pedidos', 'pagos', 'conversao', ...(verReceita ? ['receita'] : [])]))}
+          disabled={!ordenadas?.length}
+          className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+        >
+          <Download className="w-3.5 h-3.5" /> CSV
+        </button>
       </div>
 
       <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm space-y-4">
@@ -495,14 +568,15 @@ function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, o
   abrev: string
   mono?: boolean
 }) {
-  // ordena pelo mesmo número que desenha a barra (o GA4 manda alguns tops ordenados por usuários)
-  const ordem = [...itens].sort((a, b) => Number(a.nome === 'Outros') - Number(b.nome === 'Outros') || b.paginas - a.paginas)
-  const maior = Math.max(1, ...itens.map(i => i.paginas))
+  // ordena por pessoas, o mesmo critério do corte das APIs (a Vercel escolhe o top por visitantes:
+  // uma página com muitas vistas e 1 visitante pode cair em "Outros"); a barra mostra o mesmo número
+  const ordem = [...itens].sort((a, b) => Number(a.nome === 'Outros') - Number(b.nome === 'Outros') || b.visitantes - a.visitantes)
+  const maior = Math.max(1, ...itens.map(i => i.visitantes))
   return (
     <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">{titulo}</h3>
-        <span className="text-[11px] text-muted-foreground">clique para filtrar · páginas · {abrev.replace('.', '')}</span>
+        <span className="text-[11px] text-muted-foreground">clique para filtrar · {abrev} · páginas vistas</span>
       </div>
       {itens.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">Sem dados no período.</p>
@@ -528,12 +602,12 @@ function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, o
               <span className="flex items-center gap-3 text-sm">
                 {icone && <span className="w-5 flex justify-center shrink-0">{icone(i.nome)}</span>}
                 <span className={`text-foreground truncate min-w-0 ${mono ? 'font-mono text-xs' : ''}`} title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
-                <span className="ml-auto shrink-0 tabular-nums text-foreground font-medium">{fmtNum(i.paginas)}</span>
-                <span className="w-12 shrink-0 text-right tabular-nums text-xs text-muted-foreground">{fmtNum(i.visitantes)}</span>
+                <span className="ml-auto shrink-0 tabular-nums text-foreground font-medium">{fmtNum(i.visitantes)}</span>
+                <span className="w-12 shrink-0 text-right tabular-nums text-xs text-muted-foreground">{fmtNum(i.paginas)}</span>
               </span>
               <span className={`block mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden ${icone ? 'ml-8' : ''}`}>
                 {/* "Outros" é a soma do resto: barra neutra para não parecer o primeiro lugar */}
-                <span className={`block h-full rounded-full ${i.nome === 'Outros' ? 'bg-muted-foreground/40' : ''}`} style={{ width: `${(i.paginas / maior) * 100}%`, ...(i.nome === 'Outros' ? {} : { background: COR_PAGINAS, opacity: 0.55 }) }} />
+                <span className={`block h-full rounded-full ${i.nome === 'Outros' ? 'bg-muted-foreground/40' : ''}`} style={{ width: `${(i.visitantes / maior) * 100}%`, ...(i.nome === 'Outros' ? {} : { background: COR_PAGINAS, opacity: 0.55 }) }} />
               </span>
               </Elemento>
             </li>
@@ -827,7 +901,7 @@ export default function AdminAnalytics() {
             onFiltros={setFiltrosVercel}
             linkPainel="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
             pessoas="Visitantes"
-            abrev="vis."
+            abrev="visitantes"
             nota="Dias contados no horário UTC (3 h à frente de Brasília)."
           />
           <SecaoEventos key={vercel.dados?.chave} dados={vercel.dados} filtrosAtivos={filtrosVercel.length > 0} />
@@ -842,7 +916,7 @@ export default function AdminAnalytics() {
             onFiltros={setFiltrosGa4}
             linkPainel="https://analytics.google.com"
             pessoas="Usuários ativos"
-            abrev="usu."
+            abrev="usuários"
             nota="Dias no horário de Brasília. O Google pode levar até 48 h para fechar os números de um dia."
             extras={ga4.dados ? [['Sessões', ga4.dados.totais.sessoes ?? 0], ...(ga4.dados.agora == null ? [] : [['Agora no site', ga4.dados.agora] as [string, number]])] : []}
           />
