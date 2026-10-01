@@ -43,11 +43,13 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
     if (problema) { setErro(problema); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     setErro('')
     setSalvando(true)
-    // .select(): sem ele, a RLS que barra devolve sucesso vazio (Erros que não se repetem, 11)
-    const { data, error } = await supabase.from('staff_profiles' as never).update(novo as never).eq('user_id', linha.user_id).select().maybeSingle()
+    // .select(): sem ele, a RLS que barra devolve sucesso vazio (Erros que não se repetem, 11). updated_at: aba antiga
+    // não sobrescreve o que outra aba salvou (o Pix inclusive); nesse caso também volta vazio
+    const { data, error } = await supabase.from('staff_profiles' as never).update(novo as never)
+      .eq('user_id', linha.user_id).eq('updated_at', linha.updated_at).select().maybeSingle()
     setSalvando(false)
     if (error || !data) {
-      setErro(error ? mensagemDoBanco(error) : 'Não foi possível salvar: confirme a verificação em duas etapas (saia e entre de novo com o código) e tente outra vez.')
+      setErro(error ? mensagemDoBanco(error) : 'Não foi possível salvar. O cadastro pode ter mudado em outra aba, ou a sessão precisa do código da verificação em duas etapas: recarregue a página (ou saia e entre de novo) e tente outra vez.')
       window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }

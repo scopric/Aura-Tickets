@@ -29,15 +29,15 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         <legend className="font-serif text-lg text-espresso mb-3">Dados pessoais</legend>
         <div className="sm:col-span-2">
           <label htmlFor="c-nome" className={rotulo}>Nome completo</label>
-          <input id="c-nome" autoComplete="name" value={f.nome_completo} onChange={(e) => set('nome_completo', e.target.value)} className={campo} />
+          <input id="c-nome" autoComplete="name" maxLength={150} value={f.nome_completo} onChange={(e) => set('nome_completo', e.target.value)} className={campo} />
         </div>
         <div>
           <label htmlFor="c-cpf" className={rotulo}>CPF</label>
-          <input id="c-cpf" inputMode="numeric" value={f.cpf} onChange={(e) => set('cpf', formatCPF(e.target.value))} placeholder="000.000.000-00" className={campo} />
+          <input id="c-cpf" inputMode="numeric" autoComplete="off" value={f.cpf} onChange={(e) => set('cpf', formatCPF(e.target.value))} placeholder="000.000.000-00" className={campo} />
         </div>
         <div>
           <label htmlFor="c-rg" className={rotulo}>RG</label>
-          <input id="c-rg" value={f.rg} maxLength={20} onChange={(e) => set('rg', e.target.value)} className={campo} />
+          <input id="c-rg" autoComplete="off" value={f.rg} maxLength={20} onChange={(e) => set('rg', e.target.value)} className={campo} />
         </div>
         <div>
           <label htmlFor="c-nasc" className={rotulo}>Data de nascimento</label>
@@ -54,7 +54,7 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         </div>
         <div className="sm:col-span-4">
           <label htmlFor="c-rua" className={rotulo}>Rua</label>
-          <input id="c-rua" autoComplete="address-line1" value={f.rua} onChange={(e) => set('rua', e.target.value)} className={campo} />
+          <input id="c-rua" autoComplete="address-line1" maxLength={150} value={f.rua} onChange={(e) => set('rua', e.target.value)} className={campo} />
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="c-numero" className={rotulo}>Número</label>
@@ -66,11 +66,11 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="c-bairro" className={rotulo}>Bairro</label>
-          <input id="c-bairro" value={f.bairro} onChange={(e) => set('bairro', e.target.value)} className={campo} />
+          <input id="c-bairro" maxLength={100} value={f.bairro} onChange={(e) => set('bairro', e.target.value)} className={campo} />
         </div>
         <div className="sm:col-span-3">
           <label htmlFor="c-cidade" className={rotulo}>Cidade</label>
-          <input id="c-cidade" autoComplete="address-level2" value={f.cidade} onChange={(e) => set('cidade', e.target.value)} className={campo} />
+          <input id="c-cidade" autoComplete="address-level2" maxLength={100} value={f.cidade} onChange={(e) => set('cidade', e.target.value)} className={campo} />
         </div>
         <div className="sm:col-span-1">
           <label htmlFor="c-uf" className={rotulo}>UF</label>
@@ -85,7 +85,7 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         <legend className="font-serif text-lg text-espresso mb-3">Contatos</legend>
         <div className="sm:col-span-2">
           <label htmlFor="c-email2" className={rotulo}>E-mail secundário (diferente do e-mail da conta)</label>
-          <input id="c-email2" type="email" autoComplete="email" value={f.email_secundario} onChange={(e) => set('email_secundario', e.target.value)} className={campo} />
+          <input id="c-email2" type="email" autoComplete="off" maxLength={254} value={f.email_secundario} onChange={(e) => set('email_secundario', e.target.value)} className={campo} />
         </div>
         <div>
           <label htmlFor="c-telefone" className={rotulo}>Telefone</label>
@@ -101,7 +101,7 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         <legend className="font-serif text-lg text-espresso mb-3">Contato de emergência</legend>
         <div className="sm:col-span-2">
           <label htmlFor="c-emerg-nome" className={rotulo}>Nome</label>
-          <input id="c-emerg-nome" value={f.emergencia_nome} onChange={(e) => set('emergencia_nome', e.target.value)} className={campo} />
+          <input id="c-emerg-nome" maxLength={150} value={f.emergencia_nome} onChange={(e) => set('emergencia_nome', e.target.value)} className={campo} />
         </div>
         <div>
           <label htmlFor="c-emerg-parentesco" className={rotulo}>Parentesco</label>
@@ -126,7 +126,7 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
           {f.pix_tipo === 'telefone' ? (
             <PhoneInput id="c-pix" apenasBrasil value={f.pix_chave} onChange={(v) => set('pix_chave', v)} />
           ) : (
-            <input id="c-pix" value={f.pix_chave} inputMode={f.pix_tipo === 'cpf' ? 'numeric' : undefined}
+            <input id="c-pix" autoComplete="off" maxLength={f.pix_tipo === 'email' ? 77 : 36} value={f.pix_chave} inputMode={f.pix_tipo === 'cpf' ? 'numeric' : undefined}
               onChange={(e) => set('pix_chave', f.pix_tipo === 'cpf' ? formatCPF(e.target.value) : e.target.value)}
               placeholder={f.pix_tipo === 'cpf' ? '000.000.000-00' : f.pix_tipo === 'email' ? 'voce@email.com' : '00000000-0000-0000-0000-000000000000'}
               className={campo} />
@@ -134,15 +134,15 @@ export function CamposFicha({ f, setF, disabled }: { f: Ficha; setF: Dispatch<Se
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="c-banco" className={rotulo}>Banco (opcional)</label>
-          <input id="c-banco" value={f.banco} maxLength={80} onChange={(e) => set('banco', e.target.value)} className={campo} />
+          <input id="c-banco" autoComplete="off" value={f.banco} maxLength={80} onChange={(e) => set('banco', e.target.value)} className={campo} />
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="c-agencia" className={rotulo}>Agência (opcional)</label>
-          <input id="c-agencia" value={f.agencia} maxLength={20} onChange={(e) => set('agencia', e.target.value)} className={campo} />
+          <input id="c-agencia" autoComplete="off" value={f.agencia} maxLength={20} onChange={(e) => set('agencia', e.target.value)} className={campo} />
         </div>
         <div className="sm:col-span-2">
           <label htmlFor="c-conta" className={rotulo}>Conta (opcional)</label>
-          <input id="c-conta" value={f.conta} maxLength={30} onChange={(e) => set('conta', e.target.value)} className={campo} />
+          <input id="c-conta" autoComplete="off" value={f.conta} maxLength={30} onChange={(e) => set('conta', e.target.value)} className={campo} />
         </div>
       </fieldset>
     </>

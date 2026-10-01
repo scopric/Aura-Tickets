@@ -75,6 +75,7 @@ test.describe('Meu cadastro do colaborador', () => {
     await expect(page.getByText('Cadastro atualizado. A mudança de pagamento ficou registrada.')).toBeVisible()
     expect(gravados).toHaveLength(1)
     expect(gravados[0].url).toContain(`user_id=eq.${ADMIN_DEMO}`)
+    expect(new URL(gravados[0].url).searchParams.get('updated_at')).toBe('eq.2026-10-01T12:00:00Z')
     expect(Object.keys(gravados[0].body).sort()).toEqual(EDITAVEIS)
     expect(gravados[0].body).toMatchObject({
       nome_completo: 'Clara Teste Souza', cpf: '52998224725', cep: '01310100', complemento: null,
@@ -104,7 +105,7 @@ test.describe('Meu cadastro do colaborador', () => {
     // RLS barrou (sem 2FA nesta sessão): o PATCH devolve lista vazia (o maybeSingle vira null) e a tela não confirma
     resposta = { status: 200, body: [] }
     await page.getByRole('button', { name: 'Salvar alterações' }).click()
-    await expect(page.getByRole('alert')).toContainText('confirme a verificação em duas etapas')
+    await expect(page.getByRole('alert')).toContainText('recarregue a página')
     await expect(page.getByText('Cadastro atualizado')).toHaveCount(0)
   })
 

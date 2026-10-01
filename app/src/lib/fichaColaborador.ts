@@ -89,7 +89,6 @@ const MENSAGEM_CHECK: Record<string, string> = {
 }
 export function mensagemDoBanco(e: { code?: string; message?: string }) {
   if (e.code === '23514') return MENSAGEM_CHECK[e.message?.match(/constraint "([^"]+)"/)?.[1] ?? ''] ?? 'Dados do cadastro inválidos.'
-  if (e.code === '23502') return 'Preencha todos os campos obrigatórios.'
   return 'Não foi possível salvar agora. Tente de novo.'
 }
 
