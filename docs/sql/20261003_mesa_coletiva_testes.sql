@@ -3,12 +3,12 @@
 -- produção). Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código: são dois blocos,
 -- cada um num begin … rollback (nada fica gravado), mas mexem em gatilhos e no cron dentro da
 -- transação.
--- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E27: escolha, troca, denúncia e triagem,
+-- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E28: escolha, troca, denúncia e triagem,
 -- faixa de idade, rede social, moderação da foto, avisos, remoção e trava, numeração, conflitos
--- de interesse do moderador.
+-- de interesse do moderador, moderação automática da foto (Fase E).
 -- Contas de teste com ids fixos (b0000000-…); e-mails *.invalid. Cada teste termina com
 -- "NOTICE: Tn OK" ou "NOTICE: En OK"; falha = ERROR com o valor recebido.
--- Rodado em 30/09/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E27 OK.
+-- Rodado em 01/10/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E28 OK.
 -- Stubs usados no Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório:
 -- profiles/events/ticket_types/tickets/user_profiles_ext/collective_tables/table_members com as
 -- colunas, CHECKs, FKs, RLS e GRANTs de produção (compatibility_score numeric(3,1),
@@ -16,7 +16,8 @@
 -- NOT NULL), auth.jwt(), auth.mfa_factors, orders/order_items, e gf_mfa_ok/gf_is_admin copiadas
 -- de 20260930_2fa_no_banco.sql; team_members, profiles.admin_permissions/is_verified/
 -- stripe_customer_id, gf_admin_can e o gatilho gf_protect_profile_privileges como no repositório; e os
--- alter default privileges e revoke de 20261001_seg6_menor_privilegio.sql (#85).
+-- alter default privileges e revoke de 20261001_seg6_menor_privilegio.sql (#85); pg_net, Vault, ai_settings
+-- e ai_custo (20260929_agente_evo.sql).
 -- Em produção, events e orders podem ter outras colunas obrigatórias: se o insert de pg_temp.ingresso,
 -- do T0 ou do T16 falhar, complete-o.
 -- As corridas entre duas sessões (trava mesa_conta; trava por evento em escolher_mesa) não cabem
@@ -1278,6 +1279,133 @@ begin
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L)', d, 'resolvida')) = '22023 Denúncia não encontrada', 'decidiu contra a equipe';
   assert pg_temp.err2(3, format('public.mesa_denuncia_liberar(%L)', d)) = '22023 Denúncia não encontrada', 'liberou contra a equipe';
   raise notice 'E27 OK: moderador não destrava a si mesmo, não aprova a própria foto, não decide contra a própria equipe; 1 aviso só; travado antes de sem_perfil';
+end $t$;
+
+-- E28. Moderação automática da foto (Fase E; só service_role): fila com reserva sem duplicidade; fora
+--      da fila quem não consentiu, formato inválido ou 3 tentativas; resultado com hash antigo não muda
+--      nada (mas registra o custo); aprovada aparece em minha_mesa, recusada não; 3 erros → revisar;
+--      revisar vai para o admin com "ia"; trocar a foto zera tentativas e reserva; authenticated não
+--      grava as colunas novas; teto diário de 500; EXECUTE só de service_role; cron sem segredo não chama
+do $t$
+declare r1 jsonb; r2 jsonb; r3 jsonb; u1 uuid[]; u2 uuid[]; ok boolean; i int; p jsonb; r jsonb; n0 bigint;
+  m text := 'gemini-3.1-flash-lite'; cron_cmd text := (select command from cron.job where jobname = 'moderar_fotos');
+begin
+  assert (select schedule from cron.job where jobname = 'moderar_fotos') = '*/2 * * * *', 'cron moderar_fotos';
+  assert has_function_privilege('service_role', 'public.mesa_fotos_para_moderar_auto(int)', 'execute')
+     and has_function_privilege('service_role', 'public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int)', 'execute')
+     and not has_function_privilege('authenticated', 'public.mesa_fotos_para_moderar_auto(int)', 'execute')
+     and not has_function_privilege('anon', 'public.mesa_fotos_para_moderar_auto(int)', 'execute')
+     and not has_function_privilege('authenticated', 'public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int)', 'execute')
+     and not has_function_privilege('anon', 'public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int)', 'execute')
+     and has_function_privilege('service_role', 'public.mesa_moderacao_secret()', 'execute')
+     and not has_function_privilege('authenticated', 'public.mesa_moderacao_secret()', 'execute')
+     and not has_function_privilege('anon', 'public.mesa_moderacao_secret()', 'execute'), 'EXECUTE';
+  assert not exists (select 1 from information_schema.role_table_grants where table_name = 'mesa_moderacoes'
+                     and grantee in ('anon', 'authenticated', 'PUBLIC')), 'mesa_moderacoes com grant';
+  -- 41..43 e 47: pendentes, no formato e com consentimento; 44 sem consentimento; 45 URL; 46 com 3 tentativas
+  insert into auth.users (id, email) select pg_temp.u(g), 'pessoa' || g || '@teste.evokaa.invalid' from generate_series(41, 47) g;
+  insert into public.profiles (id, full_name, birth_date, avatar_url)
+  select pg_temp.u(g), 'Pessoa' || g || ' Sobrenome', date '1995-06-15',
+         case g when 45 then 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/avatars/45.png' else pg_temp.foto(g::text) end
+  from generate_series(41, 47) g;
+  perform pg_temp.consente(g) from generate_series(41, 47) g where g <> 44;
+  update public.profiles set avatar_moderacao_tentativas = 3 where id = pg_temp.u(46);
+  -- cron sem o segredo no Vault: não chama nada
+  select count(*) into n0 from net.http_request_queue;
+  execute cron_cmd;
+  assert (select count(*) from net.http_request_queue) = n0, 'cron chamou sem segredo';
+  -- três rodadas seguidas: nenhuma foto repete
+  perform set_config('role', 'service_role', true);
+  r1 := public.mesa_fotos_para_moderar_auto(2);
+  r2 := public.mesa_fotos_para_moderar_auto(20);
+  r3 := public.mesa_fotos_para_moderar_auto(20);
+  perform set_config('role', 'postgres', true);
+  u1 := array(select (x ->> 'user')::uuid from jsonb_array_elements(r1 -> 'fotos') x);
+  u2 := array(select (x ->> 'user')::uuid from jsonb_array_elements(r2 -> 'fotos') x);
+  assert r1 ->> 'modelo' = m and cardinality(u1) = 2, format('1ª rodada: %s', r1);
+  assert not (u1 && u2) and r3 -> 'fotos' = '[]', 'foto repetida entre rodadas';
+  assert array[pg_temp.u(41), pg_temp.u(42), pg_temp.u(43), pg_temp.u(47)] <@ (u1 || u2), 'faltou foto na fila';
+  assert not (array[pg_temp.u(44), pg_temp.u(45), pg_temp.u(46), pg_temp.u(36), pg_temp.u(40)] && (u1 || u2)), 'entrou quem não devia';
+  assert (select bool_and(x ->> 'hash' = public.mesa_foto_hash(x ->> 'foto') and x ->> 'foto' like 'data:image/jpeg;base64,%')
+          from jsonb_array_elements((r1 -> 'fotos') || (r2 -> 'fotos')) x), 'hash ou foto';
+  assert (select bool_and(avatar_moderacao_reservada_ate > now()) from public.profiles where id = any(u1 || u2)), 'sem reserva';
+  -- resultados
+  perform set_config('role', 'service_role', true);
+  ok := public.mesa_foto_resultado_auto(pg_temp.u(41), public.mesa_foto_hash(pg_temp.foto('41-antiga')), 'aprovada', '{}', m, 560, 60);
+  perform set_config('role', 'postgres', true);
+  assert not ok and (select avatar_moderacao = 'pendente' and avatar_moderacao_hash is null and avatar_moderacao_reservada_ate is not null
+                     from public.profiles where id = pg_temp.u(41)), 'hash antigo mexeu em profiles';
+  perform set_config('role', 'service_role', true);
+  ok := public.mesa_foto_resultado_auto(pg_temp.u(41), public.mesa_foto_hash(pg_temp.foto('41')), 'aprovada', '{}', m, 560, 60);
+  assert ok, 'aprovada não gravou';
+  assert public.mesa_foto_resultado_auto(pg_temp.u(42), public.mesa_foto_hash(pg_temp.foto('42')), 'recusada', '{nudez}', m, 560, 60), 'recusada';
+  assert public.mesa_foto_resultado_auto(pg_temp.u(47), public.mesa_foto_hash(pg_temp.foto('47')), 'revisar', '{famoso}', m, 560, 60), 'revisar';
+  for i in 1..3 loop
+    assert public.mesa_foto_resultado_auto(pg_temp.u(43), public.mesa_foto_hash(pg_temp.foto('43')), 'erro', '{}', m, 0, 0), format('erro %s', i);
+  end loop;
+  assert pg_temp.erro(format('select public.mesa_foto_resultado_auto(%L, %L, %L, %L, %L, 1, 1)', pg_temp.u(44), 'x', 'aprovada', '{inventado}', m)) like '23514%', 'motivo fora da lista';
+  assert pg_temp.erro(format('select public.mesa_foto_resultado_auto(%L, %L, %L, %L, %L, 1, 1)', pg_temp.u(44), 'x', 'talvez', '{}', m)) like '22023%', 'decisão fora da lista';
+  perform set_config('role', 'postgres', true);
+  assert (select count(*) = 2 and bool_and(custo > 0) from public.mesa_moderacoes where user_id = pg_temp.u(41)), 'custo não registrado';
+  assert (select avatar_moderacao = 'aprovada' and avatar_moderacao_hash = public.mesa_foto_hash(avatar_url)
+                 and avatar_moderacao_tentativas = 0 and avatar_moderacao_reservada_ate is null
+          from public.profiles where id = pg_temp.u(41)), 'aprovada sem zerar';
+  assert (select avatar_moderacao = 'revisar' and avatar_moderacao_tentativas = 3 from public.profiles where id = pg_temp.u(43)), '3 erros sem revisar';
+  -- aprovada aparece em minha_mesa; recusada não
+  insert into public.events (id, producer_id, title, date, time, status, approval_status)
+  values (pg_temp.u(908), pg_temp.u(1), 'Evento moderação', current_date + 2, '21:00', 'published', 'approved');
+  insert into public.ticket_types (id, event_id, name, type, capacity) values (pg_temp.u(918), pg_temp.u(908), 'Mesa Tinder', 'coletiva', 100);
+  perform pg_temp.ingresso(8000 + g, 918, 908, g) from unnest(array[21, 41, 42]) g;
+  perform pg_temp.escolhe(21, 908, null);
+  perform public.formar_mesas(pg_temp.u(908));
+  r := pg_temp.rpc(21, format('public.minha_mesa(%L)', pg_temp.u(908)));
+  select x into p from jsonb_array_elements(r -> 'mesas' -> 0 -> 'colegas') x where x ->> 'nome' = 'Pessoa41';
+  assert p ->> 'foto' = pg_temp.foto('41'), format('aprovada sem foto: %s', r);
+  select x into p from jsonb_array_elements(r -> 'mesas' -> 0 -> 'colegas') x where x ->> 'nome' = 'Pessoa42';
+  assert p is not null and p -> 'foto' = 'null', format('recusada com foto: %s', r);
+  -- revisar (pela IA ou por 3 erros) vai para o admin, com a última decisão da IA
+  r := pg_temp.rpc2(3, 'public.mesa_fotos_para_revisar()');
+  assert (select x -> 'ia' ->> 'decisao' = 'revisar' and x -> 'ia' -> 'motivos' = '["famoso"]' from jsonb_array_elements(r) x
+          where x ->> 'nome' = 'Pessoa47 Sobrenome'), format('fila do admin (47): %s', r);
+  assert (select x -> 'ia' ->> 'decisao' = 'erro' from jsonb_array_elements(r) x where x ->> 'nome' = 'Pessoa43 Sobrenome'), 'fila do admin (43)';
+  -- authenticated não grava as colunas novas; trocar a foto zera tentativas e reserva
+  perform pg_temp.como(pg_temp.u(43));
+  assert pg_temp.erro(format('update public.profiles set avatar_moderacao_tentativas = 0 where id = %L', pg_temp.u(43))) like '42501%', 'gravou tentativas';
+  assert pg_temp.erro(format('update public.profiles set avatar_moderacao_reservada_ate = now() where id = %L', pg_temp.u(43))) like '42501%', 'gravou reserva';
+  update public.profiles set avatar_url = pg_temp.foto('43b') where id = pg_temp.u(43);
+  perform pg_temp.como(pg_temp.u(39));
+  update public.profiles set avatar_url = pg_temp.foto('39d') where id = pg_temp.u(39);
+  perform pg_temp.como(null);
+  assert (select bool_and(avatar_moderacao = 'pendente' and avatar_moderacao_tentativas = 0 and avatar_moderacao_reservada_ate is null)
+          from public.profiles where id in (pg_temp.u(43), pg_temp.u(39))), 'trocar a foto não zerou';
+  -- teto diário: 500 decisões de "erro" não contam; 500 decisões no dia esvaziam a fila
+  insert into public.mesa_moderacoes (user_id, hash, decisao) select pg_temp.u(44), 'x', 'erro' from generate_series(1, 500);
+  perform set_config('role', 'service_role', true);
+  r := public.mesa_fotos_para_moderar_auto(1);
+  perform set_config('role', 'postgres', true);
+  assert jsonb_array_length(r -> 'fotos') = 1, 'erros contaram no teto';
+  insert into public.mesa_moderacoes (user_id, hash, decisao) select pg_temp.u(44), 'x', 'aprovada' from generate_series(1, 500);
+  perform set_config('role', 'service_role', true);
+  r := public.mesa_fotos_para_moderar_auto(20);
+  perform set_config('role', 'postgres', true);
+  assert r -> 'fotos' = '[]', format('teto ignorado: %s', r);
+  delete from public.mesa_moderacoes where user_id = pg_temp.u(44) and decisao = 'aprovada';
+  perform set_config('role', 'service_role', true);
+  r := public.mesa_fotos_para_moderar_auto(20);
+  perform set_config('role', 'postgres', true);
+  assert jsonb_array_length(r -> 'fotos') >= 1, 'fila não voltou abaixo do teto';
+  -- com o segredo no Vault (e foto pendente), o cron chama a Edge Function
+  perform set_config('role', 'service_role', true);
+  assert public.mesa_moderacao_secret() is null, 'segredo antes de existir';
+  perform set_config('role', 'postgres', true);
+  perform vault.create_secret('segredo-de-teste-nao-usar', 'mesa_moderacao_secret');
+  perform set_config('role', 'service_role', true);
+  assert public.mesa_moderacao_secret() = 'segredo-de-teste-nao-usar', 'service_role não lê o segredo';
+  perform set_config('role', 'postgres', true);
+  assert pg_temp.err(43, 'public.mesa_moderacao_secret()') like '42501%', 'authenticated leu o segredo';
+  execute cron_cmd;
+  assert (select count(*) from net.http_request_queue) = n0 + 1, 'cron não chamou com segredo';
+  raise notice 'E28 OK: fila com reserva; fora da fila; hash antigo; aprovada/recusada/revisar/3 erros; admin com ia; troca zera; teto; EXECUTE; segredo; cron';
 end $t$;
 
 -- E16. anon sem EXECUTE; tabela de denúncias sem grant; funções internas fechadas; 2FA

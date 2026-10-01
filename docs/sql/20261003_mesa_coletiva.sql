@@ -37,8 +37,13 @@
 -- cada função e tabela tem revoke explícito seguido do grant mínimo (bloco 7).
 -- Permissão nova de admin: moderate_mesa (gf_admin_can já libera super_admin); dar a quem modera.
 -- Pré-requisitos (conferidos em 30/09): gf_admin_can, gf_mfa_ok
--- (20260930_2fa_no_banco.sql), team_members, pg_cron; table_members vazia (o bloco 3 para com erro
--- se não estiver).
+-- (20260930_2fa_no_banco.sql), team_members, pg_cron, pg_net, Vault, ai_settings e ai_custo
+-- (20260929_agente_evo.sql); table_members vazia (o bloco 3 para com erro se não estiver).
+-- MODERAÇÃO AUTOMÁTICA DA FOTO (Fase E do plano; Edge Function moderar-foto, outro PR):
+--   Criar o segredo no Vault, uma vez, no SQL Editor (valor longo e aleatório, nunca neste arquivo):
+--     select vault.create_secret('<valor longo aleatório>', 'mesa_moderacao_secret');
+--   A Edge Function lê o mesmo segredo por mesa_moderacao_secret() (bloco 6e), como a chat-notify;
+--   não há segredo a cadastrar nela. Sem o segredo no Vault, o cron moderar_fotos (bloco 8) não chama nada.
 -- Idempotente: pode rodar de novo.
 -- ORDEM: aplicar só junto com o PR do front que troca useMatchmaking, YourTable e ProfileQuiz
 -- (PR B/C). Antes dele, o questionário que grava "romance" (CHECK do bloco 2) e a tela antiga da
@@ -211,6 +216,8 @@ alter table public.profiles
   add column if not exists avatar_moderacao text not null default 'pendente',
   add column if not exists avatar_moderado_em timestamptz,
   add column if not exists avatar_moderacao_hash text,
+  add column if not exists avatar_moderacao_tentativas int not null default 0,
+  add column if not exists avatar_moderacao_reservada_ate timestamptz,
   drop column if exists avatar_moderacao_url;
 alter table public.profiles drop constraint if exists profiles_avatar_moderacao_chk;
 alter table public.profiles add constraint profiles_avatar_moderacao_chk check (
@@ -228,16 +235,21 @@ as $$
 begin
   if current_user in ('anon', 'authenticated') and (
        (tg_op = 'INSERT' and (new.avatar_moderacao is distinct from 'pendente' or new.avatar_moderado_em is not null
-                              or new.avatar_moderacao_hash is not null))
+                              or new.avatar_moderacao_hash is not null or new.avatar_moderacao_tentativas <> 0
+                              or new.avatar_moderacao_reservada_ate is not null))
     or (tg_op = 'UPDATE' and (new.avatar_moderacao is distinct from old.avatar_moderacao
                               or new.avatar_moderado_em is distinct from old.avatar_moderado_em
-                              or new.avatar_moderacao_hash is distinct from old.avatar_moderacao_hash))) then
+                              or new.avatar_moderacao_hash is distinct from old.avatar_moderacao_hash
+                              or new.avatar_moderacao_tentativas is distinct from old.avatar_moderacao_tentativas
+                              or new.avatar_moderacao_reservada_ate is distinct from old.avatar_moderacao_reservada_ate))) then
     raise exception 'Moderação da foto só pelo sistema' using errcode = '42501';
   end if;
   if tg_op = 'UPDATE' and new.avatar_url is distinct from old.avatar_url then
     new.avatar_moderacao := 'pendente';
     new.avatar_moderado_em := null;
     new.avatar_moderacao_hash := null;
+    new.avatar_moderacao_tentativas := 0;
+    new.avatar_moderacao_reservada_ate := null;
   end if;
   return new;
 end;
@@ -245,6 +257,27 @@ $$;
 drop trigger if exists mesa_avatar_guard on public.profiles;
 create trigger mesa_avatar_guard before insert or update on public.profiles
   for each row execute function public.mesa_avatar_guard();
+
+-- 2e. Decisões da moderação automática (mesa_foto_resultado_auto, bloco 6e): prova da decisão (a
+--     pessoa pode contestar) e controle de custo. Só recebe inserção, pelas funções; RLS sem policy e
+--     sem grant. Some com a conta (cascade) e com a limpeza diária de 180 dias (bloco 8).
+--     PENDÊNCIA: prazo sujeito ao jurídico.
+create table if not exists public.mesa_moderacoes (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  hash text not null,
+  decisao text not null check (decisao in ('aprovada', 'recusada', 'revisar', 'erro')),
+  motivos text[] not null default '{}' check (motivos <@ array['nudez', 'violencia', 'odio', 'politica', 'drogas',
+    'sem_rosto', 'famoso', 'texto_contato', 'bloqueio_seguranca', 'formato', 'outro']::text[]),
+  modelo text,
+  tokens_in int,
+  tokens_out int,
+  custo numeric,
+  em timestamptz not null default now()
+);
+create index if not exists mesa_moderacoes_user_idx on public.mesa_moderacoes (user_id, hash);
+create index if not exists mesa_moderacoes_em_idx on public.mesa_moderacoes (em);
+alter table public.mesa_moderacoes enable row level security;
 
 -- 3. Um lugar por ingresso: ticket_id é o que torna formar_mesas idempotente.
 --    NOT NULL direto porque table_members está vazia em produção (conferido em 30/09); se não
@@ -642,11 +675,13 @@ set search_path = ''
 as $$
   select jsonb_build_object(
     'nome', case when p_oculto then 'Lugar ocupado' else split_part(trim(p.full_name), ' ', 1) end,
+    -- anos completos (comparar o intervalo de age() com '25 years' erra no fim de mês de 30 dias:
+    -- 24 anos, 11 meses e 30 dias conta como 25 anos)
     'faixa_idade', case when p_ok then case
-        when age(p.birth_date) < interval '25 years' then '18–24'
-        when age(p.birth_date) < interval '35 years' then '25–34'
-        when age(p.birth_date) < interval '45 years' then '35–44'
-        when age(p.birth_date) < interval '60 years' then '45–59'
+        when date_part('year', age(p.birth_date)) < 25 then '18–24'
+        when date_part('year', age(p.birth_date)) < 35 then '25–34'
+        when date_part('year', age(p.birth_date)) < 45 then '35–44'
+        when date_part('year', age(p.birth_date)) < 60 then '45–59'
         else '60+' end end,
     'foto', case when p_ok then p.avatar_url end,
     'perfil', case when p_ok then x.vibe end,
@@ -1665,7 +1700,8 @@ $$;
 -- 6d. Moderação da foto pelo moderador (moderate_mesa, aal2): a fila são as fotos pendentes ou em
 --     revisão, no formato do app, de quem aceitou o termo da mesa (não a base toda), com o hash
 --     (sha256); a decisão só vale se a foto ainda for a mesma (hash) e estiver pendente ou em revisão,
---     ou aprovada, para revogar (p_aprovada = false). Nunca a própria foto. Devolve se decidiu.
+--     ou aprovada, para revogar (p_aprovada = false). Nunca a própria foto. Devolve se decidiu. A fila
+--     traz em "ia" a última decisão da moderação automática para a mesma foto (mesa_moderacoes).
 create or replace function public.mesa_fotos_para_revisar()
 returns jsonb
 language plpgsql
@@ -1677,7 +1713,13 @@ begin
   perform public.mesa_moderador();
   return coalesce((
     select jsonb_agg(jsonb_build_object('id', p.id, 'nome', p.full_name, 'foto', p.avatar_url, 'hash', public.mesa_foto_hash(p.avatar_url),
-                                        'situacao', p.avatar_moderacao) order by p.full_name, p.id)
+                                        'situacao', p.avatar_moderacao,
+                                        -- a última decisão da IA para esta mesma foto, se houver
+                                        'ia', (select jsonb_build_object('decisao', m.decisao, 'motivos', m.motivos, 'em', m.em)
+                                               from public.mesa_moderacoes m
+                                               where m.user_id = p.id and m.hash = public.mesa_foto_hash(p.avatar_url)
+                                               order by m.id desc limit 1))
+                     order by p.full_name, p.id)
     from public.profiles p
     join public.user_profiles_ext x on x.user_id = p.id
     where p.avatar_moderacao in ('pendente', 'revisar') and public.mesa_foto_formato(p.avatar_url)
@@ -1706,8 +1748,113 @@ begin
 end;
 $$;
 
+-- 6e. Moderação automática (Edge Function moderar-foto, só service_role; contrato fixo da Fase E).
+--     mesa_fotos_para_moderar_auto: até p_limite fotos pendentes, no formato do app, de quem tem o
+--     consentimento da mesa vigente (só essas vão para o Google), com menos de 3 tentativas e sem
+--     reserva vigente; reserva cada uma por 5 min (for update skip locked: duas rodadas não pegam a
+--     mesma). Devolve {"modelo": ai_settings.model_simple, "fotos": [{user, hash, foto}]}.
+--     ponytail: teto fixo de 500 fotos por dia (fuso de São Paulo), contado pelas decisões já gravadas
+--     (sem "erro"); fotos reservadas e ainda sem resultado não entram na conta, então duas rodadas
+--     simultâneas podem passar um pouco do teto. Levar o teto para ai_settings se precisar mudar sem SQL.
+create or replace function public.mesa_fotos_para_moderar_auto(p_limite int default 20)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_teto constant int := 500;
+  v_modelo text := (select s.model_simple from public.ai_settings s where s.id = 1);
+  v_feitas int;
+  v_n int;
+  v_fotos jsonb;
+begin
+  select count(*) into v_feitas from public.mesa_moderacoes m
+  where m.decisao <> 'erro'
+    and (m.em at time zone 'America/Sao_Paulo')::date = (now() at time zone 'America/Sao_Paulo')::date;
+  v_n := least(greatest(coalesce(p_limite, 20), 0), v_teto - v_feitas);
+  if v_n <= 0 then
+    return jsonb_build_object('modelo', v_modelo, 'fotos', '[]'::jsonb);
+  end if;
+  with alvo as (
+    select p.id
+    from public.profiles p
+    join public.user_profiles_ext x on x.user_id = p.id
+    where p.avatar_moderacao = 'pendente' and public.mesa_foto_formato(p.avatar_url)
+      and x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
+      and x.mesa_consent_version = public.mesa_termo_versao()
+      and p.avatar_moderacao_tentativas < 3
+      and (p.avatar_moderacao_reservada_ate is null or p.avatar_moderacao_reservada_ate < now())
+    order by p.avatar_moderacao_tentativas, p.id
+    limit v_n
+    for update of p skip locked
+  ), reservadas as (
+    update public.profiles p set avatar_moderacao_reservada_ate = now() + interval '5 minutes'
+    from alvo where p.id = alvo.id
+    returning p.id, p.avatar_url
+  )
+  select coalesce(jsonb_agg(jsonb_build_object('user', r.id, 'hash', public.mesa_foto_hash(r.avatar_url), 'foto', r.avatar_url)
+                            order by r.id), '[]'::jsonb)
+    into v_fotos
+  from reservadas r;
+  return jsonb_build_object('modelo', v_modelo, 'fotos', v_fotos);
+end;
+$$;
+
+-- 6e'. mesa_moderacao_secret: o segredo do cron, para a Edge Function conferir o cabeçalho
+--      x-moderacao-secret (mesmo padrão de chat_notify_secret). Só service_role.
+create or replace function public.mesa_moderacao_secret()
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select d.decrypted_secret from vault.decrypted_secrets d where d.name = 'mesa_moderacao_secret' limit 1;
+$$;
+
+-- 6f. mesa_foto_resultado_auto: grava sempre a linha em mesa_moderacoes (o custo existiu) e só muda
+--     profiles se a foto ainda for a mesma (hash) e ainda estiver pendente; senão devolve false.
+--     aprovada/recusada/revisar: decide, zera tentativas e reserva. erro: +1 tentativa e libera a
+--     reserva; na 3ª, vai para revisar (o admin decide).
+create or replace function public.mesa_foto_resultado_auto(p_user uuid, p_hash text, p_decisao text, p_motivos text[],
+                                                           p_modelo text, p_tokens_in int, p_tokens_out int)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if p_decisao is null or p_decisao not in ('aprovada', 'recusada', 'revisar', 'erro') then
+    raise exception 'Decisão inválida' using errcode = '22023';
+  end if;
+  insert into public.mesa_moderacoes (user_id, hash, decisao, motivos, modelo, tokens_in, tokens_out, custo)
+  select p.id, p_hash, p_decisao, coalesce(p_motivos, '{}'), p_modelo, p_tokens_in, p_tokens_out,
+         public.ai_custo(p_modelo, p_tokens_in, p_tokens_out)
+  from public.profiles p where p.id = p_user;
+  if p_decisao = 'erro' then
+    update public.profiles p set
+      avatar_moderacao_tentativas = p.avatar_moderacao_tentativas + 1,
+      avatar_moderacao_reservada_ate = null,
+      avatar_moderacao = case when p.avatar_moderacao_tentativas + 1 >= 3 then 'revisar' else p.avatar_moderacao end,
+      avatar_moderado_em = case when p.avatar_moderacao_tentativas + 1 >= 3 then now() else p.avatar_moderado_em end
+    where p.id = p_user and public.mesa_foto_hash(p.avatar_url) = p_hash and p.avatar_moderacao = 'pendente';
+  else
+    update public.profiles p set
+      avatar_moderacao = p_decisao,
+      avatar_moderacao_hash = p_hash,
+      avatar_moderado_em = now(),
+      avatar_moderacao_tentativas = 0,
+      avatar_moderacao_reservada_ate = null
+    where p.id = p_user and public.mesa_foto_hash(p.avatar_url) = p_hash and p.avatar_moderacao = 'pendente';
+  end if;
+  return found;
+end;
+$$;
+
 -- 7. Quem acessa o quê ---------------------------------------------------------------
 -- Tabelas: só as funções acima leem e escrevem (RLS sem policy + sem GRANT).
+revoke all on public.mesa_moderacoes from anon, authenticated;
 revoke all on public.collective_tables, public.table_members, public.mesa_consentimentos, public.mesa_denuncias,
   public.mesa_passagens, public.mesa_avisos, public.mesa_travas from anon, authenticated;
 
@@ -1765,6 +1912,13 @@ grant execute on function public.mesa_mostrar_rede() to authenticated;
 grant execute on function public.mesa_ocultar_rede() to authenticated;
 grant execute on function public.mesa_fotos_para_revisar() to authenticated;
 grant execute on function public.mesa_foto_decidir(uuid, text, boolean) to authenticated;
+-- moderação automática: só a Edge Function (service_role)
+revoke all on function public.mesa_fotos_para_moderar_auto(int) from public, anon, authenticated;
+revoke all on function public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int) from public, anon, authenticated;
+grant execute on function public.mesa_fotos_para_moderar_auto(int) to service_role;
+revoke all on function public.mesa_moderacao_secret() from public, anon, authenticated;
+grant execute on function public.mesa_moderacao_secret() to service_role;
+grant execute on function public.mesa_foto_resultado_auto(uuid, text, text, text[], text, int, int) to service_role;
 grant execute on function public.mesa_remover_membro(uuid, uuid, text, text) to authenticated;
 grant execute on function public.mesa_denuncia_liberar(uuid) to authenticated;
 grant execute on function public.mesa_travas_do_evento(uuid) to authenticated;
@@ -1788,7 +1942,8 @@ revoke all on function public.mesa_foto_hash(text) from public, anon, authentica
 
 -- 8. Cron. formar_mesas a cada 15 min, nas 24 h antes do evento; cada evento num bloco próprio,
 --    para um erro não derrubar os outros. apagar_mesas_antigas todo dia às 04:37 UTC (mesas,
---    passagens e avisos de 30 dias; travas de 180 dias; denúncias vencidas, bloco 3e).
+--    passagens e avisos de 30 dias; travas e decisões da moderação automática de 180 dias; denúncias
+--    vencidas, bloco 3e). moderar_fotos a cada 2 min (moderação automática da foto).
 --    ponytail: a falha de um evento aparece só como WARNING no log do Postgres; em
 --    cron.job_run_details a execução fica "succeeded". Se precisar de alerta, gravar a falha numa tabela.
 select cron.unschedule('formar_mesas') where exists (select 1 from cron.job where jobname = 'formar_mesas');
@@ -1829,7 +1984,26 @@ select cron.schedule('apagar_mesas_antigas', '37 4 * * *', $cron$
     where detalhe is not null and evento_em < now() - interval '180 days' and status not in ('em_apuracao', 'judicial');
     delete from public.mesa_denuncias
     where evento_em < now() - interval '3 years' and status not in ('em_apuracao', 'judicial');
+    -- decisões da moderação automática (bloco 2e): 180 dias (PENDÊNCIA: prazo sujeito ao jurídico)
+    delete from public.mesa_moderacoes where em < now() - interval '180 days';
   end $job$;
+$cron$);
+
+-- moderar_fotos a cada 2 min (padrão do chat_notify, 20261001_chat.sql bloco 7): chama a Edge
+-- Function moderar-foto com o segredo lido do Vault na hora (nunca escrito no comando). O "from
+-- vault.decrypted_secrets" faz o job não chamar nada enquanto o segredo não existir (0 linhas = 0
+-- chamadas), e o "exists" evita chamar quando não há foto pendente.
+select cron.unschedule('moderar_fotos') where exists (select 1 from cron.job where jobname = 'moderar_fotos');
+select cron.schedule('moderar_fotos', '*/2 * * * *', $cron$
+  select net.http_post(
+    url := 'https://rwaezeqyuhxrssntcxdv.supabase.co/functions/v1/moderar-foto',
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-moderacao-secret', d.decrypted_secret),
+    body := '{}'::jsonb,
+    timeout_milliseconds := 60000
+  )
+  from vault.decrypted_secrets d
+  where d.name = 'mesa_moderacao_secret'
+    and exists (select 1 from public.profiles p where p.avatar_moderacao = 'pendente');
 $cron$);
 
 commit;
