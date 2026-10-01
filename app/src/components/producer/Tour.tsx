@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -17,15 +17,30 @@ const achar = (alvo: string) => {
   return el && r && r.width > 0 && r.height > 0 ? { el, r } : null
 }
 
+// Onde o alvo está agora. O recorte pega o alvo inteiro; o balão se ancora só na parte que aparece na tela
+// e, sem ESPACO_BALAO livre acima nem abaixo (ou sem alvo), fica centralizado.
+function estimar(alvo: string): Estado {
+  const a = achar(alvo)
+  if (!a) return { alvo: null, visivel: null, central: true }
+  const { r } = a
+  const topo = Math.max(r.top, 0)
+  const base = Math.min(r.bottom, window.innerHeight)
+  const caixa = { x: r.x - FOLGA, y: r.y - FOLGA, width: r.width + 2 * FOLGA, height: r.height + 2 * FOLGA }
+  return {
+    alvo: caixa,
+    visivel: { x: caixa.x, y: topo - FOLGA, width: caixa.width, height: base - topo + 2 * FOLGA },
+    // alvo fora da tela (base <= topo) também centraliza
+    central: base <= topo || (topo < ESPACO_BALAO && window.innerHeight - base < ESPACO_BALAO),
+  }
+}
+
 // Tour guiado: escurece a tela, recorta o alvo (data-tour) e mostra um balão. Só abre por ?tour=<id>.
 // onFim(puladas): true quando o usuário pulou ou apertou Esc; false ao concluir. Chamado uma vez só.
 export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: boolean) => void }) {
   const [i, setI] = useState(0)
-  const [vivos, setVivos] = useState(() => tour.passos.map(() => true)) // passos cujo alvo existe na tela
-  const [est, setEst] = useState<Estado>({ alvo: null, visivel: null, central: true })
-  const [inicio] = useState(() => Date.now())
+  const [vivos, setVivos] = useState(() => tour.passos.map(p => !!achar(p.alvo))) // passos cujo alvo existe na tela
+  const [est, setEst] = useState(() => estimar(tour.passos[0].alvo)) // medido antes da 1ª pintura
   const rolou = useRef(-1) // passo que já rolou até o alvo
-  const mexeu = useRef(false) // o usuário já clicou em algo
   const acabou = useRef(false)
   const titulo = useRef<HTMLHeadingElement>(null)
   const passo = tour.passos[i]
@@ -44,27 +59,16 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
   const medir = useCallback(() => {
     const existem = tour.passos.map(p => !!achar(p.alvo))
     setVivos(o => (o.join() === existem.join() ? o : existem))
-    // tela ainda carregando no começo: se o passo atual não aparecer, vai para o primeiro que apareceu
-    if (!mexeu.current && !existem[i] && Date.now() - inicio > 1500 && existem.includes(true)) return setI(existem.indexOf(true))
+    // tela ainda carregando: o passo atual fica centralizado até o alvo aparecer (passos ausentes só são pulados no Próximo/Voltar)
     const a = achar(passo.alvo)
-    let prox: Estado = { alvo: null, visivel: null, central: true }
-    if (a) {
-      const { el, r } = a
-      if (rolou.current !== i) {
-        rolou.current = i
-        const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-        el.scrollIntoView({ block: r.height > window.innerHeight / 2 ? 'start' : 'center', behavior: reduzido ? 'auto' : 'smooth' })
-      }
-      // o recorte pega o alvo inteiro; o balão se ancora só na parte que aparece na tela
-      const topo = Math.max(r.top, 0)
-      const base = Math.min(r.bottom, window.innerHeight)
-      const alvo = { x: r.x - FOLGA, y: r.y - FOLGA, width: r.width + 2 * FOLGA, height: r.height + 2 * FOLGA }
-      const visivel = { x: alvo.x, y: topo - FOLGA, width: alvo.width, height: base - topo + 2 * FOLGA }
-      const central = topo < ESPACO_BALAO && window.innerHeight - base < ESPACO_BALAO
-      prox = { alvo, visivel, central }
+    if (a && rolou.current !== i) {
+      rolou.current = i
+      const reduzido = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      a.el.scrollIntoView({ block: a.r.height > window.innerHeight / 2 ? 'start' : 'center', behavior: reduzido ? 'auto' : 'smooth' })
     }
+    const prox = estimar(passo.alvo)
     setEst(o => (JSON.stringify(o) === JSON.stringify(prox) ? o : prox))
-  }, [tour, passo.alvo, i, inicio])
+  }, [tour, passo.alvo, i])
 
   useEffect(() => {
     const quadro = requestAnimationFrame(medir)
@@ -83,6 +87,13 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
     }
   }, [medir, terminar])
 
+  // enquanto o tour roda, o app fica inerte (sem clique, foco nem leitor de tela); o SVG e o balão ficam em portal no body, fora do #root
+  useEffect(() => {
+    const raiz = document.getElementById('root')
+    raiz?.setAttribute('inert', '')
+    return () => raiz?.removeAttribute('inert')
+  }, [])
+
   // a cada passo (e ao trocar de modo) o foco vai para o título: o leitor de tela anuncia e o foco não cai no body
   useEffect(() => { titulo.current?.focus() }, [i, est.central])
 
@@ -91,7 +102,6 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
     return { current: { getBoundingClientRect: () => DOMRect.fromRect(c) } }
   }, [est.visivel])
 
-  const ir = (k: number) => { mexeu.current = true; setI(k) }
   const corpo = (
     <>
       <h2 ref={titulo} tabIndex={-1} id="tour-titulo" className="text-sm font-semibold text-foreground outline-none">{passo.titulo}</h2>
@@ -99,26 +109,20 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
       <div className="mt-4 flex items-center gap-2">
         <span className="mr-auto text-xs tabular-nums text-muted-foreground">{pos + 1} de {ordem.length}</span>
         <Button variant="ghost" size="sm" onClick={() => terminar(true)}>Pular</Button>
-        <Button variant="outline" size="sm" onClick={() => ir(ordem[pos - 1])} disabled={pos === 0}>Voltar</Button>
-        <Button size="sm" onClick={() => (ultimo ? terminar(false) : ir(ordem[pos + 1]))}>{ultimo ? 'Concluir' : 'Próximo'}</Button>
+        <Button variant="outline" size="sm" onClick={() => setI(ordem[pos - 1])} disabled={pos === 0}>Voltar</Button>
+        <Button size="sm" onClick={() => (ultimo ? terminar(false) : setI(ordem[pos + 1]))}>{ultimo ? 'Concluir' : 'Próximo'}</Button>
       </div>
     </>
   )
 
-  // Tab fica dentro do balão centralizado (o balão ancorado já tem a trava do Radix)
-  const prender = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== 'Tab') return
-    const bs = [...e.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled)')]
-    const ativo = document.activeElement
-    const volta = e.shiftKey && (ativo === titulo.current || ativo === bs[0])
-    const avanca = !e.shiftKey && ativo === bs[bs.length - 1]
-    if (volta || avanca) { e.preventDefault(); (volta ? bs[bs.length - 1] : bs[0])?.focus() }
-  }
-
   return (
     <>
       {createPortal(
-        <svg aria-hidden="true" className="fixed inset-0 z-[60] size-full">
+        <svg
+          aria-hidden="true"
+          className="fixed inset-0 z-[60] size-full"
+          onMouseDown={e => { e.preventDefault(); titulo.current?.focus() }} // clicar no escuro não tira o foco do balão
+        >
           <defs>
             <mask id="tour-recorte">
               <rect width="100%" height="100%" fill="white" />
@@ -133,7 +137,7 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
         // sem alvo (ou sem espaço ao redor dele): contêiner fixo, centrado por CSS
         <div className="pointer-events-none fixed inset-0 z-[70] flex items-center justify-center p-3">
           <div
-            role="dialog" aria-modal="true" aria-labelledby="tour-titulo" onKeyDown={prender}
+            role="dialog" aria-modal="true" aria-labelledby="tour-titulo"
             className="glass-panel pointer-events-auto max-h-full w-72 max-w-full overflow-y-auto rounded-xl border border-border p-4"
           >
             {corpo}
@@ -141,7 +145,7 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
         </div>,
         document.body,
       ) : (
-        <Popover open modal>
+        <Popover open>
           <PopoverAnchor virtualRef={ancora} />
           <PopoverContent
             side="bottom"
@@ -150,6 +154,7 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
             aria-labelledby="tour-titulo"
             className="z-[70] max-w-[calc(100vw-24px)] rounded-xl border border-border motion-reduce:animate-none"
             onInteractOutside={e => e.preventDefault()}
+            onOpenAutoFocus={e => { e.preventDefault(); titulo.current?.focus() }}
           >
             {corpo}
           </PopoverContent>

@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation, useSearchParams } from 'react-router-dom'
-import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { ErrorBoundary } from './error-boundary'
 import {
   LayoutDashboard, Calendar, CalendarPlus, FolderOpen, Armchair, Clock, CheckSquare, Award, BarChart2,
@@ -135,11 +135,11 @@ export default function ProducerLayout() {
   const registrar = useRegistrarTour()
   const tourId = params.get('tour')
   const tour = tourDaRota(tourId, location.pathname)
-  const tirarParametro = () => setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true })
+  const tirarParametro = useCallback(
+    () => setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true }),
+    [setSearchParams])
   // ?tour= que não existe ou não é desta tela: tira da URL
-  useEffect(() => {
-    if (tourId && !tour) setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true })
-  }, [tourId, tour, setSearchParams])
+  useEffect(() => { if (tourId && !tour) tirarParametro() }, [tourId, tour, tirarParametro])
   const { user, logout } = useAuth()
   const mobileOpen = gavetaEm === location.pathname
 

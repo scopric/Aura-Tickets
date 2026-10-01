@@ -15,6 +15,7 @@ export function useRegistrarTour() {
   const qc = useQueryClient()
   return async function registrar(step_name: string, { skipped = false } = {}) {
     if (!user?.id) return
+    await qc.cancelQueries({ queryKey: chave(user.id) }) // uma leitura em andamento não pode apagar o registro otimista
     qc.setQueryData<string[]>(chave(user.id), o => (o ? [...o, step_name] : o))
     const { error } = await logs().insert({ user_id: user.id, step_name, completed_at: new Date().toISOString(), skipped })
     if (error) toast.error('Não foi possível guardar sua escolha.')
