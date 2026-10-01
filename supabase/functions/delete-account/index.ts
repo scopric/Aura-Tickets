@@ -101,6 +101,9 @@ Deno.serve(async (req) => {
     }).eq('user_id', uid)],
     ['support_messages', () => admin.from('support_messages').delete().eq('sender_id', uid)],
     ['support_sessions', () => admin.from('support_sessions').update({ user_id: null }).eq('user_id', uid)],
+    // Registro do Evo (Política, seção 8: fica até o pedido de eliminação): sai o resumo da mensagem
+    // e o vínculo com a pessoa; data, modelo e custo ficam, anônimos, na conta de gasto da plataforma
+    ['ai_usage', () => admin.from('ai_usage').update({ user_id: null, resumo: null }).eq('user_id', uid)],
     // Tabelas só pessoais, sem valor fiscal
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
         'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists']
