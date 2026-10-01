@@ -1,17 +1,27 @@
 import { useState, useEffect, useRef, useId } from 'react'
 import {
   Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw,
-  Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info
+  Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info,
+  X, ArrowUpRight, ArrowDownRight, Filter
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import gsap from 'gsap'
 
-type ItemTop = { nome: string; visitantes: number; paginas: number }
+// `valor` é o valor cru que a API aceita como filtro (null = não filtrável, ex.: "Outros")
+type ItemTop = { nome: string; valor?: string | null; visitantes: number; paginas: number }
+type Totais = { visitantes: number; paginas: number; sessoes?: number }
+type Campo = 'pais' | 'aparelho' | 'pagina' | 'origem'
+export type FiltroAtivo = { campo: Campo; valor: string; rotulo: string }
+type Periodo = '7d' | '30d' | 'all' | { de: string; ate: string }
 // Mesmo formato nas duas funções (vercel-analytics e ga4-analytics); sessoes e agora só no GA4
 interface Trafego {
-  periodo: string
-  totais: { visitantes: number; paginas: number; sessoes?: number }
+  chave: string
+  de?: string
+  ate?: string
+  totais: Totais
+  comparacao?: { atual: Totais; anterior: Totais; dias: number } | null
+  semComparacao?: 'periodo' | 'falha' | null
   porDia: { dia: string; visitantes: number; paginas: number }[]
   paginas: ItemTop[]
   origens: ItemTop[]
@@ -26,7 +36,8 @@ const MOTIVOS_VERCEL: Record<string, string> = {
   token_invalido: 'a chave da Vercel venceu ou perdeu o acesso ao projeto. Crie uma nova e troque no Supabase.',
   limite: 'a Vercel limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
   vercel_erro: 'a Vercel não respondeu. Tente de novo em instantes.',
-  entrada_invalida: 'período inválido.',
+  entrada_invalida: 'período ou filtro inválido.',
+  fora_da_janela: 'a Vercel guarda só os últimos 30 dias no plano atual. Escolha datas mais recentes.',
 }
 
 const MOTIVOS_GA4: Record<string, string> = {
@@ -35,7 +46,8 @@ const MOTIVOS_GA4: Record<string, string> = {
   credencial_invalida: 'a credencial do Google foi apagada ou perdeu o acesso à propriedade do GA4.',
   limite: 'o Google limitou as consultas por alguns minutos. Tente de novo daqui a pouco.',
   google_erro: 'o Google não respondeu. Tente de novo em instantes.',
-  entrada_invalida: 'período inválido.',
+  entrada_invalida: 'período ou filtro inválido.',
+  fora_da_janela: 'o Google Analytics só tem dados desde 27/09/2026. Escolha datas a partir daí.',
 }
 
 // Nomes que a Vercel e o Google devolvem vazios ou em inglês
@@ -51,7 +63,10 @@ const nomePais = (n: string) => {
 }
 
 // Busca de uma fonte de tráfego (função do Supabase), só com a aba aberta; sem atualização automática
-function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivos: Record<string, string>) {
+function useFonteTrafego(funcao: string, periodo: Periodo, filtros: FiltroAtivo[], ativo: boolean, motivos: Record<string, string>) {
+  // chave em texto: período e filtros viram objetos novos a cada render; a busca só refaz quando o conteúdo muda
+  const corpo = { periodo, filtros: filtros.map(f => ({ campo: f.campo, valor: f.valor })) }
+  const chave = JSON.stringify(corpo)
   const [dados, setDados] = useState<Trafego | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [carregando, setCarregando] = useState(false)
@@ -62,13 +77,13 @@ function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivo
     const pedido = ++pedidoAtual.current
     setCarregando(true)
     setErro(null)
-    const { data, error } = await supabase.functions.invoke(funcao, { body: { periodo } })
+    const { data, error } = await supabase.functions.invoke(funcao, { body: corpo })
     if (pedido !== pedidoAtual.current) return // resposta de um período antigo
     if (error || !data?.ok) {
       setDados(null)
       setErro(motivos[data?.motivo] ?? 'não foi possível falar com o servidor.')
     } else {
-      setDados({ ...data, periodo })
+      setDados({ ...data, chave })
       setHora(new Date())
     }
     setCarregando(false)
@@ -76,10 +91,10 @@ function useFonteTrafego(funcao: string, periodo: string, ativo: boolean, motivo
 
   useEffect(() => {
     if (ativo) carregar()
-  }, [ativo, periodo])
+  }, [ativo, chave])
 
-  // números de outro período não ficam na tela enquanto o novo carrega
-  return { dados: dados?.periodo === periodo ? dados : null, erro, carregando, hora, carregar }
+  // números de outro período ou filtro não ficam na tela enquanto o novo carrega
+  return { dados: dados?.chave === chave ? dados : null, erro, carregando, hora, carregar }
 }
 
 // Cores do gráfico validadas no dataviz/validate_palette.js (claro e escuro, daltonismo e contraste)
@@ -107,7 +122,24 @@ const iconePais = (n: string) => {
   return b ? <span className="text-base leading-none" aria-hidden>{b}</span> : <Globe className="w-4 h-4 text-muted-foreground" />
 }
 
-function Numero({ icone: Icone, rotulo, valor, apoio, destaque }: { icone: typeof Users; rotulo: string; valor: string; apoio?: string; destaque?: boolean }) {
+// Variação contra o período anterior (dias completos); seta e texto, não só cor
+function Variacao({ atual, anterior, dias }: { atual: number; anterior: number; dias: number }) {
+  if (anterior === 0) return <div className="text-xs text-muted-foreground mt-1">{atual === 0 ? 'sem mudança' : 'novo no período'} · {dias} dias completos</div>
+  const pct = Math.round(((atual - anterior) / anterior) * 100)
+  const contra = <span className="text-muted-foreground">vs {dias} {dias === 1 ? 'dia anterior' : 'dias anteriores'} (dias completos)</span>
+  if (pct === 0) return <div className="text-xs mt-1 text-muted-foreground">estável {contra}</div>
+  const sobe = atual > anterior
+  const Seta = sobe ? ArrowUpRight : ArrowDownRight
+  return (
+    <div className={`text-xs mt-1 flex flex-wrap items-center gap-1 ${sobe ? 'text-emerald-600' : 'text-red-600'}`}>
+      <Seta className="w-3.5 h-3.5" aria-hidden />
+      <span>{sobe ? '+' : ''}{pct}%</span>
+      {contra}
+    </div>
+  )
+}
+
+function Numero({ icone: Icone, rotulo, valor, apoio, destaque, variacao }: { icone: typeof Users; rotulo: string; valor: string; apoio?: string; destaque?: boolean; variacao?: React.ReactNode }) {
   return (
     <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
       <div className="flex items-center gap-3">
@@ -118,6 +150,7 @@ function Numero({ icone: Icone, rotulo, valor, apoio, destaque }: { icone: typeo
       </div>
       <div className="font-serif text-3xl text-foreground mt-4 tabular-nums">{valor}</div>
       {apoio && <div className="text-xs text-muted-foreground mt-1">{apoio}</div>}
+      {variacao}
     </div>
   )
 }
@@ -178,8 +211,13 @@ function GraficoDias({ dados, pessoas, nota }: { dados: Trafego; pessoas: string
   )
 }
 
-function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPainel, pessoas, abrev, nota, extras = [] }: {
+const NOME_CAMPO: Record<Campo, string> = { pais: 'País', aparelho: 'Aparelho', pagina: 'Página', origem: 'Origem' }
+
+function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personalizado, linkPainel, pessoas, abrev, nota, extras = [], filtros, onFiltros }: {
   fonte: ReturnType<typeof useFonteTrafego>
+  personalizado: boolean
+  filtros: FiltroAtivo[]
+  onFiltros: (f: FiltroAtivo[]) => void
   legenda: string
   titulo: string
   deQuem: string
@@ -192,6 +230,11 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
 }) {
   const { dados, erro, carregando, hora, carregar } = fonte
   const icones = [Users, Eye, Activity, Radio]
+  // um filtro por campo: clicar noutro país troca o país; no máximo os 4 campos
+  const filtrar = (campo: Campo, valor: string, rotulo: string, tirar?: boolean) =>
+    onFiltros([...filtros.filter(f => f.campo !== campo), ...(tirar ? [] : [{ campo, valor, rotulo }])])
+  const comp = dados?.comparacao
+  const chaveComp: Record<string, keyof Totais> = { [pessoas]: 'visitantes', 'Páginas vistas': 'paginas', 'Sessões': 'sessoes' }
   return (
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -199,7 +242,7 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{legenda}</span>
           <h2 className="font-serif text-2xl text-foreground mt-1">{titulo}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {periodoTexto}
+            {personalizado && dados?.de && dados?.ate ? `De ${dados.de.split('-').reverse().join('/')} a ${dados.ate.split('-').reverse().join('/')}` : periodoTexto}
             {dados && hora && ` · atualizado às ${hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
           </p>
         </div>
@@ -217,6 +260,21 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
         </div>
       </div>
 
+      {filtros.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
+          <Filter className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+          {filtros.map(f => (
+            <span key={f.campo} className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+              {NOME_CAMPO[f.campo]}: {f.rotulo}
+              <button onClick={() => onFiltros(filtros.filter(x => x.campo !== f.campo))} aria-label={`Tirar o filtro ${NOME_CAMPO[f.campo]}: ${f.rotulo}`} className="p-0.5 rounded-full hover:bg-primary/20">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          ))}
+          <button onClick={() => onFiltros([])} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Limpar filtros</button>
+        </div>
+      )}
+
       {erro ? (
         <div role="alert" className="p-4 rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
           Não foi possível carregar os dados {deQuem}: {erro}
@@ -229,7 +287,19 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
         <>
           <div className={`grid gap-4 sm:gap-5 ${extras.length === 2 ? 'grid-cols-2 xl:grid-cols-4' : extras.length === 1 ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2'}`}>
             {([[pessoas, dados.totais.visitantes], ['Páginas vistas', dados.totais.paginas], ...extras] as [string, number][]).map(([l, v], i) => (
-              <Numero key={l} icone={icones[i] ?? Activity} rotulo={l} valor={fmtNum(v)} destaque={l.startsWith('Agora')} apoio={l.startsWith('Agora') ? 'Últimos 30 minutos' : undefined} />
+              <Numero
+                key={l}
+                icone={icones[i] ?? Activity}
+                rotulo={l}
+                valor={fmtNum(v)}
+                destaque={l.startsWith('Agora')}
+                apoio={l.startsWith('Agora') ? 'Últimos 30 minutos' : undefined}
+                variacao={
+                  l.startsWith('Agora') ? undefined
+                    : comp && chaveComp[l] ? <Variacao atual={comp.atual[chaveComp[l]] ?? 0} anterior={comp.anterior[chaveComp[l]] ?? 0} dias={comp.dias} />
+                      : <div className="text-xs text-muted-foreground mt-1">{dados?.semComparacao === 'falha' ? 'comparação indisponível agora' : 'sem comparação neste período'}</div>
+                }
+              />
             ))}
           </div>
 
@@ -243,10 +313,10 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
 
           {dados.totais.paginas > 0 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
-              <ListaTop titulo="Páginas mais vistas" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} mono />
-              <ListaTop titulo="De onde vêm" itens={dados.origens} rotulo={nomeOrigem} icone={iconeOrigem} abrev={abrev} />
-              <ListaTop titulo="Países" itens={dados.paises} rotulo={nomePais} icone={iconePais} abrev={abrev} />
-              <ListaTop titulo="Aparelhos" itens={dados.aparelhos} rotulo={nomeAparelho} icone={iconeAparelho} abrev={abrev} />
+              <ListaTop titulo="Páginas mais vistas" campo="pagina" itens={dados.paginas} rotulo={n => n || '/'} abrev={abrev} mono filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="De onde vêm" campo="origem" itens={dados.origens} rotulo={nomeOrigem} icone={iconeOrigem} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="Países" campo="pais" itens={dados.paises} rotulo={nomePais} icone={iconePais} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
+              <ListaTop titulo="Aparelhos" campo="aparelho" itens={dados.aparelhos} rotulo={nomeAparelho} icone={iconeAparelho} abrev={abrev} filtros={filtros} onFiltrar={filtrar} />
             </div>
           )}
         </>
@@ -255,8 +325,11 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, linkPaine
   )
 }
 
-function ListaTop({ titulo, itens, rotulo, icone, abrev, mono }: {
+function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, onFiltrar }: {
   titulo: string
+  campo: Campo
+  filtros: FiltroAtivo[]
+  onFiltrar: (campo: Campo, valor: string, rotulo: string, tirar?: boolean) => void
   itens: ItemTop[]
   rotulo: (n: string) => string
   icone?: (n: string) => React.ReactNode
@@ -270,26 +343,43 @@ function ListaTop({ titulo, itens, rotulo, icone, abrev, mono }: {
     <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">{titulo}</h3>
-        <span className="text-[11px] text-muted-foreground">páginas · {abrev.replace('.', '')}</span>
+        <span className="text-[11px] text-muted-foreground">clique para filtrar · páginas · {abrev.replace('.', '')}</span>
       </div>
       {itens.length === 0 ? (
         <p className="text-xs text-muted-foreground italic">Sem dados no período.</p>
       ) : (
         <ul className="space-y-3.5">
-          {ordem.map(i => (
-            <li key={i.nome}>
-              <div className="flex items-center gap-3 text-sm">
+          {ordem.map(i => {
+            // filtrável quando a API aceita o valor (o servidor manda null para "Outros" e valores fora do formato);
+            // clicar no item ativo tira o filtro
+            const ativo = filtros.some(f => f.campo === campo && f.valor === i.valor)
+            const filtravel = typeof i.valor === 'string'
+            const Elemento = filtravel ? 'button' : 'div'
+            return (
+            <li key={i.valor ?? i.nome}>
+              <Elemento
+                {...(filtravel ? {
+                  type: 'button' as const,
+                  'aria-pressed': ativo,
+                  onClick: () => (ativo ? onFiltrar(campo, '', '', true) : onFiltrar(campo, i.valor as string, rotulo(i.nome))),
+                  title: ativo ? 'Tirar este filtro' : `Filtrar por ${rotulo(i.nome)}`,
+                } : {})}
+                className={`block w-full text-left rounded-lg -mx-2 px-2 py-1 transition-colors ${filtravel ? 'hover:bg-muted/60 cursor-pointer' : ''} ${ativo ? 'bg-primary/10' : ''}`}
+              >
+              <span className="flex items-center gap-3 text-sm">
                 {icone && <span className="w-5 flex justify-center shrink-0">{icone(i.nome)}</span>}
                 <span className={`text-foreground truncate min-w-0 ${mono ? 'font-mono text-xs' : ''}`} title={rotulo(i.nome)}>{rotulo(i.nome)}</span>
                 <span className="ml-auto shrink-0 tabular-nums text-foreground font-medium">{fmtNum(i.paginas)}</span>
                 <span className="w-12 shrink-0 text-right tabular-nums text-xs text-muted-foreground">{fmtNum(i.visitantes)}</span>
-              </div>
-              <div className={`mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden ${icone ? 'ml-8' : ''}`}>
+              </span>
+              <span className={`block mt-1.5 h-1.5 rounded-full bg-muted/60 overflow-hidden ${icone ? 'ml-8' : ''}`}>
                 {/* "Outros" é a soma do resto: barra neutra para não parecer o primeiro lugar */}
-                <div className={`h-full rounded-full ${i.nome === 'Outros' ? 'bg-muted-foreground/40' : ''}`} style={{ width: `${(i.paginas / maior) * 100}%`, ...(i.nome === 'Outros' ? {} : { background: COR_PAGINAS, opacity: 0.55 }) }} />
-              </div>
+                <span className={`block h-full rounded-full ${i.nome === 'Outros' ? 'bg-muted-foreground/40' : ''}`} style={{ width: `${(i.paginas / maior) * 100}%`, ...(i.nome === 'Outros' ? {} : { background: COR_PAGINAS, opacity: 0.55 }) }} />
+              </span>
+              </Elemento>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </div>
@@ -310,7 +400,13 @@ interface ActivityLog {
 export default function AdminAnalytics() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users_engagement' | 'traffic' | 'funnel'>('overview')
-  const [period, setPeriod] = useState<'7d' | '30d' | 'all'>('7d')
+  const [period, setPeriod] = useState<'7d' | '30d' | 'all' | 'custom'>('7d')
+  // período personalizado (só na aba Tráfego); datas em AAAA-MM-DD, aplicadas pelo botão
+  const hojeIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+  const [rascunho, setRascunho] = useState({ de: '', ate: '' })
+  const [personalizado, setPersonalizado] = useState<{ de: string; ate: string } | null>(null)
+  const [filtrosVercel, setFiltrosVercel] = useState<FiltroAtivo[]>([])
+  const [filtrosGa4, setFiltrosGa4] = useState<FiltroAtivo[]>([])
 
   const [recentLogs, setRecentLogs] = useState<ActivityLog[]>([])
   const [totalUsers, setTotalUsers] = useState<number | null>(0)
@@ -443,12 +539,14 @@ export default function AdminAnalytics() {
   }
 
   useEffect(() => {
-    loadAnalyticsData()
+    if (period !== 'custom') loadAnalyticsData() // o personalizado é só do Tráfego
   }, [period])
 
   // Tráfego: cada fonte busca só com a aba aberta. A Vercel (Hobby) guarda 1 mês: "Todo período" = 30 dias.
-  const vercel = useFonteTrafego('vercel-analytics', period === '7d' ? '7d' : '30d', activeSubTab === 'traffic', MOTIVOS_VERCEL)
-  const ga4 = useFonteTrafego('ga4-analytics', period, activeSubTab === 'traffic', MOTIVOS_GA4)
+  const custom = period === 'custom' && personalizado ? personalizado : null
+  const vercel = useFonteTrafego('vercel-analytics', custom ?? (period === '7d' || period === 'custom' ? '7d' : '30d'), filtrosVercel, activeSubTab === 'traffic', MOTIVOS_VERCEL)
+  const ga4 = useFonteTrafego('ga4-analytics', custom ?? (period === 'custom' ? '7d' : period), filtrosGa4, activeSubTab === 'traffic', MOTIVOS_GA4)
+  const textoCustom = custom ? `De ${custom.de.split('-').reverse().join('/')} a ${custom.ate.split('-').reverse().join('/')}` : ''
 
   useEffect(() => {
     // a aba Tráfego não anima (não pisca ao trocar o período)
@@ -488,7 +586,10 @@ export default function AdminAnalytics() {
               <button
                 key={a.id}
                 aria-pressed={activeSubTab === a.id}
-                onClick={() => setActiveSubTab(a.id)}
+                onClick={() => {
+                  setActiveSubTab(a.id)
+                  if (a.id !== 'traffic' && period === 'custom') setPeriod('7d') // o personalizado é só do Tráfego
+                }}
                 className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors ${
                   activeSubTab === a.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
                 }`}
@@ -501,11 +602,14 @@ export default function AdminAnalytics() {
           {activeSubTab !== 'users_engagement' && (
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
               <span className="text-xs text-muted-foreground mr-1">Período</span>
-              {periodos.map(p => (
+              {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
                 <button
                   key={p.id}
                   aria-pressed={period === p.id}
-                  onClick={() => setPeriod(p.id)}
+                  onClick={() => {
+                    if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
+                    setPeriod(p.id)
+                  }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                     period === p.id ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
                   }`}
@@ -514,6 +618,29 @@ export default function AdminAnalytics() {
                 </button>
               ))}
             </div>
+          )}
+
+          {activeSubTab === 'traffic' && period === 'custom' && (
+            <form
+              className="flex flex-wrap items-end gap-3 p-3 rounded-2xl bg-card border border-border w-fit"
+              onSubmit={e => {
+                e.preventDefault()
+                if (rascunho.de && rascunho.ate && rascunho.de <= rascunho.ate) setPersonalizado({ ...rascunho })
+              }}
+            >
+              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+                De
+                <input type="date" required max={rascunho.ate || hojeIso} value={rascunho.de} onChange={e => setRascunho(r => ({ ...r, de: e.target.value }))}
+                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+              </label>
+              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+                Até
+                <input type="date" required min={rascunho.de || undefined} max={hojeIso} value={rascunho.ate} onChange={e => setRascunho(r => ({ ...r, ate: e.target.value }))}
+                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+              </label>
+              <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold">Aplicar</button>
+              <span className="text-[11px] text-muted-foreground basis-full">A Vercel guarda só os últimos 30 dias; o Google, desde 27/09/2026.</span>
+            </form>
           )}
         </div>
       </header>
@@ -535,7 +662,10 @@ export default function AdminAnalytics() {
             legenda="Sem cookies · todos os visitantes"
             titulo="Vercel Web Analytics"
             deQuem="da Vercel"
-            periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
+            periodoTexto={custom ? textoCustom : period === '7d' || period === 'custom' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Últimos 30 dias (limite do plano da Vercel)'}
+            personalizado={!!custom}
+            filtros={filtrosVercel}
+            onFiltros={setFiltrosVercel}
             linkPainel="https://vercel.com/scoprics-projects/aura-tickets-pypy/analytics"
             pessoas="Visitantes"
             abrev="vis."
@@ -546,7 +676,10 @@ export default function AdminAnalytics() {
             legenda="Com consentimento · só quem aceitou cookies"
             titulo="Google Analytics 4"
             deQuem="do Google"
-            periodoTexto={period === '7d' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Desde 27/09/2026, quando o GA4 entrou no ar'}
+            periodoTexto={custom ? textoCustom : period === '7d' || period === 'custom' ? 'Últimos 7 dias' : period === '30d' ? 'Últimos 30 dias' : 'Desde 27/09/2026, quando o GA4 entrou no ar'}
+            personalizado={!!custom}
+            filtros={filtrosGa4}
+            onFiltros={setFiltrosGa4}
             linkPainel="https://analytics.google.com"
             pessoas="Usuários ativos"
             abrev="usu."

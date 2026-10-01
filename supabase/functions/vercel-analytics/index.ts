@@ -1,7 +1,9 @@
 // Números do Vercel Web Analytics para a aba "Tráfego & Audiência" do Admin → Analytics.
 //
 // Chamada: POST com o JWT do admin (supabase.functions.invoke('vercel-analytics', { body })).
-//   { periodo: '7d' | '30d' } → { ok:true, totais, porDia, paginas, origens, paises, aparelhos }
+//   { periodo: '7d' | '30d' | { de, ate: 'AAAA-MM-DD' }, filtros?: [{ campo, valor }] (até 4) }
+//   → { ok:true, de, ate, totais, comparacao, porDia, paginas, origens, paises, aparelhos }
+//   campo ∈ pais | aparelho | pagina | origem; `valor` é o `valor` cru que as listas devolvem.
 // Recusas voltam 200 com { ok:false, motivo }; 401 só sem login.
 // Permissão: gf_admin_can('view_analytics') no banco (mesma regra da rota /admin/analytics),
 // chamada com o JWT de quem pede — a função não usa a service role.
@@ -21,6 +23,18 @@ const PROJETO = 'prj_7ftpPhffwLsJIX34AaGKOxbgRpL1'
 const TIME = 'team_Nox6jNrYUnDET3MIXC3tEj2p'
 const API = 'https://api.vercel.com/v1/query/web-analytics/visits'
 const DIAS: Record<string, number> = { '7d': 7, '30d': 30 }
+const DIA = 24 * 60 * 60 * 1000
+const JANELA_DIAS = 30 // plano Hobby: a Vercel guarda 1 mês
+
+// Filtros: lista fechada de campos e formato fixo por campo, sem aspa, parêntese, espaço nem
+// "%" (nada que vire aspa se a Vercel decodificar) — não há o que escapar. Páginas com "%"
+// no endereço ficam sem filtro (a tela não oferece o clique).
+const CAMPOS: Record<string, { coluna: string; formato: RegExp }> = {
+  pais: { coluna: 'country', formato: /^([A-Z]{2})?$/ },
+  aparelho: { coluna: 'deviceType', formato: /^(desktop|mobile|tablet|)$/ },
+  pagina: { coluna: 'requestPath', formato: /^\/[\p{L}\p{Nd}._~/-]{0,199}$/u },
+  origem: { coluna: 'referrerHostname', formato: /^([a-z0-9.-]{1,253})?$/ },
+}
 
 class VercelErro extends Error {
   constructor(public status: number) {
@@ -30,7 +44,8 @@ class VercelErro extends Error {
 
 async function consulta(tipo: 'count' | 'aggregate', params: Record<string, string>) {
   const url = new URL(`${API}/${tipo}`)
-  url.search = new URLSearchParams({ projectId: PROJETO, teamId: TIME, ...params }).toString()
+  // projeto e time por último: nenhum parâmetro consegue trocá-los
+  url.search = new URLSearchParams({ ...params, projectId: PROJETO, teamId: TIME }).toString()
   const r = await fetch(url, { headers: { Authorization: `Bearer ${VERCEL_TOKEN}` } })
   if (!r.ok) {
     await r.body?.cancel()
@@ -40,10 +55,25 @@ async function consulta(tipo: 'count' | 'aggregate', params: Record<string, stri
 }
 
 type Linha = Record<string, string | number>
-// Só o rótulo e os dois números: o resto da linha não vai para o navegador.
+// Rótulo, valor cru (o que a API aceita como filtro; null = não filtrável) e os dois números.
 // Além do limit, a Vercel junta o resto numa linha "Others", no meio da ordem: vai para o fim.
-const top = (linhas: Linha[], chave: string) =>
-  [...(linhas ?? [])].sort((a, b) => Number(a[chave] === 'Others') - Number(b[chave] === 'Others')).map(l => ({ nome: l[chave] === 'Others' ? 'Outros' : String(l[chave] ?? ''), visitantes: Number(l.visitors ?? 0), paginas: Number(l.pageviews ?? 0) }))
+// O valor só sai filtrável se passar no mesmo formato que o filtro exige (senão o clique viraria erro).
+const top = (linhas: Linha[], chave: string) => {
+  const formato = Object.values(CAMPOS).find(c => c.coluna === chave)?.formato
+  return [...(linhas ?? [])].sort((a, b) => Number(a[chave] === 'Others') - Number(b[chave] === 'Others')).map(l => {
+    const cru = String(l[chave] ?? '')
+    return {
+    nome: l[chave] === 'Others' ? 'Outros' : cru,
+    valor: l[chave] === 'Others' || !formato?.test(cru) ? null : cru,
+    visitantes: Number(l.visitors ?? 0),
+    paginas: Number(l.pageviews ?? 0),
+  }
+  })
+}
+
+const diaISO = (t: number) => new Date(t).toISOString().slice(0, 10)
+const inicioDia = (dia: string) => Date.parse(`${dia}T00:00:00Z`)
+const ehDia = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
 
 Deno.serve(async (req: Request) => {
   const cors = corsHeaders(req)
@@ -65,34 +95,74 @@ Deno.serve(async (req: Request) => {
   } catch {
     // corpo inválido cai em entrada_invalida
   }
-  // hasOwn: '__proto__', 'toString' etc. não podem passar como período
-  const dias = Object.hasOwn(DIAS, b?.periodo) ? DIAS[b.periodo] : 0
-  if (!dias) return json(200, { ok: false, motivo: 'entrada_invalida' })
   if (!VERCEL_TOKEN) return json(200, { ok: false, motivo: 'sem_chave' })
 
-  // Janela em dias inteiros UTC, hoje incluído. Os dois endpoints tratam o fim de jeitos
-  // diferentes (testado em 30/09): o count corta o `until` para 00:00 do dia e não o inclui;
-  // o aggregate sobe o `until` para a meia-noite seguinte. Por isso cada um recebe o seu.
-  const DIA = 24 * 60 * 60 * 1000
+  // Janela em dias inteiros UTC. Os dois endpoints tratam o fim de jeitos diferentes (testado
+  // em 30/09): o count corta o `until` para 00:00 do dia e não o inclui; o aggregate sobe o
+  // `until` para a meia-noite seguinte. Por isso cada um recebe o seu.
   const hoje = new Date()
   hoje.setUTCHours(0, 0, 0, 0)
-  const since = new Date(hoje.getTime() - (dias - 1) * DIA).toISOString()
-  const fimCount = new Date(hoje.getTime() + DIA).toISOString() // amanhã 00:00, exclusivo
-  const fimAggregate = new Date(hoje.getTime() + DIA - 1).toISOString() // hoje 23:59:59.999
-  const topo = (by: string) => consulta('aggregate', { since, until: fimAggregate, by, limit: '8' })
+  const primeiroDia = hoje.getTime() - (JANELA_DIAS - 1) * DIA
+  let de: number
+  let ate: number
+  // hasOwn: '__proto__', 'toString' etc. não podem passar como período
+  if (typeof b?.periodo === 'string' && Object.hasOwn(DIAS, b.periodo)) {
+    de = hoje.getTime() - (DIAS[b.periodo] - 1) * DIA
+    ate = hoje.getTime()
+  } else if (ehDia(b?.periodo?.de) && ehDia(b?.periodo?.ate)) {
+    de = inicioDia(b.periodo.de)
+    ate = inicioDia(b.periodo.ate)
+    if (de > ate || ate > hoje.getTime()) return json(200, { ok: false, motivo: 'entrada_invalida' })
+    if (de < primeiroDia) return json(200, { ok: false, motivo: 'fora_da_janela' })
+  } else {
+    return json(200, { ok: false, motivo: 'entrada_invalida' })
+  }
+
+  // Filtros combinados com "and"; cada valor já passou pelo formato do seu campo.
+  const lista = b?.filtros ?? []
+  if (!Array.isArray(lista) || lista.length > 4) return json(200, { ok: false, motivo: 'entrada_invalida' })
+  const partes: string[] = []
+  for (const f of lista) {
+    const campo = typeof f?.campo === 'string' && Object.hasOwn(CAMPOS, f.campo) ? CAMPOS[f.campo] : null
+    if (!campo || typeof f.valor !== 'string' || !campo.formato.test(f.valor)) return json(200, { ok: false, motivo: 'entrada_invalida' })
+    partes.push(`${campo.coluna} eq '${f.valor}'`)
+  }
+  const filtro = partes.length ? { filter: partes.join(' and ') } : {}
+
+  const janela = (inicio: number, fim: number) => ({ since: new Date(inicio).toISOString(), fimCount: new Date(fim + DIA).toISOString(), fimAgg: new Date(fim + DIA - 1).toISOString() })
+  const j = janela(de, ate)
+  const topo = (by: string) => consulta('aggregate', { since: j.since, until: j.fimAgg, by, limit: '8', ...filtro })
+
+  // Comparação com dias completos (sem hoje, que está pela metade): os N dias até ontem
+  // (ou até `ate`, se for antes) contra os N dias anteriores. Só se o anterior cabe na janela.
+  const fimComp = Math.min(ate, hoje.getTime() - DIA)
+  const n = Math.round((fimComp - de) / DIA) + 1
+  const inicioAnterior = de - n * DIA
+  const comparar = n >= 1 && inicioAnterior >= primeiroDia
+  const contagem = (inicio: number, fim: number) => {
+    const w = janela(inicio, fim)
+    return consulta('count', { since: w.since, until: w.fimCount, ...filtro }).catch(() => null)
+  }
 
   try {
-    const [totais, porDia, paginas, origens, paises, aparelhos] = await Promise.all([
-      consulta('count', { since, until: fimCount }),
-      consulta('aggregate', { since, until: fimAggregate, by: 'day', limit: '31' }),
+    const [totais, porDia, paginas, origens, paises, aparelhos, compAtual, compAnterior] = await Promise.all([
+      consulta('count', { since: j.since, until: j.fimCount, ...filtro }),
+      consulta('aggregate', { since: j.since, until: j.fimAgg, by: 'day', limit: '31', ...filtro }),
       topo('requestPath'),
       topo('referrerHostname'),
       topo('country'),
       topo('deviceType'),
+      comparar ? contagem(de, fimComp) : null,
+      comparar ? contagem(inicioAnterior, de - DIA) : null,
     ])
+    const num = (t: any) => ({ visitantes: Number(t?.visitors ?? 0), paginas: Number(t?.pageviews ?? 0) })
     return json(200, {
       ok: true,
-      totais: { visitantes: Number(totais?.visitors ?? 0), paginas: Number(totais?.pageviews ?? 0) },
+      de: diaISO(de),
+      ate: diaISO(ate),
+      totais: num(totais),
+      comparacao: compAtual && compAnterior ? { atual: num(compAtual), anterior: num(compAnterior), dias: n } : null,
+      semComparacao: compAtual && compAnterior ? null : comparar ? 'falha' : 'periodo',
       porDia: (porDia ?? []).map((d: Linha) => ({ dia: String(d.timestamp).slice(0, 10), visitantes: Number(d.visitors ?? 0), paginas: Number(d.pageviews ?? 0) })),
       paginas: top(paginas, 'requestPath'),
       origens: top(origens, 'referrerHostname'),
