@@ -122,13 +122,15 @@ function iniciais(nome: string) {
 
 export default function ProducerLayout() {
   const [collapsed, setCollapsed] = useState(false)
-  // Celular e tablet (abaixo de lg): a barra lateral vira gaveta, fechada por padrão (mesmo padrão do AdminLayout)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  // Celular e tablet (abaixo de lg): a barra lateral vira gaveta, fechada por padrão (mesmo padrão do AdminLayout).
+  // Guarda a rota em que foi aberta: trocar de rota (botão voltar, links do Evo) fecha sem efeito extra
+  const [gavetaEm, setGavetaEm] = useState<string | null>(null)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
   const navRef = useRef<HTMLElement>(null)
   const paginaRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const { user, logout } = useAuth()
+  const mobileOpen = gavetaEm === location.pathname
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -142,7 +144,7 @@ export default function ProducerLayout() {
     || (path === '/producer/dashboard' && location.pathname === '/producer')
 
   const handleLogout = () => {
-    toast.info('Voce saiu da sua conta')
+    toast.info('Você saiu da sua conta')
     logout()
     // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
@@ -153,7 +155,7 @@ export default function ProducerLayout() {
     navRef.current?.querySelector('a')?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      setMobileOpen(false)
+      setGavetaEm(null)
       menuBtnRef.current?.focus()
     }
     window.addEventListener('keydown', onKey)
@@ -179,7 +181,7 @@ export default function ProducerLayout() {
         <div
           className="fixed inset-0 glass-backdrop z-40 lg:hidden"
           onClick={() => {
-            setMobileOpen(false)
+            setGavetaEm(null)
             menuBtnRef.current?.focus()
           }}
         />
@@ -205,7 +207,7 @@ export default function ProducerLayout() {
         <nav
           ref={navRef}
           aria-label="Menu do produtor"
-          className="max-lg:[&_a]:[transition-property:color,background-color,border-color,box-shadow] min-h-0 flex-1 overflow-y-auto px-2 pb-3 sidebar-dark-scroll"
+          className="max-lg:[&_a]:[transition-property:color,background-color,border-color,box-shadow] min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 sidebar-dark-scroll"
         >
           {visibleMenuGroups.map(group => (
             <div key={group.id} className="pt-3 first:pt-1">
@@ -219,7 +221,7 @@ export default function ProducerLayout() {
                     <Link
                       key={item.to}
                       to={item.to}
-                      onClick={() => setMobileOpen(false)}
+                      onClick={() => setGavetaEm(null)}
                       aria-current={ativo ? 'page' : undefined}
                       title={collapsed ? item.label : undefined}
                       className={cn(
@@ -247,9 +249,9 @@ export default function ProducerLayout() {
                 onClick={() => fileInputRef.current?.click()}
                 aria-label="Alterar foto de perfil"
                 title="Alterar foto de perfil"
-                className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {foto ? <img src={foto} alt="" className="size-full object-cover" /> : iniciais(nome)}
+                {foto ? <img src={foto} alt="" className="size-full object-cover" /> : iniciais(user.name || user.full_name || user.email || 'U')}
               </button>
               {!collapsed && (
                 <div className="min-w-0 flex-1">
@@ -301,7 +303,7 @@ export default function ProducerLayout() {
               type="button"
               onClick={() => {
                 setCollapsed(false) // a gaveta abre sempre com os nomes (no celular não há botão de expandir)
-                setMobileOpen((o) => !o)
+                setGavetaEm(mobileOpen ? null : location.pathname)
               }}
               aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
               aria-expanded={mobileOpen}
@@ -317,7 +319,7 @@ export default function ProducerLayout() {
             <FeedbackTopButton className={botaoTopo} />
           </div>
         </div>
-        <div ref={paginaRef} className="produtor-pagina produtor-entrar mx-auto w-full max-w-[1200px] p-4 md:p-6 lg:p-8">
+        <div ref={paginaRef} inert={mobileOpen} className="produtor-pagina produtor-entrar mx-auto w-full max-w-[1200px] p-4 md:p-6 lg:p-8">
           <ErrorBoundary resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>

@@ -1132,15 +1132,15 @@ body {
   --card-foreground: 240 5% 94%;
   --popover: 240 5% 8%;
   --popover-foreground: 240 5% 94%;
-  --primary: 214 80% 58%; /* azul da marca clareado para o escuro */
+  --primary: 214 80% 50%; /* azul da marca: branco sobre ele 4,58:1 (texto azul sobre o fundo 4,27:1) */
   --secondary: 240 4% 12%;
   --secondary-foreground: 240 5% 94%;
   --muted: 240 4% 12%;
   --muted-foreground: 240 5% 65%;
-  --accent: 214 80% 58%;
+  --accent: 214 80% 50%;
   --border: 240 4% 16%;
   --input: 240 4% 16%;
-  --ring: 214 80% 58%;
+  --ring: 214 80% 50%;
 }
 .light .painel-produtor {
   --background: 0 0% 98%;
@@ -1176,9 +1176,10 @@ body {
 .painel-produtor .font-serif {
   letter-spacing: -0.01em;
 }
-/* O contêiner do layout já dá o respiro (16/24/32 px); a raiz das páginas antigas (p-6 lg:p-10) não soma outro.
+/* O contêiner do layout já dá o respiro (16/24/32 px); a raiz das páginas antigas (p-6 lg:p-10) não soma outro
+   (as telas de carregando/vazio com py-20 ficam como estão: o respiro vertical delas centraliza o aviso).
    ponytail: some quando as páginas forem migradas (B2–B4) */
-.painel-produtor .produtor-pagina > .p-6 {
+.painel-produtor .produtor-pagina > .p-6:not(.py-20) {
   padding: 0;
 }
 /* Entrada de tela (o ProducerLayout reinicia a cada troca de rota) */
