@@ -44,7 +44,7 @@ function cn(...inputs: ClassValue[]) {
 
 const navItems = [
   { to: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/admin/users', icon: Users, label: 'Usuarios', permission: 'manage_users' },
+  { to: '/admin/users', icon: Users, label: 'Usuários', permission: 'manage_users' },
   { to: '/admin/producers', icon: Shield, label: 'Produtores', permission: 'manage_users' },
   { to: '/admin/affiliates', icon: Handshake, label: 'Afiliados Evokaa', permission: 'manage_affiliates' },
   { to: '/admin/events', icon: Calendar, label: 'Eventos', permission: 'manage_events' },
@@ -59,7 +59,7 @@ const navItems = [
   { to: '/admin/match-de-mesa', icon: Armchair, label: 'Match de Mesa', permission: 'moderate_mesa' },
   { to: '/admin/conhecimento', icon: BookOpen, label: 'Conhecimento', permission: 'manage_support' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
-  { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
+  { to: '/admin/settings', icon: Settings, label: 'Configurações', permission: 'manage_settings' },
 ]
 
 export default function AdminLayout() {
@@ -223,19 +223,19 @@ export default function AdminLayout() {
             {!collapsed ? (
               <div className="flex items-center gap-3">
                 <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
-                  <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                  <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuário" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
                   <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                     <Camera className="w-3.5 h-3.5 text-white" />
                   </div>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs text-white font-medium truncate">{user.name || user.full_name || 'Usuario'}</div>
+                  <div className="text-xs text-white font-medium truncate">{user.name || user.full_name || 'Usuário'}</div>
                   <div className="text-[10px] text-white/45 truncate">{user.email}</div>
                 </div>
               </div>
             ) : (
               <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
-                <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuario" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
+                <img src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar do usuário" className="w-8 h-8 rounded-full object-cover ring-2 ring-white/10 group-hover:opacity-75 transition-opacity" />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
                   <Camera className="w-3.5 h-3.5 text-white" />
                 </div>
