@@ -1032,6 +1032,28 @@ begin
 end;
 $$;
 
+-- 5b'. mesa_pode_remover: a regra única de quem pode ser removido da mesa (mesa_remover_membro e
+--      'pode_remover' de mesas_do_evento). Precisa de denúncia contra a pessoa neste evento. Para o
+--      produtor (p_produtor), só a que ele vê na lista dele: liberada a ele e não contra ele mesmo nem
+--      contra a equipe dele (team_members), como em mesa_denuncias_do_evento. Moderador: qualquer uma.
+create or replace function public.mesa_pode_remover(p_event_id uuid, p_user uuid, p_produtor boolean)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.mesa_denuncias d
+    where d.evento = p_event_id and d.denunciado = p_user
+      and (not p_produtor or (
+        d.liberada_produtor_em is not null
+        and d.denunciado is distinct from (select e.producer_id from public.events e where e.id = p_event_id)
+        and not exists (select 1 from public.team_members tm
+                        where tm.user_id = d.denunciado
+                          and tm.producer_id = (select e.producer_id from public.events e where e.id = p_event_id)))));
+$$;
+
 -- 5c. mesas_do_evento: para o produtor (2FA) ou o moderador (moderate_mesa, aal2) acomodar as
 --     pessoas (nome completo do dono atual do ingresso e ingresso, um por
 --     cadeira). Mesas vazias aparecem, com a lista de membros vazia. Mesmo filtro de minha_mesa:
@@ -1066,10 +1088,7 @@ begin
                -- o nome do dono atual do ingresso (transferido: o novo dono), nunca o de quem comprou
                select coalesce(jsonb_agg(jsonb_build_object('nome', coalesce(nullif(trim(p.full_name), ''), '(sem nome no perfil)'),
                                                             'ingresso', t.id,
-                                                            'pode_remover', exists (
-                                                              select 1 from public.mesa_denuncias d
-                                                              where d.evento = p_event_id and d.denunciado = t.user_id
-                                                                and (not v_produtor or d.liberada_produtor_em is not null)))
+                                                            'pode_remover', public.mesa_pode_remover(p_event_id, t.user_id, v_produtor))
                                          order by p.full_name, t.id), '[]'::jsonb)
                from public.table_members m
                join public.tickets t on t.id = m.ticket_id
@@ -1459,8 +1478,8 @@ $$;
 --     e a cadeira física se resolve no local. Motivo da lista; "outro" exige detalhe. Grava quem e
 --     quando, e avisa a pessoa (aviso "removido"). A mesa que ficar vazia é apagada.
 --     Só se remove quem tem denúncia contra si neste evento (mesa_denuncias.denunciado = dono do
---     ingresso, evento = p_event_id): o produtor, só com denúncia já liberada a ele
---     (liberada_produtor_em), a única que ele vê; o moderador, com qualquer denúncia, em qualquer status.
+--     ingresso, evento = p_event_id): o produtor, só com a denúncia que ele vê (liberada a ele, nem contra
+--     ele nem contra a equipe dele); o moderador, com qualquer denúncia, em qualquer status (mesa_pode_remover).
 --     Sem denúncia: 22023 "Só é possível remover quem tem denúncia neste evento".
 drop function if exists public.mesa_remover_membro(uuid, uuid, text);
 create or replace function public.mesa_remover_membro(p_event_id uuid, p_ticket_id uuid, p_motivo text,
@@ -1489,10 +1508,8 @@ begin
   if v_user is null then
     raise exception 'Ingresso não encontrado neste evento' using errcode = '22023';
   end if;
-  -- produtor: só a denúncia já liberada a ele; moderador: qualquer uma (quem é produtor do evento e
-  -- moderador vale como produtor)
-  if not exists (select 1 from public.mesa_denuncias d where d.evento = p_event_id and d.denunciado = v_user
-                 and (not v_produtor or d.liberada_produtor_em is not null)) then
+  -- quem é produtor do evento e também moderador vale como produtor
+  if not public.mesa_pode_remover(p_event_id, v_user, v_produtor) then
     raise exception 'Só é possível remover quem tem denúncia neste evento' using errcode = '22023';
   end if;
   perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
@@ -2002,6 +2019,7 @@ revoke all on function public.mesa_passagem() from public, anon, authenticated;
 revoke all on function public.mesa_moderador() from public, anon, authenticated;
 revoke all on function public.mesa_travado(uuid, uuid) from public, anon, authenticated;
 revoke all on function public.mesa_conflito(uuid, uuid) from public, anon, authenticated;
+revoke all on function public.mesa_pode_remover(uuid, uuid, boolean) from public, anon, authenticated;
 revoke all on function public.mesa_cartao(uuid, boolean, boolean) from public, anon, authenticated;
 revoke all on function public.mesa_ocupados(uuid) from public, anon, authenticated;
 revoke all on function public.mesa_recalcular(uuid) from public, anon, authenticated;

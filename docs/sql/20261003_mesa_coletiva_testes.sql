@@ -1129,6 +1129,18 @@ begin
   values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(903), now() + interval '3 days', 'perfil_falso', false, now());
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'denúncia de outro evento valeu (produtor)';
   assert pg_temp.err2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'denúncia de outro evento valeu (moderador)';
+  -- membro da equipe do produtor com denúncia liberada: o produtor não vê essa denúncia, então não remove;
+  -- o moderador (aal2) vê pode_remover verdadeiro
+  insert into public.team_members (producer_id, user_id) values (pg_temp.u(1), pg_temp.u(15));
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
+  values (pg_temp.u(12), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
+  assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu membro da equipe';
+  assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro para a equipe (produtor)';
+  assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover falso para a equipe (moderador)';
+  delete from public.team_members where producer_id = pg_temp.u(1) and user_id = pg_temp.u(15);
+  delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
   -- denúncia não liberada: o produtor não remove; pode_remover só aparece para quem a regra aceita
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4014), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu com denúncia não liberada';
   assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
