@@ -2,13 +2,14 @@
 -- Convite de colaborador — TESTES de 20261002_convite_colaborador.sql (o código fica lá; este arquivo não vai
 -- para produção). Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código: um bloco só, num
 -- begin … rollback (nada fica gravado).
--- T0–T12: hash, grants, criar/reenviar/cancelar/listar, conferir, aceitar (token errado, expirado, usado,
+-- T0–T14: hash, grants, criar/reenviar/cancelar/listar, conferir, aceitar (token errado, expirado, usado,
 -- cancelado; e-mail diferente; aal1; sem fator; CPF, idade, Pix, e-mail secundário; campos faltando), permissões
 -- aplicadas iguais às do convite, o gatilho gf_protect_profile_privileges (barra a mudança de papel direta e
--- não barra convite_aceitar) e a RLS de staff_profiles.
+-- não barra convite_aceitar), a RLS de staff_profiles, conta de produtor recusada (T13), histórico de Pix/banco,
+-- registro de leitura da ficha, updated_at do gatilho, nome só com letras, aceites recentes na lista e o cron (T14).
 -- Contas de teste com ids fixos (c0000000-…); e-mails *.invalid. Cada teste termina com "NOTICE: Tn OK";
 -- falha = ERROR com o valor recebido.
--- Rodado em 01/10/2026 (código aplicado duas vezes): T0–T12 OK.
+-- Rodado em 01/10/2026 (código aplicado duas vezes): T0–T14 OK.
 -- Stubs do Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório: profiles com as colunas
 -- usadas (role, email, admin_permissions, is_verified, stripe_customer_id), auth.jwt(), auth.mfa_factors,
 -- gf_mfa_ok/gf_is_admin de 20260930_2fa_no_banco.sql, o essencial do seg-6 (#85), o arquivo
@@ -53,16 +54,18 @@ create function pg_temp.dados(k text default null, v text default null) returns 
 create function pg_temp.h(t text) returns text language sql as $f$ select encode(sha256(convert_to(t, 'UTF8')), 'hex') $f$;
 
 -- Contas: 1 super_admin com fator; 2 convidada com fator; 3 outra conta com fator; 4 convidado sem fator;
--- 5 admin comum (manage_users) com fator; 6 convidada que já é admin
+-- 5 admin comum (manage_users) com fator; 6 convidada que já é admin; 7 produtor e 8 editor (equipe de produtor) com fator
 insert into public.profiles (id, email, full_name, role, admin_permissions) values
   (pg_temp.u(1), 'super@teste-convite.invalid', 'Super Teste', 'admin', '{super_admin}'),
   (pg_temp.u(2), 'clara@teste-convite.invalid', 'Clara', 'user', '{}'),
   (pg_temp.u(3), 'outra@teste-convite.invalid', 'Outra', 'user', '{}'),
   (pg_temp.u(4), 'semfator@teste-convite.invalid', 'Sem Fator', 'user', '{}'),
   (pg_temp.u(5), 'admin@teste-convite.invalid', 'Admin Comum', 'admin', '{manage_users}'),
-  (pg_temp.u(6), 'jaadmin@teste-convite.invalid', 'Já Admin', 'user', '{}');
+  (pg_temp.u(6), 'jaadmin@teste-convite.invalid', 'Já Admin', 'user', '{}'),
+  (pg_temp.u(7), 'produtor@teste-convite.invalid', 'Produtor', 'producer', '{}'),
+  (pg_temp.u(8), 'editor@teste-convite.invalid', 'Editor', 'editor', '{}');
 insert into auth.mfa_factors (user_id, status)
-  select pg_temp.u(n), 'verified' from unnest(array[1, 2, 3, 5, 6]) n;
+  select pg_temp.u(n), 'verified' from unnest(array[1, 2, 3, 5, 6, 7, 8]) n;
 
 do $t$ begin
   -- T0. sha256 hex do texto (vetor conhecido de "abc"), igual ao hashToken da Edge Function
@@ -114,6 +117,10 @@ begin
   assert pg_temp.erro($$select public.convite_criar('nao-e-email', 'Atendimento', '{manage_support}', pg_temp.h('tok-x'))$$) = '22023', 'e-mail inválido';
   assert pg_temp.erro($$select public.convite_criar('x@teste-convite.invalid', 'Atendimento', '{manage_support}', 'abc')$$) = '22023', 'hash fora do formato';
   assert pg_temp.erro($$select public.convite_criar('admin@teste-convite.invalid', 'Atendimento', '{manage_support}', pg_temp.h('tok-x'))$$) = 'P0001', 'convidou quem já é admin';
+  m := pg_temp.msg($$select public.convite_criar('Produtor@teste-convite.invalid', 'Atendimento', '{manage_support}', pg_temp.h('tok-x'))$$);
+  assert m = 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.', 'convidou produtor: ' || m;
+  m := pg_temp.msg($$select public.convite_criar('editor@teste-convite.invalid', 'Atendimento', '{manage_support}', pg_temp.h('tok-x'))$$);
+  assert m like 'Este e-mail já tem uma conta de produtor%', 'convidou editor: ' || m;
   -- e-mail com maiúsculas e espaços vira minúsculo; funções repetidas saem uma vez, em ordem
   id1 := public.convite_criar(' Clara@Teste-Convite.invalid ', ' Atendimento ', '{moderate_mesa,manage_support,manage_support}', pg_temp.h('tok-clara'));
   assert id1 is not null, 'não criou';
@@ -252,9 +259,9 @@ begin
   perform pg_temp.como(pg_temp.u(1), 'aal2');
   assert (select status from public.convites_listar() where email = 'semfator@teste-convite.invalid') = 'expirado', 'listar não mostra expirado';
   perform public.convite_criar('semfator@teste-convite.invalid', 'Financeiro', '{manage_finance}', pg_temp.h('tok-semfator-2'));
-  select count(*) into n from public.convites_listar() where email = 'semfator@teste-convite.invalid' and status = 'cancelado';
-  assert n = 1, 'vencido não foi cancelado';
   perform pg_temp.como(null, null, 'postgres');
+  select count(*) into n from public.admin_invites where email = 'semfator@teste-convite.invalid' and status = 'cancelado';
+  assert n = 1, 'vencido não foi cancelado';
   raise notice 'T7 OK: quem já é admin não aceita';
   raise notice 'T8 OK: expirado';
 end $t$;
@@ -299,9 +306,10 @@ begin
   --      não vê; super_admin lê por colaborador_dados; admin comum só nome, cargo e e-mail
   perform pg_temp.como(pg_temp.u(2), 'aal2');
   assert (select count(*) from public.staff_profiles) = 1, 'colaboradora não lê o próprio cadastro';
-  update public.staff_profiles set telefone = '+5511900000000', updated_at = now() where user_id = pg_temp.u(2);
+  update public.staff_profiles set telefone = '+5511900000000' where user_id = pg_temp.u(2);
   get diagnostics n = row_count;
   assert n = 1, 'colaboradora não editou o telefone';
+  assert pg_temp.erro($$update public.staff_profiles set updated_at = now()$$) = '42501', 'gravou updated_at';
   assert pg_temp.erro($$update public.staff_profiles set cargo = 'Diretora'$$) = '42501', 'editou o cargo';
   assert pg_temp.erro($$update public.staff_profiles set email = 'x@teste-convite.invalid'$$) = '42501', 'editou o e-mail principal';
   assert pg_temp.erro(format($$update public.staff_profiles set user_id = %L$$, pg_temp.u(3))) = '42501', 'trocou o user_id';
@@ -331,6 +339,77 @@ begin
 end $t$;
 
 do $t$
+declare m text; v_id uuid;
+begin
+  -- T13. Conta de produtor (ou editor) não aceita convite, mesmo com convite gravado para o e-mail dela
+  insert into public.admin_invites (email, cargo, permissions, token_hash) values
+    ('produtor@teste-convite.invalid', 'Eventos', '{manage_events}', pg_temp.h('tok-produtor'));
+  perform pg_temp.como(pg_temp.u(7), 'aal2');
+  m := pg_temp.msg($$select public.convite_aceitar('tok-produtor', pg_temp.dados('email_secundario', 'p2@teste-convite.invalid'))$$);
+  assert m = 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.', 'produtor aceitou: ' || m;
+  perform pg_temp.como(null, null, 'postgres');
+  assert (select role from public.profiles where id = pg_temp.u(7)) = 'producer', 'papel do produtor mudou';
+  raise notice 'T13 OK: conta de produtor recusada';
+
+  -- T14a. updated_at vem do gatilho; mudar Pix/banco grava o histórico (antes, depois, quem); telefone não
+  update public.staff_profiles set updated_at = '2000-01-01' where user_id = pg_temp.u(2);
+  delete from public.staff_profiles_historico_pagamento;
+  perform pg_temp.como(pg_temp.u(2), 'aal2');
+  update public.staff_profiles set whatsapp = '+5511911112222' where user_id = pg_temp.u(2);
+  update public.staff_profiles set pix_tipo = 'telefone', pix_chave = '+5511911112222', banco = 'Outro Banco' where user_id = pg_temp.u(2);
+  assert pg_temp.erro($$select * from public.staff_profiles_historico_pagamento$$) = '42501', 'colaboradora lê o histórico';
+  assert pg_temp.erro($$select * from public.staff_profiles_acessos$$) = '42501', 'colaboradora lê os acessos';
+  -- nome: só letras (com acento), espaço, apóstrofo, ponto e hífen
+  assert pg_temp.erro($$update public.staff_profiles set nome_completo = 'Clara <b>Teste</b>'$$) = '23514', 'nome com < passou';
+  assert pg_temp.erro($$update public.staff_profiles set nome_completo = 'Clara 2'$$) = '23514', 'nome com número passou';
+  update public.staff_profiles set nome_completo = 'Clara D''Ávila-Souza Jr.' where user_id = pg_temp.u(2);
+  -- editar exige fator confirmado: sem o fator, o mesmo aal2 não edita
+  perform pg_temp.como(null, null, 'postgres');
+  assert (select updated_at > '2000-01-01' from public.staff_profiles where user_id = pg_temp.u(2)), 'updated_at não veio do gatilho';
+  assert (select count(*) from public.staff_profiles_historico_pagamento) = 1, 'histórico: esperado 1 linha';
+  assert (select user_id = pg_temp.u(2) and alterado_por = pg_temp.u(2) and antes ->> 'pix_tipo' = 'email'
+            and antes ->> 'pix_chave' = 'clara.pix@teste-convite.invalid' and depois ->> 'pix_chave' = '+5511911112222'
+            and depois ->> 'banco' = 'Outro Banco' from public.staff_profiles_historico_pagamento), 'histórico gravado errado';
+  update auth.mfa_factors set status = 'unverified' where user_id = pg_temp.u(2);
+  perform pg_temp.como(pg_temp.u(2), 'aal2');
+  update public.staff_profiles set telefone = '+5511933334444' where user_id = pg_temp.u(2);
+  perform pg_temp.como(null, null, 'postgres');
+  assert (select telefone from public.staff_profiles where user_id = pg_temp.u(2)) = '+5511900000000', 'editou sem fator confirmado';
+  update auth.mfa_factors set status = 'verified' where user_id = pg_temp.u(2);
+
+  -- T14b. Cada leitura da ficha pelo super_admin fica registrada
+  delete from public.staff_profiles_acessos;
+  perform pg_temp.como(pg_temp.u(1), 'aal2');
+  perform public.colaborador_dados(pg_temp.u(2));
+  perform pg_temp.como(null, null, 'postgres');
+  assert (select count(*) from public.staff_profiles_acessos where leitor = pg_temp.u(1) and colaborador = pg_temp.u(2)) = 1, 'leitura não registrada';
+
+  -- T14c. convites_listar: pendentes e usados nos últimos 30 dias, com nome e aviso; cancelados não
+  perform pg_temp.como(pg_temp.u(1), 'aal2');
+  assert (select nome = 'Clara D''Ávila-Souza Jr.' and aviso_em is null and used_by = pg_temp.u(2)
+          from public.convites_listar() where status = 'usado'), 'aceite recente fora da lista';
+  assert not exists (select 1 from public.convites_listar() where status = 'cancelado'), 'cancelado na lista';
+  perform pg_temp.como(null, null, 'postgres');
+  update public.admin_invites set used_at = now() - interval '31 days' where used_by = pg_temp.u(2);
+  perform pg_temp.como(pg_temp.u(1), 'aal2');
+  assert not exists (select 1 from public.convites_listar() where status = 'usado'), 'aceite antigo na lista';
+  perform pg_temp.como(null, null, 'postgres');
+  update public.admin_invites set used_at = now() where used_by = pg_temp.u(2);
+
+  -- T14d. colaboradores_resumo: só quem segue admin
+  update public.profiles set role = 'user' where id = pg_temp.u(2);
+  perform pg_temp.como(pg_temp.u(5), 'aal2');
+  assert not exists (select 1 from public.colaboradores_resumo()), 'quem saiu continua no resumo';
+  perform pg_temp.como(null, null, 'postgres');
+  update public.profiles set role = 'admin', admin_permissions = '{manage_support,moderate_mesa}' where id = pg_temp.u(2);
+
+  -- T14e. cron de limpeza: um job só (arquivo aplicado duas vezes), 90 dias, só não pendentes
+  assert (select count(*) from cron.job where jobname = 'convites_limpar') = 1, 'cron convites_limpar ausente ou duplicado';
+  assert (select command like '%status <> ''pendente''%90 days%' from cron.job where jobname = 'convites_limpar'), 'cron com comando errado';
+  raise notice 'T14 OK: updated_at, histórico de pagamento, nome, leitura registrada, lista, resumo e cron';
+end $t$;
+
+do $t$
 begin
   -- T12. A chave de serviço (Edge Function) lê e grava o que precisa: convite por hash, marca o aviso, apaga o cadastro
   perform pg_temp.como(null, null, 'service_role');
@@ -340,6 +419,10 @@ begin
   assert found, 'service_role não marcou o aviso';
   delete from public.staff_profiles where user_id = pg_temp.u(2);
   assert found, 'service_role não apagou o cadastro (delete-account)';
+  delete from public.staff_profiles_historico_pagamento where user_id = pg_temp.u(2);
+  assert pg_temp.erro($$select * from public.staff_profiles_historico_pagamento$$) = '42501', 'service_role lê o histórico';
+  delete from public.admin_invites where lower(email) = lower('Clara@teste-convite.invalid');
+  assert found, 'service_role não apagou os convites do e-mail (delete-account)';
   perform pg_temp.como(null, null, 'postgres');
   raise notice 'T12 OK: chave de serviço';
 end $t$;

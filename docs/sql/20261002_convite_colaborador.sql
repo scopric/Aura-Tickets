@@ -4,20 +4,25 @@
 -- Plano: Claude/Planos/groovy-waddling-wilkinson (Fase F); especificação de 30/09 ("Convite de funcionário
 -- e permissões do admin"), com as mudanças da Decisão 125 (01/10): o acesso libera assim que o cadastro
 -- termina, sem aprovação; a interface fala de "colaboradores da Evokaa"; os super_admins recebem e-mail a
--- cada convite aceito (Edge Function admin-invite, ação avisar-aceite).
+-- cada convite aceito (Edge Function admin-invite, ação aceitar, que chama convite_aceitar e manda o aviso na
+-- mesma requisição; convites_listar mostra os aceites dos últimos 30 dias e se o aviso saiu).
 -- Contrato:
 --   - admin_invites: RLS ligada, sem policy e sem GRANT para anon/authenticated. Só as funções abaixo e a
---     chave de serviço (Edge Function admin-invite, ações criar-conta e avisar-aceite) leem e gravam.
+--     chave de serviço (Edge Function admin-invite, ações criar-conta e aceitar) leem e gravam.
 --     O token nunca é guardado: só o sha256 (hex) do texto do token. Validade de 7 dias, uso único;
 --     reenviar troca o hash (o link antigo para de valer).
 --   - staff_profiles: os dados do cadastro do colaborador (nunca em profiles, que outras telas leem).
 --     RLS: o próprio lê e edita os dados dele (UPDATE só nas colunas do cadastro: nunca user_id, invite_id,
---     email nem cargo). O super_admin lê tudo por colaborador_dados(); os demais admins veem só nome, cargo
+--     email, cargo nem as datas; updated_at é do gatilho; editar exige fator confirmado e aal2). Toda mudança de
+--     Pix ou banco fica em staff_profiles_historico_pagamento e toda leitura da ficha pelo super_admin em
+--     staff_profiles_acessos (as duas só de inserção, por gatilho/função, sem acesso pela API). O super_admin lê tudo por colaborador_dados(); os demais admins veem só nome, cargo
 --     e e-mail por colaboradores_resumo().
 --   - Funções (todas SECURITY DEFINER, search_path '', dono postgres):
 --       convite_criar, convite_reenviar, convite_cancelar, convites_listar, colaborador_dados:
 --         só super_admin com 2FA e sessão aal2 (gf_admin_can('super_admin'), seg-4);
---       colaboradores_resumo: qualquer admin (gf_is_admin, que já exige 2FA e aal2);
+--       colaboradores_resumo: qualquer admin (gf_is_admin, que já exige 2FA e aal2); só quem segue admin;
+--       conta de produtor (role producer ou editor) ou que já é admin não é convidada nem aceita convite: o
+--       convite é para um e-mail só do trabalho na Evokaa;
 --       convite_conferir(token): anon e authenticated; diz se o convite vale e devolve o e-mail mascarado;
 --       convite_aceitar(token, dados): authenticated; confere, nesta ordem, o hash do token, se o convite
 --         está pendente e no prazo, se o e-mail da conta é o do convite, 2FA (gf_mfa_ok, aal2 e fator
@@ -38,6 +43,10 @@
 -- ORDEM: 1) este arquivo; 2) Edge Function admin-invite (supabase functions deploy admin-invite; usa
 -- RESEND_API_KEY, que já existe); 3) o front (página /convite no alpha e a tela Equipe). Sem este arquivo, a
 -- tela Equipe mostra erro ao listar convites e o /convite diz que o convite não vale.
+-- GUARDA (alçada do jurídico, não decidida aqui): por quanto tempo staff_profiles de quem SAIU da equipe fica
+-- guardado (hoje fica até a exclusão da conta, pelo delete-account). admin_invites não pendentes saem em 90 dias
+-- (cron convites_limpar, bloco 7), prazo técnico provisório sujeito ao jurídico.
+-- Precisa do pg_cron ligado (já exigido por 20261001_seg5_entrada_limites.sql).
 -- Idempotente: pode rodar de novo.
 -- =============================================================================
 begin;
@@ -80,7 +89,7 @@ create table if not exists public.admin_invites (
   created_at timestamptz not null default now(),
   used_by uuid references public.profiles(id) on delete set null,
   used_at timestamptz,
-  -- quando saiu o aviso aos super_admins (avisar-aceite): um aviso por convite
+  -- quando saiu o aviso aos super_admins (ação aceitar da Edge Function): um aviso por convite
   aviso_em timestamptz
 );
 -- um convite pendente por e-mail (o expirado é cancelado por convite_criar antes de criar outro)
@@ -97,7 +106,9 @@ create table if not exists public.staff_profiles (
   -- e-mail principal (o da conta e do convite) e cargo do convite: o colaborador não edita
   email text not null,
   cargo text not null,
-  nome_completo text not null constraint staff_nome_ok check (char_length(btrim(nome_completo)) between 3 and 150),
+  -- só letras (com acento), espaço, apóstrofo, ponto e hífen
+  nome_completo text not null constraint staff_nome_ok check (char_length(btrim(nome_completo)) between 3 and 150
+    and nome_completo ~ '^[A-Za-zÀ-ÖØ-öø-ÿ ''.-]+$'),
   cpf text not null constraint staff_cpf_ok check (public.gf_cpf_valido(cpf)),
   rg text not null constraint staff_rg_ok check (char_length(btrim(rg)) between 3 and 20),
   data_nascimento date not null constraint staff_nascimento_ok
@@ -146,8 +157,8 @@ alter table public.staff_profiles enable row level security;
 revoke all on public.staff_profiles from public, anon, authenticated;
 grant select on public.staff_profiles to authenticated;
 grant update (nome_completo, cpf, rg, data_nascimento, cep, rua, numero, complemento, bairro, cidade, uf, email_secundario,
-  telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, banco, agencia, conta, pix_tipo, pix_chave,
-  updated_at) on public.staff_profiles to authenticated;
+  telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, banco, agencia, conta, pix_tipo, pix_chave)
+  on public.staff_profiles to authenticated;
 grant select, insert, update, delete on public.staff_profiles to service_role;
 
 -- O próprio colaborador, com 2FA (gf_mfa_ok: conta com fator só em aal2)
@@ -155,9 +166,73 @@ drop policy if exists staff_profiles_proprio_le on public.staff_profiles;
 create policy staff_profiles_proprio_le on public.staff_profiles for select to authenticated
   using (user_id = (select auth.uid()) and (select public.gf_mfa_ok()));
 drop policy if exists staff_profiles_proprio_edita on public.staff_profiles;
+-- editar exige fator confirmado na própria conta e o código digitado nesta sessão
 create policy staff_profiles_proprio_edita on public.staff_profiles for update to authenticated
-  using (user_id = (select auth.uid()) and (select public.gf_mfa_ok()))
-  with check (user_id = (select auth.uid()) and (select public.gf_mfa_ok()));
+  using (user_id = (select auth.uid()) and (select public.gf_tem_2fa((select auth.uid()))) is true
+         and coalesce((select auth.jwt()) ->> 'aal', '') = 'aal2')
+  with check (user_id = (select auth.uid()) and (select public.gf_tem_2fa((select auth.uid()))) is true
+              and coalesce((select auth.jwt()) ->> 'aal', '') = 'aal2');
+
+-- updated_at é do banco (fora do GRANT de UPDATE)
+create or replace function public.staff_profiles_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+drop trigger if exists staff_profiles_updated_at on public.staff_profiles;
+create trigger staff_profiles_updated_at before update on public.staff_profiles
+  for each row execute function public.staff_profiles_updated_at();
+
+-- Histórico de Pix e banco: quem mudou, quando, de quê para quê. Só de inserção, pelo gatilho; sem acesso pela API
+-- (a chave de serviço só apaga, na exclusão da conta).
+create table if not exists public.staff_profiles_historico_pagamento (
+  id bigint generated always as identity primary key,
+  user_id uuid not null,
+  alterado_por uuid,
+  alterado_em timestamptz not null default now(),
+  antes jsonb not null,
+  depois jsonb not null
+);
+create index if not exists staff_hist_pagamento_user_idx on public.staff_profiles_historico_pagamento (user_id);
+alter table public.staff_profiles_historico_pagamento enable row level security;
+revoke all on public.staff_profiles_historico_pagamento from public, anon, authenticated, service_role;
+-- apagar por user_id exige ler a coluna do filtro; só ela
+grant delete, select (user_id) on public.staff_profiles_historico_pagamento to service_role;
+
+create or replace function public.staff_profiles_registra_pagamento()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into public.staff_profiles_historico_pagamento (user_id, alterado_por, antes, depois)
+  values (new.user_id, (select auth.uid()),
+    jsonb_build_object('pix_tipo', old.pix_tipo, 'pix_chave', old.pix_chave, 'banco', old.banco, 'agencia', old.agencia, 'conta', old.conta),
+    jsonb_build_object('pix_tipo', new.pix_tipo, 'pix_chave', new.pix_chave, 'banco', new.banco, 'agencia', new.agencia, 'conta', new.conta));
+  return null;
+end;
+$$;
+drop trigger if exists staff_profiles_registra_pagamento on public.staff_profiles;
+create trigger staff_profiles_registra_pagamento after update on public.staff_profiles
+  for each row when (old.pix_tipo is distinct from new.pix_tipo or old.pix_chave is distinct from new.pix_chave
+    or old.banco is distinct from new.banco or old.agencia is distinct from new.agencia or old.conta is distinct from new.conta)
+  execute function public.staff_profiles_registra_pagamento();
+
+-- Quem leu a ficha de quem (colaborador_dados). Só de inserção, pela função; sem acesso pela API.
+create table if not exists public.staff_profiles_acessos (
+  id bigint generated always as identity primary key,
+  leitor uuid not null,
+  colaborador uuid not null,
+  lido_em timestamptz not null default now()
+);
+alter table public.staff_profiles_acessos enable row level security;
+revoke all on public.staff_profiles_acessos from public, anon, authenticated, service_role;
 
 -- 4. Funções do super_admin
 create or replace function public.convite_criar(p_email text, p_cargo text, p_permissions text[], p_token_hash text)
@@ -179,6 +254,9 @@ begin
   end if;
   if exists (select 1 from public.profiles p where lower(p.email) = v_email and p.role = 'admin') then
     raise exception 'Essa pessoa já faz parte dos colaboradores da Evokaa.' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.profiles p where lower(p.email) = v_email and p.role in ('producer', 'editor')) then
+    raise exception 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
   end if;
   -- convite pendente vencido não segura o e-mail
   update public.admin_invites set status = 'cancelado' where email = v_email and status = 'pendente' and expires_at <= now();
@@ -239,10 +317,12 @@ begin
 end;
 $$;
 
--- status 'expirado' = pendente fora do prazo (no banco ele continua pendente até ser reenviado ou cancelado)
-create or replace function public.convites_listar()
+-- Pendentes (status 'expirado' = pendente fora do prazo; no banco segue pendente até ser reenviado ou cancelado) e
+-- os usados nos últimos 30 dias, com o nome do cadastro e a hora do aviso aos super_admins (null = o aviso não saiu)
+drop function if exists public.convites_listar();
+create function public.convites_listar()
 returns table (id uuid, email text, cargo text, permissions text[], status text, created_at timestamptz,
-               expires_at timestamptz, used_at timestamptz, used_by uuid)
+               expires_at timestamptz, used_at timestamptz, used_by uuid, nome text, aviso_em timestamptz)
 language plpgsql
 stable
 security definer
@@ -255,16 +335,19 @@ begin
   return query
     select i.id, i.email, i.cargo, i.permissions,
            case when i.status = 'pendente' and i.expires_at <= now() then 'expirado' else i.status end,
-           i.created_at, i.expires_at, i.used_at, i.used_by
+           i.created_at, i.expires_at, i.used_at, i.used_by, s.nome_completo, i.aviso_em
     from public.admin_invites i
-    order by i.created_at desc;
+    left join public.staff_profiles s on s.user_id = i.used_by
+    where i.status = 'pendente' or (i.status = 'usado' and i.used_at > now() - interval '30 days')
+    order by coalesce(i.used_at, i.created_at) desc;
 end;
 $$;
 
+-- Cada leitura fica em staff_profiles_acessos (por isso volatile)
 create or replace function public.colaborador_dados(p_user uuid)
 returns setof public.staff_profiles
 language plpgsql
-stable
+volatile
 security definer
 set search_path = ''
 as $$
@@ -272,6 +355,7 @@ begin
   if not public.gf_admin_can('super_admin') then
     raise exception 'Só o super_admin vê os dados do cadastro.' using errcode = '42501';
   end if;
+  insert into public.staff_profiles_acessos (leitor, colaborador) values ((select auth.uid()), p_user);
   return query select s.* from public.staff_profiles s where s.user_id = p_user;
 end;
 $$;
@@ -288,7 +372,9 @@ begin
   if not public.gf_is_admin() then
     raise exception 'Só colaboradores da Evokaa veem a equipe.' using errcode = '42501';
   end if;
-  return query select s.user_id, s.nome_completo, s.cargo, s.email from public.staff_profiles s;
+  -- só quem segue na equipe (quem foi removido continua com o cadastro, mas não aparece)
+  return query select s.user_id, s.nome_completo, s.cargo, s.email
+    from public.staff_profiles s join public.profiles p on p.id = s.user_id and p.role = 'admin';
 end;
 $$;
 
@@ -348,6 +434,10 @@ begin
   if exists (select 1 from public.profiles p where p.id = v_uid and p.role = 'admin') then
     raise exception 'Esta conta já faz parte dos colaboradores da Evokaa.' using errcode = 'P0001';
   end if;
+  -- conta de produtor viraria admin e perderia o painel do produtor: o convite é para um e-mail só do trabalho
+  if exists (select 1 from public.profiles p where p.id = v_uid and p.role in ('producer', 'editor')) then
+    raise exception 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
+  end if;
 
   -- 5. campos (os CHECKs de staff_profiles; a mensagem sai pelo nome da regra)
   begin
@@ -401,7 +491,7 @@ begin
     when check_violation then
       get stacked diagnostics v_cons = constraint_name;
       raise exception '%', case v_cons
-        when 'staff_nome_ok' then 'Informe o nome completo.'
+        when 'staff_nome_ok' then 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen.'
         when 'staff_cpf_ok' then 'CPF inválido.'
         when 'staff_rg_ok' then 'Informe o RG.'
         when 'staff_nascimento_ok' then 'Data de nascimento inválida: é preciso ter 18 anos ou mais.'
@@ -450,10 +540,25 @@ grant execute on function public.convite_criar(text, text, text[], text), public
   public.convite_cancelar(uuid), public.convites_listar(), public.colaborador_dados(uuid), public.colaboradores_resumo(),
   public.convite_aceitar(text, jsonb) to authenticated;
 grant execute on function public.convite_conferir(text) to anon, authenticated;
--- As regras (CHECK) rodam com os direitos de quem grava: a chave de serviço grava admin_invites (avisar-aceite) e
+-- As regras (CHECK) rodam com os direitos de quem grava: a chave de serviço grava admin_invites (aviso do aceite) e
 -- o colaborador edita staff_profiles. Funções puras, sem dado nenhum.
 grant execute on function public.convite_permissoes_ok(text[]) to service_role;
 grant execute on function public.gf_cpf_valido(text) to authenticated, service_role;
+-- gatilhos: só o banco chama
+revoke all on function public.staff_profiles_updated_at(), public.staff_profiles_registra_pagamento() from public, anon, authenticated, service_role;
+alter function public.staff_profiles_registra_pagamento() owner to postgres;
+
+-- 7. Limpeza: convite usado ou cancelado sai em 90 dias.
+-- ponytail: prazo técnico provisório (o e-mail e o cargo do convite são dados pessoais sem uso depois do aceite);
+-- o prazo de guarda é do jurídico: mudar aqui quando ele decidir.
+do $$ begin
+  if not exists (select 1 from pg_extension where extname = 'pg_cron') then
+    raise exception 'pg_cron não está ligado: ligar em Database > Extensions antes de rodar este arquivo';
+  end if;
+end $$;
+select cron.unschedule('convites_limpar') where exists (select 1 from cron.job where jobname = 'convites_limpar');
+select cron.schedule('convites_limpar', '41 3 * * *',
+  $$delete from public.admin_invites where status <> 'pendente' and created_at < now() - interval '90 days'$$);
 
 commit;
 
@@ -461,5 +566,7 @@ commit;
 -- drop function if exists public.convite_aceitar(text, jsonb), public.convite_conferir(text), public.colaboradores_resumo(),
 --   public.colaborador_dados(uuid), public.convites_listar(), public.convite_cancelar(uuid), public.convite_reenviar(uuid, text),
 --   public.convite_criar(text, text, text[], text);
--- drop table if exists public.staff_profiles, public.admin_invites;
+-- select cron.unschedule('convites_limpar');
+-- drop table if exists public.staff_profiles_acessos, public.staff_profiles_historico_pagamento, public.staff_profiles, public.admin_invites;
+-- drop function if exists public.staff_profiles_updated_at(), public.staff_profiles_registra_pagamento();
 -- drop function if exists public.convite_hash(text), public.convite_permissoes_ok(text[]);
