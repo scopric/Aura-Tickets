@@ -406,7 +406,7 @@ export default function Atendimento() {
                   {c.chat_topics?.label ?? 'Sem assunto'} · {c.status === 'open' ? 'Aberta' : 'Resolvida'}
                   {c.bot_state === 'bot' ? (c.status === 'open' ? ' · com o assistente' : c.bot_resolveu ? ' pelo assistente' : '') : ''}
                   {c.priority === 'urgent' ? ' · Urgente' : ''}
-                  {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id ? '' : ' · sem dono'}
+                  {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id || c.bot_state === 'bot' ? '' : ' · sem dono'}
                 </p>
               </div>
               {c.assignee_id !== user?.id && c.status === 'open' && (

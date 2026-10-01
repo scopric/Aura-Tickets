@@ -113,7 +113,7 @@ alter table public.conversations drop constraint if exists conversations_handoff
 alter table public.conversations add constraint conversations_handoff_reason_check
   check (handoff_reason in ('pedido', 'sem_resposta', 'nao_resolveu', 'anexo', 'erro', 'atendente', 'desligado'));
 alter table public.conversations add column if not exists bot_tries int not null default 0;
--- selo "Resolvida pelo assistente": só o "Sim" liga; reabrir (chat_send) e a equipe mudar o status desligam; cron não mexe
+-- selo "Resolvida pelo assistente": só o "Sim" liga; reabrir (chat_send), a equipe mudar o status, assumir ou responder desligam; cron não mexe
 alter table public.conversations add column if not exists bot_resolveu boolean not null default false;
 
 -- 3c. Mensagens: camada do assistente (1 = base, 2 = IA no 3b; nula na cortesia) e o estado da conversa quando a mensagem
@@ -374,7 +374,11 @@ begin
   if v_norm ~ '\m(atendente|humano|humana)\M'
      or v_norm ~ '\m(falar|chamar|conversar|quero)\s+(com\s+)?((um|uma|o|a)\s+)?operadora?\M'
      or v_norm ~ '\m(falar|fala|chamar|conversar|contato)\s+com\s+((um|uma|o|a)\s+)?(pessoa|alguem|gente|equipe|suporte|atendimento|voces|vcs|responsavel)\M'
-     or v_norm ~ '\mtem\s+alguem\s+(ai|ae|online)\M' or v_norm ~ '^tem alguem$'
+     or v_norm ~ '\mtem\s+alguem\s+(ai|ae|online)\M' or v_norm ~ '\mtem\s+alguem$'
+     or v_norm ~ '\mem\s+contato\M'
+     or v_norm ~ '\m(transfere|transferir|passa|passar)\s+(para|pra)\s+((um|uma|o|a)\s+)?(alguem|pessoa|humano|atendente)\M'
+     or v_norm ~ '\mme\s+(transfere|transferir)$'
+     or v_norm ~ '\m(telefone|whatsapp|zap|numero)\s+(de|da|do)\s+(voces|vcs|evokaa|empresa|atendimento|suporte)\M'
      or v_norm ~ '\m(nao|sem)\M.*\mrobos?\M|\mrobos?\M.*\mnao\M' then
     perform public.chat_bot_passar(p_conv, 'pedido');
     return;
@@ -1820,7 +1824,10 @@ insert into t12 (n, frase, esperado, papel) values
   (45, 'quero falar com o responsavel', 'pedido', 'user'),
   (46, 'comprei com voces e nao recebi o ingresso', 'lev-a12', 'user'),  -- como a #5 ("n recebi meu ingr")
   (47, 'tenho conta com vocês e esqueci a senha', 'lev-a03', 'user'), (48, 'o pagamento com a equipe do evento deu erro', 'lev-a17', 'user'),
-  (49, 'o ingresso tem alguem no nome?', 'lev-a13', 'user');  -- artigo vizinho (titular do ingresso): o Ricardo confere
+  (49, 'o ingresso tem alguem no nome?', 'lev-a13', 'user'),
+  (50, 'oi, tem alguém?', 'pedido', 'user'), (51, 'como entro em contato', 'pedido', 'user'),
+  (52, 'me transfere pra alguem', 'pedido', 'user'), (53, 'pode me transferir?', 'pedido', 'user'),
+  (54, 'qual o telefone de vcs', 'pedido', 'user'), (55, 'o evento tem alguem famoso?', 'passa', 'user');  -- artigo vizinho (titular do ingresso): o Ricardo confere
 do $t$
 declare r record; cv uuid; erros int := 0; graves int;
 begin
