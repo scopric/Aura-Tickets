@@ -80,6 +80,17 @@
 --    ingresso do evento com status 'active' ou 'used' (tickets_status_check: active, used, cancelled,
 --    refunded, transferred). A subconsulta em tickets roda como o produtor: a regra "Produtores leem
 --    ingressos dos próprios eventos" deixa ele ler os ingressos do evento dele.
+--    Índice único (certificate_id, user_id): o mesmo certificado não sai duas vezes para a mesma pessoa
+--    (issued_certificates depende de certificates, que tinha 0 linhas em 01/10/2026: sem duplicados).
+--    INSERT só nas colunas certificate_id e user_id (grant por coluna): code e issued_at vêm sempre do
+--    default; o produtor não escolhe o código de validação nem antedata a emissão.
+-- 17. conta_recente olha auth.users.created_at (data do cadastro no login), nunca profiles.created_at: o
+--    usuário altera a própria linha de profiles pela API e "envelheceria" a conta. auth.users.created_at não
+--    tem default e aceita nulo (conferido no banco local): a checagem é "existe data com mais de 24 h", e
+--    data nula conta como conta recente (falha fechada).
+-- 18. Efeito colateral, a tratar na tela no B4: depois do B3, evento com afiliado vinculado não pode ser
+--    excluído (affiliates.event_id é FK sem cascade: erro 23503). Como o vínculo não se apaga (DECISÕES 7),
+--    o caminho é arquivar/cancelar o evento, não excluir.
 -- =============================================================================
 begin;
 
@@ -157,6 +168,10 @@ create policy gf_issued_certificates_produtor_delete on public.issued_certificat
                  where c.id = issued_certificates.certificate_id and e.producer_id = (select auth.uid())));
 create policy gf_issued_certificates_participante on public.issued_certificates as permissive for select to authenticated
   using (user_id = (select auth.uid()));
+create unique index if not exists issued_certificates_certificado_pessoa_key
+  on public.issued_certificates (certificate_id, user_id);
+revoke insert on public.issued_certificates from anon, authenticated;
+grant insert (certificate_id, user_id) on public.issued_certificates to authenticated;
 
 -- 2. coupons e event_budget_boxes: o evento tem de ser do produtor ------------------------------------------------
 drop policy if exists "Produtor gerencia coupons" on public.coupons;
@@ -253,7 +268,8 @@ begin
     return 'sem_permissao';
   end if;
   -- conta de produtor descartável recém-criada não sonda e-mails (DECISÕES 10)
-  if exists (select 1 from public.profiles where id = v_uid and created_at > now() - interval '24 hours') then
+  -- DECISÕES 17: auth.users, não profiles (que o usuário edita); sem data (nula) conta como recente
+  if not exists (select 1 from auth.users where id = v_uid and created_at <= now() - interval '24 hours') then
     return 'conta_recente';
   end if;
   if p_email is null or btrim(p_email) = '' or length(p_email) > 254 then
@@ -398,7 +414,9 @@ begin
      or exists (select 1 from pg_policies where schemaname = 'public' and tablename in ('affiliates', 'issued_certificates')
                 and cmd in ('DELETE', 'ALL', 'UPDATE') and policyname <> 'gf_mfa_aal2'
                 and policyname not in ('gf_affiliates_dono_update', 'gf_issued_certificates_produtor_delete'))
-     or has_table_privilege('authenticated', 'public.afiliado_tentativas', 'select') then
+     or has_table_privilege('authenticated', 'public.afiliado_tentativas', 'select')
+     or has_column_privilege('authenticated', 'public.issued_certificates', 'code', 'insert')
+     or has_column_privilege('authenticated', 'public.issued_certificates', 'issued_at', 'insert') then
     raise exception 'affiliates/afiliado_tentativas: privilégio a mais para authenticated';
   end if;
   if (select attnotnull from pg_attribute where attrelid = 'public.producer_profiles'::regclass and attname = 'cnpj')
@@ -432,6 +450,8 @@ commit;
 -- drop policy if exists gf_issued_certificates_produtor_insert on public.issued_certificates;
 -- drop policy if exists gf_issued_certificates_produtor_delete on public.issued_certificates;
 -- drop policy if exists gf_issued_certificates_participante on public.issued_certificates;
+-- drop index if exists public.issued_certificates_certificado_pessoa_key;
+-- grant insert on public.issued_certificates to authenticated;
 -- drop policy if exists "Produtor gerencia coupons" on public.coupons;
 -- create policy "Produtor gerencia coupons" on public.coupons for all to authenticated
 --   using (producer_id = auth.uid()) with check (producer_id = auth.uid());

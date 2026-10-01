@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(90);
+select plan(95);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -35,8 +35,9 @@ insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) value
   ('b3000000-0000-4000-8000-000000000011', 'joana@teste.local', now(), '{"full_name":"Joana"}');
 update public.profiles set birth_date = '1990-05-10' where id in ('b3000000-0000-4000-8000-000000000003',
   'b3000000-0000-4000-8000-000000000008', 'b3000000-0000-4000-8000-000000000009', 'b3000000-0000-4000-8000-000000000011');
--- produtores com conta de mais de 24 h (o novo fica com a data de agora)
-update public.profiles set created_at = now() - interval '2 days' where id in ('b3000000-0000-4000-8000-000000000001',
+-- produtores com cadastro (auth.users) de mais de 24 h; o novo (010) fica com a data de agora
+update auth.users set created_at = now() where id = 'b3000000-0000-4000-8000-000000000010';
+update auth.users set created_at = now() - interval '2 days' where id in ('b3000000-0000-4000-8000-000000000001',
   'b3000000-0000-4000-8000-000000000002', 'b3000000-0000-4000-8000-000000000007');
 update public.profiles set birth_date = current_date - interval '17 years' where id = 'b3000000-0000-4000-8000-000000000004';
 update public.profiles set birth_date = '1980-01-01' where id = 'b3000000-0000-4000-8000-000000000001';
@@ -46,7 +47,7 @@ insert into public.events (id, producer_id, title, slug) values
   ('b3000000-0000-4000-8000-0000000000e1', 'b3000000-0000-4000-8000-000000000001', 'Evento P1', 'b3-e1'),
   ('b3000000-0000-4000-8000-0000000000e2', 'b3000000-0000-4000-8000-000000000002', 'Evento P2', 'b3-e2'),
   ('b3000000-0000-4000-8000-0000000000e3', 'b3000000-0000-4000-8000-000000000010', 'Evento Novo', 'b3-e3');
--- ingressos no evento de P1: "sem" (005) ativo, menor (004) cancelado
+-- ingressos no evento de P1: "sem" (005) e joana (011) ativos, menor (004) cancelado
 insert into public.orders (id, user_id, event_id) values
   ('b3000000-0000-4000-8000-0000000000a5', 'b3000000-0000-4000-8000-000000000005', 'b3000000-0000-4000-8000-0000000000e1');
 insert into public.ticket_types (id, event_id, name) values
@@ -55,7 +56,9 @@ insert into public.tickets (order_id, ticket_type_id, event_id, user_id, buyer_n
   ('b3000000-0000-4000-8000-0000000000a5', 'b3000000-0000-4000-8000-0000000000a6', 'b3000000-0000-4000-8000-0000000000e1',
    'b3000000-0000-4000-8000-000000000005', 'Sem', 'sem@teste.local', 'active'),
   ('b3000000-0000-4000-8000-0000000000a5', 'b3000000-0000-4000-8000-0000000000a6', 'b3000000-0000-4000-8000-0000000000e1',
-   'b3000000-0000-4000-8000-000000000004', 'Menor', 'men@teste.local', 'cancelled');
+   'b3000000-0000-4000-8000-000000000004', 'Menor', 'men@teste.local', 'cancelled'),
+  ('b3000000-0000-4000-8000-0000000000a5', 'b3000000-0000-4000-8000-0000000000a6', 'b3000000-0000-4000-8000-0000000000e1',
+   'b3000000-0000-4000-8000-000000000011', 'Joana', 'joana@teste.local', 'active');
 insert into public.certificates (id, event_id) values
   ('b3000000-0000-4000-8000-0000000000c1', 'b3000000-0000-4000-8000-0000000000e1'),
   ('b3000000-0000-4000-8000-0000000000c2', 'b3000000-0000-4000-8000-0000000000e2');
@@ -232,6 +235,16 @@ select is(vincular_afiliado('af@teste.local', 'b3000000-0000-4000-8000-000000000
 select pg_temp.como('authenticated', 'b3000000-0000-4000-8000-000000000010');
 select is(vincular_afiliado('af@teste.local', 'b3000000-0000-4000-8000-0000000000e3', 10), 'conta_recente',
   'produtor com conta de menos de 24 h: conta_recente');
+-- o próprio usuário "envelhece" a conta em profiles (a API deixa) e continua barrado
+select results_eq($$with u as (update profiles set created_at = '2020-01-01' where id = 'b3000000-0000-4000-8000-000000000010'
+  returning 1) select count(*) from u$$, array[1::bigint], 'produtor novo altera profiles.created_at pela API');
+select is(vincular_afiliado('af@teste.local', 'b3000000-0000-4000-8000-0000000000e3', 10), 'conta_recente',
+  'mesmo com profiles.created_at em 2020: conta_recente (vale a data de auth.users)');
+select pg_temp.como('postgres');
+update auth.users set created_at = null where id = 'b3000000-0000-4000-8000-000000000010';
+select pg_temp.como('authenticated', 'b3000000-0000-4000-8000-000000000010');
+select is(vincular_afiliado('af@teste.local', 'b3000000-0000-4000-8000-0000000000e3', 10), 'conta_recente',
+  'cadastro sem data em auth.users: conta_recente (falha fechada)');
 select pg_temp.como('anon');
 select throws_ok($$select vincular_afiliado('af@teste.local', 'b3000000-0000-4000-8000-0000000000e1', 10)$$,
   '42501', null, 'visitante não executa vincular_afiliado');
@@ -279,6 +292,12 @@ select results_eq($$select id from issued_certificates order by id$$,
 select lives_ok($$insert into issued_certificates (certificate_id, user_id) values
   ('b3000000-0000-4000-8000-0000000000c1', 'b3000000-0000-4000-8000-000000000005')$$,
   'P1 emite certificado do próprio evento para quem tem ingresso ativo');
+select throws_ok($$insert into issued_certificates (certificate_id, user_id) values
+  ('b3000000-0000-4000-8000-0000000000c1', 'b3000000-0000-4000-8000-000000000005')$$,
+  '23505', null, 'mesmo certificado não sai duas vezes para a mesma pessoa');
+select throws_ok($$insert into issued_certificates (certificate_id, user_id, code) values
+  ('b3000000-0000-4000-8000-0000000000c1', 'b3000000-0000-4000-8000-000000000011', 'CODIGO-ESCOLHIDO')$$,
+  '42501', null, 'produtor não escolhe o code do certificado');
 select throws_ok($$insert into issued_certificates (certificate_id, user_id) values
   ('b3000000-0000-4000-8000-0000000000c1', 'b3000000-0000-4000-8000-000000000004')$$,
   '42501', null, 'P1 não emite para ingresso cancelado');
