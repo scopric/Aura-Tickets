@@ -476,6 +476,7 @@ export default function EventPage() {
                         perks: ticket.perks || []
                       }}
                       cartQty={cart[ticket.id] || 0}
+                      mostrarAvisoFoto={ticket.id === ticketTypes.find((t) => t.type === 'coletiva')?.id}
                       // Match de Mesa: 1 lugar por conta em cada evento (o banco recusa quantidade maior)
                       onAdd={() => { if (!cart[ticket.id]) addToCart(ticket.id) }}
                       onRemove={() => removeFromCart(ticket.id)}

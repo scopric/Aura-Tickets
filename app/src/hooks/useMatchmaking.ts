@@ -203,15 +203,20 @@ function generateVibe(answers: QuizAnswers): string {
 }
 
 // Situação da foto na moderação (profiles.avatar_moderacao, só a própria). Coluna ausente (SQL ainda
-// não aplicado) = sem aviso.
+// não aplicado) = sem aviso. 'sem_foto': a foto não está no formato que a fila aceita (mesma regra de
+// mesa_foto_formato no SQL), então nunca seria analisada.
 export function useMinhaFotoModeracao() {
   const { user } = useAuth()
   return useQuery<string | null>({
     queryKey: ['foto-moderacao', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase.from('profiles').select('avatar_moderacao' as never).eq('id', user!.id).maybeSingle()
+      const { data, error } = await supabase.from('profiles').select('avatar_url, avatar_moderacao' as never).eq('id', user!.id).maybeSingle()
       if (error) return null
-      return (data as { avatar_moderacao?: string } | null)?.avatar_moderacao ?? null
+      const linha = data as { avatar_url?: string | null; avatar_moderacao?: string } | null
+      if (!linha?.avatar_moderacao) return null
+      const url = linha.avatar_url ?? ''
+      if (url.length > 60000 || !/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(url)) return 'sem_foto'
+      return linha.avatar_moderacao
     },
     enabled: !!user?.id,
   })

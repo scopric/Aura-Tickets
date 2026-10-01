@@ -16,9 +16,10 @@ interface Props {
   onAdd: () => void
   onRemove: () => void
   onQuantityChange: (qty: number) => void
+  mostrarAvisoFoto?: boolean // com mais de um ingresso coletivo no evento, o aviso da foto vai só no primeiro
 }
 
-export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, onQuantityChange }: Props) {
+export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, onQuantityChange, mostrarAvisoFoto = true }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
@@ -110,7 +111,7 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
             </p>
           </div>
-          {user && consentimentoVigente(profile) && <FotoModeracaoAviso />}
+          {mostrarAvisoFoto && user && consentimentoVigente(profile) && <FotoModeracaoAviso />}
         </div>
 
         {/* Actions */}
@@ -157,24 +158,29 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
 export function FotoModeracaoAviso() {
   const { data: situacao } = useMinhaFotoModeracao()
   const contestar = useMesaFotoContestar()
-  const [resposta, setResposta] = useState<string | null>(null)
+  const [resposta, setResposta] = useState('')
+  const [negada, setNegada] = useState(false) // o banco não aceita contestar esta recusa: some o botão
 
   const pedirRevisao = () => {
-    setResposta(null)
+    setResposta('')
     contestar.mutate(undefined, {
-      onSuccess: (ok) => setResposta(ok
-        ? 'Pedido enviado. Uma pessoa da equipe vai analisar.'
-        : 'Não é possível pedir revisão desta foto (já foi pedida, ou a decisão não foi automática). Troque a foto.'),
+      onSuccess: (ok) => {
+        if (ok) return setResposta('Pedido enviado. Uma pessoa da equipe vai analisar.')
+        setNegada(true)
+        setResposta('Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe pelo /contato.')
+      },
       onError: (e) => setResposta(e.message), // 42501: mensagem do 2FA em mesaErro
     })
   }
 
-  const texto = situacao === 'pendente' ? 'Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.'
+  const texto = situacao === 'sem_foto' ? 'Adicione uma foto do seu rosto no Perfil para aparecer na mesa.'
+    : situacao === 'pendente' ? 'Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.'
     : situacao === 'revisar' ? 'Sua foto está com a nossa equipe para análise.'
-    : situacao === 'recusada' ? 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se acha que foi engano, peça revisão de uma pessoa da equipe.'
+    : situacao === 'recusada' ? 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se a recusa foi automática e você acha que foi engano, peça revisão de uma pessoa da equipe.'
     : null
   if (!texto) return null
   const recusada = situacao === 'recusada'
+  const trocar = recusada || situacao === 'sem_foto'
 
   return (
     <div className={`p-3 rounded-xl border text-sm text-cream space-y-3 ${recusada ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
@@ -182,17 +188,20 @@ export function FotoModeracaoAviso() {
         <Camera className={`w-4 h-4 flex-shrink-0 mt-0.5 ${recusada ? 'text-red-300' : 'text-amber-400'}`} />
         <span>{texto}</span>
       </div>
-      {recusada && (
+      {trocar && (
         <div className="flex flex-wrap gap-2">
           <a href={appUrl('/app/profile')} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
             Trocar foto
           </a>
-          <button onClick={pedirRevisao} disabled={contestar.isPending} className="px-4 py-2 rounded-full border border-white/20 text-xs hover:bg-white/5 disabled:opacity-50">
-            {contestar.isPending ? 'Enviando...' : 'Pedir revisão'}
-          </button>
+          {recusada && !negada && (
+            <button onClick={pedirRevisao} disabled={contestar.isPending} className="px-4 py-2 rounded-full border border-white/20 text-xs hover:bg-white/5 disabled:opacity-50">
+              {contestar.isPending ? 'Enviando...' : 'Pedir revisão'}
+            </button>
+          )}
         </div>
       )}
-      {resposta && <p role="status" className="text-xs text-cream/80">{resposta}</p>}
+      {/* sempre montado: leitor de tela só anuncia mudança dentro de uma região que já existia */}
+      <p role="status" className="text-xs text-cream/80 empty:sr-only">{resposta}</p>
     </div>
   )
 }
@@ -263,7 +272,7 @@ export function MesaTermoModal({ onAceito, onFechar, onPular }: { onAceito: () =
           <label className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
             <input type="checkbox" className="mt-1 accent-plum" checked={rede} onChange={(e) => setRede(e.target.checked)} />
             <span className="text-sm text-cream/70">
-              Também quero mostrar minha rede social aos colegas de mesa (opcional, segundo aceite; dá para tirar depois).
+              Mostrar minha rede social aos colegas de mesa e a quem estiver escolhendo mesa neste evento (mesmo tipo de ingresso).
             </span>
           </label>
           {erro && (

@@ -120,8 +120,7 @@ test('sua mesa: colegas com faixa de idade, etiquetas em comum, rede social, "Lu
     marcar_avisos_lidos: null,
   })
   await mockPerfil(page, PERFIL_OK)
-  await page.route('**/rest/v1/profiles?*', (route) =>
-    route.request().url().includes('avatar_moderacao') ? route.fulfill({ json: [{ avatar_moderacao: 'pendente' }] }) : route.fallback())
+  await mockFoto(page, () => 'pendente')
   await abrirSuaMesa(page)
 
   await expect(page.getByRole('heading', { name: 'Mesa 3' })).toBeVisible()
@@ -374,13 +373,14 @@ test('checkout recusa, antes do pagamento, 2 tipos de Match de Mesa ou quantidad
   }
 })
 
-// profiles.avatar_moderacao da própria conta (a função é chamada a cada leitura: o estado pode mudar)
-async function mockFoto(page: Page, situacao: () => string) {
+// profiles.avatar_url + avatar_moderacao da própria conta (a função é chamada a cada leitura: o estado pode mudar)
+const FOTO_OK = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=='
+async function mockFoto(page: Page, situacao: () => string, avatar: string | null = FOTO_OK) {
   await page.route('**/rest/v1/profiles?*', (route) =>
-    route.request().url().includes('avatar_moderacao') ? route.fulfill({ json: [{ avatar_moderacao: situacao() }] }) : route.fallback())
+    route.request().url().includes('avatar_moderacao') ? route.fulfill({ json: [{ avatar_url: avatar, avatar_moderacao: situacao() }] }) : route.fallback())
 }
 
-const RECUSADA = 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se acha que foi engano, peça revisão de uma pessoa da equipe.'
+const RECUSADA = 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se a recusa foi automática e você acha que foi engano, peça revisão de uma pessoa da equipe.'
 
 test('foto em revisão: aviso no cartão do Match de Mesa (com aceite) e em "Sua mesa"', async ({ page }) => {
   await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [] })
@@ -410,30 +410,61 @@ test('foto recusada: texto genérico, "Trocar foto" leva ao Perfil e "Pedir revi
 
   await expect(page.getByText(RECUSADA)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Trocar foto' })).toHaveAttribute('href', /\/app\/profile$/)
+  // a região de status já existe vazia antes da resposta e é a mesma que recebe o texto
+  const status = page.locator('p[role="status"]')
+  await expect(status).toHaveCount(1)
+  await expect(status).toHaveText('')
+  await status.evaluate((el) => { el.dataset.marca = '1' })
   await page.getByRole('button', { name: 'Pedir revisão' }).click()
-  await expect(page.getByText('Pedido enviado. Uma pessoa da equipe vai analisar.')).toBeVisible()
+  await expect(page.locator('p[role="status"][data-marca="1"]')).toHaveText('Pedido enviado. Uma pessoa da equipe vai analisar.')
   await expect(page.getByText('Sua foto está com a nossa equipe para análise.')).toBeVisible() // relida depois do pedido
   await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
   expect(chamadas.filter(c => c.nome === 'mesa_foto_contestar').map(c => c.body)).toEqual([{}])
 })
 
-test('foto recusada: "Pedir revisão" negado (false) e sem 2FA (42501)', async ({ page }) => {
-  let vez = 0
+test('foto recusada: "Pedir revisão" negado (false) esconde o botão e orienta trocar a foto', async ({ page }) => {
+  const chamadas = await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [], mesa_foto_contestar: false })
+  await mockPerfil(page, PERFIL_OK)
+  await mockFoto(page, () => 'recusada')
+  await abrirSuaMesa(page)
+
+  await page.getByRole('button', { name: 'Pedir revisão' }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe pelo /contato.' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
+  await expect(page.getByText(RECUSADA)).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Trocar foto' })).toBeVisible()
+  expect(chamadas.filter(c => c.nome === 'mesa_foto_contestar')).toHaveLength(1)
+})
+
+test('foto recusada: "Pedir revisão" sem 2FA (42501) mostra a orientação do 2FA', async ({ page }) => {
   await mockRpc(page, {
     minha_mesa: MESA_COM_COLEGAS,
     meus_avisos_mesa: [],
-    mesa_foto_contestar: () => (++vez === 1
-      ? { json: false }
-      : { status: 403, json: { code: '42501', message: 'Acesso negado', details: null, hint: null } }),
+    mesa_foto_contestar: () => ({ status: 403, json: { code: '42501', message: 'Acesso negado', details: null, hint: null } }),
   })
   await mockPerfil(page, PERFIL_OK)
   await mockFoto(page, () => 'recusada')
   await abrirSuaMesa(page)
 
   await page.getByRole('button', { name: 'Pedir revisão' }).click()
-  await expect(page.getByText('Não é possível pedir revisão desta foto (já foi pedida, ou a decisão não foi automática). Troque a foto.')).toBeVisible()
-  await expect(page.getByText(RECUSADA)).toBeVisible()
-  await page.getByRole('button', { name: 'Pedir revisão' }).click()
   await expect(page.getByText(/se sua conta usa verificação em duas etapas, digite o código/)).toBeVisible()
   await expect(page.getByText('Acesso negado')).toHaveCount(0)
+})
+
+test('foto fora do formato da fila (sem foto ou longa demais): pede foto no Perfil em vez de "em análise"', async ({ page }) => {
+  let avatar: string | null = null
+  await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [] })
+  await mockPerfil(page, PERFIL_OK)
+  await mockEvento(page)
+  await page.route('**/rest/v1/profiles?*', (route) =>
+    route.request().url().includes('avatar_moderacao') ? route.fulfill({ json: [{ avatar_url: avatar, avatar_moderacao: 'pendente' }] }) : route.fallback())
+
+  for (const foto of [null, 'https://lh3.googleusercontent.com/a/foto.jpg', `data:image/jpeg;base64,${'A'.repeat(60000)}`]) {
+    avatar = foto
+    await page.goto(`/event/${EVENTO}`)
+    await expect(page.getByText('Adicione uma foto do seu rosto no Perfil para aparecer na mesa.')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Trocar foto' })).toHaveAttribute('href', /\/app\/profile$/)
+    await expect(page.getByText(/Sua foto está em análise/)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
+  }
 })

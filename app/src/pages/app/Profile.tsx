@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '../../hooks/useAuth'
@@ -12,9 +13,13 @@ import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput, { COUNTRIES_DDI } from '../../components/ui/PhoneInput'
 import { searchAddressByPostalCode } from '../../lib/cepService'
 import { formatCurrency } from '../../lib/formatters'
+import { FotoModeracaoAviso } from '../../components/CollectiveTableCard'
+import { useMatchmakingProfile, consentimentoVigente } from '../../hooks/useMatchmaking'
 
 export default function ParticipantProfile() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const { profile: perfilMesa } = useMatchmakingProfile()
   const mfa = useTwoFactor()
   const [editing, setEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -157,7 +162,10 @@ export default function ParticipantProfile() {
     e.target.value = ''
     if (!file || !user?.id) return
     setEnviandoFoto(true)
-    try { await uploadAvatar(file, user.id) } finally { setEnviandoFoto(false) }
+    try {
+      // foto nova volta a 'pendente' no banco: relê o aviso da moderação
+      if (await uploadAvatar(file, user.id)) queryClient.invalidateQueries({ queryKey: ['foto-moderacao'] })
+    } finally { setEnviandoFoto(false) }
   }
 
   return (
@@ -201,6 +209,7 @@ export default function ParticipantProfile() {
             )}
           </button>
         </div>
+        {user && consentimentoVigente(perfilMesa) && <div className="mt-4"><FotoModeracaoAviso /></div>}
       </div>
 
       {/* Stats */}

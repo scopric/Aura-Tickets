@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
@@ -42,12 +43,14 @@ export default function AppLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+  const queryClient = useQueryClient()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file && user?.id) {
-      await uploadAvatar(file, user.id)
+      // foto nova volta a 'pendente' no banco: relê o aviso da moderação
+      if (await uploadAvatar(file, user.id)) queryClient.invalidateQueries({ queryKey: ['foto-moderacao'] })
     }
     e.target.value = '' // escolher a mesma imagem de novo volta a disparar o envio
   }
