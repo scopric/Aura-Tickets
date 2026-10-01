@@ -96,7 +96,7 @@ export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
                       {removendo !== p.ingresso && (p.pode_remover ? (
                         <button onClick={() => abrir(p.ingresso)} className={`${botao} border border-red-200 text-red-500 hover:bg-red-50`}>Remover da mesa</button>
                       ) : (
-                        <span className="text-[11px] text-espresso/70 italic">Sem denúncia analisada</span>
+                        <span className="text-[11px] text-espresso/70 italic">Sem denúncia que você possa usar</span>
                       ))}
                     </div>
                     {removendo === p.ingresso && p.pode_remover && (
