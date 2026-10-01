@@ -320,6 +320,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await expect(bruno.getByText(/Não escreva dados de saúde ou de terceiros/)).toBeVisible()
     const confirmar = bruno.getByRole('button', { name: 'Confirmar remoção' })
     await expect(confirmar).toBeDisabled() // sem motivo
+    await expect(bruno.getByRole('option', { name: 'Pedido da própria pessoa' })).toHaveCount(0) // sem denúncia não se remove; quem quer sair usa "sair da mesa"
     await bruno.getByLabel('Motivo').selectOption('outro')
     await expect(confirmar).toBeDisabled() // "outro" sem detalhe
     await bruno.getByLabel(/Detalhe/).fill('ab')
@@ -354,6 +355,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await painel.getByLabel('Motivo').selectOption('comportamento_no_local')
     await painel.getByRole('button', { name: 'Confirmar remoção' }).click()
     await expect(page.getByText('Só é possível remover quem tem denúncia neste evento.')).toBeVisible()
+    await expect(painel.getByRole('button', { name: 'Confirmar remoção' })).toHaveCount(0) // o formulário fecha no erro
   })
 
   test('evento sem ingresso coletiva não mostra o painel', async ({ page }) => {

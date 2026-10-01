@@ -34,7 +34,8 @@ export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
     if (!removendo || !motivo || !detalheOk) return
     remover.mutate({ ingresso: removendo, motivo, detalhe }, {
       onSuccess: () => { setRemovendo(null); toast.success('Pessoa removida da mesa.') },
-      onError: e => toast.error(erroMesaAdmin(e)),
+      // fecha o formulário: a lista é recarregada e o botão só volta para quem o banco aceita
+      onError: e => { setRemovendo(null); toast.error(erroMesaAdmin(e)) },
     })
   }
 
@@ -98,14 +99,15 @@ export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
                         <span className="text-[11px] text-espresso/70 italic">Sem denúncia liberada</span>
                       ))}
                     </div>
-                    {removendo === p.ingresso && (
+                    {removendo === p.ingresso && p.pode_remover && (
                       <div className="mt-2 p-3 rounded-xl bg-white/60 border border-red-200 space-y-2">
                         <label className="block">
                           <span className="text-[11px] text-espresso/70">Motivo</span>
                           <select value={motivo} onChange={e => setMotivo(e.target.value as MotivoRemocao)}
                             className="mt-1 w-full px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none">
                             <option value="">Escolha o motivo</option>
-                            {(Object.keys(MOTIVO_REMOCAO) as MotivoRemocao[]).map(k => <option key={k} value={k}>{MOTIVO_REMOCAO[k]}</option>)}
+                            {/* sem denúncia ninguém é removido; quem quer sair usa "sair da mesa" */}
+                            {(Object.keys(MOTIVO_REMOCAO) as MotivoRemocao[]).filter(k => k !== 'pedido_da_pessoa').map(k => <option key={k} value={k}>{MOTIVO_REMOCAO[k]}</option>)}
                           </select>
                         </label>
                         <label className="block">
