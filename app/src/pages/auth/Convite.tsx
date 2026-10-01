@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowRight, CheckCircle2, ClipboardList, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
+import { queryClient } from '../../lib/queryClient'
 import { useAuth } from '../../hooks/useAuth'
 import { useAuthStore } from '../../stores/authStore'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -29,8 +30,12 @@ const PASSO: Partial<Record<Etapa, number>> = { conta: 0, codigo: 0, '2fa': 1, c
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const TELEFONE_RE = /^\+[1-9]\d{9,14}$/
 const digitos = (s: string) => s.replace(/\D/g, '')
-// mesma regra do CHECK staff_nome_ok
-const NOME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ '.-]+$/
+// Mesma regra do CHECK staff_nome_ok: letras latinas (com acento e as estendidas, como ễ e Ł), espaço, apóstrofo,
+// ponto e hífen; ponto seguido de 2 letras é endereço de site ("golpe.com.br"), recusado ("J.R.R. Tolkien" passa)
+const NOME_RE = /^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ '.-]+$/
+const SITE_RE = /\.[A-Za-zÀ-ÿ]{2}/
+// Apóstrofo curvo do iPhone (’) vira reto e a forma decomposta vira composta (NFC), como no banco
+const normalizarNome = (x: string) => x.replace(/\u2019/g, "'").normalize('NFC').trim()
 const CHAVE_TOKEN = 'evokaa_convite'
 // Lê o token do # (link do e-mail), guarda na aba e limpa a barra de endereço; sem #, usa o guardado (recarregar)
 function lerToken(): string {
@@ -68,7 +73,8 @@ type Ficha = typeof vazio
 
 // As mesmas regras dos CHECKs de staff_profiles: a tela avisa antes, o banco confere de novo
 function validar(f: Ficha, emailPrincipal: string): string | null {
-  if (f.nome_completo.trim().length < 3 || !NOME_RE.test(f.nome_completo)) return 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen.'
+  const nome = normalizarNome(f.nome_completo)
+  if (nome.length < 3 || !NOME_RE.test(nome) || SITE_RE.test(nome)) return 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen (sem endereço de site).'
   if (!cpfValido(f.cpf)) return 'CPF inválido.'
   if (f.rg.trim().length < 3) return 'Informe o RG.'
   if (!f.data_nascimento || !maiorDeIdade(f.data_nascimento)) return 'Data de nascimento inválida: é preciso ter 18 anos ou mais.'
@@ -189,6 +195,10 @@ export default function Convite() {
   }
 
   const entrar = (emailConta: string, senhaConta: string) => executar(async () => {
+    // conta de outro e-mail nem entra: o convite só vale para a conta do e-mail que o recebeu
+    if (!pareceOMesmo(emailConta.trim(), emailMascarado)) {
+      throw new Error(`Esta conta não é a do convite, que foi enviado para ${emailMascarado}. Entre com a conta desse e-mail.`)
+    }
     const { error } = await supabase.auth.signInWithPassword({ email: emailConta.trim().toLowerCase(), password: senhaConta })
     if (error) throw new Error(/invalid login/i.test(error.message) ? 'E-mail ou senha incorretos.' : error.message)
     await avancar()
@@ -244,6 +254,7 @@ export default function Convite() {
     executar(async () => {
       const dados = {
         ...f,
+        nome_completo: normalizarNome(f.nome_completo),
         cpf: digitos(f.cpf), cep: digitos(f.cep), email_secundario: f.email_secundario.trim().toLowerCase(),
         pix_chave: f.pix_tipo === 'cpf' ? digitos(f.pix_chave) : f.pix_chave.trim(),
       }
@@ -264,6 +275,7 @@ export default function Convite() {
     await useAuthStore.getState().setUser(null)
     await useAuthStore.getState().setSession(null)
     await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    queryClient.clear() // nada em cache da conta anterior
     setEmail('')
     setSenha('')
     setModo('entrar')
