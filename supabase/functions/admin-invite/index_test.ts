@@ -19,6 +19,7 @@ type Estado = {
   marcados: { id: string }[]
   supers: { email: string }[]
   resendOk: boolean
+  criadaEm: string // created_at do dono do JWT
 }
 let estado: Estado
 let chamadas: { metodo: string; url: string; corpo: string; headers: Headers }[] = []
@@ -29,7 +30,7 @@ function novoEstado(mudar: Partial<Estado> = {}): void {
     usuario: 'u-super', mfa: true, superAdmin: true, rpc: {}, convite: { email: 'convidada@teste.invalid' },
     criarConta: { status: 200, body: { id: 'u-nova', email: 'convidada@teste.invalid', created_at: '2026-10-01T17:30:00Z' } },
     limiteContagem: 1, marcados: [{ id: 'conv-1' }], supers: [{ email: 'super1@teste.invalid' }, { email: 'super2@teste.invalid' }],
-    resendOk: true, ...mudar,
+    resendOk: true, criadaEm: '2026-09-30T13:05:00Z', ...mudar,
   }
   chamadas = []
   logs.length = 0
@@ -47,7 +48,7 @@ globalThis.fetch = (async (entrada: string | URL | Request, init?: RequestInit) 
   if (url.hostname === 'api.resend.com') return estado.resendOk ? resp(200, { id: 'email-1' }) : resp(422, { message: 'recusado' })
   if (url.pathname === '/auth/v1/user') {
     return estado.usuario
-      ? resp(200, { id: estado.usuario, aud: 'authenticated', email: 'quem@teste.invalid', created_at: '2026-09-30T13:05:00Z' })
+      ? resp(200, { id: estado.usuario, aud: 'authenticated', email: 'quem@teste.invalid', created_at: estado.criadaEm })
       : resp(401, { msg: 'invalid JWT' })
   }
   if (url.pathname === '/auth/v1/admin/users') return resp(estado.criarConta.status, estado.criarConta.body)
@@ -64,11 +65,12 @@ globalThis.fetch = (async (entrada: string | URL | Request, init?: RequestInit) 
     if (req.method === 'DELETE') return resp(204, undefined)
   }
   if (url.pathname === '/rest/v1/admin_invites') {
+    if (req.method === 'GET' && url.searchParams.has('used_by')) return resp(200, estado.marcados) // aviso: convites sem aviso
     if (req.method === 'GET') {
       const achado = estado.convite ? [estado.convite] : []
       return objeto ? (achado.length ? resp(200, achado[0]) : resp(406, { code: 'PGRST116', message: '0 rows' })) : resp(200, achado)
     }
-    if (req.method === 'PATCH') return resp(200, JSON.parse(corpo).aviso_em === null ? [] : estado.marcados)
+    if (req.method === 'PATCH') return resp(204, undefined)
   }
   if (url.pathname === '/rest/v1/staff_profiles') return resp(200, objeto ? { nome_completo: 'Clara <b>Teste</b>' } : [{ nome_completo: 'Clara <b>Teste</b>' }])
   if (url.pathname === '/rest/v1/profiles') return resp(200, estado.supers)
@@ -209,7 +211,8 @@ Deno.test({ name: 'criar-conta: sem login, cria a conta confirmada com o e-mail 
   const [aviso] = emails()
   assertEquals(aviso.to, ['convidada@teste.invalid'])
   assertEquals(aviso.subject, 'Sua conta de colaborador da Evokaa foi criada')
-  assert(aviso.html.includes('1 de outubro de 2026 às 14:30') && aviso.html.includes('Se não foi você'), aviso.html)
+  assert(aviso.html.includes('1 de outubro de 2026 às 14:30') && aviso.html.includes('Se não foi você, responda este e-mail'), aviso.html)
+  assert(!aviso.html.includes('<a '), 'e-mail de conta criada com botão ou link')
   // limite por IP com chave própria, separada da do formulário de contato
   const hit = JSON.parse(chamadas.find((c) => c.metodo === 'POST' && c.url.includes('contact_rate_limit_hits'))!.corpo)
   assertEquals(hit.ip, 'convite-conta:203.0.113.9')
@@ -252,10 +255,16 @@ Deno.test({ name: 'aceitar: convite_aceitar com o JWT de quem chama e, na mesma 
   const aceite = chamadas.find((c) => c.url.endsWith('/rpc/convite_aceitar'))!
   assertEquals(aceite.headers.get('Authorization'), 'Bearer jwt-teste')
   assertEquals(JSON.parse(aceite.corpo), { p_token: TOKEN, p_dados: DADOS })
-  const marcar = new URL(chamadas.find((c) => c.metodo === 'PATCH')!.url)
-  assertEquals(marcar.searchParams.get('used_by'), 'eq.u-clara')
-  assertEquals(marcar.searchParams.get('status'), 'eq.usado')
-  assertEquals(marcar.searchParams.get('aviso_em'), 'is.null')
+  const busca = new URL(chamadas.find((c) => c.metodo === 'GET' && c.url.includes('/admin_invites'))!.url)
+  assertEquals(busca.searchParams.get('used_by'), 'eq.u-clara')
+  assertEquals(busca.searchParams.get('status'), 'eq.usado')
+  assertEquals(busca.searchParams.get('aviso_em'), 'is.null')
+  // a marca vem depois dos envios, só nos convites achados
+  const iMarca = chamadas.findIndex((c) => c.metodo === 'PATCH')
+  const iUltimoEmail = chamadas.findLastIndex((c) => c.url.startsWith('https://api.resend.com'))
+  assert(iMarca > iUltimoEmail, 'marcou o aviso antes de mandar')
+  assertEquals(new URL(chamadas[iMarca].url).searchParams.get('id'), 'in.(conv-1)')
+  assert(JSON.parse(chamadas[iMarca].corpo).aviso_em, 'marca sem data')
   const enviados = emails()
   assertEquals(enviados.map((m) => m.to[0]), ['super1@teste.invalid', 'super2@teste.invalid'])
   assertEquals(enviados[0].subject, 'Clara <b>Teste</b> concluiu o cadastro como colaborador(a) da Evokaa')
@@ -271,11 +280,16 @@ Deno.test({ name: 'aceitar: convite_aceitar com o JWT de quem chama e, na mesma 
   assertEquals(r.body, { ok: true, avisados: 0 })
   assertEquals(emails().length, 0)
 
-  // Resend fora: o aceite vale, o aviso fica desmarcado
+  // Resend fora: o aceite vale e nada é marcado (fica "sem aviso por e-mail" na lista)
   novoEstado({ usuario: 'u-clara', resendOk: false, rpc: { convite_aceitar: { status: 204, body: undefined } } })
   r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
   assertEquals(r.body, { ok: true, avisados: 0 })
-  assertEquals(chamadas.filter((c) => c.metodo === 'PATCH').map((c) => JSON.parse(c.corpo).aviso_em === null), [false, true])
+  assert(!chamadas.some((c) => c.metodo === 'PATCH'), 'marcou sem envio')
+
+  // Erro inesperado no aviso (data inválida derruba o Intl): o aceite continua ok
+  novoEstado({ usuario: 'u-clara', criadaEm: 'data-quebrada', rpc: { convite_aceitar: { status: 204, body: undefined } } })
+  r = await chamar({ acao: 'aceitar', token: TOKEN, dados: DADOS })
+  assertEquals(r, { status: 200, body: { ok: true, avisados: 0 } })
 } })
 
 Deno.test({ name: 'aceitar: recusa do banco volta para a tela, sem aviso; token inválido, dados ausentes e sem 2FA', ...opts, fn: async () => {
