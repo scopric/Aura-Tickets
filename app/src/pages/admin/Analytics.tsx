@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useId } from 'react'
 import {
   Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw,
   Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info,
-  X, ArrowUpRight, ArrowDownRight, Filter
+  X, ArrowUpRight, ArrowDownRight, Filter, Ticket
 } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
+import { montarEventos, type LinhaEvento, type VisitaEvento } from '../../lib/analyticsEventos'
 import gsap from 'gsap'
 
 // `valor` é o valor cru que a API aceita como filtro (null = não filtrável, ex.: "Outros")
@@ -22,6 +24,7 @@ interface Trafego {
   totais: Totais
   comparacao?: { atual: Totais; anterior: Totais; dias: number } | null
   semComparacao?: 'periodo' | 'falha' | null
+  eventos?: VisitaEvento[] | null
   porDia: { dia: string; visitantes: number; paginas: number }[]
   paginas: ItemTop[]
   origens: ItemTop[]
@@ -321,6 +324,162 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
           )}
         </>
       )}
+    </section>
+  )
+}
+
+const fmtReais = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtPct = (n: number | null) => (n === null ? '—' : `${(n * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 })}%`)
+
+// Funil de um evento: visitaram → iniciaram compra (pedido criado) → pagaram
+function Funil({ l }: { l: LinhaEvento }) {
+  const etapas = [
+    { rotulo: 'Visitaram a página', n: l.visitantes },
+    { rotulo: 'Iniciaram a compra', n: l.pedidos },
+    { rotulo: 'Pagaram (sem reembolsados)', n: l.pagos },
+  ]
+  const topo = Math.max(1, ...etapas.map(e => e.n))
+  return (
+    <div className="space-y-3">
+      {etapas.map((e, i) => (
+        <div key={e.rotulo}>
+          <div className="flex items-baseline justify-between text-sm">
+            <span className="text-foreground">{e.rotulo}</span>
+            <span className="tabular-nums text-foreground font-medium">
+              {fmtNum(e.n)}
+              {i > 0 && <span className="ml-2 text-xs text-muted-foreground font-normal">{etapas[i - 1].n > 0 && e.n <= etapas[i - 1].n ? fmtPct(e.n / etapas[i - 1].n) : '—'} da etapa anterior</span>}
+            </span>
+          </div>
+          <div className="mt-1.5 h-2.5 rounded-full bg-muted/60 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${(e.n / topo) * 100}%`, background: COR_PAGINAS, opacity: 1 - i * 0.25 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Eventos: visitas às páginas de evento (Vercel, todos os visitantes) cruzadas com os pedidos do banco
+function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtrosAtivos: boolean }) {
+  const [linhas, setLinhas] = useState<LinhaEvento[] | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
+  const [escolhido, setEscolhido] = useState<string | null>(null)
+  const [parcial, setParcial] = useState(false)
+  const [ordem, setOrdem] = useState<keyof LinhaEvento>('visitantes')
+  const { user } = useAuth()
+  // receita só para quem vê o Financeiro (a rota pede só view_analytics)
+  const verReceita = !!user?.admin_permissions?.some(p => p === 'manage_finance' || p === 'super_admin')
+
+  useEffect(() => {
+    if (!dados?.de || !dados.ate || !dados.eventos) return
+    let vivo = true
+    const visitas = dados.eventos
+    // mesmos dias UTC da Vercel; ponytail: até 1000 linhas por tabela (teto do PostgREST), com aviso; paginar quando houver mais
+    const fim = new Date(Date.parse(`${dados.ate}T00:00:00Z`) + 86_400_000).toISOString()
+    Promise.all([
+      supabase.from('events').select('id, slug, title'),
+      supabase.from('orders').select('event_id, status, total').gte('created_at', `${dados.de}T00:00:00Z`).lt('created_at', fim).limit(1000),
+    ]).then(([ev, ped]) => {
+      if (!vivo) return
+      if (ev.error || ped.error) {
+        setErro('não foi possível ler os eventos e pedidos do banco.')
+        setLinhas(null)
+        return
+      }
+      setErro(null)
+      setParcial((ev.data?.length ?? 0) >= 1000 || (ped.data?.length ?? 0) >= 1000)
+      setLinhas(montarEventos(visitas, ev.data ?? [], ped.data ?? []))
+    })
+    return () => {
+      vivo = false
+    }
+  }, [dados])
+
+  if (!dados) return null
+  const totalPedidos = linhas?.reduce((s, l) => s + l.pedidos, 0) ?? 0
+  const sel = linhas?.find(l => (l.id ?? l.titulo) === escolhido) ?? null
+  const ordenadas = linhas && [...linhas].sort((a, b) => Number(b[ordem] ?? -1) - Number(a[ordem] ?? -1))
+  const colunas: { k: keyof LinhaEvento; rotulo: string; cls?: string }[] = [
+    { k: 'visitantes', rotulo: 'Visitantes' },
+    { k: 'paginas', rotulo: 'Páginas', cls: 'hidden sm:table-cell' },
+    { k: 'pedidos', rotulo: 'Pedidos' },
+    { k: 'pagos', rotulo: 'Pagos' },
+    { k: 'conversao', rotulo: 'Conversão*' },
+    ...(verReceita ? [{ k: 'receita' as const, rotulo: 'Receita', cls: 'hidden md:table-cell' }] : []),
+  ]
+
+  return (
+    <section className="space-y-5">
+      <div>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vercel + pedidos do banco · todos os visitantes</span>
+        <h2 className="font-serif text-2xl text-foreground mt-1">Eventos</h2>
+        <p className="text-xs text-muted-foreground mt-1">Visitas às páginas de evento no mesmo período, cruzadas com os pedidos. Clique num evento para ver o funil.</p>
+      </div>
+
+      <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm space-y-4">
+        {dados.eventos == null ? (
+          <p className="text-sm text-muted-foreground">Não foi possível carregar as visitas aos eventos agora. Tente atualizar.</p>
+        ) : erro ? (
+          <p role="alert" className="text-sm text-red-700 dark:text-red-300">Não foi possível montar a tabela: {erro}</p>
+        ) : !linhas ? (
+          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>
+        ) : linhas.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic py-6 text-center">Nenhuma visita a páginas de evento nem pedido no período.</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto -mx-2">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="text-[11px] text-muted-foreground border-b border-border">
+                    <th className="px-2 py-2 font-semibold">Evento</th>
+                    {colunas.map(c => (
+                      <th key={c.k} aria-sort={ordem === c.k ? 'descending' : undefined} className={`px-2 py-2 font-semibold text-right ${c.cls ?? ''}`}>
+                        <button type="button" onClick={() => setOrdem(c.k)} className={ordem === c.k ? 'text-foreground' : 'hover:text-foreground'}>
+                          {c.rotulo}{ordem === c.k ? ' ↓' : ''}
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {ordenadas!.map(l => {
+                    const chave = l.id ?? l.titulo
+                    return (
+                      <tr key={chave} className={chave === escolhido ? 'bg-primary/10' : 'hover:bg-muted/40'}>
+                        <td className="px-2 py-3">
+                          <button type="button" aria-pressed={chave === escolhido} onClick={() => setEscolhido(chave === escolhido ? null : chave)} className="text-left text-foreground hover:text-primary flex items-center gap-2">
+                            <Ticket className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <span className={l.id ? '' : 'font-mono text-xs text-muted-foreground'}>{l.titulo}</span>
+                          </button>
+                        </td>
+                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.visitantes)}</td>
+                        <td className="px-2 py-3 text-right tabular-nums hidden sm:table-cell">{fmtNum(l.paginas)}</td>
+                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.pedidos)}</td>
+                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.pagos)}</td>
+                        <td className="px-2 py-3 text-right tabular-nums">{fmtPct(l.conversao)}</td>
+                        {verReceita && <td className="px-2 py-3 text-right tabular-nums hidden md:table-cell">{fmtReais(l.receita)}</td>}
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {sel && (
+              <div className="pt-4 border-t border-border">
+                <h3 className="text-sm font-semibold text-foreground mb-4">Funil · {sel.titulo}</h3>
+                <Funil l={sel} />
+              </div>
+            )}
+          </>
+        )}
+        <div className="text-[11px] text-muted-foreground space-y-0.5">
+          <p>* Conversão aproximada: pedidos pagos ÷ visitantes da página. A Vercel conta o visitante uma vez por dia, então numa janela longa a mesma pessoa pode contar mais de uma vez.</p>
+          <p>Pagos: pedidos com status pago hoje (reembolsados não entram). Pedidos: todos os criados, pagos ou não.</p>
+          {parcial && <p className="text-amber-700 dark:text-amber-300">Lista parcial: a busca chegou ao limite de 1000 pedidos ou eventos, e o que passou disso ficou de fora da conta.</p>}
+          {linhas && totalPedidos === 0 && <p>Nenhum pedido no período: as colunas de pedidos ficam zeradas até haver vendas.</p>}
+          {filtrosAtivos && <p>Os filtros da Vercel (país, aparelho, origem, página) valem para as visitas, não para os pedidos.</p>}
+        </div>
+      </div>
     </section>
   )
 }
@@ -671,6 +830,7 @@ export default function AdminAnalytics() {
             abrev="vis."
             nota="Dias contados no horário UTC (3 h à frente de Brasília)."
           />
+          <SecaoEventos key={vercel.dados?.chave} dados={vercel.dados} filtrosAtivos={filtrosVercel.length > 0} />
           <PainelTrafego
             fonte={ga4}
             legenda="Com consentimento · só quem aceitou cookies"
