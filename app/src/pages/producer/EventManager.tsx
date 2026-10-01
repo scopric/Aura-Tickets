@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Copy, Archive, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroAoCancelar, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -63,8 +63,8 @@ export default function EventManager() {
     try {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status }, tickets: [] })
       toast.success(ok)
-    } catch {
-      toast.error('Não foi possível atualizar o evento.')
+    } catch (err) {
+      toast.error(status === 'cancelled' ? erroAoCancelar(err) : 'Não foi possível atualizar o evento.')
     }
   }
 
@@ -77,7 +77,7 @@ export default function EventManager() {
       await deleteEvent.mutateAsync(event.id)
       toast.success('Evento excluído.')
     } catch (err) {
-      const { mensagem, oferecerCancelar } = erroAoExcluir(err)
+      const { mensagem, oferecerCancelar } = erroAoExcluir(err, vendidos ? vendidoDe(event.id) : undefined) // Decisão 129
       toast.error(mensagem, oferecerCancelar && event.status !== 'cancelled'
         ? {
             action: {

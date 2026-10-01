@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoEvento, erroAoExcluir, copiaDoEvento, confirmacaoCancelar } from '../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroAoCancelar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -30,6 +30,23 @@ describe('erroAoExcluir', () => {
   it('outro erro não oferece cancelar', () => {
     expect(erroAoExcluir(new Error('Nada foi apagado')).oferecerCancelar).toBe(false)
   })
+  it('23503 com ingresso vendido não oferece cancelar e manda falar com o suporte (Decisão 129)', () => {
+    expect(erroAoExcluir({ code: '23503', details: 'table "tickets"' }, 2)).toEqual({ mensagem: CANCELAR_COM_VENDA, oferecerCancelar: false })
+  })
+  it('23503 com zero vendidos ou contagem não carregada continua oferecendo cancelar', () => {
+    expect(erroAoExcluir({ code: '23503' }, 0).oferecerCancelar).toBe(true)
+    expect(erroAoExcluir({ code: '23503' }, undefined).oferecerCancelar).toBe(true)
+  })
+})
+
+describe('erroAoCancelar (Decisão 129)', () => {
+  it('EV001 do gatilho vira a mensagem do suporte', () => {
+    expect(erroAoCancelar({ code: 'EV001', message: 'qualquer' })).toBe('Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.')
+  })
+  it('outro erro (inclusive P0001 genérico) vira a mensagem genérica', () => {
+    expect(erroAoCancelar({ code: 'P0001' })).toBe('Não foi possível cancelar o evento.')
+    expect(erroAoCancelar(null)).toBe('Não foi possível cancelar o evento.')
+  })
 })
 
 describe('copiaDoEvento', () => {
@@ -56,8 +73,8 @@ describe('confirmacaoCancelar', () => {
   it('sem venda não fala de reembolso', () => {
     expect(confirmacaoCancelar('Festa', 0)).not.toMatch(/reembols/)
   })
-  it('com venda, ou sem saber, avisa que não há aviso nem reembolso automático', () => {
-    expect(confirmacaoCancelar('Festa', 3)).toMatch(/não são avisados nem reembolsados automaticamente/)
-    expect(confirmacaoCancelar('Festa', undefined)).toMatch(/Fale com o suporte da Evokaa antes de cancelar/)
+  it('sem saber se há venda, avisa que o banco recusa se houver e manda falar com o suporte', () => {
+    expect(confirmacaoCancelar('Festa', undefined)).toMatch(/cancelamento é recusado: fale com o suporte da Evokaa/)
+    expect(confirmacaoCancelar('Festa', 0)).not.toMatch(/suporte/)
   })
 })

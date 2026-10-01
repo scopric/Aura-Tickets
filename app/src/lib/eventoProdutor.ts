@@ -15,10 +15,20 @@ export function situacaoEvento(e: { status: string; approval_status?: string | n
   return 'Em análise'
 }
 
+// Decisão 129: com ingresso vendido o produtor não cancela até existir reembolso (M12); o banco recusa com EV001
+// (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql).
+export const CANCELAR_COM_VENDA = 'Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.'
+
+export function erroAoCancelar(err: unknown): string {
+  return (err as { code?: string } | null)?.code === 'EV001' ? CANCELAR_COM_VENDA : 'Não foi possível cancelar o evento.'
+}
+
 // Excluir evento ligado a afiliado, pedido ou ingresso dá 23503 (FK sem cascata; o vínculo de afiliado não se
-// apaga, B3 DECISÕES 18). Devolve a mensagem e se vale oferecer "Cancelar evento".
-export function erroAoExcluir(err: unknown): { mensagem: string; oferecerCancelar: boolean } {
+// apaga, B3 DECISÕES 18). Devolve a mensagem e se vale oferecer "Cancelar evento": com vendidos > 0 não vale
+// (Decisão 129). Sem saber os vendidos (contagem não carregou) oferece; se houver venda, o banco recusa.
+export function erroAoExcluir(err: unknown, vendidos?: number): { mensagem: string; oferecerCancelar: boolean } {
   const e = err as { code?: string; message?: string; details?: string } | null
+  if (e?.code === '23503' && (vendidos ?? 0) > 0) return { mensagem: CANCELAR_COM_VENDA, oferecerCancelar: false }
   if (e?.code === '23503') {
     const afiliado = /affiliates/.test(`${e.message ?? ''} ${e.details ?? ''}`)
     return {
@@ -31,13 +41,13 @@ export function erroAoExcluir(err: unknown): { mensagem: string; oferecerCancela
   return { mensagem: 'Não foi possível excluir o evento.', oferecerCancelar: false }
 }
 
-// Texto da confirmação de cancelar. Com venda (ou sem saber se há: contagem não carregou), avisa que não há aviso
-// nem reembolso automático: o reembolso ainda não existe (M12).
+// Texto da confirmação de cancelar. Só é usado sem venda conhecida (com vendidos > 0 a tela mostra
+// CANCELAR_COM_VENDA, Decisão 129); sem saber se há venda (contagem não carregou), avisa que o banco pode recusar.
 export function confirmacaoCancelar(titulo: string, vendidos: number | undefined): string {
   const base = `Cancelar o evento "${titulo}"? A situação passa a ser Cancelado.`
   return vendidos === 0
     ? base
-    : `${base}\n\nOs compradores não são avisados nem reembolsados automaticamente. Fale com o suporte da Evokaa antes de cancelar.`
+    : `${base}\n\nSe o evento tiver ingressos vendidos, o cancelamento é recusado: fale com o suporte da Evokaa.`
 }
 
 // Cópia como rascunho, com os mesmos tipos de ingresso (sem vendas)
