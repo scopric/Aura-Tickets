@@ -1,10 +1,12 @@
 -- =============================================================================
--- B3b: saldo do "Orçamento do evento" (event_budget_boxes / piggy_transactions) só pela função do banco
--- (01/10/2026, aprovado pelo Ricardo). Depende do B3 (docs/sql/20261005_produtor_acesso.sql) já aplicado.
+-- B3b, duas partes (01/10/2026, aprovadas pelo Ricardo). Depende do B3 (docs/sql/20261005_produtor_acesso.sql).
+--   Parte 1: saldo do "Orçamento do evento" (event_budget_boxes / piggy_transactions) só pela função do banco.
+--   Parte 2 (Decisão 129): produtor não cancela evento com ingresso vendido até existir reembolso (M12).
 --
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA pelo TextEdit: erro 17).
 -- Uma transação só: se a conferência do fim falhar, nada é gravado. Idempotente (pode rodar de novo).
--- Testes: supabase/tests/orcamento_saldo.test.sql (pgTAP; banco local, nunca em produção).
+-- Testes: supabase/tests/orcamento_saldo.test.sql e supabase/tests/cancelar_evento.test.sql (pgTAP; banco
+-- local, nunca em produção).
 -- ATENÇÃO: reaplicar o B3 (20261005) recria caixinha_movimentar como SECURITY INVOKER; com os grants deste
 -- arquivo ela passaria a falhar (42501) para o produtor. Depois de reaplicar o B3, reaplicar este arquivo.
 --
@@ -39,6 +41,19 @@
 --    dono da tabela, não do usuário (testado).
 -- 6. anon perde INSERT/UPDATE/DELETE nas duas tabelas (já não passava por nenhuma regra; agora nem tem o
 --    privilégio).
+-- 7. (Decisão 129) Gatilho gf_protect_event_cancel, BEFORE UPDATE OF status em events, só quando o status passa
+--    a 'cancelled': se o evento tem ingresso 'active' ou 'used' (os mesmos que a tela conta como vendidos em
+--    useVendidosPorEvento) e quem grava é anon/authenticated sem ser admin, recusa. Evento sem venda, ou só
+--    com ingressos cancelled/refunded/transferred, continua cancelável pelo produtor.
+--    Mesmo molde do gf_protect_event_moderation (F0a, "O que não pode quebrar" seção 17): SECURITY DEFINER,
+--    search_path vazio, papel por current_setting('role') + claim role do JWT (NUNCA current_user, que numa
+--    função definer é sempre o dono). service_role, postgres (SQL Editor) e admin (gf_is_admin: fator
+--    confirmado + aal2) passam. Sem EXECUTE para a API (o Postgres não confere EXECUTE de quem dispara gatilho).
+--    Convivência com o gatilho da F0a: os dois são BEFORE e rodam em ordem alfabética (cancel antes de
+--    moderation); o da F0a não olha status e este não altera a linha: nenhum depende do outro.
+--    Código do erro: 'EV001' (SQLSTATE próprio, fora das classes do Postgres). P0001 é o código de qualquer
+--    "raise exception" sem errcode, e a tela confundiria com outro erro; o PostgREST repassa o código em
+--    error.code (HTTP 400) e lib/eventoProdutor.ts (erroAoCancelar) troca pela mensagem.
 -- =============================================================================
 begin;
 
@@ -96,6 +111,32 @@ create policy gf_budget_boxes_insert_saldo_zero on public.event_budget_boxes as 
 -- 5 e 6. piggy_transactions: só leitura pela API
 revoke insert, update, delete on public.piggy_transactions from anon, authenticated;
 
+-- 7. (Decisão 129) Evento com ingresso vendido não é cancelado pelo produtor
+create or replace function public.gf_protect_event_cancel()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if (current_setting('role', true) in ('anon', 'authenticated')
+      or coalesce(auth.jwt()->>'role', '') in ('anon', 'authenticated'))
+     and not public.gf_is_admin()
+     and exists (select 1 from public.tickets t where t.event_id = old.id and t.status in ('active', 'used')) then
+    raise exception 'Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.'
+      using errcode = 'EV001';
+  end if;
+  return new;
+end;
+$$;
+revoke execute on function public.gf_protect_event_cancel() from public, anon, authenticated;
+drop trigger if exists gf_protect_event_cancel on public.events;
+create trigger gf_protect_event_cancel
+  before update of status on public.events
+  for each row
+  when (old.status is distinct from 'cancelled' and new.status = 'cancelled')
+  execute function public.gf_protect_event_cancel();
+
 -- Conferência obrigatória: se algo faltar, nada deste arquivo é gravado.
 do $$
 declare
@@ -135,14 +176,28 @@ begin
      or not has_table_privilege('authenticated', 'public.piggy_transactions', 'select') then
     raise exception 'piggy_transactions: privilégios fora do esperado (só SELECT para authenticated)';
   end if;
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_cancel'
+                 and tgenabled = 'O')
+     or not exists (select 1 from pg_trigger where tgrelid = 'public.events'::regclass
+                    and tgname = 'gf_protect_event_moderation' and tgenabled = 'O') then
+    raise exception 'events: falta o gatilho de cancelamento (Decisão 129) ou o de moderação (F0a)';
+  end if;
+  if not exists (select 1 from pg_proc where oid = 'public.gf_protect_event_cancel()'::regprocedure
+                 and prosecdef and proconfig @> array['search_path=""'])
+     or has_function_privilege('authenticated', 'public.gf_protect_event_cancel()', 'execute')
+     or has_function_privilege('anon', 'public.gf_protect_event_cancel()', 'execute') then
+    raise exception 'gf_protect_event_cancel: precisa ser SECURITY DEFINER, search_path vazio e sem EXECUTE para a API';
+  end if;
 end $$;
 
 commit;
 
--- Desfazer (volta ao estado do B3: produtor grava saved e piggy_transactions direto):
+-- Desfazer (volta ao estado do B3: produtor grava saved e piggy_transactions direto e cancela evento com venda):
 -- begin;
 -- alter function public.caixinha_movimentar(uuid, text, numeric, text) security invoker;
 -- grant update on public.event_budget_boxes to authenticated;
 -- drop policy if exists gf_budget_boxes_insert_saldo_zero on public.event_budget_boxes;
 -- grant insert, update, delete on public.piggy_transactions to authenticated;
+-- drop trigger if exists gf_protect_event_cancel on public.events;
+-- drop function if exists public.gf_protect_event_cancel();
 -- commit;

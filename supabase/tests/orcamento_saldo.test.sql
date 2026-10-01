@@ -1,5 +1,5 @@
--- pgTAP do B3b (docs/sql/20261006_orcamento_saldo_fechado.sql). Só no banco local: `supabase start`, aplicar
--- seg6, seg4, 20261005_produtor_acesso.sql e 20261006_orcamento_saldo_fechado.sql, e rodar `supabase test db`.
+-- pgTAP do B3b (docs/sql/20261006_saldo_e_cancelamento.sql). Só no banco local: `supabase start`, aplicar
+-- seg6, seg4, 20261005_produtor_acesso.sql e 20261006_saldo_e_cancelamento.sql, e rodar `supabase test db`.
 -- Tudo em begin ... rollback. pg_temp.como() troca papel e claims do JWT como o PostgREST (igual a
 -- produtor_acesso.test.sql).
 begin;
