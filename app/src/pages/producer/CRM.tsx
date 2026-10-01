@@ -1,10 +1,18 @@
 import { useState } from 'react'
-import { Phone, Mail, MessageSquare, Search, Calendar, Plus, Trash2, X } from 'lucide-react'
+import { Phone, Mail, Search, Calendar, Plus, Trash2, Copy, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { iniciais } from '../../hooks/useConversas'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // Tipos locais: types/database.ts está desatualizado (crm_* viram never)
 interface Etapa { id: string; name: string; position: number }
@@ -44,6 +52,10 @@ function quandoFoi(iso: string) {
 }
 
 const dinheiro = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const ORIGENS = ['Instagram', 'LinkedIn', 'Google Ads', 'Facebook', 'Indicação', 'Afiliado', 'Orgânico']
 
 const leadVazio = { name: '', email: '', phone: '', source: 'Instagram', value: '', interest: '', notes: '' }
 
@@ -99,7 +111,7 @@ export default function ProducerCRM() {
 
   const filtered = leads.filter(l => !search || l.full_name.toLowerCase().includes(search.toLowerCase()))
 
-  // ponytail: sem score (antes era Math.random); o cartão mostra o nº de interações. Pontuação de verdade
+  // ponytail: sem score (antes era sorteado ao criar o lead); o cartão mostra o nº de interações. Pontuação de verdade
   // (abertura de e-mail, compra) quando houver dado para isso.
   const stats = {
     total: leads.length,
@@ -208,177 +220,243 @@ export default function ProducerCRM() {
     }
   }
 
-  return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">CRM</h1>
-          <p className="text-sm text-espresso/70 mt-1">Funil de leads e histórico de contatos</p>
+  const header = (
+    <PageHeader
+      title="CRM"
+      description="Funil de leads e histórico de contatos"
+      actions={<Button onClick={() => setIsAddModalOpen(true)}><Plus aria-hidden="true" />Novo lead</Button>}
+    />
+  )
+
+  if (isPending) {
+    return (
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative max-w-xs w-full flex-1 sm:flex-none">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads" aria-label="Buscar leads" className="w-full pl-9 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-          </div>
-          <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full whitespace-nowrap">
-            <Plus className="w-4 h-4" /> Novo lead
-          </button>
+        <div className="mt-6 flex gap-3 overflow-hidden">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-64 w-72 shrink-0 rounded-[10px] bg-muted" />)}
         </div>
       </div>
+    )
+  }
 
-      {isError ? (
-        <div role="alert" className="p-4 rounded-2xl bg-white/60 border border-white/60 text-sm text-espresso">
-          Não foi possível carregar o CRM. <button onClick={() => refetch()} className="underline">Tentar de novo</button>
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar o CRM.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar de novo</Button>
         </div>
-      ) : isPending ? (
-        <p className="text-sm text-espresso/70">Carregando…</p>
-      ) : (
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      {header}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Leads" value={stats.total} />
+        <Stat label="Sem contato" value={stats.semContato} hint="Nenhuma interação registrada" />
+        <Stat label="Valor estimado no funil" value={dinheiro(stats.pipeline)} />
+      </div>
+
+      {etapas.length === 0 && (
+        <div className="mt-6">
+          <EmptyState
+            title="Seu funil ainda não tem etapas"
+            description="Crie as etapas padrão: Novo, Contato feito, Interessado, Negociando e Fechado."
+            action={<Button onClick={criarEtapas} disabled={criandoEtapas}>{criandoEtapas ? 'Criando…' : 'Criar etapas padrão'}</Button>}
+          />
+        </div>
+      )}
+
+      {colunas.length > 0 && (
         <>
-          <div className="grid grid-cols-3 gap-3 mb-8">
-            {[
-              { label: 'Leads', value: stats.total },
-              { label: 'Sem contato', value: stats.semContato },
-              { label: 'Valor estimado no funil', value: dinheiro(stats.pipeline) },
-            ].map(s => (
-              <div key={s.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
-                <div className="font-serif text-lg text-espresso">{s.value}</div>
-                <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
-              </div>
-            ))}
+          <div className="relative mt-6 w-full sm:max-w-xs">
+            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads" aria-label="Buscar leads" className="pl-9" />
           </div>
 
-          {etapas.length === 0 && (
-            <div className="mb-6 p-4 rounded-2xl bg-white/60 border border-white/60">
-              <p className="text-sm text-espresso">Seu funil ainda não tem etapas.</p>
-              <p className="text-xs text-espresso/70 mt-1">Crie as etapas padrão: Novo, Contato feito, Interessado, Negociando e Fechado.</p>
-              <button onClick={criarEtapas} disabled={criandoEtapas} className="mt-3 px-4 py-2 bg-plum text-cream text-sm rounded-full disabled:opacity-50">{criandoEtapas ? 'Criando…' : 'Criar etapas padrão'}</button>
-            </div>
-          )}
-
-          <div className="flex gap-4 overflow-x-auto pb-4">
+          {/* rolagem lateral contida no quadro: a página não rola de lado a 375 px */}
+          <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
             {colunas.map(col => {
               const colLeads = filtered.filter(l => colunaDe(l) === col.id)
               return (
-                <div
+                <section
                   key={col.id}
-                  className={`flex-shrink-0 w-72 rounded-2xl bg-white/30 border border-white/60 ${dragOverCol === col.id ? 'ring-2 ring-plum/30' : ''}`}
+                  aria-label={col.name}
+                  className={`flex w-72 shrink-0 flex-col rounded-[10px] border bg-card ${dragOverCol === col.id ? 'border-primary' : 'border-border'}`}
                   onDragOver={e => { e.preventDefault(); setDragOverCol(col.id) }}
                   onDragLeave={() => setDragOverCol(null)}
                   onDrop={() => handleDrop(col.id)}
                 >
-                  <div className="p-3 flex items-center gap-2">
-                    <span className="text-xs font-medium text-espresso">{col.name}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-canvas text-espresso/70">{colLeads.length}</span>
-                  </div>
-                  <div className="p-2 space-y-2 max-h-[500px] overflow-y-auto">
+                  <h2 className="flex items-center justify-between gap-2 border-b border-border px-3 py-2.5 text-sm font-medium text-foreground">
+                    <span className="truncate">{col.name}</span>
+                    <span className="text-xs tabular-nums text-muted-foreground">{colLeads.length}</span>
+                  </h2>
+                  <ul className="max-h-[500px] space-y-2 overflow-y-auto p-2">
                     {colLeads.map(l => (
-                      <div key={l.id} draggable onDragStart={() => setDraggedId(l.id)} className="p-3 rounded-xl bg-white/60 border border-white/60 relative">
-                        <button onClick={() => handleDeleteLead(l.id, l.full_name)} aria-label={`Excluir lead ${l.full_name}`} className="absolute top-2 right-2 p-1 rounded-md text-espresso/50"><Trash2 className="w-3 h-3" /></button>
-                        <button onClick={() => setSelectedId(l.id)} className="flex items-center gap-2 mb-2 pr-4 text-left w-full">
-                          <span aria-hidden="true" className="w-7 h-7 rounded-full bg-canvas flex items-center justify-center text-[10px]">{iniciais(l.full_name)}</span>
+                      <li key={l.id} draggable onDragStart={() => setDraggedId(l.id)} className="group relative rounded-md border border-border bg-background transition-colors hover:bg-foreground/5">
+                        <button type="button" onClick={() => setSelectedId(l.id)} className="flex w-full items-start gap-2 p-3 pr-10 text-left">
+                          <span aria-hidden="true" className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">{iniciais(l.full_name)}</span>
                           <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-medium text-espresso truncate">{l.full_name}</span>
-                            <span className="block text-[9px] text-espresso/70">{l.source}</span>
+                            <span className="block truncate text-sm font-medium text-foreground">{l.full_name}</span>
+                            <span className="block truncate text-xs text-muted-foreground">{l.source}</span>
+                            <span className="mt-2 flex items-center justify-between gap-2 text-xs tabular-nums text-muted-foreground">
+                              <span>{l.crm_interactions.length} {l.crm_interactions.length === 1 ? 'interação' : 'interações'}</span>
+                              <span>{dinheiro(l.potential_value)}</span>
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">{l.crm_interactions[0] ? quandoFoi(l.crm_interactions[0].created_at) : 'Sem contato'}</span>
                           </span>
                         </button>
-                        <div className="flex items-center justify-between text-[10px] text-espresso/70">
-                          <span>{l.crm_interactions.length} interações</span>
-                          <span>{dinheiro(l.potential_value)}</span>
-                        </div>
-                        <div className="text-[9px] text-espresso/70 mt-1">{l.crm_interactions[0] ? quandoFoi(l.crm_interactions[0].created_at) : 'Sem contato'}</div>
-                      </div>
+                        <Button variant="ghost" size="icon-sm" className={`absolute right-1.5 top-1.5 ${icone}`} onClick={() => handleDeleteLead(l.id, l.full_name)} aria-label={`Excluir lead ${l.full_name}`}>
+                          <Trash2 aria-hidden="true" />
+                        </Button>
+                      </li>
                     ))}
-                    {colLeads.length === 0 && <div className="py-8 text-center text-[10px] text-espresso/70">Arraste leads para cá</div>}
-                  </div>
-                </div>
+                    {colLeads.length === 0 && <li className="py-8 text-center text-xs text-muted-foreground">Arraste leads para cá</li>}
+                  </ul>
+                </section>
               )
             })}
           </div>
         </>
       )}
 
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setIsAddModalOpen(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">Novo lead</h3>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Fechar" className="p-1 rounded-lg text-espresso/70"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleAddLead} className="space-y-4">
-              <input required value={novo.name} onChange={e => setNovo({ ...novo, name: e.target.value })} aria-label="Nome completo" placeholder="Nome completo" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <input type="email" value={novo.email} onChange={e => setNovo({ ...novo, email: e.target.value })} aria-label="E-mail" placeholder="E-mail" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <input value={novo.phone} onChange={e => setNovo({ ...novo, phone: e.target.value })} aria-label="Telefone" placeholder="Telefone" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <select value={novo.source} onChange={e => setNovo({ ...novo, source: e.target.value })} aria-label="Origem do lead" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso">
-                <option value="Instagram">Instagram</option>
-                <option value="LinkedIn">LinkedIn</option>
-                <option value="Google Ads">Google Ads</option>
-                <option value="Facebook">Facebook</option>
-                <option value="Indicação">Indicação</option>
-                <option value="Afiliado">Afiliado</option>
-                <option value="Orgânico">Orgânico</option>
-              </select>
-              <input type="number" min="0" step="0.01" value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} aria-label="Valor estimado (R$)" placeholder="Valor estimado (R$)" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <input value={novo.interest} onChange={e => setNovo({ ...novo, interest: e.target.value })} aria-label="Evento de interesse" placeholder="Evento de interesse" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <textarea value={novo.notes} onChange={e => setNovo({ ...novo, notes: e.target.value })} rows={3} aria-label="Notas iniciais" placeholder="Notas iniciais" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso resize-none" />
-              <button type="submit" disabled={isSubmittingLead} className="w-full py-3 bg-plum text-cream font-medium rounded-full disabled:opacity-50">{isSubmittingLead ? 'Adicionando…' : 'Adicionar lead'}</button>
-            </form>
-          </div>
-        </div>
+      {leads.length === 0 && etapas.length > 0 && (
+        <p className="mt-2 text-sm text-muted-foreground">Nenhum lead ainda. Use "Novo lead" para começar.</p>
       )}
 
-      {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedId(null)} />
-          <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto p-6 rounded-r-none">
-            <div className="flex items-start justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">{selected.full_name}</h3>
-              <button onClick={() => setSelectedId(null)} aria-label="Fechar detalhes" className="p-2 rounded-full text-espresso/70"><X className="w-4 h-4" /></button>
+      <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Novo lead</DialogTitle>
+            <DialogDescription>{etapas[0] ? `Entra na etapa "${etapas[0].name}".` : 'Entra sem etapa até você criar as etapas do funil.'}</DialogDescription>
+          </DialogHeader>
+          <form id="form-lead" onSubmit={handleAddLead} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-nome">Nome completo</Label>
+              <Input id="lead-nome" required value={novo.name} onChange={e => setNovo({ ...novo, name: e.target.value })} />
             </div>
-            {etapas.length > 0 && (
-              <select value={selected.stage_id && etapas.some(e => e.id === selected.stage_id) ? selected.stage_id : ''} onChange={e => moverLead(selected.id, e.target.value)} aria-label="Etapa do lead" className="w-full mb-4 px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso">
-                {!etapas.some(e => e.id === selected.stage_id) && <option value="" disabled>Sem etapa</option>}
-                {etapas.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
-              </select>
-            )}
-            <div className="space-y-2.5 mb-6 text-sm text-espresso/70">
-              <div className="flex items-center gap-2"><Mail className="w-4 h-4" />{selected.email || 'Sem e-mail'}</div>
-              <div className="flex items-center gap-2"><Phone className="w-4 h-4" />{selected.phone || 'Sem telefone'}</div>
-              <div className="flex items-center gap-2"><Calendar className="w-4 h-4" />Último contato: {selected.crm_interactions[0] ? quandoFoi(selected.crm_interactions[0].created_at) : 'nenhum'}</div>
-              <div>Valor estimado: {dinheiro(selected.potential_value)}</div>
-              {selected.notes && <p className="whitespace-pre-wrap">{selected.notes}</p>}
-            </div>
-            <div className="flex items-center gap-2 mb-6">
-              <button type="button" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }} className="flex-1 py-2 border rounded-full text-xs disabled:opacity-50">Copiar e-mail</button>
-              <button type="button" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/55${(selected.phone ?? '').replace(/\D/g, '')}`, '_blank', 'noopener')} className="flex-1 py-2 border rounded-full text-xs disabled:opacity-50">WhatsApp</button>
-            </div>
-            <form onSubmit={handleAddInteraction} className="space-y-3 mb-6">
-              <div role="group" aria-label="Tipo de interação" className="flex flex-wrap gap-2">
-                {(Object.keys(TIPOS) as TipoInteracao[]).map(t => (
-                  <button key={t} type="button" aria-pressed={newIntType === t} onClick={() => setNewIntType(t)} className={`px-3 py-1 rounded-lg text-[10px] font-medium border ${newIntType === t ? 'bg-plum text-cream' : 'text-espresso/70'}`}>{TIPOS[t]}</button>
-                ))}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-email">E-mail</Label>
+                <Input id="lead-email" type="email" value={novo.email} onChange={e => setNovo({ ...novo, email: e.target.value })} />
               </div>
-              <textarea required value={newIntContent} onChange={e => setNewIntContent(e.target.value)} rows={2} aria-label="Conteúdo da interação" placeholder="O que foi conversado" className="w-full px-3 py-2 border border-white/60 rounded-lg text-xs text-espresso resize-none" />
-              <button type="submit" disabled={isSubmittingInt} className="w-full py-2 bg-plum text-cream text-xs font-medium rounded-full disabled:opacity-50">{isSubmittingInt ? 'Registrando…' : 'Registrar interação'}</button>
-            </form>
-            <div className="space-y-2">
-              {selected.crm_interactions.map(int => (
-                <div key={int.id} className="flex items-start gap-3 p-3 rounded-xl border border-white/20">
-                  <MessageSquare aria-hidden="true" className="w-3.5 h-3.5 text-espresso/70 mt-0.5" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-espresso">{TIPOS[int.type] ?? int.type}</span>
-                      <span className="text-[9px] text-espresso/70">{quandoFoi(int.created_at)}</span>
-                    </div>
-                    <p className="text-xs text-espresso/70 mt-0.5 break-words">{int.content}</p>
-                  </div>
-                </div>
-              ))}
-              {selected.crm_interactions.length === 0 && <p className="text-center py-6 text-xs text-espresso/70">Nenhum contato registrado ainda.</p>}
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-telefone">Telefone</Label>
+                <Input id="lead-telefone" type="tel" value={novo.phone} onChange={e => setNovo({ ...novo, phone: e.target.value })} />
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-origem">Origem</Label>
+                <select id="lead-origem" value={novo.source} onChange={e => setNovo({ ...novo, source: e.target.value })} className={select}>
+                  {ORIGENS.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="lead-valor">Valor estimado (R$)</Label>
+                <Input id="lead-valor" type="number" inputMode="decimal" min="0" step="0.01" value={novo.value} onChange={e => setNovo({ ...novo, value: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-interesse">Evento de interesse</Label>
+              <Input id="lead-interesse" value={novo.interest} onChange={e => setNovo({ ...novo, interest: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="lead-notas">Notas iniciais</Label>
+              <Textarea id="lead-notas" rows={3} value={novo.notes} onChange={e => setNovo({ ...novo, notes: e.target.value })} />
+            </div>
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddModalOpen(false)}>Cancelar</Button>
+            <Button type="submit" form="form-lead" disabled={isSubmittingLead}>{isSubmittingLead ? 'Adicionando…' : 'Adicionar lead'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Sheet open={!!selected} onOpenChange={aberto => { if (!aberto) setSelectedId(null) }}>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          {selected && (
+            <>
+              <SheetHeader>
+                <SheetTitle>{selected.full_name}</SheetTitle>
+                <SheetDescription>{selected.source} · desde {new Date(selected.created_at).toLocaleDateString('pt-BR')}</SheetDescription>
+              </SheetHeader>
+              <div className="grid gap-5 px-4 pb-6">
+                {etapas.length > 0 && (
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="lead-etapa">Etapa</Label>
+                    <select id="lead-etapa" value={etapas.some(e => e.id === selected.stage_id) ? selected.stage_id ?? '' : ''} onChange={e => moverLead(selected.id, e.target.value)} className={select}>
+                      {!etapas.some(e => e.id === selected.stage_id) && <option value="" disabled>Sem etapa</option>}
+                      {etapas.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                  </div>
+                )}
+
+                <dl className="grid gap-2 text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground"><Mail aria-hidden="true" className="size-4" /><dt className="sr-only">E-mail</dt><dd className="min-w-0 truncate text-foreground">{selected.email || 'Sem e-mail'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Phone aria-hidden="true" className="size-4" /><dt className="sr-only">Telefone</dt><dd className="text-foreground">{selected.phone || 'Sem telefone'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Calendar aria-hidden="true" className="size-4" /><dt>Último contato:</dt><dd className="text-foreground">{selected.crm_interactions[0] ? quandoFoi(selected.crm_interactions[0].created_at) : 'nenhum'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><dt>Valor estimado:</dt><dd className="tabular-nums text-foreground">{dinheiro(selected.potential_value)}</dd></div>
+                  {selected.event_interest && <div className="flex items-center gap-2 text-muted-foreground"><dt>Evento de interesse:</dt><dd className="min-w-0 truncate text-foreground">{selected.event_interest}</dd></div>}
+                </dl>
+
+                {selected.notes && (
+                  <div className="rounded-md border border-border p-3">
+                    <p className="text-xs text-muted-foreground">Notas</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{selected.notes}</p>
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
+                    <Copy aria-hidden="true" />Copiar e-mail
+                  </Button>
+                  <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/55${(selected.phone ?? '').replace(/\D/g, '')}`, '_blank', 'noopener')}>
+                    <MessageCircle aria-hidden="true" />WhatsApp
+                  </Button>
+                </div>
+
+                <form onSubmit={handleAddInteraction} className="grid gap-3 rounded-md border border-border p-3">
+                  <h3 className="text-sm font-medium text-foreground">Registrar contato</h3>
+                  <div role="group" aria-label="Tipo de interação" className="flex flex-wrap gap-1">
+                    {(Object.keys(TIPOS) as TipoInteracao[]).map(t => (
+                      <Button key={t} type="button" size="sm" variant={newIntType === t ? 'secondary' : 'ghost'} aria-pressed={newIntType === t} onClick={() => setNewIntType(t)} className={newIntType === t ? '' : icone}>{TIPOS[t]}</Button>
+                    ))}
+                  </div>
+                  <Textarea required rows={2} value={newIntContent} onChange={e => setNewIntContent(e.target.value)} aria-label="Conteúdo da interação" placeholder="O que foi conversado" />
+                  <Button type="submit" size="sm" disabled={isSubmittingInt}>{isSubmittingInt ? 'Registrando…' : 'Registrar interação'}</Button>
+                </form>
+
+                <section aria-labelledby="historico">
+                  <h3 id="historico" className="mb-2 text-sm font-medium text-foreground">Histórico</h3>
+                  {selected.crm_interactions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nenhum contato registrado ainda.</p>
+                  ) : (
+                    <ol className="divide-y divide-border rounded-md border border-border">
+                      {selected.crm_interactions.map(int => (
+                        <li key={int.id} className="p-3">
+                          <div className="flex items-center justify-between gap-2 text-xs">
+                            <span className="font-medium text-foreground">{TIPOS[int.type] ?? int.type}</span>
+                            <span className="text-muted-foreground">{quandoFoi(int.created_at)}</span>
+                          </div>
+                          {int.content && <p className="mt-1 break-words text-sm text-muted-foreground">{int.content}</p>}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

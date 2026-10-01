@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UserPlus, X, Search, Edit3 } from 'lucide-react'
+import { UserPlus, Search, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -7,6 +7,13 @@ import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { mensagemVinculo } from '../../lib/afiliados'
 import { brl } from '../../lib/taxa'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // Colunas da listar_afiliados (B3): sem nome nem uuid do afiliado até existir o aceite dele (DECISÕES 13)
 interface Afiliado {
@@ -22,6 +29,9 @@ interface Afiliado {
 }
 
 const formVazio = { email: '', eventId: '', comissao: '' }
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const filtros = [['all', 'Todos'], ['active', 'Ativos'], ['inactive', 'Inativos']] as const
 
 export default function ProducerAffiliates() {
   const { user } = useAuth()
@@ -116,121 +126,143 @@ export default function ProducerAffiliates() {
     }
   }
 
+  const abrirNovo = () => setShowForm(true)
+
   return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Afiliados</h1>
-          <p className="text-sm text-espresso/70 mt-1">Pessoas com conta na Evokaa que vendem seus eventos por comissão</p>
-          <p className="text-xs text-amber-600 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2 mt-3 max-w-xl">
-            O link de venda do afiliado chega com o módulo de Promoters.
-          </p>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-          <UserPlus className="w-4 h-4" /> Vincular afiliado
-        </button>
-      </div>
+    <div>
+      <PageHeader
+        title="Afiliados"
+        description="Pessoas com conta na Evokaa que divulgam seus eventos por comissão"
+        actions={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
+      />
+
+      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        O link de venda do afiliado chega com o módulo de Promoters.
+      </p>
 
       {isError ? (
-        <div role="alert" className="mb-8 p-4 rounded-2xl bg-white/60 border border-white/60 text-sm text-espresso">
-          Não foi possível carregar os afiliados. <button onClick={() => refetch()} className="underline">Tentar de novo</button>
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar os afiliados.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar de novo</Button>
+        </div>
+      ) : isPending ? (
+        <div aria-busy="true">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+          </div>
+          <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[
-            { label: 'Ativos', value: stats.active.toString() },
-            { label: 'Vendas', value: stats.sales.toString() },
-            { label: 'Comissão acumulada', value: brl(stats.earned) },
-          ].map(k => (
-            <div key={k.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 text-center">
-              <div className="font-serif text-xl text-espresso">{isPending ? '…' : k.value}</div>
-              <div className="text-[10px] text-espresso/70 mt-0.5 font-semibold">{k.label}</div>
+        <>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <Stat label="Afiliados ativos" value={stats.active} />
+            <Stat label="Vendas" value={stats.sales} />
+            <Stat label="Comissão acumulada" value={brl(stats.earned)} />
+          </div>
+
+          {affiliates.length === 0 ? (
+            <div className="mt-6">
+              <EmptyState
+                title="Nenhum afiliado vinculado"
+                description="Vincule pelo e-mail da conta Evokaa da pessoa e escolha o evento."
+                action={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
+              />
             </div>
-          ))}
-        </div>
+          ) : (
+            <>
+              <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-sm">
+                  <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por e-mail ou evento" aria-label="Buscar afiliado" className="pl-9" />
+                </div>
+                <div role="group" aria-label="Filtrar por status" className="flex flex-wrap gap-1">
+                  {filtros.map(([v, t]) => (
+                    <Button key={v} size="sm" variant={filterStatus === v ? 'secondary' : 'ghost'} aria-pressed={filterStatus === v} onClick={() => setFilterStatus(v)} className={filterStatus === v ? '' : icone}>{t}</Button>
+                  ))}
+                </div>
+              </div>
+
+              {filtered.length === 0 ? (
+                <p className="mt-4 text-sm text-muted-foreground">Nenhum afiliado com esse filtro.</p>
+              ) : (
+                <ul className="mt-4 divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+                  {filtered.map(a => (
+                    <li key={a.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-sm font-medium text-foreground">{a.email_mascarado}</span>
+                          <Badge variant={a.status === 'active' ? 'default' : 'secondary'}>{a.status === 'active' ? 'Ativo' : 'Inativo'}</Badge>
+                        </div>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{a.evento ?? 'Sem evento'}</p>
+                      </div>
+                      <dl className="flex gap-4 text-xs tabular-nums text-muted-foreground">
+                        <div><dt className="sr-only">Comissão</dt><dd>{a.commission_percent.toLocaleString('pt-BR')}%</dd></div>
+                        <div><dt className="sr-only">Vendas</dt><dd>{a.sales} vendas</dd></div>
+                        <div><dt className="sr-only">Comissão acumulada</dt><dd>{brl(a.total_earned)}</dd></div>
+                      </dl>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon-sm" className={icone} onClick={() => { setEditando(a); setComissaoNova(String(a.commission_percent)) }} aria-label={`Editar comissão de ${a.email_mascarado}`}>
+                          <Pencil aria-hidden="true" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => toggleStatus(a)} aria-label={a.status === 'active' ? `Desativar ${a.email_mascarado}` : `Ativar ${a.email_mascarado}`}>
+                          {a.status === 'active' ? 'Desativar' : 'Ativar'}
+                        </Button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </>
       )}
 
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por e-mail ou evento" aria-label="Buscar afiliado" className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" /></div>
-        <div className="flex items-center gap-2">
-          {(['all', 'active', 'inactive'] as const).map(s => (
-            <button key={s} type="button" onClick={() => setFilterStatus(s)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filterStatus === s ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>{s === 'all' ? 'Todos' : s === 'active' ? 'Ativos' : 'Inativos'}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-espresso/5">
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Afiliado</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Evento</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Comissão</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Status</th>
-                <th className="px-4 py-3"><span className="sr-only">Ações</span></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(a => (
-                <tr key={a.id} className="border-b border-espresso/5 last:border-0">
-                  <td className="px-4 py-3">
-                    <div className="text-sm text-espresso font-medium">{a.email_mascarado}</div>
-                    <div className="text-[10px] text-espresso/70">{a.sales} vendas · {brl(a.total_earned)}</div>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-espresso/70">{a.evento ?? '—'}</td>
-                  <td className="px-4 py-3 text-xs text-espresso/70">{a.commission_percent.toLocaleString('pt-BR')}%</td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => toggleStatus(a)} aria-label={a.status === 'active' ? `Desativar ${a.email_mascarado}` : `Ativar ${a.email_mascarado}`} className="px-2.5 py-1 text-[10px] font-medium rounded-full border">{a.status === 'active' ? 'Ativo' : 'Inativo'}</button>
-                  </td>
-                  <td className="px-4 py-3">
-                    <button onClick={() => { setEditando(a); setComissaoNova(String(a.commission_percent)) }} aria-label={`Editar comissão de ${a.email_mascarado}`} className="p-1.5 rounded-lg text-espresso/70"><Edit3 className="w-3.5 h-3.5" /></button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {!isPending && !isError && filtered.length === 0 && (
-          <p className="p-6 text-center text-sm text-espresso/70">{affiliates.length === 0 ? 'Nenhum afiliado vinculado ainda.' : 'Nenhum afiliado com esse filtro.'}</p>
-        )}
-      </div>
-
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <form onSubmit={vincular} className="glass-panel relative w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6"><h3 className="font-serif text-xl text-espresso">Vincular afiliado</h3><button type="button" onClick={() => setShowForm(false)} aria-label="Fechar" className="p-2 rounded-full text-espresso/70"><X className="w-4 h-4" /></button></div>
-            <div className="space-y-3">
-              <select required value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso">
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Vincular afiliado</DialogTitle>
+            <DialogDescription>A pessoa precisa ter conta na Evokaa, ser maior de 18 anos e ter a data de nascimento no perfil.</DialogDescription>
+          </DialogHeader>
+          <form id="form-afiliado" onSubmit={vincular} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="afiliado-evento">Evento</Label>
+              <select id="afiliado-evento" required value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
                 <option value="">Escolha o evento</option>
                 {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
-              <input required type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} placeholder="E-mail da conta Evokaa do afiliado" aria-label="E-mail do afiliado" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-              <input required type="number" min="0.01" max="100" step="0.01" value={form.comissao} onChange={e => setForm({ ...form, comissao: e.target.value })} placeholder="Comissão (%)" aria-label="Comissão em %" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
             </div>
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/70">Cancelar</button>
-              <button type="submit" disabled={salvando} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full disabled:opacity-50">{salvando ? 'Vinculando…' : 'Vincular'}</button>
+            <div className="grid gap-1.5">
+              <Label htmlFor="afiliado-email">E-mail da conta Evokaa</Label>
+              <Input id="afiliado-email" required type="email" autoComplete="off" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="afiliado-comissao">Comissão (%)</Label>
+              <Input id="afiliado-comissao" required type="number" inputMode="decimal" min="0.01" max="100" step="0.01" value={form.comissao} onChange={e => setForm({ ...form, comissao: e.target.value })} />
             </div>
           </form>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" form="form-afiliado" disabled={salvando}>{salvando ? 'Vinculando…' : 'Vincular'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {editando && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setEditando(null)} />
-          <form onSubmit={salvarComissao} className="glass-panel relative w-full max-w-sm p-6">
-            <h3 className="font-serif text-xl text-espresso mb-1">Comissão</h3>
-            <p className="text-xs text-espresso/70 mb-4">{editando.email_mascarado} · {editando.evento ?? '—'}</p>
-            <input required type="number" min="0.01" max="100" step="0.01" value={comissaoNova} onChange={e => setComissaoNova(e.target.value)} aria-label="Comissão em %" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso" />
-            <div className="flex items-center justify-end gap-3 mt-6">
-              <button type="button" onClick={() => setEditando(null)} className="px-5 py-2.5 text-sm text-espresso/70">Cancelar</button>
-              <button type="submit" className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full">Salvar</button>
-            </div>
+      <Dialog open={!!editando} onOpenChange={aberto => { if (!aberto) setEditando(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Comissão</DialogTitle>
+            <DialogDescription>{editando?.email_mascarado} · {editando?.evento ?? 'Sem evento'}</DialogDescription>
+          </DialogHeader>
+          <form id="form-comissao" onSubmit={salvarComissao} className="grid gap-1.5">
+            <Label htmlFor="comissao-nova">Comissão (%)</Label>
+            <Input id="comissao-nova" required type="number" inputMode="decimal" min="0.01" max="100" step="0.01" value={comissaoNova} onChange={e => setComissaoNova(e.target.value)} />
           </form>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditando(null)}>Cancelar</Button>
+            <Button type="submit" form="form-comissao">Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

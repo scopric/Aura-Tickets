@@ -1,8 +1,5 @@
 import { useState } from 'react'
-import {
-  ImagePlus, Upload, X, Grid3X3, List,
-  Trash2, Download, Eye, Check, Loader2
-} from 'lucide-react'
+import { ImagePlus, X, Grid3X3, List, Trash2, Copy, Star, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useEventPhotos,
@@ -11,12 +8,23 @@ import {
   useDeletePhoto,
   type DbPhoto,
 } from '../../hooks/useProducerTools'
+import { PageHeader, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 // Só https com domínio; null se inválido
 function urlImagem(v: string): string | null {
   try { const u = new URL(v.trim()); if (u.protocol === 'https:' && u.hostname.includes('.')) return v.trim() } catch { /* inválido */ }
   return null
 }
+
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 
 export default function ProducerEventGallery() {
   const { data: photos = [], isLoading } = useEventPhotos()
@@ -25,16 +33,17 @@ export default function ProducerEventGallery() {
   const deletePhoto = useDeletePhoto()
 
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [selectedPhoto, setSelectedPhoto] = useState<DbPhoto | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [showUpload, setShowUpload] = useState(false)
   const [uploadForm, setUploadForm] = useState({ eventName: '', caption: '', featured: false })
   const [uploadPreview, setUploadPreview] = useState<string | null>(null)
   const [url, setUrl] = useState('')
 
-  const events = [...new Set(photos.map(p => p.event_name).filter(Boolean))]
+  const events = [...new Set(photos.map(p => p.event_name).filter(Boolean))] as string[]
   const [activeEvent, setActiveEvent] = useState('Todos')
 
   const filtered = activeEvent === 'Todos' ? photos : photos.filter(p => p.event_name === activeEvent)
+  const selectedPhoto = photos.find(p => p.id === selectedId) ?? null
 
   // a imagem entra no blur, no Enter ou no salvar (validada aqui também)
   const aplicarUrl = () => {
@@ -44,7 +53,8 @@ export default function ProducerEventGallery() {
     else toast.error('Use um endereço de imagem que comece com https://')
   }
 
-  const addPhoto = async () => {
+  const addPhoto = async (e: React.FormEvent) => {
+    e.preventDefault()
     const imagem = uploadPreview ?? urlImagem(url)
     if (!imagem) { toast.error('Cole o endereço (https://) da imagem'); return }
     try {
@@ -59,9 +69,9 @@ export default function ProducerEventGallery() {
       setUploadPreview(null)
       setUrl('')
       setShowUpload(false)
-      toast.success('Foto adicionada!')
+      toast.success('Foto adicionada.')
     } catch {
-      toast.error('Erro ao adicionar foto')
+      toast.error('Não foi possível adicionar a foto.')
     }
   }
 
@@ -69,7 +79,7 @@ export default function ProducerEventGallery() {
     try {
       await updatePhoto.mutateAsync({ id: photo.id, featured: !photo.featured })
     } catch {
-      toast.error('Erro ao atualizar destaque')
+      toast.error('Não foi possível atualizar o destaque.')
     }
   }
 
@@ -77,187 +87,178 @@ export default function ProducerEventGallery() {
     if (!window.confirm('Apagar esta foto da galeria?')) return
     try {
       await deletePhoto.mutateAsync(id)
-      setSelectedPhoto(null)
-      toast.success('Foto removida')
+      setSelectedId(null)
+      toast.success('Foto removida.')
     } catch {
-      toast.error('Erro ao remover foto')
+      toast.error('Não foi possível remover a foto.')
     }
   }
 
+  const header = (
+    <PageHeader
+      title="Galeria de fotos"
+      description="Fotos dos seus eventos"
+      actions={
+        <>
+          <div role="group" aria-label="Visualização" className="flex rounded-md border border-border p-0.5">
+            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon-sm" className={viewMode === 'grid' ? '' : icone} aria-pressed={viewMode === 'grid'} aria-label="Ver em grade" onClick={() => setViewMode('grid')}>
+              <Grid3X3 aria-hidden="true" />
+            </Button>
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon-sm" className={viewMode === 'list' ? '' : icone} aria-pressed={viewMode === 'list'} aria-label="Ver em lista" onClick={() => setViewMode('list')}>
+              <List aria-hidden="true" />
+            </Button>
+          </div>
+          <Button onClick={() => setShowUpload(true)}><ImagePlus aria-hidden="true" />Adicionar foto</Button>
+        </>
+      }
+    />
+  )
+
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-7xl mx-auto flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando galeria...</p>
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="aspect-square rounded-[10px] bg-muted" />)}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Galeria de Fotos</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie as fotos dos seus eventos</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white/60 border border-white/60 rounded-full p-1">
-            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-full transition-all ${viewMode === 'grid' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
-              <Grid3X3 className="w-4 h-4" />
-            </button>
-            <button onClick={() => setViewMode('list')} className={`p-2 rounded-full transition-all ${viewMode === 'list' ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>
-              <List className="w-4 h-4" />
-            </button>
-          </div>
-          <button onClick={() => setShowUpload(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-            <ImagePlus className="w-4 h-4" /> Adicionar Fotos
-          </button>
-        </div>
-      </div>
+    <div>
+      {header}
 
-      {/* Event filter */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <button onClick={() => setActiveEvent('Todos')} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === 'Todos' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
-          Todos ({photos.length})
-        </button>
-        {events.map(e => (
-          <button key={e} onClick={() => setActiveEvent(e)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all flex-shrink-0 ${activeEvent === e ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70 hover:text-espresso'}`}>
-            {e} ({photos.filter(p => p.event_name === e).length})
-          </button>
-        ))}
-      </div>
+      {photos.length > 0 && (
+        <div role="group" aria-label="Filtrar por evento" className="mb-4 flex gap-1 overflow-x-auto pb-1">
+          {['Todos', ...events].map(e => (
+            <Button key={e} size="sm" variant={activeEvent === e ? 'secondary' : 'ghost'} aria-pressed={activeEvent === e} onClick={() => setActiveEvent(e)} className={`shrink-0 ${activeEvent === e ? '' : icone}`}>
+              {e} <span className="tabular-nums text-muted-foreground">{e === 'Todos' ? photos.length : photos.filter(p => p.event_name === e).length}</span>
+            </Button>
+          ))}
+        </div>
+      )}
 
-      {/* Grid View */}
-      {viewMode === 'grid' && (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      {filtered.length === 0 ? (
+        <EmptyState
+          title="Nenhuma foto ainda"
+          description="Adicione a primeira foto da galeria."
+          action={<Button onClick={() => setShowUpload(true)}><ImagePlus aria-hidden="true" />Adicionar foto</Button>}
+        />
+      ) : viewMode === 'grid' ? (
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map(photo => (
-            <div key={photo.id} className={`group relative rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg ${photo.featured ? 'ring-2 ring-plum ring-offset-2' : ''}`}
-              onClick={() => setSelectedPhoto(photo)}>
-              <div className="aspect-square bg-canvas">
-                <img src={photo.url} alt={photo.caption || ''} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-              </div>
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="absolute bottom-0 left-0 right-0 p-3">
-                  <p className="text-xs text-white font-medium truncate">{photo.caption || 'Sem legenda'}</p>
-                </div>
-              </div>
-              <button onClick={e => { e.stopPropagation(); handleDelete(photo.id) }} aria-label="Apagar foto" title="Apagar" className="absolute top-2 left-2 p-1.5 rounded-lg bg-black/50 text-white hover:bg-black/70 transition-colors">
-                <Trash2 className="w-3.5 h-3.5" />
+            <li key={photo.id} className={`relative overflow-hidden rounded-[10px] border bg-card ${photo.featured ? 'border-primary' : 'border-border'}`}>
+              <button type="button" onClick={() => setSelectedId(photo.id)} aria-label={`Abrir ${photo.caption || 'foto sem legenda'}`} className="block aspect-square w-full bg-muted">
+                <img src={photo.url} alt="" className="size-full object-cover" />
               </button>
-              {photo.featured && (
-                <div className="absolute top-2 right-2 px-1.5 py-0.5 bg-plum/90 text-white text-[9px] font-medium rounded-md">Destaque</div>
+              <div className="flex items-center justify-between gap-1 p-2">
+                <span className="min-w-0 truncate text-xs text-muted-foreground">{photo.caption || 'Sem legenda'}</span>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(photo.id)} aria-label={`Apagar ${photo.caption || 'foto sem legenda'}`}>
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+              {photo.featured && <Badge className="absolute right-2 top-2">Destaque</Badge>}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+          {filtered.map(photo => (
+            <li key={photo.id} className="flex items-center gap-3 p-3">
+              <button type="button" onClick={() => setSelectedId(photo.id)} aria-label={`Abrir ${photo.caption || 'foto sem legenda'}`} className="size-14 shrink-0 overflow-hidden rounded-md bg-muted">
+                <img src={photo.url} alt="" className="size-full object-cover" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <p className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-sm font-medium text-foreground">{photo.caption || 'Sem legenda'}</span>
+                  {photo.featured && <Badge>Destaque</Badge>}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">{photo.event_name || 'Sem evento'} · {dataCurta(photo.created_at)}{photo.size ? ` · ${photo.size}` : ''}</p>
+              </div>
+              <div className="flex shrink-0 items-center gap-1">
+                <Button variant="ghost" size="icon-sm" className={photo.featured ? 'text-primary hover:bg-foreground/5' : icone} aria-pressed={photo.featured} onClick={() => toggleFeatured(photo)} aria-label={photo.featured ? 'Tirar destaque' : 'Destacar'}>
+                  <Star aria-hidden="true" />
+                </Button>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(photo.id)} aria-label={`Apagar ${photo.caption || 'foto sem legenda'}`}>
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Dialog open={showUpload} onOpenChange={setShowUpload}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Adicionar foto</DialogTitle>
+            <DialogDescription>Cole o endereço (https://) de uma imagem já publicada.</DialogDescription>
+          </DialogHeader>
+          <form id="form-foto" onSubmit={addPhoto} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="foto-url">Endereço da imagem</Label>
+              {uploadPreview ? (
+                <div className="relative">
+                  <img src={uploadPreview} alt="Prévia da foto" onError={() => { setUploadPreview(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="h-40 w-full rounded-md border border-border object-cover" />
+                  <Button type="button" variant="secondary" size="icon-sm" onClick={() => { setUploadPreview(null); setUrl('') }} aria-label="Trocar imagem" className="absolute right-2 top-2">
+                    <X aria-hidden="true" />
+                  </Button>
+                </div>
+              ) : (
+                <Input id="foto-url" type="url" placeholder="https://" value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicarUrl() } }} onBlur={aplicarUrl} />
               )}
             </div>
-          ))}
-        </div>
-      )}
-
-      {/* List View */}
-      {viewMode === 'list' && (
-        <div className="space-y-3">
-          {filtered.map(photo => (
-            <div key={photo.id} className={`flex items-center gap-4 p-4 rounded-2xl bg-white/60 border transition-all hover:bg-white/80 ${photo.featured ? 'border-plum/20' : 'border-white/60'}`}>
-              <div className="w-16 h-16 rounded-xl bg-canvas overflow-hidden flex-shrink-0 cursor-pointer" onClick={() => setSelectedPhoto(photo)}>
-                <img src={photo.url} alt={photo.caption || ''} className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-sm font-medium text-espresso truncate">{photo.caption || 'Sem legenda'}</h3>
-                <p className="text-[10px] text-espresso/70">{photo.event_name || 'Evento'} · {new Date(photo.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {photo.size || '-'}</p>
-              </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button onClick={() => toggleFeatured(photo)} className={`p-2 rounded-lg transition-colors ${photo.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-50'}`} title={photo.featured ? 'Remover destaque' : 'Destacar'}>
-                  <Check className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => { setSelectedPhoto(photo) }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => handleDelete(photo.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="foto-evento">Nome do evento (opcional)</Label>
+              <Input id="foto-evento" value={uploadForm.eventName} onChange={e => setUploadForm({ ...uploadForm, eventName: e.target.value })} />
             </div>
-          ))}
-        </div>
-      )}
-
-      {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <ImagePlus className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-          <p className="text-sm text-espresso/70">Nenhuma foto encontrada.</p>
-          <p className="text-xs text-espresso/70 mt-1">Adicione a primeira foto da galeria.</p>
-        </div>
-      )}
-
-      {/* Upload Modal */}
-      {showUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowUpload(false)} />
-          <div className="glass-panel relative w-full max-w-lg p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">Adicionar Foto</h3>
-              <button onClick={() => setShowUpload(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
+            <div className="grid gap-1.5">
+              <Label htmlFor="foto-legenda">Legenda (opcional)</Label>
+              <Input id="foto-legenda" value={uploadForm.caption} onChange={e => setUploadForm({ ...uploadForm, caption: e.target.value })} />
             </div>
-            <div className="space-y-4">
-              <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-8 text-center hover:border-plum/30 transition-colors">
-                {uploadPreview ? (
-                  <div className="relative">
-                    <img src={uploadPreview} alt="Preview" onError={() => { setUploadPreview(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="w-full h-40 object-cover rounded-xl" />
-                    <button onClick={() => { setUploadPreview(null); setUrl('') }} aria-label="Trocar imagem" className="absolute top-2 right-2 p-1.5 rounded-full bg-void/60 text-cream hover:bg-void transition-colors"><X className="w-3 h-3" /></button>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    <div className="w-12 h-12 rounded-full bg-plum/10 flex items-center justify-center mx-auto"><Upload className="w-5 h-5 text-plum" /></div>
-                    <p className="text-sm text-espresso/70">Cole o endereço (https://) da imagem</p>
-                    <input type="url" aria-label="Endereço da imagem" placeholder="https://..." value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); aplicarUrl() } }} onBlur={aplicarUrl} className="w-full max-w-sm px-4 py-2 bg-white/60 border border-espresso/15 rounded-full text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40" />
-                  </div>
-                )}
-              </div>
-              <input value={uploadForm.eventName} onChange={e => setUploadForm({ ...uploadForm, eventName: e.target.value })} placeholder="Nome do evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-              <input value={uploadForm.caption} onChange={e => setUploadForm({ ...uploadForm, caption: e.target.value })} placeholder="Legenda da foto" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={uploadForm.featured} onChange={e => setUploadForm({ ...uploadForm, featured: e.target.checked })} className="accent-plum" />
-                <span className="text-xs text-espresso/70">Destacar esta foto</span>
-              </label>
+            <div className="flex items-center gap-2">
+              <Checkbox id="foto-destaque" checked={uploadForm.featured} onCheckedChange={v => setUploadForm({ ...uploadForm, featured: v === true })} />
+              <Label htmlFor="foto-destaque" className="font-normal">Destacar esta foto</Label>
             </div>
-            <div className="flex items-center justify-end gap-3 mt-5">
-              <button onClick={() => setShowUpload(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
-              <button onClick={addPhoto} disabled={createPhoto.isPending} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
-                {createPhoto.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowUpload(false)}>Cancelar</Button>
+            <Button type="submit" form="form-foto" disabled={createPhoto.isPending}>
+              {createPhoto.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Adicionando…</> : 'Adicionar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* Photo Detail Modal */}
-      {selectedPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedPhoto(null)} />
-          <div className="glass-panel relative w-full max-w-3xl overflow-hidden max-h-[90vh]">
-            <img src={selectedPhoto.url} alt={selectedPhoto.caption || ''} className="w-full max-h-[50vh] object-cover" />
-            <div className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-serif text-xl text-espresso mb-1">{selectedPhoto.caption || 'Sem legenda'}</h3>
-                  <p className="text-sm text-espresso/70">{selectedPhoto.event_name || 'Evento'} · {new Date(selectedPhoto.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })} · {selectedPhoto.size || '-'}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => toggleFeatured(selectedPhoto)} className={`p-2 rounded-lg transition-colors ${selectedPhoto.featured ? 'text-plum bg-plum/10' : 'text-espresso/70 hover:text-amber-500'}`} title="Destacar">
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('URL copiada!') }} className="p-2 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
-                    <Download className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => handleDelete(selectedPhoto.id)} className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+      <Dialog open={!!selectedPhoto} onOpenChange={aberto => { if (!aberto) setSelectedId(null) }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto p-0 sm:max-w-3xl">
+          {selectedPhoto && (
+            <>
+              <img src={selectedPhoto.url} alt={selectedPhoto.caption || ''} className="max-h-[50vh] w-full object-cover" />
+              <div className="flex flex-col gap-3 p-6 pt-0 sm:flex-row sm:items-start sm:justify-between">
+                <DialogHeader>
+                  <DialogTitle>{selectedPhoto.caption || 'Sem legenda'}</DialogTitle>
+                  <DialogDescription>
+                    {selectedPhoto.event_name || 'Sem evento'} · {dataCurta(selectedPhoto.created_at)}{selectedPhoto.size ? ` · ${selectedPhoto.size}` : ''}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button variant="outline" size="sm" aria-pressed={selectedPhoto.featured} onClick={() => toggleFeatured(selectedPhoto)}>
+                    <Star aria-hidden="true" />{selectedPhoto.featured ? 'Tirar destaque' : 'Destacar'}
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('Endereço copiado.') }} aria-label="Copiar endereço da imagem">
+                    <Copy aria-hidden="true" />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(selectedPhoto.id)} aria-label="Apagar foto">
+                    <Trash2 aria-hidden="true" />
+                  </Button>
                 </div>
               </div>
-            </div>
-          </div>
-          <button onClick={() => setSelectedPhoto(null)} className="absolute top-4 right-4 p-2 rounded-full bg-black/40 text-white hover:bg-black/60 transition-colors"><X className="w-4 h-4" /></button>
-        </div>
-      )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
