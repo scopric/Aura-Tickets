@@ -142,12 +142,12 @@ export default function AdminEvents() {
       </div>
 
       {/* Abas de filtro */}
-      <div className="flex gap-2 mb-6 border-b border-espresso/10 pb-px">
+      <div className="flex gap-1 sm:gap-2 mb-6 border-b border-espresso/10 pb-px overflow-x-auto">
         {(['all', 'pending', 'approved', 'rejected'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-xs font-semibold capitalize border-b-2 transition-all ${
+            className={`shrink-0 px-3 sm:px-4 py-2 text-xs font-semibold capitalize border-b-2 transition-all ${
               activeTab === tab 
                 ? 'border-plum text-plum font-bold' 
                 : 'border-transparent text-espresso/70 hover:text-espresso'
@@ -179,14 +179,14 @@ export default function AdminEvents() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-espresso/5">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Evento</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Data</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Produtor</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Publicação</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Moderação</th>
-                  <th className="text-center px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Destaque</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Receita</th>
-                  <th className="px-4 py-3"></th>
+                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Evento</th>
+                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Data</th>
+                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Produtor</th>
+                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden sm:table-cell">Publicação</th>
+                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden sm:table-cell">Moderação</th>
+                  <th className="text-center px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Destaque</th>
+                  <th className="text-right px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Receita</th>
+                  <th className="px-2 sm:px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -207,7 +207,7 @@ export default function AdminEvents() {
 
                     return (
                       <tr key={e.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
-                        <td className="px-4 py-3">
+                        <td className="px-2 sm:px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
                               <img src={e.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
@@ -215,22 +215,26 @@ export default function AdminEvents() {
                             <div>
                               <div className="text-sm text-espresso font-medium">{e.title}</div>
                               <div className="text-[10px] text-espresso/70">{e.venue_city || e.venue_name || 'Local a definir'}</div>
+                              <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
+                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
+                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${appStatus.cls}`}>{appStatus.label}</span>
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 hidden md:table-cell">
+                        <td className="px-2 sm:px-4 py-3 hidden md:table-cell">
                           <div className="text-xs text-espresso/70">{formattedDate}</div>
                         </td>
-                        <td className="px-4 py-3 hidden lg:table-cell">
+                        <td className="px-2 sm:px-4 py-3 hidden lg:table-cell">
                           <div className="text-xs text-espresso/70">{e.profiles?.full_name || '—'}</div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
                           <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
                           <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${appStatus.cls}`}>{appStatus.label}</span>
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-2 sm:px-4 py-3 text-center">
                           <button
                             onClick={() => handleToggleFeatured(e.id, !!e.featured_carousel)}
                             disabled={e.approval_status !== 'approved'}
@@ -246,13 +250,13 @@ export default function AdminEvents() {
                             <Star className="w-4 h-4 fill-current" />
                           </button>
                         </td>
-                        <td className="px-4 py-3 text-right hidden lg:table-cell">
+                        <td className="px-2 sm:px-4 py-3 text-right hidden lg:table-cell">
                           <div className="text-sm font-serif text-espresso">
                             {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                        <td className="px-2 sm:px-4 py-3 text-right">
+                          <div className="flex flex-wrap items-center justify-end gap-1.5">
                             <button
                               onClick={ev => { openerRef.current = ev.currentTarget; setDetailId(e.id) }}
                               className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"

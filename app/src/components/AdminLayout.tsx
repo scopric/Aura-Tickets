@@ -131,14 +131,18 @@ export default function AdminLayout() {
   // Gaveta aberta: foco no 1º item; Esc fecha e devolve o foco ao botão de menu
   useEffect(() => {
     if (!mobileOpen) return
-    navRef.current?.querySelector('a')?.focus()
+    // no quadro seguinte: no mesmo instante do clique o navegador ignora o foco na gaveta que acabou de aparecer
+    const quadro = requestAnimationFrame(() => navRef.current?.querySelector('a')?.focus())
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       setMobileOpen(false)
       menuBtnRef.current?.focus()
     }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    return () => {
+      cancelAnimationFrame(quadro)
+      window.removeEventListener('keydown', onKey)
+    }
   }, [mobileOpen])
 
   const filteredNavItems = navItems.filter((item) => {
@@ -161,7 +165,8 @@ export default function AdminLayout() {
         className={cn(
           'fixed left-0 top-0 bottom-0 z-50 lg:z-40 glass-bar border-r transition-all duration-300 flex flex-col',
           'lg:translate-x-0',
-          mobileOpen ? 'translate-x-0' : '-translate-x-full max-lg:invisible',
+          // ao abrir, a visibilidade muda na hora (sem transição), para o foco poder entrar na gaveta
+          mobileOpen ? 'translate-x-0 max-lg:[transition-property:transform]' : '-translate-x-full max-lg:invisible',
           collapsed ? 'w-16' : 'w-60'
         )}
       >
