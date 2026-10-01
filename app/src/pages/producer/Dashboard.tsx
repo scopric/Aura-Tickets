@@ -20,7 +20,6 @@ type Evento = {
   approval_status: 'pending' | 'approved' | 'rejected' | null
   date: string | null
   start_date: string
-  created_at: string
   capacity: number | null
   ticket_types: { quantity_total: number | null; capacity: number | null }[]
 }
@@ -86,7 +85,7 @@ export default function ProducerDashboard() {
       try {
         const [ev, perfil, pagos, vendidosQ, checkin] = await Promise.all([
           supabase.from('events')
-            .select('id, title, status, approval_status, date, start_date, created_at, capacity, ticket_types(quantity_total, capacity)')
+            .select('id, title, status, approval_status, date, start_date, capacity, ticket_types(quantity_total, capacity)')
             .eq('producer_id', id).abortSignal(sinal),
           supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
           // ponytail: soma no navegador, cortada no max_rows (1.000) do PostgREST; o count diz se cortou e aí a tela
@@ -150,12 +149,12 @@ export default function ProducerDashboard() {
       title="Início"
       description={primeiroNome ? `${saudacao()}, ${primeiroNome}` : saudacao()}
       actions={
-        <div className="flex items-center gap-2">
+        <>
           <Button asChild variant="ghost"><Link to="/producer/dashboard?tour=inicio">Ver tour desta tela</Link></Button>
           <Button asChild>
             <Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link>
           </Button>
-        </div>
+        </>
       }
     />
   )
@@ -199,29 +198,29 @@ export default function ProducerDashboard() {
       texto: 'Enviar um evento para análise',
       to: '/producer/events?tour=eventos',
     },
-    { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/events?tour=eventos' },
+    { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/planner?tour=criar-evento' },
     { feito: empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings?tour=configuracoes' },
     { feito: publicados > 0, texto: 'Evento aprovado e no ar', to: '/producer/events?tour=eventos' },
-    { feito: checkinFeito, texto: 'Testar o check-in', to: '/producer/checkin?tour=checkin' },
+    // ponytail: sem venda (gateway desligado), não há o que testar na portaria; o item entra com o 1º ingresso vendido
+    ...(vendidos > 0 ? [{ feito: checkinFeito, texto: 'Testar o check-in', to: '/producer/checkin?tour=checkin' }] : []),
   ]
   const feitos = passos.filter(p => p.feito).length
   // esconde só depois de ler o registro: evita piscar o cartão de quem já dispensou
   const mostrarChecklist = carregou && feitos < passos.length && !registrados.has('checklist:dispensado')
 
-  // no máximo uma dica, na ordem das regras; só eventos aprovados e no ar
-  const noAr = proximos.filter(e => e.status === 'published' && e.approval_status === 'approved')
+  // no máximo uma dica, só de evento aprovado e no ar
+  // ponytail: a dica "Ainda sem vendas? Crie um cupom ou chame afiliados" (evento no ar há 48 h, 0 vendidos) fica de fora
+  // enquanto não existe venda (gateway desligado); volta no M5.2, contando as 48 h por approved_at (coluna existe em events)
   const limite = agora + 7 * 86400000
   const dica = [
-    ...noAr.filter(e => !checkinFeito && dataDo(e).getTime() <= limite).map(e => ({
-      id: `dica:checkin:${e.id}`,
-      texto: 'Teste o check-in antes do dia',
-      links: [{ to: '/producer/checkin?tour=checkin', rotulo: 'Abrir check-in' }],
-    })),
-    ...noAr.filter(e => agora - new Date(e.created_at).getTime() > 48 * 3600000 && (vendidosPorEvento[e.id] ?? 0) === 0).map(e => ({
-      id: `dica:sem-venda:${e.id}`,
-      texto: 'Ainda sem vendas? Crie um cupom ou chame afiliados',
-      links: [{ to: '/producer/cupons', rotulo: 'Criar cupom' }, { to: '/producer/afiliados', rotulo: 'Chamar afiliados' }],
-    })),
+    ...proximos
+      .filter(e => e.status === 'published' && e.approval_status === 'approved' && !checkinFeito
+        && (vendidosPorEvento[e.id] ?? 0) >= 1 && dataDo(e).getTime() <= limite)
+      .map(e => ({
+        id: `dica:checkin:${e.id}`,
+        texto: 'Teste o check-in antes do dia',
+        links: [{ to: '/producer/checkin?tour=checkin', rotulo: 'Abrir check-in' }],
+      })),
   ].find(d => !registrados.has(d.id))
 
   return (
@@ -261,7 +260,7 @@ export default function ProducerDashboard() {
             <h2 id="primeiros-passos" className="text-base font-semibold text-foreground">Primeiro evento no ar</h2>
             <span className="flex items-baseline gap-3">
               <span className="text-sm tabular-nums text-muted-foreground">{feitos} de {passos.length}</span>
-              <Button size="sm" variant="ghost" onClick={() => registrar('checklist:dispensado')}>Dispensar</Button>
+              <Button size="sm" variant="ghost" aria-label="Dispensar checklist" onClick={() => registrar('checklist:dispensado')}>Dispensar</Button>
             </span>
           </div>
           <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted" aria-hidden="true">

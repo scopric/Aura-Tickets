@@ -17,7 +17,7 @@ export const TOURS: Record<string, Tour> = {
     rota: '/producer/planner',
     passos: [
       { alvo: 'planner-passos', titulo: 'Cinco passos', texto: 'Tipo do evento, informações, lotes de ingresso, custos e resumo. O passo atual fica destacado.' },
-      { alvo: 'planner-cartao', titulo: 'Preencha cada passo', texto: 'Os campos marcados com asterisco são obrigatórios para avançar.' },
+      { alvo: 'planner-cartao', titulo: 'Preencha cada passo', texto: 'Os campos marcados com asterisco são obrigatórios para avançar. No passo 3 você cria os lotes de ingresso, com preço e quantidade.' },
       { alvo: 'planner-navegacao', titulo: 'Voltar e avançar', texto: 'Use Voltar e Próximo. No último passo, Criar evento envia o evento para a análise da equipe.' },
     ],
   },
@@ -26,7 +26,7 @@ export const TOURS: Record<string, Tour> = {
     passos: [
       { alvo: 'eventos-criar', titulo: 'Novo evento', texto: 'Cria um evento do zero, em cinco passos.' },
       { alvo: 'eventos-busca', titulo: 'Buscar pelo nome', texto: 'Digite parte do nome para achar um evento na lista.' },
-      { alvo: 'eventos-filtros', titulo: 'Filtrar por situação', texto: 'Mostre só rascunhos, eventos em análise, publicados ou encerrados.' },
+      { alvo: 'eventos-filtros', titulo: 'Filtrar por situação', texto: 'Escolha Todos, Publicado, Em análise, Rascunho, Recusado, Encerrado ou Cancelado.' },
       { alvo: 'eventos-lista', titulo: 'Seus eventos', texto: 'Cada linha mostra data, local e vendas. Os ícones à direita visualizam, editam, duplicam ou excluem.' },
     ],
   },
@@ -43,7 +43,7 @@ export const TOURS: Record<string, Tour> = {
     passos: [
       { alvo: 'checkin-evento', titulo: 'Escolha o evento', texto: 'Selecione qual evento publicado você vai validar na portaria.' },
       { alvo: 'checkin-modo', titulo: 'Leitor ou lista', texto: 'O leitor valida pelo código do ingresso. A lista mostra os participantes.' },
-      { alvo: 'checkin-numeros', titulo: 'Acompanhe a entrada', texto: 'Total emitido, check-ins feitos, pendentes e cancelados, em tempo real.' },
+      { alvo: 'checkin-numeros', titulo: 'Acompanhe a entrada', texto: 'Total emitido, check-ins feitos, pendentes e cancelados.' },
       { alvo: 'checkin-leitor', titulo: 'Valide um ingresso', texto: 'Aproxime o leitor ou digite o código do ingresso e confirme com Enter.' },
     ],
   },
@@ -53,7 +53,8 @@ export const TOURS: Record<string, Tour> = {
 export function tourDaRota(id: string | null, pathname: string): Tour | null {
   const t = id && Object.hasOwn(TOURS, id) ? TOURS[id] : null
   if (!t) return null
-  // /producer e /producer/dashboard são a mesma tela
-  const atual = pathname === '/producer' ? '/producer/dashboard' : pathname.replace(/\/$/, '')
+  // sem barra final; /producer e /producer/dashboard são a mesma tela
+  const limpo = pathname.replace(/\/+$/, '')
+  const atual = limpo === '/producer' ? '/producer/dashboard' : limpo
   return atual === t.rota ? t : null
 }

@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import Tour from './producer/Tour'
 import { tourDaRota } from '../lib/tours'
-import { useTourLog } from '../hooks/useTourLog'
+import { useRegistrarTour } from '../hooks/useTourLog'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { useAuth } from '../hooks/useAuth'
@@ -132,9 +132,14 @@ export default function ProducerLayout() {
   const paginaRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const [params, setSearchParams] = useSearchParams()
-  const { registrar } = useTourLog()
+  const registrar = useRegistrarTour()
   const tourId = params.get('tour')
   const tour = tourDaRota(tourId, location.pathname)
+  const tirarParametro = () => setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true })
+  // ?tour= que não existe ou não é desta tela: tira da URL
+  useEffect(() => {
+    if (tourId && !tour) setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true })
+  }, [tourId, tour, setSearchParams])
   const { user, logout } = useAuth()
   const mobileOpen = gavetaEm === location.pathname
 
@@ -333,10 +338,10 @@ export default function ProducerLayout() {
       </div>
       <EvoHub />
       {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
-      {tour && tourId && (
+      {tour && (
         <Tour key={tourId} tour={tour} onFim={puladas => {
           void registrar(`tour:${tourId}`, { skipped: puladas })
-          setSearchParams((p: URLSearchParams) => { p.delete('tour'); return p }, { replace: true })
+          tirarParametro()
         }} />
       )}
     </div>
