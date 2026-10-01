@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom'
 import { siteUrl } from '../../lib/appHost'
 import {
   Ticket, QrCode, Calendar, MapPin, Clock, CheckCircle2, XCircle,
-  AlertTriangle, Share2, Loader2
+  AlertTriangle, Share2, Loader2, Users, X
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useUserTickets, type DbTicket } from '../../hooks/useUserTickets'
 import TicketQRCode from '../../components/TicketQRCode'
+import YourTable from '../../components/YourTable'
 
 const statusConfig: Record<string, { label: string; bg: string; text: string; icon: typeof CheckCircle2 }> = {
   active: { label: 'Ativo', bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-400', icon: CheckCircle2 },
@@ -28,6 +29,7 @@ function formatDate(dateStr: string | null) {
 export default function ParticipantTickets() {
   const [filter, setFilter] = useState<'all' | 'active' | 'past'>('all')
   const [selected, setSelected] = useState<DbTicket | null>(null)
+  const [mesaDe, setMesaDe] = useState<string | null>(null) // evento da "Sua mesa" aberta
   const { data: tickets = [], isLoading } = useUserTickets()
 
   const filtered = tickets.filter(t => {
@@ -127,6 +129,9 @@ export default function ParticipantTickets() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => setSelected(t)} className="flex-1 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> Ver QR</button>
+                      {t.ticket_types?.type === 'coletiva' && t.events?.id && (
+                        <button onClick={() => setMesaDe(t.events!.id)} className="flex-1 py-2 bg-white/[0.05] text-cream text-xs rounded-full hover:bg-white/[0.1] transition-all flex items-center justify-center gap-1"><Users className="w-3 h-3" /> Sua mesa</button>
+                      )}
                       <button onClick={() => handleShare(t.events?.id)} title="Copiar link do evento" aria-label="Copiar link do evento" className="p-2 rounded-xl bg-white/[0.05] text-white/40 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </>
@@ -146,6 +151,22 @@ export default function ParticipantTickets() {
               </div>
             )
           })}
+        </div>
+      )}
+
+      {/* Sua mesa (Match de Mesa) */}
+      {mesaDe && (
+        // Esc fecha; o contains ignora o Esc dos modais internos (termo, denúncia, questionário), que vêm por portal
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-center p-4 overflow-y-auto"
+          role="dialog" aria-modal="true" aria-label="Sua mesa" tabIndex={-1}
+          onKeyDown={e => { if (e.key === 'Escape' && e.currentTarget.contains(e.target as Node)) setMesaDe(null) }}
+        >
+          <div className="absolute inset-0 glass-backdrop" onClick={() => setMesaDe(null)} />
+          <div className="relative w-full max-w-2xl my-8">
+            <button autoFocus onClick={() => setMesaDe(null)} aria-label="Fechar sua mesa" className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-void border border-white/10 text-cream flex items-center justify-center"><X className="w-4 h-4" /></button>
+            <YourTable eventId={mesaDe} />
+          </div>
         </div>
       )}
 

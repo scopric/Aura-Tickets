@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { useAuthStore } from '../stores/authStore'
 import { toast } from 'sonner'
+import { queryClient } from './queryClient'
 
 /**
  * Redimensiona uma imagem usando Canvas e gera uma string Base64 compacta (JPEG 0.75).
@@ -87,6 +88,8 @@ export async function uploadAvatar(file: File, userId: string): Promise<string |
       })
     }
 
+    // foto nova volta a 'pendente' no banco: relê o aviso da moderação (vale para todo chamador)
+    queryClient.invalidateQueries({ queryKey: ['foto-moderacao'] })
     toast.success('Foto de perfil atualizada!', { id: toastId })
     return base64Url
   } catch (err: any) {

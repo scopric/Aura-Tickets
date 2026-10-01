@@ -6,6 +6,7 @@ import { usePayment } from '../../hooks/usePayment'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '../../lib/formatters'
+import { mesaErro } from '../../hooks/useMatchmaking'
 import { resumoCarrinho } from '../../lib/taxa'
 
 export default function CheckoutPayment() {
@@ -263,7 +264,8 @@ export default function CheckoutPayment() {
         }
       },
       onError: (err) => {
-        toast.error(`Erro ao criar pedido: ${err.message}`)
+        // 22023: regra do Match de Mesa no banco (menor de idade, 1 por conta, quantidade 1)
+        toast.error((err as { code?: string }).code === '22023' ? mesaErro(err) : `Erro ao criar pedido: ${err.message}`, { duration: 7000 })
         setProcessing(false)
       }
     })
