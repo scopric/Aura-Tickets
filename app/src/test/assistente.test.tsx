@@ -176,6 +176,14 @@ describe('assistente: widget do cliente', () => {
     expect(screen.queryByRole('button', { name: 'Ótimo' })).toBeNull()
   })
 
+  it('resolvida com a equipe e selo antigo (bot_resolveu): na lista, só "Resolvida"', async () => {
+    role = 'user'
+    respostas.conversations = [conversa({ status: 'resolved', bot_state: 'humano', bot_resolveu: true })]
+    montar(<SupportChatPanel />)
+    expect(await screen.findByText('Resolvida')).toBeInTheDocument()
+    expect(screen.queryByText('Resolvida pelo assistente')).toBeNull()
+  })
+
   it('com a equipe: cabeçalho de sempre, sem o botão de atendente', async () => {
     role = 'user'
     respostas.conversations = [conversa({ bot_state: 'humano', assignee_name: 'Bia' })]

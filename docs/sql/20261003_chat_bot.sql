@@ -767,9 +767,10 @@ begin
     set assignee_id = v_uid,
         assignee_name = (select left(nullif(split_part(trim(p.full_name), ' ', 1), ''), 60) from public.profiles p where p.id = v_uid)
     where c.id = p_conv and c.assignee_id is null;
-    -- NOVO (3a): resposta pública de atendente tira a conversa do assistente
+    -- NOVO (3a): resposta pública de atendente tira a conversa do assistente (e o selo do Sim)
     update public.conversations c
-    set bot_state = 'humano', handoff_at = coalesce(c.handoff_at, now()), handoff_reason = coalesce(c.handoff_reason, 'atendente')
+    set bot_state = 'humano', handoff_at = coalesce(c.handoff_at, now()), handoff_reason = coalesce(c.handoff_reason, 'atendente'),
+        bot_resolveu = false
     where c.id = p_conv and c.bot_state = 'bot';
   end if;
 
@@ -863,8 +864,8 @@ begin
     bot_state = case when v_assignee is not null then 'humano' else c.bot_state end,
     handoff_at = case when v_assignee is not null and c.bot_state = 'bot' then coalesce(c.handoff_at, now()) else c.handoff_at end,
     handoff_reason = case when v_assignee is not null and c.bot_state = 'bot' then coalesce(c.handoff_reason, 'atendente') else c.handoff_reason end,
-    -- NOVO (3a): a equipe mudar o status (reabrir ou resolver) tira o selo "Resolvida pelo assistente"
-    bot_resolveu = case when p_patch ? 'status' then false else c.bot_resolveu end,
+    -- NOVO (3a): a equipe mudar o status (reabrir ou resolver) ou assumir tira o selo "Resolvida pelo assistente"
+    bot_resolveu = case when p_patch ? 'status' or v_assignee is not null then false else c.bot_resolveu end,
     updated_at = now()
   where c.id = p_conv;
 
@@ -1572,8 +1573,8 @@ begin
   raise notice 'T14 OK: Sim e passagem não se atropelam';
 end $t$;
 
--- T15. Selo "Resolvida pelo assistente" (D4): só o Sim liga; reabrir (cliente ou equipe) desliga; cron e
---      equipe não ligam; chat_inbox devolve o selo
+-- T15. Selo "Resolvida pelo assistente" (D4): só o Sim liga; reabrir (cliente ou equipe), equipe assumir ou
+--      responder desliga; cron e equipe não ligam; chat_inbox devolve o selo
 do $t$
 declare r jsonb; cv uuid; u uuid := 'f0000000-0000-4000-8000-000000000023'; ad uuid := 'f0000000-0000-4000-8000-000000000004';
 begin
@@ -1602,8 +1603,23 @@ begin
   assert exists (select 1 from public.chat_inbox('resolvidas', null, 200) where id = cv and bot_resolveu), 'T15: chat_inbox sem o selo';
   r := public.chat_update(cv, '{"status": "open"}');
   assert (select status = 'open' and not bot_resolveu from public.conversations where id = cv), 'T15: equipe reabriu e o selo ficou';
+  -- equipe assume (dono) ou responde em público a resolvida pelo Sim: vai para humano e o selo sai
   perform pg_temp.como(null);
-  raise notice 'T15 OK: selo só no Sim; reabrir pela equipe tira o selo; chat_inbox devolve o selo';
+  cv := pg_temp.conversa_bot(u);
+  perform pg_temp.como(u);
+  r := public.chat_bot_feedback(cv, true);
+  perform pg_temp.como(ad);
+  r := public.chat_update(cv, jsonb_build_object('assignee_id', ad));
+  assert (select status = 'resolved' and bot_state = 'humano' and not bot_resolveu from public.conversations where id = cv), 'T15: equipe assumiu e o selo ficou';
+  perform pg_temp.como(null);
+  cv := pg_temp.conversa_bot(u);
+  perform pg_temp.como(u);
+  r := public.chat_bot_feedback(cv, true);
+  perform pg_temp.como(ad);
+  r := public.chat_send(cv, 'Oi, aqui é a Ana', false, null, null);
+  assert (select bot_state = 'humano' and not bot_resolveu from public.conversations where id = cv), 'T15: equipe respondeu e o selo ficou';
+  perform pg_temp.como(null);
+  raise notice 'T15 OK: selo só no Sim; reabrir, assumir ou responder pela equipe tira o selo; chat_inbox devolve o selo';
 end $t$;
 
 -- T16. Cortesia (D5): agradecimento, saudação, reação positiva ou pedido de detalhes (também só com
