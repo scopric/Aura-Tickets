@@ -219,6 +219,8 @@ alter table public.profiles
   add column if not exists avatar_moderacao_tentativas int not null default 0,
   add column if not exists avatar_moderacao_reservada_ate timestamptz,
   drop column if exists avatar_moderacao_url;
+-- fila da moderação (pendentes são poucas perto da base toda)
+create index if not exists profiles_avatar_pendente_idx on public.profiles (avatar_moderacao) where avatar_moderacao = 'pendente';
 alter table public.profiles drop constraint if exists profiles_avatar_moderacao_chk;
 alter table public.profiles add constraint profiles_avatar_moderacao_chk check (
   avatar_moderacao in ('pendente', 'aprovada', 'recusada', 'revisar'));
@@ -1795,8 +1797,13 @@ language sql
 stable
 set search_path = ''
 as $$
+  -- primeiro quem tem consentimento vigente (o conjunto pequeno), depois o filtro completo
   select public.mesa_ia_ligada()
-     and exists (select 1 from public.profiles p where p.avatar_moderacao = 'pendente' and public.mesa_foto_na_fila(p.id));
+     and exists (select 1
+                 from public.user_profiles_ext x
+                 join public.profiles p on p.id = x.user_id and p.avatar_moderacao = 'pendente'
+                 where x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
+                   and public.mesa_foto_na_fila(p.id));
 $$;
 
 --     mesa_fotos_para_moderar_auto: até p_limite fotos da fila (mesa_foto_na_fila); reserva cada uma
@@ -1829,11 +1836,20 @@ begin
   if v_n <= 0 then
     return jsonb_build_object('modelo', v_modelo, 'fotos', '[]'::jsonb);
   end if;
+  -- Reserva e tentativas repetidas aqui: mesa_foto_na_fila enxerga o banco do início do comando, e
+  -- depois do "skip locked" a linha travada é relida; sem isto, duas rodadas simultâneas poderiam
+  -- reservar a mesma foto. Ordem: quem nunca foi reservado primeiro e a reservada há mais tempo
+  -- depois (a foto que interrompeu uma rodada vai para o fim e não trava o lote).
   with alvo as (
     select p.id
-    from public.profiles p
-    where p.avatar_moderacao = 'pendente' and public.mesa_foto_na_fila(p.id)
-    order by p.avatar_moderacao_tentativas, p.id
+    from public.user_profiles_ext x
+    join public.profiles p on p.id = x.user_id
+    where x.mesa_consent_at is not null and x.mesa_consent_revoked_at is null
+      and p.avatar_moderacao = 'pendente'
+      and (p.avatar_moderacao_reservada_ate is null or p.avatar_moderacao_reservada_ate < now())
+      and p.avatar_moderacao_tentativas < 3
+      and public.mesa_foto_na_fila(p.id)
+    order by p.avatar_moderacao_reservada_ate nulls first, p.avatar_moderacao_tentativas, p.id
     limit v_n
     for update of p skip locked
   ), reservadas as (
@@ -1903,7 +1919,8 @@ $$;
 -- 6g. mesa_foto_contestar (LGPD, art. 20): a pessoa pede revisão humana da recusa automática da
 --     PRÓPRIA foto. Só quando a foto atual está recusada pela IA (a última decisão da IA para o mesmo
 --     hash é "recusada") e só 1 vez por foto (hash); a foto vai para "revisar" e aparece na fila do
---     admin. Devolve false quando não dá para contestar.
+--     admin. Devolve false quando não dá para contestar. Trocar a foto e voltar à mesma (A→B→A) não dá
+--     nova contestação: o limite é pelo hash.
 create or replace function public.mesa_foto_contestar()
 returns boolean
 language plpgsql
@@ -1925,9 +1942,13 @@ begin
          order by m.id desc limit 1) is distinct from 'recusada' then
     return false;
   end if;
-  insert into public.mesa_moderacoes (user_id, hash, decisao) values (v_uid, v_hash, 'contestada');
+  -- primeiro a mudança de estado, com a foto conferida de novo (trocada no meio: nada é gravado)
   update public.profiles p set avatar_moderacao = 'revisar', avatar_moderado_em = now()
-  where p.id = v_uid and p.avatar_moderacao = 'recusada';
+  where p.id = v_uid and p.avatar_moderacao = 'recusada' and public.mesa_foto_hash(p.avatar_url) = v_hash;
+  if not found then
+    return false;
+  end if;
+  insert into public.mesa_moderacoes (user_id, hash, decisao) values (v_uid, v_hash, 'contestada');
   return true;
 end;
 $$;

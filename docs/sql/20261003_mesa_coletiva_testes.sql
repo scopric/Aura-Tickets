@@ -3,12 +3,12 @@
 -- produção). Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código: são dois blocos,
 -- cada um num begin … rollback (nada fica gravado), mas mexem em gatilhos e no cron dentro da
 -- transação.
--- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E29: escolha, troca, denúncia e triagem,
+-- T0–T21: formação, perfil, consentimento, idade, grants (seg-6). E0–E30: escolha, troca, denúncia e triagem,
 -- faixa de idade, rede social, moderação da foto, avisos, remoção e trava, numeração, conflitos
 -- de interesse do moderador, moderação automática da foto (Fase E).
 -- Contas de teste com ids fixos (b0000000-…); e-mails *.invalid. Cada teste termina com
 -- "NOTICE: Tn OK" ou "NOTICE: En OK"; falha = ERROR com o valor recebido.
--- Rodado em 01/10/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E29 OK.
+-- Rodado em 01/10/2026 (código aplicado duas vezes, depois do essencial do seg-6, #85): T1–T21 e E1–E30 OK.
 -- Stubs usados no Postgres descartável (supabase/postgres 17.6.1.171), fora do repositório:
 -- profiles/events/ticket_types/tickets/user_profiles_ext/collective_tables/table_members com as
 -- colunas, CHECKs, FKs, RLS e GRANTs de produção (compatibility_score numeric(3,1),
@@ -1464,6 +1464,50 @@ begin
   assert (select avatar_moderacao = 'pendente' from public.profiles where id = pg_temp.u(44))
      and not public.mesa_tem_foto_para_moderar(), 'pendente sem consentimento conta para o cron';
   raise notice 'E29 OK: contestação (só a própria, só recusa da IA, 1 vez, vai ao admin); limite por pessoa; motivos aos 30 dias; interruptor; cron só com foto na fila';
+end $t$;
+
+-- E30. Fase E, últimas correções: A→B→A não dá 2ª contestação do hash A; contestar com a foto trocada
+--      não grava nada (e o update vem antes do insert); a foto reservada por último vai para o fim da fila
+do $t$
+declare r jsonb; f text := pg_get_functiondef('public.mesa_foto_contestar()'::regprocedure);
+begin
+  -- A→B→A: o 42 já contestou o hash A (E29); a IA recusa A de novo; não há 2ª contestação
+  perform pg_temp.como(pg_temp.u(42));
+  update public.profiles set avatar_url = pg_temp.foto('42b') where id = pg_temp.u(42);
+  update public.profiles set avatar_url = pg_temp.foto('42') where id = pg_temp.u(42);
+  perform pg_temp.como(null);
+  perform set_config('role', 'service_role', true);
+  assert public.mesa_foto_resultado_auto(pg_temp.u(42), public.mesa_foto_hash(pg_temp.foto('42')), 'recusada', '{nudez}',
+                                         'gemini-3.1-flash-lite', 560, 60), 'preparo: recusa de A';
+  perform set_config('role', 'postgres', true);
+  assert pg_temp.rpc(42, 'public.mesa_foto_contestar()') = 'false', '2ª contestação do hash A';
+  assert (select count(*) from public.mesa_moderacoes where user_id = pg_temp.u(42) and decisao = 'contestada') = 1, 'contestada gravada de novo';
+  assert (select avatar_moderacao = 'recusada' from public.profiles where id = pg_temp.u(42)), 'estado mudou';
+  -- foto trocada: a contestação devolve false e não grava "contestada"; no código, o update (que
+  -- confere o hash de novo) vem antes do insert
+  perform pg_temp.como(pg_temp.u(42));
+  update public.profiles set avatar_url = pg_temp.foto('42c') where id = pg_temp.u(42);
+  perform pg_temp.como(null);
+  assert pg_temp.rpc(42, 'public.mesa_foto_contestar()') = 'false', 'contestou foto trocada';
+  assert (select count(*) from public.mesa_moderacoes where user_id = pg_temp.u(42) and decisao = 'contestada') = 1, 'gravou contestada';
+  assert position('update public.profiles' in f) < position('insert into public.mesa_moderacoes' in f)
+     and f like '%if not found then%', 'insert antes do update';
+  -- ordem da fila: nunca reservada antes da reservada há mais tempo (as outras pendentes ficam reservadas)
+  insert into auth.users (id, email) select pg_temp.u(g), 'pessoa' || g || '@teste.evokaa.invalid' from generate_series(49, 50) g;
+  insert into public.profiles (id, full_name, birth_date, avatar_url)
+  select pg_temp.u(g), 'Pessoa' || g || ' Sobrenome', date '1995-06-15', pg_temp.foto(g::text) from generate_series(49, 50) g;
+  perform pg_temp.consente(g) from generate_series(49, 50) g;
+  update public.profiles set avatar_moderacao_reservada_ate = now() + interval '1 hour'
+  where avatar_moderacao = 'pendente' and id not in (pg_temp.u(49), pg_temp.u(50));
+  update public.profiles set avatar_moderacao_reservada_ate = now() - interval '1 minute' where id = pg_temp.u(49);
+  perform set_config('role', 'service_role', true);
+  r := public.mesa_fotos_para_moderar_auto(1);
+  assert r -> 'fotos' -> 0 ->> 'user' = pg_temp.u(50)::text, format('a reservada por último veio antes: %s', r -> 'fotos' -> 0 ->> 'user');
+  r := public.mesa_fotos_para_moderar_auto(1);
+  assert r -> 'fotos' -> 0 ->> 'user' = pg_temp.u(49)::text, 'a reservada por último não veio depois';
+  assert public.mesa_fotos_para_moderar_auto(5) -> 'fotos' = '[]', 'reservou de novo';
+  perform set_config('role', 'postgres', true);
+  raise notice 'E30 OK: A→B→A sem 2ª contestação; foto trocada não contesta; fila com a reservada por último no fim';
 end $t$;
 
 -- E16. anon sem EXECUTE; tabela de denúncias sem grant; funções internas fechadas; 2FA
