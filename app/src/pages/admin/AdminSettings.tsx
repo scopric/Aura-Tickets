@@ -21,9 +21,9 @@ const LOG_LABEL: Record<string, string> = { login: 'Login', page_view: 'Página'
 
 // Colunas reais das tabelas (conferidas em produção); o PostgREST devolve no máximo 1.000 linhas por consulta
 const EXPORTS: Record<string, { table: string; columns: string[] }> = {
-  Usuarios: { table: 'profiles', columns: ['id', 'email', 'full_name', 'role', 'created_at'] },
+  Usuários: { table: 'profiles', columns: ['id', 'email', 'full_name', 'role', 'created_at'] },
   Eventos: { table: 'events', columns: ['id', 'title', 'venue_name', 'venue_city', 'date', 'status', 'approval_status', 'created_at'] },
-  Transacoes: { table: 'orders', columns: ['id', 'user_id', 'event_id', 'total', 'status', 'payment_method', 'created_at'] },
+  Transações: { table: 'orders', columns: ['id', 'user_id', 'event_id', 'total', 'status', 'payment_method', 'created_at'] },
   Logs: { table: 'user_activities', columns: ['id', 'user_id', 'session_id', 'event_type', 'path', 'created_at'] },
 }
 
@@ -216,17 +216,17 @@ export default function AdminSettingsPage() {
   const sidebarItems: { id: Section; label: string; icon: typeof Settings }[] = [
     { id: 'geral', label: 'Geral', icon: Globe },
     { id: 'email', label: 'E-mail', icon: Mail },
-    { id: 'moderacao', label: 'Moderacao', icon: Shield },
+    { id: 'moderacao', label: 'Moderação', icon: Shield },
     { id: 'backup', label: 'Backup', icon: Database },
     { id: 'logs', label: 'Logs', icon: FileText },
-    { id: 'seguranca', label: 'Seguranca', icon: Lock },
+    { id: 'seguranca', label: 'Segurança', icon: Lock },
   ]
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl">
       <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Configuracoes</h1>
-        <p className="text-sm text-espresso/70 mt-1">Administracao da plataforma</p>
+        <h1 className="font-serif text-3xl text-espresso">Configurações</h1>
+        <p className="text-sm text-espresso/70 mt-1">Administração da plataforma</p>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-8">
@@ -259,7 +259,7 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
-              <h2 className="text-lg font-medium text-espresso">Configuracoes Gerais</h2>
+              <h2 className="text-lg font-medium text-espresso">Configurações Gerais</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -287,9 +287,9 @@ export default function AdminSettingsPage() {
               <div className="border-t border-espresso/5 pt-4 space-y-3">
                 <h3 className="text-sm font-medium text-espresso">Controle da Plataforma</h3>
                 {[
-                  { key: 'maintenance', label: 'Modo manutencao', desc: 'Mostra pagina de manutencao para todos' },
-                  { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuarios se cadastrarem' },
-                  { key: 'producerApproval', label: 'Aprovacao de produtores', desc: 'Produtores precisam ser aprovados manualmente' },
+                  { key: 'maintenance', label: 'Modo manutenção', desc: 'Mostra página de manutenção para todos' },
+                  { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuários se cadastrarem' },
+                  { key: 'producerApproval', label: 'Aprovação de produtores', desc: 'Produtores precisam ser aprovados manualmente' },
                 ].map(item => {
                   const isChecked = getGeneralValue(item.key);
                   return (
@@ -319,7 +319,7 @@ export default function AdminSettingsPage() {
           {/* EMAIL: somente leitura; nada aqui é editável nem gravado no banco */}
           {section === 'email' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Configuracao de E-mail</h2>
+              <h2 className="text-lg font-medium text-espresso">Configuração de E-mail</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
@@ -356,7 +356,7 @@ export default function AdminSettingsPage() {
           {/* MODERACAO */}
           {section === 'moderacao' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Moderacao</h2>
+              <h2 className="text-lg font-medium text-espresso">Moderação</h2>
 
               <div>
                 <label htmlFor="bannedWords" className="text-xs text-espresso/70 mb-1 block">Palavras Proibidas</label>
@@ -366,8 +366,8 @@ export default function AdminSettingsPage() {
 
               <div className="space-y-3">
                 {[
-                  { key: 'autoFlag', label: 'Flag automatico', desc: 'Marcar conteudo com palavras proibidas automaticamente' },
-                  { key: 'requireApproval', label: 'Aprovacao manual', desc: 'Reviews e comentarios precisam de aprovacao' },
+                  { key: 'autoFlag', label: 'Flag automático', desc: 'Marcar conteúdo com palavras proibidas automaticamente' },
+                  { key: 'requireApproval', label: 'Aprovação manual', desc: 'Reviews e comentários precisam de aprovação' },
                 ].map(item => {
                   const isChecked = getModerationValue(item.key);
                   return (
@@ -387,8 +387,8 @@ export default function AdminSettingsPage() {
 
                 <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
                   <div>
-                    <label htmlFor="reportThreshold" className="text-sm text-espresso">Limite de denuncias</label>
-                    <div className="text-[10px] text-espresso/70">Bloquear automaticamente apos X denuncias</div>
+                    <label htmlFor="reportThreshold" className="text-sm text-espresso">Limite de denúncias</label>
+                    <div className="text-[10px] text-espresso/70">Bloquear automaticamente após X denúncias</div>
                   </div>
                   <input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-16 px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-sm text-espresso text-center focus:outline-none focus:border-plum/30" />
                 </div>
@@ -405,7 +405,7 @@ export default function AdminSettingsPage() {
           {/* BACKUP */}
           {section === 'backup' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Backup & Exportacao</h2>
+              <h2 className="text-lg font-medium text-espresso">Backup & Exportação</h2>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-5 rounded-2xl bg-card border border-border">
@@ -462,7 +462,7 @@ export default function AdminSettingsPage() {
                     <thead>
                       <tr className="border-b border-border">
                         <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Tipo</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Usuario</th>
+                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Usuário</th>
                         <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Caminho</th>
                         <th className="text-right px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Data</th>
                       </tr>
@@ -493,7 +493,7 @@ export default function AdminSettingsPage() {
           {/* SEGURANCA */}
           {section === 'seguranca' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Seguranca</h2>
+              <h2 className="text-lg font-medium text-espresso">Segurança</h2>
 
               {/* 2FA Pessoal do Admin */}
               <div className="p-4 rounded-xl bg-white/60 border border-white/60 flex items-center justify-between">

@@ -21,7 +21,7 @@ test.describe('admin — configurações (conta demo, DEV)', () => {
 
   test('abas existem e os campos falsos sumiram', async ({ page }) => {
     await page.goto(`${ALPHA}/admin/settings`)
-    await expect(page.getByRole('heading', { name: 'Configuracoes', exact: true })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Configurações', exact: true })).toBeVisible({ timeout: 15000 })
 
     const aba = (nome: RegExp) => page.getByRole('button', { name: nome }).first()
     for (const nome of [/^Geral$/, /^E-mail$/, /^Backup$/, /^Logs$/, /^Seguran[cç]a$/]) {
