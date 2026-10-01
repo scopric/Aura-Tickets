@@ -101,12 +101,13 @@ Deno.serve(async (req) => {
     }).eq('user_id', uid)],
     ['support_messages', () => admin.from('support_messages').delete().eq('sender_id', uid)],
     ['support_sessions', () => admin.from('support_sessions').update({ user_id: null }).eq('user_id', uid)],
-    // Registro do Evo (Política, seção 8: fica até o pedido de eliminação): sai o resumo da mensagem
-    // e o vínculo com a pessoa; data, modelo e custo ficam, anônimos, na conta de gasto da plataforma
-    ['ai_usage', () => admin.from('ai_usage').update({ user_id: null, resumo: null }).eq('user_id', uid)],
-    // Tabelas só pessoais, sem valor fiscal
+    // Tabelas só pessoais, sem valor fiscal. ai_usage é o registro de uso do Evo, que a Política
+    // (seção 8) guarda "até você pedir a eliminação": apagar, não anonimizar (o rascunho criado
+    // pelo Evo guarda o id da linha em events.settings e religaria a pessoa).
+    // ponytail: pergunta ao Evo nos segundos da exclusão ainda pode gravar 1 linha (ai_log); fechar exige barrar no SQL
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
-        'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists']
+        'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists',
+        'ai_usage', 'ai_credit_grants']
       .map((t): [string, () => PromiseLike<{ error: { message: string } | null }>] =>
         [t, () => admin.from(t).delete().eq('user_id', uid)]),
   ]
