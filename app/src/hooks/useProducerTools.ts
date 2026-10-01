@@ -830,7 +830,107 @@ export function useEventCertificates(eventId: string | null) {
   })
 }
 
-// Emissão (issued_certificates) fica para a fase B3: ainda não há regra de acesso do produtor.
+// Emissão (B3, docs/sql/20261005_produtor_acesso.sql, DECISÕES 16): o produtor insere só (certificate_id, user_id)
+// para quem tem ingresso ativo ou usado do evento; um por pessoa (23505); revogar = apagar.
+// Sem e-mail: a tela não usa (minimização, LGPD)
+export interface Participante {
+  user_id: string
+  nome: string
+  checkin: boolean // algum ingresso da pessoa está 'used'
+}
+
+export function useParticipantesCertificado(eventId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery<{ lista: Participante[]; cortado: boolean }>({
+    queryKey: ['certificado-participantes', eventId],
+    queryFn: async () => {
+      // a regra "Produtores leem ingressos dos próprios eventos" deixa ler os do evento dele.
+      // ponytail: cortado no max_rows (1.000) do PostgREST; o count diz se cortou e a tela avisa. Paginar ou RPC
+      // quando um evento passar de 1.000 ingressos.
+      const { data, error, count } = await supabase
+        .from('tickets')
+        .select('user_id, buyer_name, status', { count: 'exact' })
+        .eq('event_id', eventId!)
+        .in('status', ['active', 'used'])
+      if (error) throw error
+      // uma linha por pessoa: quem tem vários ingressos aparece uma vez; check-in se algum foi usado
+      const porPessoa = new Map<string, Participante>()
+      const linhas = (data ?? []) as unknown as { user_id: string; buyer_name: string; status: string }[]
+      for (const t of linhas) {
+        const p = porPessoa.get(t.user_id)
+        if (p) p.checkin ||= t.status === 'used'
+        else porPessoa.set(t.user_id, { user_id: t.user_id, nome: t.buyer_name, checkin: t.status === 'used' })
+      }
+      return {
+        lista: [...porPessoa.values()].sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR')),
+        cortado: (count ?? 0) > linhas.length,
+      }
+    },
+    enabled: !!user?.id && !!eventId,
+  })
+}
+
+export interface CertificadoEmitido {
+  id: string
+  user_id: string
+  issued_at: string
+}
+
+export function useCertificadosEmitidos(certificateId: string | null) {
+  const { user } = useAuth()
+
+  return useQuery<CertificadoEmitido[]>({
+    queryKey: ['certificados-emitidos', certificateId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('issued_certificates')
+        .select('id, user_id, issued_at')
+        .eq('certificate_id', certificateId!)
+      if (error) throw error
+      return (data ?? []) as unknown as CertificadoEmitido[]
+    },
+    enabled: !!user?.id && !!certificateId,
+  })
+}
+
+export function useEmitirCertificados() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ certificateId, userIds }: { certificateId: string; userIds: string[] }) => {
+      const { data, error } = await supabase
+        .from('issued_certificates')
+        // as never: types/database.ts desatualizado (pendência supabase gen types); só estas 2 colunas têm INSERT
+        .insert(userIds.map(user_id => ({ certificate_id: certificateId, user_id })) as never)
+        .select('id')
+      if (error) throw error
+      if ((data ?? []).length !== userIds.length) throw new Error('Nem todos os certificados foram emitidos')
+      return data
+    },
+    // inserção única (tudo ou nada): se um ingresso foi cancelado depois da carga, o banco recusa o lote inteiro.
+    // Sucesso ou erro, relê emitidos e participantes.
+    onSettled: (_d, _e, v) => {
+      queryClient.invalidateQueries({ queryKey: ['certificados-emitidos', v.certificateId] })
+      queryClient.invalidateQueries({ queryKey: ['certificado-participantes'] })
+    },
+  })
+}
+
+export function useRevogarCertificado() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; certificateId: string }) => {
+      const { data, error } = await supabase.from('issued_certificates').delete().eq('id', id).select('id')
+      if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
+    },
+    onSettled: (_d, _e, v) => {
+      queryClient.invalidateQueries({ queryKey: ['certificados-emitidos', v.certificateId] })
+    },
+  })
+}
 
 // ─── Budget Boxes / PiggyBank ───
 export interface DbBudgetBox {

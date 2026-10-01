@@ -223,16 +223,15 @@ export function useProducerEvents() {
 
         return await Promise.race([
           fetchPromise,
-          new Promise<DbEvent[]>((resolve) => 
-            setTimeout(() => {
-              console.warn('[useProducerEvents] Timeout ao buscar eventos, usando fallback local.');
-              resolve(isDemoAccount(user.id) ? MOCK_EVENTS : [])
-            }, 6000)
+          new Promise<DbEvent[]>((_, reject) =>
+            setTimeout(() => reject(new Error('Tempo esgotado ao buscar eventos')), 6000)
           )
         ])
       } catch (err) {
         console.error('[useProducerEvents] Erro:', err)
-        return isDemoAccount(user?.id) ? MOCK_EVENTS : []
+        // conta real: o erro sobe (a tela mostra "Tentar de novo"); lista vazia aqui virava "você não tem eventos"
+        if (isDemoAccount(user?.id)) return MOCK_EVENTS
+        throw err
       }
     },
     enabled: !!user?.id,
@@ -276,6 +275,7 @@ export function useCreateEvent() {
           date: event.date || null,
           time: event.time || null,
           start_date: event.start_date || new Date().toISOString(),
+          end_date: event.end_date || null,
           status: event.status || 'draft',
           visibility: event.visibility || 'public',
           capacity: event.capacity || null,
@@ -299,7 +299,7 @@ export function useCreateEvent() {
           quantity_sold: 0,
           type: t.type || 'individual',
           perks: t.perks || [],
-          is_active: true,
+          is_active: t.is_active ?? true,
           // sem lot_number: a coluna não existe em ticket_types (Decisão 20: o código se adapta ao banco)
         }))
 
@@ -412,16 +412,43 @@ export function useDeleteEvent() {
 
   return useMutation({
     mutationFn: async (eventId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('events')
         .delete()
         .eq('id', eventId)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-events', user?.id] })
     }
+  })
+}
+
+// Ingressos válidos (ativo ou usado) por evento do produtor. ticket_types.sold não é atualizado por nada no banco;
+// transferido não conta (quem recebe fica com um ingresso ativo, como no Início).
+export function useVendidosPorEvento() {
+  const { user } = useAuth()
+
+  return useQuery<{ porEvento: Record<string, number>; cortado: boolean }>({
+    queryKey: ['producer-vendidos', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      // ponytail: traz só event_id e conta no navegador, cortado no max_rows (1.000) do PostgREST; o count diz se
+      // cortou e a tela avisa. Contagem exata quando houver RPC/view de vendas (F2).
+      const { data, error, count } = await supabase
+        .from('tickets')
+        .select('event_id, events!inner(producer_id)', { count: 'exact' })
+        .eq('events.producer_id', user!.id)
+        .in('status', ['active', 'used'])
+      if (error) throw error
+      const linhas = (data ?? []) as unknown as { event_id: string }[]
+      const porEvento: Record<string, number> = {}
+      for (const t of linhas) porEvento[t.event_id] = (porEvento[t.event_id] ?? 0) + 1
+      return { porEvento, cortado: (count ?? 0) > linhas.length }
+    },
   })
 }
 

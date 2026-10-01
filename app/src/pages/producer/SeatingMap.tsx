@@ -2376,175 +2376,161 @@ export default function SeatingMap() {
     reader.readAsText(file)
   }
 
+  // Moldura no estilo do painel (Decisão 112): tokens de .painel-produtor só no cabeçalho e na barra de pavimentos.
+  // O miolo do editor (barras laterais, planta e janelas) fica como está; text-espresso na raiz é a cor que ele herda.
+  const btnIcone = 'inline-flex items-center justify-center rounded-md border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 disabled:hover:bg-card flex-shrink-0'
+  const btnLigado = (on: boolean) => `inline-flex items-center justify-center rounded-md border p-2 transition-colors flex-shrink-0 ${on ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:bg-foreground/5 hover:text-foreground'}`
   return (
-    <div className="w-full max-w-full h-screen max-h-screen relative flex flex-col overflow-hidden glass-canvas font-sans text-espresso select-none min-w-0">
-      
-      {/* HEADER SUPERIOR CLARO LUXUOSO */}
-      <header className="w-full max-w-full flex items-center justify-between px-3 py-2 md:px-6 md:py-3 border-b border-stone-200/60 bg-white/90 dark:bg-canvas/90 backdrop-blur-md z-30 shadow-sm flex-nowrap gap-2 md:gap-4 overflow-hidden min-w-0 flex-shrink-0">
+    <div className="painel-produtor w-full max-w-full h-screen max-h-screen relative flex flex-col overflow-hidden glass-canvas font-sans text-espresso select-none min-w-0">
+
+      {/* CABEÇALHO */}
+      <header className="w-full max-w-full flex items-center justify-between px-3 py-2 md:px-6 md:py-3 border-b border-border bg-card text-foreground z-30 flex-nowrap gap-2 md:gap-4 overflow-hidden min-w-0 flex-shrink-0">
         <div className="flex items-center gap-3 flex-shrink-0">
-          <Link to="/producer/dashboard" className="p-2 rounded-xl bg-white dark:bg-white/5 border border-stone-200/80 text-espresso/70 hover:text-espresso hover:bg-stone-50 hover:border-stone-300 transition-all shadow-xs flex-shrink-0">
-            <ArrowLeft className="w-4 h-4" />
+          <Link to="/producer/dashboard" className={btnIcone} aria-label="Voltar ao painel">
+            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           </Link>
           <div className="flex flex-col min-w-0">
-            <h1 className="font-serif text-base lg:text-lg font-bold text-espresso tracking-tight flex items-center gap-2 whitespace-nowrap">
-              <span>Editor de Mapa</span>
-              <span className="text-[9px] uppercase tracking-widest bg-plum/10 text-plum border border-plum/20 px-2 py-0.5 rounded-md font-sans font-bold whitespace-nowrap">Métrico Real</span>
+            <h1 className="text-base lg:text-lg font-semibold text-foreground tracking-tight flex items-center gap-2 whitespace-nowrap">
+              <span>Editor de mapa</span>
+              <span className="hidden sm:inline-flex rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-secondary-foreground whitespace-nowrap">Escala métrica</span>
             </h1>
-            <p className="hidden xl:block text-[10px] text-espresso/70 font-mono mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Segure ESPAÇO + arrastar para navegar · Rolar mouse = Zoom</p>
+            <p className="hidden xl:block text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Segure Espaço e arraste para navegar · role o mouse para dar zoom</p>
           </div>
-          <button 
-            onClick={handleSaveMap} 
-            className="ml-2 px-3 py-1.5 bg-plum text-cream text-[11px] font-bold rounded-xl hover:bg-plum/90 hover:shadow-glow transition-all flex items-center gap-1.5 border border-plum/10 active:scale-95 shadow flex-shrink-0 whitespace-nowrap"
+          <button
+            onClick={handleSaveMap}
+            className="ml-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 flex-shrink-0 whitespace-nowrap"
           >
-            <Save className="w-3.5 h-3.5" /> Salvar
+            <Save className="w-3.5 h-3.5" aria-hidden="true" /> Salvar
           </button>
         </div>
 
         {/* CONTROLES SUPERIORES */}
         <div className="flex items-center gap-1.5 lg:gap-2 flex-shrink-0 min-w-0">
 
-          {/* Barra de Pesquisa (oculta em telas muito pequenas) */}
+          {/* Barra de pesquisa (oculta em telas muito pequenas) */}
           <div className="relative flex-shrink-0 hidden sm:block">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-espresso/40" />
-            <input 
-              value={search} 
+            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <input
+              value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Pesquisar..." 
-              className="pl-8 pr-3 py-1.5 bg-white dark:bg-white/5 border border-stone-200/80 rounded-xl text-xs text-espresso placeholder-espresso/40 w-16 focus:w-28 md:w-24 md:focus:w-32 lg:w-36 focus:outline-none focus:border-plum/50 focus:bg-stone-50 transition-all shadow-xs" 
+              placeholder="Pesquisar…"
+              aria-label="Pesquisar no mapa"
+              className="h-8 pl-8 pr-3 rounded-md border border-input bg-transparent text-xs text-foreground placeholder:text-muted-foreground w-16 focus:w-28 md:w-24 md:focus:w-32 lg:w-36 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 transition-all"
             />
           </div>
 
-          {/* Seleção e Movimento */}
-          <div className="flex items-center gap-0.5 bg-stone-100 p-0.5 rounded-xl border border-stone-200/40 flex-shrink-0">
-            <button 
-              onClick={() => { setTool('select'); setIsPan(false); }} 
-              title="Selecionar (V)" 
-              className={`p-1.5 rounded-lg transition-all ${tool === 'select' && !isPan ? 'bg-white dark:bg-white/5 text-plum shadow-xs font-semibold' : 'bg-transparent text-espresso/70 hover:text-espresso'}`}
+          {/* Seleção e movimento */}
+          <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted p-0.5 flex-shrink-0">
+            <button
+              onClick={() => { setTool('select'); setIsPan(false); }}
+              title="Selecionar (V)"
+              aria-label="Selecionar (V)"
+              aria-pressed={tool === 'select' && !isPan}
+              className={`p-1.5 rounded transition-colors ${tool === 'select' && !isPan ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <MousePointer className="w-3.5 h-3.5" />
+              <MousePointer className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
-            <button 
-              onClick={() => { setTool('pan'); setIsPan(true); }} 
-              title="Mão / Mover Tela (H)" 
-              className={`p-1.5 rounded-lg transition-all ${(tool === 'pan' || isPan) ? 'bg-white dark:bg-white/5 text-plum shadow-xs font-semibold' : 'bg-transparent text-espresso/70 hover:text-espresso'}`}
+            <button
+              onClick={() => { setTool('pan'); setIsPan(true); }}
+              title="Mão: mover a tela (H)"
+              aria-label="Mão: mover a tela (H)"
+              aria-pressed={tool === 'pan' || isPan}
+              className={`p-1.5 rounded transition-colors ${(tool === 'pan' || isPan) ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Hand className="w-3.5 h-3.5" />
+              <Hand className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
 
-          {/* Grade e Nomes (ocultos abaixo de lg para economizar espaço horizontal) */}
-          <button 
-            onClick={() => setShowGrid(!showGrid)} 
-            title="Grade Métrica" 
-            className={`p-2 rounded-xl border transition-all shadow-xs flex-shrink-0 hidden lg:inline-flex ${showGrid ? 'bg-plum/10 border-plum/30 text-plum font-semibold' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}
-          >
-            <Grid3X3 className="w-4 h-4" />
+          {/* Grade e nomes (ocultos abaixo de lg para economizar espaço horizontal) */}
+          <button onClick={() => setShowGrid(!showGrid)} title="Grade métrica" aria-label="Grade métrica" aria-pressed={showGrid} className={`${btnLigado(showGrid)} hidden lg:inline-flex`}>
+            <Grid3X3 className="w-4 h-4" aria-hidden="true" />
           </button>
-          <button 
-            onClick={() => setShowLabels(!showLabels)} 
-            title="Mostrar Nomes" 
-            className={`p-2 rounded-xl border transition-all shadow-xs flex-shrink-0 hidden lg:inline-flex ${showLabels ? 'bg-plum/10 border-plum/30 text-plum font-semibold' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}
-          >
-            <Type className="w-4 h-4" />
+          <button onClick={() => setShowLabels(!showLabels)} title="Mostrar nomes" aria-label="Mostrar nomes" aria-pressed={showLabels} className={`${btnLigado(showLabels)} hidden lg:inline-flex`}>
+            <Type className="w-4 h-4" aria-hidden="true" />
           </button>
 
           {/* Minimapa (oculto abaixo de xl) */}
-          <button 
-            onClick={() => setShowMinimap(!showMinimap)} 
-            title="Minimapa" 
-            className={`p-2 rounded-xl border transition-all shadow-xs flex-shrink-0 hidden xl:inline-flex ${showMinimap ? 'bg-plum/10 border-plum/30 text-plum font-semibold' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}
-          >
-            <MapPin className="w-4 h-4" />
+          <button onClick={() => setShowMinimap(!showMinimap)} title="Minimapa" aria-label="Minimapa" aria-pressed={showMinimap} className={`${btnLigado(showMinimap)} hidden xl:inline-flex`}>
+            <MapPin className="w-4 h-4" aria-hidden="true" />
           </button>
 
-          {/* Desfazer e Refazer (ocultos abaixo de xl) */}
-          <div className="w-px h-6 bg-stone-200/60 mx-1 flex-shrink-0 hidden xl:block" />
+          {/* Desfazer e refazer (ocultos abaixo de xl) */}
+          <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden xl:block" />
 
-          <button 
-            onClick={undo} 
-            disabled={(histIdx[activeEnv] || 0) <= 0} 
-            title="Desfazer (Ctrl+Z)"
-            className="p-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 text-espresso/70 hover:text-espresso hover:bg-stone-50 disabled:opacity-35 disabled:hover:bg-white transition-all shadow-xs flex-shrink-0 hidden xl:inline-flex"
-          >
-            <Undo className="w-4 h-4" />
+          <button onClick={undo} disabled={(histIdx[activeEnv] || 0) <= 0} title="Desfazer (Ctrl+Z)" aria-label="Desfazer (Ctrl+Z)" className={`${btnIcone} hidden xl:inline-flex`}>
+            <Undo className="w-4 h-4" aria-hidden="true" />
           </button>
-          <button 
-            onClick={redo} 
-            disabled={(histIdx[activeEnv] || 0) >= ((history[activeEnv] || []).length - 1)} 
-            title="Refazer (Ctrl+Y)"
-            className="p-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 text-espresso/70 hover:text-espresso hover:bg-stone-50 disabled:opacity-35 disabled:hover:bg-white transition-all shadow-xs flex-shrink-0 hidden xl:inline-flex"
-          >
-            <Redo className="w-4 h-4" />
+          <button onClick={redo} disabled={(histIdx[activeEnv] || 0) >= ((history[activeEnv] || []).length - 1)} title="Refazer (Ctrl+Y)" aria-label="Refazer (Ctrl+Y)" className={`${btnIcone} hidden xl:inline-flex`}>
+            <Redo className="w-4 h-4" aria-hidden="true" />
           </button>
 
-          {/* Bloco de Zoom completo (visível apenas acima de 2xl) */}
-          <div className="w-px h-6 bg-stone-200/60 mx-1 flex-shrink-0 hidden 2xl:block" />
+          {/* Bloco de zoom completo (visível só acima de 2xl) */}
+          <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden 2xl:block" />
 
-          <div className="flex items-center gap-0.5 bg-white dark:bg-white/5 rounded-xl border border-stone-200/80 px-1 py-0.5 shadow-xs flex-shrink-0 hidden 2xl:flex">
-            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} title="Afastar" className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70"><ZoomOut className="w-3.5 h-3.5" /></button>
-            <span className="text-[10px] font-mono font-bold text-espresso/80 w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} title="Aproximar" className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70"><ZoomIn className="w-3.5 h-3.5" /></button>
-            <button onClick={centerPavilion} title="Centralizar Pavilhão na Tela" className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70"><RotateCcw className="w-3.5 h-3.5" /></button>
+          <div className="items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 flex-shrink-0 hidden 2xl:flex">
+            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} title="Afastar" aria-label="Afastar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><ZoomOut className="w-3.5 h-3.5" aria-hidden="true" /></button>
+            <span className="text-[11px] font-medium tabular-nums text-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
+            <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} title="Aproximar" aria-label="Aproximar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><ZoomIn className="w-3.5 h-3.5" aria-hidden="true" /></button>
+            <button onClick={centerPavilion} title="Centralizar o pavilhão na tela" aria-label="Centralizar o pavilhão na tela" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /></button>
           </div>
 
-          {/* Botão de Centralizar avulso (útil e compacto em telas menores) */}
-          <button 
-            onClick={centerPavilion} 
-            title="Centralizar Pavilhão" 
-            className="p-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 text-espresso/70 hover:text-espresso hover:bg-stone-50 transition-all shadow-xs flex-shrink-0 2xl:hidden"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
+          {/* Centralizar avulso (útil e compacto em telas menores) */}
+          <button onClick={centerPavilion} title="Centralizar o pavilhão" aria-label="Centralizar o pavilhão" className={`${btnIcone} 2xl:hidden`}>
+            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
 
-          {/* Exportar e Importar JSON (ocultos abaixo de 2xl) */}
-          <div className="w-px h-6 bg-stone-200/60 mx-1 flex-shrink-0 hidden 2xl:block" />
+          {/* Exportar e importar JSON (ocultos abaixo de 2xl) */}
+          <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden 2xl:block" />
 
-          <button onClick={exportMap} className="p-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 text-espresso/70 hover:text-espresso hover:bg-stone-50 transition-all shadow-xs flex-shrink-0 hidden 2xl:inline-flex" title="Exportar JSON"><Download className="w-4 h-4" /></button>
-          <label className="p-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 text-espresso/70 hover:text-espresso hover:bg-stone-50 cursor-pointer transition-all shadow-xs flex-shrink-0 hidden 2xl:inline-flex" title="Importar JSON">
-            <Upload className="w-4 h-4" />
+          <button onClick={exportMap} className={`${btnIcone} hidden 2xl:inline-flex`} title="Exportar JSON" aria-label="Exportar JSON"><Download className="w-4 h-4" aria-hidden="true" /></button>
+          <label className={`${btnIcone} cursor-pointer hidden 2xl:inline-flex`} title="Importar JSON">
+            <Upload className="w-4 h-4" aria-hidden="true" />
+            <span className="sr-only">Importar JSON</span>
             <input type="file" accept=".json" className="hidden" onChange={e => e.target.files?.[0] && importMap(e.target.files[0])} />
           </label>
         </div>
       </header>
 
       {/* PAVIMENTOS / AMBIENTES */}
-      <div className="w-full max-w-full flex items-center gap-2 px-6 py-2 border-b border-stone-200/60 bg-[#faf8f5] dark:bg-white/5 shadow-xs overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
-        <Building2 className="w-4 h-4 text-espresso/40 mr-1" />
+      <div className="w-full max-w-full flex items-center gap-2 px-3 md:px-6 py-2 border-b border-border bg-background text-foreground overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
+        <Building2 className="w-4 h-4 text-muted-foreground mr-1 flex-shrink-0" aria-hidden="true" />
         {environments.map((e, i) => (
-          <div 
-            key={e.id} 
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs transition-all border ${i === activeEnv ? 'bg-plum/10 border-plum/30 text-plum font-bold shadow-xs' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:text-espresso hover:bg-stone-50 hover:border-stone-300 cursor-pointer'}`}
+          <div
+            key={e.id}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors border ${i === activeEnv ? 'border-primary/40 bg-primary/10 text-foreground font-medium' : 'border-border bg-card text-muted-foreground hover:bg-foreground/5 hover:text-foreground'}`}
           >
-            <button onClick={() => { setActiveEnv(i); setSelected([]); setSelectedWallId(null); }} className="flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5" />
+            <button onClick={() => { setActiveEnv(i); setSelected([]); setSelectedWallId(null); }} aria-pressed={i === activeEnv} className="flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{e.name}</span>
-              <span className="text-[10px] opacity-80">({e.seats?.length || 0})</span>
+              <span className="text-[11px] tabular-nums text-muted-foreground">({e.seats?.length || 0})</span>
             </button>
             {environments.length > 1 && (
-              <button 
-                onClick={(ev) => { ev.stopPropagation(); removeEnvironment(i); }} 
-                title="Remover Pavimento" 
-                className="ml-1 p-0.5 rounded hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors"
+              <button
+                onClick={(ev) => { ev.stopPropagation(); removeEnvironment(i); }}
+                title="Remover pavimento"
+                aria-label={`Remover o pavimento ${e.name}`}
+                className="ml-1 p-0.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3 h-3" aria-hidden="true" />
               </button>
             )}
           </div>
         ))}
-        <button 
-          onClick={addEnvironment} 
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-dashed border-stone-300 text-xs text-espresso/70 hover:text-espresso hover:border-plum/40 hover:bg-white dark:hover:bg-white/10 transition-all"
+        <button
+          onClick={addEnvironment}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors flex-shrink-0"
         >
-          <Plus className="w-3.5 h-3.5" /> Novo Pavimento
+          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Novo pavimento
         </button>
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setAutoLayoutModalOpen(true)}
-            className="flex items-center gap-2 px-3 py-1.5 md:px-4 bg-plum/10 hover:bg-plum/20 text-plum text-xs font-bold rounded-xl border border-plum/25 transition-all active:scale-95 shadow-sm"
+            aria-label="Gerador de layout"
+            className="flex items-center gap-2 h-8 px-3 md:px-4 rounded-md border border-border bg-card text-xs font-medium text-foreground hover:bg-foreground/5 transition-colors"
           >
-            <LayoutGrid className="w-3.5 h-3.5" />
-            <span className="hidden md:inline">Gerador de Layout</span>
+            <LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />
+            <span className="hidden md:inline">Gerador de layout</span>
           </button>
 
           <button
@@ -2554,10 +2540,11 @@ export default function SeatingMap() {
                 runAiMapReader()
               }
             }}
-            className="flex items-center gap-2 px-3 py-1.5 md:px-4 bg-gradient-to-r from-plum to-[#8b4578] hover:opacity-95 text-cream text-xs font-bold rounded-xl border border-plum/20 transition-all hover:shadow-glow active:scale-95 shadow-sm animate-pulse-glow"
+            aria-label="Leitor de mapa com IA"
+            className="flex items-center gap-2 h-8 px-3 md:px-4 rounded-md border border-border bg-card text-xs font-medium text-foreground hover:bg-foreground/5 transition-colors"
           >
-            <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            <span className="hidden md:inline">Leitor de Mapa IA</span>
+            <Sparkles className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+            <span className="hidden md:inline">Leitor de mapa com IA</span>
           </button>
         </div>
       </div>

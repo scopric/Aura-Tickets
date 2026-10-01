@@ -1,13 +1,19 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabase'
-import { useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
-  ArrowLeft, Download, Eye, Upload, Type, Image, Signature,
-  QrCode, Trash2, Copy, Grid3x3, Sparkles, Save, Mail,
-  Calendar as CalendarDays, Plus, Layout
+  ArrowLeft, Upload, Type, Image, Signature,
+  QrCode, Trash2, Copy, Save, Loader2,
+  Calendar as CalendarDays, Plus
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { supabase } from '../../lib/supabase'
+import { useProducerEvents } from '../../hooks/useEvents'
+import { PageHeader, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface CertField {
   id: string
@@ -32,32 +38,45 @@ interface CertTemplate {
   preview: string
 }
 
+// Cores do próprio certificado (o papel é sempre claro); não são cores do painel
 const templates: CertTemplate[] = [
-  { id: 'classic', name: 'Classico Elegante', category: 'geral', bgColor: '#ffffff', accentColor: '#1a0e14', borderStyle: 'border-8 border-double', preview: 'Bordas duplas, tipografia serif' },
-  { id: 'modern', name: 'Moderno Minimalista', category: 'tech', bgColor: '#f8f7f5', accentColor: '#7a3b69', borderStyle: 'border-l-4', preview: 'Linha lateral, fonte clean' },
-  { id: 'corporate', name: 'Corporativo', category: 'corporativo', bgColor: '#ffffff', accentColor: '#1e3a5f', borderStyle: 'border', preview: 'Azul corporativo, selo dourado' },
-  { id: 'creative', name: 'Criativo Artistico', category: 'arte', bgColor: '#fdf6f0', accentColor: '#d97706', borderStyle: 'border-4 border-dashed', preview: 'Cores quentes, layout artistico' },
-  { id: 'academic', name: 'Academico', category: 'educacao', bgColor: '#ffffff', accentColor: '#374151', borderStyle: 'border-2', preview: 'Selo academico, serif formal' },
-  { id: 'sport', name: 'Esporte e Bem-estar', category: 'esporte', bgColor: '#f0fdf4', accentColor: '#16a34a', borderStyle: 'border-4', preview: 'Verde vibrante, layout dinamico' },
+  { id: 'classic', name: 'Clássico elegante', category: 'geral', bgColor: '#ffffff', accentColor: '#1a0e14', borderStyle: 'border-8 border-double', preview: 'Bordas duplas, tipografia serifada' },
+  { id: 'modern', name: 'Moderno minimalista', category: 'tech', bgColor: '#f8f7f5', accentColor: '#7a3b69', borderStyle: 'border-l-4', preview: 'Linha lateral, fonte limpa' },
+  { id: 'corporate', name: 'Corporativo', category: 'corporativo', bgColor: '#ffffff', accentColor: '#1e3a5f', borderStyle: 'border', preview: 'Azul corporativo, faixa no topo' },
+  { id: 'creative', name: 'Criativo artístico', category: 'arte', bgColor: '#fdf6f0', accentColor: '#d97706', borderStyle: 'border-4 border-dashed', preview: 'Cores quentes, borda tracejada' },
+  { id: 'academic', name: 'Acadêmico', category: 'educacao', bgColor: '#ffffff', accentColor: '#374151', borderStyle: 'border-2', preview: 'Sóbrio e formal' },
+  { id: 'sport', name: 'Esporte e bem-estar', category: 'esporte', bgColor: '#f0fdf4', accentColor: '#16a34a', borderStyle: 'border-4', preview: 'Verde, borda larga' },
 ]
 
 const defaultFields: CertField[] = [
   { id: 'logo', type: 'logo', label: 'Logo', x: 50, y: 8, fontSize: 0, color: '', value: '', width: 80, height: 40 },
-  { id: 'title', type: 'text', label: 'Titulo', x: 50, y: 22, fontSize: 28, color: '#1a0e14', value: 'Certificado de Participacao', width: 80, height: 40 },
-  { id: 'subtitle', type: 'text', label: 'Subtitulo', x: 50, y: 32, fontSize: 14, color: '#7a3b69', value: 'Reconhecemos que', width: 80, height: 25 },
-  { id: 'participant', type: 'text', label: 'Nome Participante', x: 50, y: 44, fontSize: 32, color: '#1a0e14', value: '{{NOME}}', width: 80, height: 50 },
+  { id: 'title', type: 'text', label: 'Título', x: 50, y: 22, fontSize: 28, color: '#1a0e14', value: 'Certificado de Participação', width: 80, height: 40 },
+  { id: 'subtitle', type: 'text', label: 'Subtítulo', x: 50, y: 32, fontSize: 14, color: '#7a3b69', value: 'Reconhecemos que', width: 80, height: 25 },
+  { id: 'participant', type: 'text', label: 'Nome do participante', x: 50, y: 44, fontSize: 32, color: '#1a0e14', value: '{{NOME}}', width: 80, height: 50 },
   { id: 'event', type: 'text', label: 'Evento', x: 50, y: 56, fontSize: 16, color: '#44403c', value: 'participou do {{EVENTO}}', width: 80, height: 30 },
-  { id: 'details', type: 'text', label: 'Detalhes', x: 50, y: 64, fontSize: 12, color: '#78716c', value: 'realizado em {{DATA}} com carga horaria de {{HORAS}}h', width: 80, height: 25 },
+  { id: 'details', type: 'text', label: 'Detalhes', x: 50, y: 64, fontSize: 12, color: '#78716c', value: 'realizado em {{DATA}} com carga horária de {{HORAS}}h', width: 80, height: 25 },
   { id: 'signature', type: 'signature', label: 'Assinatura', x: 70, y: 80, fontSize: 14, color: '#1a0e14', value: '{{ASSINATURA}}', width: 100, height: 30 },
-  { id: 'sigLabel', type: 'text', label: 'Label Assinatura', x: 70, y: 88, fontSize: 10, color: '#a8a29e', value: 'Assinatura do Produtor', width: 100, height: 15 },
+  { id: 'sigLabel', type: 'text', label: 'Legenda da assinatura', x: 70, y: 88, fontSize: 10, color: '#a8a29e', value: 'Assinatura do Produtor', width: 100, height: 15 },
   { id: 'qrcode', type: 'qrcode', label: 'QR Code', x: 15, y: 78, fontSize: 0, color: '', value: '', width: 50, height: 50 },
-  { id: 'date', type: 'date', label: 'Data Emissao', x: 15, y: 92, fontSize: 10, color: '#a8a29e', value: '{{DATA_EMISSAO}}', width: 50, height: 15 },
+  { id: 'date', type: 'date', label: 'Data de emissão', x: 15, y: 92, fontSize: 10, color: '#a8a29e', value: '{{DATA_EMISSAO}}', width: 50, height: 15 },
 ]
+
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const painel = 'rounded-[10px] border border-border bg-card p-4'
 
 export default function CertificateBuilder() {
   const [searchParams] = useSearchParams()
-  const eventIdParam = searchParams.get('eventId')
-  const [eventId, setEventId] = useState<string | null>(eventIdParam)
+  const queryClient = useQueryClient()
+  const { data: events = [], isLoading: eventsLoading, isError: eventsError, refetch, isFetching } = useProducerEvents()
+  const [pickedEventId, setPickedEventId] = useState<string | null>(null)
+  // o modelo é por evento (índice único em certificates.event_id). ?eventId= só vale se for evento do produtor;
+  // sem escolha válida, vale o primeiro evento
+  const doLink = searchParams.get('eventId')
+  const eventId = pickedEventId ?? (events.some(e => e.id === doLink) ? doLink : events[0]?.id) ?? null
+  // evento cujo modelo já foi lido do banco: salvar antes disso gravaria o padrão por cima do modelo salvo
+  const [carregadoPara, setCarregadoPara] = useState<string | null>(null)
+  const [salvando, setSalvando] = useState(false)
 
   const [selectedTemplate, setSelectedTemplate] = useState<string>('classic')
   const [accentColor, setAccentColor] = useState<string | null>(null) // null = cor do modelo
@@ -67,105 +86,61 @@ export default function CertificateBuilder() {
   const [sigUrl, setSigUrl] = useState<string | null>(null)
   const [previewName, setPreviewName] = useState('Ana Beatriz Silva')
   const [previewEvent, setPreviewEvent] = useState('Workshop de Design Thinking')
-  const [previewDate, setPreviewDate] = useState('15 de Junho de 2025')
+  const [previewDate, setPreviewDate] = useState('15 de junho de 2025')
   const [previewHours, setPreviewHours] = useState('8')
-  const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const sigInputRef = useRef<HTMLInputElement>(null)
 
-  // Carregar modelo do banco de dados
+  // Carrega o modelo salvo do evento escolhido (ou o padrão, se não houver)
   useEffect(() => {
-    const fetchTemplate = async () => {
-      let activeEventId = eventId;
-      
-      // Buscar o primeiro evento do produtor se não houver parametro na URL
-      if (!activeEventId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: firstEvent } = await supabase
-            .from('events')
-            .select('id')
-            .eq('producer_id', user.id)
-            .limit(1)
-            .maybeSingle()
-            
-          if (firstEvent) {
-            activeEventId = firstEvent.id;
-            setEventId(firstEvent.id);
-          }
-        }
-      }
-
-      if (activeEventId) {
-        const { data, error } = await supabase
-          .from('certificates')
-          .select('*')
-          .eq('event_id', activeEventId)
-          .maybeSingle()
-
+    if (!eventId) return
+    let vivo = true
+    supabase
+      .from('certificates')
+      .select('template')
+      .eq('event_id', eventId)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (!vivo) return
         if (error) {
-          toast.error(`Erro ao carregar modelo: ${error.message}`)
-        } else if (data && data.template) {
-          const tpl = data.template as any
-          if (tpl.selectedTemplate) setSelectedTemplate(tpl.selectedTemplate)
-          // só cor hexadecimal: o valor vem do JSON do banco e vai para `style`
-          if (/^#[0-9a-f]{6}$/i.test(tpl.accentColor)) setAccentColor(tpl.accentColor)
-          if (tpl.fields) setFields(tpl.fields)
-          if (tpl.logoUrl) setLogoUrl(tpl.logoUrl)
-          if (tpl.sigUrl) setSigUrl(tpl.sigUrl)
-          toast.success('Modelo de certificado carregado com sucesso!')
+          toast.error('Não foi possível carregar o modelo deste evento.')
+          return
         }
-      }
-    }
-    
-    fetchTemplate()
-  }, [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON livre gravado por esta tela
+        const tpl = ((data as { template?: any } | null)?.template ?? {}) as any
+        setSelectedTemplate(typeof tpl.selectedTemplate === 'string' ? tpl.selectedTemplate : 'classic')
+        // só cor hexadecimal: o valor vem do JSON do banco e vai para `style`
+        setAccentColor(/^#[0-9a-f]{6}$/i.test(tpl.accentColor) ? tpl.accentColor : null)
+        setFields(Array.isArray(tpl.fields) ? tpl.fields : defaultFields)
+        setLogoUrl(tpl.logoUrl || null)
+        setSigUrl(tpl.sigUrl || null)
+        setSelectedField(null)
+        setCarregadoPara(eventId)
+      })
+    return () => { vivo = false }
+  }, [eventId])
 
   const handleSave = async () => {
-    let activeEventId = eventId;
-
-    if (!activeEventId) {
-      // Buscar primeiro evento
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: firstEvent } = await supabase
-          .from('events')
-          .select('id')
-          .eq('producer_id', user.id)
-          .limit(1)
-          .maybeSingle()
-          
-        if (firstEvent) {
-          activeEventId = firstEvent.id;
-          setEventId(firstEvent.id);
-        }
-      }
-    }
-
-    if (!activeEventId) {
-      toast.error('Crie pelo menos um evento antes de salvar o modelo do certificado.');
-      return;
-    }
-
-    const { error } = await supabase
+    if (!eventId || carregadoPara !== eventId) return
+    setSalvando(true)
+    const { data, error } = await supabase
       .from('certificates')
+      // as never: types/database.ts desatualizado (pendência supabase gen types)
       .upsert({
-        event_id: activeEventId,
-        template: {
-          selectedTemplate,
-          accentColor,
-          fields,
-          logoUrl,
-          sigUrl
-        },
-        is_active: true
-      }, { onConflict: 'event_id' })
+        event_id: eventId,
+        template: { selectedTemplate, accentColor, fields, logoUrl, sigUrl },
+        is_active: true,
+      } as never, { onConflict: 'event_id' })
+      .select('id')
+    setSalvando(false)
 
-    if (error) {
-      toast.error(`Erro ao salvar modelo: ${error.message}`)
-    } else {
-      toast.success('Modelo de certificado salvo com sucesso no banco de dados!')
+    // sem linha de volta = a regra de acesso barrou (o PostgREST não dá erro nesse caso)
+    if (error || !data?.length) {
+      toast.error(error?.code === '42501' || !error ? 'Sem permissão para salvar o modelo deste evento.' : 'Não foi possível salvar o modelo.')
+      return
     }
+    queryClient.invalidateQueries({ queryKey: ['event-certificates', eventId] })
+    toast.success('Modelo salvo.')
   }
 
   const baseTemplate = templates.find(t => t.id === selectedTemplate) || templates[0]
@@ -178,7 +153,7 @@ export default function CertificateBuilder() {
   const addField = (type: CertField['type']) => {
     const newField: CertField = {
       id: `f${Date.now()}`, type,
-      label: 'Novo Campo', x: 50, y: 50,
+      label: 'Novo campo', x: 50, y: 50,
       fontSize: type === 'text' ? 14 : 0, color: '#1a0e14',
       value: type === 'text' ? 'Texto' : '',
       width: type === 'qrcode' ? 50 : type === 'logo' ? 80 : 60,
@@ -186,7 +161,6 @@ export default function CertificateBuilder() {
     }
     setFields([...fields, newField])
     setSelectedField(newField.id)
-    toast.success('Campo adicionado!')
   }
 
   const removeField = (id: string) => {
@@ -194,9 +168,6 @@ export default function CertificateBuilder() {
     setFields(fields.filter(f => f.id !== id))
     if (selectedField === id) setSelectedField(null)
   }
-
-  const handleLogoUpload = () => fileInputRef.current?.click()
-  const handleSigUpload = () => sigInputRef.current?.click()
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'sig') => {
     const file = e.target.files?.[0]
@@ -207,7 +178,6 @@ export default function CertificateBuilder() {
       else setSigUrl(ev.target?.result as string)
     }
     reader.readAsDataURL(file)
-    toast.success(`${type === 'logo' ? 'Logo' : 'Assinatura'} carregada!`)
   }
 
   const resolveValue = (field: CertField) => {
@@ -221,170 +191,211 @@ export default function CertificateBuilder() {
   }
 
   const selected = fields.find(f => f.id === selectedField)
+  const podeSalvar = !!eventId && carregadoPara === eventId && !salvando
+
+  const header = (
+    <PageHeader
+      title="Editor de certificados"
+      description="Monte o modelo do certificado de cada evento, com seu logo e assinatura"
+      actions={
+        <>
+          <Button asChild variant="outline"><Link to="/producer/certificados"><ArrowLeft aria-hidden="true" />Certificados</Link></Button>
+          {events.length > 0 && (
+            <Button onClick={handleSave} disabled={!podeSalvar}>
+              {salvando ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
+              {salvando ? 'Salvando…' : 'Salvar modelo'}
+            </Button>
+          )}
+        </>
+      }
+    />
+  )
+
+  if (eventsLoading) {
+    return (
+      <div aria-busy="true">
+        {header}
+        <Skeleton className="h-9 w-full max-w-sm rounded-md bg-muted" />
+        <Skeleton className="mt-6 h-96 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (eventsError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar seus eventos.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>{isFetching ? 'Carregando…' : 'Tentar de novo'}</Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (events.length === 0) {
+    return (
+      <div>
+        {header}
+        <EmptyState
+          title="Crie um evento antes do certificado"
+          description="O modelo de certificado é salvo para um evento."
+          action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+        />
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link to="/producer/certificados" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="font-serif text-3xl text-espresso">Editor de Certificados</h1>
-          <p className="text-sm text-espresso/70 mt-1">Crie modelos personalizados com seu logo e assinatura</p>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setShowPreview(!showPreview)} className="px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm rounded-full hover:bg-plum hover:text-cream transition-all flex items-center gap-2">
-            <Eye className="w-4 h-4" /> Preview
-          </button>
-          <button onClick={handleSave} className="px-4 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2">
-            <Save className="w-4 h-4" /> Salvar Modelo
-          </button>
-        </div>
+    <div>
+      {header}
+
+      <div className="grid gap-1.5 sm:max-w-sm">
+        <Label htmlFor="editor-evento">Modelo do evento</Label>
+        <select id="editor-evento" value={eventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={select}>
+          {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+        </select>
       </div>
 
       {/* Templates */}
-      <div className="p-5 bg-white/60 border border-white/60 rounded-2xl mb-6">
-        <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Layout className="w-4 h-4 text-plum" /> Escolha um Modelo</h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <section aria-labelledby="modelos" className={`${painel} mt-6`}>
+        <h2 id="modelos" className="mb-3 text-sm font-medium text-foreground">Escolha um modelo</h2>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
           {templates.map(t => (
-            <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setAccentColor(null) }}
-              className={`p-4 rounded-xl border-2 transition-all text-center ${selectedTemplate === t.id ? 'border-plum bg-plum/5' : 'border-white/60 bg-white/40 hover:border-plum/20'}`}>
-              <div className="w-12 h-16 mx-auto rounded mb-2 border" style={{ background: t.bgColor, borderColor: t.accentColor }} />
-              <div className="text-xs font-medium text-espresso">{t.name}</div>
-              <div className="text-[9px] text-espresso/70">{t.preview}</div>
+            <button key={t.id} type="button" aria-pressed={selectedTemplate === t.id} onClick={() => { setSelectedTemplate(t.id); setAccentColor(null) }}
+              className={`rounded-lg border p-3 text-center transition-colors ${selectedTemplate === t.id ? 'border-primary bg-primary/5' : 'border-border hover:bg-foreground/5'}`}>
+              <div className="mx-auto mb-2 h-16 w-12 rounded border" style={{ background: t.bgColor, borderColor: t.accentColor }} />
+              <div className="text-xs font-medium text-foreground">{t.name}</div>
+              <div className="text-[11px] text-muted-foreground">{t.preview}</div>
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Editor Sidebar */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="space-y-4 lg:col-span-2">
           {/* Branding */}
-          <div className="p-5 bg-white/60 border border-white/60 rounded-2xl">
-            <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Image className="w-4 h-4 text-plum" /> Identidade Visual</h2>
+          <section aria-labelledby="identidade" className={painel}>
+            <h2 id="identidade" className="mb-3 text-sm font-medium text-foreground">Identidade visual</h2>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label htmlFor="upload-logo-input" className="text-xs text-espresso/70 mb-1 block">Logo do Evento</label>
-                <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de logo do evento" className="hidden" onChange={e => handleFileChange(e, 'logo')} />
-                <button onClick={handleLogoUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/70 hover:text-plum hover:border-plum/30 transition-all">
-                  {logoUrl ? <img src={logoUrl} alt="Logo do Evento" className="h-8 object-contain" /> : <><Upload className="w-4 h-4" /> Upload</>}
-                </button>
+                <Label htmlFor="upload-logo-input" className="mb-1.5 text-xs text-muted-foreground">Logo do evento</Label>
+                <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
+                <Button type="button" variant="outline" className="h-12 w-full" onClick={() => fileInputRef.current?.click()}>
+                  {logoUrl ? <img src={logoUrl} alt="Logo do evento" className="h-8 object-contain" /> : <><Upload aria-hidden="true" />Enviar</>}
+                </Button>
               </div>
               <div>
-                <label htmlFor="upload-sig-input" className="text-xs text-espresso/70 mb-1 block">Assinatura</label>
-                <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" aria-label="Selecionar arquivo de assinatura" className="hidden" onChange={e => handleFileChange(e, 'sig')} />
-                <button onClick={handleSigUpload} className="w-full p-3 bg-white/40 border border-white/60 rounded-xl flex items-center justify-center gap-2 text-xs text-espresso/70 hover:text-plum hover:border-plum/30 transition-all">
-                  {sigUrl ? <img src={sigUrl} alt="Assinatura do Produtor" className="h-8 object-contain" /> : <><Signature className="w-4 h-4" /> Upload</>}
-                </button>
+                <Label htmlFor="upload-sig-input" className="mb-1.5 text-xs text-muted-foreground">Assinatura</Label>
+                <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'sig')} />
+                <Button type="button" variant="outline" className="h-12 w-full" onClick={() => sigInputRef.current?.click()}>
+                  {sigUrl ? <img src={sigUrl} alt="Assinatura do produtor" className="h-8 object-contain" /> : <><Signature aria-hidden="true" />Enviar</>}
+                </Button>
               </div>
             </div>
             <div className="mt-3">
-              <label className="text-xs text-espresso/70 mb-1 block">Cor de Destaque</label>
-              <div className="flex gap-2">
+              <p id="cor-destaque" className="mb-1.5 text-xs text-muted-foreground">Cor de destaque</p>
+              <div role="group" aria-labelledby="cor-destaque" className="flex flex-wrap gap-2">
                 {['#1a0e14', '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626', '#0891b2'].map(c => (
-                  <button key={c} onClick={() => setAccentColor(c)} title={`Cor ${c}`} aria-label={`Selecionar cor de destaque ${c}`} className={`w-8 h-8 rounded-full border-2 transition-all ${template.accentColor === c ? 'border-espresso scale-110' : 'border-transparent'}`} style={{ background: c }} />
+                  <button key={c} type="button" onClick={() => setAccentColor(c)} aria-pressed={template.accentColor === c} aria-label={`Cor de destaque ${c}`}
+                    className={`size-8 rounded-full border-2 transition-transform ${template.accentColor === c ? 'scale-110 border-foreground' : 'border-transparent'}`} style={{ background: c }} />
                 ))}
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Preview Data */}
-          <div className="p-5 bg-white/60 border border-white/60 rounded-2xl">
-            <h2 className="text-sm font-medium text-espresso mb-3 flex items-center gap-2"><Sparkles className="w-4 h-4 text-plum" /> Dados de Preview</h2>
-            <div className="space-y-2">
-              <input value={previewName} onChange={e => setPreviewName(e.target.value)} placeholder="Nome do participante" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <input value={previewEvent} onChange={e => setPreviewEvent(e.target.value)} placeholder="Nome do evento" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <input value={previewDate} onChange={e => setPreviewDate(e.target.value)} placeholder="Data" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <input value={previewHours} onChange={e => setPreviewHours(e.target.value)} placeholder="Horas" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30" />
+          <section aria-labelledby="dados-exemplo" className={painel}>
+            <h2 id="dados-exemplo" className="mb-3 text-sm font-medium text-foreground">Dados de exemplo</h2>
+            <div className="grid gap-2">
+              <Label htmlFor="ex-nome" className="sr-only">Nome do participante</Label>
+              <Input id="ex-nome" value={previewName} onChange={e => setPreviewName(e.target.value)} placeholder="Nome do participante" />
+              <Label htmlFor="ex-evento" className="sr-only">Nome do evento</Label>
+              <Input id="ex-evento" value={previewEvent} onChange={e => setPreviewEvent(e.target.value)} placeholder="Nome do evento" />
+              <Label htmlFor="ex-data" className="sr-only">Data</Label>
+              <Input id="ex-data" value={previewDate} onChange={e => setPreviewDate(e.target.value)} placeholder="Data" />
+              <Label htmlFor="ex-horas" className="sr-only">Horas</Label>
+              <Input id="ex-horas" value={previewHours} onChange={e => setPreviewHours(e.target.value)} placeholder="Horas" />
             </div>
-          </div>
+          </section>
 
           {/* Fields List */}
-          <div className="p-5 bg-white/60 border border-white/60 rounded-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-medium text-espresso flex items-center gap-2"><Grid3x3 className="w-4 h-4 text-plum" /> Campos ({fields.length})</h2>
+          <section aria-labelledby="campos" className={painel}>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 id="campos" className="text-sm font-medium text-foreground">Campos ({fields.length})</h2>
               <div className="flex gap-1">
-                <button onClick={() => addField('text')} title="Adicionar campo de texto" aria-label="Adicionar campo de texto" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><Type className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('qrcode')} title="Adicionar QR Code" aria-label="Adicionar QR Code" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><QrCode className="w-3.5 h-3.5" /></button>
-                <button onClick={() => addField('text')} title="Adicionar novo campo" aria-label="Adicionar novo campo" className="p-1.5 rounded-lg hover:bg-plum/10 text-espresso/70 hover:text-plum"><Plus className="w-3.5 h-3.5" /></button>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('text')} aria-label="Adicionar campo de texto"><Type aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('qrcode')} aria-label="Adicionar QR Code"><QrCode aria-hidden="true" /></Button>
               </div>
             </div>
-            <div className="space-y-1.5 max-h-48 overflow-y-auto sidebar-dark-scroll pr-1">
+            <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
               {fields.map(f => (
-                <div key={f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
-                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all text-left cursor-pointer ${selectedField === f.id ? 'bg-plum/10 text-plum' : 'text-espresso/70 hover:bg-white/40'}`}>
-                  {f.type === 'text' && <Type className="w-3.5 h-3.5" />}
-                  {f.type === 'logo' && <Image className="w-3.5 h-3.5" />}
-                  {f.type === 'signature' && <Signature className="w-3.5 h-3.5" />}
-                  {f.type === 'qrcode' && <QrCode className="w-3.5 h-3.5" />}
-                  {f.type === 'date' && <CalendarDays className="w-3.5 h-3.5" />}
-                  <span className="flex-1 truncate">{f.label}</span>
-                  <button onClick={e => { e.stopPropagation(); removeField(f.id) }} title="Remover campo" aria-label="Remover campo" className="p-0.5 rounded hover:bg-red-50 text-espresso/70 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
-                </div>
+                <li key={f.id} className={`flex items-center gap-1 rounded-md text-xs ${selectedField === f.id ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'}`}>
+                  <button type="button" aria-pressed={selectedField === f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-foreground/5">
+                    {f.type === 'text' && <Type className="size-3.5" aria-hidden="true" />}
+                    {f.type === 'logo' && <Image className="size-3.5" aria-hidden="true" />}
+                    {f.type === 'signature' && <Signature className="size-3.5" aria-hidden="true" />}
+                    {f.type === 'qrcode' && <QrCode className="size-3.5" aria-hidden="true" />}
+                    {f.type === 'date' && <CalendarDays className="size-3.5" aria-hidden="true" />}
+                    <span className="truncate">{f.label}</span>
+                  </button>
+                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeField(f.id)} aria-label={`Remover o campo ${f.label}`}>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </section>
 
           {/* Field Editor */}
           {selected && (
-            <div className="p-5 bg-white/60 border border-white/60 rounded-2xl">
-              <h2 className="text-sm font-medium text-espresso mb-3">Editar: {selected.label}</h2>
+            <section aria-labelledby="editar-campo" className={painel}>
+              <h2 id="editar-campo" className="mb-3 text-sm font-medium text-foreground">Editar: {selected.label}</h2>
               <div className="space-y-3">
                 {selected.type === 'text' && (
                   <>
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">Texto/Variavel</label>
-                      <input value={selected.value} onChange={e => updateField(selected.id, { value: e.target.value })}
-                        placeholder="Use {{NOME}}, {{EVENTO}}, {{DATA}}, {{HORAS}}" className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
+                    <div className="grid gap-1.5">
+                      <Label htmlFor="selected-field-value" className="text-xs text-muted-foreground">Texto ou variável</Label>
+                      <Input id="selected-field-value" value={selected.value} onChange={e => updateField(selected.id, { value: e.target.value })} placeholder="Use {{NOME}}, {{EVENTO}}, {{DATA}}, {{HORAS}}" />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label htmlFor="selected-field-font-size" className="text-xs text-espresso/70 mb-1 block">Tamanho (px)</label>
-                        <input id="selected-field-font-size" type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })}
-                          className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="selected-field-font-size" className="text-xs text-muted-foreground">Tamanho (px)</Label>
+                        <Input id="selected-field-font-size" type="number" value={selected.fontSize} onChange={e => updateField(selected.id, { fontSize: Number(e.target.value) })} />
                       </div>
-                      <div>
-                        <label htmlFor="selected-field-color" className="text-xs text-espresso/70 mb-1 block">Cor</label>
-                        <input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })}
-                          className="w-full h-9 bg-white/50 border border-white/60 rounded-lg cursor-pointer" />
+                      <div className="grid gap-1.5">
+                        <Label htmlFor="selected-field-color" className="text-xs text-muted-foreground">Cor</Label>
+                        <Input id="selected-field-color" type="color" value={selected.color} onChange={e => updateField(selected.id, { color: e.target.value })} className="cursor-pointer p-1" />
                       </div>
                     </div>
                   </>
                 )}
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label htmlFor="selected-field-pos-x" className="text-xs text-espresso/70 mb-1 block">Pos X (%)</label>
-                    <input id="selected-field-pos-x" type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })}
-                      className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="selected-field-pos-x" className="text-xs text-muted-foreground">Posição X (%)</Label>
+                    <Input id="selected-field-pos-x" type="number" value={selected.x} min={0} max={100} onChange={e => updateField(selected.id, { x: Number(e.target.value) })} />
                   </div>
-                  <div>
-                    <label htmlFor="selected-field-pos-y" className="text-xs text-espresso/70 mb-1 block">Pos Y (%)</label>
-                    <input id="selected-field-pos-y" type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })}
-                      className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="selected-field-pos-y" className="text-xs text-muted-foreground">Posição Y (%)</Label>
+                    <Input id="selected-field-pos-y" type="number" value={selected.y} min={0} max={100} onChange={e => updateField(selected.id, { y: Number(e.target.value) })} />
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
           )}
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <button disabled className="flex-1 py-3 bg-plum text-cream text-sm rounded-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-              <Mail className="w-4 h-4" /> Enviar (em breve)
-            </button>
-            <button disabled className="flex-1 py-3 bg-white/60 border border-white/60 text-espresso text-sm rounded-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-              <Download className="w-4 h-4" /> Baixar (em breve)
-            </button>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            A emissão para os participantes é feita na tela <Link to="/producer/certificados" className="text-foreground underline underline-offset-4">Certificados</Link>. O envio por e-mail e o PDF ainda não existem.
+          </p>
         </div>
 
         {/* Preview */}
-        <div className="lg:col-span-3">
-          <div className="sticky top-6">
-            <h2 className="text-sm font-medium text-espresso mb-3">Preview do Certificado</h2>
-            <div className={`relative bg-white rounded-2xl overflow-hidden shadow-lg mx-auto max-w-[700px] aspect-[1.414/1] ${template.borderStyle}`}
+        <div className="min-w-0 lg:col-span-3">
+          <div className="lg:sticky lg:top-6">
+            <h2 className="mb-3 text-sm font-medium text-foreground">Prévia do certificado</h2>
+            <div className={`relative mx-auto aspect-[1.414/1] max-w-[700px] overflow-hidden rounded-[10px] bg-white ${template.borderStyle}`}
               style={{ borderColor: template.accentColor }}>
               {/* Background */}
               <div className="absolute inset-0" style={{ background: template.bgColor }} />
@@ -392,21 +403,21 @@ export default function CertificateBuilder() {
               {/* Decorative elements */}
               {template.id === 'classic' && (
                 <>
-                  <div className="absolute top-6 left-6 right-6 bottom-6 border-2 rounded-xl" style={{ borderColor: template.accentColor + '30' }} />
-                  <div className="absolute top-10 left-10 right-10 bottom-10 border rounded-xl" style={{ borderColor: template.accentColor + '15' }} />
+                  <div className="absolute bottom-6 left-6 right-6 top-6 rounded-xl border-2" style={{ borderColor: template.accentColor + '30' }} />
+                  <div className="absolute bottom-10 left-10 right-10 top-10 rounded-xl border" style={{ borderColor: template.accentColor + '15' }} />
                 </>
               )}
               {template.id === 'modern' && (
-                <div className="absolute top-0 left-0 bottom-0 w-2" style={{ background: template.accentColor }} />
+                <div className="absolute bottom-0 left-0 top-0 w-2" style={{ background: template.accentColor }} />
               )}
               {template.id === 'corporate' && (
-                <div className="absolute top-0 left-0 right-0 h-2" style={{ background: template.accentColor }} />
+                <div className="absolute left-0 right-0 top-0 h-2" style={{ background: template.accentColor }} />
               )}
 
               {/* Fields */}
               {fields.map(field => (
                 <div key={field.id}
-                  className={`absolute -translate-x-1/2 -translate-y-1/2 text-center ${selectedField === field.id ? 'ring-2 ring-plum/50' : ''} ${field.type === 'qrcode' ? 'bg-void rounded-lg flex items-center justify-center' : ''}`}
+                  className={`absolute -translate-x-1/2 -translate-y-1/2 text-center ${selectedField === field.id ? 'ring-2 ring-primary/50' : ''} ${field.type === 'qrcode' ? 'flex items-center justify-center rounded-lg bg-neutral-900' : ''}`}
                   style={{
                     left: `${field.x}%`,
                     top: `${field.y}%`,
@@ -414,11 +425,11 @@ export default function CertificateBuilder() {
                     color: field.color,
                     width: `${field.width}%`,
                   }}>
-                  {field.type === 'logo' && logoUrl && <img src={logoUrl} alt="Logo do Evento no Certificado" className="max-h-16 object-contain mx-auto" />}
-                  {field.type === 'logo' && !logoUrl && <div className="text-xs text-espresso/70">LOGO</div>}
-                  {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do Produtor no Certificado" className="max-h-10 object-contain mx-auto" />}
+                  {field.type === 'logo' && logoUrl && <img src={logoUrl} alt="Logo do evento no certificado" className="mx-auto max-h-16 object-contain" />}
+                  {field.type === 'logo' && !logoUrl && <div className="text-xs text-neutral-500">LOGO</div>}
+                  {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do produtor no certificado" className="mx-auto max-h-10 object-contain" />}
                   {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
-                  {field.type === 'qrcode' && <QrCode className="w-12 h-12 text-cream" />}
+                  {field.type === 'qrcode' && <QrCode className="size-12 text-white" aria-hidden="true" />}
                   {field.type === 'text' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color, fontWeight: field.fontSize > 20 ? 600 : 400 }}>{resolveValue(field)}</div>}
                   {field.type === 'date' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
                   {field.type === 'hours' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
@@ -427,20 +438,19 @@ export default function CertificateBuilder() {
             </div>
 
             {/* Variables help */}
-            <div className="mt-4 p-4 bg-white/60 border border-white/60 rounded-2xl">
-              <h3 className="text-xs font-medium text-espresso mb-2">Variaveis disponiveis:</h3>
+            <div className={`${painel} mt-4`}>
+              <h3 className="mb-2 text-xs font-medium text-foreground">Variáveis disponíveis</h3>
               <div className="flex flex-wrap gap-2">
                 {['{{NOME}}', '{{EVENTO}}', '{{DATA}}', '{{HORAS}}', '{{ASSINATURA}}', '{{DATA_EMISSAO}}'].map(v => (
-                  <button key={v} onClick={() => navigator.clipboard.writeText(v)} className="px-2 py-1 bg-plum/5 text-plum text-[10px] rounded-lg hover:bg-plum/10 transition-all flex items-center gap-1">
-                    <Copy className="w-3 h-3" /> {v}
-                  </button>
+                  <Button key={v} variant="secondary" size="sm" className="h-7 font-mono text-[11px]" onClick={() => { navigator.clipboard.writeText(v); toast.success('Variável copiada.') }} aria-label={`Copiar ${v}`}>
+                    <Copy aria-hidden="true" /> {v}
+                  </Button>
                 ))}
               </div>
             </div>
           </div>
         </div>
       </div>
-
     </div>
   )
 }
