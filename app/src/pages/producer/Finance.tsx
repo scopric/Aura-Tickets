@@ -1,703 +1,165 @@
-import { useState, useEffect } from 'react'
-import {
-  TrendingUp, TrendingDown, DollarSign, Download, Plus, X, Edit3,
-  CreditCard, QrCode, Receipt, Banknote, ArrowRightLeft, Calendar,
-  CheckCircle2, Clock, AlertTriangle, Search, BarChart3
-} from 'lucide-react'
-import { toast } from 'sonner'
+import { Download } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { useFinancialDashboard } from '../../hooks/useFinancialDashboard'
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, PieChart, Pie, Cell
-} from 'recharts'
+import { brl } from '../../lib/taxa'
+import { toCsv, downloadCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
-// ─── Types ───
-type PaymentMethod = 'credito' | 'debito' | 'pix' | 'boleto' | 'dinheiro' | 'transferencia'
-type PaymentStatus = 'pago' | 'pendente' | 'atrasado'
-type TransactionType = 'income' | 'expense'
-
-interface Transaction {
+// Repasse e saque (transactions, withdrawals) ficam sem acesso do produtor até o gateway (Decisão 113).
+// Aqui só o que o banco já mostra: pedidos pagos dos eventos do produtor, em valor bruto.
+type Pedido = {
   id: string
-  event: string
-  description: string
-  type: TransactionType
-  amount: number
-  method: PaymentMethod
-  status: PaymentStatus
-  date: string
-  dueDate: string
-  category: string
+  event_id: string
+  total: number
+  payment_method: string | null
+  created_at: string
+  events: { title: string }
 }
 
-// ─── Helpers ───
-const methodIcons: Record<PaymentMethod, typeof CreditCard> = {
-  credito: CreditCard,
-  debito: CreditCard,
-  pix: QrCode,
-  boleto: Receipt,
-  dinheiro: Banknote,
-  transferencia: ArrowRightLeft,
-}
+const FORMA: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão de crédito', boleto: 'Boleto' }
+const forma = (m: string | null) => (m && FORMA[m]) || 'Não informada'
+const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 
-const methodLabels: Record<PaymentMethod, string> = {
-  credito: 'Cartão Crédito',
-  debito: 'Cartão Débito',
-  pix: 'PIX',
-  boleto: 'Boleto',
-  dinheiro: 'Dinheiro',
-  transferencia: 'Transferência',
-}
-
-const statusConfig: Record<PaymentStatus, { bg: string; text: string; icon: typeof CheckCircle2; label: string }> = {
-  pago: { bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-400', icon: CheckCircle2, label: 'Pago' },
-  pendente: { bg: 'bg-amber-500/10 border-amber-500/20', text: 'text-amber-400', icon: Clock, label: 'Pendente' },
-  atrasado: { bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-400', icon: AlertTriangle, label: 'Atrasado' },
-}
-
-const CHART_COLORS = ['#8f33f5', '#1d68c4', '#10b981', '#f59e0b', '#ec4899', '#ef4444']
-
-// ─── Form Modal ───
-function TransactionForm({ tx, onSave, onClose, events }: { tx?: Transaction | null; onSave: (formVal: any) => void; onClose: () => void; events: any[] }) {
-  const [form, setForm] = useState({
-    eventId: '',
-    description: tx?.description || '',
-    type: tx?.type || 'expense' as TransactionType,
-    amount: tx?.amount || '',
-    method: tx?.method || 'pix' as PaymentMethod,
-    status: tx?.status || 'pendente' as PaymentStatus,
-    date: tx?.date || new Date().toISOString().substring(0, 10),
-    dueDate: tx?.dueDate || new Date().toISOString().substring(0, 10),
-    category: tx?.category || 'Local',
-  })
-
-  const categories = {
-    income: ['Ingressos', 'Patrocínio', 'Merchandise', 'Serviços'],
-    expense: ['Local', 'Equipamento', 'Decoração', 'Marketing', 'Alimentação', 'Transporte', 'Taxas', 'Outros'],
-  }
-
-  const handleSubmit = () => {
-    if (!form.description || !form.amount) {
-      toast.error('Preencha o valor e a descrição da transação')
-      return
-    }
-
-    onSave({
-      id: tx?.id || null,
-      event_id: form.eventId || null,
-      description: form.description,
-      type: form.type,
-      amount: Number(form.amount),
-      status: form.status === 'pago' ? 'paid' : form.status === 'pendente' ? 'pending' : 'cancelled',
-      created_at: new Date(form.date).toISOString()
-    })
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 glass-backdrop" onClick={onClose} />
-      <div className="glass-panel relative w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto text-white">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-serif text-xl text-white">{tx ? 'Editar' : 'Nova'} Transação</h3>
-          <button onClick={onClose} aria-label="Fechar modal" title="Fechar" className="p-2 rounded-full hover:bg-white/[0.06] text-white/40 hover:text-white transition-colors">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center bg-white/[0.02] border border-white/[0.06] rounded-full p-1">
-            <button onClick={() => setForm({ ...form, type: 'income' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'income' ? 'bg-green-500 text-white' : 'text-white/50'}`}>
-              Receita
-            </button>
-            <button onClick={() => setForm({ ...form, type: 'expense' })} className={`flex-1 py-2 text-xs font-medium rounded-full transition-all ${form.type === 'expense' ? 'bg-red-500 text-white' : 'text-white/50'}`}>
-              Despesa
-            </button>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-white/60 mb-1.5 block">Vincular a Evento</label>
-            <select value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} aria-label="Vincular a Evento" title="Vincular a Evento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
-              <option value="">Geral (Sem evento específico)</option>
-              {events.map(e => (
-                <option key={e.id} value={e.id}>{e.title}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-white/60 mb-1.5 block">Descrição *</label>
-            <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Ex: Aluguel do espaço" className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-white/60 mb-1.5 block">Valor (R$) *</label>
-              <input type="number" value={form.amount} onChange={e => setForm({ ...form, amount: e.target.value })} placeholder="0,00" className="w-full px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-white/60 mb-1.5 block">Categoria</label>
-              <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} aria-label="Selecionar Categoria" title="Selecionar Categoria" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30">
-                {categories[form.type].map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-white/60 mb-2 block">Forma de Pagamento</label>
-            <div className="grid grid-cols-3 gap-2">
-              {(Object.entries(methodIcons) as [PaymentMethod, typeof CreditCard][]).map(([key, Icon]) => (
-                <button key={key} type="button" onClick={() => setForm({ ...form, method: key })} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-medium border transition-all ${form.method === key ? 'bg-purple-500/20 border-purple-500/40 text-purple-300' : 'bg-white/[0.02] border-white/[0.06] text-white/50 hover:text-white/70'}`}>
-                  <Icon className="w-3.5 h-3.5" /> {methodLabels[key]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-white/60 mb-2 block">Status</label>
-            <div className="flex items-center gap-2">
-              {(['pago', 'pendente', 'atrasado'] as PaymentStatus[]).map(s => {
-                const cfg = statusConfig[s]
-                return (
-                  <button key={s} type="button" onClick={() => setForm({ ...form, status: s })} className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-medium border transition-all ${form.status === s ? cfg.bg + ' ' + cfg.text : 'bg-white/[0.02] border-white/[0.06] text-white/50'}`}>
-                    <cfg.icon className="w-3.5 h-3.5" /> {cfg.label}
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-white/60 mb-1.5 block">Data Lançamento</label>
-              <input type="date" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} aria-label="Data de Lançamento" title="Data de Lançamento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-white/60 mb-1.5 block">Vencimento</label>
-              <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} aria-label="Data de Vencimento" title="Data de Vencimento" className="w-full px-4 py-2.5 bg-void border border-white/[0.06] rounded-xl text-sm text-white focus:outline-none focus:border-purple-500/30" />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-end gap-3 mt-6">
-          <button onClick={onClose} className="px-5 py-2.5 text-sm text-white/50 hover:text-white transition-colors">Cancelar</button>
-          <button onClick={handleSubmit} className="px-6 py-2.5 bg-purple-600 text-white text-sm rounded-full hover:bg-purple-500 hover:shadow-glow transition-all">
-            Salvar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Main ───
 export default function ProducerFinance() {
   const { user } = useAuth()
-  const {
-    summary,
-    isSummaryLoading,
-    dailyRevenue,
-    isDailyLoading,
-    eventRevenue,
-    isEventRevenueLoading,
-    paymentMethods,
-    isPaymentMethodsLoading,
-  } = useFinancialDashboard()
 
-  const [activeTab, setActiveTab] = useState<'all' | 'income' | 'expense'>('all')
-  const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [showForm, setShowForm] = useState(false)
-  const [editingTx, setEditingTx] = useState<Transaction | null>(null)
-  const [search, setSearch] = useState('')
-  const [filterStatus, setFilterStatus] = useState<PaymentStatus | 'all'>('all')
-  const [filterMethod] = useState<PaymentMethod | 'all'>('all')
-  const [events, setEvents] = useState<any[]>([])
+  const { data: pedidos = [], isPending, isError, refetch, isFetching } = useQuery({
+    queryKey: ['producer-financeiro', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      // ponytail: soma no navegador, de 1.000 em 1.000 linhas; vira RPC de vendas quando a F2 gravar as taxas
+      const linhas = await fetchAllRows<Pedido>((de, ate) =>
+        supabase.from('orders')
+          .select('id, event_id, total, payment_method, created_at, events!inner(title, producer_id)')
+          .eq('events.producer_id', user!.id)
+          .eq('status', 'paid')
+          .order('created_at', { ascending: false })
+          .order('id')
+          .range(de, ate) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>)
+      // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
+      return [...new Map(linhas.map(p => [p.id, p])).values()]
+    },
+  })
 
-  const loadFinanceData = async () => {
-    if (!user?.id) return
-    setIsLoading(true)
-    try {
-      const { data: dbEvents } = await supabase
-        .from('events')
-        .select('id, title')
-        .eq('producer_id', user.id)
+  // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
+  const bruto = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0)
+  const porEvento = Object.values(pedidos.reduce<Record<string, { id: string; titulo: string; pedidos: number; bruto: number }>>((acc, p) => {
+    acc[p.event_id] ??= { id: p.event_id, titulo: p.events?.title || 'Sem título', pedidos: 0, bruto: 0 }
+    acc[p.event_id].pedidos += 1
+    acc[p.event_id].bruto += Number(p.total) || 0
+    return acc
+  }, {})).sort((a, b) => b.bruto - a.bruto)
 
-      setEvents(dbEvents || [])
+  const exportar = () => downloadCsv(csvFilename('pedidos-pagos'), toCsv(
+    pedidos.map(p => ({ pedido: p.id, data: data(p.created_at), evento: p.events?.title ?? '', forma: forma(p.payment_method), valor_bruto: (Number(p.total) || 0).toFixed(2).replace('.', ',') })),
+    ['pedido', 'data', 'evento', 'forma', 'valor_bruto'],
+  ))
 
-      const { data: dbTxs, error } = await supabase
-        .from('transactions')
-        .select(`*, events (title)`)
-        .eq('producer_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setTransactions(dbTxs.map(mapDbTxToTransaction))
-    } catch (err: any) {
-      console.error('Erro ao carregar dados financeiros:', err)
-      toast.error('Erro ao carregar fluxo de caixa')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const mapDbTxToTransaction = (dbTx: any): Transaction => {
-    let tStatus: PaymentStatus = 'pendente'
-    if (dbTx.status === 'paid' || dbTx.status === 'pago') {
-      tStatus = 'pago'
-    } else if (dbTx.status === 'cancelled' || dbTx.status === 'atrasado') {
-      tStatus = 'atrasado'
-    }
-
-    let method: PaymentMethod = 'pix'
-    if (dbTx.type === 'income') {
-      method = Math.random() > 0.4 ? 'pix' : 'credito'
-    } else {
-      method = Math.random() > 0.5 ? 'transferencia' : 'boleto'
-    }
-
-    return {
-      id: dbTx.id,
-      event: dbTx.events?.title || 'Geral',
-      description: dbTx.description || 'Transação financeira',
-      type: dbTx.type as TransactionType,
-      amount: Number(dbTx.amount) || 0,
-      method,
-      status: tStatus,
-      date: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
-      dueDate: new Date(dbTx.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }),
-      category: dbTx.type === 'income' ? 'Ingressos' : 'Local'
-    }
-  }
-
-  useEffect(() => {
-    loadFinanceData()
-  }, [user?.id])
-
-  const filtered = transactions
-    .filter(t => activeTab === 'all' || t.type === activeTab)
-    .filter(t => !search || t.event.toLowerCase().includes(search.toLowerCase()) || t.description.toLowerCase().includes(search.toLowerCase()))
-    .filter(t => filterStatus === 'all' || t.status === filterStatus)
-    .filter(t => filterMethod === 'all' || t.method === filterMethod)
-
-  const income = transactions.filter(t => t.type === 'income')
-  const expenses = transactions.filter(t => t.type === 'expense')
-  const totalIncome = income.reduce((s, t) => s + t.amount, 0)
-  const totalExpense = expenses.reduce((s, t) => s + t.amount, 0)
-  const net = totalIncome - totalExpense
-  const pendingAmount = transactions.filter(t => t.status === 'pendente').reduce((s, t) => s + t.amount, 0)
-  const overdueAmount = transactions.filter(t => t.status === 'atrasado').reduce((s, t) => s + t.amount, 0)
-
-  const byMethod = (Object.keys(methodIcons) as PaymentMethod[]).map(m => ({
-    method: m,
-    income: income.filter(t => t.method === m).reduce((s, t) => s + t.amount, 0),
-    expense: expenses.filter(t => t.method === m).reduce((s, t) => s + t.amount, 0),
-  })).filter(m => m.income > 0 || m.expense > 0)
-
-  const byCategory = [...new Set(expenses.map(t => t.category))].map(c => ({
-    category: c,
-    total: expenses.filter(t => t.category === c).reduce((s, t) => s + t.amount, 0),
-  })).sort((a, b) => b.total - a.total)
-
-  const handleSave = async (formVal: any) => {
-    if (!user?.id) return
-    try {
-      if (formVal.id) {
-        const { error } = await supabase
-          .from('transactions')
-          .update({
-            event_id: formVal.event_id,
-            description: formVal.description,
-            type: formVal.type,
-            amount: formVal.amount,
-            status: formVal.status,
-            created_at: formVal.created_at
-          })
-          .eq('id', formVal.id)
-
-        if (error) throw error
-        toast.success('Transação atualizada no Supabase')
-      } else {
-        const { error } = await supabase
-          .from('transactions')
-          .insert({
-            producer_id: user.id,
-            event_id: formVal.event_id,
-            description: formVal.description,
-            type: formVal.type,
-            amount: formVal.amount,
-            status: formVal.status,
-            created_at: formVal.created_at
-          })
-
-        if (error) throw error
-        toast.success('Transação adicionada no Supabase')
+  const header = (
+    <PageHeader
+      title="Financeiro"
+      description="Vendas pagas dos seus eventos, em valor bruto"
+      actions={
+        <Button variant="outline" onClick={exportar} disabled={pedidos.length === 0}>
+          <Download aria-hidden="true" />Exportar CSV
+        </Button>
       }
+    />
+  )
 
-      setEditingTx(null)
-      setShowForm(false)
-      loadFinanceData()
-    } catch (err: any) {
-      console.error('Erro ao salvar transação:', err)
-      toast.error('Erro ao salvar transação no banco de dados')
-    }
+  const aviso = (
+    <div className="mb-6 rounded-[10px] border border-border bg-card p-4">
+      <p className="text-sm font-medium text-foreground">Os valores do repasse aparecem quando o pagamento estiver ligado.</p>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Até lá, esta tela mostra só o valor bruto dos pedidos pagos: o que o comprador pagou, com a taxa de serviço incluída. Taxas, repasse e saque ainda não são descontados aqui.
+      </p>
+    </div>
+  )
+
+  if (isPending) {
+    return (
+      <div aria-busy="true">
+        {header}
+        {aviso}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        </div>
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
   }
 
-  const tabs = [
-    { id: 'all' as const, label: 'Todas', count: transactions.length },
-    { id: 'income' as const, label: 'Receitas', count: income.length },
-    { id: 'expense' as const, label: 'Despesas', count: expenses.length },
-  ]
-
-  const formatCurrency = (v: number) =>
-    `R$ ${v.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar as vendas.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Financeiro</h1>
-          <p className="text-sm text-espresso/70 mt-1">Dashboard com dados reais do banco, fluxo de caixa e conciliação</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button disabled className="flex items-center gap-2 px-4 py-2.5 bg-white/60 border border-white/60 text-espresso text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
-            <Download className="w-4 h-4" /> Exportar (em breve)
-          </button>
-          <button onClick={() => { setEditingTx(null); setShowForm(true) }} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-            <Plus className="w-4 h-4" /> Nova Transação
-          </button>
-        </div>
+    <div>
+      {header}
+      {aviso}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Stat label="Vendas pagas (bruto)" value={brl(bruto)} />
+        <Stat label="Pedidos pagos" value={pedidos.length.toLocaleString('pt-BR')} />
+        <Stat label="Ticket médio (bruto)" value={pedidos.length ? brl(bruto / pedidos.length) : '—'} />
       </div>
 
-      {/* ─── Dashboard Charts (DADOS REAIS) ─── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Receita Total', value: formatCurrency(summary?.totalRevenue || 0), icon: TrendingUp, color: 'text-green-400', bg: 'surface border-green-500/20' },
-          { label: 'Confirmado', value: formatCurrency(summary?.confirmedRevenue || 0), icon: CheckCircle2, color: 'text-green-400', bg: 'surface border-green-500/20' },
-          { label: 'Pendente', value: formatCurrency(summary?.pendingRevenue || 0), icon: Clock, color: 'text-amber-400', bg: 'surface border-amber-500/20' },
-          { label: 'Ingressos Vendidos', value: String(summary?.totalTicketsSold || 0), icon: BarChart3, color: 'text-purple-400', bg: 'surface border-purple-500/20' },
-        ].map(k => (
-          <div key={k.label} className={`p-5 rounded-2xl ${k.bg}`}>
-            <div className="flex items-center justify-between mb-3">
-              <k.icon className={`w-5 h-5 ${k.color}`} />
-            </div>
-            <div className={`font-serif text-2xl ${k.color}`}>{isSummaryLoading ? '—' : k.value}</div>
-            <div className="text-xs text-white/40 mt-1">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Revenue over time */}
-        <div className="lg:col-span-2 p-6 rounded-2xl surface">
-          <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-purple-400" /> Receita nos Últimos 30 Dias
-          </h3>
-          {isDailyLoading ? (
-            <div className="h-64 bg-white/[0.02] rounded-xl animate-pulse" />
-          ) : !dailyRevenue || dailyRevenue.length === 0 ? (
-            <div className="h-64 flex items-center justify-center text-sm text-white/30">Nenhuma venda nos últimos 30 dias</div>
-          ) : (
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={dailyRevenue}>
-                  <defs>
-                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8f33f5" stopOpacity={0.4}/>
-                      <stop offset="95%" stopColor="#8f33f5" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
-                  <Tooltip
-                    formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']}
-                    contentStyle={{
-                      background: 'rgba(7, 8, 12, 0.85)',
-                      backdropFilter: 'blur(16px)',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: 'white',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.5)'
-                    }}
-                  />
-                  <Area type="monotone" dataKey="revenue" stroke="#8f33f5" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-
-        {/* Payment Methods */}
-        <div className="p-6 rounded-2xl surface">
-          <h3 className="text-sm font-medium text-white mb-4">Formas de Pagamento</h3>
-          {isPaymentMethodsLoading ? (
-            <div className="h-48 bg-white/[0.02] rounded-xl animate-pulse" />
-          ) : !paymentMethods || paymentMethods.length === 0 ? (
-            <div className="h-48 flex items-center justify-center text-sm text-white/30">Sem dados de pagamento</div>
-          ) : (
-            <div className="h-48">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={paymentMethods}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
-                    paddingAngle={4}
-                    dataKey="total"
-                    nameKey="method"
-                  >
-                    {paymentMethods.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => `R$ ${value.toLocaleString('pt-BR')}`}
-                    contentStyle={{
-                      background: 'rgba(7, 8, 12, 0.85)',
-                      backdropFilter: 'blur(16px)',
-                      borderRadius: '12px',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      color: 'white'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-          <div className="space-y-2 mt-2">
-            {paymentMethods?.map((m, i) => (
-              <div key={m.method} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                  <span className="text-white/60">{m.method}</span>
-                </div>
-                <span className="font-medium text-white">R$ {m.total.toLocaleString('pt-BR')}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Revenue by Event */}
-      <div className="p-6 rounded-2xl surface mb-8">
-        <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-purple-400" /> Receita por Evento
-        </h3>
-        {isEventRevenueLoading ? (
-          <div className="h-48 bg-white/[0.02] rounded-xl animate-pulse" />
-        ) : !eventRevenue || eventRevenue.length === 0 ? (
-          <div className="h-48 flex items-center justify-center text-sm text-white/30">Nenhum evento com vendas</div>
-        ) : (
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={eventRevenue} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.4)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `R$${v}`} />
-                <YAxis dataKey="event_title" type="category" tick={{ fontSize: 11, fill: 'rgba(255,255,255,0.5)' }} axisLine={false} tickLine={false} width={140} />
-                <Tooltip
-                  formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']}
-                  contentStyle={{
-                    background: 'rgba(7, 8, 12, 0.85)',
-                    backdropFilter: 'blur(16px)',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    color: 'white'
-                  }}
-                />
-                <Bar dataKey="revenue" fill="#1d68c4" radius={[0, 6, 6, 0]} barSize={20} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </div>
-
-      {/* Alert for overdue */}
-      {overdueAmount > 0 && (
-        <div className="mb-6 p-4 rounded-2xl bg-red-950/20 border border-red-500/30 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0" />
-          <div>
-            <p className="text-sm text-red-400 font-medium">Você tem despesas em atraso</p>
-            <p className="text-xs text-red-400/80">R$ {overdueAmount.toLocaleString()} em contas com vencimento ultrapassado.</p>
-          </div>
-        </div>
-      )}
-
-      {/* Legacy payment method bars */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="lg:col-span-2 p-6 rounded-2xl surface">
-          <h3 className="text-sm font-medium text-white mb-4 flex items-center gap-2"><DollarSign className="w-4 h-4 text-purple-400" /> Por Forma de Pagamento (Transações)</h3>
-          <div className="space-y-3">
-            {byMethod.map(m => {
-              const maxVal = Math.max(...byMethod.map(x => Math.max(x.income, x.expense) || 1))
-              return (
-                <div key={m.method}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-white/60 flex items-center gap-1.5">
-                      {(() => { const I = methodIcons[m.method]; return <I className="w-3.5 h-3.5 text-white/30" /> })()}
-                      {methodLabels[m.method]}
-                    </span>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden flex">
-                      {m.income > 0 && (
-                        <div className="h-full bg-green-500/20 flex items-center px-2 transition-all" style={{ width: `${(m.income / maxVal) * 100}%` }}>
-                          <span className="text-[10px] font-medium text-green-400 whitespace-nowrap">R$ {m.income.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden flex">
-                      {m.expense > 0 && (
-                        <div className="h-full bg-red-500/20 flex items-center px-2 transition-all" style={{ width: `${(m.expense / maxVal) * 100}%` }}>
-                          <span className="text-[10px] font-medium text-red-400 whitespace-nowrap">R$ {m.expense.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-4 mt-4 pt-3 border-t border-white/[0.06]">
-            <span className="flex items-center gap-1.5 text-[10px] text-white/40"><div className="w-2 h-2 rounded-full bg-green-400/60" /> Receitas</span>
-            <span className="flex items-center gap-1.5 text-[10px] text-white/40"><div className="w-2 h-2 rounded-full bg-red-400/60" /> Despesas</span>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-2xl surface">
-          <h3 className="text-sm font-medium text-white mb-4">Despesas por Categoria</h3>
-          <div className="space-y-3">
-            {byCategory.map(c => {
-              const maxCat = Math.max(...byCategory.map(x => x.total) || 1)
-              return (
-                <div key={c.category} className="flex items-center gap-3">
-                  <span className="text-xs text-white/60 w-24 truncate">{c.category}</span>
-                  <div className="flex-1 h-5 bg-white/[0.02] rounded-lg overflow-hidden">
-                    <div className="h-full bg-purple-500/25 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(c.total / maxCat) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-purple-300 whitespace-nowrap">R$ {c.total.toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            {byCategory.length === 0 && (
-              <div className="py-12 text-center text-xs text-white/30">Nenhuma despesa registrada.</div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Tabs + Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-1 p-1 bg-white/[0.02] border border-white/[0.06] rounded-2xl w-fit">
-          {tabs.map(t => (
-            <button key={t.id} onClick={() => setActiveTab(t.id)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${activeTab === t.id ? 'bg-purple-600 text-white shadow-glow' : 'text-white/40 hover:text-white/70'}`}>
-              {t.label} <span className={`text-[10px] px-1.5 py-0.5 rounded-md ${activeTab === t.id ? 'bg-white/20' : 'bg-white/[0.04]'}`}>{t.count}</span>
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar transações..." className="pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30 w-48" />
-          </div>
-          <select value={filterStatus} onChange={e => setFilterStatus(e.target.value as PaymentStatus | 'all')} aria-label="Filtrar por Status" title="Filtrar por Status" className="px-3 py-2 bg-void border border-white/[0.06] rounded-xl text-sm text-white/60 focus:outline-none focus:border-purple-500/30">
-            <option value="all">Todos Status</option>
-            <option value="pago">Pago</option>
-            <option value="pendente">Pendente</option>
-            <option value="atrasado">Atrasado</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Transactions Table */}
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map(n => (
-            <div key={n} className="h-14 bg-white/[0.02] border border-white/[0.06] rounded-2xl animate-pulse" />
-          ))}
+      {pedidos.length === 0 ? (
+        <div className="mt-6">
+          <EmptyState title="Nenhum pedido pago ainda" description="Quando alguém comprar ingresso de um evento seu, a venda aparece aqui." />
         </div>
       ) : (
-        <div className="surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Evento / Descrição</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Categoria</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Forma Pagto</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Status</th>
-                  <th className="text-left px-4 py-3 text-[10px] font-medium text-white/40 uppercase hidden lg:table-cell">Vencimento</th>
-                  <th className="text-right px-4 py-3 text-[10px] font-medium text-white/40 uppercase">Valor</th>
-                  <th className="px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map(tx => {
-                  const MethodIcon = methodIcons[tx.method]
-                  const statusCfg = statusConfig[tx.status]
-                  return (
-                    <tr key={tx.id} className="border-b border-white/[0.04] last:border-0 hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-white font-medium">{tx.event}</div>
-                        <div className="text-[10px] text-white/40">{tx.description}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 bg-white/[0.04] text-white/50 text-[10px] rounded-md">{tx.category}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="flex items-center gap-1.5 text-xs text-white/60">
-                          <MethodIcon className="w-3.5 h-3.5 text-white/30" />
-                          {methodLabels[tx.method]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${statusCfg.bg} ${statusCfg.text}`}>
-                          <statusCfg.icon className="w-3 h-3" /> {statusCfg.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <div className="flex items-center gap-1 text-xs text-white/40">
-                          <Calendar className="w-3 h-3" />
-                          {tx.dueDate || '-'}
-                        </div>
-                      </td>
-                      <td className={`px-4 py-3 text-right text-sm font-medium font-serif ${tx.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
-                        {tx.type === 'income' ? '+' : '-'}R$ {tx.amount.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button onClick={() => { setEditingTx(tx); setShowForm(true) }} aria-label="Editar transação" title="Editar Transação" className="p-1.5 rounded-lg hover:bg-white/[0.06] text-white/20 hover:text-white/60 transition-colors">
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {filtered.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="py-12 text-center text-sm text-white/30">Nenhuma transação encontrada</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <section aria-labelledby="fin-por-evento" className="rounded-[10px] border border-border bg-card">
+            <h2 id="fin-por-evento" className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">Por evento</h2>
+            <ul className="divide-y divide-border">
+              {porEvento.map(e => (
+                <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{e.titulo}</p>
+                    <p className="text-xs text-muted-foreground">{e.pedidos} {e.pedidos === 1 ? 'pedido' : 'pedidos'}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(e.bruto)}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
 
-      {/* Form Modal */}
-      {showForm && (
-        <TransactionForm
-          tx={editingTx}
-          onSave={handleSave}
-          onClose={() => { setShowForm(false); setEditingTx(null) }}
-          events={events}
-        />
+          <section aria-labelledby="fin-pedidos" className="rounded-[10px] border border-border bg-card">
+            <h2 id="fin-pedidos" className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
+              Últimos pedidos pagos
+            </h2>
+            <ul className="divide-y divide-border">
+              {pedidos.slice(0, 20).map(p => (
+                <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{p.events?.title || 'Sem título'}</p>
+                    <p className="text-xs text-muted-foreground">{data(p.created_at)} · {forma(p.payment_method)}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(Number(p.total) || 0)}</p>
+                </li>
+              ))}
+            </ul>
+            {pedidos.length > 20 && (
+              <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
+                Mostrando os 20 mais recentes de {pedidos.length.toLocaleString('pt-BR')}. O CSV traz todos.
+              </p>
+            )}
+          </section>
+        </div>
       )}
     </div>
   )

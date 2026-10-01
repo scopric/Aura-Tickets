@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, ChevronRight, ChevronLeft, Sparkles, Check, User, Building } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -10,26 +10,26 @@ interface TourStep {
 }
 
 const producerSteps: TourStep[] = [
-  { title: 'Bem-vindo ao Evokaa!', description: 'Esta e a sua central de comandos. Aqui voce gerencia todos os seus eventos, vendas e equipe em um so lugar.' },
-  { title: 'Criar Evento', description: 'Comece clicando em "Criar Evento". Escolha o tipo, configure ingressos, preços e publique em minutos.' },
-  { title: 'Afiliados', description: 'Cadastre vendedores que divulgarao seu evento. Cada um tem codigo unico, cupom e limite de ingressos.' },
+  { title: 'Boas-vindas à Evokaa!', description: 'Esta é a sua central. Aqui você gerencia seus eventos, vendas e equipe em um só lugar.' },
+  { title: 'Criar evento', description: 'Comece em "Criar evento". Escolha o tipo, configure ingressos e preços e envie para a análise da Evokaa.' },
+  { title: 'Afiliados', description: 'Vincule pessoas que vão divulgar seu evento e defina a comissão de cada uma.' },
   { title: 'Check-in', description: 'No dia do evento, use o scanner para liberar a entrada.' },
-  { title: 'Financeiro', description: 'Controle receitas e despesas com formas de pagamento (PIX, cartao, boleto). Veja saldo, pendentes e atrasados.' },
-  { title: 'Caixinha', description: 'Separe dinheiro por categoria: Marketing, Decoracao, Emergencia. Defina metas e acompanhe o progresso.' },
-  { title: 'Comunicacao', description: 'A comunicacao com os participantes chega em breve.' },
+  { title: 'Financeiro', description: 'Veja o valor bruto dos pedidos pagos de cada evento e exporte em CSV. O repasse aparece quando o pagamento estiver ligado.' },
+  { title: 'Orçamento do evento', description: 'Anote o previsto de cada gasto (marketing, decoração, emergência) e acompanhe quanto já separou.' },
+  { title: 'Comunicação', description: 'A comunicação com os participantes chega em breve.' },
   { title: 'Cupons', description: 'Crie cupons de desconto para impulsionar vendas. Percentual ou valor fixo, com limite de usos e validade.' },
-  { title: 'Cronograma', description: 'Monte a timeline do evento: soundcheck, abertura, shows, encerramento. Marque itens como concluidos.' },
-  { title: 'Voce esta pronto!', description: 'Explore o menu lateral para descobrir todas as ferramentas. Precisa de ajuda? O FAQ esta no menu "Ajuda".' },
+  { title: 'Cronograma', description: 'Monte a linha do tempo do evento: soundcheck, abertura, shows e encerramento. Marque os itens concluídos.' },
+  { title: 'Tudo pronto!', description: 'Explore o menu lateral para conhecer as ferramentas. Dúvidas? As perguntas frequentes estão em "Ajuda".' },
 ]
 
 const buyerSteps: TourStep[] = [
-  { title: 'Bem-vindo ao Evokaa!', description: 'Aqui voce descobre os melhores eventos, compra ingressos e vive experiencias unicas.' },
-  { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e localidade.' },
-  { title: 'Mesa Coletiva', description: 'Nao tem grupo? Com o ingresso de Mesa Coletiva voce senta com outras pessoas no evento. A formacao automatica por afinidade chega em breve.' },
-  { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague via PIX ou cartao.' },
+  { title: 'Boas-vindas à Evokaa!', description: 'Aqui você descobre eventos, compra ingressos e vive experiências únicas.' },
+  { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e local.' },
+  { title: 'Mesa Coletiva', description: 'Não tem grupo? Com o ingresso de Mesa Coletiva você senta com outras pessoas no evento. A formação automática por afinidade chega em breve.' },
+  { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague por Pix ou cartão.' },
   { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in.' },
-  { title: 'Cardapio', description: 'Veja as bebidas e comidas do evento no Hub. Pedidos pelo app chegam em breve.' },
-  { title: 'Voce esta pronto!', description: 'Explore o app e encontre seu proximo evento. Duvidas? O FAQ esta no menu "Ajuda".' },
+  { title: 'Cardápio', description: 'Veja as bebidas e comidas do evento no Hub. Pedidos pelo app chegam em breve.' },
+  { title: 'Tudo pronto!', description: 'Explore o app e encontre seu próximo evento. Dúvidas? As perguntas frequentes estão em "Ajuda".' },
 ]
 
 interface OnboardingTourProps {
@@ -40,6 +40,7 @@ interface OnboardingTourProps {
 export default function OnboardingTour({ role, onComplete }: OnboardingTourProps) {
   const [show, setShow] = useState(false)
   const [step, setStep] = useState(0)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   const steps = role === 'producer' ? producerSteps : buyerSteps
 
@@ -56,7 +57,7 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
     localStorage.setItem(`aura_tour_${role}_v1`, 'done')
     setShow(false)
     onComplete()
-    toast.success('Tour concluido! Bom trabalho.')
+    toast.success('Tour concluído! Bom trabalho.')
   }
 
   const skip = () => {
@@ -65,6 +66,33 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
     onComplete()
   }
 
+  // Ao abrir, o foco vai para o diálogo; ao fechar, volta para onde estava
+  useEffect(() => {
+    if (!show) return
+    const antes = document.activeElement as HTMLElement | null
+    dialogRef.current?.focus()
+    return () => antes?.focus?.()
+  }, [show])
+  // Esc fecha como o X (escolha explícita); clique fora só esconde nesta visita, sem marcar como visto.
+  // Tab e Shift+Tab giram entre o primeiro e o último botão do diálogo.
+  useEffect(() => {
+    if (!show) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { skip(); return }
+      const el = dialogRef.current
+      if (e.key !== 'Tab' || !el) return
+      const focaveis = el.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (!focaveis.length) return
+      const primeiro = focaveis[0]
+      const ultimo = focaveis[focaveis.length - 1]
+      const atual = document.activeElement
+      if (e.shiftKey && (atual === primeiro || !el.contains(atual) || atual === el)) { e.preventDefault(); ultimo.focus() }
+      else if (!e.shiftKey && (atual === ultimo || !el.contains(atual))) { e.preventDefault(); primeiro.focus() }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  })
+
   if (!show) return null
 
   const s = steps[step]
@@ -72,8 +100,8 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="absolute inset-0 glass-backdrop" onClick={skip} />
-      <div className="glass-panel relative w-full max-w-md overflow-hidden">
+      <div className="absolute inset-0 glass-backdrop" onClick={() => setShow(false)} />
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-titulo" className="glass-panel relative w-full max-w-md overflow-hidden outline-none">
         {/* Progress bar */}
         <div className="w-full h-1 bg-canvas">
           <div className="h-full bg-plum rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
@@ -88,7 +116,7 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
                 {role === 'producer' ? 'Tour do Produtor' : 'Tour do Participante'}
               </span>
             </div>
-            <button onClick={skip} className="p-1.5 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
+            <button onClick={skip} aria-label="Fechar tour" className="p-1.5 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
@@ -106,7 +134,7 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
           </div>
 
           {/* Content */}
-          <h3 className="font-serif text-xl text-espresso mb-2">{s.title}</h3>
+          <h3 id="tour-titulo" className="font-serif text-xl text-espresso mb-2">{s.title}</h3>
           <p className="text-sm text-espresso/70 leading-relaxed mb-6">{s.description}</p>
 
           {/* Navigation */}
@@ -124,7 +152,7 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
                 onClick={() => setStep(step + 1)}
                 className="flex items-center gap-1 px-6 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
               >
-                Proximo <ChevronRight className="w-4 h-4" />
+                Próximo <ChevronRight className="w-4 h-4" />
               </button>
             ) : (
               <button

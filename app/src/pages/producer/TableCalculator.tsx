@@ -1,5 +1,10 @@
 import { useState } from 'react'
-import { Plus, X, Users, Calculator, Save, Copy } from 'lucide-react'
+import { Plus, X, Save, Copy } from 'lucide-react'
+import { brl } from '../../lib/taxa'
+import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 
 interface TableConfig {
   id: string
@@ -8,6 +13,8 @@ interface TableConfig {
   pricePerSeat: number
   filled: number
 }
+
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function TableCalculator() {
   const [tables, setTables] = useState<TableConfig[]>([])
@@ -38,176 +45,118 @@ export default function TableCalculator() {
   const occupancyRate = totalSeats > 0 ? Math.round((totalFilled / totalSeats) * 100) : 0
 
   const duplicateTable = (table: TableConfig) => {
-    setTables([...tables, { ...table, id: Date.now().toString(), name: `${table.name} (copia)` }])
+    setTables([...tables, { ...table, id: Date.now().toString(), name: `${table.name} (cópia)` }])
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-6xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Calculadora de Mesas</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie mesas, assentos e precificacao</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={addTable}
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Nova Mesa
-          </button>
-          <button disabled className="flex items-center gap-2 px-5 py-2.5 border border-espresso/15 text-espresso text-sm font-medium rounded-full disabled:opacity-50 disabled:cursor-not-allowed">
-            <Save className="w-4 h-4" />
-            Salvar (em breve)
-          </button>
-        </div>
+    <div>
+      <PageHeader
+        title="Calculadora de mesas"
+        description="Simule mesas, lugares e receita (os valores ficam só nesta tela)"
+        actions={
+          <>
+            <Button onClick={addTable}><Plus aria-hidden="true" />Nova mesa</Button>
+            <Button variant="outline" disabled><Save aria-hidden="true" />Salvar (em breve)</Button>
+          </>
+        }
+      />
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Mesas" value={tables.length} />
+        <Stat label="Lugares ocupados" value={`${totalFilled}/${totalSeats}`} />
+        <Stat label="Ocupação" value={`${occupancyRate}%`} />
+        <Stat label="Receita" value={brl(totalRevenue)} hint={`de ${brl(maxRevenue)} no máximo`} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/70 uppercase tracking-wider">Mesas</span>
-          </div>
-          <div className="font-serif text-3xl text-espresso">{tables.length}</div>
-        </div>
-        <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/70 uppercase tracking-wider">Lugares</span>
-          </div>
-          <div className="font-serif text-3xl text-espresso">{totalFilled}/{totalSeats}</div>
-        </div>
-        <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Calculator className="w-4 h-4 text-plum" />
-            <span className="text-xs text-espresso/70 uppercase tracking-wider">Ocupacao</span>
-          </div>
-          <div className="font-serif text-3xl text-espresso">{occupancyRate}%</div>
-          <div className="w-full h-2 bg-espresso/5 rounded-full mt-2">
-            <div className="h-full bg-plum rounded-full transition-all" style={{ width: `${occupancyRate}%` }} />
-          </div>
-        </div>
-        <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-espresso/70 uppercase tracking-wider">Receita</span>
-          </div>
-          <div className="font-serif text-3xl text-plum">R$ {totalRevenue.toLocaleString()}</div>
-          <div className="text-xs text-espresso/70 mt-1">de R$ {maxRevenue.toLocaleString()} max.</div>
-        </div>
-      </div>
+      <div className="mt-6">
+        {tables.length === 0 ? (
+          <EmptyState
+            title="Nenhuma mesa ainda"
+            description="Clique em Nova mesa para simular capacidade e preço por lugar."
+            action={<Button onClick={addTable}><Plus aria-hidden="true" />Nova mesa</Button>}
+          />
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {tables.map((table) => {
+              const fillPercent = table.capacity > 0 ? Math.round((table.filled / table.capacity) * 100) : 0
+              const tableRevenue = table.filled * table.pricePerSeat
+              const id = `mesa-${table.id}`
 
-      {tables.length === 0 && (
-        <p className="text-sm text-espresso/70 text-center py-8">Nenhuma mesa ainda. Clique em Nova Mesa</p>
-      )}
-
-      {/* Tables Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {tables.map((table) => {
-          const fillPercent = table.capacity > 0 ? Math.round((table.filled / table.capacity) * 100) : 0
-          const tableRevenue = table.filled * table.pricePerSeat
-
-          return (
-            <div key={table.id} className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm hover:border-plum/20 transition-all">
-              <div className="flex items-center justify-between mb-4">
-                <input
-                  type="text"
-                  value={table.name}
-                  onChange={e => updateTable(table.id, 'name', e.target.value)}
-                  className="text-sm font-medium text-espresso bg-transparent focus:outline-none border-b border-transparent focus:border-plum/30 transition-colors flex-1 mr-2"
-                />
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => duplicateTable(table)}
-                    className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors"
-                    title="Duplicar"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={() => removeTable(table.id)}
-                    className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors"
-                    title="Remover"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Capacidade</label>
-                  <input
-                    type="number"
-                    value={table.capacity}
-                    onChange={e => updateTable(table.id, 'capacity', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Preco por Lugar (R$)</label>
-                  <input
-                    type="number"
-                    value={table.pricePerSeat}
-                    onChange={e => updateTable(table.id, 'pricePerSeat', parseInt(e.target.value) || 0)}
-                    className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-espresso/70 uppercase tracking-wider mb-1 block">Preenchidos</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="range"
-                      min={0}
-                      max={table.capacity}
-                      value={table.filled}
-                      onChange={e => updateTable(table.id, 'filled', parseInt(e.target.value))}
-                      className="flex-1 accent-plum"
+              return (
+                <div key={table.id} className="rounded-[10px] border border-border bg-card p-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <Input
+                      aria-label="Nome da mesa"
+                      value={table.name}
+                      onChange={e => updateTable(table.id, 'name', e.target.value)}
+                      className="h-8 flex-1 font-medium"
                     />
-                    <input
-                      type="number"
-                      min={0}
-                      max={table.capacity}
-                      value={table.filled}
-                      onChange={e => updateTable(table.id, 'filled', parseInt(e.target.value) || 0)}
-                      className="w-14 px-2 py-1.5 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso focus:outline-none focus:border-plum/30 text-center"
-                    />
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => duplicateTable(table)} aria-label={`Duplicar ${table.name}`}>
+                        <Copy aria-hidden="true" />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeTable(table.id)} aria-label={`Remover ${table.name}`}>
+                        <X aria-hidden="true" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`${id}-cap`}>Lugares</Label>
+                      <Input id={`${id}-cap`} type="number" inputMode="numeric" min={0} value={table.capacity}
+                        onChange={e => updateTable(table.id, 'capacity', parseInt(e.target.value) || 0)} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`${id}-preco`}>Preço por lugar (R$)</Label>
+                      <Input id={`${id}-preco`} type="number" inputMode="decimal" min={0} value={table.pricePerSeat}
+                        onChange={e => updateTable(table.id, 'pricePerSeat', parseInt(e.target.value) || 0)} />
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-1.5">
+                    <Label htmlFor={`${id}-ocupados`}>Ocupados</Label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        aria-label={`Lugares ocupados em ${table.name}`}
+                        min={0}
+                        max={table.capacity}
+                        value={table.filled}
+                        onChange={e => updateTable(table.id, 'filled', parseInt(e.target.value))}
+                        className="min-w-0 flex-1 accent-primary"
+                      />
+                      <Input id={`${id}-ocupados`} type="number" inputMode="numeric" min={0} max={table.capacity} value={table.filled}
+                        onChange={e => updateTable(table.id, 'filled', parseInt(e.target.value) || 0)}
+                        className="w-16 text-center" />
+                    </div>
+                  </div>
+
+                  <div className="mt-4 border-t border-border pt-3">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Ocupação</span>
+                      <span className="tabular-nums text-foreground">{fillPercent}%</span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${Math.min(fillPercent, 100)}%` }} />
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Receita</span>
+                      <span className="font-medium tabular-nums text-foreground">{brl(tableRevenue)}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-espresso/5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs text-espresso/70">Ocupacao</span>
-                  <span className="text-xs font-medium text-espresso">{fillPercent}%</span>
-                </div>
-                <div className="w-full h-1.5 bg-espresso/5 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      fillPercent === 100 ? 'bg-green-500' : fillPercent >= 70 ? 'bg-amber-400' : 'bg-plum'
-                    }`}
-                    style={{ width: `${fillPercent}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <span className="text-xs text-espresso/70">Receita</span>
-                  <span className="font-serif text-lg text-plum">R$ {tableRevenue.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )
-        })}
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Add button */}
-      <button
-        onClick={addTable}
-        className="w-full py-4 border-2 border-dashed border-espresso/10 rounded-2xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all flex items-center justify-center gap-2"
-      >
-        <Plus className="w-4 h-4" />
-        Adicionar Mesa
-      </button>
+      {tables.length > 0 && (
+        <Button variant="outline" className="mt-4 w-full border-dashed" onClick={addTable}>
+          <Plus aria-hidden="true" />Adicionar mesa
+        </Button>
+      )}
     </div>
   )
 }

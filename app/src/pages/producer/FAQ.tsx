@@ -1,67 +1,61 @@
 import { useState } from 'react'
-import { Users, Building } from 'lucide-react'
-import FAQSection from '../../components/FAQSection'
+import { PageHeader } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
 
+// Respostas só sobre o que já funciona; o que depende do gateway de pagamento diz isso (Decisões 106 e 113).
 const producerFAQs = [
-  { question: 'Como criar um novo evento?', answer: 'Acesse "Criar Evento" no menu lateral. Preencha as informacoes basicas como nome, data, local e capacidade. Em seguida, configure os tipos de ingresso, precos e a aparencia visual do evento. Depois e so publicar!' },
-  { question: 'Como funciona o sistema de afiliados?', answer: 'No menu "Afiliados", voce pode cadastrar vendedores que divulgarao seu evento. Cada afiliado recebe um codigo unico e pode ter um cupom exclusivo. Voce define a comissao (ex: 10%) e o limite de ingressos. Na fase beta, a conferencia das vendas e o pagamento (PIX) sao feitos diretamente entre voce e o afiliado; o rastreamento automatico entra com a integracao de pagamentos.' },
-  { question: 'Posso limitar a quantidade de ingressos por afiliado?', answer: 'Sim! Ao cadastrar ou editar um afiliado, voce define o "Limite de Ingressos". Na fase beta o limite e um combinado entre voces (avise o afiliado ao chegar perto); o bloqueio automatico entra com a integracao de pagamentos. Voce pode aumentar o limite a qualquer momento.' },
-  { question: 'Como funciona a Caixinha?', answer: 'A Caixinha e um cofrinho virtual separado por categoria (Marketing, Decoracao, Emergencia, Lucro). Voce define uma meta para cada uma e vai depositando valores conforme recebe. Ajuda a organizar o orcamento do evento.' },
-  { question: 'Como faco o check-in na porta do evento?', answer: 'Use a tela "Check-in" no menu. Existem dois modos: Scanner (digite o codigo do ingresso) e Lista (visualize todos os participantes).' },
-  { question: 'O que e Mesa Coletiva?', answer: 'Mesa Coletiva e um tipo de ingresso onde 6 pessoas desconhecidas sao agrupadas por afinidade de perfil. Elas respondem um questionario de perfil; a formacao automatica das mesas por afinidade chega em breve.' },
-  { question: 'Como criar cupons de desconto?', answer: 'Va em "Cupons" no menu. Voce pode criar cupons percentuais (ex: 20% OFF) ou valor fixo (ex: R$50 OFF). Defina compra minima, limite de usos e validade.' },
-  { question: 'Como enviar comunicacoes em massa?', answer: 'Esse recurso ainda nao esta disponivel. O envio de e-mail, SMS e push para os participantes esta em construcao e chega com a ferramenta de e-mail do produtor; por enquanto a tela "Comunicacao" fica fora do menu.' },
-  { question: 'Posso exportar relatorios financeiros?', answer: 'Ainda nao esta disponivel. O botao "Exportar" da tela "Financeiro" esta marcado como "em breve"; ate la, os valores ficam visiveis na propria tela.' },
-  { question: 'Como funciona o cronograma do evento?', answer: 'O "Cronograma" mostra a linha do tempo completa do evento, do soundcheck ao encerramento. Cada item tem horario, responsavel e local. Clique no circulo para marcar como concluido.' },
+  { question: 'Como criar um novo evento?', answer: 'Em "Criar evento", no menu Eventos, preencha nome, data, local e capacidade, configure os tipos de ingresso e os preços e envie. O evento passa pela análise da Evokaa antes de aparecer no site.' },
+  { question: 'Como funciona o sistema de afiliados?', answer: 'Em "Afiliados", você vincula a um evento uma pessoa que já tem conta na Evokaa, é maior de 18 anos e tem a data de nascimento no perfil, e define a comissão. Na fase beta, a conferência das vendas e o pagamento da comissão são combinados entre você e o afiliado; o link de venda e o rastreamento automático chegam com o módulo de Promoters e a integração de pagamentos.' },
+  { question: 'Como funciona o Orçamento do evento?', answer: 'Em "Orçamento do evento", no menu Dinheiro, você cria um item para cada gasto previsto (som, decoração, divulgação), com o valor previsto, e registra quanto já separou. É um controle seu: nenhum dinheiro é movimentado pela Evokaa.' },
+  { question: 'Como faço o check-in na porta do evento?', answer: 'Use a tela "Check-in", no menu Público. No modo Scanner, digite o código do ingresso (um leitor de código que funcione como teclado também serve); no modo Lista, procure o participante e confirme a entrada.' },
+  { question: 'O que é Mesa Coletiva?', answer: 'É um tipo de ingresso em que pessoas que não se conhecem dividem uma mesa. Elas respondem um questionário de perfil; a formação automática das mesas por afinidade chega em breve.' },
+  { question: 'Como criar cupons de desconto?', answer: 'Em "Cupons", no menu Vendas, crie cupons percentuais (ex.: 20%) ou de valor fixo (ex.: R$ 50), com compra mínima, limite de usos e validade, para um evento ou para todos.' },
+  { question: 'Como enviar comunicações em massa?', answer: 'Ainda não é possível. O envio de e-mail, SMS e push para os participantes chega com a ferramenta de e-mail do produtor; até lá, a tela "Comunicação" fica fora do menu.' },
+  { question: 'Posso exportar relatórios financeiros?', answer: 'Sim, os pedidos pagos: em "Financeiro", o botão "Exportar CSV" baixa a lista com data, evento, forma de pagamento e valor bruto. Repasse, taxas e saque aparecem quando o pagamento estiver ligado.' },
+  { question: 'Como funciona o cronograma do evento?', answer: 'Em "Cronograma", no menu Eventos, escolha o evento e monte a linha do tempo, do soundcheck ao encerramento. Cada item tem horário, título, responsável e local; toque no círculo do item para marcá-lo como concluído.' },
+  { question: 'Quando posso sacar o dinheiro das vendas?', answer: 'O saque e o repasse dependem da integração de pagamentos, que ainda não está ligada. Por isso a Carteira mostra o saldo como indisponível e o botão "Sacar" fica desligado.' },
 ]
 
 const affiliateFAQs = [
-  // Programa em fase beta (Decisão 36, 27/09/2026): a venda pelo link ainda não é atribuída automaticamente.
-  { question: 'Como comeco a vender?', answer: 'Assim que o produtor te cadastrar, voce recebe um codigo unico (ex: CARLOS20) e um link para compartilhar. O programa esta em fase beta: por enquanto a venda feita pelo link ainda nao e ligada automaticamente ao seu codigo, entao combine com o produtor como ele vai conferir as suas vendas.' },
-  { question: 'Quanto eu ganho por venda?', answer: 'A comissao e definida pelo produtor (geralmente 10% do valor do ingresso). Se voce vender um ingresso de R$ 150,00 e sua comissao for 10%, voce ganha R$ 15,00. O calculo automatico entra quando a integracao de pagamentos estiver pronta.' },
-  { question: 'Como recebo minha comissao?', answer: 'O pagamento e feito via PIX pelo produtor, para a chave cadastrada. O acompanhamento automatico do valor pendente e pago sera liberado com a integracao de pagamentos.' },
-  { question: 'O que e o meu cupom exclusivo?', answer: 'O produtor pode criar um cupom de desconto exclusivo para voce (ex: CARLOSVIP 15% OFF). Isso ajuda a vender mais porque o comprador tambem ganha desconto!' },
-  { question: 'Existe limite de vendas?', answer: 'Sim, o produtor define um limite de ingressos por afiliado. Confira com o produtor o seu limite e quantos ja vendeu. Quando atingir o limite, avise o produtor para liberar mais.' },
-  { question: 'Como subo de nivel?', answer: 'Voce sobe de nivel (Bronze → Prata → Ouro → Platina) vendendo mais ingressos. Cada nivel tem metas: Bronze (0), Prata (25), Ouro (75), Platina (150). Afiliados de nivel mais alto podem ter beneficios exclusivos.' },
-  { question: 'Onde vejo meu desempenho?', answer: 'Na fase beta, o produtor acompanha na tela Afiliados os ingressos vendidos e a comissao de cada afiliado e repassa a voce. O painel proprio do afiliado, com grafico e taxa de conversao, sera liberado com a integracao de pagamentos.' },
+  // Programa em fase beta (Decisão 36): a venda pelo link ainda não é atribuída automaticamente.
+  { question: 'Como começo a vender?', answer: 'Quem vincula você a um evento é o produtor, pelo seu e-mail de cadastro na Evokaa. O programa está em fase beta: a venda ainda não é ligada automaticamente a você, então combine com o produtor como ele vai conferir as suas vendas.' },
+  { question: 'Quanto eu ganho por venda?', answer: 'A comissão é definida pelo produtor, em percentual. Exemplo: ingresso de R$ 150,00 com comissão de 10% rende R$ 15,00. O cálculo automático entra quando a integração de pagamentos estiver pronta.' },
+  { question: 'Como recebo minha comissão?', answer: 'Na fase beta, o pagamento é combinado direto com o produtor. O acompanhamento automático do valor pendente e pago chega com a integração de pagamentos.' },
+  { question: 'Onde vejo meu desempenho?', answer: 'Na fase beta, quem acompanha as vendas e a comissão de cada afiliado é o produtor, na tela Afiliados. Um painel próprio do afiliado chega com a integração de pagamentos.' },
 ]
 
 export default function ProducerFAQ() {
   const [tab, setTab] = useState<'producer' | 'affiliate'>('producer')
+  const items = tab === 'producer' ? producerFAQs : affiliateFAQs
 
   return (
-    <div className="p-6 lg:p-10 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="text-center mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Perguntas Frequentes</h1>
-        <p className="text-sm text-espresso/70 mt-2">Tire suas duvidas sobre a plataforma</p>
+    <div className="mx-auto max-w-3xl">
+      <PageHeader title="Ajuda" description="Perguntas frequentes sobre o painel" />
+
+      <div role="group" aria-label="Para quem são as perguntas" className="mb-4 flex flex-wrap gap-1">
+        {([['producer', 'Para produtores'], ['affiliate', 'Para afiliados']] as const).map(([id, rotulo]) => (
+          <Button
+            key={id}
+            size="sm"
+            variant={tab === id ? 'secondary' : 'ghost'}
+            aria-pressed={tab === id}
+            onClick={() => setTab(id)}
+            className={tab === id ? '' : 'text-muted-foreground hover:text-foreground'}
+          >
+            {rotulo}
+          </Button>
+        ))}
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center justify-center gap-2 mb-10">
-        <button onClick={() => setTab('producer')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'producer' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70'}`}>
-          <Building className="w-4 h-4" /> Para Produtores
-        </button>
-        <button onClick={() => setTab('affiliate')} className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium transition-all ${tab === 'affiliate' ? 'bg-plum text-cream' : 'bg-white/40 border border-white/60 text-espresso/70'}`}>
-          <Users className="w-4 h-4" /> Para Afiliados
-        </button>
-      </div>
-
-      {tab === 'producer' && (
-        <FAQSection
-          title="Central do Produtor"
-          subtitle="Tudo que voce precisa saber para gerenciar seus eventos"
-          items={producerFAQs}
-        />
-      )}
-
-      {tab === 'affiliate' && (
-        <FAQSection
-          title="Central do Afiliado"
-          subtitle="Aprenda a vender mais e maximizar seus ganhos"
-          items={affiliateFAQs}
-        />
-      )}
+      <Accordion type="single" collapsible className="rounded-[10px] border border-border bg-card px-4">
+        {items.map((item, i) => (
+          <AccordionItem key={item.question} value={`${tab}-${i}`}>
+            <AccordionTrigger className="text-foreground">{item.question}</AccordionTrigger>
+            <AccordionContent className="text-muted-foreground">{item.answer}</AccordionContent>
+          </AccordionItem>
+        ))}
+      </Accordion>
     </div>
   )
 }

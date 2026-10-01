@@ -166,3 +166,15 @@ position: relative;
 --bp-xl: 1280px;
 --bp-2xl: 1536px;
 ```
+
+## Painel do produtor (Decisão 112)
+
+Vale só dentro de `.painel-produtor` (raiz do `ProducerLayout`); site, participante e admin seguem as seções acima. Estilo sóbrio, tipo Linear/Stripe.
+
+- **Fonte:** uma só, Plus Jakarta Sans. Sem `font-serif` nos títulos; números com `tabular-nums`.
+- **Tokens:** só os do shadcn, redefinidos em `index.css` (`.painel-produtor` e `.light .painel-produtor`): `bg-background`, `bg-card`, `bg-muted`, `border-border`, `text-foreground`, `text-muted-foreground`, `bg-primary`. O azul da marca (`--primary`) é o único destaque. Sem `espresso`, `plum`, `cream`, `shadow-glow`, gradiente, emoji ou seta de tendência inventada.
+- **Acabamento:** bordas de 1 px e cantos de 8 a 12 px (cartão: `rounded-[10px] border border-border bg-card`). Vidro só em menus e janelas.
+- **Peças:** `PageHeader`, `Stat` e `EmptyState` de `components/producer/ui.tsx`; `Button`, `Input`, `Label` (com `htmlFor`), `Badge`, `Skeleton` (`bg-muted`), `Dialog`, `Sheet` e `AlertDialog` de `components/ui`. Janelas e gavetas vão para o `<body>`, fora do escopo: dentro delas, só tokens.
+- **Estados:** carregando com `Skeleton`; erro com `role="alert"` e botão "Tentar de novo"; vazio com `EmptyState` dizendo o que fazer. Valor que ainda não existe (repasse, saque) aparece como indisponível, nunca como zero.
+- **Acessibilidade:** botão só com ícone leva `aria-label`; ícone decorativo `aria-hidden`; apagar pede confirmação num modal da página (`AlertDialog`), nunca `window.confirm`. Nada de rolagem lateral a 375 px.
+- **Movimento:** entrada de tela com um `@keyframes` só (`produtor-entrar`: opacidade e 8 px, 180 ms); janelas e gavetas com a transição do Radix; hover discreto; números que contam só no Início (gsap). Tudo desliga com `prefers-reduced-motion` (`motion-reduce:` nas barras de progresso).

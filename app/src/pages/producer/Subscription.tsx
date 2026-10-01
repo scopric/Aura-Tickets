@@ -28,7 +28,7 @@ const plans: Plan[] = [
     border: 'border-violet-200/60', 
     icon: Zap,
     features: [
-      { name: 'Caixinha e Calculadora', included: true },
+      { name: 'Orçamento do evento e Calculadora', included: true },
       { name: 'Suporte via E-mail', included: true },
       { name: 'CRM Pipeline', included: false },
       { name: 'Campanhas de E-mail', included: false },
@@ -51,7 +51,7 @@ const plans: Plan[] = [
     border: 'border-amber-200/60', 
     icon: Star,
     features: [
-      { name: 'Caixinha e Calculadora', included: true },
+      { name: 'Orçamento do evento e Calculadora', included: true },
       { name: 'Suporte via E-mail', included: true },
       { name: 'CRM Pipeline', included: true },
       { name: 'Campanhas de E-mail', included: true },
@@ -75,7 +75,7 @@ const plans: Plan[] = [
     icon: Crown, 
     popular: true,
     features: [
-      { name: 'Caixinha e Calculadora', included: true },
+      { name: 'Orçamento do evento e Calculadora', included: true },
       { name: 'Suporte Prioritário', included: true },
       { name: 'CRM Pipeline', included: true },
       { name: 'Campanhas de E-mail', included: true },
@@ -98,7 +98,7 @@ const plans: Plan[] = [
     border: 'border-espresso/10', 
     icon: Shield,
     features: [
-      { name: 'Caixinha e Calculadora', included: true },
+      { name: 'Orçamento do evento e Calculadora', included: true },
       { name: 'Suporte Dedicado 24/7', included: true },
       { name: 'CRM Pipeline', included: true },
       { name: 'Campanhas de E-mail', included: true },
