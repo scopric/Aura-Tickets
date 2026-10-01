@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info, Camera } from 'lucide-react'
 import { toast } from 'sonner'
@@ -8,7 +8,7 @@ import { useAuth } from '../hooks/useAuth'
 import {
   useMatchmakingProfile, useMesaConsentir, useMesaRede, useMinhaFotoModeracao, useMesaFotoContestar, consentimentoVigente,
 } from '../hooks/useMatchmaking'
-import { appUrl } from '../lib/appHost'
+import { appUrl, siteUrl } from '../lib/appHost'
 
 interface Props {
   ticket: Ticket
@@ -155,11 +155,24 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
 
 // Situação da própria foto na moderação (aqui e em "Sua mesa"). O motivo da recusa não chega à pessoa
 // (sem leitura de mesa_moderacoes): só o texto genérico. Aprovada ou sem a coluna: nada.
-export function FotoModeracaoAviso() {
+export function FotoModeracaoAviso({ onTrocar }: { onTrocar?: () => void }) {
   const { data: situacao } = useMinhaFotoModeracao()
   const contestar = useMesaFotoContestar()
   const [resposta, setResposta] = useState('')
   const [negada, setNegada] = useState(false) // o banco não aceita contestar esta recusa: some o botão
+  const acoes = useRef<HTMLDivElement>(null)
+
+  // foto nova (pendente) ou removida (sem_foto): os textos da recusa anterior não valem mais
+  // (ajuste durante a renderização, não em efeito: o lint do projeto barra setState dentro de useEffect)
+  const [situacaoVista, setSituacaoVista] = useState(situacao)
+  if (situacao !== situacaoVista) {
+    setSituacaoVista(situacao)
+    if (situacao === 'pendente' || situacao === 'sem_foto') { setNegada(false); setResposta('') }
+  }
+  // o botão sumiu: o foco vai para "Trocar foto" em vez de se perder
+  useEffect(() => {
+    if (negada) acoes.current?.querySelector<HTMLElement>('a, button')?.focus()
+  }, [negada])
 
   const pedirRevisao = () => {
     setResposta('')
@@ -167,13 +180,13 @@ export function FotoModeracaoAviso() {
       onSuccess: (ok) => {
         if (ok) return setResposta('Pedido enviado. Uma pessoa da equipe vai analisar.')
         setNegada(true)
-        setResposta('Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe pelo /contato.')
       },
       onError: (e) => setResposta(e.message), // 42501: mensagem do 2FA em mesaErro
     })
   }
 
-  const texto = situacao === 'sem_foto' ? 'Adicione uma foto do seu rosto no Perfil para aparecer na mesa.'
+  const texto = situacao === 'sem_foto'
+      ? (onTrocar ? 'Sua foto atual não serve para a mesa. Envie uma foto do seu rosto pelo app.' : 'Adicione uma foto do seu rosto no Perfil para aparecer na mesa.')
     : situacao === 'pendente' ? 'Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.'
     : situacao === 'revisar' ? 'Sua foto está com a nossa equipe para análise.'
     : situacao === 'recusada' ? 'Sua foto não foi aprovada. Use uma foto do seu rosto, sem contato escrito (telefone, @, link) e sem conteúdo impróprio. Se a recusa foi automática e você acha que foi engano, peça revisão de uma pessoa da equipe.'
@@ -189,10 +202,16 @@ export function FotoModeracaoAviso() {
         <span>{texto}</span>
       </div>
       {trocar && (
-        <div className="flex flex-wrap gap-2">
-          <a href={appUrl('/app/profile')} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
-            Trocar foto
-          </a>
+        <div ref={acoes} className="flex flex-wrap gap-2">
+          {onTrocar ? (
+            <button onClick={onTrocar} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
+              Trocar foto
+            </button>
+          ) : (
+            <a href={appUrl('/app/profile')} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-plum text-cream text-xs font-medium hover:shadow-glow">
+              Trocar foto
+            </a>
+          )}
           {recusada && !negada && (
             <button onClick={pedirRevisao} disabled={contestar.isPending} className="px-4 py-2 rounded-full border border-white/20 text-xs hover:bg-white/5 disabled:opacity-50">
               {contestar.isPending ? 'Enviando...' : 'Pedir revisão'}
@@ -201,7 +220,11 @@ export function FotoModeracaoAviso() {
         </div>
       )}
       {/* sempre montado: leitor de tela só anuncia mudança dentro de uma região que já existia */}
-      <p role="status" className="text-xs text-cream/80 empty:sr-only">{resposta}</p>
+      <p role="status" className="text-xs text-cream/80 empty:sr-only">
+        {negada ? (
+          <>Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe <a href={siteUrl('/contato')} className="text-plum-light underline">pelo formulário de contato</a>.</>
+        ) : resposta}
+      </p>
     </div>
   )
 }
@@ -272,7 +295,7 @@ export function MesaTermoModal({ onAceito, onFechar, onPular }: { onAceito: () =
           <label className="flex items-start gap-3 p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
             <input type="checkbox" className="mt-1 accent-plum" checked={rede} onChange={(e) => setRede(e.target.checked)} />
             <span className="text-sm text-cream/70">
-              Mostrar minha rede social aos colegas de mesa e a quem estiver escolhendo mesa neste evento (mesmo tipo de ingresso).
+              Mostrar minha rede social aos colegas de mesa e a quem estiver escolhendo mesa neste evento (mesmo tipo de ingresso). Opcional; dá para tirar depois.
             </span>
           </label>
           {erro && (

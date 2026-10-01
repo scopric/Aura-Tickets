@@ -407,7 +407,7 @@ export default function YourTable({ eventId }: YourTableProps) {
                 disabled={rede.isPending}
                 onChange={(e) => rede.mutate(e.target.checked, { onError: (err) => toast.error(err.message) })}
               />
-              <span className="text-cream/80">Mostrar minha rede social aos colegas de mesa e a quem estiver escolhendo mesa neste evento (segundo aceite, opcional)</span>
+              <span className="text-cream/80">Mostrar minha rede social aos colegas de mesa e a quem estiver escolhendo mesa neste evento (mesmo tipo de ingresso). Opcional; dá para tirar depois.</span>
             </label>
           )}
           <div className="flex flex-wrap gap-2">

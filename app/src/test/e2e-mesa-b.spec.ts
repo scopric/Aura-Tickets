@@ -429,7 +429,8 @@ test('foto recusada: "Pedir revisão" negado (false) esconde o botão e orienta 
   await abrirSuaMesa(page)
 
   await page.getByRole('button', { name: 'Pedir revisão' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe pelo /contato.' })).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'Esta recusa não pode ser contestada por aqui. Troque a foto ou fale com a equipe pelo formulário de contato.' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'pelo formulário de contato' })).toHaveAttribute('href', /\/contato$/)
   await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
   await expect(page.getByText(RECUSADA)).toBeVisible()
   await expect(page.getByRole('link', { name: 'Trocar foto' })).toBeVisible()
@@ -467,4 +468,38 @@ test('foto fora do formato da fila (sem foto ou longa demais): pede foto no Perf
     await expect(page.getByText(/Sua foto está em análise/)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Pedir revisão' })).toHaveCount(0)
   }
+})
+
+test('foto recusada com pedido negado: ao trocar a foto (pendente) o texto de negada some', async ({ page }) => {
+  let situacao = 'recusada'
+  await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [], mesa_foto_contestar: false })
+  await mockPerfil(page, PERFIL_OK)
+  await mockFoto(page, () => situacao)
+  await page.route('**/rest/v1/profiles?*', (route) =>
+    route.request().method() === 'PATCH' ? route.fulfill({ json: [{ id: DEMO }] }) : route.fallback())
+  await page.goto('/app/profile')
+
+  await page.getByRole('button', { name: 'Pedir revisão' }).click()
+  const negada = page.getByRole('status').filter({ hasText: 'Esta recusa não pode ser contestada por aqui.' })
+  await expect(negada).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Trocar foto' })).toBeFocused() // o botão sumiu: foco no "Trocar foto"
+
+  situacao = 'pendente' // o banco volta a 'pendente' com a foto nova; o upload relê o aviso
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+  await page.locator('input[type="file"]').first().setInputFiles({ name: 'foto.png', mimeType: 'image/png', buffer: png })
+  await expect(page.getByText('Sua foto está em análise. Seu perfil aparece para os colegas depois da aprovação.')).toBeVisible()
+  await expect(page.getByText('Esta recusa não pode ser contestada por aqui.')).toHaveCount(0)
+})
+
+test('dois tipos coletivos no evento: só um aviso de foto', async ({ page }) => {
+  await mockRpc(page, { minha_mesa: MESA_COM_COLEGAS, meus_avisos_mesa: [] })
+  await mockPerfil(page, PERFIL_OK)
+  const TIPO2 = 'e0000000-0000-4000-8000-0000000000c2'
+  const evento = { ...EVENTO_ROW, ticket_types: [...EVENTO_ROW.ticket_types, { ...EVENTO_ROW.ticket_types[1], id: TIPO2, name: 'Match de Mesa VIP' }] }
+  await page.route('**/rest/v1/events?*', (route) =>
+    route.request().url().includes(`id=eq.${EVENTO}`) ? route.fulfill({ json: [evento] }) : route.fallback())
+  await mockFoto(page, () => 'revisar')
+  await page.goto(`/event/${EVENTO}`)
+  await expect(page.getByRole('heading', { name: 'Match de Mesa VIP' })).toBeVisible()
+  await expect(page.getByText('Sua foto está com a nossa equipe para análise.')).toHaveCount(1)
 })
