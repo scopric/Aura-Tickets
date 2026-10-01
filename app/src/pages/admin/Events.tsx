@@ -147,7 +147,7 @@ export default function AdminEvents() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`shrink-0 px-3 sm:px-4 py-2 text-xs font-semibold capitalize border-b-2 transition-all ${
+            className={`shrink-0 px-3 sm:px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-plum font-semibold capitalize border-b-2 transition-all ${
               activeTab === tab 
                 ? 'border-plum text-plum font-bold' 
                 : 'border-transparent text-espresso/70 hover:text-espresso'

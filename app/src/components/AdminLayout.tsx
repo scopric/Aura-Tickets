@@ -131,18 +131,14 @@ export default function AdminLayout() {
   // Gaveta aberta: foco no 1º item; Esc fecha e devolve o foco ao botão de menu
   useEffect(() => {
     if (!mobileOpen) return
-    // no quadro seguinte: no mesmo instante do clique o navegador ignora o foco na gaveta que acabou de aparecer
-    const quadro = requestAnimationFrame(() => navRef.current?.querySelector('a')?.focus())
+    navRef.current?.querySelector('a')?.focus()
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       setMobileOpen(false)
       menuBtnRef.current?.focus()
     }
     window.addEventListener('keydown', onKey)
-    return () => {
-      cancelAnimationFrame(quadro)
-      window.removeEventListener('keydown', onKey)
-    }
+    return () => window.removeEventListener('keydown', onKey)
   }, [mobileOpen])
 
   const filteredNavItems = navItems.filter((item) => {
@@ -156,7 +152,13 @@ export default function AdminLayout() {
   return (
     <div className="flex min-h-screen glass-canvas">
       {mobileOpen && (
-        <div className="fixed inset-0 glass-backdrop z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
+          onClick={() => {
+            setMobileOpen(false)
+            menuBtnRef.current?.focus()
+          }}
+        />
       )}
 
       {/* No celular a gaveta fecha fora da tela e fica invisível (sai da ordem do Tab); no computador, como antes */}
@@ -185,7 +187,8 @@ export default function AdminLayout() {
           )}
         </div>
 
-        <nav ref={navRef} className="min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
+        {/* no celular, a visibilidade dos links não passa por transição (herdam a da gaveta), senão o foco ao abrir falha */}
+        <nav ref={navRef} className="max-lg:[&_a]:[transition-property:color,background-color,border-color,box-shadow] min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
           {filteredNavItems.map((item) => (
             <Link
               key={item.to}
