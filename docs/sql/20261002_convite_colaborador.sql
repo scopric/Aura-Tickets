@@ -21,8 +21,11 @@
 --       convite_criar, convite_reenviar, convite_cancelar, convites_listar, colaborador_dados:
 --         só super_admin com 2FA e sessão aal2 (gf_admin_can('super_admin'), seg-4);
 --       colaboradores_resumo: qualquer admin (gf_is_admin, que já exige 2FA e aal2); só quem segue admin;
---       conta de produtor (role producer ou editor) ou que já é admin não é convidada nem aceita convite: o
---       convite é para um e-mail só do trabalho na Evokaa;
+--       conta de produtor (role producer), da equipe de um produtor (linha em team_members) ou que já é admin não
+--       é convidada nem aceita convite: o convite é para um e-mail só do trabalho na Evokaa;
+--   - Aviso aos super_admins: a garantia é a lista "Aceitos recentemente" da tela Equipe (convites_listar, com
+--     "sem aviso por e-mail" quando aviso_em é null), não o e-mail. convite_aceitar não manda nada; a Edge Function
+--     tenta o e-mail depois, e a falha dele nunca desfaz o aceite.
 --       convite_conferir(token): anon e authenticated; diz se o convite vale e devolve o e-mail mascarado;
 --       convite_aceitar(token, dados): authenticated; confere, nesta ordem, o hash do token, se o convite
 --         está pendente e no prazo, se o e-mail da conta é o do convite, 2FA (gf_mfa_ok, aal2 e fator
@@ -44,8 +47,9 @@
 -- RESEND_API_KEY, que já existe); 3) o front (página /convite no alpha e a tela Equipe). Sem este arquivo, a
 -- tela Equipe mostra erro ao listar convites e o /convite diz que o convite não vale.
 -- GUARDA (alçada do jurídico, não decidida aqui): por quanto tempo staff_profiles de quem SAIU da equipe fica
--- guardado (hoje fica até a exclusão da conta, pelo delete-account). admin_invites não pendentes saem em 90 dias
--- (cron convites_limpar, bloco 7), prazo técnico provisório sujeito ao jurídico.
+-- guardado (hoje fica até a exclusão da conta, pelo delete-account). admin_invites não pendentes ou vencidos saem em
+-- 90 dias e staff_profiles_acessos em 2 anos (cron convites_limpar, bloco 7), prazos técnicos provisórios sujeitos
+-- ao jurídico.
 -- Precisa do pg_cron ligado (já exigido por 20261001_seg5_entrada_limites.sql).
 -- Idempotente: pode rodar de novo.
 -- =============================================================================
@@ -106,9 +110,7 @@ create table if not exists public.staff_profiles (
   -- e-mail principal (o da conta e do convite) e cargo do convite: o colaborador não edita
   email text not null,
   cargo text not null,
-  -- só letras (com acento), espaço, apóstrofo, ponto e hífen
-  nome_completo text not null constraint staff_nome_ok check (char_length(btrim(nome_completo)) between 3 and 150
-    and nome_completo ~ '^[A-Za-zÀ-ÖØ-öø-ÿ ''.-]+$'),
+  nome_completo text not null, -- regra staff_nome_ok logo abaixo da tabela
   cpf text not null constraint staff_cpf_ok check (public.gf_cpf_valido(cpf)),
   rg text not null constraint staff_rg_ok check (char_length(btrim(rg)) between 3 and 20),
   data_nascimento date not null constraint staff_nascimento_ok
@@ -153,6 +155,13 @@ create table if not exists public.staff_profiles (
     when 'aleatoria' then pix_chave ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     else false end)
 );
+-- Nome: letras latinas (com acento e as estendidas, como ễ e Ł), espaço, apóstrofo reto, ponto e hífen; ponto
+-- seguido de 2 letras é recusado (endereço de site: "golpe.com.br"; "J.R.R. Tolkien" passa). O apóstrofo curvo
+-- do iPhone (’) e a forma decomposta viram apóstrofo reto e NFC antes (convite_aceitar e o gatilho de UPDATE).
+-- Fora do create table para o arquivo poder rodar de novo trocando a regra. Mesma regra em Convite.tsx (NOME_RE).
+alter table public.staff_profiles drop constraint if exists staff_nome_ok;
+alter table public.staff_profiles add constraint staff_nome_ok check (char_length(btrim(nome_completo)) between 3 and 150
+  and nome_completo ~ '^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ ''.-]+$' and nome_completo !~ '\.[A-Za-zÀ-ÿ]{2}');
 alter table public.staff_profiles enable row level security;
 revoke all on public.staff_profiles from public, anon, authenticated;
 grant select on public.staff_profiles to authenticated;
@@ -173,7 +182,7 @@ create policy staff_profiles_proprio_edita on public.staff_profiles for update t
   with check (user_id = (select auth.uid()) and (select public.gf_tem_2fa((select auth.uid()))) is true
               and coalesce((select auth.jwt()) ->> 'aal', '') = 'aal2');
 
--- updated_at é do banco (fora do GRANT de UPDATE)
+-- updated_at é do banco (fora do GRANT de UPDATE); o nome editado passa pela mesma normalização do aceite
 create or replace function public.staff_profiles_updated_at()
 returns trigger
 language plpgsql
@@ -181,6 +190,7 @@ set search_path = ''
 as $$
 begin
   new.updated_at := now();
+  new.nome_completo := normalize(replace(btrim(new.nome_completo), '’', ''''), NFC);
   return new;
 end;
 $$;
@@ -231,8 +241,11 @@ create table if not exists public.staff_profiles_acessos (
   colaborador uuid not null,
   lido_em timestamptz not null default now()
 );
+create index if not exists staff_profiles_acessos_colaborador_idx on public.staff_profiles_acessos (colaborador, lido_em);
 alter table public.staff_profiles_acessos enable row level security;
 revoke all on public.staff_profiles_acessos from public, anon, authenticated, service_role;
+-- o delete-account apaga as linhas em que a pessoa é o alvo (colaborador): só essa coluna é lida
+grant delete, select (colaborador) on public.staff_profiles_acessos to service_role;
 
 -- 4. Funções do super_admin
 create or replace function public.convite_criar(p_email text, p_cargo text, p_permissions text[], p_token_hash text)
@@ -247,7 +260,7 @@ declare
   v_id uuid;
 begin
   if not public.gf_admin_can('super_admin') then
-    raise exception 'Só o super_admin convida colaboradores.' using errcode = '42501';
+    raise exception 'Só quem tem Acesso total convida colaboradores.' using errcode = '42501';
   end if;
   if not public.convite_permissoes_ok(v_perms) then
     raise exception 'Função inválida no convite.' using errcode = '22023';
@@ -255,8 +268,11 @@ begin
   if exists (select 1 from public.profiles p where lower(p.email) = v_email and p.role = 'admin') then
     raise exception 'Essa pessoa já faz parte dos colaboradores da Evokaa.' using errcode = 'P0001';
   end if;
-  if exists (select 1 from public.profiles p where lower(p.email) = v_email and p.role in ('producer', 'editor')) then
+  if exists (select 1 from public.profiles p where lower(p.email) = v_email and p.role = 'producer') then
     raise exception 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.team_members t join public.profiles p on p.id = t.user_id where lower(p.email) = v_email) then
+    raise exception 'Este e-mail faz parte da equipe de um produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
   end if;
   -- convite pendente vencido não segura o e-mail
   update public.admin_invites set status = 'cancelado' where email = v_email and status = 'pendente' and expires_at <= now();
@@ -284,7 +300,7 @@ declare
   v_email text;
 begin
   if not public.gf_admin_can('super_admin') then
-    raise exception 'Só o super_admin reenvia convites.' using errcode = '42501';
+    raise exception 'Só quem tem Acesso total reenvia convites.' using errcode = '42501';
   end if;
   begin
     update public.admin_invites set token_hash = p_token_hash, expires_at = now() + interval '7 days'
@@ -308,7 +324,7 @@ set search_path = ''
 as $$
 begin
   if not public.gf_admin_can('super_admin') then
-    raise exception 'Só o super_admin cancela convites.' using errcode = '42501';
+    raise exception 'Só quem tem Acesso total cancela convites.' using errcode = '42501';
   end if;
   update public.admin_invites set status = 'cancelado' where id = p_id and status = 'pendente';
   if not found then
@@ -330,7 +346,7 @@ set search_path = ''
 as $$
 begin
   if not public.gf_admin_can('super_admin') then
-    raise exception 'Só o super_admin vê os convites.' using errcode = '42501';
+    raise exception 'Só quem tem Acesso total vê os convites.' using errcode = '42501';
   end if;
   return query
     select i.id, i.email, i.cargo, i.permissions,
@@ -353,9 +369,11 @@ set search_path = ''
 as $$
 begin
   if not public.gf_admin_can('super_admin') then
-    raise exception 'Só o super_admin vê os dados do cadastro.' using errcode = '42501';
+    raise exception 'Só quem tem Acesso total vê os dados do cadastro.' using errcode = '42501';
   end if;
-  insert into public.staff_profiles_acessos (leitor, colaborador) values ((select auth.uid()), p_user);
+  -- só registra quando há ficha para ler
+  insert into public.staff_profiles_acessos (leitor, colaborador)
+    select (select auth.uid()), s.user_id from public.staff_profiles s where s.user_id = p_user;
   return query select s.* from public.staff_profiles s where s.user_id = p_user;
 end;
 $$;
@@ -435,8 +453,11 @@ begin
     raise exception 'Esta conta já faz parte dos colaboradores da Evokaa.' using errcode = 'P0001';
   end if;
   -- conta de produtor viraria admin e perderia o painel do produtor: o convite é para um e-mail só do trabalho
-  if exists (select 1 from public.profiles p where p.id = v_uid and p.role in ('producer', 'editor')) then
+  if exists (select 1 from public.profiles p where p.id = v_uid and p.role = 'producer') then
     raise exception 'Este e-mail já tem uma conta de produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.team_members t where t.user_id = v_uid) then
+    raise exception 'Este e-mail faz parte da equipe de um produtor. Convide outro e-mail, só para o trabalho na Evokaa.' using errcode = 'P0001';
   end if;
 
   -- 5. campos (os CHECKs de staff_profiles; a mensagem sai pelo nome da regra)
@@ -450,7 +471,8 @@ begin
       numero, complemento, bairro, cidade, uf, email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco,
       emergencia_telefone, banco, agencia, conta, pix_tipo, pix_chave)
     values (v_uid, v.id, v.email, v.cargo,
-      nullif(btrim(d ->> 'nome_completo'), ''),
+      -- apóstrofo curvo do iPhone vira reto; forma decomposta vira NFC (a regra staff_nome_ok olha a forma composta)
+      normalize(nullif(replace(btrim(d ->> 'nome_completo'), '’', ''''), ''), NFC),
       regexp_replace(nullif(btrim(d ->> 'cpf'), ''), '\D', '', 'g'),
       nullif(btrim(d ->> 'rg'), ''),
       v_nasc,
@@ -491,7 +513,7 @@ begin
     when check_violation then
       get stacked diagnostics v_cons = constraint_name;
       raise exception '%', case v_cons
-        when 'staff_nome_ok' then 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen.'
+        when 'staff_nome_ok' then 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen (sem endereço de site).'
         when 'staff_cpf_ok' then 'CPF inválido.'
         when 'staff_rg_ok' then 'Informe o RG.'
         when 'staff_nascimento_ok' then 'Data de nascimento inválida: é preciso ter 18 anos ou mais.'
@@ -548,9 +570,10 @@ grant execute on function public.gf_cpf_valido(text) to authenticated, service_r
 revoke all on function public.staff_profiles_updated_at(), public.staff_profiles_registra_pagamento() from public, anon, authenticated, service_role;
 alter function public.staff_profiles_registra_pagamento() owner to postgres;
 
--- 7. Limpeza: convite usado ou cancelado sai em 90 dias.
--- ponytail: prazo técnico provisório (o e-mail e o cargo do convite são dados pessoais sem uso depois do aceite);
--- o prazo de guarda é do jurídico: mudar aqui quando ele decidir.
+-- 7. Limpeza diária: convite usado, cancelado ou vencido sai 90 dias depois de criado; registro de leitura da ficha
+-- sai em 2 anos.
+-- ponytail: prazos técnicos provisórios (e-mail e cargo do convite não têm uso depois do aceite; o registro de
+-- leitura serve à auditoria); o prazo de guarda é do jurídico: mudar aqui quando ele decidir.
 do $$ begin
   if not exists (select 1 from pg_extension where extname = 'pg_cron') then
     raise exception 'pg_cron não está ligado: ligar em Database > Extensions antes de rodar este arquivo';
@@ -558,7 +581,8 @@ do $$ begin
 end $$;
 select cron.unschedule('convites_limpar') where exists (select 1 from cron.job where jobname = 'convites_limpar');
 select cron.schedule('convites_limpar', '41 3 * * *',
-  $$delete from public.admin_invites where status <> 'pendente' and created_at < now() - interval '90 days'$$);
+  $$delete from public.admin_invites where (status <> 'pendente' or expires_at < now()) and created_at < now() - interval '90 days';
+    delete from public.staff_profiles_acessos where lido_em < now() - interval '2 years'$$);
 
 commit;
 
