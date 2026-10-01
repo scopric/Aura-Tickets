@@ -203,7 +203,8 @@ describe('assistente: caixa de entrada e menu do admin', () => {
           last_reply_at: null, nao_lida: false, bot_state: 'bot', handoff_at: null }], error: null }
       : { data: [], error: null }))
     montar(<Atendimento />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Com o assistente' }))
+    fireEvent.keyDown(await screen.findByRole('button', { name: /^Filtro:/ }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /Com o assistente/ }))
     await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_inbox', { p_filtro: 'assistente', p_busca: '', p_limite: 100 }))
     const linha = await screen.findByRole('button', { name: /Carla Dias/ })
     expect(within(linha).getByText('Assistente')).toBeInTheDocument()
@@ -222,7 +223,8 @@ describe('assistente: caixa de entrada e menu do admin', () => {
       customer_last_read_at: null, agent_last_read_at: null, last_customer_message_at: null, created_at: '2026-09-30T12:00:00Z', rating: null,
       bot_state: 'bot', bot_resolveu: false, chat_topics: { label: 'Outros', mediation: false }, chat_contacts: { name: 'Bruno Reis', email: null, phone: null, origin: 'app', marketing_opt_in: false } }
     montar(<Atendimento />)
-    fireEvent.click(await screen.findByRole('button', { name: 'Resolvidas' }))
+    fireEvent.keyDown(await screen.findByRole('button', { name: /^Filtro:/ }), { key: 'Enter' })
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: /Resolvidas/ }))
     const carla = await screen.findByRole('button', { name: /Carla Dias/ })
     expect(within(carla).getByText('Resolvida pelo assistente')).toBeInTheDocument()
     const bruno = screen.getByRole('button', { name: /Bruno Reis/ })
