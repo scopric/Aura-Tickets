@@ -15,7 +15,7 @@ describe('mensagemMovimento', () => {
 
   it('saldo insuficiente, valor inválido e 2FA', () => {
     expect(mensagemMovimento({ code: '23514' })).toMatch(/^Saldo insuficiente/)
-    expect(mensagemMovimento({ code: '22023' })).toMatch(/^Valor inválido/)
+    expect(mensagemMovimento({ code: '22023' })).toMatch(/^Valor ou observação inválidos/)
     expect(mensagemMovimento({ code: '42501' })).toMatch(/2FA/)
   })
 

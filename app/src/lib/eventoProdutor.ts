@@ -15,15 +15,17 @@ export function situacaoEvento(e: { status: string; approval_status?: string | n
   return 'Em análise'
 }
 
-// Decisão 129: com ingresso vendido o produtor não tira o evento do ar até existir reembolso (M12). O banco recusa
-// (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql): EV001 ao cancelar; EV002 ao voltar
-// a rascunho ou encerrar antes da data.
+// Decisão 129: com ingresso vendido o produtor não tira o evento do ar nem reabre o cancelado até existir reembolso
+// (M12). O banco recusa (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql): EV001 ao
+// cancelar; EV002 ao voltar a rascunho ou encerrar antes da data; EV003 ao reabrir um cancelado.
 export const CANCELAR_COM_VENDA = 'Este evento tem ingressos vendidos. Para cancelar, fale com o suporte da Evokaa.'
 export const SAIR_DO_AR_COM_VENDA = 'Este evento tem ingressos vendidos e não pode sair do ar. Fale com o suporte da Evokaa.'
+export const REABRIR_COM_VENDA = 'Evento cancelado com ingressos vendidos só é reaberto pelo suporte da Evokaa.'
 
 export function erroDeStatus(err: unknown, padrao: string): string {
   const code = (err as { code?: string } | null)?.code
-  return code === 'EV001' ? CANCELAR_COM_VENDA : code === 'EV002' ? SAIR_DO_AR_COM_VENDA : padrao
+  return code === 'EV001' ? CANCELAR_COM_VENDA : code === 'EV002' ? SAIR_DO_AR_COM_VENDA
+    : code === 'EV003' ? REABRIR_COM_VENDA : padrao
 }
 
 // Vendidos do evento pela contagem da tela (useVendidosPorEvento): número quando se sabe, undefined quando não.
@@ -34,9 +36,17 @@ export function vendidosDe(vendidos: { porEvento: Record<string, number>; cortad
   return n > 0 ? n : vendidos.cortado ? undefined : 0
 }
 
-// A data do evento (fim, ou início se não houver fim) ainda não passou: o mesmo critério do gatilho.
-export function dataPorVir(e: { start_date: string; end_date: string | null }, agora = Date.now()): boolean {
-  return new Date(e.end_date ?? e.start_date).getTime() > agora
+// A maior data conhecida do evento ainda não passou (favorece o bloqueio): o mesmo critério do gatilho. NewEvent e
+// EventPlanner gravam só date e time, e start_date fica com a hora da criação; por isso entra date + time (sem
+// hora = 23:59:59), na hora de Brasília.
+// ponytail: fuso fixo -03:00 (Brasil sem horário de verão desde 2019); o banco usa 'America/Sao_Paulo'.
+export function dataPorVir(
+  e: { start_date: string; end_date: string | null; date?: string | null; time?: string | null },
+  agora = Date.now(),
+): boolean {
+  const datas = [e.start_date, e.end_date].map(d => (d ? new Date(d).getTime() : NaN))
+  if (e.date) datas.push(new Date(`${e.date}T${e.time || '23:59:59'}-03:00`).getTime())
+  return datas.some(t => t > agora) // NaN > agora é falso: data ausente ou ilegível não conta
 }
 
 // Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.

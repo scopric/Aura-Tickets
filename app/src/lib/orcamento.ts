@@ -2,7 +2,8 @@
 // 42501 vem quando o item não é da conta ou quando a sessão está sem o código do 2FA (a regra esconde a linha).
 const MENSAGENS: Record<string, string> = {
   '23514': 'Saldo insuficiente: o estorno é maior que o realizado neste item.',
-  '22023': 'Valor inválido. Use um valor entre R$ 0,01 e R$ 999.999.999,99.',
+  // 22023 vem do valor (fora de 0,01 a 999.999.999,99) ou da observação (mais de 500 caracteres)
+  '22023': 'Valor ou observação inválidos. Use um valor entre R$ 0,01 e R$ 999.999.999,99 e observação de até 500 caracteres.',
   '42501': 'Este item não foi encontrado na sua conta. Se você usa 2FA, saia e entre de novo digitando o código do aplicativo.',
 }
 
