@@ -267,10 +267,13 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
       em: '2026-12-15T23:30:00Z', destravada_em: null as string | null, destravada_por: null as string | null,
       denuncia_id: 'd4', denuncia_motivo: 'outro', denuncia_resultado: null as string | null,
     }
+    const outraDenuncia = { ...trava, id: 'tr10', pessoa: 'Carla Dias', denuncia_id: 'd9' }
+    const jaDestravada = { ...trava, id: 'tr11', pessoa: 'Dani Reis', destravada_em: '2026-12-16T08:00:00Z', destravada_por: 'Admin Teste' }
     const chamadas = await mockRpc(page, {
       mesa_fotos_para_revisar: [],
       mesa_denuncias_do_evento: () => ({ json: [denuncia] }),
-      mesa_travas_do_evento: () => ({ json: [trava] }),
+      // além da trava desta denúncia: a de outra denúncia e uma já destravada (nenhuma das duas deve oferecer o botão)
+      mesa_travas_do_evento: () => ({ json: [trava, outraDenuncia, jaDestravada] }),
       mesa_denuncia_status: (b) => {
         denuncia.status = b.p_status as string; denuncia.resultado = (b.p_resultado as string) ?? null
         trava.denuncia_resultado = denuncia.resultado
@@ -287,8 +290,11 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await page.getByRole('button', { name: 'Confirmar resolução' }).click()
     await expect(page.getByText('Esta denúncia tirou alguém da mesa. Desfazer a remoção?')).toBeVisible()
 
+    await expect(page.getByRole('status').filter({ hasText: 'Desfazer a remoção?' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Desfazer remoção' })).toHaveCount(1) // só a trava vigente desta denúncia
     await page.getByRole('button', { name: 'Desfazer remoção' }).click()
     await expect(page.getByText('Remoção desfeita.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Desfazer remoção' })).toHaveCount(0)
     expect(chamadas.find((c) => c.nome === 'mesa_destravar')?.body).toEqual({ p_event_id: EVENTO, p_trava_id: 'tr9' })
     await page.getByRole('tab', { name: 'Remoções' }).click()
     await expect(page.getByText('Denúncia improcedente', { exact: true })).toBeVisible()

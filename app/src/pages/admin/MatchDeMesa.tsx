@@ -236,7 +236,7 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
             </div>
           )}
           {improcedente === d.id && (travas.data ?? []).filter(t => t.denuncia_id === d.id && !t.destravada_em).map(t => (
-            <div key={t.id} className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center gap-2">
+            <div key={t.id} role="status" className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center gap-2">
               <span className="text-xs text-amber-800">Esta denúncia tirou alguém da mesa. Desfazer a remoção?</span>
               <button disabled={destravar.isPending} aria-label={`Desfazer remoção de ${t.pessoa || 'conta excluída'}`} className={`${botao} bg-plum text-cream`}
                 onClick={() => destravar.mutate(t.id, {
