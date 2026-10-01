@@ -59,6 +59,10 @@ export interface FotoParaRevisar {
   foto: string
   hash: string
   situacao: 'pendente' | 'revisar'
+  // última decisão da moderação automática para esta mesma foto (null = a IA não viu)
+  ia: { decisao: DecisaoIa; motivos: string[]; em: string } | null
+  // a pessoa contestou a recusa automática (mesa_foto_contestar)
+  contestada: boolean
 }
 
 export type StatusDenuncia = 'aberta' | 'em_apuracao' | 'resolvida' | 'judicial'
@@ -77,6 +81,28 @@ export const MOTIVO_REMOCAO: Record<MotivoRemocao, string> = {
   comportamento_no_local: 'Comportamento no local',
   pedido_da_pessoa: 'Pedido da própria pessoa',
   outro: 'Outro',
+}
+
+// CHECK de mesa_moderacoes (decisao sem 'contestada', que o banco não devolve em "ia"; e motivos)
+export type DecisaoIa = 'aprovada' | 'recusada' | 'revisar' | 'erro'
+export const DECISAO_IA: Record<DecisaoIa, string> = {
+  aprovada: 'IA aprovou',
+  recusada: 'IA recusou',
+  revisar: 'IA em dúvida',
+  erro: 'IA com erro',
+}
+export const MOTIVO_IA: Record<string, string> = {
+  nudez: 'nudez',
+  violencia: 'violência',
+  odio: 'discurso de ódio',
+  politica: 'conteúdo político',
+  drogas: 'drogas',
+  sem_rosto: 'sem rosto',
+  famoso: 'parece pessoa pública',
+  texto_contato: 'contato escrito',
+  bloqueio_seguranca: 'bloqueada pelo filtro do Google',
+  formato: 'formato não aceito',
+  outro: 'outro motivo',
 }
 
 export const precisa2fa = (err: unknown) => /^Ative o 2FA/.test((err as Error | null)?.message ?? '')

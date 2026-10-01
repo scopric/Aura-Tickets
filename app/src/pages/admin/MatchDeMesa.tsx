@@ -6,7 +6,7 @@ import { useTwoFactor } from '../../hooks/useTwoFactor'
 import {
   useFotosParaRevisar, useFotoDecidir, useMesaDenuncias, useDenunciaStatus, useDenunciaLiberar,
   useMesaTravas, useMesaDestravar, erroMesaAdmin, precisa2fa,
-  STATUS_DENUNCIA, MOTIVO_REMOCAO, type StatusDenuncia,
+  STATUS_DENUNCIA, MOTIVO_REMOCAO, DECISAO_IA, MOTIVO_IA, type StatusDenuncia,
 } from '../../hooks/useMesaAdmin'
 import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 
@@ -130,8 +130,20 @@ function Fotos({ mfa }: { mfa: Mfa }) {
           <div className="flex-1 min-w-0">
             <div className="text-sm font-bold text-espresso truncate">{f.nome || 'Sem nome'}</div>
             <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full border border-amber-100 bg-amber-50 text-amber-600">
-              {f.situacao === 'revisar' ? 'Revisar (dúvida da IA)' : 'Pendente'}
+              {f.situacao === 'revisar' ? (f.contestada ? 'Revisar' : 'Revisar (dúvida da IA)') : 'Pendente'}
             </span>
+            {f.contestada && (
+              <span className="inline-block mt-1 ml-1 px-2 py-0.5 text-[10px] font-medium rounded-full border border-plum/20 bg-plum/10 text-plum">
+                Contestada pela pessoa
+              </span>
+            )}
+            {f.ia && (
+              <div className="mt-1 text-xs text-espresso/70">
+                {DECISAO_IA[f.ia.decisao] ?? f.ia.decisao}
+                {f.ia.motivos.length > 0 && `: ${f.ia.motivos.map(m => MOTIVO_IA[m] ?? m).join(', ')}`}
+                {' · '}{dataBr(f.ia.em)}
+              </div>
+            )}
           </div>
           <div className="flex gap-2">
             <button onClick={() => decide(f.id, f.hash, true)} disabled={decidir.isPending || !jpeg(f.foto)} className={`${botao} bg-plum text-cream hover:shadow-glow`}>Aprovar</button>

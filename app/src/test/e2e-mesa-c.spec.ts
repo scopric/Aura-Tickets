@@ -143,6 +143,26 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     ])
   })
 
+  test('fotos: decisão e motivos da IA em pt-BR e selo "Contestada pela pessoa"', async ({ page }) => {
+    await mockRpc(page, {
+      mesa_fotos_para_revisar: [
+        { id: 'u1', nome: 'Ana Souza', foto: FOTO, hash: 'h-ana', situacao: 'revisar', contestada: true,
+          ia: { decisao: 'recusada', motivos: ['nudez', 'texto_contato', 'famoso', 'bloqueio_seguranca'], em: '2026-10-02T15:30:00+00:00' } },
+        { id: 'u2', nome: 'Bruno Lima', foto: FOTO, hash: 'h-bruno', situacao: 'pendente', contestada: false, ia: null },
+      ],
+    })
+    await page.goto(`${ALPHA}/admin/match-de-mesa`)
+    const linha = (nome: string) => page.locator('div.rounded-xl', { hasText: nome }).filter({ has: page.getByRole('button', { name: 'Aprovar' }) })
+
+    await expect(linha('Ana Souza').getByText('Contestada pela pessoa')).toBeVisible()
+    await expect(linha('Ana Souza').getByText(/IA recusou: nudez, contato escrito, parece pessoa pública, bloqueada pelo filtro do Google/)).toBeVisible()
+    await expect(linha('Ana Souza').getByText('Revisar', { exact: true })).toBeVisible() // não é "dúvida da IA": foi contestada
+    await expect(page.getByText(/texto_contato|bloqueio_seguranca/)).toHaveCount(0)
+
+    await expect(linha('Bruno Lima').getByText('Pendente')).toBeVisible()
+    await expect(linha('Bruno Lima').getByText(/Contestada|IA /)).toHaveCount(0)
+  })
+
   test('denúncias: mudar status e liberar para a organização; detalhe em texto puro', async ({ page }) => {
     const denuncia = {
       id: 'd1', criado_em: '2026-12-15T23:00:00Z', motivo: 'assedio', detalhe: '<b id="injetado">oi</b> na mesa', status: 'aberta',
