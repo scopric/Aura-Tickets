@@ -362,13 +362,14 @@ begin
                 when v_c.role in ('producer', 'editor') then 'producer' else 'site' end;
   v_publicos := array['all', 'site', v_aud];
 
-  -- pedido escrito de uma pessoa (estreito: "transferir o ingresso para outra pessoa" e "a operadora do
-  -- cartão recusou" não são pedido)
+  -- pedido escrito de uma pessoa (estreito: "transferir o ingresso para outra pessoa", "a operadora do
+  -- cartão recusou", "comprei com vocês" e "o ingresso tem alguém no nome?" não são pedido; "com vocês"
+  -- só com verbo de contato antes)
   v_norm := public.chat_kb_normalizar(p_texto);
   if v_norm ~ '\m(atendente|humano|humana)\M'
      or v_norm ~ '\m(falar|chamar|conversar|quero)\s+(com\s+)?((um|uma|o|a)\s+)?operadora?\M'
-     or v_norm ~ '\mcom\s+(um|uma|o|a)?\s*(pessoa|alguem|gente|equipe|suporte|atendimento|voces|vcs|responsavel)\M'
-     or v_norm ~ '\mtem\s+alguem\M'
+     or v_norm ~ '\m(falar|fala|chamar|conversar|contato)\s+com\s+((um|uma|o|a)\s+)?(pessoa|alguem|gente|equipe|suporte|atendimento|voces|vcs|responsavel)\M'
+     or v_norm ~ '\mtem\s+alguem\s+(ai|ae|online)\M' or v_norm ~ '^tem alguem$'
      or v_norm ~ '\m(nao|sem)\M.*\mrobos?\M|\mrobos?\M.*\mnao\M' then
     perform public.chat_bot_passar(p_conv, 'pedido');
     return;
@@ -1783,7 +1784,13 @@ insert into t12 (n, frase, esperado, papel) values
   (36, 'perdi meu ingresso', 'passa', 'user'), (37, 'posso pagar em 3 vezes no cartao?', 'lev-a20', 'user'),
   (38, 'qual a taxa da evokaa por ingresso', 'passa', 'producer'), (39, 'a operadora do meu cartao recusou', 'lev-a17', 'user'),
   (40, 'tem alguém aí?', 'pedido', 'user'), (41, 'quero falar com o atendimento', 'pedido', 'user'),
-  (42, 'falar com vcs', 'pedido', 'user');
+  (42, 'falar com vcs', 'pedido', 'user'),
+  -- revisão de 30/09 (terceira rodada): "com vocês" sem verbo de contato não é pedido
+  (43, 'quero conversar com alguem', 'pedido', 'user'), (44, 'me passa pra um humano', 'pedido', 'user'),
+  (45, 'quero falar com o responsavel', 'pedido', 'user'),
+  (46, 'comprei com voces e nao recebi o ingresso', 'lev-a12', 'user'),  -- como a #5 ("n recebi meu ingr")
+  (47, 'tenho conta com vocês e esqueci a senha', 'lev-a03', 'user'), (48, 'o pagamento com a equipe do evento deu erro', 'lev-a17', 'user'),
+  (49, 'o ingresso tem alguem no nome?', 'lev-a13', 'user');  -- artigo vizinho (titular do ingresso): o Ricardo confere
 do $t$
 declare r record; cv uuid; erros int := 0; graves int;
 begin
