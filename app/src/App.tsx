@@ -108,6 +108,7 @@ const AdminAiSettings = lazy(() => import('./pages/admin/AiSettings'))
 const AdminAtendimento = lazy(() => import('./pages/admin/Atendimento'))
 const AdminMatchDeMesa = lazy(() => import('./pages/admin/MatchDeMesa'))
 const AdminConhecimento = lazy(() => import('./pages/admin/Conhecimento'))
+const AdminMeuCadastro = lazy(() => import('./pages/admin/MeuCadastro'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
 // App pages (lazy loaded)
@@ -295,6 +296,7 @@ function Layout() {
               <Route element={<ProtectedRoute allowedRoles={['admin']}><AdminLayout /></ProtectedRoute>}>
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
+                <Route path="/admin/meu-cadastro" element={<AdminMeuCadastro />} />
                 <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminUsers /></ProtectedRoute>} />
                 <Route path="/admin/producers" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_users"><AdminProducers /></ProtectedRoute>} />
                 <Route path="/admin/affiliates" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_affiliates"><AdminPlatformAffiliates /></ProtectedRoute>} />

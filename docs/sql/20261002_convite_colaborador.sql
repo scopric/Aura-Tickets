@@ -158,7 +158,7 @@ create table if not exists public.staff_profiles (
 -- Nome: letras latinas (com acento e as estendidas, como ễ e Ł), espaço, apóstrofo reto, ponto e hífen; ponto
 -- seguido de 2 letras é recusado (endereço de site: "golpe.com.br"; "J.R.R. Tolkien" passa). O apóstrofo curvo
 -- do iPhone (’) e a forma decomposta viram apóstrofo reto e NFC antes (convite_aceitar e o gatilho de UPDATE).
--- Fora do create table para o arquivo poder rodar de novo trocando a regra. Mesma regra em Convite.tsx (NOME_RE).
+-- Fora do create table para o arquivo poder rodar de novo trocando a regra. Mesma regra em app/src/lib/fichaColaborador.ts (NOME_RE).
 alter table public.staff_profiles drop constraint if exists staff_nome_ok;
 alter table public.staff_profiles add constraint staff_nome_ok check (char_length(btrim(nome_completo)) between 3 and 150
   and nome_completo ~ '^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ ''.-]+$' and nome_completo !~ '\.[A-Za-zÀ-ÿ]{2}');

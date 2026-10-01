@@ -25,6 +25,7 @@ import {
   Armchair,
   BookOpen,
   Menu,
+  IdCard,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -60,6 +61,7 @@ const navItems = [
   { to: '/admin/conhecimento', icon: BookOpen, label: 'Conhecimento', permission: 'manage_support' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configurações', permission: 'manage_settings' },
+  { to: '/admin/meu-cadastro', icon: IdCard, label: 'Meu cadastro' },
 ]
 
 export default function AdminLayout() {

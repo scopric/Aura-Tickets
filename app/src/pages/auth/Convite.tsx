@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { toast } from 'sonner'
 import { ArrowRight, CheckCircle2, ClipboardList, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { queryClient } from '../../lib/queryClient'
@@ -9,10 +8,9 @@ import { useAuthStore } from '../../stores/authStore'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { chamarConvite, mensagemDe, motivoDe } from '../../lib/convite'
 import { passwordError } from '../../lib/password'
-import { searchAddressByPostalCode } from '../../lib/cepService'
-import { cpfValido, formatCPF, formatPostalCode, maiorDeIdade, UFS } from '../../lib/formatters'
 import AuthPasswordStrength from '../../components/AuthPasswordStrength'
-import PhoneInput from '../../components/ui/PhoneInput'
+import { CamposFicha } from '../../components/FichaColaborador'
+import { campo, fichaParaBanco, fichaVazia, rotulo, validarFicha, type Ficha } from '../../lib/fichaColaborador'
 
 // Convite de colaborador da Evokaa (alpha.evokaa.com.br/convite#<token>), fora do ProtectedRoute.
 // Etapas: boas-vindas → criar senha ou entrar → verificação em duas etapas (obrigatória) → cadastro → pronto.
@@ -27,15 +25,6 @@ type Etapa = 'conferindo' | 'invalido' | 'boas-vindas' | 'conta' | 'codigo' | '2
 const ETAPAS = ['Acesso', 'Verificação', 'Cadastro'] as const
 const PASSO: Partial<Record<Etapa, number>> = { conta: 0, codigo: 0, '2fa': 1, cadastro: 2, pronto: 3 }
 
-const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
-const TELEFONE_RE = /^\+[1-9]\d{9,14}$/
-const digitos = (s: string) => s.replace(/\D/g, '')
-// Mesma regra do CHECK staff_nome_ok: letras latinas (com acento e as estendidas, como ễ e Ł), espaço, apóstrofo,
-// ponto e hífen; ponto seguido de 2 letras é endereço de site ("golpe.com.br"), recusado ("J.R.R. Tolkien" passa)
-const NOME_RE = /^[A-Za-zÀ-ÖØ-öø-ɏḀ-ỿ '.-]+$/
-const SITE_RE = /\.[A-Za-zÀ-ÿ]{2}/
-// Apóstrofo curvo do iPhone (’) vira reto e a forma decomposta vira composta (NFC), como no banco
-const normalizarNome = (x: string) => x.replace(/\u2019/g, "'").normalize('NFC').trim()
 const CHAVE_TOKEN = 'evokaa_convite'
 // Lê o token do # (link do e-mail), guarda na aba e limpa a barra de endereço; sem #, usa o guardado (recarregar)
 function lerToken(): string {
@@ -55,50 +44,6 @@ function pareceOMesmo(email: string, mascarado: string) {
 }
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/ // 32 bytes em base64url (Edge Function admin-invite)
 
-const PIX = [
-  { id: 'cpf', label: 'CPF' },
-  { id: 'email', label: 'E-mail' },
-  { id: 'telefone', label: 'Celular' },
-  { id: 'aleatoria', label: 'Chave aleatória' },
-] as const
-
-const vazio = {
-  nome_completo: '', cpf: '', rg: '', data_nascimento: '',
-  cep: '', rua: '', numero: '', complemento: '', bairro: '', cidade: '', uf: '',
-  email_secundario: '', telefone: '', whatsapp: '',
-  emergencia_nome: '', emergencia_parentesco: '', emergencia_telefone: '',
-  banco: '', agencia: '', conta: '', pix_tipo: 'cpf', pix_chave: '',
-}
-type Ficha = typeof vazio
-
-// As mesmas regras dos CHECKs de staff_profiles: a tela avisa antes, o banco confere de novo
-function validar(f: Ficha, emailPrincipal: string): string | null {
-  const nome = normalizarNome(f.nome_completo)
-  if (nome.length < 3 || !NOME_RE.test(nome) || SITE_RE.test(nome)) return 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen (sem endereço de site).'
-  if (!cpfValido(f.cpf)) return 'CPF inválido.'
-  if (f.rg.trim().length < 3) return 'Informe o RG.'
-  if (!f.data_nascimento || !maiorDeIdade(f.data_nascimento)) return 'Data de nascimento inválida: é preciso ter 18 anos ou mais.'
-  if (digitos(f.cep).length !== 8) return 'CEP: 8 dígitos.'
-  if (f.rua.trim().length < 2 || !f.numero.trim() || f.bairro.trim().length < 2 || f.cidade.trim().length < 2) return 'Endereço incompleto (rua, número, bairro e cidade).'
-  if (!UFS.includes(f.uf)) return 'Escolha o estado (UF).'
-  const sec = f.email_secundario.trim().toLowerCase()
-  if (!EMAIL_RE.test(sec)) return 'E-mail secundário inválido.'
-  if (sec === emailPrincipal.toLowerCase()) return 'O e-mail secundário precisa ser diferente do e-mail da conta.'
-  if (!TELEFONE_RE.test(f.telefone) || !TELEFONE_RE.test(f.whatsapp)) return 'Telefone ou WhatsApp inválido: DDD e número.'
-  if (f.emergencia_nome.trim().length < 3 || f.emergencia_parentesco.trim().length < 2 || !TELEFONE_RE.test(f.emergencia_telefone)) {
-    return 'Contato de emergência incompleto (nome, parentesco e telefone).'
-  }
-  const chave = f.pix_chave.trim()
-  const pixOk = f.pix_tipo === 'cpf' ? cpfValido(chave)
-    : f.pix_tipo === 'email' ? EMAIL_RE.test(chave)
-    : f.pix_tipo === 'telefone' ? /^\+55\d{10,11}$/.test(chave)
-    : /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(chave)
-  if (!pixOk) return 'A chave Pix não confere com o tipo escolhido.'
-  return null
-}
-
-const campo = 'w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/60 focus:outline-none focus:border-plum/40 focus-visible:ring-2 focus-visible:ring-plum/30 transition-colors disabled:opacity-50'
-const rotulo = 'text-xs font-medium text-espresso/80 mb-1.5 block'
 const botao = 'w-full inline-flex items-center justify-center gap-2 py-3.5 rounded-full text-sm font-semibold text-white bg-[linear-gradient(135deg,#1d68c4,#8f33f5)] shadow-[0_10px_30px_-10px_rgba(143,51,245,0.6)] hover:brightness-110 active:scale-[0.99] transition-all disabled:opacity-60 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-plum/50'
 const link = 'text-sm text-plum-light hover:underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum/40 rounded'
 
@@ -151,9 +96,7 @@ export default function Convite() {
   const [codigo, setCodigo] = useState('')
 
   // Cadastro
-  const [f, setF] = useState<Ficha>(vazio)
-  const set = <K extends keyof Ficha>(k: K, v: Ficha[K]) => setF((x) => ({ ...x, [k]: v }))
-  const [buscandoCep, setBuscandoCep] = useState(false)
+  const [f, setF] = useState<Ficha>(fichaVazia)
 
   useEffect(() => {
     if (!TOKEN_RE.test(token)) return
@@ -235,29 +178,13 @@ export default function Convite() {
     })
   }
 
-  const buscarCep = async () => {
-    const cep = digitos(f.cep)
-    if (cep.length !== 8) return
-    setBuscandoCep(true)
-    const r = await searchAddressByPostalCode(cep, 'BR')
-    setBuscandoCep(false)
-    if (!r || r.error) { toast.error(r?.error || 'CEP não encontrado.'); return }
-    setF((x) => (digitos(x.cep) === cep ? {
-      ...x, rua: r.logradouro || x.rua, bairro: r.bairro || x.bairro, cidade: r.localidade || x.cidade, uf: UFS.includes(r.uf) ? r.uf : x.uf,
-    } : x))
-  }
 
   const enviarCadastro = (e: React.FormEvent) => {
     e.preventDefault()
-    const problema = validar(f, user?.email ?? '')
+    const problema = validarFicha(f, user?.email ?? '')
     if (problema) { setErro(problema); window.scrollTo({ top: 0, behavior: 'smooth' }); return }
     executar(async () => {
-      const dados = {
-        ...f,
-        nome_completo: normalizarNome(f.nome_completo),
-        cpf: digitos(f.cpf), cep: digitos(f.cep), email_secundario: f.email_secundario.trim().toLowerCase(),
-        pix_chave: f.pix_tipo === 'cpf' ? digitos(f.pix_chave) : f.pix_chave.trim(),
-      }
+      const dados = fichaParaBanco(f)
       try {
         await chamarConvite({ acao: 'aceitar', token, dados })
       } catch (err) {
@@ -473,126 +400,7 @@ export default function Convite() {
                 </p>
               </div>
 
-              <fieldset className="grid sm:grid-cols-2 gap-4" disabled={ocupado}>
-                <legend className="font-serif text-lg text-espresso mb-3">Dados pessoais</legend>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-nome" className={rotulo}>Nome completo</label>
-                  <input id="c-nome" autoComplete="name" value={f.nome_completo} onChange={(e) => set('nome_completo', e.target.value)} className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-cpf" className={rotulo}>CPF</label>
-                  <input id="c-cpf" inputMode="numeric" value={f.cpf} onChange={(e) => set('cpf', formatCPF(e.target.value))} placeholder="000.000.000-00" className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-rg" className={rotulo}>RG</label>
-                  <input id="c-rg" value={f.rg} maxLength={20} onChange={(e) => set('rg', e.target.value)} className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-nasc" className={rotulo}>Data de nascimento</label>
-                  <input id="c-nasc" type="date" value={f.data_nascimento} onChange={(e) => set('data_nascimento', e.target.value)} className={campo} />
-                </div>
-              </fieldset>
-
-              <fieldset className="grid sm:grid-cols-6 gap-4" disabled={ocupado}>
-                <legend className="font-serif text-lg text-espresso mb-3">Endereço</legend>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-cep" className={rotulo}>CEP {buscandoCep && <Loader2 className="inline w-3 h-3 animate-spin ml-1" />}</label>
-                  <input id="c-cep" inputMode="numeric" autoComplete="postal-code" value={f.cep} maxLength={9}
-                    onChange={(e) => set('cep', formatPostalCode(e.target.value))} onBlur={buscarCep} placeholder="00000-000" className={campo} />
-                </div>
-                <div className="sm:col-span-4">
-                  <label htmlFor="c-rua" className={rotulo}>Rua</label>
-                  <input id="c-rua" autoComplete="address-line1" value={f.rua} onChange={(e) => set('rua', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-numero" className={rotulo}>Número</label>
-                  <input id="c-numero" value={f.numero} maxLength={20} onChange={(e) => set('numero', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-4">
-                  <label htmlFor="c-complemento" className={rotulo}>Complemento (opcional)</label>
-                  <input id="c-complemento" autoComplete="address-line2" value={f.complemento} maxLength={100} onChange={(e) => set('complemento', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-bairro" className={rotulo}>Bairro</label>
-                  <input id="c-bairro" value={f.bairro} onChange={(e) => set('bairro', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-3">
-                  <label htmlFor="c-cidade" className={rotulo}>Cidade</label>
-                  <input id="c-cidade" autoComplete="address-level2" value={f.cidade} onChange={(e) => set('cidade', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-1">
-                  <label htmlFor="c-uf" className={rotulo}>UF</label>
-                  <select id="c-uf" value={f.uf} onChange={(e) => set('uf', e.target.value)} className={campo}>
-                    <option value="">—</option>
-                    {UFS.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-              </fieldset>
-
-              <fieldset className="grid sm:grid-cols-2 gap-4" disabled={ocupado}>
-                <legend className="font-serif text-lg text-espresso mb-3">Contatos</legend>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-email2" className={rotulo}>E-mail secundário (diferente do e-mail da conta)</label>
-                  <input id="c-email2" type="email" autoComplete="email" value={f.email_secundario} onChange={(e) => set('email_secundario', e.target.value)} className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-telefone" className={rotulo}>Telefone</label>
-                  <PhoneInput id="c-telefone" value={f.telefone} onChange={(v) => set('telefone', v)} />
-                </div>
-                <div>
-                  <label htmlFor="c-whatsapp" className={rotulo}>WhatsApp</label>
-                  <PhoneInput id="c-whatsapp" value={f.whatsapp} onChange={(v) => set('whatsapp', v)} />
-                </div>
-              </fieldset>
-
-              <fieldset className="grid sm:grid-cols-2 gap-4" disabled={ocupado}>
-                <legend className="font-serif text-lg text-espresso mb-3">Contato de emergência</legend>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-emerg-nome" className={rotulo}>Nome</label>
-                  <input id="c-emerg-nome" value={f.emergencia_nome} onChange={(e) => set('emergencia_nome', e.target.value)} className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-emerg-parentesco" className={rotulo}>Parentesco</label>
-                  <input id="c-emerg-parentesco" value={f.emergencia_parentesco} maxLength={50} onChange={(e) => set('emergencia_parentesco', e.target.value)} placeholder="Mãe, irmão, cônjuge…" className={campo} />
-                </div>
-                <div>
-                  <label htmlFor="c-emerg-tel" className={rotulo}>Telefone</label>
-                  <PhoneInput id="c-emerg-tel" value={f.emergencia_telefone} onChange={(v) => set('emergencia_telefone', v)} />
-                </div>
-              </fieldset>
-
-              <fieldset className="grid sm:grid-cols-6 gap-4" disabled={ocupado}>
-                <legend className="font-serif text-lg text-espresso mb-3">Pagamento</legend>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-pix-tipo" className={rotulo}>Tipo de chave Pix</label>
-                  <select id="c-pix-tipo" value={f.pix_tipo} onChange={(e) => setF((x) => ({ ...x, pix_tipo: e.target.value, pix_chave: '' }))} className={campo}>
-                    {PIX.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
-                  </select>
-                </div>
-                <div className="sm:col-span-4">
-                  <label htmlFor="c-pix" className={rotulo}>Chave Pix</label>
-                  {f.pix_tipo === 'telefone' ? (
-                    <PhoneInput id="c-pix" apenasBrasil value={f.pix_chave} onChange={(v) => set('pix_chave', v)} />
-                  ) : (
-                    <input id="c-pix" value={f.pix_chave} inputMode={f.pix_tipo === 'cpf' ? 'numeric' : undefined}
-                      onChange={(e) => set('pix_chave', f.pix_tipo === 'cpf' ? formatCPF(e.target.value) : e.target.value)}
-                      placeholder={f.pix_tipo === 'cpf' ? '000.000.000-00' : f.pix_tipo === 'email' ? 'voce@email.com' : '00000000-0000-0000-0000-000000000000'}
-                      className={campo} />
-                  )}
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-banco" className={rotulo}>Banco (opcional)</label>
-                  <input id="c-banco" value={f.banco} maxLength={80} onChange={(e) => set('banco', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-agencia" className={rotulo}>Agência (opcional)</label>
-                  <input id="c-agencia" value={f.agencia} maxLength={20} onChange={(e) => set('agencia', e.target.value)} className={campo} />
-                </div>
-                <div className="sm:col-span-2">
-                  <label htmlFor="c-conta" className={rotulo}>Conta (opcional)</label>
-                  <input id="c-conta" value={f.conta} maxLength={30} onChange={(e) => set('conta', e.target.value)} className={campo} />
-                </div>
-              </fieldset>
+              <CamposFicha f={f} setF={setF} disabled={ocupado} />
 
               <button type="submit" className={botao} disabled={ocupado}>
                 {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Concluir cadastro
