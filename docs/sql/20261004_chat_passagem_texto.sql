@@ -53,11 +53,12 @@ begin
           case p_motivo
             when 'pedido' then 'Certo! Sua conversa foi para a nossa equipe.'
             when 'nao_resolveu' then 'Que pena que não resolveu. Sua conversa foi para a nossa equipe.'
-            when 'sem_resposta' then 'Não encontrei essa resposta na nossa central de ajuda, então sua conversa foi para a nossa equipe.'
+            when 'sem_resposta' then 'Não encontrei isso na nossa central de ajuda, então sua conversa foi para a nossa equipe.'
             else 'Sua conversa foi para a nossa equipe.' end
           || case when coalesce((v_cfg ->> 'aberto_agora')::boolean, false)
-                  then ' Nosso atendimento é de segunda a sexta, das 9h às 18h, e a resposta chega aqui no chat.'
-                  else ' Nosso atendimento é de segunda a sexta, das 9h às 18h. Agora estamos fora desse horário, então a resposta chega aqui no chat no próximo período de atendimento.' end
+                  then ' Nosso atendimento é de segunda a sexta, das 9h às 18h (horário de Brasília), e a resposta chega aqui no chat.'
+                  else ' Nosso atendimento é de segunda a sexta, das 9h às 18h (horário de Brasília). Agora estamos fora desse horário. '
+                       || coalesce(v_cfg ->> 'prazo', 'Respondemos em até 1 dia útil.') || ' A resposta chega aqui no chat.' end
           || ' Se você não estiver por aqui quando a equipe responder, avisamos no e-mail da sua conta.',
           clock_timestamp());
   return true;
