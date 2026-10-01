@@ -14,7 +14,7 @@ import AvisoPolitica from './components/AvisoPolitica'
 import { supabase } from './lib/supabase'
 import { useAuthStore, isMockSession } from './stores/authStore'
 import { Loader2 } from 'lucide-react'
-import { Analytics, type BeforeSend } from '@vercel/analytics/react'
+import { Analytics } from '@vercel/analytics/react'
 
 // Layouts (pequenos, carregados estaticamente)
 import ProducerLayout from './components/ProducerLayout'
@@ -22,18 +22,13 @@ import AdminLayout from './components/AdminLayout'
 import AppLayout from './components/AppLayout'
 import FeatureGuard from './components/FeatureGuard'
 import { ComingSoonRoute } from './components/ComingSoon'
-import { trackPageView, trackEvent } from './lib/tracking'
+import { trackPageView, trackEvent, semHash } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
 import { useTwoFactor } from './hooks/useTwoFactor'
 
 // O host não muda durante a sessão do SPA
 const appMode = getAppMode()
-
-// Vercel Web Analytics envia a URL inteira; o Supabase devolve o token no #hash
-// (login social e redefinição de senha), então o hash nunca sai daqui. Fora do componente
-// para não re-registrar o script a cada render.
-const semHash: BeforeSend = (event) => ({ ...event, url: event.url.split('#')[0] })
 
 // Public pages (lazy loaded)
 const Home = lazy(() => import('./pages/Home'))
