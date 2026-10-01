@@ -600,17 +600,17 @@ export default function EventPage() {
       {/* Floating Cart */}
       {cartCount > 0 && (
         <div className="fixed left-1/2 -translate-x-1/2 z-50 bottom-[calc(var(--cookie-banner-h,0px)+5.5rem)] sm:bottom-[calc(var(--cookie-banner-h,0px)+1.5rem)]">
-          <div className="glass-dark border border-white/10 rounded-full px-5 py-2.5 flex items-center gap-3 sm:gap-4 shadow-elevated animate-pulse-glow whitespace-nowrap">
-            <ShoppingCart className="w-5 h-5 text-plum" />
-            <span className="text-cream text-sm font-medium">{cartCount} ingresso{cartCount > 1 ? 's' : ''}</span>
-            <span className="text-cream/70">|</span>
+          <div className="glass-dark border border-white/10 rounded-full px-4 sm:px-5 py-2.5 flex items-center gap-2 sm:gap-4 shadow-elevated animate-pulse-glow whitespace-nowrap">
+            <ShoppingCart className="w-5 h-5 text-plum shrink-0" aria-hidden="true" />
+            <span className="text-cream text-sm font-medium">{cartCount}<span className="sr-only sm:not-sr-only"> ingresso{cartCount > 1 ? 's' : ''}</span></span>
+            <span className="text-cream/70 hidden sm:inline">|</span>
             <span className="text-cream font-medium flex flex-col leading-tight">
               {brl(cartResumo.total)}
               {cartResumo.taxa > 0 && <span className="text-cream/60 text-[11px] font-normal whitespace-nowrap">{brl(cartResumo.subtotal)} + taxa {brl(cartResumo.taxa)}</span>}
             </span>
             <button 
               onClick={() => navigate('/checkout', { state: { eventId: event.id, cart } })}
-              className="ml-2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors"
+              className="shrink-0 sm:ml-2 px-4 py-1.5 bg-plum text-cream text-xs font-medium rounded-full hover:bg-plum/80 transition-colors"
             >
               Finalizar
             </button>
