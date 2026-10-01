@@ -149,7 +149,7 @@ export default function AdminLayout() {
           )}
         </div>
 
-        <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto max-h-[calc(100vh-10rem)] sidebar-dark-scroll">
+        <nav className="min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
           {filteredNavItems.map((item) => (
             <Link
               key={item.to}
