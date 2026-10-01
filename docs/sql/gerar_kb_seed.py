@@ -78,6 +78,8 @@ def gerar(artigos, pub):
 -- Os textos marcados nao_publicar ficam fora.
 -- Idempotente: artigo que já existe (mesmo slug) não é tocado, então a edição feita no admin fica; artigo
 -- excluído no admin (kb_slugs_excluidos) não volta.
+-- Banco que já recebeu uma versão anterior deste seed não recebe as palavras-chave novas (on conflict do
+-- nothing): nesse caso, ajuste pelo admin (/admin/conhecimento).
 -- =============================================================================
 begin;
 
