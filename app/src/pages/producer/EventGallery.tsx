@@ -27,7 +27,7 @@ const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground
 const dataCurta = (iso: string) => new Date(iso).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })
 
 export default function ProducerEventGallery() {
-  const { data: photos = [], isLoading } = useEventPhotos()
+  const { data: photos = [], isLoading, isError, refetch, isFetching } = useEventPhotos()
   const createPhoto = useCreatePhoto()
   const updatePhoto = useUpdatePhoto()
   const deletePhoto = useDeletePhoto()
@@ -125,6 +125,20 @@ export default function ProducerEventGallery() {
     )
   }
 
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar a galeria.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       {header}
@@ -141,8 +155,8 @@ export default function ProducerEventGallery() {
 
       {filtered.length === 0 ? (
         <EmptyState
-          title="Nenhuma foto ainda"
-          description="Adicione a primeira foto da galeria."
+          title={activeEvent === 'Todos' ? 'Nenhuma foto ainda' : 'Nenhuma foto deste evento'}
+          description={activeEvent === 'Todos' ? 'Adicione a primeira foto da galeria.' : undefined}
           action={<Button onClick={() => setShowUpload(true)}><ImagePlus aria-hidden="true" />Adicionar foto</Button>}
         />
       ) : viewMode === 'grid' ? (
@@ -197,7 +211,7 @@ export default function ProducerEventGallery() {
           </DialogHeader>
           <form id="form-foto" onSubmit={addPhoto} className="grid gap-3">
             <div className="grid gap-1.5">
-              <Label htmlFor="foto-url">Endereço da imagem</Label>
+              <Label htmlFor={uploadPreview ? undefined : 'foto-url'}>Endereço da imagem</Label>
               {uploadPreview ? (
                 <div className="relative">
                   <img src={uploadPreview} alt="Prévia da foto" onError={() => { setUploadPreview(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="h-40 w-full rounded-md border border-border object-cover" />

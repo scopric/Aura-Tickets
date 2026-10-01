@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerInterestList() {
-  const { data: leads = [], isLoading } = useProducerLeads()
+  const { data: leads = [], isLoading, isError, refetch, isFetching } = useProducerLeads()
   const notifyLead = useNotifyLead()
   const notifyAll = useNotifyAllLeads()
   const deleteLead = useDeleteLead()
@@ -102,6 +102,20 @@ export default function ProducerInterestList() {
           {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar a lista de interesse.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
       </div>
     )
   }

@@ -51,6 +51,7 @@ export default function ProducerAffiliates() {
     enabled: !!user?.id,
     queryFn: async () => {
       // listar só pela função: "select *" em affiliates dá 42501 (grant por coluna, B3)
+      // ponytail: `as never` aqui e nas outras chamadas é remendo temporário (types/database.ts desatualizado)
       const { data, error } = await supabase.rpc('listar_afiliados' as never)
       if (error) throw error
       return ((data ?? []) as Afiliado[]).map(a => ({
@@ -77,6 +78,7 @@ export default function ProducerAffiliates() {
     e.preventDefault()
     if (!form.eventId) { toast.error('Escolha o evento'); return }
     setSalvando(true)
+    // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
     const { data, error } = await supabase.rpc('vincular_afiliado' as never, {
       p_email: form.email.trim(),
       p_evento: form.eventId,
@@ -99,7 +101,7 @@ export default function ProducerAffiliates() {
   const atualizar = async (a: Afiliado, campos: { status?: Afiliado['status']; commission_percent?: number }) => {
     const { data, error } = await supabase
       .from('affiliates')
-      .update(campos as never) // ponytail: types/database.ts desatualizado (affiliates vira never); some com o gen types
+      .update(campos as never) // ponytail: remendo temporário, types/database.ts desatualizado (affiliates vira never); some com o gen types
       .eq('id', a.id)
       .select('id,status')
     if (error || !data?.length) {

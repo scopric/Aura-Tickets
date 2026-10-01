@@ -482,6 +482,7 @@ export function useNotifyLead() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-leads', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['producer-crm', user?.id] }) // o CRM lê a mesma tabela
     },
   })
 }
@@ -504,6 +505,7 @@ export function useNotifyAllLeads() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-leads', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['producer-crm', user?.id] }) // o CRM lê a mesma tabela
     },
   })
 }
@@ -527,6 +529,7 @@ export function useDeleteLead() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-leads', user?.id] })
+      queryClient.invalidateQueries({ queryKey: ['producer-crm', user?.id] }) // o CRM lê a mesma tabela
     },
   })
 }

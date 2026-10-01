@@ -36,7 +36,7 @@ const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground
 const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
 
 export default function ProducerCoupons() {
-  const { data: coupons = [], isLoading } = useProducerCoupons()
+  const { data: coupons = [], isLoading, isError, refetch, isFetching } = useProducerCoupons()
   const { data: events = [] } = useProducerEvents()
   const createCoupon = useCreateCoupon()
   const updateCoupon = useUpdateCoupon()
@@ -111,12 +111,14 @@ export default function ProducerCoupons() {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (coupon: DbCoupon) => {
+    if (!window.confirm(`Excluir o cupom ${coupon.code}?`)) return
     try {
-      await deleteCoupon.mutateAsync(id)
+      await deleteCoupon.mutateAsync(coupon.id)
       toast.success('Cupom removido.')
-    } catch {
-      toast.error('Não foi possível remover o cupom.')
+    } catch (e) {
+      // 23503: o cupom está ligado a um pedido (como em admin/Coupons.tsx)
+      toast.error((e as { code?: string })?.code === '23503' ? 'Este cupom já foi usado. Desative em vez de excluir.' : 'Não foi possível remover o cupom.')
     }
   }
 
@@ -136,6 +138,20 @@ export default function ProducerCoupons() {
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar os cupons.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
       </div>
     )
   }
@@ -185,7 +201,7 @@ export default function ProducerCoupons() {
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => toggleStatus(coupon)} aria-label={coupon.is_active ? `Desativar ${coupon.code}` : `Ativar ${coupon.code}`}>
                         <Power aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon.id)} aria-label={`Remover ${coupon.code}`}>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon)} aria-label={`Remover ${coupon.code}`}>
                         <Trash2 aria-hidden="true" />
                       </Button>
                     </div>

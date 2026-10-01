@@ -32,7 +32,7 @@ const positionLabels: Record<string, string> = {
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerEventBanners() {
-  const { data: banners = [], isLoading } = useEventBanners()
+  const { data: banners = [], isLoading, isError, refetch, isFetching } = useEventBanners()
   const createBanner = useCreateBanner()
   const updateBanner = useUpdateBanner()
   const deleteBanner = useDeleteBanner()
@@ -84,6 +84,7 @@ export default function ProducerEventBanners() {
   }
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Excluir este banner?')) return
     try {
       await deleteBanner.mutateAsync(id)
       toast.success('Banner removido.')
@@ -108,6 +109,20 @@ export default function ProducerEventBanners() {
           {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-56 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar os banners.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
       </div>
     )
   }
@@ -177,18 +192,18 @@ export default function ProducerEventBanners() {
               <Label htmlFor="banner-evento">Nome do evento (opcional)</Label>
               <Input id="banner-evento" value={form.eventName} onChange={e => setForm({ ...form, eventName: e.target.value })} />
             </div>
-            <div role="radiogroup" aria-label="Posição" className="grid gap-1.5">
+            <div role="group" aria-label="Posição" className="grid gap-1.5">
               <span className="text-sm font-medium text-foreground">Posição</span>
               <div className="grid grid-cols-3 gap-2">
                 {Object.entries(positionLabels).map(([key, label]) => (
-                  <Button key={key} type="button" role="radio" aria-checked={form.position === key} variant={form.position === key ? 'secondary' : 'outline'} size="sm" onClick={() => setForm({ ...form, position: key as DbBanner['position'] })} className="h-auto whitespace-normal py-2 text-xs">
+                  <Button key={key} type="button" aria-pressed={form.position === key} variant={form.position === key ? 'secondary' : 'outline'} size="sm" onClick={() => setForm({ ...form, position: key as DbBanner['position'] })} className="h-auto whitespace-normal py-2 text-xs">
                     {label}
                   </Button>
                 ))}
               </div>
             </div>
             <div className="grid gap-1.5">
-              <Label htmlFor="banner-url">Endereço da imagem</Label>
+              <Label htmlFor={previewImage ? undefined : 'banner-url'}>Endereço da imagem</Label>
               {previewImage ? (
                 <div className="relative">
                   <img src={previewImage} alt="Prévia do banner" onError={() => { setPreviewImage(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="h-32 w-full rounded-md border border-border object-cover" />

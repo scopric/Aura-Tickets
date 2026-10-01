@@ -99,7 +99,13 @@ export default function ProducerCRM() {
   const etapas = data?.etapas ?? []
   const leads = data?.leads ?? []
   const selected = leads.find(l => l.id === selectedId) ?? null
-  const recarregar = () => queryClient.invalidateQueries({ queryKey })
+  // a Lista de interesse lê a mesma crm_leads com outra chave
+  const recarregar = () => Promise.all([
+    queryClient.invalidateQueries({ queryKey }),
+    queryClient.invalidateQueries({ queryKey: ['producer-leads', user?.id] }),
+  ])
+  // contato = mensagem, ligação, e-mail ou reunião; nota (inclusive "Movido para") não conta
+  const ultimoContato = (l: Lead) => l.crm_interactions.find(i => i.type !== 'note')
 
   // Lead sem etapa (ou com etapa apagada) aparece numa coluna própria, só quando existe
   const colunaDe = (l: Lead) => (l.stage_id && etapas.some(e => e.id === l.stage_id) ? l.stage_id : SEM_ETAPA)
@@ -115,12 +121,13 @@ export default function ProducerCRM() {
   // (abertura de e-mail, compra) quando houver dado para isso.
   const stats = {
     total: leads.length,
-    semContato: leads.filter(l => l.crm_interactions.length === 0).length,
+    semContato: leads.filter(l => !ultimoContato(l)).length,
     pipeline: leads.reduce((s, l) => s + l.potential_value, 0),
   }
 
   const criarEtapas = async () => {
     setCriandoEtapas(true)
+    // ponytail: `as never` é remendo temporário (types/database.ts desatualizado); some com o gen types
     const { error } = await supabase.rpc('crm_criar_etapas_padrao' as never)
     setCriandoEtapas(false)
     if (error) { toast.error(error.code === '42501' ? 'Confirme o código do 2FA: saia e entre de novo.' : 'Não foi possível criar as etapas.'); return }
@@ -131,7 +138,7 @@ export default function ProducerCRM() {
   // Grava interação e confere a linha devolvida (RLS que barra devolve 0 linhas sem erro: erro 11)
   const gravarInteracao = async (leadId: string, type: TipoInteracao, content: string) => {
     const { data: r, error } = await supabase.from('crm_interactions')
-      .insert({ lead_id: leadId, type, content } as never) // ponytail: never do types desatualizado
+      .insert({ lead_id: leadId, type, content } as never) // ponytail: remendo temporário, types/database.ts desatualizado
       .select('id')
     if (error || !r?.length) throw error ?? new Error('Interação não gravada')
   }
@@ -141,6 +148,7 @@ export default function ProducerCRM() {
     if (!lead || stageId === SEM_ETAPA || lead.stage_id === stageId) return
     const anterior = queryClient.getQueryData(queryKey)
     queryClient.setQueryData(queryKey, { etapas, leads: leads.map(l => l.id === leadId ? { ...l, stage_id: stageId } : l) })
+    // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
     const { data: r, error } = await supabase.from('crm_leads')
       .update({ stage_id: stageId, updated_at: new Date().toISOString() } as never)
       .eq('id', leadId)
@@ -170,6 +178,7 @@ export default function ProducerCRM() {
     if (!novo.name.trim() || !user?.id) { toast.error('Preencha o nome do lead'); return }
     setIsSubmittingLead(true)
     try {
+      // ponytail: `as never` é remendo temporário (types/database.ts desatualizado)
       const { data: r, error } = await supabase.from('crm_leads')
         .insert({
           producer_id: user.id,
@@ -310,7 +319,7 @@ export default function ProducerCRM() {
                               <span>{l.crm_interactions.length} {l.crm_interactions.length === 1 ? 'interação' : 'interações'}</span>
                               <span>{dinheiro(l.potential_value)}</span>
                             </span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">{l.crm_interactions[0] ? quandoFoi(l.crm_interactions[0].created_at) : 'Sem contato'}</span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">{ultimoContato(l) ? quandoFoi(ultimoContato(l)!.created_at) : 'Sem contato'}</span>
                           </span>
                         </button>
                         <Button variant="ghost" size="icon-sm" className={`absolute right-1.5 top-1.5 ${icone}`} onClick={() => handleDeleteLead(l.id, l.full_name)} aria-label={`Excluir lead ${l.full_name}`}>
@@ -402,7 +411,7 @@ export default function ProducerCRM() {
                 <dl className="grid gap-2 text-sm">
                   <div className="flex items-center gap-2 text-muted-foreground"><Mail aria-hidden="true" className="size-4" /><dt className="sr-only">E-mail</dt><dd className="min-w-0 truncate text-foreground">{selected.email || 'Sem e-mail'}</dd></div>
                   <div className="flex items-center gap-2 text-muted-foreground"><Phone aria-hidden="true" className="size-4" /><dt className="sr-only">Telefone</dt><dd className="text-foreground">{selected.phone || 'Sem telefone'}</dd></div>
-                  <div className="flex items-center gap-2 text-muted-foreground"><Calendar aria-hidden="true" className="size-4" /><dt>Último contato:</dt><dd className="text-foreground">{selected.crm_interactions[0] ? quandoFoi(selected.crm_interactions[0].created_at) : 'nenhum'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><Calendar aria-hidden="true" className="size-4" /><dt>Último contato:</dt><dd className="text-foreground">{ultimoContato(selected) ? quandoFoi(ultimoContato(selected)!.created_at) : 'nenhum'}</dd></div>
                   <div className="flex items-center gap-2 text-muted-foreground"><dt>Valor estimado:</dt><dd className="tabular-nums text-foreground">{dinheiro(selected.potential_value)}</dd></div>
                   {selected.event_interest && <div className="flex items-center gap-2 text-muted-foreground"><dt>Evento de interesse:</dt><dd className="min-w-0 truncate text-foreground">{selected.event_interest}</dd></div>}
                 </dl>
