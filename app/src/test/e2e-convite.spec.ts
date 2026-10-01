@@ -155,7 +155,8 @@ test.describe('página /convite', () => {
     await page.getByRole('button', { name: 'Ativar 2FA' }).click()
     await expect(page.getByRole('heading', { name: 'Seu cadastro de colaborador' })).toBeVisible()
 
-    await preencherCadastro(page)
+    // apóstrofo curvo do iPhone: vai reto ao banco
+    await preencherCadastro(page, { nome: 'Maria D’Ávila' })
     await page.getByRole('button', { name: 'Concluir cadastro' }).click()
     await expect(page.getByRole('heading', { name: 'Tudo pronto' })).toBeVisible()
 
@@ -166,7 +167,7 @@ test.describe('página /convite', () => {
     expect(await page.evaluate(() => sessionStorage.getItem('evokaa_convite'))).toBeNull()
     const dados = aceite.dados as Record<string, string>
     expect(dados).toMatchObject({
-      nome_completo: 'Clara Teste da Silva', cpf: '52998224725', cep: '01310100', rua: 'Avenida Paulista', uf: 'SP',
+      nome_completo: "Maria D'Ávila", cpf: '52998224725', cep: '01310100', rua: 'Avenida Paulista', uf: 'SP',
       email_secundario: 'clara.pessoal@teste.invalid', telefone: '+5511987654321', emergencia_telefone: '+5511912345678',
       pix_tipo: 'cpf', pix_chave: '52998224725',
     })
@@ -211,7 +212,13 @@ test.describe('página /convite', () => {
     await page.getByLabel(/E-mail secundário/).fill('outro@teste.invalid')
     await page.getByRole('button', { name: 'Concluir cadastro' }).click()
     await expect(page.getByRole('alert')).toContainText('só com letras')
-    await page.getByLabel('Nome completo').fill('Clara D\'Ávila-Souza Jr.')
+    // endereço de site no nome
+    await page.getByLabel('Nome completo').fill('Clara golpe.com.br')
+    await page.getByRole('button', { name: 'Concluir cadastro' }).click()
+    await expect(page.getByRole('alert')).toContainText('sem endereço de site')
+    expect(e.chamadas.some((c) => c.onde === 'admin-invite:aceitar')).toBe(false)
+    // letras latinas estendidas passam na tela
+    await page.getByLabel('Nome completo').fill('Łukasz Nguyễn J.R.R.')
     // recusa do banco vira mensagem na tela
     await page.getByLabel(/E-mail secundário/).fill('outro@teste.invalid')
     await page.getByRole('button', { name: 'Concluir cadastro' }).click()
@@ -239,6 +246,22 @@ test.describe('página /convite', () => {
     await page.getByLabel('Senha').fill(SENHA)
     await page.getByRole('button', { name: 'Entrar e continuar' }).click()
     await expect(page.getByRole('heading', { name: 'Ative a verificação em duas etapas' })).toBeVisible()
+  })
+
+  test('entrar com a conta de outro e-mail: recusa antes do login', async ({ page }) => {
+    const { e } = await simularSupabase(page)
+    await page.goto(`${ALPHA}/convite#${TOKEN}`)
+    await page.getByRole('button', { name: /Começar/ }).click()
+    await page.getByRole('button', { name: 'Já tenho conta com este e-mail' }).click()
+    await page.getByLabel('E-mail').fill('outra@teste.invalid')
+    await page.getByLabel('Senha').fill(SENHA)
+    await page.getByRole('button', { name: 'Entrar e continuar' }).click()
+    await expect(page.getByRole('alert')).toContainText('Esta conta não é a do convite, que foi enviado para c***@teste.invalid')
+    expect(e.chamadas.some((c) => c.onde === 'login')).toBe(false)
+    await page.getByLabel('E-mail').fill(EMAIL)
+    await page.getByRole('button', { name: 'Entrar e continuar' }).click()
+    await expect(page.getByRole('heading', { name: 'Ative a verificação em duas etapas' })).toBeVisible()
+    expect(e.chamadas.find((c) => c.onde === 'login')?.body).toEqual({ email: EMAIL })
   })
 
   test('convite que não vale e link sem token', async ({ page }) => {
