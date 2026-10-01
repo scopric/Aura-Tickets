@@ -452,7 +452,7 @@ export default function AdminSettingsPage() {
                 </div>
               )}
 
-              <div className="bg-card border border-border rounded-2xl overflow-hidden">
+              <div className="bg-card border border-border rounded-2xl overflow-x-auto">
                 {isLoadingLogs ? (
                   <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-rose-400" /></div>
                 ) : activities.length === 0 && !logsError ? (

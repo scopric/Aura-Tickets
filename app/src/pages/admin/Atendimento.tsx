@@ -177,6 +177,7 @@ export default function Atendimento() {
   const [detalhes, setDetalhes] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const botaoDetalhes = useRef<HTMLButtonElement>(null)
+  const botaoFechar = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     // a partir de 2 caracteres (1 letra casaria quase tudo e a busca no texto é cara)
@@ -247,8 +248,9 @@ export default function Atendimento() {
   // Abaixo de xl o painel cobre a conversa: Esc fecha e devolve o foco ao botão Detalhes
   useEffect(() => {
     if (!detalhes) return
+    botaoFechar.current?.focus()
     const aoTeclar = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !e.defaultPrevented) {
         setDetalhes(false)
         botaoDetalhes.current?.focus()
       }
@@ -282,7 +284,7 @@ export default function Atendimento() {
               <DropdownMenuRadioGroup value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
                 {FILTROS.map((f) => (
                   <DropdownMenuRadioItem key={f.id} value={f.id}>
-                    <f.icone className="mr-2 h-4 w-4 shrink-0" aria-hidden="true" /> {f.rotulo}
+                    <f.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {f.rotulo}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
@@ -427,15 +429,15 @@ export default function Atendimento() {
             />
           </>
         )}
+        {c && detalhes && <div onClick={fecharDetalhes} aria-hidden="true" className="absolute inset-0 z-10 bg-black/50 xl:hidden" />}
       </div>
 
       {/* 3. Contato e ações: fixo a partir de xl; abaixo, painel sobre a conversa com fundo escurecido */}
-      {c && detalhes && <div onClick={fecharDetalhes} aria-hidden="true" className="absolute inset-0 z-10 bg-black/50 xl:hidden" />}
       {c && (
         <aside
           id="atendimento-contato"
           aria-label="Contato e ações"
-          className={`${detalhes ? 'absolute inset-y-0 right-0 z-20 flex shadow-xl' : 'hidden'} w-72 max-w-full shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-card p-4 xl:static xl:flex xl:shadow-none`}
+          className={`${detalhes ? 'absolute inset-y-0 right-0 z-20 flex shadow-xl' : 'hidden'} w-72 max-w-full shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-background p-4 xl:static xl:flex xl:bg-card xl:shadow-none`}
         >
           <div className="flex items-start gap-3">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">{iniciais(c.chat_contacts?.name ?? '?')}</span>
@@ -443,7 +445,7 @@ export default function Atendimento() {
               <p className="truncate font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</p>
               <p className="text-xs text-muted-foreground">Desde {data(c.created_at)}</p>
             </div>
-            <button type="button" onClick={fecharDetalhes} aria-label="Fechar detalhes" className={`rounded-lg p-1 hover:bg-muted xl:hidden ${foco}`}>
+            <button ref={botaoFechar} type="button" onClick={fecharDetalhes} aria-label="Fechar detalhes" className={`rounded-lg p-1 hover:bg-muted xl:hidden ${foco}`}>
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
           </div>
