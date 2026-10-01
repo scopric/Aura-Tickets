@@ -23,6 +23,7 @@ import {
   TicketPercent,
   Bot,
   BookOpen,
+  Menu,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -61,6 +62,8 @@ const navItems = [
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
+  // Celular e tablet (abaixo de lg): a barra lateral vira gaveta, fechada por padrão
+  const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -123,6 +126,13 @@ export default function AdminLayout() {
     }
   }, [podeAtender, uid, qc])
 
+  useEffect(() => {
+    if (!mobileOpen) return
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMobileOpen(false)
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mobileOpen])
+
   const filteredNavItems = navItems.filter((item) => {
     if (!item.permission) return true
     return (
@@ -133,9 +143,16 @@ export default function AdminLayout() {
 
   return (
     <div className="flex min-h-screen glass-canvas">
+      {mobileOpen && (
+        <div className="fixed inset-0 glass-backdrop z-40 lg:hidden" onClick={() => setMobileOpen(false)} />
+      )}
+
+      {/* No celular a gaveta fecha fora da tela e fica invisível (sai da ordem do Tab); no computador, como antes */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-40 glass-bar border-r transition-all duration-300 flex flex-col',
+          'fixed left-0 top-0 bottom-0 z-50 lg:z-40 glass-bar border-r transition-all duration-300 flex flex-col',
+          'lg:translate-x-0',
+          mobileOpen ? 'translate-x-0' : '-translate-x-full max-lg:invisible',
           collapsed ? 'w-16' : 'w-60'
         )}
       >
@@ -159,6 +176,7 @@ export default function AdminLayout() {
             <Link
               key={item.to}
               to={item.to}
+              onClick={() => setMobileOpen(false)}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] transition-all duration-200 font-medium',
                 collapsed ? 'justify-center' : '',
@@ -223,16 +241,26 @@ export default function AdminLayout() {
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full text-white flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-50"
+          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full text-white hidden lg:flex items-center justify-center shadow-lg hover:scale-110 transition-transform z-50"
           style={{ background: 'linear-gradient(135deg, #1d68c4, #8f33f5)', color: 'white', boxShadow: '0 2px 8px rgba(143,51,245,0.4)' }}
         >
           {collapsed ? <ChevronRight className="w-3 h-3" /> : <ChevronLeft className="w-3 h-3" />}
         </button>
       </aside>
 
-      <div className={cn('min-w-0 flex-1 transition-all duration-300 min-h-screen', collapsed ? 'ml-16' : 'ml-60')}>
+      <div className={cn('min-w-0 flex-1 transition-all duration-300 min-h-screen', collapsed ? 'lg:ml-16' : 'lg:ml-60')}>
         {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
-        <div className="sticky top-0 z-30 flex h-16 items-center justify-end px-4 pointer-events-none">
+        <div className="sticky top-0 z-30 flex h-16 items-center justify-between lg:justify-end px-4 pointer-events-none">
+          <button
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+            aria-expanded={mobileOpen}
+            className="glass-bar pointer-events-auto rounded-full border p-2.5 text-foreground lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <div className="glass-bar pointer-events-auto flex items-center gap-1 rounded-full border p-0.5">
             <NotificationsTopButton className={botaoTopo} />
             <FeedbackTopButton className={botaoTopo} />
