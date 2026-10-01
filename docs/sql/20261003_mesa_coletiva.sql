@@ -1477,6 +1477,9 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  v_trava record;
+  v_outra uuid;
 begin
   perform public.mesa_moderador();
   if p_status = 'resolvida' and (p_resultado is null or nullif(btrim(p_explicacao, E' \t\r\n'), '') is null) then
@@ -1492,10 +1495,27 @@ begin
     raise exception 'Denúncia não encontrada' using errcode = '22023';
   end if;
   -- improcedente: quem foi removido por esta denúncia volta a poder escolher mesa (ninguém fica fora sem
-  -- denúncia válida); mesmo registro de mesa_destravar, que não gera aviso
+  -- denúncia válida), a menos que outra denúncia do mesmo evento contra a pessoa ainda justifique a
+  -- remoção (a mais recente passa a ser a da trava). Destravar usa o mesmo registro de mesa_destravar, que
+  -- não gera aviso. Mesma trava por evento de mesa_remover_membro e formar_mesas.
+  -- ponytail: reabrir uma denúncia que estava improcedente NÃO restaura a trava; quem corrigir o resultado
+  -- precisa remover a pessoa de novo (o painel avisa).
   if p_status = 'resolvida' and p_resultado = 'improcedente' then
-    update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
-    where denuncia_id = p_id and destravada_em is null;
+    for v_trava in select tr.id, tr.evento, tr.user_id from public.mesa_travas tr
+                   where tr.denuncia_id = p_id and tr.destravada_em is null loop
+      perform pg_advisory_xact_lock(hashtext('formar_mesas:' || v_trava.evento));
+      select d.id into v_outra from public.mesa_denuncias d
+      where d.evento = v_trava.evento and d.denunciado = v_trava.user_id and d.id <> p_id
+        and d.resultado is distinct from 'improcedente'
+        and (d.status <> 'aberta' or d.liberada_produtor_em is not null)
+      order by d.criado_em desc, d.id limit 1;
+      if v_outra is not null then
+        update public.mesa_travas set denuncia_id = v_outra where id = v_trava.id and destravada_em is null;
+      else
+        update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
+        where id = v_trava.id and destravada_em is null;
+      end if;
+    end loop;
   end if;
 end;
 $$;

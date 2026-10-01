@@ -1426,6 +1426,41 @@ begin
   raise notice 'E27 OK: moderador não destrava a si mesmo, não aprova a própria foto, não decide contra a própria equipe; 1 aviso só; travado antes de sem_perfil';
 end $t$;
 
+-- E31. Improcedente e travas: com outra denúncia que ainda justifica a remoção, a trava continua e passa a
+--      apontar para ela; sem outra, destrava; trava já destravada antes não muda quem destravou
+do $t$
+declare d1 uuid; d2 uuid; d3 uuid; v_em timestamptz;
+begin
+  insert into public.events (id, producer_id, title, date, time, status, approval_status)
+  values (pg_temp.u(909), pg_temp.u(1), 'Evento travas', current_date + 2, '21:00', 'published', 'approved');
+  insert into public.ticket_types (id, event_id, name, type, capacity) values (pg_temp.u(919), pg_temp.u(909), 'Mesa Tinder', 'coletiva', 100);
+  perform pg_temp.ingresso(9000 + g, 919, 909, g) from generate_series(11, 13) g;
+  -- 11: D1 (do 12, mais antiga) e D2 (do 13, mais recente), as duas liberadas ao produtor
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, criado_em)
+  values (pg_temp.u(12), pg_temp.u(11), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now(), now() - interval '2 hours') returning id into d1;
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, criado_em)
+  values (pg_temp.u(13), pg_temp.u(11), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now(), now() - interval '1 hour') returning id into d2;
+  perform pg_temp.rpc(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(909), pg_temp.u(9011), 'comportamento_no_local'));
+  assert (select denuncia_id = d2 from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'trava não ficou com a denúncia mais recente';
+  -- D1 vira procedente; D2, improcedente: a trava continua e aponta para D1
+  update public.mesa_denuncias set status = 'resolvida', resultado = 'procedente', resultado_explicacao = 'Confirmado no local' where id = d1;
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d2, 'resolvida', 'improcedente', 'Não se confirmou nesta'));
+  assert (select denuncia_id = d1 and destravada_em is null from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'trava não passou para a outra denúncia';
+  assert public.mesa_travado(pg_temp.u(909), pg_temp.u(11)), 'destravou apesar de outra denúncia';
+  -- e quando D1 também cai como improcedente, não há outra: destrava
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'improcedente', 'Também não se confirmou'));
+  assert (select destravada_em is not null and destravada_por = pg_temp.u(3) from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'não destravou sem outra denúncia';
+  -- trava já destravada antes (por 2): improcedente depois não muda quem destravou nem quando
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
+  values (pg_temp.u(11), pg_temp.u(12), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now()) returning id into d3;
+  perform pg_temp.rpc(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(909), pg_temp.u(9012), 'comportamento_no_local'));
+  update public.mesa_travas set destravada_por = pg_temp.u(2), destravada_em = now() - interval '1 hour'
+  where evento = pg_temp.u(909) and user_id = pg_temp.u(12) returning destravada_em into v_em;
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d3, 'resolvida', 'improcedente', 'Não se confirmou'));
+  assert (select destravada_por = pg_temp.u(2) and destravada_em = v_em from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(12)), 'mudou quem destravou';
+  raise notice 'E31 OK: improcedente passa a trava para outra denúncia válida, destrava sem ela e não mexe em trava já destravada';
+end $t$;
+
 -- E28. Moderação automática da foto (Fase E; só service_role): fila com reserva sem duplicidade; fora
 --      da fila quem não consentiu, formato inválido ou 3 tentativas; resultado com hash antigo não muda
 --      nada (mas registra o custo); aprovada aparece em minha_mesa, recusada não; 3 erros → revisar;
