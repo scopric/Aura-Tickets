@@ -14,7 +14,7 @@ test.describe('Fluxo do Produtor', () => {
   test('deve acessar lista de eventos', async ({ page }) => {
     await page.goto('/producer/events')
 
-    await expect(page.getByText('Eventos')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Meus eventos' })).toBeVisible()
     await expect(page.getByText('Festival de Verão 2025')).toBeVisible()
   })
 
@@ -22,7 +22,7 @@ test.describe('Fluxo do Produtor', () => {
     await page.goto('/producer/events')
 
     // Clicar no ícone de editar do primeiro evento
-    const editButton = page.locator('table tbody tr:first-child a[title="Editar"]').first()
+    const editButton = page.getByRole('link', { name: /^Editar / }).first()
     await editButton.click()
 
     // Verificar que entrou na página de edição

@@ -1,237 +1,194 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Pencil, Trash2, Eye, Copy, Calendar, AlertTriangle } from 'lucide-react'
-import { useProducerEvents, useDeleteEvent } from '../../hooks/useEvents'
+import { Plus, Search, Pencil, Trash2, Eye, Copy } from 'lucide-react'
 import { toast } from 'sonner'
+import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
+import { situacaoEvento, erroAoExcluir, copiaDoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { siteUrl } from '../../lib/appHost'
+import { PageHeader, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const filtros: ('Todos' | Situacao)[] = ['Todos', 'Publicado', 'Em análise', 'Rascunho', 'Recusado', 'Encerrado', 'Cancelado']
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const inteiro = (n: number) => n.toLocaleString('pt-BR')
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return 'Sem data definida'
+  // dia local: sem o T00:00:00 o navegador lê UTC e volta um dia
+  const date = new Date(`${dateStr}T00:00:00`)
+  return isNaN(date.getTime()) ? dateStr : date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 
 export default function ProducerEvents() {
   const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState<'Todos' | Situacao>('Todos')
 
-  const { data: events, isLoading, error } = useProducerEvents()
+  const { data: events = [], isLoading, isError, refetch, isFetching } = useProducerEvents()
+  const { data: vendidos } = useVendidosPorEvento()
   const deleteMutation = useDeleteEvent()
+  const createEvent = useCreateEvent()
+  const updateEvent = useUpdateEvent()
 
-  const handleDelete = async (id: string, title: string) => {
-    if (window.confirm(`Tem certeza que deseja excluir o evento "${title}"? Esta ação é irreversível e excluirá todos os ingressos associados.`)) {
-      try {
-        await deleteMutation.mutateAsync(id)
-        toast.success('Evento excluído com sucesso!')
-      } catch (err: any) {
-        toast.error(err.message || 'Erro ao excluir evento')
-      }
+  const cancelar = async (event: DbEvent) => {
+    if (!window.confirm(`Cancelar o evento "${event.title}"? A situação passa a ser Cancelado.`)) return
+    try {
+      await updateEvent.mutateAsync({ eventId: event.id, event: { status: 'cancelled' }, tickets: [] })
+      toast.success('Evento cancelado.')
+    } catch {
+      toast.error('Não foi possível cancelar o evento.')
     }
   }
 
-  // Filtragem dos eventos em runtime
-  const filtered = (events || []).filter(e => {
-    const matchSearch = e.title.toLowerCase().includes(search.toLowerCase())
-    
-    // Mapear status do banco de dados para os filtros do frontend
-    // Banco: 'draft' | 'published' | 'cancelled' | 'ended'
-    // Filtro: 'all' | 'upcoming' (published) | 'ongoing' (published/draft) | 'past' (ended)
-    let statusMatch = true
-    if (filter === 'upcoming') {
-      statusMatch = e.status === 'published'
-    } else if (filter === 'ongoing') {
-      statusMatch = e.status === 'draft' || e.status === 'published'
-    } else if (filter === 'past') {
-      statusMatch = e.status === 'ended' || e.status === 'cancelled'
-    }
-
-    return matchSearch && statusMatch
-  })
-
-  // Formatador de data elegante
-  const formatDate = (dateStr: string | null) => {
-    if (!dateStr) return 'Sem data definida'
+  const handleDelete = async (event: DbEvent) => {
+    if (!window.confirm(`Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.`)) return
     try {
-      // Forçar interpretação local para evitar problemas de fuso horário
-      const date = new Date(dateStr + 'T00:00:00')
-      return date.toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
-    } catch {
-      return dateStr
+      await deleteMutation.mutateAsync(event.id)
+      toast.success('Evento excluído.')
+    } catch (err) {
+      const { mensagem, oferecerCancelar } = erroAoExcluir(err)
+      toast.error(mensagem, oferecerCancelar && event.status !== 'cancelled'
+        ? { action: { label: 'Cancelar evento', onClick: () => cancelar(event) }, duration: 10000 }
+        : undefined)
     }
+  }
+
+  const handleDuplicate = async (event: DbEvent) => {
+    if (!window.confirm(`Duplicar "${event.title}"? A cópia nasce como rascunho, com os mesmos ingressos.`)) return
+    try {
+      await createEvent.mutateAsync(copiaDoEvento(event))
+      toast.success('Evento duplicado como rascunho.')
+    } catch {
+      toast.error('Não foi possível duplicar o evento.')
+    }
+  }
+
+  const termo = search.trim().toLowerCase()
+  const filtered = events.filter(e =>
+    e.title.toLowerCase().includes(termo) && (filter === 'Todos' || situacaoEvento(e) === filter))
+
+  const header = (
+    <PageHeader
+      title="Meus eventos"
+      description="Todos os seus eventos, do rascunho ao encerrado"
+      actions={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+    />
+  )
+
+  if (isLoading) {
+    return (
+      <div aria-busy="true">
+        {header}
+        <Skeleton className="h-9 w-full max-w-md rounded-md bg-muted" />
+        <div className="mt-4 space-y-2">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[72px] rounded-[10px] bg-muted" />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar seus eventos.</p>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Eventos</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie todos os seus eventos</p>
-        </div>
-        <Link
-          to="/producer/planner"
-          className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
-        >
-          <Plus className="w-4 h-4" />
-          Novo Evento
-        </Link>
-      </div>
+    <div>
+      {header}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/30" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar eventos..."
-            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-full text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-          />
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <div className="relative w-full lg:max-w-sm">
+          <label htmlFor="busca-eventos" className="sr-only">Buscar eventos</label>
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input id="busca-eventos" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar pelo nome" className="pl-9" />
         </div>
-        <div className="flex items-center gap-2">
-          {['all', 'upcoming', 'ongoing', 'past'].map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 text-xs font-medium rounded-full transition-all ${
-                filter === f
-                  ? 'bg-plum text-cream'
-                  : 'bg-white/40 text-espresso/70 hover:bg-white/60'
-              }`}
-            >
-              {f === 'all' ? 'Todos' : f === 'upcoming' ? 'Ativos' : f === 'ongoing' ? 'Rascunhos' : 'Passados/Cancelados'}
-            </button>
+        <div role="group" aria-label="Filtrar por situação" className="flex flex-wrap gap-1 lg:ml-auto">
+          {filtros.map(f => (
+            <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} aria-pressed={filter === f} onClick={() => setFilter(f)} className={filter === f ? '' : icone}>{f}</Button>
           ))}
         </div>
       </div>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="space-y-4">
-          {[1, 2, 3].map((n) => (
-            <div key={n} className="h-20 bg-white/40 border border-white/60 rounded-2xl animate-pulse flex items-center justify-between px-6">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-espresso/5 rounded-lg" />
-                <div className="space-y-2">
-                  <div className="h-4 bg-espresso/5 rounded w-36" />
-                  <div className="h-3 bg-espresso/5 rounded w-24" />
-                </div>
-              </div>
-              <div className="h-4 bg-espresso/5 rounded w-20" />
-              <div className="h-4 bg-espresso/5 rounded w-16" />
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Error State */}
-      {error && (
-        <div className="p-6 bg-red-50/50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-700">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
-          <p className="text-sm">Erro ao carregar seus eventos: {error.message || 'Houve um erro desconhecido'}</p>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {!isLoading && !error && filtered.length === 0 && (
-        <div className="bg-white/60 border border-white/60 rounded-3xl p-12 text-center backdrop-blur-sm">
-          <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-            <Calendar className="w-8 h-8 text-plum" />
-          </div>
-          <h3 className="font-serif text-xl text-espresso mb-2">Nenhum evento encontrado</h3>
-          <p className="text-sm text-espresso/70 max-w-sm mx-auto mb-6">
-            Você ainda não possui eventos cadastrados nesta categoria ou a sua busca não retornou resultados.
-          </p>
-          <Link
-            to="/producer/planner"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all"
-          >
-            <Plus className="w-4 h-4" />
-            Planejar Primeiro Evento
-          </Link>
-        </div>
-      )}
-
-      {/* Table */}
-      {!isLoading && !error && filtered.length > 0 && (
-        <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden backdrop-blur-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-espresso/5">
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Evento</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Data</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Ingressos</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Vendas</th>
-                  <th className="text-left px-6 py-4 text-xs font-medium text-espresso/70 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((event) => {
-                  const ticketTypes = event.ticket_types || []
-                  const totalSold = ticketTypes.reduce((s, t) => s + (t.sold || 0), 0)
-                  const totalCap = ticketTypes.reduce((s, t) => s + (t.capacity || 0), 0)
-                  const totalRevenue = ticketTypes.reduce((s, t) => s + (t.price * (t.sold || 0)), 0)
-
-                  return (
-                    <tr key={event.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                            <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-espresso">{event.title}</div>
-                            <div className="text-xs text-espresso/70">{event.venue_name || 'Sem local cadastrado'}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-espresso/70">{formatDate(event.date)}</td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-espresso">
-                          {totalSold} {totalCap > 0 ? `/ ${totalCap}` : ''}
-                        </div>
-                        {totalCap > 0 && (
-                          <div className="w-20 h-1 bg-espresso/5 rounded-full mt-1">
-                            <div className="h-full bg-plum rounded-full" style={{ width: `${Math.min(100, (totalSold / totalCap) * 100)}%` }} />
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-espresso font-medium">R$ {totalRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-                          event.status === 'published' ? 'bg-green-100 text-green-600' :
-                          event.status === 'draft' ? 'bg-amber-100 text-amber-600' :
-                          'bg-espresso/5 text-espresso/70'
-                        }`}>
-                          {event.status === 'published' ? 'Ativo' :
-                           event.status === 'draft' ? 'Rascunho' :
-                           event.status === 'cancelled' ? 'Cancelado' : 'Encerrado'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-1">
-                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Ver">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <Link to={`/producer/events/${event.id}/edit`} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Editar">
-                            <Pencil className="w-4 h-4" />
-                          </Link>
-                          <button className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors" title="Duplicar">
-                            <Copy className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(event.id, event.title)}
-                            disabled={deleteMutation.isPending}
-                            className="p-2 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-50"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      <div className="mt-4">
+        {filtered.length === 0 ? (
+          events.length === 0 ? (
+            <EmptyState
+              title="Você ainda não tem eventos"
+              description="Crie o primeiro e acompanhe tudo por aqui."
+              action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+            />
+          ) : (
+            <EmptyState title="Nenhum evento com essa busca ou filtro" />
+          )
+        ) : (
+          <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
+            {filtered.map(event => {
+              const st = situacaoEvento(event)
+              const cap = (event.ticket_types || []).reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || event.capacity || 0
+              const vend = vendidos?.porEvento[event.id] ?? 0
+              return (
+                <li key={event.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="size-12 shrink-0 rounded-md object-cover" />
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-sm font-medium text-foreground">{event.title}</span>
+                        <Badge variant={st === 'Publicado' ? 'default' : 'secondary'}>{st}</Badge>
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {formatDate(event.date)} · {event.venue_name || 'Sem local cadastrado'}
+                      </p>
+                      <p className="text-xs tabular-nums text-muted-foreground">
+                        {vendidos ? (cap > 0 ? `${inteiro(vend)} de ${inteiro(cap)} vendidos` : `${inteiro(vend)} vendidos`) : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 self-end sm:self-auto">
+                    {st === 'Publicado' ? (
+                      <Button asChild variant="ghost" size="icon-sm" className={icone}>
+                        <a href={siteUrl(`/event/${event.id}`)} target="_blank" rel="noopener noreferrer" aria-label={`Ver a página pública de ${event.title} (abre em nova aba)`}>
+                          <Eye aria-hidden="true" />
+                        </a>
+                      </Button>
+                    ) : (
+                      <Button asChild variant="ghost" size="icon-sm" className={icone}>
+                        <Link to={`/producer/events/${event.id}/edit`} aria-label={`Ver ${event.title} (ainda não está no ar)`}>
+                          <Eye aria-hidden="true" />
+                        </Link>
+                      </Button>
+                    )}
+                    <Button asChild variant="ghost" size="icon-sm" className={icone}>
+                      <Link to={`/producer/events/${event.id}/edit`} title="Editar" aria-label={`Editar ${event.title}`}>
+                        <Pencil aria-hidden="true" />
+                      </Link>
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDuplicate(event)} disabled={createEvent.isPending} aria-label={`Duplicar ${event.title}`}>
+                      <Copy aria-hidden="true" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {vendidos?.cortado && (
+          <p className="mt-3 text-xs text-muted-foreground">Contagem parcial: mais de 1.000 ingressos vendidos.</p>
+        )}
+      </div>
     </div>
   )
 }
