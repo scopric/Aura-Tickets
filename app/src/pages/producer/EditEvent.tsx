@@ -3,12 +3,15 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Upload, Plus, X, Check, MapPin, Loader2 } from 'lucide-react'
 import { usePublicEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
+import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
+import { useAuth } from '../../hooks/useAuth'
 
 export default function ProducerEditEvent() {
   const { eventId } = useParams<{ eventId: string }>()
   const navigate = useNavigate()
   const { data: existingEvent, isLoading } = usePublicEvent(eventId)
   const updateEvent = useUpdateEvent()
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
 
   const [formData, setFormData] = useState({
@@ -477,6 +480,11 @@ export default function ProducerEditEvent() {
             </button>
           </div>
         </div>
+      )}
+
+      {/* Match de Mesa: só o dono do evento (editor da equipe e outro produtor não) e só com ingresso coletiva */}
+      {existingEvent.producer_id === user?.id && existingEvent.ticket_types?.some(t => t.type === 'coletiva') && (
+        <MatchDeMesaPanel eventId={existingEvent.id} />
       )}
     </div>
   )

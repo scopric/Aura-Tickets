@@ -89,6 +89,14 @@ export interface MesaAviso {
 
 export type MotivoDenuncia = 'assedio' | 'perfil_falso' | 'conteudo_improprio' | 'outro'
 
+// Rótulos da lista fechada (CHECK de mesa_denuncias): participante, produtor e moderador
+export const MOTIVO_DENUNCIA: Record<MotivoDenuncia, string> = {
+  assedio: 'Assédio',
+  perfil_falso: 'Perfil falso',
+  conteudo_improprio: 'Conteúdo impróprio',
+  outro: 'Outro motivo',
+}
+
 // ============================================================
 // Erros do banco em texto para a pessoa
 // ============================================================
@@ -103,11 +111,13 @@ export function mesaErro(err: unknown): string {
     if (/1 lugar por conta/i.test(msg)) return 'No Match de Mesa é 1 lugar por conta em cada evento (quantidade 1).'
     return msg.replace(/Mesa Tinder/g, 'Match de Mesa')
   }
+  // moderação (mesa_moderador): sessão sem 2FA; a tela do admin mostra como ativar
+  if (e?.code === '42501' && /Ative o 2FA/.test(msg)) return 'Ative o 2FA para moderar.'
   if (e?.code === '42501') return 'Sem acesso. Entre de novo; se sua conta usa verificação em duas etapas, digite o código.'
   return 'Não foi possível concluir agora. Tente de novo em instantes.'
 }
 
-async function rpc<T>(nome: string, args?: Record<string, unknown>): Promise<T> {
+export async function rpc<T>(nome: string, args?: Record<string, unknown>): Promise<T> {
   const { data, error } = await supabase.rpc(nome as never, args as never)
   if (error) throw Object.assign(new Error(mesaErro(error)), { code: error.code })
   return data as unknown as T

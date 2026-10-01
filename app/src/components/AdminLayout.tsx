@@ -22,6 +22,7 @@ import {
   Camera,
   TicketPercent,
   Bot,
+  Armchair,
   BookOpen,
   Menu,
 } from 'lucide-react'
@@ -55,6 +56,7 @@ const navItems = [
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
   { to: '/admin/atendimento', icon: MessageCircle, label: 'Atendimento', permission: 'manage_support' },
+  { to: '/admin/match-de-mesa', icon: Armchair, label: 'Match de Mesa', permission: 'moderate_mesa' },
   { to: '/admin/conhecimento', icon: BookOpen, label: 'Conhecimento', permission: 'manage_support' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
