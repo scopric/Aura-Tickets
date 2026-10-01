@@ -22,6 +22,7 @@ import {
   Camera,
   TicketPercent,
   Bot,
+  BookOpen,
 } from 'lucide-react'
 import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
@@ -53,6 +54,7 @@ const navItems = [
   { to: '/admin/team', icon: Users, label: 'Equipe', permission: 'manage_team' },
   { to: '/admin/feedback', icon: MessageSquarePlus, label: 'Feedback', permission: 'manage_feedback' },
   { to: '/admin/atendimento', icon: MessageCircle, label: 'Atendimento', permission: 'manage_support' },
+  { to: '/admin/conhecimento', icon: BookOpen, label: 'Conhecimento', permission: 'manage_support' },
   { to: '/admin/ia', icon: Bot, label: 'IA / Evo', permission: 'manage_settings' },
   { to: '/admin/settings', icon: Settings, label: 'Configuracoes', permission: 'manage_settings' },
 ]
@@ -82,32 +84,35 @@ export default function AdminLayout() {
     // Nao chamar navigate('/') aqui — o logout ja faz window.location.href = '/'
   }
 
-  // Contador de conversas abertas ao lado de "Atendimento": o canal abaixo atualiza na hora; o polling de 60 s é reserva
+  // Contador de conversas abertas COM A EQUIPE ao lado de "Atendimento" (as do assistente ficam de fora):
+  // o canal abaixo atualiza na hora; o polling de 60 s é reserva
   const podeAtender = !!user?.admin_permissions?.some((p) => p === 'manage_support' || p === 'super_admin')
   const { data: abertas } = useQuery({
     queryKey: ['chat-abertas'],
     enabled: podeAtender,
     refetchInterval: 60_000,
     queryFn: async () => {
-      const { count, error } = await supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open')
+      const { count, error } = await supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open').eq('bot_state', 'humano')
       if (error) throw error
       return count ?? 0
     },
   })
 
-  // Som de mensagem de cliente em qualquer página do alpha (não só no Atendimento): um canal só,
-  // INSERT de mensagens de cliente (a RLS limita ao que a pessoa atende). Atualiza o contador na hora.
+  // Som de mensagem em qualquer página do alpha (não só no Atendimento): um canal só, INSERT de mensagens
+  // de conversa COM A EQUIPE (bot_state da mensagem = estado da conversa quando ela chegou; a RLS limita
+  // ao que a pessoa atende): mensagem do cliente e o aviso de passagem do assistente ("system").
+  // Mensagem do cliente enquanto o assistente atende não toca. Atualiza o contador na hora.
   const qc = useQueryClient()
   const uid = user?.id
   useEffect(() => {
     if (!podeAtender) return
     const canal = supabase
       .channel(`admin-chat-som-${crypto.randomUUID()}`)
-      .on<{ sender_role: string; is_internal: boolean; sender_id: string | null }>(
+      .on<{ sender_role: string; is_internal: boolean; sender_id: string | null; bot_state: string | null }>(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: 'sender_role=eq.customer' },
+        { event: 'INSERT', schema: 'public', table: 'conversation_messages', filter: 'bot_state=eq.humano' },
         ({ new: m }) => {
-          if (m.sender_role !== 'customer' || m.is_internal || m.sender_id === uid) return
+          if ((m.sender_role !== 'customer' && m.sender_role !== 'system') || m.bot_state !== 'humano' || m.is_internal || m.sender_id === uid) return
           bipe([659.25, 987.77])
           qc.invalidateQueries({ queryKey: ['chat-abertas'] })
         },

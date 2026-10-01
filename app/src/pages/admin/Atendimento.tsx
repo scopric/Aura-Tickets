@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
-  AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Inbox, Info, Loader2, MessageSquare, RotateCcw, Scale, Search, User, UserCheck, UserX, X,
+  AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronDown, Inbox, Info, Loader2, MessageSquare, RotateCcw, Scale, Search, User, UserCheck, UserX, X,
 } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -14,13 +14,16 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 // lista (chat_inbox, com filtros em menu e busca) · conversa (ChatThread com nota interna) · contato e ações.
 // Tudo passa pelo RLS e pelas funções chat_* do banco; nada é gravado direto nas tabelas.
 
-type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'resolvidas'
+// Abertas, Minhas, Sem dono e Urgentes são só as conversas com a equipe; "Com o assistente" são as
+// abertas que o assistente ainda atende (20261003_chat_bot.sql)
+type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'assistente' | 'resolvidas'
 const FILTROS: { id: Filtro; rotulo: string; icone: typeof Inbox }[] = [
   { id: 'abertas', rotulo: 'Abertas', icone: Inbox },
   { id: 'minhas', rotulo: 'Minhas', icone: User },
   { id: 'sem_dono', rotulo: 'Sem dono', icone: UserX },
   { id: 'urgentes', rotulo: 'Urgentes', icone: AlertTriangle },
   { id: 'mediacao', rotulo: 'Mediação', icone: Scale },
+  { id: 'assistente', rotulo: 'Com o assistente', icone: Bot },
   { id: 'resolvidas', rotulo: 'Resolvidas', icone: CheckCircle2 },
 ]
 
@@ -39,6 +42,8 @@ interface LinhaInbox {
   last_customer_message_at: string | null
   last_reply_at: string | null
   nao_lida: boolean
+  bot_state: 'bot' | 'humano'
+  bot_resolveu: boolean
 }
 
 interface ConversaAdmin {
@@ -54,6 +59,8 @@ interface ConversaAdmin {
   last_customer_message_at: string | null
   created_at: string
   rating: number | null
+  bot_state: 'bot' | 'humano'
+  bot_resolveu: boolean
   chat_topics: { label: string; mediation: boolean } | null
   chat_contacts: { name: string; email: string | null; phone: string | null; origin: string; marketing_opt_in: boolean } | null
 }
@@ -94,7 +101,7 @@ function useConversaAdmin(id: string | null) {
     queryFn: async () => {
       const { data: d, error } = await supabase
         .from('conversations' as never)
-        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
+        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
         .eq('id', id!)
         .maybeSingle()
       if (error) throw error
@@ -347,8 +354,13 @@ export default function Atendimento() {
                           {l.nao_lida && <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold text-primary-foreground">Não lida</span>}
                           {l.priority === 'urgent' && <span className="rounded-full bg-red-600/10 px-1.5 py-px text-[10px] font-semibold text-red-700 dark:text-red-300">Urgente</span>}
                           {l.mediation && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">Mediação</span>}
+                          {l.bot_state === 'bot' && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-px text-[10px] font-semibold text-sky-800 dark:text-sky-200">
+                              <Bot className="h-3 w-3" aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}
+                            </span>
+                          )}
                           {l.department_name && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{l.department_name}</span>}
-                          {!l.assignee_id && l.status === 'open' && <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">Sem dono</span>}
+                          {!l.assignee_id && l.status === 'open' && l.bot_state === 'humano' && <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">Sem dono</span>}
                           {l.assignee_id && (
                             <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-px text-[10px] text-foreground">
                               <UserCheck className="h-3 w-3" aria-hidden="true" />{l.assignee_id === user?.id ? 'Você' : primeiroNome(atendentes.find((a) => a.id === l.assignee_id)) ?? 'Com dono'}
@@ -392,8 +404,9 @@ export default function Atendimento() {
                 <h2 className="truncate text-sm font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</h2>
                 <p className="truncate text-xs text-muted-foreground">
                   {c.chat_topics?.label ?? 'Sem assunto'} · {c.status === 'open' ? 'Aberta' : 'Resolvida'}
+                  {c.bot_state === 'bot' ? (c.status === 'open' ? ' · com o assistente' : c.bot_resolveu ? ' pelo assistente' : '') : ''}
                   {c.priority === 'urgent' ? ' · Urgente' : ''}
-                  {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id ? '' : ' · sem dono'}
+                  {c.assignee_name ? ` · com ${c.assignee_id === user?.id ? 'você' : c.assignee_name}` : c.assignee_id || c.bot_state === 'bot' ? '' : ' · sem dono'}
                 </p>
               </div>
               {c.assignee_id !== user?.id && c.status === 'open' && (

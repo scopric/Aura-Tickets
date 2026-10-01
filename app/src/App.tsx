@@ -110,6 +110,7 @@ const AdminCoupons = lazy(() => import('./pages/admin/Coupons'))
 const AdminTeam = lazy(() => import('./pages/admin/TeamManager'))
 const AdminAiSettings = lazy(() => import('./pages/admin/AiSettings'))
 const AdminAtendimento = lazy(() => import('./pages/admin/Atendimento'))
+const AdminConhecimento = lazy(() => import('./pages/admin/Conhecimento'))
 const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 
 // App pages (lazy loaded)
@@ -305,6 +306,7 @@ function Layout() {
                 <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_settings"><AdminSettingsPage /></ProtectedRoute>} />
                 <Route path="/admin/feedback" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_feedback"><AdminFeedback /></ProtectedRoute>} />
                 <Route path="/admin/atendimento" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_support"><AdminAtendimento /></ProtectedRoute>} />
+                <Route path="/admin/conhecimento" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_support"><AdminConhecimento /></ProtectedRoute>} />
                 <Route path="/admin/support" element={<Navigate to="/admin/atendimento" replace />} />
                 <Route path="/admin/newsletter" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_newsletter"><AdminNewsletter /></ProtectedRoute>} />
                 <Route path="/admin/coupons" element={<ProtectedRoute allowedRoles={['admin']} requiredPermission="manage_coupons"><AdminCoupons /></ProtectedRoute>} />
