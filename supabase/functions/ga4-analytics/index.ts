@@ -93,9 +93,11 @@ const lista = (rel: Relatorio, nome: (v: string) => string) =>
 // montado), então só limitamos tamanho e caracteres de controle.
 const CAMPOS: Record<string, string> = { pais: 'countryId', aparelho: 'deviceCategory', pagina: 'pagePath', origem: 'sessionSource' }
 const ehDia = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
-// "(not set)" e "(data not available)" = o GA4 não sabe o valor
-const semValor = (v: string) => v === '(not set)' || v === '(data not available)'
-const semNotSet = (v: string) => (semValor(v) ? '' : v)
+// "(not set)" = o GA4 não sabe o valor; "(data not available)" = o dado não veio (atraso ou retido pelo
+// Google). Rótulos diferentes: com o mesmo nome a lista mostrava duas linhas "Desconhecido".
+const rotuloGA = (v: string) => (v === '(not set)' ? 'Desconhecido' : v === '(data not available)' ? 'Sem dado do Google' : v)
+// países e aparelhos: '' vira "Desconhecido"/"Outro" na tela
+const semNotSet = (v: string) => (v === '(not set)' ? '' : rotuloGA(v))
 
 // Datas em AAAA-MM-DD no fuso de Brasília (o da propriedade), nunca no relógio UTC da função.
 const hojeBrasilia = () => {
@@ -238,8 +240,8 @@ Deno.serve(async (req: Request) => {
       comparacao: comp ? { atual: doPeriodo('atual'), anterior: doPeriodo('anterior'), dias: n } : null,
       semComparacao: comp ? null : comparar ? 'falha' : 'periodo',
       porDia,
-      paginas: lista(paginas, v => (semValor(v) ? 'Desconhecido' : v)),
-      origens: lista(origens, v => (v === '(direct)' ? '' : semValor(v) ? 'Desconhecido' : v)),
+      paginas: lista(paginas, rotuloGA),
+      origens: lista(origens, v => (v === '(direct)' ? '' : rotuloGA(v))),
       paises: lista(paises, semNotSet),
       aparelhos: lista(aparelhos, semNotSet),
       agora: tempoReal ? num((tempoReal as Relatorio).rows?.[0]?.metricValues[0]) : null,
