@@ -1120,3 +1120,75 @@ body {
   }
 }
 
+
+/* Painel do produtor (Decisão 112): estilo sóbrio (Linear/Stripe) só dentro de .painel-produtor, a raiz do
+   ProducerLayout. Site, participante e admin não mudam; janelas e gavetas do Radix vão para o <body> e ficam
+   fora do escopo. Tokens shadcn opacos e neutros, o azul da marca como único destaque (sem roxo).
+   Contraste (WCAG): muted-foreground 7,6:1 no fundo e 7,2:1 no cartão (escuro); 5,8:1 e 6,1:1 (claro). */
+.painel-produtor {
+  --background: 240 6% 5%;
+  --foreground: 240 5% 94%;
+  --card: 240 5% 8%;
+  --card-foreground: 240 5% 94%;
+  --popover: 240 5% 8%;
+  --popover-foreground: 240 5% 94%;
+  --primary: 214 80% 58%; /* azul da marca clareado para o escuro */
+  --secondary: 240 4% 12%;
+  --secondary-foreground: 240 5% 94%;
+  --muted: 240 4% 12%;
+  --muted-foreground: 240 5% 65%;
+  --accent: 214 80% 58%;
+  --border: 240 4% 16%;
+  --input: 240 4% 16%;
+  --ring: 214 80% 58%;
+}
+.light .painel-produtor {
+  --background: 0 0% 98%;
+  --foreground: 240 6% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 6% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 240 6% 10%;
+  --primary: 213 74% 44%; /* #1d68c4 */
+  --secondary: 240 5% 96%;
+  --secondary-foreground: 240 6% 10%;
+  --muted: 240 5% 96%;
+  --muted-foreground: 240 4% 40%;
+  --accent: 213 74% 44%;
+  --border: 240 6% 90%;
+  --input: 240 6% 90%;
+  --ring: 213 74% 44%;
+}
+/* Fundo sólido, sem o gradiente do .glass-canvas; a classe fica na raiz porque o remapeamento
+   .dark .glass-canvas (acima) é o que deixa as páginas antigas legíveis no escuro */
+.painel-produtor.glass-canvas {
+  background: hsl(var(--background));
+}
+/* Visual de IA das páginas ainda não migradas: sem brilho (só a sombra; o anel de foco continua),
+   uma fonte só nos títulos. ponytail: some quando as páginas forem migradas (B2–B4) */
+.painel-produtor .shadow-glow,
+.painel-produtor .hover\:shadow-glow:hover {
+  --tw-shadow: 0 0 #0000;
+}
+.painel-produtor :is(h1, h2, h3, h4, .font-serif) {
+  font-family: inherit;
+}
+.painel-produtor .font-serif {
+  letter-spacing: -0.01em;
+}
+/* O contêiner do layout já dá o respiro (16/24/32 px); a raiz das páginas antigas (p-6 lg:p-10) não soma outro.
+   ponytail: some quando as páginas forem migradas (B2–B4) */
+.painel-produtor .produtor-pagina > .p-6 {
+  padding: 0;
+}
+/* Entrada de tela (o ProducerLayout reinicia a cada troca de rota) */
+@keyframes produtor-entrar {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.produtor-entrar {
+  animation: produtor-entrar 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .produtor-entrar { animation: none; }
+}
