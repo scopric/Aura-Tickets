@@ -22,21 +22,31 @@ type Evento = {
   capacity: number | null
   ticket_types: { quantity_total: number | null; capacity: number | null }[]
 }
-type Ingresso = { event_id: string; checked_in_at: string | null }
 
 const inteiro = (n: number) => Math.round(n).toLocaleString('pt-BR')
+const brlMais = (n: number) => `${brl(n)}+`
+// Vendido = ativo ou usado. Cancelado e reembolsado não contam; transferido também não, porque quem recebe
+// fica com um ingresso ativo e o antigo (transferido) contaria a mesma venda duas vezes.
+const VENDIDO = ['active', 'used']
 
 // Conta de 0 até o valor (só aqui, Decisão 112); sem animação com prefers-reduced-motion
 function Contagem({ valor, formato }: { valor: number; formato: (n: number) => string }) {
   const ref = useRef<HTMLSpanElement>(null)
+  // O texto é só do efeito (o React não renderiza filho aqui): se o gsap e o React mexessem no mesmo nó,
+  // a troca 7 → 0 deixava o 7 na tela
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el || valor === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (!el) return
+    if (valor === 0 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      el.textContent = formato(valor)
+      return
+    }
     const obj = { n: 0 }
+    el.textContent = formato(0)
     const tween = gsap.to(obj, { n: valor, duration: 0.8, ease: 'power2.out', onUpdate: () => { el.textContent = formato(obj.n) } })
-    return () => { tween.kill(); el.textContent = formato(valor) }
+    return () => { tween.kill() }
   }, [valor, formato])
-  return <span ref={ref}>{formato(valor)}</span>
+  return <span ref={ref} />
 }
 
 function situacao(e: Evento): string {
@@ -64,38 +74,68 @@ export default function ProducerDashboard() {
     retry: 1,
     queryFn: async () => {
       const id = user!.id
-      // ponytail: limite único de 10 s para as consultas da tela; estourou, vira erro com "Tentar de novo"
-      const sinal = AbortSignal.timeout(10000)
-      const [ev, perfil] = await Promise.all([
-        supabase.from('events')
-          .select('id, title, status, approval_status, date, start_date, capacity, ticket_types(quantity_total, capacity)')
-          .eq('producer_id', id).abortSignal(sinal),
-        // sem permissão ou sem linha: o passo "perfil da empresa" fica como não feito
-        supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
-      ])
-      if (ev.error) throw ev.error
-      const eventos = (ev.data ?? []) as unknown as Evento[]
-
-      let vendas = 0
-      let pedidos = 0
-      let ingressos: Ingresso[] = []
-      if (eventos.length > 0) {
-        const ids = eventos.map(e => e.id)
-        const [o, t] = await Promise.all([
-          supabase.from('orders').select('total').in('event_id', ids).eq('status', 'paid').abortSignal(sinal),
-          // vendido = ativo, usado ou transferido; cancelado e reembolsado não contam
-          supabase.from('tickets').select('event_id, checked_in_at').in('event_id', ids)
-            .in('status', ['active', 'used', 'transferred']).abortSignal(sinal),
+      // ponytail: limite único de 10 s para as consultas da tela; estourou, vira erro com "Tentar de novo".
+      // AbortController + setTimeout em vez de AbortSignal.timeout (não existe no Safari < 16)
+      const ctl = new AbortController()
+      const relogio = setTimeout(() => ctl.abort(), 10000)
+      const sinal = ctl.signal
+      try {
+        const [ev, perfil, pagos, vendidosQ, checkin] = await Promise.all([
+          supabase.from('events')
+            .select('id, title, status, approval_status, date, start_date, capacity, ticket_types(quantity_total, capacity)')
+            .eq('producer_id', id).abortSignal(sinal),
+          supabase.from('producer_profiles').select('company_name').eq('id', id).abortSignal(sinal).maybeSingle(),
+          // ponytail: soma no navegador, cortada no max_rows (1.000) do PostgREST; o count diz se cortou e aí a tela
+          // mostra "R$ X+" e esconde o ticket médio. Soma exata quando houver RPC/view de vendas (F2).
+          supabase.from('orders').select('total, events!inner(producer_id)', { count: 'exact' })
+            .eq('events.producer_id', id).eq('status', 'paid').abortSignal(sinal),
+          supabase.from('tickets').select('id, events!inner(producer_id)', { count: 'exact', head: true })
+            .eq('events.producer_id', id).in('status', VENDIDO).abortSignal(sinal),
+          supabase.from('tickets').select('id, events!inner(producer_id)')
+            .eq('events.producer_id', id).not('checked_in_at', 'is', null).limit(1).abortSignal(sinal),
         ])
-        if (o.error) throw o.error
-        if (t.error) throw t.error
-        pedidos = o.data.length
-        // ponytail: "bruto" = orders.total dos pagos; o checkout ainda não grava service_fee/processing_fee
-        // e o total inclui a taxa do comprador (Decisões 88 e 111). Receita líquida quando a F2 gravar as taxas.
-        vendas = (o.data as { total: number }[]).reduce((s, x) => s + (Number(x.total) || 0), 0)
-        ingressos = t.data as unknown as Ingresso[]
+        if (ev.error) throw ev.error
+        // sem permissão (42501) = perfil não preenchido; outro erro (rede, tempo) não pode virar "não preenchido"
+        if (perfil.error && perfil.error.code !== '42501') throw perfil.error
+        if (pagos.error) throw pagos.error
+        if (vendidosQ.error) throw vendidosQ.error
+        if (checkin.error) throw checkin.error
+        const eventos = (ev.data ?? []) as unknown as Evento[]
+        const linhas = (pagos.data ?? []) as unknown as { total: number }[]
+
+        const hoje = new Date()
+        hoje.setHours(0, 0, 0, 0)
+        const proximos = eventos
+          .filter(e => (e.status === 'draft' || e.status === 'published') && dataDo(e) >= hoje)
+          .sort((a, b) => dataDo(a).getTime() - dataDo(b).getTime())
+          .slice(0, 5)
+        // vendidos por evento só dos 5 da lista, com count (sem trazer linhas)
+        const porEvento = await Promise.all(proximos.map(e =>
+          supabase.from('tickets').select('id', { count: 'exact', head: true })
+            .eq('event_id', e.id).in('status', VENDIDO).abortSignal(sinal)))
+        const vendidosPorEvento: Record<string, number> = {}
+        porEvento.forEach((r, i) => {
+          if (r.error) throw r.error
+          vendidosPorEvento[proximos[i].id] = r.count ?? 0
+        })
+
+        const pedidos = pagos.count ?? linhas.length
+        return {
+          eventos,
+          proximos,
+          vendidosPorEvento,
+          // ponytail: "bruto" = orders.total dos pagos; o checkout ainda não grava service_fee/processing_fee
+          // e o total inclui a taxa do comprador (Decisões 88 e 111). Receita líquida quando a F2 gravar as taxas.
+          vendas: linhas.reduce((s, x) => s + (Number(x.total) || 0), 0),
+          vendasCortadas: pedidos > linhas.length,
+          pedidos,
+          vendidos: vendidosQ.count ?? 0,
+          checkinFeito: (checkin.data ?? []).length > 0,
+          empresa: !!(perfil.data as { company_name: string | null } | null)?.company_name?.trim(),
+        }
+      } finally {
+        clearTimeout(relogio)
       }
-      return { eventos, vendas, pedidos, ingressos, empresa: !perfil.error && !!(perfil.data as { company_name: string | null } | null)?.company_name?.trim() }
     },
   })
 
@@ -140,27 +180,21 @@ export default function ProducerDashboard() {
     )
   }
 
-  const { eventos, vendas, pedidos, ingressos, empresa } = data
-  const vendidos = ingressos.length
-  const publicados = eventos.filter(e => e.status === 'published').length
-
-  const hoje = new Date()
-  hoje.setHours(0, 0, 0, 0)
-  const proximos = eventos
-    .filter(e => (e.status === 'draft' || e.status === 'published') && dataDo(e) >= hoje)
-    .sort((a, b) => dataDo(a).getTime() - dataDo(b).getTime())
-    .slice(0, 5)
+  const { eventos, proximos, vendidosPorEvento, vendas, vendasCortadas, pedidos, vendidos, checkinFeito, empresa } = data
+  // publicado = no ar para o público: publicado E aprovado (F0a)
+  const publicados = eventos.filter(e => e.status === 'published' && e.approval_status === 'approved').length
 
   const passos = [
     { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/planner' },
     {
-      feito: eventos.some(e => e.approval_status === 'approved' || (e.status === 'published' && e.approval_status !== 'rejected')),
+      // publicado (em análise, aprovado ou recusado) ou já encerrado: foi enviado
+      feito: eventos.some(e => e.status === 'published' || e.status === 'ended'),
       texto: 'Enviar um evento para análise',
       to: '/producer/events',
     },
     { feito: eventos.some(e => e.ticket_types.length > 0), texto: 'Configurar os ingressos', to: '/producer/events' },
     { feito: empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings' },
-    { feito: ingressos.some(i => i.checked_in_at), texto: 'Testar o check-in', to: '/producer/checkin' },
+    { feito: checkinFeito, texto: 'Testar o check-in', to: '/producer/checkin' },
   ]
   const feitos = passos.filter(p => p.feito).length
 
@@ -171,13 +205,17 @@ export default function ProducerDashboard() {
       <section aria-labelledby="numeros">
         <h2 id="numeros" className="sr-only">Números</h2>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <Stat label="Vendas (bruto)" value={<Contagem valor={vendas} formato={brl} />} hint="Pedidos pagos, com a taxa do comprador" />
+          <Stat
+            label="Vendas (bruto)"
+            value={<Contagem valor={vendas} formato={vendasCortadas ? brlMais : brl} />}
+            hint={vendasCortadas ? 'Soma parcial: mais de 1.000 pedidos pagos' : 'Pedidos pagos, com a taxa do comprador'}
+          />
           <Stat label="Ingressos vendidos" value={<Contagem valor={vendidos} formato={inteiro} />} />
-          <Stat label="Ticket médio" value={<Contagem valor={vendidos ? vendas / vendidos : 0} formato={brl} />} />
+          <Stat label="Ticket médio" value={vendasCortadas ? '—' : <Contagem valor={vendidos ? vendas / vendidos : 0} formato={brl} />} />
           <Stat label="Eventos publicados" value={<Contagem valor={publicados} formato={inteiro} />} />
         </div>
         {pedidos === 0 && (
-          <p className="mt-3 text-sm text-muted-foreground">As vendas aparecem aqui quando o pagamento estiver ligado.</p>
+          <p className="mt-3 text-sm text-muted-foreground">Nenhuma venda paga ainda.</p>
         )}
       </section>
 
@@ -214,7 +252,7 @@ export default function ProducerDashboard() {
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 id="proximos" className="text-base font-semibold text-foreground">Próximos eventos</h2>
           {eventos.length > 0 && (
-            <Link to="/producer/events" className="text-sm text-primary hover:underline underline-offset-4">Ver todos</Link>
+            <Link to="/producer/events" className="text-sm text-foreground underline underline-offset-4 hover:text-muted-foreground">Ver todos</Link>
           )}
         </div>
         {eventos.length === 0 ? (
@@ -231,7 +269,7 @@ export default function ProducerDashboard() {
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
             {proximos.map(e => {
-              const vendidosEv = ingressos.filter(i => i.event_id === e.id).length
+              const vendidosEv = vendidosPorEvento[e.id] ?? 0
               const cap = e.ticket_types.reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || e.capacity || 0
               const st = situacao(e)
               return (
