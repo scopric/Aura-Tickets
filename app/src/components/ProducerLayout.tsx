@@ -288,7 +288,7 @@ export default function ProducerLayout() {
         style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
           <img
-            src="/images/logo-evokaa.png"
+            src="/images/logo-evokaa-sm.png"
             alt="Evokaa"
             className={cn("w-auto transition-all", collapsed ? "h-7" : "h-11")}
           />
@@ -359,7 +359,7 @@ export default function ProducerLayout() {
               <div className="flex items-center gap-2.5 px-1">
                 <div className="relative group cursor-pointer shrink-0" onClick={triggerUpload} title="Alterar foto de perfil">
                   <img
-                    src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                    src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
                     alt="Avatar do usuario"
                     className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                   />
@@ -375,7 +375,7 @@ export default function ProducerLayout() {
             ) : (
               <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
                 <img
-                  src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                  src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
                   alt="Avatar do usuario"
                   className="w-7 h-7 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                 />

@@ -98,7 +98,7 @@ export default function AppLayout() {
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
           <img
-            src="/images/logo-evokaa.png"
+            src="/images/logo-evokaa-sm.png"
             alt="Evokaa"
             className="h-7 w-auto object-contain"
           />
@@ -173,7 +173,7 @@ export default function AppLayout() {
               <div className="flex items-center gap-2.5 px-1">
                 <div className="relative group cursor-pointer shrink-0" onClick={triggerUpload} title="Alterar foto de perfil">
                   <img
-                    src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                    src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
                     alt="Avatar"
                     className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                   />
@@ -191,7 +191,7 @@ export default function AppLayout() {
             ) : (
               <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
                 <img
-                  src={user.avatar_url || user.avatar || '/images/logo-evokaa.png'}
+                  src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
                   alt="Avatar"
                   className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                 />
@@ -257,7 +257,7 @@ export default function AppLayout() {
             {/* Mobile logo */}
             <Link to="/app/hub" className="lg:hidden flex items-center gap-2">
               <img
-                src="/images/logo-evokaa.png"
+                src="/images/logo-evokaa-sm.png"
                 alt="Evokaa"
                 className="h-6 w-auto object-contain"
               />
@@ -344,7 +344,7 @@ export default function AppLayout() {
             {/* Avatar: clicar troca a foto */}
             <button type="button" onClick={triggerUpload} title="Alterar foto de perfil" aria-label="Alterar foto de perfil" className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum">
               <img
-                src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'}
+                src={user?.avatar_url || user?.avatar || '/images/logo-evokaa-sm.png'}
                 alt=""
                 className="w-9 h-9 rounded-full object-cover ring-2 ring-purple-500/20"
               />

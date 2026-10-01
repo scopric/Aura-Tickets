@@ -55,7 +55,7 @@ export default function Footer() {
           <div className="lg:col-span-4">
             <Link to="/" className="flex items-center gap-2 mb-6">
               <img
-                src="/images/logo-evokaa.png"
+                src="/images/logo-evokaa-sm.png"
                 alt="Evokaa"
                 className="h-20 w-auto"
               />

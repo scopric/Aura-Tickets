@@ -155,25 +155,11 @@ export default function ModernHero() {
   // GSAP text animations
   useEffect(() => {
     if (!isLoaded) return
+    // O título (mh-line-*) não anima: ele é o maior elemento da primeira tela e precisa aparecer na primeira pintura (LCP)
     const tl = gsap.timeline({ delay: 0.2 })
-    tl.fromTo('.mh-line-1',
-      { y: 100, opacity: 0, rotateX: -30 },
-      { y: 0, opacity: 1, rotateX: 0, duration: 1, ease: 'power3.out' }
-    )
-    .fromTo('.mh-line-2',
-      { y: 100, opacity: 0, rotateX: -30 },
-      { y: 0, opacity: 1, rotateX: 0, duration: 1, ease: 'power3.out' },
-      '-=0.75'
-    )
-    .fromTo('.mh-line-3',
-      { y: 100, opacity: 0, rotateX: -30 },
-      { y: 0, opacity: 1, rotateX: 0, duration: 1, ease: 'power3.out' },
-      '-=0.75'
-    )
-    .fromTo('.mh-badge',
+    tl.fromTo('.mh-badge',
       { scale: 0.8, opacity: 0 },
-      { scale: 1, opacity: 1, duration: 0.7, ease: 'back.out(1.7)' },
-      '-=0.8'
+      { scale: 1, opacity: 1, duration: 0.7, ease: 'back.out(1.7)' }
     )
     .fromTo('.mh-desc',
       { y: 30, opacity: 0 },
@@ -273,13 +259,13 @@ export default function ModernHero() {
           {/* Title with 3D perspective */}
           <div className="perspective-1000 mb-8">
             <h1 className="leading-[0.95] tracking-tight">
-              <span className="mh-line-1 block text-5xl sm:text-7xl lg:text-[100px] font-bold text-white">
+              <span className="block text-5xl sm:text-7xl lg:text-[100px] font-bold text-white">
                 Crie
               </span>
-              <span className="mh-line-2 block text-5xl sm:text-7xl lg:text-[100px] font-bold text-white mt-2 lg:mt-3">
+              <span className="block text-5xl sm:text-7xl lg:text-[100px] font-bold text-white mt-2 lg:mt-3">
                 Eventos
               </span>
-              <span className="mh-line-3 block text-5xl sm:text-7xl lg:text-[100px] font-bold mt-2 lg:mt-3 text-gradient">
+              <span className="block text-5xl sm:text-7xl lg:text-[100px] font-bold mt-2 lg:mt-3 text-gradient">
                 Extraordinários
               </span>
             </h1>

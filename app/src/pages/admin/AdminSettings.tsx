@@ -251,7 +251,7 @@ export default function AdminSettingsPage() {
                 <h3 className="text-sm font-semibold text-espresso">Perfil do Administrador</h3>
                 <div className="flex items-center gap-4">
                   <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                  <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa.png'} alt="Avatar Admin" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-rose-500/10" />
+                  <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar Admin" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-rose-500/10" />
                   <div>
                     <button onClick={triggerAvatarUpload} className="px-4 py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all">Alterar foto</button>
                     <p className="text-[10px] text-espresso/70 mt-1">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>

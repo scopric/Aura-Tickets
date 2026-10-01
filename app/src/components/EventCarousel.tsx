@@ -70,7 +70,7 @@ export default function EventCarousel() {
   if (featuredEvents.length === 0) {
     // Decisão 25: vitrine sem evento aprovado fica vazia, com convite (sem eventos de exemplo)
     return (
-      <div className="text-center py-16 px-6 rounded-3xl border border-dashed border-white/20 bg-white/[0.03]" data-testid="vitrine-vazia">
+      <div className="h-[380px] md:h-[480px] flex flex-col items-center justify-center text-center px-6 rounded-3xl border border-dashed border-white/20 bg-white/[0.03]" data-testid="vitrine-vazia">
         <Sparkles className="w-6 h-6 mx-auto mb-3 text-plum" />
         <p className="text-lg font-serif text-cream">Em breve os primeiros eventos</p>
         <p className="text-sm text-cream/70 mt-1">Os eventos aprovados aparecem aqui. Produtor? <Link to="/auth/register" className="text-plum-light underline underline-offset-2">Crie o seu</Link>.</p>
