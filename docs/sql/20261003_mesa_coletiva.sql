@@ -1375,8 +1375,8 @@ $$;
 --      'pode_remover' de mesas_do_evento). Devolve a denúncia mais recente deste evento contra a pessoa
 --      que justifica a remoção, ou nulo. Sem security definer: só é chamada por funções security definer.
 --      Produtor (p_produtor): a que ele vê na lista dele (liberada a ele, nem contra ele nem contra a
---      equipe dele) e que não foi feita por ele (quem acusa não remove). Moderador: qualquer status, menos
---      conflito de interesse (mesa_conflito: contra ele mesmo) e a que ele mesmo fez.
+--      equipe dele) e que não foi feita por ele (quem acusa não remove). Moderador: só depois da análise
+--      (status diferente de 'aberta'), menos conflito de interesse (mesa_conflito: contra ele mesmo) e a que ele mesmo fez.
 --      ponytail: o status da denúncia ("resolvida") não entra; decisão do Ricardo.
 create or replace function public.mesa_denuncia_que_remove(p_event_id uuid, p_user uuid, p_produtor boolean)
 returns uuid
@@ -1396,6 +1396,9 @@ as $$
         else
           not coalesce(public.mesa_conflito(d.evento, d.denunciado), false)
           and d.denunciante is distinct from auth.uid()
+          -- só depois da análise (não 'aberta'). ponytail: 'resolvida' ainda vale; se o Ricardo disser que
+          -- é improcedente, trocar por status in ('em_apuracao', 'judicial')
+          and d.status <> 'aberta'
         end
   order by d.criado_em desc, d.id
   limit 1;
@@ -1489,7 +1492,7 @@ $$;
 --     quando, e avisa a pessoa (aviso "removido"). A mesa que ficar vazia é apagada.
 --     Só se remove quem tem denúncia contra si neste evento (mesa_denuncias.denunciado = dono do
 --     ingresso, evento = p_event_id): o produtor, só com a denúncia que ele vê (liberada a ele, nem contra
---     ele nem contra a equipe dele); o moderador, com qualquer denúncia, em qualquer status (mesa_denuncia_que_remove).
+--     ele nem contra a equipe dele); o moderador, com denúncia já analisada (status diferente de 'aberta') (mesa_denuncia_que_remove).
 --     Sem denúncia: 22023 "Só é possível remover quem tem denúncia neste evento".
 drop function if exists public.mesa_remover_membro(uuid, uuid, text);
 create or replace function public.mesa_remover_membro(p_event_id uuid, p_ticket_id uuid, p_motivo text,

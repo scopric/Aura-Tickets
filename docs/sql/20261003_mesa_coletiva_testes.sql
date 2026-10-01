@@ -1113,8 +1113,8 @@ begin
   -- denúncias contra o 13 (liberada ao produtor) e o 14 (não liberada); sem denúncia ninguém é removido
   insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
   values (pg_temp.u(11), pg_temp.u(13), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa)
-  values (pg_temp.u(11), pg_temp.u(14), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false);
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, status)
+  values (pg_temp.u(11), pg_temp.u(14), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, 'em_apuracao');
   assert pg_temp.err(2, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4013), 'outro')) like '42501%', 'outro produtor removeu';
   assert pg_temp.err(11, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4013), 'outro')) like '42501%', 'comprador removeu';
   assert pg_temp.err(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4013), 'denuncia_triada')) = '42501 Ative o 2FA para moderar', 'admin aal1 removeu';
@@ -1132,8 +1132,8 @@ begin
   -- membro da equipe do produtor com denúncia liberada: o produtor não vê essa denúncia, então não remove;
   -- o moderador (aal2) vê pode_remover verdadeiro
   insert into public.team_members (producer_id, user_id) values (pg_temp.u(1), pg_temp.u(15));
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
-  values (pg_temp.u(12), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, status)
+  values (pg_temp.u(12), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now(), 'em_apuracao');
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu membro da equipe';
   assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
           jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro para a equipe (produtor)';
@@ -1142,8 +1142,8 @@ begin
   delete from public.team_members where producer_id = pg_temp.u(1) and user_id = pg_temp.u(15);
   delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
   -- denúncia feita pelo próprio moderador (3) contra o 15 não vale para ele; feita pelo produtor (1) não vale para o produtor
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
-  values (pg_temp.u(3), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, status)
+  values (pg_temp.u(3), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now(), 'em_apuracao');
   assert pg_temp.err2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'moderador removeu com denúncia feita por ele';
   assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
           jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro para denúncia do próprio moderador';
@@ -1155,12 +1155,22 @@ begin
           jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro para denúncia do próprio produtor';
   delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
   -- ingresso transferido: a denúncia é contra o dono antigo (15); o novo dono (22) não é removido
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
-  values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, status)
+  values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now(), 'em_apuracao');
   update public.tickets set user_id = pg_temp.u(22) where id = pg_temp.u(4015);
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu o novo dono';
   assert pg_temp.err2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'moderador removeu o novo dono';
   update public.tickets set user_id = pg_temp.u(15) where id = pg_temp.u(4015);
+  delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
+  -- moderador só remove depois da análise: denúncia 'aberta' não vale e pode_remover vem falso
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa)
+  values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false);
+  assert pg_temp.err2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'moderador removeu com denúncia aberta';
+  assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro com denúncia aberta (moderador)';
+  update public.mesa_denuncias set status = 'em_apuracao' where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
+  assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover falso em apuração (moderador)';
   delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
   -- denúncia não liberada: o produtor não remove; pode_remover só aparece para quem a regra aceita
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4014), 'pedido_da_pessoa')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu com denúncia não liberada';
@@ -1299,8 +1309,8 @@ begin
   -- o produtor P remove o admin 3 do evento 904
   perform pg_temp.ingresso(4003, 914, 904, 3);
   perform pg_temp.escolhe(3, 904, null);
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
-  values (pg_temp.u(11), pg_temp.u(3), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now());
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, status)
+  values (pg_temp.u(11), pg_temp.u(3), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now(), 'em_apuracao');
   -- o moderador denunciado (3): pode_remover falso na linha dele e remoção de si mesmo recusada
   assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
           jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4003)::text), 'pode_remover verdadeiro para o moderador denunciado';
