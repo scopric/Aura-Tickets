@@ -20,7 +20,7 @@ interface AdminProfile {
 }
 
 const PERMISSIONS = [
-  { id: 'super_admin', label: 'Super Admin 👑', desc: 'Acesso total e irrestrito a todas as funcionalidades e configurações da plataforma.' },
+  { id: 'super_admin', label: 'Acesso total 👑', desc: 'Acesso total e irrestrito a todas as funcionalidades e configurações da plataforma.' },
   { id: 'manage_users', label: 'Gerenciar Usuários & Produtores', desc: 'Permite visualizar, suspender e gerenciar contas de clientes e produtores.' },
   { id: 'manage_affiliates', label: 'Afiliados Evokaa', desc: 'Cadastrar afiliados que revendem a plataforma, acordos de comissão e produtores indicados.' },
   { id: 'manage_events', label: 'Moderação de Eventos', desc: 'Permite aprovar ou rejeitar novos eventos criados por produtores.' },
@@ -33,7 +33,7 @@ const PERMISSIONS = [
   { id: 'manage_newsletter', label: 'Campanhas de Newsletter', desc: 'Criar, editar e disparar informativos para a base de e-mails.' },
   { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
   { id: 'moderate_mesa', label: 'Moderar Match de Mesa', desc: 'Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.' },
-  { id: 'manage_team', label: 'Ver Equipe Admin', desc: 'Permite ver a equipe administrativa. Promover, rebaixar e alterar permissões é só do Super Admin.' },
+  { id: 'manage_team', label: 'Ver a Equipe Evokaa', desc: 'Permite ver os colaboradores da Evokaa. Convidar, remover e alterar funções é só de quem tem Acesso total.' },
 ]
 // No convite, nunca super_admin (só pela edição de permissões); o banco e a Edge Function admin-invite conferem de novo
 const PERMISSOES_CONVITE = PERMISSIONS.filter(p => p.id !== 'super_admin')
@@ -45,6 +45,9 @@ interface Convite {
   permissions: string[]
   status: 'pendente' | 'expirado' | 'usado' | 'cancelado'
   expires_at: string
+  used_at: string | null
+  nome: string | null
+  aviso_em: string | null // null num aceite = o e-mail aos super_admins não saiu
 }
 
 // Cadastro do colaborador (staff_profiles, docs/sql/20261002_convite_colaborador.sql): só o super_admin lê
@@ -225,7 +228,7 @@ export default function AdminTeamManager() {
       return
     }
     if (losesSuper && isLastSuperAdmin(selectedAdmin.id)) {
-      toast.error('Este é o último Super Admin: promova outro antes de rebaixá-lo.')
+      toast.error('Esta é a última conta com Acesso total: dê Acesso total a outro colaborador antes de tirar o desta.')
       return
     }
     setIsSavingPermissions(true)
@@ -265,7 +268,7 @@ export default function AdminTeamManager() {
       return
     }
     if (isLastSuperAdmin(adminId)) {
-      toast.error('Este é o último Super Admin: promova outro antes de removê-lo.')
+      toast.error('Esta é a última conta com Acesso total: dê Acesso total a outro colaborador antes de removê-la.')
       return
     }
     const confirm = window.confirm(`Remover ${name} dos colaboradores da Evokaa? A conta volta a ser de participante comum.`)
@@ -350,7 +353,7 @@ export default function AdminTeamManager() {
                           <div className="text-sm font-bold text-espresso flex items-center gap-1.5">
                             {admin.full_name || 'Colaborador Evokaa'}
                             {isSuper && (
-                              <Award className="w-3.5 h-3.5 text-amber-500 fill-amber-500" title="Super Admin" />
+                              <Award className="w-3.5 h-3.5 text-amber-500 fill-amber-500" aria-label="Acesso total" />
                             )}
                           </div>
                           <div className="text-[10px] text-espresso/70 flex items-center gap-1 mt-0.5">
@@ -370,7 +373,7 @@ export default function AdminTeamManager() {
                         {/* Perm chips preview */}
                         <div className="hidden md:flex flex-wrap gap-1 max-w-[250px] justify-end">
                           {isSuper ? (
-                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-semibold">Super Admin</span>
+                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-semibold">Acesso total</span>
                           ) : (
                             admin.admin_permissions?.slice(0, 3).map(p => (
                               <span key={p} className="px-2 py-0.5 rounded bg-espresso/5 text-espresso/70 text-[9px] font-semibold border border-espresso/10">
@@ -396,7 +399,7 @@ export default function AdminTeamManager() {
           {canEdit && (
             <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
               <h2 className="font-serif text-xl text-espresso mb-4 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-plum" /> Convites pendentes
+                <Mail className="w-5 h-5 text-plum" /> Convites
               </h2>
               {convitesErro && (
                 <div role="alert" className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
@@ -439,6 +442,25 @@ export default function AdminTeamManager() {
                   ))}
                 </ul>
               )}
+
+              {convites.some(c => c.status === 'usado') && (
+                <>
+                  <h3 className="font-serif text-lg text-espresso mt-8 mb-3">Aceitos recentemente</h3>
+                  <ul className="space-y-2">
+                    {convites.filter(c => c.status === 'usado').map(c => (
+                      <li key={c.id} className="p-3 rounded-xl border border-white bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold text-espresso truncate">{c.nome || c.email}</div>
+                          <div className="text-[11px] text-espresso/70 mt-0.5">{c.email} · {c.cargo} · aceito em {dataBr(c.used_at)}</div>
+                        </div>
+                        {c.aviso_em
+                          ? <span className="shrink-0 text-[10px] font-semibold text-emerald-600">aviso enviado</span>
+                          : <span className="shrink-0 text-[10px] font-semibold text-amber-600">sem aviso por e-mail</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -458,8 +480,8 @@ export default function AdminTeamManager() {
 
               <div className="mb-6">
                 <div className="text-[10px] text-plum font-semibold uppercase tracking-wider">Ajustar Acesso</div>
-                <h3 className="font-serif text-lg text-espresso mt-0.5 leading-snug">{selectedAdmin.full_name || 'Administrador'}</h3>
-                <p className="text-[10px] text-espresso/70 mt-1">Selecione quais áreas do painel administrativo este membro pode acessar.</p>
+                <h3 className="font-serif text-lg text-espresso mt-0.5 leading-snug">{selectedAdmin.full_name || 'Colaborador(a)'}</h3>
+                <p className="text-[10px] text-espresso/70 mt-1">Selecione quais áreas do painel este colaborador(a) pode acessar.</p>
               </div>
 
               {/* Cadastro do colaborador (só o super_admin chega a este painel) */}
@@ -525,7 +547,7 @@ export default function AdminTeamManager() {
                 </button>
                 
                 <button 
-                  onClick={() => handleRemoveAdmin(selectedAdmin.id, selectedAdmin.full_name || 'Admin')}
+                  onClick={() => handleRemoveAdmin(selectedAdmin.id, selectedAdmin.full_name || 'Colaborador(a)')}
                   className="w-full py-2 bg-transparent text-red-500 hover:bg-red-50 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-1.5"
                 >
                   <Trash2 className="w-3.5 h-3.5" /> Remover da Equipe
@@ -534,7 +556,7 @@ export default function AdminTeamManager() {
             </div>
           ) : !canEdit ? (
             <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm text-xs text-espresso/70 leading-relaxed">
-              Somente o Super Admin promove, rebaixa e altera permissões da equipe.
+              Só quem tem Acesso total convida colaboradores, remove da Equipe Evokaa e altera funções.
             </div>
           ) : (
             /* Convidar colaborador */
@@ -613,7 +635,7 @@ export default function AdminTeamManager() {
                 <div>
                   <div className="text-[10px] font-bold text-amber-700">Aviso de Segurança</div>
                   <p className="text-[9px] text-amber-600 leading-normal mt-0.5">
-                    Adicionar membros à equipe administrativa garante privilégios e permissões avançadas de segurança sobre o banco e dados pessoais. Conceda acessos baseando-se no princípio do privilégio mínimo.
+                    Cada função dá acesso a dados de clientes, produtores e pagamentos. Dê a cada colaborador(a) só as funções de que ele(a) precisa.
                   </p>
                 </div>
               </div>
