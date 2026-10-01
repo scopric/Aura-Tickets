@@ -8,7 +8,7 @@ import {
 import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 
 // Match de Mesa no evento do produtor: formar as mesas, ver quem senta onde (nome completo e
-// ingresso), remover alguém da mesa (o banco trava a pessoa no evento) e ver as denúncias que a
+// ingresso), remover da mesa quem tem denúncia liberada ao produtor (o banco trava a pessoa no evento) e ver as denúncias que a
 // moderação liberou (só denunciado, motivo e mesa). Quem monta decide quando aparece: só para o dono
 // do evento e só em evento com ingresso "coletiva".
 
@@ -92,9 +92,11 @@ export default function MatchDeMesaPanel({ eventId }: { eventId: string }) {
                         {p.nome}
                         <span className="text-espresso/70 font-mono ml-2" title={p.ingresso}>ingresso {p.ingresso.slice(0, 8)}</span>
                       </span>
-                      {removendo !== p.ingresso && (
+                      {removendo !== p.ingresso && (p.pode_remover ? (
                         <button onClick={() => abrir(p.ingresso)} className={`${botao} border border-red-200 text-red-500 hover:bg-red-50`}>Remover da mesa</button>
-                      )}
+                      ) : (
+                        <span className="text-[11px] text-espresso/70 italic">Sem denúncia liberada</span>
+                      ))}
                     </div>
                     {removendo === p.ingresso && (
                       <div className="mt-2 p-3 rounded-xl bg-white/60 border border-red-200 space-y-2">

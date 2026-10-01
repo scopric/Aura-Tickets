@@ -15,7 +15,9 @@ export interface MesaDoEvento {
   numero: number
   nome: string
   capacidade: number
-  membros: { nome: string; ingresso: string }[] // nome do dono atual; '(sem nome no perfil)' se vazio
+  // nome do dono atual; '(sem nome no perfil)' se vazio. pode_remover: só quem tem denúncia no evento
+  // (para o produtor, só liberada a ele); o banco recusa a remoção dos outros (22023)
+  membros: { nome: string; ingresso: string; pode_remover: boolean }[]
 }
 
 // mesa_denuncias_do_evento, visão do moderador
@@ -114,6 +116,7 @@ export function erroMesaAdmin(err: unknown): string {
   if (e?.code === '42501' && !precisa2fa(err)) {
     return 'Sem permissão: só o produtor do evento e quem tem a permissão "Moderar Match de Mesa" (com 2FA) acessam o Match de Mesa.'
   }
+  if (e?.code === '22023' && /^Só é possível remover/.test(e.message ?? '')) return 'Só é possível remover quem tem denúncia neste evento.'
   if (e?.code === '23514') return 'O banco recusou o texto: use de 3 a 500 caracteres, sem símbolos especiais.'
   return e?.message || 'Não foi possível concluir agora. Tente de novo em instantes.'
 }

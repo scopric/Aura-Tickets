@@ -11,6 +11,7 @@ const EVENTO = 'e0000000-0000-4000-8000-0000000000e1'
 const FOTO = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ=='
 const T1 = 'a0000000-0000-4000-8000-000000000001'
 const T2 = 'b0000000-0000-4000-8000-000000000002'
+const T3 = 'c0000000-0000-4000-8000-000000000003'
 
 const EVENTO_ROW = {
   id: EVENTO, producer_id: PRODUTOR, title: 'Noite de teste', slug: 'noite-de-teste', description: 'Evento de teste',
@@ -269,14 +270,19 @@ test.describe('produtor — Match de Mesa no evento', () => {
   })
 
   test('formar mesas, lista, remover com motivo ("outro" exige detalhe) e denúncias liberadas', async ({ page }) => {
+    // Ana não tem denúncia liberada (sem botão); Bruno e Carla têm
     let mesas = [
-      { numero: 1, nome: 'Mesa 1', capacidade: 6, membros: [{ nome: 'Ana Souza', ingresso: T1 }, { nome: 'Bruno Lima', ingresso: T2 }] },
-      { numero: 2, nome: 'Mesa 2', capacidade: 6, membros: [] as { nome: string; ingresso: string }[] },
+      { numero: 1, nome: 'Mesa 1', capacidade: 6, membros: [
+        { nome: 'Ana Souza', ingresso: T1, pode_remover: false },
+        { nome: 'Bruno Lima', ingresso: T2, pode_remover: true },
+        { nome: 'Carla Dias', ingresso: T3, pode_remover: true },
+      ] },
+      { numero: 2, nome: 'Mesa 2', capacidade: 6, membros: [] as { nome: string; ingresso: string; pode_remover: boolean }[] },
     ]
     const chamadas = await mockRpc(page, {
       mesas_do_evento: () => ({ json: mesas }),
       formar_mesas: () => ({ json: 3 }),
-      mesa_denuncias_do_evento: [{ denunciado: 'Bruno Lima', motivo: 'perfil_falso', mesa: 'Mesa 1' }],
+      mesa_denuncias_do_evento: [{ denunciado: 'Bruno Lima', motivo: 'perfil_falso', mesa: 'Mesa 1' }, { denunciado: 'Carla Dias', motivo: 'assedio', mesa: 'Mesa 1' }],
       mesa_remover_membro: (b) => {
         mesas = mesas.map((m) => ({ ...m, membros: m.membros.filter((p) => p.ingresso !== b.p_ticket_id) }))
         return { json: null }
@@ -295,7 +301,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await expect(page.getByText('3 pessoas entraram nas mesas.')).toBeVisible()
 
     await expect(painel.getByRole('heading', { name: /^Mesa 1/ })).toBeVisible()
-    await expect(painel.getByText('· 2/6 lugares')).toBeVisible()
+    await expect(painel.getByText('· 3/6 lugares')).toBeVisible()
     await expect(painel.getByText('Ana Souza')).toBeVisible()
     await expect(painel.getByText(`ingresso ${T1.slice(0, 8)}`)).toBeVisible()
     await expect(painel.getByText('Mesa vazia.')).toBeVisible()
@@ -304,31 +310,50 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await expect(painel.getByText('Denúncias liberadas pela moderação')).toBeVisible()
     await expect(painel.locator('li', { hasText: 'Perfil falso' })).toHaveText('Bruno Lima · Perfil falso · Mesa 1')
 
+    // sem denúncia liberada, sem botão de remover
     const ana = painel.locator('li', { hasText: 'Ana Souza' })
-    await ana.getByRole('button', { name: 'Remover da mesa' }).click()
-    await expect(ana.getByText(/Não escreva dados de saúde ou de terceiros/)).toBeVisible()
-    const confirmar = ana.getByRole('button', { name: 'Confirmar remoção' })
-    await expect(confirmar).toBeDisabled() // sem motivo
-    await ana.getByLabel('Motivo').selectOption('outro')
-    await expect(confirmar).toBeDisabled() // "outro" sem detalhe
-    await ana.getByLabel(/Detalhe/).fill('ab')
-    await expect(confirmar).toBeDisabled() // menos de 3 caracteres
-    await ana.getByLabel(/Detalhe/).fill('Pediu para trocar de lugar')
-    await confirmar.click()
-    await expect(page.getByText('Pessoa removida da mesa.')).toBeVisible()
-    await expect(painel.getByText('Ana Souza')).toHaveCount(0)
+    await expect(ana.getByRole('button', { name: 'Remover da mesa' })).toHaveCount(0)
+    await expect(ana.getByText('Sem denúncia liberada')).toBeVisible()
 
     const bruno = painel.locator('li', { hasText: 'Bruno Lima' }).filter({ has: page.getByRole('button') })
     await bruno.getByRole('button', { name: 'Remover da mesa' }).click()
-    await bruno.getByLabel('Motivo').selectOption('comportamento_no_local')
-    await bruno.getByRole('button', { name: 'Confirmar remoção' }).click() // detalhe opcional fora de "outro"
+    await expect(bruno.getByText(/Não escreva dados de saúde ou de terceiros/)).toBeVisible()
+    const confirmar = bruno.getByRole('button', { name: 'Confirmar remoção' })
+    await expect(confirmar).toBeDisabled() // sem motivo
+    await bruno.getByLabel('Motivo').selectOption('outro')
+    await expect(confirmar).toBeDisabled() // "outro" sem detalhe
+    await bruno.getByLabel(/Detalhe/).fill('ab')
+    await expect(confirmar).toBeDisabled() // menos de 3 caracteres
+    await bruno.getByLabel(/Detalhe/).fill('Pediu para trocar de lugar')
+    await confirmar.click()
+    await expect(page.getByText('Pessoa removida da mesa.')).toBeVisible()
     await expect(painel.locator('li', { hasText: 'Bruno Lima' }).filter({ has: page.getByRole('button') })).toHaveCount(0)
+
+    const carla = painel.locator('li', { hasText: 'Carla Dias' }).filter({ has: page.getByRole('button') })
+    await carla.getByRole('button', { name: 'Remover da mesa' }).click()
+    await carla.getByLabel('Motivo').selectOption('comportamento_no_local')
+    await carla.getByRole('button', { name: 'Confirmar remoção' }).click() // detalhe opcional fora de "outro"
+    await expect(painel.locator('li', { hasText: 'Carla Dias' }).filter({ has: page.getByRole('button') })).toHaveCount(0)
 
     expect(chamadas.filter((c) => c.nome === 'formar_mesas').map((c) => c.body)).toEqual([{ p_event_id: EVENTO }])
     expect(chamadas.filter((c) => c.nome === 'mesa_remover_membro').map((c) => c.body)).toEqual([
-      { p_event_id: EVENTO, p_ticket_id: T1, p_motivo: 'outro', p_detalhe: 'Pediu para trocar de lugar' },
-      { p_event_id: EVENTO, p_ticket_id: T2, p_motivo: 'comportamento_no_local', p_detalhe: null },
+      { p_event_id: EVENTO, p_ticket_id: T2, p_motivo: 'outro', p_detalhe: 'Pediu para trocar de lugar' },
+      { p_event_id: EVENTO, p_ticket_id: T3, p_motivo: 'comportamento_no_local', p_detalhe: null },
     ])
+  })
+
+  test('o banco recusa remover quem não tem denúncia (22023): mostra a mensagem', async ({ page }) => {
+    await mockRpc(page, {
+      mesas_do_evento: [{ numero: 1, nome: 'Mesa 1', capacidade: 6, membros: [{ nome: 'Ana Souza', ingresso: T1, pode_remover: true }] }],
+      mesa_denuncias_do_evento: [],
+      mesa_remover_membro: () => erro('22023', 'Só é possível remover quem tem denúncia neste evento'),
+    })
+    await page.goto(`/producer/events/${EVENTO}/edit`)
+    const painel = page.getByRole('region', { name: 'Match de Mesa' })
+    await painel.getByRole('button', { name: 'Remover da mesa' }).click()
+    await painel.getByLabel('Motivo').selectOption('comportamento_no_local')
+    await painel.getByRole('button', { name: 'Confirmar remoção' }).click()
+    await expect(page.getByText('Só é possível remover quem tem denúncia neste evento.')).toBeVisible()
   })
 
   test('evento sem ingresso coletiva não mostra o painel', async ({ page }) => {
