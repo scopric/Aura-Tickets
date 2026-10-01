@@ -27,7 +27,7 @@
 --   - denúncia com um toque, sem bloqueio; o admin faz a triagem e libera ao produtor, que vê
 --     denunciado, motivo e mesa, menos contra ele ou a equipe dele. Guarda no bloco 3e;
 --   - contra perseguição: 30 min entre trocas, aviso "entrou alguém na sua mesa" (sem dizer quem) e
---     remoção pelo produtor ou pelo admin (mesa_remover_membro), com trava;
+--     remoção pelo produtor ou pelo admin (mesa_remover_membro), com trava, só de quem tem denúncia no evento;
 --   - risco aceito: mesas_para_escolher mostra o cartão mesmo em mesa de 1 pessoa (quem está sozinho
 --     fica identificável pela foto); o Ricardo decidiu mostrar sempre.
 -- FOTO: o app grava a foto em profiles.avatar_url como data:image/jpeg;base64 (app/src/lib/
@@ -1037,6 +1037,8 @@ $$;
 --     cadeira). Mesas vazias aparecem, com a lista de membros vazia. Mesmo filtro de minha_mesa:
 --     só ingresso active/used ainda do mesmo dono (quem saiu some antes da próxima formação). Sem a
 --     nota da mesa (RIPD R14). Quem saiu da Mesa Tinder continua com nome: o produtor sabe quem senta onde.
+--     'pode_remover' diz se mesa_remover_membro aceita a pessoa (mesma regra: tem denúncia no evento;
+--     para o produtor, só liberada a ele), sem expor o user_id.
 create or replace function public.mesas_do_evento(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1044,11 +1046,14 @@ stable
 security definer
 set search_path = ''
 as $$
+declare
+  v_produtor boolean;
 begin
   if not public.gf_mfa_ok() then
     raise exception 'Acesso negado' using errcode = '42501';
   end if;
-  if not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid())) then
+  v_produtor := exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid()));
+  if not v_produtor then
     -- admin só com moderate_mesa e sessão aal2 (auditoria do PR C): o nome completo de todas as mesas
     perform public.mesa_moderador();
   end if;
@@ -1060,7 +1065,11 @@ begin
              'membros', (
                -- o nome do dono atual do ingresso (transferido: o novo dono), nunca o de quem comprou
                select coalesce(jsonb_agg(jsonb_build_object('nome', coalesce(nullif(trim(p.full_name), ''), '(sem nome no perfil)'),
-                                                            'ingresso', t.id)
+                                                            'ingresso', t.id,
+                                                            'pode_remover', exists (
+                                                              select 1 from public.mesa_denuncias d
+                                                              where d.evento = p_event_id and d.denunciado = t.user_id
+                                                                and (not v_produtor or d.liberada_produtor_em is not null)))
                                          order by p.full_name, t.id), '[]'::jsonb)
                from public.table_members m
                join public.tickets t on t.id = m.ticket_id
@@ -1449,6 +1458,10 @@ $$;
 --     pessoa da mesa e trava a pessoa no evento (mesa_travas): ela não escolhe nem é alocada de novo,
 --     e a cadeira física se resolve no local. Motivo da lista; "outro" exige detalhe. Grava quem e
 --     quando, e avisa a pessoa (aviso "removido"). A mesa que ficar vazia é apagada.
+--     Só se remove quem tem denúncia contra si neste evento (mesa_denuncias.denunciado = dono do
+--     ingresso, evento = p_event_id): o produtor, só com denúncia já liberada a ele
+--     (liberada_produtor_em), a única que ele vê; o moderador, com qualquer denúncia, em qualquer status.
+--     Sem denúncia: 22023 "Só é possível remover quem tem denúncia neste evento".
 drop function if exists public.mesa_remover_membro(uuid, uuid, text);
 create or replace function public.mesa_remover_membro(p_event_id uuid, p_ticket_id uuid, p_motivo text,
                                                       p_detalhe text default null)
@@ -1462,17 +1475,25 @@ declare
   v_mesa uuid;
   v_nome text;
   v_trava uuid;
+  v_produtor boolean;
 begin
   if not public.gf_mfa_ok() then
     raise exception 'Acesso negado' using errcode = '42501';
   end if;
-  if not exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid())) then
+  v_produtor := exists (select 1 from public.events e where e.id = p_event_id and e.producer_id = (select auth.uid()));
+  if not v_produtor then
     perform public.mesa_moderador();
   end if;
   select t.user_id into v_user from public.tickets t join public.ticket_types tt on tt.id = t.ticket_type_id
   where t.id = p_ticket_id and t.event_id = p_event_id and tt.type = 'coletiva';
   if v_user is null then
     raise exception 'Ingresso não encontrado neste evento' using errcode = '22023';
+  end if;
+  -- produtor: só a denúncia já liberada a ele; moderador: qualquer uma (quem é produtor do evento e
+  -- moderador vale como produtor)
+  if not exists (select 1 from public.mesa_denuncias d where d.evento = p_event_id and d.denunciado = v_user
+                 and (not v_produtor or d.liberada_produtor_em is not null)) then
+    raise exception 'Só é possível remover quem tem denúncia neste evento' using errcode = '22023';
   end if;
   perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
   insert into public.mesa_travas (evento, user_id, ticket_id, motivo, detalhe, por)
