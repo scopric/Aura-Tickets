@@ -195,8 +195,13 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
                 const status = e.target.value as StatusDenuncia
                 if (status === 'resolvida') { setResolvendo(d.id); setResultado(''); setExplicacao(''); return }
                 setResolvendo(null)
+                const eraImprocedente = d.status === 'resolvida' && d.resultado === 'improcedente'
                 mudarStatus.mutate({ id: d.id, status }, {
-                  onSuccess: () => toast.success('Status atualizado.'),
+                  onSuccess: () => {
+                    toast.success('Status atualizado.')
+                    // o banco já desfez a remoção quando ela virou improcedente; reabrir não a restaura
+                    if (eraImprocedente) toast.warning('A remoção desfeita não volta sozinha; se for o caso, remova de novo pelo painel.', { duration: 15000 })
+                  },
                   onError: err => toast.error(erroMesaAdmin(err)),
                 })
               }}

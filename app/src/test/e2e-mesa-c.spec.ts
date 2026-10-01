@@ -237,7 +237,7 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     const chamadas = await mockRpc(page, {
       mesa_fotos_para_revisar: [],
       mesa_denuncias_do_evento: [denuncia, aberta],
-      mesa_denuncia_status: () => erro('23514', 'new row for relation "mesa_denuncias" violates check constraint'),
+      mesa_denuncia_status: (b) => (b.p_status === 'em_apuracao' ? { json: null } : erro('23514', 'new row for relation "mesa_denuncias" violates check constraint')),
     })
     await page.goto(`${ALPHA}/admin/match-de-mesa`)
     await page.getByRole('tab', { name: 'Denúncias' }).click()
@@ -245,14 +245,20 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await expect(page.getByText('<b id="injetado2">não</b> se confirmou', { exact: false })).toBeVisible()
     await expect(page.locator('#injetado2')).toHaveCount(0)
 
+    // reabrir uma denúncia que estava improcedente avisa que a remoção desfeita não volta sozinha
+    await page.getByLabel('Status da denúncia contra Bruno Lima').selectOption('em_apuracao')
+    await expect(page.getByText('A remoção desfeita não volta sozinha; se for o caso, remova de novo pelo painel.')).toBeVisible()
+
     // caracteres de direção são tirados antes de enviar; o erro 23514 do banco vira a mensagem genérica
     await page.getByLabel('Status da denúncia contra Carla Dias').selectOption('resolvida')
     await page.getByLabel(/Improcedente \(a denúncia não se confirmou\)/).check()
     await page.getByLabel(/Explique por que está resolvida/).fill('Não se confirmou \u202E no local')
     await page.getByRole('button', { name: 'Confirmar resolução' }).click()
     await expect(page.getByText('Texto fora do tamanho permitido ou com caractere não aceito.')).toBeVisible()
-    expect(chamadas.find((c) => c.nome === 'mesa_denuncia_status')?.body).toEqual(
-      { p_id: 'd3', p_status: 'resolvida', p_resultado: 'improcedente', p_explicacao: 'Não se confirmou  no local' })
+    expect(chamadas.filter((c) => c.nome === 'mesa_denuncia_status').map((c) => c.body)).toEqual([
+      { p_id: 'd2', p_status: 'em_apuracao' },
+      { p_id: 'd3', p_status: 'resolvida', p_resultado: 'improcedente', p_explicacao: 'Não se confirmou  no local' },
+    ])
   })
 
   test('remoções: desfazer com confirmação na tela', async ({ page }) => {

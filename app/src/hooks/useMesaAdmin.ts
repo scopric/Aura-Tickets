@@ -97,7 +97,7 @@ export const limparTexto = (t: string) => t.replace(/[\u0001-\u0008\u000b\u000c\
 // o banco conta caracteres (não unidades UTF-16) e exige ao menos uma letra ou número
 export const explicacaoValida = (t: string) => {
   const n = [...limparTexto(t).trim()].length
-  return n >= EXPLICACAO_MIN && n <= EXPLICACAO_MAX && /[\p{L}\p{N}]/u.test(t)
+  return n >= EXPLICACAO_MIN && n <= EXPLICACAO_MAX && /[\p{L}\p{Nd}]/u.test(t)
 }
 
 export const MOTIVO_REMOCAO: Record<MotivoRemocao, string> = {
