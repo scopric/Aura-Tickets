@@ -64,6 +64,8 @@ export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false)
   // Celular e tablet (abaixo de lg): a barra lateral vira gaveta, fechada por padrão
   const [mobileOpen, setMobileOpen] = useState(false)
+  const menuBtnRef = useRef<HTMLButtonElement>(null)
+  const navRef = useRef<HTMLElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
   const { user, logout } = useAuth()
@@ -126,9 +128,15 @@ export default function AdminLayout() {
     }
   }, [podeAtender, uid, qc])
 
+  // Gaveta aberta: foco no 1º item; Esc fecha e devolve o foco ao botão de menu
   useEffect(() => {
     if (!mobileOpen) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMobileOpen(false)
+    navRef.current?.querySelector('a')?.focus()
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      setMobileOpen(false)
+      menuBtnRef.current?.focus()
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [mobileOpen])
@@ -149,6 +157,7 @@ export default function AdminLayout() {
 
       {/* No celular a gaveta fecha fora da tela e fica invisível (sai da ordem do Tab); no computador, como antes */}
       <aside
+        id="admin-menu"
         className={cn(
           'fixed left-0 top-0 bottom-0 z-50 lg:z-40 glass-bar border-r transition-all duration-300 flex flex-col',
           'lg:translate-x-0',
@@ -171,7 +180,7 @@ export default function AdminLayout() {
           )}
         </div>
 
-        <nav className="min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
+        <nav ref={navRef} className="min-h-0 flex-1 py-4 px-2 space-y-1 overflow-y-auto sidebar-dark-scroll">
           {filteredNavItems.map((item) => (
             <Link
               key={item.to}
@@ -253,10 +262,15 @@ export default function AdminLayout() {
         {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
         <div className="sticky top-0 z-30 flex h-16 items-center justify-between lg:justify-end px-4 pointer-events-none">
           <button
+            ref={menuBtnRef}
             type="button"
-            onClick={() => setMobileOpen(true)}
-            aria-label="Abrir menu"
+            onClick={() => {
+              setCollapsed(false) // a gaveta abre sempre com os nomes (no celular não há seta para expandir)
+              setMobileOpen((o) => !o)
+            }}
+            aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={mobileOpen}
+            aria-controls="admin-menu"
             className="glass-bar pointer-events-auto rounded-full border p-2.5 text-foreground lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum"
           >
             <Menu className="h-5 w-5" />
