@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { Plus, Search, Pencil, Trash2, Eye, Copy } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, copiaDoEvento, confirmacaoCancelar, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -32,13 +32,17 @@ export default function ProducerEvents() {
   const createEvent = useCreateEvent()
   const updateEvent = useUpdateEvent()
 
+  // undefined = não se sabe (contagem não carregou ou veio cortada)
+  const vendidoDe = (id: string) => vendidosDe(vendidos, id)
+
   const cancelar = async (event: DbEvent) => {
-    if (!window.confirm(confirmacaoCancelar(event.title, vendidos?.porEvento[event.id] ?? (vendidos ? 0 : undefined)))) return
+    if ((vendidoDe(event.id) ?? 0) > 0) { toast.error(CANCELAR_COM_VENDA); return } // Decisão 129
+    if (!window.confirm(confirmacaoCancelar(event.title, vendidoDe(event.id)))) return
     try {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status: 'cancelled' }, tickets: [] })
       toast.success('Evento cancelado.')
-    } catch {
-      toast.error('Não foi possível cancelar o evento.')
+    } catch (err) {
+      toast.error(erroDeStatus(err, 'Não foi possível cancelar o evento.'))
     }
   }
 
@@ -48,7 +52,7 @@ export default function ProducerEvents() {
       await deleteMutation.mutateAsync(event.id)
       toast.success('Evento excluído.')
     } catch (err) {
-      const { mensagem, oferecerCancelar } = erroAoExcluir(err)
+      const { mensagem, oferecerCancelar } = erroAoExcluir(err, vendidoDe(event.id))
       toast.error(mensagem, oferecerCancelar && event.status !== 'cancelled'
         ? { action: { label: 'Cancelar evento', onClick: () => cancelar(event) }, duration: 10000 }
         : undefined)
