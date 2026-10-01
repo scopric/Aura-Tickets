@@ -15,9 +15,11 @@ import PhoneInput from '../../components/ui/PhoneInput'
 
 // Convite de colaborador da Evokaa (alpha.evokaa.com.br/convite#<token>), fora do ProtectedRoute.
 // Etapas: boas-vindas → criar senha ou entrar → verificação em duas etapas (obrigatória) → cadastro → pronto.
-// O token fica no # (não vai a servidor nenhum). Quem decide tudo é o banco (docs/sql/20261002_convite_colaborador.sql):
-// convite_conferir diz se vale; convite_aceitar confere token, e-mail da conta, 2FA e campos, e aplica as funções
-// gravadas no convite. A conta nova é criada pela Edge Function admin-invite (criar-conta).
+// O token chega no # (não vai a servidor nenhum), passa para o sessionStorage da aba e sai da barra de endereço.
+// Quem decide tudo é o banco (docs/sql/20261002_convite_colaborador.sql): convite_conferir diz se vale;
+// convite_aceitar (pela ação aceitar da Edge Function admin-invite, que avisa os super_admins na mesma
+// requisição) confere token, e-mail da conta, 2FA e campos, e aplica as funções gravadas no convite. A conta nova
+// é criada pela mesma Edge Function (criar-conta).
 
 type Etapa = 'conferindo' | 'invalido' | 'boas-vindas' | 'conta' | 'codigo' | '2fa' | 'cadastro' | 'pronto'
 
@@ -27,6 +29,25 @@ const PASSO: Partial<Record<Etapa, number>> = { conta: 0, codigo: 0, '2fa': 1, c
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 const TELEFONE_RE = /^\+[1-9]\d{9,14}$/
 const digitos = (s: string) => s.replace(/\D/g, '')
+// mesma regra do CHECK staff_nome_ok
+const NOME_RE = /^[A-Za-zÀ-ÖØ-öø-ÿ '.-]+$/
+const CHAVE_TOKEN = 'evokaa_convite'
+// Lê o token do # (link do e-mail), guarda na aba e limpa a barra de endereço; sem #, usa o guardado (recarregar)
+function lerToken(): string {
+  const doLink = window.location.hash.slice(1)
+  if (doLink) {
+    sessionStorage.setItem(CHAVE_TOKEN, doLink)
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search)
+    return doLink
+  }
+  return sessionStorage.getItem(CHAVE_TOKEN) ?? ''
+}
+// e-mail da conta parece o do convite? (primeira letra e domínio, que é o que o mascarado mostra)
+function pareceOMesmo(email: string, mascarado: string) {
+  const [local, dominio] = email.toLowerCase().split('@')
+  const [mLocal, mDominio] = mascarado.toLowerCase().split('@')
+  return !!local && !!mLocal && local[0] === mLocal[0] && dominio === mDominio
+}
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/ // 32 bytes em base64url (Edge Function admin-invite)
 
 const PIX = [
@@ -47,7 +68,7 @@ type Ficha = typeof vazio
 
 // As mesmas regras dos CHECKs de staff_profiles: a tela avisa antes, o banco confere de novo
 function validar(f: Ficha, emailPrincipal: string): string | null {
-  if (f.nome_completo.trim().length < 3) return 'Informe o nome completo.'
+  if (f.nome_completo.trim().length < 3 || !NOME_RE.test(f.nome_completo)) return 'Informe o nome completo, só com letras, espaço, apóstrofo, ponto ou hífen.'
   if (!cpfValido(f.cpf)) return 'CPF inválido.'
   if (f.rg.trim().length < 3) return 'Informe o RG.'
   if (!f.data_nascimento || !maiorDeIdade(f.data_nascimento)) return 'Data de nascimento inválida: é preciso ter 18 anos ou mais.'
@@ -106,9 +127,9 @@ function AtivarDoisFatores({ onPronto }: { onPronto: () => void }) {
 
 export default function Convite() {
   const navigate = useNavigate()
-  const { isAuthenticated, user, logout } = useAuth()
-  // ponytail: o token fica no # durante o fluxo (recarregar a página continua de onde estava); some ao fechar a aba
-  const [token] = useState(() => decodeURIComponent(window.location.hash.slice(1)))
+  const { isAuthenticated, user } = useAuth()
+  // ponytail: o token fica no sessionStorage da aba (recarregar continua de onde estava); some ao fechar a aba ou no fim
+  const [token] = useState(lerToken)
   const [etapa, setEtapa] = useState<Etapa>(() => (TOKEN_RE.test(token) ? 'conferindo' : 'invalido'))
   const [emailMascarado, setEmailMascarado] = useState('')
   const [erro, setErro] = useState('')
@@ -226,17 +247,25 @@ export default function Convite() {
         cpf: digitos(f.cpf), cep: digitos(f.cep), email_secundario: f.email_secundario.trim().toLowerCase(),
         pix_chave: f.pix_tipo === 'cpf' ? digitos(f.pix_chave) : f.pix_chave.trim(),
       }
-      const { error } = await supabase.rpc('convite_aceitar' as never, { p_token: token, p_dados: dados } as never)
-      if (error) { window.scrollTo({ top: 0, behavior: 'smooth' }); throw new Error(error.message) }
-      // Aviso aos super_admins (Decisão 125): não segura a pessoa se falhar
-      chamarConvite({ acao: 'avisar-aceite' }).catch((err) => console.error('[Convite] aviso aos super_admins falhou:', mensagemDe(err)))
+      try {
+        await chamarConvite({ acao: 'aceitar', token, dados })
+      } catch (err) {
+        window.scrollTo({ top: 0, behavior: 'smooth' })
+        throw err
+      }
+      sessionStorage.removeItem(CHAVE_TOKEN)
       await useAuthStore.getState().fetchProfile({ force: true })
       setEtapa('pronto')
     })
   }
 
+  // Sai só desta conta neste navegador; o convite segue na aba (sessionStorage)
   const trocarConta = () => executar(async () => {
-    await logout()
+    await useAuthStore.getState().setUser(null)
+    await useAuthStore.getState().setSession(null)
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+    setEmail('')
+    setSenha('')
     setModo('entrar')
     setEtapa('conta')
   })
@@ -325,12 +354,25 @@ export default function Convite() {
                 Você está conectado como <strong className="text-espresso font-semibold break-all">{user?.email}</strong>.
                 O convite só vale para a conta do e-mail que o recebeu.
               </p>
-              <button type="button" className={`${botao} mt-7`} disabled={ocupado} onClick={() => executar(avancar)}>
-                {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Continuar
-              </button>
-              <button type="button" className={`${link} block mx-auto mt-5`} disabled={ocupado} onClick={trocarConta}>
-                Usar outra conta
-              </button>
+              {pareceOMesmo(user?.email ?? '', emailMascarado) ? (
+                <>
+                  <button type="button" className={`${botao} mt-7`} disabled={ocupado} onClick={() => executar(avancar)}>
+                    {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Continuar
+                  </button>
+                  <button type="button" className={`${link} block mx-auto mt-5`} disabled={ocupado} onClick={trocarConta}>
+                    Usar outra conta
+                  </button>
+                </>
+              ) : (
+                <>
+                  <div role="alert" className="mt-5 p-3 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-800">
+                    Esta conta não é a do convite, que foi enviado para <strong>{emailMascarado}</strong>. Entre com a conta desse e-mail.
+                  </div>
+                  <button type="button" className={`${botao} mt-7`} disabled={ocupado} onClick={trocarConta}>
+                    {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : null} Usar outra conta
+                  </button>
+                </>
+              )}
             </div>
           )}
 
