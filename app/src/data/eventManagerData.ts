@@ -83,13 +83,13 @@ export interface ManagedEvent {
 }
 
 export const eventProfiles: Record<EventProfile, { label: string; description: string; icon: string; defaultBudget: string[] }> = {
-  balada: { label: 'Balada', description: 'Evento noturno com DJ, pista de danca e open bar', icon: 'Music', defaultBudget: ['Local', 'Som & Iluminacao', 'DJ', 'Seguranca', 'Open Bar', 'Marketing'] },
-  casamento: { label: 'Casamento', description: 'Cerimonia e recepcao completa', icon: 'Heart', defaultBudget: ['Local', 'Buffet', 'Decoracao', 'Foto & Video', 'Banda', 'Convites'] },
-  festival: { label: 'Festival', description: 'Multi-palcos, multi-artistas, grande publico', icon: 'Mic', defaultBudget: ['Estrutura', 'Palcos', 'Artistas', 'Som', 'Seguranca', 'Sanitarios', 'Alimentacao', 'Marketing'] },
-  corporativo: { label: 'Corporativo', description: 'Evento empresarial, confraternizacao ou lancamento', icon: 'Building', defaultBudget: ['Local', 'Coffee Break', 'Palestrante', 'Material', 'Audio Visual', 'Brindes'] },
-  show: { label: 'Show', description: 'Apresentacao de artista ou banda', icon: 'Guitar', defaultBudget: ['Local', 'Camarim', 'Backline', 'Som', 'Iluminacao', 'Seguranca'] },
-  aniversario: { label: 'Aniversario', description: 'Festa de aniversario privada', icon: 'Cake', defaultBudget: ['Local', 'Buffet', 'Decoracao', 'DJ', 'Foto'] },
-  formatura: { label: 'Formatura', description: 'Baile de formatura com cerimonia', icon: 'GraduationCap', defaultBudget: ['Local', 'Buffet', 'Banda', 'Decoracao', 'Foto & Video', 'Seguranca'] },
+  balada: { label: 'Balada', description: 'Evento noturno com DJ, pista de dança e open bar', icon: 'Music', defaultBudget: ['Local', 'Som & Iluminação', 'DJ', 'Segurança', 'Open Bar', 'Marketing'] },
+  casamento: { label: 'Casamento', description: 'Cerimônia e recepção completa', icon: 'Heart', defaultBudget: ['Local', 'Buffet', 'Decoração', 'Foto & Vídeo', 'Banda', 'Convites'] },
+  festival: { label: 'Festival', description: 'Multi-palcos, multi-artistas, grande público', icon: 'Mic', defaultBudget: ['Estrutura', 'Palcos', 'Artistas', 'Som', 'Segurança', 'Sanitários', 'Alimentação', 'Marketing'] },
+  corporativo: { label: 'Corporativo', description: 'Evento empresarial, confraternização ou lançamento', icon: 'Building', defaultBudget: ['Local', 'Coffee Break', 'Palestrante', 'Material', 'Audiovisual', 'Brindes'] },
+  show: { label: 'Show', description: 'Apresentação de artista ou banda', icon: 'Guitar', defaultBudget: ['Local', 'Camarim', 'Backline', 'Som', 'Iluminação', 'Segurança'] },
+  aniversario: { label: 'Aniversário', description: 'Festa de aniversário privada', icon: 'Cake', defaultBudget: ['Local', 'Buffet', 'Decoração', 'DJ', 'Foto'] },
+  formatura: { label: 'Formatura', description: 'Baile de formatura com cerimônia', icon: 'GraduationCap', defaultBudget: ['Local', 'Buffet', 'Banda', 'Decoração', 'Foto & Vídeo', 'Segurança'] },
 }
 
 const defaultBudgetItems: EventBudget[] = [

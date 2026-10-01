@@ -1,10 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Upload, Plus, X, Check, MapPin, Loader2 } from 'lucide-react'
+import { ArrowLeft, Upload, Plus, X, Check } from 'lucide-react'
 import { usePublicEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
 import { useAuth } from '../../hooks/useAuth'
+import { PageHeader, EmptyState } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+
+const TIPOS = ['Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte']
+const cartao = 'rounded-[10px] border border-border bg-card p-4 sm:p-6'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerEditEvent() {
   const { eventId } = useParams<{ eventId: string }>()
@@ -148,336 +158,243 @@ export default function ProducerEditEvent() {
     return tickets.length > 0 && tickets.every(t => t.name && t.price && t.capacity)
   }
 
+  const header = (
+    <PageHeader
+      title="Editar evento"
+      description="Atualize as informações do seu evento"
+      actions={<Button asChild variant="outline"><Link to="/producer/events"><ArrowLeft aria-hidden="true" />Meus eventos</Link></Button>}
+    />
+  )
+
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-4xl mx-auto flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 text-plum animate-spin" />
+      <div aria-busy="true" className="mx-auto max-w-3xl">
+        {header}
+        <Skeleton className="h-8 rounded-md bg-muted" />
+        <Skeleton className="mt-6 h-80 rounded-[10px] bg-muted" />
       </div>
     )
   }
 
   if (!existingEvent) {
     return (
-      <div className="p-6 lg:p-10 max-w-4xl mx-auto text-center">
-        <h2 className="font-serif text-xl text-espresso mb-2">Evento não encontrado</h2>
-        <Link to="/producer/events" className="text-plum hover:underline text-sm">Voltar para eventos</Link>
+      <div className="mx-auto max-w-3xl">
+        {header}
+        <EmptyState
+          title="Evento não encontrado"
+          action={<Button asChild variant="outline"><Link to="/producer/events">Voltar para meus eventos</Link></Button>}
+        />
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
-        <Link to="/producer/events" className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Editar Evento</h1>
-          <p className="text-sm text-espresso/70 mt-1">Atualize as informações do seu evento</p>
-        </div>
-      </div>
- 
+    <div className="mx-auto max-w-3xl">
+      {header}
+
       {/* Mensagem de rejeição */}
       {existingEvent?.approval_status === 'rejected' && (
-        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-2xl text-xs leading-relaxed">
-          <span className="font-bold uppercase tracking-wider block mb-1">Motivo da Rejeição:</span>
-          {existingEvent.rejection_reason || 'Nenhuma justificativa fornecida.'}
+        <div role="status" className="mb-6 rounded-[10px] border border-destructive/40 bg-card p-4 text-sm">
+          <p className="font-medium text-foreground">Motivo da recusa</p>
+          <p className="mt-1 text-muted-foreground">{existingEvent.rejection_reason || 'Nenhuma justificativa fornecida.'}</p>
         </div>
       )}
- 
-      {/* Steps */}
-      <div className="flex items-center gap-2 mb-10">
+
+      {/* Passos */}
+      <ol className="mb-8 flex items-center gap-2">
         {steps.map((s, i) => (
-          <div key={s.num} className="flex items-center gap-2 flex-1">
+          <li key={s.num} className="flex flex-1 items-center gap-2">
             <button
+              type="button"
+              aria-current={step === s.num ? 'step' : undefined}
+              aria-label={`Passo ${s.num}: ${s.label}`}
               onClick={() => {
                 if (s.num === 1) setStep(1)
                 else if (s.num === 2 && canNextStep1()) setStep(2)
                 else if (s.num === 3 && canNextStep1() && canNextStep2()) setStep(3)
                 else if (s.num === 4 && canNextStep1() && canNextStep2()) setStep(4)
               }}
-              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                step === s.num ? 'bg-plum text-cream shadow-glow' :
-                step > s.num ? 'bg-plum/20 text-plum' :
-                'bg-white/40 text-espresso/70'
+              className={`flex size-8 shrink-0 items-center justify-center rounded-full border text-sm font-medium tabular-nums transition-colors ${
+                step === s.num ? 'border-primary bg-primary text-primary-foreground' :
+                step > s.num ? 'border-primary text-primary' :
+                'border-border text-muted-foreground hover:bg-foreground/5'
               }`}
             >
-              {step > s.num ? '✓' : s.num}
+              {step > s.num ? <Check className="size-4" aria-hidden="true" /> : s.num}
             </button>
-            <span className={`text-xs font-medium hidden sm:block ${step === s.num ? 'text-plum' : 'text-espresso/70'}`}>{s.label}</span>
-            {i < steps.length - 1 && <div className={`flex-1 h-px ${step > s.num ? 'bg-plum/30' : 'bg-espresso/5'}`} />}
-          </div>
+            <span className={`hidden text-xs font-medium sm:block ${step === s.num ? 'text-foreground' : 'text-muted-foreground'}`}>{s.label}</span>
+            {i < steps.length - 1 && <span className={`h-px flex-1 ${step > s.num ? 'bg-primary' : 'bg-border'}`} aria-hidden="true" />}
+          </li>
         ))}
-      </div>
+      </ol>
 
-      {/* Step 1: Info */}
+      {/* Passo 1: Informações */}
       {step === 1 && (
         <div className="space-y-6">
-          <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Informações do Evento</h2>
+          <section className={cartao}>
+            <h2 className="mb-4 text-base font-semibold text-foreground">Informações do evento</h2>
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Título *</label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={e => handleInputChange('title', e.target.value)}
-                  placeholder="Ex: Noite Eletro 2025"
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                />
+              <div className="grid gap-1.5">
+                <Label htmlFor="evento-titulo">Título *</Label>
+                <Input id="evento-titulo" value={formData.title} onChange={e => handleInputChange('title', e.target.value)} placeholder="Ex: Noite Eletro 2025" />
               </div>
-              <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Descrição</label>
-                <textarea
-                  rows={4}
-                  value={formData.description}
-                  onChange={e => handleInputChange('description', e.target.value)}
-                  placeholder="Descreva seu evento..."
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none"
-                />
+              <div className="grid gap-1.5">
+                <Label htmlFor="evento-descricao">Descrição</Label>
+                <Textarea id="evento-descricao" rows={4} value={formData.description} onChange={e => handleInputChange('description', e.target.value)} placeholder="Descreva seu evento…" className="resize-none" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Data *</label>
-                  <input
-                    type="date"
-                    value={formData.date}
-                    onChange={e => handleInputChange('date', e.target.value)}
-                    className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                  />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evento-data">Data *</Label>
+                  <Input id="evento-data" type="date" value={formData.date} onChange={e => handleInputChange('date', e.target.value)} />
                 </div>
-                <div>
-                  <label className="text-sm font-medium text-espresso/70 mb-2 block">Horário</label>
-                  <input
-                    type="time"
-                    value={formData.time}
-                    onChange={e => handleInputChange('time', e.target.value)}
-                    className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
-                  />
+                <div className="grid gap-1.5">
+                  <Label htmlFor="evento-horario">Horário</Label>
+                  <Input id="evento-horario" type="time" value={formData.time} onChange={e => handleInputChange('time', e.target.value)} />
                 </div>
               </div>
-              <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block flex items-center gap-1">
-                  <MapPin className="w-4 h-4 text-espresso/40" /> Local *
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={e => handleInputChange('location', e.target.value)}
-                  placeholder="Endereço ou nome do espaço"
-                  className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                />
+              <div className="grid gap-1.5">
+                <Label htmlFor="evento-local">Local *</Label>
+                <Input id="evento-local" value={formData.location} onChange={e => handleInputChange('location', e.target.value)} placeholder="Endereço ou nome do espaço" />
               </div>
-              {/* Tipo de Evento */}
               <div>
-                <label className="text-sm font-medium text-espresso/70 mb-2 block">Tipo de Evento</label>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {['Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte'].map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => {
-                        setEventType(tag)
-                        setCustomType('')
-                      }}
-                      className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
-                        (eventType === tag)
-                          ? 'bg-plum/10 text-plum border-plum/30'
-                          : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
-                      }`}
-                    >
+                <p id="evento-tipo" className="mb-2 text-sm font-medium text-foreground">Tipo de evento</p>
+                <div role="group" aria-labelledby="evento-tipo" className="mb-3 flex flex-wrap gap-1">
+                  {TIPOS.map((tag) => (
+                    <Button key={tag} type="button" size="sm" variant={eventType === tag ? 'secondary' : 'ghost'} aria-pressed={eventType === tag} className={eventType === tag ? '' : icone}
+                      onClick={() => { setEventType(tag); setCustomType('') }}>
                       {tag}
-                    </button>
+                    </Button>
                   ))}
-                  <button
-                    type="button"
-                    onClick={() => setEventType('Outro')}
-                    className={`px-4 py-2 rounded-full text-xs font-medium transition-all border ${
-                      eventType === 'Outro'
-                        ? 'bg-plum/10 text-plum border-plum/30'
-                        : 'bg-white/40 border-white/60 text-espresso/70 hover:bg-plum/10 hover:text-plum hover:border-plum/20'
-                    }`}
-                  >
-                    + Outro
-                  </button>
+                  <Button type="button" size="sm" variant={eventType === 'Outro' ? 'secondary' : 'ghost'} aria-pressed={eventType === 'Outro'} className={eventType === 'Outro' ? '' : icone} onClick={() => setEventType('Outro')}>
+                    <Plus aria-hidden="true" />Outro
+                  </Button>
                 </div>
                 {eventType === 'Outro' && (
-                  <input
-                    type="text"
-                    value={customType}
-                    onChange={e => setCustomType(e.target.value)}
-                    placeholder="Digite o tipo do seu evento..."
-                    className="w-full px-4 py-3 bg-white/60 border border-plum/20 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/40"
-                  />
+                  <>
+                    <Label htmlFor="evento-tipo-outro" className="sr-only">Tipo do evento</Label>
+                    <Input id="evento-tipo-outro" value={customType} onChange={e => setCustomType(e.target.value)} placeholder="Digite o tipo do seu evento…" />
+                  </>
                 )}
               </div>
             </div>
-          </div>
-          <button
-            onClick={() => setStep(2)}
-            disabled={!canNextStep1()}
-            className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Próximo
-          </button>
+          </section>
+          <Button onClick={() => setStep(2)} disabled={!canNextStep1()}>Próximo</Button>
         </div>
       )}
 
-      {/* Step 2: Tickets */}
+      {/* Passo 2: Ingressos */}
       {step === 2 && (
         <div className="space-y-6">
-          <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Ingressos</h2>
-            <div className="space-y-4">
+          <section className={cartao}>
+            <h2 className="mb-4 text-base font-semibold text-foreground">Ingressos</h2>
+            <div className="space-y-3">
               {tickets.map((ticket, i) => (
-                <div key={ticket.id} className="p-4 bg-white/40 border border-white/60 rounded-xl">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-espresso">Ingresso {i + 1}</h3>
+                <div key={ticket.id} className="rounded-lg border border-border p-4">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-sm font-medium text-foreground">Ingresso {i + 1}</h3>
                     {tickets.length > 1 && (
-                      <button onClick={() => removeTicket(ticket.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
-                        <X className="w-4 h-4" />
-                      </button>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeTicket(ticket.id)} aria-label={`Remover o ingresso ${i + 1}`}>
+                        <X aria-hidden="true" />
+                      </Button>
                     )}
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">Nome *</label>
-                      <input
-                        type="text"
-                        value={ticket.name}
-                        onChange={e => updateTicket(ticket.id, 'name', e.target.value)}
-                        placeholder="Ex: VIP"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                      />
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`ingresso-nome-${ticket.id}`} className="text-xs text-muted-foreground">Nome *</Label>
+                      <Input id={`ingresso-nome-${ticket.id}`} value={ticket.name} onChange={e => updateTicket(ticket.id, 'name', e.target.value)} placeholder="Ex: VIP" />
                     </div>
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">Preço (R$) *</label>
-                      <input
-                        type="number"
-                        value={ticket.price}
-                        onChange={e => updateTicket(ticket.id, 'price', e.target.value)}
-                        placeholder="0.00"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                      />
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`ingresso-preco-${ticket.id}`} className="text-xs text-muted-foreground">Preço (R$) *</Label>
+                      <Input id={`ingresso-preco-${ticket.id}`} type="number" inputMode="decimal" value={ticket.price} onChange={e => updateTicket(ticket.id, 'price', e.target.value)} placeholder="0,00" />
                     </div>
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">Capacidade *</label>
-                      <input
-                        type="number"
-                        value={ticket.capacity}
-                        onChange={e => updateTicket(ticket.id, 'capacity', e.target.value)}
-                        placeholder="Quantidade"
-                        className="w-full px-3 py-2 bg-white/50 border border-white/60 rounded-lg text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                      />
+                    <div className="grid gap-1.5">
+                      <Label htmlFor={`ingresso-capacidade-${ticket.id}`} className="text-xs text-muted-foreground">Capacidade *</Label>
+                      <Input id={`ingresso-capacidade-${ticket.id}`} type="number" inputMode="numeric" value={ticket.capacity} onChange={e => updateTicket(ticket.id, 'capacity', e.target.value)} placeholder="Quantidade" />
                     </div>
                   </div>
                 </div>
               ))}
-              <button onClick={addTicket} className="flex items-center gap-2 px-4 py-3 border border-dashed border-espresso/15 rounded-xl text-sm text-espresso/70 hover:text-plum hover:border-plum/30 transition-all w-full justify-center">
-                <Plus className="w-4 h-4" />
-                Adicionar Ingresso
-              </button>
+              <Button variant="outline" className="w-full border-dashed" onClick={addTicket}>
+                <Plus aria-hidden="true" />Adicionar ingresso
+              </Button>
             </div>
-          </div>
+          </section>
           <div className="flex items-center gap-3">
-            <button onClick={() => setStep(1)} className="px-6 py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
-              Voltar
-            </button>
-            <button
-              onClick={() => setStep(3)}
-              disabled={!canNextStep2()}
-              className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
-            >
-              Próximo
-            </button>
+            <Button variant="outline" onClick={() => setStep(1)}>Voltar</Button>
+            <Button onClick={() => setStep(3)} disabled={!canNextStep2()}>Próximo</Button>
           </div>
         </div>
       )}
 
-      {/* Step 3: Image */}
+      {/* Passo 3: Imagem */}
       {step === 3 && (
         <div className="space-y-6">
-          <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Imagem do Evento</h2>
-            <div className="border-2 border-dashed border-espresso/10 rounded-2xl p-12 text-center hover:border-plum/30 transition-colors relative">
+          <section className={cartao}>
+            <h2 className="mb-4 text-base font-semibold text-foreground">Imagem do evento</h2>
+            <div className="rounded-[10px] border border-dashed border-border p-6 text-center sm:p-10">
               {image ? (
                 <div className="relative">
-                  <img src={image} alt="Preview" className="w-full max-h-64 object-cover rounded-xl" />
-                  <button onClick={() => setImage(null)} className="absolute top-2 right-2 p-2 rounded-full bg-void/50 text-cream hover:bg-void transition-colors">
-                    <X className="w-4 h-4" />
-                  </button>
+                  <img src={image} alt="Prévia da capa" className="max-h-64 w-full rounded-lg object-cover" />
+                  <Button variant="secondary" size="icon-sm" className="absolute right-2 top-2" onClick={() => setImage(null)} aria-label="Remover imagem">
+                    <X aria-hidden="true" />
+                  </Button>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto">
-                    <Upload className="w-6 h-6 text-plum" />
-                  </div>
-                  <p className="text-sm text-espresso/70">Selecione uma imagem de capa</p>
-                  <p className="text-xs text-espresso/70">PNG, JPG até 5MB</p>
-                  <label className="inline-block px-6 py-2.5 border border-espresso/15 text-espresso text-sm rounded-full hover:bg-espresso/5 transition-all cursor-pointer">
-                    Selecionar Arquivos
-                    <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
-                  </label>
+                <div className="space-y-3">
+                  <Upload className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
+                  <p className="text-sm text-foreground">Selecione uma imagem de capa</p>
+                  <p className="text-xs text-muted-foreground">PNG ou JPG até 5 MB</p>
+                  <Button asChild variant="outline">
+                    <label className="cursor-pointer has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50">
+                      Selecionar arquivo
+                      <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
+                    </label>
+                  </Button>
                 </div>
               )}
             </div>
-          </div>
+          </section>
           <div className="flex items-center gap-3">
-            <button onClick={() => setStep(2)} className="px-6 py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
-              Voltar
-            </button>
-            <button onClick={() => setStep(4)} className="px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all">
-              Próximo
-            </button>
+            <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
+            <Button onClick={() => setStep(4)}>Próximo</Button>
           </div>
         </div>
       )}
 
-      {/* Step 4: Review */}
+      {/* Passo 4: Revisão */}
       {step === 4 && (
         <div className="space-y-6">
-          <div className="bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-6">Revisão</h2>
-            <div className="space-y-4 text-sm">
-              <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/70">Título</span>
-                <span className="text-espresso font-medium">{formData.title || '-'}</span>
+          <section className={cartao}>
+            <h2 className="mb-2 text-base font-semibold text-foreground">Revisão</h2>
+            <dl className="divide-y divide-border text-sm">
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">Título</dt>
+                <dd className="text-right font-medium text-foreground">{formData.title || '-'}</dd>
               </div>
-              <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/70">Data</span>
-                <span className="text-espresso font-medium">
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">Data</dt>
+                <dd className="text-right font-medium text-foreground">
                   {formData.date ? new Date(formData.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}
-                </span>
+                </dd>
               </div>
-              <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/70">Local</span>
-                <span className="text-espresso font-medium">{formData.location || '-'}</span>
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">Local</dt>
+                <dd className="text-right font-medium text-foreground">{formData.location || '-'}</dd>
               </div>
-              <div className="flex justify-between py-3 border-b border-espresso/5">
-                <span className="text-espresso/70">Ingressos</span>
-                <span className="text-espresso font-medium">{tickets.length} tipo(s)</span>
+              <div className="flex justify-between gap-4 py-3">
+                <dt className="text-muted-foreground">Ingressos</dt>
+                <dd className="text-right font-medium text-foreground">{tickets.length} tipo(s)</dd>
               </div>
-            </div>
-            <div className="mt-6 p-4 bg-amber-50/50 rounded-xl border border-amber-500/20 text-amber-700">
-              <p className="text-sm">Ao salvar as alterações, o evento será enviado para reavaliação administrativa e ficará visível ao público após aprovação.</p>
-            </div>
-          </div>
+            </dl>
+            <p className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
+              Ao salvar as alterações, o evento volta para a análise da equipe e fica visível ao público depois da aprovação.
+            </p>
+          </section>
           <div className="flex items-center gap-3">
-            <button onClick={() => setStep(3)} className="px-6 py-3 border border-espresso/15 text-espresso text-sm font-medium rounded-full hover:bg-espresso/5 transition-all">
-              Voltar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={updateEvent.isPending}
-              className="flex items-center gap-2 px-8 py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
-            >
-              {updateEvent.isPending ? 'Salvando...' : (
-                <>
-                  <Check className="w-5 h-5" /> Salvar Alterações
-                </>
-              )}
-            </button>
+            <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
+            <Button onClick={handleSave} disabled={updateEvent.isPending}>
+              {updateEvent.isPending ? 'Salvando…' : <><Check aria-hidden="true" />Salvar alterações</>}
+            </Button>
           </div>
         </div>
       )}
