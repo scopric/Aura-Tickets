@@ -467,8 +467,16 @@ create table if not exists public.mesa_denuncias (
   status_mudado_em timestamptz,
   liberada_produtor_em timestamptz,
   liberada_por uuid references public.profiles(id) on delete set null,
+  -- resolvida exige resultado e explicação (mesa_denuncia_status, que também limpa os dois ao sair de
+  -- 'resolvida'). A explicação é apagada com o detalhe, 180 dias depois do evento (cron), então o CHECK
+  -- só exige o resultado; o resultado fica com o registro (3 anos). Só o moderador lê a explicação.
+  resultado text check (resultado in ('procedente', 'improcedente')),
+  resultado_explicacao text check (char_length(resultado_explicacao) between 10 and 1000
+    and resultado_explicacao !~ '[\u0001-\u0008\u000b\u000c\u000e-\u001f\u007f؜‎‏‪-‮⁦-⁩]'),
   unique (denunciante, denunciado, evento),
-  check (motivo <> 'assedio' or mesma_mesa)
+  check (motivo <> 'assedio' or mesma_mesa),
+  check (case when status = 'resolvida' then resultado is not null
+              else resultado is null and resultado_explicacao is null end)
 );
 create index if not exists mesa_denuncias_evento_idx on public.mesa_denuncias (evento);
 alter table public.mesa_denuncias enable row level security;
@@ -1380,7 +1388,8 @@ drop function if exists public.mesa_pode_remover(uuid, uuid, boolean);  -- nome 
 --      equipe dele), que não foi feita por ele nem liberada por ele (quem acusa ou libera não remove; cobre
 --      o produtor que também é moderador). Sem exigir status: a liberada já passou pela triagem.
 --      Moderador: só depois da análise (status diferente de 'aberta'), sem conflito de interesse
---      (mesa_conflito) e que não foi ele quem fez a denúncia.
+--      (mesa_conflito) e que não foi ele quem fez a denúncia. Nos dois: resolvida e improcedente nunca vale
+--      (valem em_apuracao, judicial e resolvida procedente).
 create or replace function public.mesa_denuncia_que_remove(p_event_id uuid, p_user uuid, p_produtor boolean)
 returns uuid
 language sql
@@ -1400,10 +1409,9 @@ as $$
         else
           not coalesce(public.mesa_conflito(d.evento, d.denunciado), false)
           and d.denunciante is distinct from auth.uid()
-          -- só depois da análise (não 'aberta'). ponytail: 'resolvida' ainda vale; se o Ricardo disser que
-          -- é improcedente, trocar por status in ('em_apuracao', 'judicial')
-          and d.status <> 'aberta'
+          and d.status <> 'aberta'  -- só depois da análise
         end
+    and d.resultado is distinct from 'improcedente'  -- resolvida e improcedente nunca vale
   order by d.criado_em desc, d.id
   limit 1;
 $$;
@@ -1436,7 +1444,8 @@ begin
                'mesa', d.mesa, 'denunciante', d.denunciante_nome, 'denunciado', d.denunciado_nome,
                'mesma_mesa', d.mesma_mesa, 'sobreposicao_inicio', d.sobreposicao_inicio,
                'sobreposicao_fim', d.sobreposicao_fim, 'status_mudado_em', d.status_mudado_em,
-               'liberada_produtor_em', d.liberada_produtor_em)
+               'liberada_produtor_em', d.liberada_produtor_em, 'resultado', d.resultado,
+               'resultado_explicacao', d.resultado_explicacao)
              order by d.criado_em desc, d.id)
       from public.mesa_denuncias d
       where d.evento = p_event_id and not coalesce(public.mesa_conflito(d.evento, d.denunciado), false)
@@ -1446,7 +1455,7 @@ begin
     raise exception 'Acesso negado' using errcode = '42501';
   end if;
   return coalesce((
-    select jsonb_agg(jsonb_build_object('denunciado', d.denunciado_nome, 'motivo', d.motivo, 'mesa', d.mesa)
+    select jsonb_agg(jsonb_build_object('denunciado', d.denunciado_nome, 'motivo', d.motivo, 'mesa', d.mesa, 'resultado', d.resultado)
                      order by d.criado_em desc, d.id)
     from public.mesa_denuncias d
     where d.evento = p_event_id and d.liberada_produtor_em is not null and d.denunciado is distinct from v_produtor
@@ -1457,7 +1466,11 @@ $$;
 
 -- 5i. mesa_denuncia_status e mesa_denuncia_liberar: só o moderador (moderate_mesa, aal2), nunca em
 --     conflito de interesse (mesa_conflito); gravam quem fez e quando. Liberar ao produtor é de uma vez só.
-create or replace function public.mesa_denuncia_status(p_id uuid, p_status text)
+-- 'resolvida' exige p_resultado ('procedente' ou 'improcedente') e p_explicacao (10 a 1000 caracteres, CHECK da
+-- tabela); em outro status os dois são limpos. Assinatura nova: o drop tira a de 2 parâmetros.
+drop function if exists public.mesa_denuncia_status(uuid, text);
+create or replace function public.mesa_denuncia_status(p_id uuid, p_status text, p_resultado text default null,
+                                                       p_explicacao text default null)
 returns void
 language plpgsql
 security definer
@@ -1465,7 +1478,14 @@ set search_path = ''
 as $$
 begin
   perform public.mesa_moderador();
-  update public.mesa_denuncias set status = p_status, status_mudado_por = auth.uid(), status_mudado_em = now()
+  if p_status = 'resolvida' and (p_resultado is null or nullif(trim(p_explicacao), '') is null) then
+    raise exception 'Para marcar como resolvida, informe o resultado (procedente ou improcedente) e a explicação'
+      using errcode = '22023';
+  end if;
+  update public.mesa_denuncias
+  set status = p_status, status_mudado_por = auth.uid(), status_mudado_em = now(),
+      resultado = case when p_status = 'resolvida' then p_resultado end,
+      resultado_explicacao = case when p_status = 'resolvida' then trim(p_explicacao) end
   where id = p_id and not coalesce(public.mesa_conflito(evento, denunciado), false);
   if not found then
     raise exception 'Denúncia não encontrada' using errcode = '22023';
@@ -2057,7 +2077,7 @@ revoke all on function public.mesa_sair(uuid) from public, anon;
 revoke all on function public.mesa_voltar(uuid) from public, anon;
 revoke all on function public.mesa_denunciar(uuid, text, text) from public, anon;
 revoke all on function public.mesa_denuncias_do_evento(uuid) from public, anon;
-revoke all on function public.mesa_denuncia_status(uuid, text) from public, anon;
+revoke all on function public.mesa_denuncia_status(uuid, text, text, text) from public, anon;
 revoke all on function public.mesa_mostrar_rede() from public, anon;
 revoke all on function public.mesa_ocultar_rede() from public, anon;
 revoke all on function public.mesa_fotos_para_revisar() from public, anon;
@@ -2074,7 +2094,7 @@ grant execute on function public.mesa_sair(uuid) to authenticated;
 grant execute on function public.mesa_voltar(uuid) to authenticated;
 grant execute on function public.mesa_denunciar(uuid, text, text) to authenticated;
 grant execute on function public.mesa_denuncias_do_evento(uuid) to authenticated;
-grant execute on function public.mesa_denuncia_status(uuid, text) to authenticated;
+grant execute on function public.mesa_denuncia_status(uuid, text, text, text) to authenticated;
 grant execute on function public.mesa_mostrar_rede() to authenticated;
 grant execute on function public.mesa_ocultar_rede() to authenticated;
 grant execute on function public.mesa_fotos_para_revisar() to authenticated;
@@ -2151,9 +2171,10 @@ select cron.schedule('apagar_mesas_antigas', '37 4 * * *', $cron$
     -- travas: 180 dias (PENDÊNCIA: prazo sujeito a decisão do jurídico)
     delete from public.mesa_travas tr using public.events e
     where e.id = tr.evento and public.evento_momento(e) < now() - interval '180 days';
-    -- denúncias (bloco 3e): detalhe em 180 dias e a denúncia em 3 anos, salvo em apuração ou judicial
-    update public.mesa_denuncias set detalhe = null
-    where detalhe is not null and evento_em < now() - interval '180 days' and status not in ('em_apuracao', 'judicial');
+    -- denúncias (bloco 3e): detalhe e explicação do resultado em 180 dias (o resultado fica) e a denúncia em 3 anos,
+    -- salvo em apuração ou judicial
+    update public.mesa_denuncias set detalhe = null, resultado_explicacao = null
+    where (detalhe is not null or resultado_explicacao is not null) and evento_em < now() - interval '180 days' and status not in ('em_apuracao', 'judicial');
     delete from public.mesa_denuncias
     where evento_em < now() - interval '3 years' and status not in ('em_apuracao', 'judicial');
     -- decisões da moderação automática (bloco 2e): motivos zerados aos 30 dias; decisão, custo e data

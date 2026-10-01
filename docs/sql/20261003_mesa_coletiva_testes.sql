@@ -833,7 +833,7 @@ begin
   -- o admin libera as três; o produtor vê só a que não é contra ele nem contra a equipe
   perform pg_temp.rpc2(3, format('public.mesa_denuncia_liberar(%L)', d.id)) from public.mesa_denuncias d where d.evento = pg_temp.u(903);
   r := pg_temp.rpc(1, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)));
-  assert r = '[{"mesa": "Mesa 1", "motivo": "perfil_falso", "denunciado": "Pessoa31 Sobrenome"}]', format('produtor: %s', r);
+  assert r = '[{"mesa": "Mesa 1", "motivo": "perfil_falso", "resultado": null, "denunciado": "Pessoa31 Sobrenome"}]', format('produtor: %s', r);
   assert (select bool_and(table_id is not null and liberada_por = pg_temp.u(3) and liberada_produtor_em is not null and status = 'aberta')
           from public.mesa_denuncias where evento = pg_temp.u(903)), 'table_id/quem liberou';
   -- moderação exige moderate_mesa e aal2, mesmo sem fator cadastrado
@@ -858,13 +858,32 @@ begin
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L)', d2, 'arquivada')) like '23514%', 'status fora da lista';
   perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L)', d2, 'judicial'));
   perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L)', d4, 'em_apuracao'));
-  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L)', d1, 'resolvida'));
+  -- resolvida exige resultado e explicação (10 a 1000 caracteres, sem caractere de controle)
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L)', d1, 'resolvida')) like '22023 Para marcar como resolvida%', 'resolvida sem resultado';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L)', d1, 'resolvida', 'procedente')) like '22023 Para marcar como resolvida%', 'resolvida sem explicação';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', null, 'explicação comprida o bastante')) like '22023 Para marcar como resolvida%', 'resolvida sem resultado (com explicação)';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'curta')) like '23514%', 'explicação curta';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'x' || chr(8238) || 'yz explicação')) like '23514%', 'explicação com bidi';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'talvez', 'explicação comprida o bastante')) like '23514%', 'resultado fora da lista';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', repeat('x', 1001))) like '23514%', 'explicação longa';
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'Confirmado pelo produtor no local'));
+  assert (select resultado = 'procedente' and resultado_explicacao = 'Confirmado pelo produtor no local' from public.mesa_denuncias where id = d1), 'resultado não gravado';
+  -- sair de resolvida limpa as duas colunas
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L)', d1, 'em_apuracao'));
+  assert (select resultado is null and resultado_explicacao is null from public.mesa_denuncias where id = d1), 'não limpou ao sair de resolvida';
+  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'procedente', 'Confirmado pelo produtor no local'));
+  -- o moderador vê resultado e explicação; o produtor, só o resultado
+  assert pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text like '%Confirmado pelo produtor no local%', 'moderador sem a explicação';
+  assert pg_temp.rpc(1, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text like '%"resultado": "procedente"%'
+     and pg_temp.rpc(1, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text not like '%Confirmado pelo produtor%'
+     and pg_temp.rpc(1, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text not like '%resultado_explicacao%', 'produtor vê a explicação ou não vê o resultado';
   assert (select status_mudado_por = pg_temp.u(3) and status_mudado_em is not null from public.mesa_denuncias where id = d1), 'quem mudou';
   assert pg_temp.rpc(1, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text like '%Pessoa31 Sobrenome%', 'produtor perdeu a liberada depois de resolvida';
   update public.mesa_denuncias set evento_em = now() - interval '200 days' where id = d1;
   update public.mesa_denuncias set evento_em = now() - interval '4 years' where id in (d2, d3, d4);
   execute apagar;
   assert (select detalhe is null from public.mesa_denuncias where id = d1), 'detalhe de 200 dias ficou';
+  assert (select resultado_explicacao is null and resultado = 'procedente' from public.mesa_denuncias where id = d1), 'explicação de 200 dias ficou ou o resultado sumiu';
   assert (select detalhe = 'o produtor' from public.mesa_denuncias where id = d2), 'apagou detalhe de denúncia judicial';
   assert exists (select 1 from public.mesa_denuncias where id = d4), 'apagou em_apuracao';
   assert not exists (select 1 from public.mesa_denuncias where id = d3), 'não apagou a de 4 anos (liberada ao produtor)';
@@ -1172,6 +1191,20 @@ begin
   assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
           jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover falso em apuração (moderador)';
   delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
+  -- resolvida e improcedente nunca remove (produtor ou moderador); resolvida e procedente vale
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, status, resultado, resultado_explicacao)
+  values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, now(), 'resolvida', 'improcedente', 'Não se confirmou no local');
+  assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'comportamento_no_local')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu com denúncia improcedente';
+  assert pg_temp.err2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'comportamento_no_local')) = '22023 Só é possível remover quem tem denúncia neste evento', 'moderador removeu com denúncia improcedente';
+  assert not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text) and not (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover verdadeiro com denúncia improcedente';
+  update public.mesa_denuncias set resultado = 'procedente', resultado_explicacao = 'Confirmado no local'
+  where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
+  assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text) and (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc2(3, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
+          jsonb_array_elements(m -> 'membros') p where p ->> 'ingresso' = pg_temp.u(4015)::text), 'pode_remover falso com denúncia procedente';
+  delete from public.mesa_denuncias where evento = pg_temp.u(904) and denunciado = pg_temp.u(15);
   -- denúncia não liberada: o produtor não remove; pode_remover só aparece para quem a regra aceita
   assert pg_temp.err(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4014), 'comportamento_no_local')) = '22023 Só é possível remover quem tem denúncia neste evento', 'produtor removeu com denúncia não liberada';
   assert (select bool_or((p ->> 'pode_remover')::boolean) from jsonb_array_elements(pg_temp.rpc(1, format('public.mesas_do_evento(%L)', pg_temp.u(904)))) m,
@@ -1245,7 +1278,7 @@ begin
   assert pg_temp.rpc(31, format('public.mesa_denunciar(%L, %L)', pg_temp.membro(3, 903), 'outro')) = '{"ok": true}', 'não denunciou o moderador';
   select id into d from public.mesa_denuncias where denunciado = pg_temp.u(3);
   assert pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(903)))::text not like '%' || d || '%', 'moderador vê a denúncia contra ele';
-  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L)', d, 'resolvida')) = '22023 Denúncia não encontrada', 'moderador decidiu a própria';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d, 'resolvida', 'procedente', 'Explicação do resultado de teste')) = '22023 Denúncia não encontrada', 'moderador decidiu a própria';
   assert pg_temp.err2(3, format('public.mesa_denuncia_liberar(%L)', d)) = '22023 Denúncia não encontrada', 'moderador liberou a própria';
   raise notice 'E26 OK: moderador denunciado não vê nem decide';
 end $t$;
@@ -1308,6 +1341,12 @@ end $t$;
 do $t$
 declare r jsonb; tv uuid; d uuid;
 begin
+  -- o moderador (3) remove o 15 por denúncia resolvida e procedente: grava a denúncia na trava
+  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, status, resultado, resultado_explicacao)
+  values (pg_temp.u(11), pg_temp.u(15), pg_temp.u(904), now() + interval '3 days', 'perfil_falso', false, 'resolvida', 'procedente', 'Confirmado no local');
+  perform pg_temp.rpc2(3, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(904), pg_temp.u(4015), 'comportamento_no_local'));
+  assert (select tr.denuncia_id = d.id from public.mesa_travas tr join public.mesa_denuncias d on d.evento = tr.evento and d.denunciado = tr.user_id
+          where tr.evento = pg_temp.u(904) and tr.user_id = pg_temp.u(15)), 'denuncia_id do 15 não gravado';
   -- o produtor P remove o admin 3 do evento 904
   perform pg_temp.ingresso(4003, 914, 904, 3);
   perform pg_temp.escolhe(3, 904, null);
@@ -1368,7 +1407,7 @@ begin
          = '22023 Trava não encontrada', 'destravou a trava da equipe';
   r := pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(907)));
   assert jsonb_array_length(r) = 1 and r -> 0 ->> 'denunciado' = 'Pessoa19 Sobrenome', format('moderador-produtor vê a equipe: %s', r);
-  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L)', d, 'resolvida')) = '22023 Denúncia não encontrada', 'decidiu contra a equipe';
+  assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d, 'resolvida', 'procedente', 'Explicação do resultado de teste')) = '22023 Denúncia não encontrada', 'decidiu contra a equipe';
   assert pg_temp.err2(3, format('public.mesa_denuncia_liberar(%L)', d)) = '22023 Denúncia não encontrada', 'liberou contra a equipe';
   raise notice 'E27 OK: moderador não destrava a si mesmo, não aprova a própria foto, não decide contra a própria equipe; 1 aviso só; travado antes de sem_perfil';
 end $t$;
