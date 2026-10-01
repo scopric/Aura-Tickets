@@ -877,29 +877,6 @@ export function useCreateBudgetBox() {
   })
 }
 
-export function useUpdateBudgetBox() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<DbBudgetBox>) => {
-      const { data, error } = await supabase
-        .from('event_budget_boxes')
-        .update(updates)
-        .eq('id', id)
-        .eq('producer_id', user?.id)
-        .select()
-        .single()
-
-      if (error) throw error
-      return data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['budget-boxes', user?.id] })
-    },
-  })
-}
-
 export function useDeleteBudgetBox() {
   const { user } = useAuth()
   const queryClient = useQueryClient()

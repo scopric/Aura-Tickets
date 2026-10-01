@@ -29,16 +29,19 @@ export default function ProducerFinance() {
   const { data: pedidos = [], isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['producer-financeiro', user?.id],
     enabled: !!user?.id,
-    queryFn: () =>
+    queryFn: async () => {
       // ponytail: soma no navegador, de 1.000 em 1.000 linhas; vira RPC de vendas quando a F2 gravar as taxas
-      fetchAllRows<Pedido>((de, ate) =>
+      const linhas = await fetchAllRows<Pedido>((de, ate) =>
         supabase.from('orders')
           .select('id, event_id, total, payment_method, created_at, events!inner(title, producer_id)')
           .eq('events.producer_id', user!.id)
           .eq('status', 'paid')
           .order('created_at', { ascending: false })
           .order('id')
-          .range(de, ate) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>),
+          .range(de, ate) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>)
+      // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
+      return [...new Map(linhas.map(p => [p.id, p])).values()]
+    },
   })
 
   // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
@@ -51,7 +54,7 @@ export default function ProducerFinance() {
   }, {})).sort((a, b) => b.bruto - a.bruto)
 
   const exportar = () => downloadCsv(csvFilename('pedidos-pagos'), toCsv(
-    pedidos.map(p => ({ pedido: p.id, data: data(p.created_at), evento: p.events?.title ?? '', forma: forma(p.payment_method), valor_bruto: (Number(p.total) || 0).toFixed(2) })),
+    pedidos.map(p => ({ pedido: p.id, data: data(p.created_at), evento: p.events?.title ?? '', forma: forma(p.payment_method), valor_bruto: (Number(p.total) || 0).toFixed(2).replace('.', ',') })),
     ['pedido', 'data', 'evento', 'forma', 'valor_bruto'],
   ))
 

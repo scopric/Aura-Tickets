@@ -44,7 +44,7 @@ export function useProducerSettings() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
 
-  const { data, isLoading, isError, refetch, isFetching } = useQuery({
+  const { data, isLoading, isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['producer-settings', user?.id],
     queryFn: async (): Promise<ProducerSettingsData | null> => {
       if (!user?.id) return null
@@ -65,9 +65,11 @@ export function useProducerSettings() {
         .eq('id', user.id)
         .single()
 
-      // Pode não existir ainda — criamos vazio
+      // Pode não existir ainda (PGRST116) — criamos vazio. Outro erro sobe: com pp nulo as abas abririam com
+      // padrões e "Salvar" gravaria vazio por cima dos dados bancários reais.
+      if (producerError && producerError.code !== 'PGRST116') throw producerError
       let pp = producerProfile
-      if (producerError && producerError.code === 'PGRST116') {
+      if (producerError) {
         const { data: newPp, error: createError } = await supabase
           .from('producer_profiles')
           .insert({
@@ -81,7 +83,8 @@ export function useProducerSettings() {
           })
           .select()
           .single()
-        if (!createError) pp = newPp
+        if (createError) throw createError
+        pp = newPp
       }
 
       return {
@@ -135,6 +138,7 @@ export function useProducerSettings() {
   return {
     data,
     isLoading,
+    isPending,
     isError,
     refetch,
     isFetching,

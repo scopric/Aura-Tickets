@@ -13,6 +13,7 @@ const producerFAQs = [
   { question: 'Como criar cupons de desconto?', answer: 'Em "Cupons", no menu Vendas, crie cupons percentuais (ex.: 20%) ou de valor fixo (ex.: R$ 50), com compra mínima, limite de usos e validade, para um evento ou para todos.' },
   { question: 'Como enviar comunicações em massa?', answer: 'Ainda não é possível. O envio de e-mail, SMS e push para os participantes chega com a ferramenta de e-mail do produtor; até lá, a tela "Comunicação" fica fora do menu.' },
   { question: 'Posso exportar relatórios financeiros?', answer: 'Sim, os pedidos pagos: em "Financeiro", o botão "Exportar CSV" baixa a lista com data, evento, forma de pagamento e valor bruto. Repasse, taxas e saque aparecem quando o pagamento estiver ligado.' },
+  { question: 'Como funciona o cronograma do evento?', answer: 'Em "Cronograma", no menu Eventos, escolha o evento e monte a linha do tempo, do soundcheck ao encerramento. Cada item tem horário, título, responsável e local; toque no círculo do item para marcá-lo como concluído.' },
   { question: 'Quando posso sacar o dinheiro das vendas?', answer: 'O saque e o repasse dependem da integração de pagamentos, que ainda não está ligada. Por isso a Carteira mostra o saldo como indisponível e o botão "Sacar" fica desligado.' },
 ]
 

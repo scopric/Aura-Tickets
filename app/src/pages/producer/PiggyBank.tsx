@@ -39,7 +39,7 @@ const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground
 const emptyForm = { eventId: '', name: '', target: '', category: 'marketing', notes: '' }
 
 export default function ProducerPiggyBank() {
-  const { data: boxes = [], isLoading, isError, refetch, isFetching } = useBudgetBoxes()
+  const { data: boxes = [], isPending, isError, refetch, isFetching } = useBudgetBoxes()
   const { data: events = [] } = useProducerEvents()
   const createBox = useCreateBudgetBox()
   const deleteBox = useDeleteBudgetBox()
@@ -49,10 +49,11 @@ export default function ProducerPiggyBank() {
   const [form, setForm] = useState(emptyForm)
   const [movBox, setMovBox] = useState<DbBudgetBox | null>(null)
   const [movValor, setMovValor] = useState('')
+  const [movTipo, setMovTipo] = useState<'deposit' | 'withdraw'>('deposit')
   const [apagar, setApagar] = useState<DbBudgetBox | null>(null)
 
   const previsto = boxes.reduce((s, b) => s + (b.target || 0), 0)
-  const guardado = boxes.reduce((s, b) => s + (b.saved || 0), 0)
+  const realizado = boxes.reduce((s, b) => s + (b.saved || 0), 0)
   const completos = boxes.filter(b => (b.target || 0) > 0 && (b.saved || 0) >= (b.target || 0)).length
 
   const addBox = async (e: React.FormEvent) => {
@@ -86,7 +87,7 @@ export default function ProducerPiggyBank() {
       await createTransaction.mutateAsync({ box_id: movBox.id, type, amount })
       setMovBox(null)
       setMovValor('')
-      toast.success(type === 'deposit' ? `${brl(amount)} guardado.` : `${brl(amount)} retirado.`)
+      toast.success(type === 'deposit' ? `${brl(amount)} lançado.` : `${brl(amount)} estornado.`)
     } catch (e) {
       toast.error(mensagemMovimento(e))
     }
@@ -107,12 +108,12 @@ export default function ProducerPiggyBank() {
   const header = (
     <PageHeader
       title="Orçamento do evento"
-      description="Previsto x guardado, por evento e categoria"
+      description="Previsto x realizado, por evento e categoria"
       actions={<Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo item</Button>}
     />
   )
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div aria-busy="true">
         {header}
@@ -144,7 +145,7 @@ export default function ProducerPiggyBank() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Previsto" value={brl(previsto)} />
-        <Stat label="Guardado" value={brl(guardado)} hint={previsto > 0 ? `${Math.round((guardado / previsto) * 100)}% do previsto` : undefined} />
+        <Stat label="Realizado" value={brl(realizado)} hint={previsto > 0 ? `${Math.round((realizado / previsto) * 100)}% do previsto` : undefined} />
         <Stat label="Itens completos" value={`${completos}/${boxes.length}`} />
       </div>
 
@@ -180,13 +181,12 @@ export default function ProducerPiggyBank() {
 
                   {box.notes && <p className="mt-2 text-sm text-muted-foreground">{box.notes}</p>}
 
-                  <div className="mt-3 flex items-center justify-between text-xs tabular-nums text-muted-foreground">
-                    <span>Guardado {brl(box.saved || 0)}</span>
-                    <span>Previsto {brl(box.target || 0)}</span>
-                  </div>
+                  <p className="mt-3 text-xs tabular-nums text-muted-foreground">
+                    {brl(box.saved || 0)} realizado de {brl(box.target || 0)} previsto
+                  </p>
                   <div
                     role="progressbar"
-                    aria-label={`Guardado em ${box.name}`}
+                    aria-label={`Realizado em ${box.name}`}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={Math.round(pct)}
@@ -195,8 +195,8 @@ export default function ProducerPiggyBank() {
                     <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${pct}%` }} />
                   </div>
 
-                  <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => { setMovBox(box); setMovValor('') }}>
-                    Guardar ou retirar
+                  <Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => { setMovBox(box); setMovValor(''); setMovTipo('deposit') }}>
+                    Lançar valor
                   </Button>
                 </div>
               )
@@ -209,7 +209,7 @@ export default function ProducerPiggyBank() {
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Novo item do orçamento</DialogTitle>
-            <DialogDescription>O previsto é quanto você espera gastar; o guardado começa em zero.</DialogDescription>
+            <DialogDescription>O previsto é quanto você espera gastar; o realizado começa em zero.</DialogDescription>
           </DialogHeader>
           <form id="form-orcamento" onSubmit={addBox} className="grid gap-3">
             <div className="grid gap-1.5">
@@ -254,17 +254,27 @@ export default function ProducerPiggyBank() {
           <DialogHeader>
             <DialogTitle>{movBox?.name}</DialogTitle>
             <DialogDescription>
-              Guardado hoje: {brl(movBox?.saved || 0)} de {brl(movBox?.target || 0)} previstos.
+              {brl(movBox?.saved || 0)} realizado de {brl(movBox?.target || 0)} previsto.
             </DialogDescription>
           </DialogHeader>
-          <form id="form-movimento" onSubmit={e => { e.preventDefault(); movimentar('deposit') }} className="grid gap-1.5">
-            <Label htmlFor="orc-valor">Valor (R$)</Label>
-            <Input id="orc-valor" type="number" inputMode="decimal" min="0.01" step="0.01" value={movValor} onChange={e => setMovValor(e.target.value)} autoFocus />
+          {/* Enter envia o tipo escolhido (nunca lança quando a pessoa escolheu estornar) */}
+          <form id="form-movimento" onSubmit={e => { e.preventDefault(); movimentar(movTipo) }} className="grid gap-3">
+            <div role="group" aria-label="Tipo de lançamento" className="grid grid-cols-2 gap-1">
+              {([['deposit', 'Lançar'], ['withdraw', 'Estornar']] as const).map(([tipo, rotulo]) => (
+                <Button key={tipo} type="button" size="sm" variant={movTipo === tipo ? 'secondary' : 'ghost'} aria-pressed={movTipo === tipo} onClick={() => setMovTipo(tipo)}>
+                  {rotulo}
+                </Button>
+              ))}
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="orc-valor">Valor (R$)</Label>
+              <Input id="orc-valor" type="number" inputMode="decimal" min="0.01" step="0.01" value={movValor} onChange={e => setMovValor(e.target.value)} autoFocus />
+            </div>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => movimentar('withdraw')} disabled={createTransaction.isPending}>Retirar</Button>
+            <Button variant="outline" onClick={() => setMovBox(null)}>Cancelar</Button>
             <Button type="submit" form="form-movimento" disabled={createTransaction.isPending}>
-              {createTransaction.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Salvando…</> : 'Guardar'}
+              {createTransaction.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Salvando…</> : movTipo === 'deposit' ? 'Lançar' : 'Estornar'}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -29,7 +29,7 @@ const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 te
 export default function ProducerSettings() {
   const {
     data,
-    isLoading,
+    isPending,
     isError,
     refetch,
     isFetching,
@@ -260,7 +260,7 @@ export default function ProducerSettings() {
 
   const header = <PageHeader title="Configurações" description="Sua conta, seus dados e suas preferências" />
 
-  if (isLoading) {
+  if (isPending) {
     return (
       <div aria-busy="true">
         {header}
@@ -512,7 +512,6 @@ export default function ProducerSettings() {
                   { key: 'newSale', label: 'Nova venda', desc: 'Aviso quando um ingresso for vendido' },
                   { key: 'newMessage', label: 'Nova mensagem', desc: 'Aviso de mensagens no chat' },
                   { key: 'eventReminder', label: 'Lembretes de evento', desc: 'Alertas 7, 3 e 1 dia antes do evento' },
-                  { key: 'payoutComplete', label: 'Saque concluído', desc: 'Confirmação quando o dinheiro cair na conta' },
                   { key: 'marketingEmails', label: 'E-mails de marketing', desc: 'Novidades, dicas e promoções da Evokaa' },
                   { key: 'pushEnabled', label: 'Push no navegador', desc: 'Canal de envio' },
                   { key: 'smsEnabled', label: 'SMS', desc: 'Canal de envio' },

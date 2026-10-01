@@ -5,13 +5,14 @@ function escapeCell(value: unknown): string {
   let text = typeof value === 'object' ? JSON.stringify(value) : String(value)
   // Célula que começa com = + - @ (mesmo depois de espaços), tab ou CR vira fórmula no Excel/LibreOffice (injeção de fórmula): prefixar com apóstrofo
   if (/^\s*[=+\-@]|^[\t\r]/.test(text)) text = `'${text}`
-  return /[",\n\r']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
+  return /[";,\n\r']/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
-/** Cabeçalho = nomes das colunas; BOM UTF-8 para o Excel abrir acentos corretamente. */
+/** Cabeçalho = nomes das colunas; BOM UTF-8 para o Excel abrir acentos corretamente.
+ *  Separador ";": o Excel em português usa a vírgula como decimal e não divide colunas por ",". */
 export function toCsv(rows: Record<string, unknown>[], columns: string[]): string {
-  const lines = [columns.join(',')]
-  for (const row of rows) lines.push(columns.map(c => escapeCell(row[c])).join(','))
+  const lines = [columns.join(';')]
+  for (const row of rows) lines.push(columns.map(c => escapeCell(row[c])).join(';'))
   return '﻿' + lines.join('\r\n')
 }
 

@@ -66,11 +66,29 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
     onComplete()
   }
 
-  // Esc fecha como o X (escolha explícita); clique fora só esconde nesta visita, sem marcar como visto
-  useEffect(() => { if (show) dialogRef.current?.focus() }, [show])
+  // Ao abrir, o foco vai para o diálogo; ao fechar, volta para onde estava
   useEffect(() => {
     if (!show) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') skip() }
+    const antes = document.activeElement as HTMLElement | null
+    dialogRef.current?.focus()
+    return () => antes?.focus?.()
+  }, [show])
+  // Esc fecha como o X (escolha explícita); clique fora só esconde nesta visita, sem marcar como visto.
+  // Tab e Shift+Tab giram entre o primeiro e o último botão do diálogo.
+  useEffect(() => {
+    if (!show) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { skip(); return }
+      const el = dialogRef.current
+      if (e.key !== 'Tab' || !el) return
+      const focaveis = el.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
+      if (!focaveis.length) return
+      const primeiro = focaveis[0]
+      const ultimo = focaveis[focaveis.length - 1]
+      const atual = document.activeElement
+      if (e.shiftKey && (atual === primeiro || !el.contains(atual) || atual === el)) { e.preventDefault(); ultimo.focus() }
+      else if (!e.shiftKey && (atual === ultimo || !el.contains(atual))) { e.preventDefault(); primeiro.focus() }
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   })
