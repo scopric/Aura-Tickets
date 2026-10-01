@@ -1039,8 +1039,9 @@ $$;
 --     cadeira). Mesas vazias aparecem, com a lista de membros vazia. Mesmo filtro de minha_mesa:
 --     só ingresso active/used ainda do mesmo dono (quem saiu some antes da próxima formação). Sem a
 --     nota da mesa (RIPD R14). Quem saiu da Mesa Tinder continua com nome: o produtor sabe quem senta onde.
---     'pode_remover' diz se mesa_remover_membro aceita a pessoa (mesma regra: tem denúncia no evento;
---     para o produtor, só liberada a ele), sem expor o user_id.
+--     'pode_remover' diz se mesa_remover_membro aceita a pessoa (mesma regra, mesa_denuncia_que_remove:
+--     moderador, denúncia já analisada e sem conflito; produtor, a que ele vê e não fez nem liberou),
+--     sem expor o user_id.
 create or replace function public.mesas_do_evento(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1371,13 +1372,15 @@ as $$
           and exists (select 1 from public.team_members tm where tm.producer_id = auth.uid() and tm.user_id = p_denunciado));
 $$;
 
+drop function if exists public.mesa_pode_remover(uuid, uuid, boolean);  -- nome antigo
 -- 5h1. mesa_denuncia_que_remove: a regra única de quem pode ser removido da mesa (mesa_remover_membro e
 --      'pode_remover' de mesas_do_evento). Devolve a denúncia mais recente deste evento contra a pessoa
 --      que justifica a remoção, ou nulo. Sem security definer: só é chamada por funções security definer.
 --      Produtor (p_produtor): a que ele vê na lista dele (liberada a ele, nem contra ele nem contra a
---      equipe dele) e que não foi feita por ele (quem acusa não remove). Moderador: só depois da análise
---      (status diferente de 'aberta'), menos conflito de interesse (mesa_conflito: contra ele mesmo) e a que ele mesmo fez.
---      ponytail: o status da denúncia ("resolvida") não entra; decisão do Ricardo.
+--      equipe dele), que não foi feita por ele nem liberada por ele (quem acusa ou libera não remove; cobre
+--      o produtor que também é moderador). Sem exigir status: a liberada já passou pela triagem.
+--      Moderador: só depois da análise (status diferente de 'aberta'), sem conflito de interesse
+--      (mesa_conflito) e que não foi ele quem fez a denúncia.
 create or replace function public.mesa_denuncia_que_remove(p_event_id uuid, p_user uuid, p_produtor boolean)
 returns uuid
 language sql
@@ -1392,6 +1395,7 @@ as $$
           d.liberada_produtor_em is not null
           and d.denunciado is distinct from e.producer_id
           and d.denunciante is distinct from e.producer_id
+          and d.liberada_por is distinct from auth.uid()
           and not exists (select 1 from public.team_members tm where tm.producer_id = e.producer_id and tm.user_id = d.denunciado)
         else
           not coalesce(public.mesa_conflito(d.evento, d.denunciado), false)
@@ -1492,7 +1496,8 @@ $$;
 --     quando, e avisa a pessoa (aviso "removido"). A mesa que ficar vazia é apagada.
 --     Só se remove quem tem denúncia contra si neste evento (mesa_denuncias.denunciado = dono do
 --     ingresso, evento = p_event_id): o produtor, só com a denúncia que ele vê (liberada a ele, nem contra
---     ele nem contra a equipe dele); o moderador, com denúncia já analisada (status diferente de 'aberta') (mesa_denuncia_que_remove).
+--     ele nem contra a equipe dele, nem feita nem liberada por ele); o moderador, com denúncia já analisada
+--     (status diferente de 'aberta'), sem conflito e que não fez (mesa_denuncia_que_remove).
 --     Sem denúncia: 22023 "Só é possível remover quem tem denúncia neste evento".
 drop function if exists public.mesa_remover_membro(uuid, uuid, text);
 create or replace function public.mesa_remover_membro(p_event_id uuid, p_ticket_id uuid, p_motivo text,
@@ -1523,6 +1528,10 @@ begin
     raise exception 'Ingresso não encontrado neste evento' using errcode = '22023';
   end if;
   -- quem é produtor do evento e também moderador vale como produtor
+  if p_motivo = 'pedido_da_pessoa' then
+    -- só vale no CHECK (dado antigo); quem quer sair usa mesa_sair
+    raise exception 'Motivo inválido: sem denúncia ninguém é removido; quem quer sair usa "sair da mesa"' using errcode = '22023';
+  end if;
   v_denuncia := public.mesa_denuncia_que_remove(p_event_id, v_user, v_produtor);
   if v_denuncia is null then
     raise exception 'Só é possível remover quem tem denúncia neste evento' using errcode = '22023';
@@ -1553,7 +1562,8 @@ end;
 $$;
 
 -- 5j'. mesa_travas_do_evento e mesa_destravar: só o moderador (moderate_mesa, aal2) revisa as remoções
---      e destrava, com registro de quem destravou e quando; nunca a trava dele mesmo.
+--      e destrava, com registro de quem destravou e quando; nunca a trava dele mesmo nem a de quem é da
+--      equipe dele quando ele produz o evento (mesa_conflito).
 create or replace function public.mesa_travas_do_evento(p_event_id uuid)
 returns jsonb
 language plpgsql
@@ -1573,7 +1583,7 @@ begin
     left join public.profiles pp on pp.id = tr.por
     left join public.profiles pd on pd.id = tr.destravada_por
     left join public.mesa_denuncias dn on dn.id = tr.denuncia_id
-    where tr.evento = p_event_id and tr.user_id is distinct from auth.uid()
+    where tr.evento = p_event_id and not coalesce(public.mesa_conflito(tr.evento, tr.user_id), false)
   ), '[]'::jsonb);
 end;
 $$;
@@ -1587,7 +1597,8 @@ as $$
 begin
   perform public.mesa_moderador();
   update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
-  where id = p_trava_id and evento = p_event_id and destravada_em is null and user_id is distinct from auth.uid();
+  where id = p_trava_id and evento = p_event_id and destravada_em is null
+    and not coalesce(public.mesa_conflito(evento, user_id), false);
   if not found then
     raise exception 'Trava não encontrada' using errcode = '22023';
   end if;
