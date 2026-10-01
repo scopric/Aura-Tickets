@@ -1477,11 +1477,11 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare
-  v_trava record;
-  v_outra uuid;
 begin
   perform public.mesa_moderador();
+  -- ponytail: resolver como improcedente só grava a denúncia; quem foi removido por ela continua travado até o
+  -- moderador decidir destravar (mesa_destravar). A destrava automática foi tirada de propósito: exigia repetir
+  -- a regra de quem removeu e travar contra corrida entre transações. A lista de remoções mostra o resultado.
   if p_status = 'resolvida' and (p_resultado is null or nullif(btrim(p_explicacao, E' \t\r\n'), '') is null) then
     raise exception 'Para marcar como resolvida, informe o resultado (procedente ou improcedente) e a explicação'
       using errcode = '22023';
@@ -1493,29 +1493,6 @@ begin
   where id = p_id and not coalesce(public.mesa_conflito(evento, denunciado), false);
   if not found then
     raise exception 'Denúncia não encontrada' using errcode = '22023';
-  end if;
-  -- improcedente: quem foi removido por esta denúncia volta a poder escolher mesa (ninguém fica fora sem
-  -- denúncia válida), a menos que outra denúncia do mesmo evento contra a pessoa ainda justifique a
-  -- remoção (a mais recente passa a ser a da trava). Destravar usa o mesmo registro de mesa_destravar, que
-  -- não gera aviso. Mesma trava por evento de mesa_remover_membro e formar_mesas.
-  -- ponytail: reabrir uma denúncia que estava improcedente NÃO restaura a trava; quem corrigir o resultado
-  -- precisa remover a pessoa de novo (o painel avisa).
-  if p_status = 'resolvida' and p_resultado = 'improcedente' then
-    for v_trava in select tr.id, tr.evento, tr.user_id from public.mesa_travas tr
-                   where tr.denuncia_id = p_id and tr.destravada_em is null loop
-      perform pg_advisory_xact_lock(hashtext('formar_mesas:' || v_trava.evento));
-      select d.id into v_outra from public.mesa_denuncias d
-      where d.evento = v_trava.evento and d.denunciado = v_trava.user_id and d.id <> p_id
-        and d.resultado is distinct from 'improcedente'
-        and (d.status <> 'aberta' or d.liberada_produtor_em is not null)
-      order by d.criado_em desc, d.id limit 1;
-      if v_outra is not null then
-        update public.mesa_travas set denuncia_id = v_outra where id = v_trava.id and destravada_em is null;
-      else
-        update public.mesa_travas set destravada_por = auth.uid(), destravada_em = now()
-        where id = v_trava.id and destravada_em is null;
-      end if;
-    end loop;
   end if;
 end;
 $$;
@@ -1574,16 +1551,17 @@ begin
   if v_user is null then
     raise exception 'Ingresso não encontrado neste evento' using errcode = '22023';
   end if;
-  -- quem é produtor do evento e também moderador vale como produtor
   if p_motivo = 'pedido_da_pessoa' then
     -- só vale no CHECK (dado antigo); quem quer sair usa mesa_sair
     raise exception 'Motivo inválido: sem denúncia ninguém é removido; quem quer sair usa "sair da mesa"' using errcode = '22023';
   end if;
+  -- o lock vem antes da regra: formar_mesas e a remoção veem o mesmo estado das denúncias
+  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
+  -- (quem é produtor do evento e também moderador vale como produtor)
   v_denuncia := public.mesa_denuncia_que_remove(p_event_id, v_user, v_produtor);
   if v_denuncia is null then
     raise exception 'Só é possível remover quem tem denúncia neste evento' using errcode = '22023';
   end if;
-  perform pg_advisory_xact_lock(hashtext('formar_mesas:' || p_event_id));
   insert into public.mesa_travas (evento, user_id, ticket_id, motivo, detalhe, por, denuncia_id)
   values (p_event_id, v_user, p_ticket_id, p_motivo, nullif(trim(p_detalhe), ''), auth.uid(), v_denuncia)
   on conflict (evento, user_id) where destravada_em is null do nothing
@@ -1622,7 +1600,7 @@ begin
   perform public.mesa_moderador();
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-             'id', tr.id, 'pessoa', pu.full_name, 'motivo', tr.motivo, 'detalhe', tr.detalhe, 'denuncia_motivo', dn.motivo, 'denuncia_resultado', dn.resultado,
+             'id', tr.id, 'pessoa', pu.full_name, 'motivo', tr.motivo, 'detalhe', tr.detalhe, 'denuncia_id', tr.denuncia_id, 'denuncia_motivo', dn.motivo, 'denuncia_resultado', dn.resultado,
              'por', pp.full_name, 'em', tr.em, 'destravada_em', tr.destravada_em, 'destravada_por', pd.full_name)
            order by tr.em desc, tr.id)
     from public.mesa_travas tr

@@ -1412,53 +1412,22 @@ begin
   assert r::text like '%Pessoa19 Sobrenome%' and r::text not like '%Pessoa17 Sobrenome%', format('travas do moderador-produtor: %s', r);
   assert pg_temp.err2(3, format('public.mesa_destravar(%L, %L)', pg_temp.u(907), (select id from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(17))))
          = '22023 Trava não encontrada', 'destravou a trava da equipe';
-  -- o 19 foi removido com a denúncia em aberto/analisada; ao resolver como improcedente a trava cai sozinha
+  -- resolver como improcedente só grava a denúncia: a trava do 19 continua vigente e a lista mostra o resultado;
+  -- o moderador destrava depois, por mesa_destravar
   assert (select destravada_em is null from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'preparo: trava do 19 vigente';
   perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', (select id from public.mesa_denuncias where evento = pg_temp.u(907) and denunciado = pg_temp.u(19)),
                                  'resolvida', 'improcedente', 'Não se confirmou nas câmeras'));
-  assert (select destravada_em is not null and destravada_por = pg_temp.u(3) from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'improcedente não destravou';
-  assert not public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'ainda travado depois de improcedente';
-  assert pg_temp.rpc2(3, format('public.mesa_travas_do_evento(%L)', pg_temp.u(907)))::text like '%"denuncia_resultado": "improcedente"%', 'lista sem o resultado improcedente';
+  assert (select destravada_em is null and destravada_por is null from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19)), 'improcedente destravou sozinho';
+  assert public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'trava caiu depois de improcedente';
+  r := pg_temp.rpc2(3, format('public.mesa_travas_do_evento(%L)', pg_temp.u(907)));
+  assert r::text like '%"denuncia_resultado": "improcedente"%' and r::text like '%"denuncia_id"%', format('lista sem denuncia_resultado: %s', r);
+  perform pg_temp.rpc2(3, format('public.mesa_destravar(%L, %L)', pg_temp.u(907), (select id from public.mesa_travas where evento = pg_temp.u(907) and user_id = pg_temp.u(19))));
+  assert not public.mesa_travado(pg_temp.u(907), pg_temp.u(19)), 'mesa_destravar não destravou';
   r := pg_temp.rpc2(3, format('public.mesa_denuncias_do_evento(%L)', pg_temp.u(907)));
   assert jsonb_array_length(r) = 1 and r -> 0 ->> 'denunciado' = 'Pessoa19 Sobrenome', format('moderador-produtor vê a equipe: %s', r);
   assert pg_temp.err2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d, 'resolvida', 'procedente', 'Explicação do resultado de teste')) = '22023 Denúncia não encontrada', 'decidiu contra a equipe';
   assert pg_temp.err2(3, format('public.mesa_denuncia_liberar(%L)', d)) = '22023 Denúncia não encontrada', 'liberou contra a equipe';
   raise notice 'E27 OK: moderador não destrava a si mesmo, não aprova a própria foto, não decide contra a própria equipe; 1 aviso só; travado antes de sem_perfil';
-end $t$;
-
--- E31. Improcedente e travas: com outra denúncia que ainda justifica a remoção, a trava continua e passa a
---      apontar para ela; sem outra, destrava; trava já destravada antes não muda quem destravou
-do $t$
-declare d1 uuid; d2 uuid; d3 uuid; v_em timestamptz;
-begin
-  insert into public.events (id, producer_id, title, date, time, status, approval_status)
-  values (pg_temp.u(909), pg_temp.u(1), 'Evento travas', current_date + 2, '21:00', 'published', 'approved');
-  insert into public.ticket_types (id, event_id, name, type, capacity) values (pg_temp.u(919), pg_temp.u(909), 'Mesa Tinder', 'coletiva', 100);
-  perform pg_temp.ingresso(9000 + g, 919, 909, g) from generate_series(11, 13) g;
-  -- 11: D1 (do 12, mais antiga) e D2 (do 13, mais recente), as duas liberadas ao produtor
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, criado_em)
-  values (pg_temp.u(12), pg_temp.u(11), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now(), now() - interval '2 hours') returning id into d1;
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em, criado_em)
-  values (pg_temp.u(13), pg_temp.u(11), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now(), now() - interval '1 hour') returning id into d2;
-  perform pg_temp.rpc(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(909), pg_temp.u(9011), 'comportamento_no_local'));
-  assert (select denuncia_id = d2 from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'trava não ficou com a denúncia mais recente';
-  -- D1 vira procedente; D2, improcedente: a trava continua e aponta para D1
-  update public.mesa_denuncias set status = 'resolvida', resultado = 'procedente', resultado_explicacao = 'Confirmado no local' where id = d1;
-  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d2, 'resolvida', 'improcedente', 'Não se confirmou nesta'));
-  assert (select denuncia_id = d1 and destravada_em is null from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'trava não passou para a outra denúncia';
-  assert public.mesa_travado(pg_temp.u(909), pg_temp.u(11)), 'destravou apesar de outra denúncia';
-  -- e quando D1 também cai como improcedente, não há outra: destrava
-  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d1, 'resolvida', 'improcedente', 'Também não se confirmou'));
-  assert (select destravada_em is not null and destravada_por = pg_temp.u(3) from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(11)), 'não destravou sem outra denúncia';
-  -- trava já destravada antes (por 2): improcedente depois não muda quem destravou nem quando
-  insert into public.mesa_denuncias (denunciante, denunciado, evento, evento_em, motivo, mesma_mesa, liberada_produtor_em)
-  values (pg_temp.u(11), pg_temp.u(12), pg_temp.u(909), now() + interval '3 days', 'perfil_falso', false, now()) returning id into d3;
-  perform pg_temp.rpc(1, format('public.mesa_remover_membro(%L, %L, %L)', pg_temp.u(909), pg_temp.u(9012), 'comportamento_no_local'));
-  update public.mesa_travas set destravada_por = pg_temp.u(2), destravada_em = now() - interval '1 hour'
-  where evento = pg_temp.u(909) and user_id = pg_temp.u(12) returning destravada_em into v_em;
-  perform pg_temp.rpc2(3, format('public.mesa_denuncia_status(%L, %L, %L, %L)', d3, 'resolvida', 'improcedente', 'Não se confirmou'));
-  assert (select destravada_por = pg_temp.u(2) and destravada_em = v_em from public.mesa_travas where evento = pg_temp.u(909) and user_id = pg_temp.u(12)), 'mudou quem destravou';
-  raise notice 'E31 OK: improcedente passa a trava para outra denúncia válida, destrava sem ela e não mexe em trava já destravada';
 end $t$;
 
 -- E28. Moderação automática da foto (Fase E; só service_role): fila com reserva sem duplicidade; fora
