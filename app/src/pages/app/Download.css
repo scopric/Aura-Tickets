@@ -16,7 +16,7 @@
 /* backwards, não both: a opacidade presa no fim achatava o 3D (a perspectiva sumia na pose de repouso) */
 .cel-entrada { animation: cel-sobe 1100ms var(--curva-sai) backwards; }
 @keyframes cel-sobe { from { transform: translateY(140px) rotateX(28deg); opacity: 0; } }
-.cel-balanco { animation: cel-balanco 6s ease-in-out 2 forwards; /* duas idas e voltas depois da entrada e para (WCAG 2.2.2) */ }
+.cel-balanco { animation: cel-balanco 4.8s ease-in-out 1 forwards; /* uma ida e volta de menos de 5 s depois da entrada e para (WCAG 2.2.2) */ }
 @keyframes cel-balanco { 0%, 100% { transform: rotateY(-3deg) translateY(0); } 50% { transform: rotateY(3deg) translateY(-6px); } }
 .arrastando .cel-balanco { animation-play-state: paused; }
 

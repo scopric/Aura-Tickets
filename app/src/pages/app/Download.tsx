@@ -123,7 +123,7 @@ function TelaDeExemplo() {
           </div>
           <div style={{ marginTop: 14 }}><span className="cel-rot">Local</span><span className="cel-num">Local do evento</span></div>
           <div style={{ marginTop: 18, background: '#fff', borderRadius: 12, padding: 12, textAlign: 'center', color: '#0b0d12' }}>
-            <QRCodeSVG value="EVK-0000-0000" size={224} marginSize={0} fgColor="#0b0d12" bgColor="#ffffff" style={{ display: 'block', margin: '0 auto' }} />
+            <QRCodeSVG value="Exemplo: QR do ingresso Evokaa" size={224} marginSize={0} fgColor="#0b0d12" bgColor="#ffffff" style={{ display: 'block', margin: '0 auto' }} />
             <div style={{ marginTop: 6, fontFamily: "'Archivo', system-ui, sans-serif", fontWeight: 600, fontSize: 15, lineHeight: '20px', letterSpacing: '0.08em' }}>EVK-0000-0000</div>
           </div>
           <span className="cel-rot" style={{ marginTop: 14 }}>Titular</span>
@@ -188,7 +188,7 @@ export default function AppDownload() {
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-background text-foreground">
+    <div className="relative min-h-screen overflow-x-hidden supports-[overflow:clip]:overflow-x-clip bg-background text-foreground">
       <div aria-hidden="true" className="cel-fundo" style={DUO_FUNDO}>
         <div className="evcapa-duo"><img src="/images/concert-1.jpg" alt="" fetchPriority="low" /></div>
       </div>
