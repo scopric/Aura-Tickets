@@ -65,6 +65,7 @@ export interface DbEvent {
   approved_by?: string | null
   rejection_reason?: string | null
   featured_carousel?: boolean
+  accent_color?: string | null // cor do evento, #rrggbb (V6a)
   ticket_types?: DbTicketType[]
 }
 
@@ -265,6 +266,7 @@ export function useCreateEvent() {
           short_description: event.short_description || null,
           cover_image: event.cover_image || '/images/hero-bg.jpg',
           image_url: event.image_url || '/images/hero-bg.jpg',
+          accent_color: event.accent_color || null,
           gallery: event.gallery || [],
           category: event.category || 'Outros',
           tags: event.tags || [],
@@ -345,6 +347,7 @@ export function useUpdateEvent() {
         short_description: event.short_description || null,
         cover_image: event.cover_image || '/images/hero-bg.jpg',
         image_url: event.image_url || '/images/hero-bg.jpg',
+        accent_color: event.accent_color || null,
         category: event.category || 'Outros',
         tags: event.tags || [],
         venue_name: event.venue_name || null,

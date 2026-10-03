@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Ticket, Sparkles } from 'lucide-react'
 import { useFeaturedEvents } from '../hooks/useEvents'
+import { temFoto } from '../lib/corEvento'
 
 export default function EventCarousel() {
   const { data: featuredEvents = [], isLoading } = useFeaturedEvents()
@@ -111,7 +112,7 @@ export default function EventCarousel() {
                   isActive ? 'scale-105 opacity-100' : 'scale-100 opacity-0'
                 }`}
                 style={{ 
-                  backgroundImage: `url(${event.cover_image || '/images/hero-bg.jpg'})`,
+                  backgroundImage: `url(${JSON.stringify(temFoto(event.cover_image) ? event.cover_image : '/images/hero-bg.jpg')})`,
                   transitionDuration: '10000ms'
                 }}
               />

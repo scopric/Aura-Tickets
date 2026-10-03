@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Upload, Plus, X, Check } from 'lucide-react'
+import { ArrowLeft, Plus, X, Check } from 'lucide-react'
 import { usePublicEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
+import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
+import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
+import { FOTO_PADRAO, corSorteada, ehHex, temFoto } from '../../lib/corEvento'
 import { useAuth } from '../../hooks/useAuth'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -33,7 +36,12 @@ export default function ProducerEditEvent() {
   })
 
   const [tickets, setTickets] = useState([{ id: '1', name: '', price: '', capacity: '' }])
-  const [image, setImage] = useState<string | null>(null)
+  const [capa, setCapa] = useState<CapaPronta | null>(null) // foto nova, já reduzida; só sobe ao salvar
+  const [removida, setRemovida] = useState(false)
+  const [corEditada, setCorEditada] = useState<{ valor: string; manual: boolean } | null>(null) // null = não mexeu: a cor salva continua
+  const [salvando, setSalvando] = useState(false) // cobre enviar a foto + salvar: sem clique duplo
+  useLiberarPrevia(capa)
+  const enviada = useRef<{ blob: Blob; url: string } | null>(null) // evita subir de novo se o salvar falhar depois do envio
   const [eventType, setEventType] = useState('Festa')
   const [customType, setCustomType] = useState('')
 
@@ -47,7 +55,6 @@ export default function ProducerEditEvent() {
         time: existingEvent.time || '',
         location: existingEvent.venue_name || '',
       })
-      setImage(existingEvent.cover_image || null)
 
       const cat = existingEvent.category || 'Festa'
       const predefinedTypes = ['Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte']
@@ -86,23 +93,25 @@ export default function ProducerEditEvent() {
     setTickets(tickets.map(t => t.id === id ? { ...t, [field]: value } : t))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('A imagem deve ter no máximo 5MB')
-        return
-      }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImage(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
   const handleSave = async () => {
-    if (!eventId) return
+    if (!eventId || !existingEvent) return
+    // Foto: só entra no salvamento quando mudou (trocar ou remover manda o evento aprovado para nova análise, Decisão 136)
+    let foto: { cover_image: string; image_url: string } | undefined
+    setSalvando(true)
+    if (capa) {
+      if (enviada.current?.blob !== capa.blob) {
+        try {
+          enviada.current = { blob: capa.blob, url: await enviarCapa(capa, existingEvent.producer_id, existingEvent.id) }
+        } catch (err) {
+          toast.error(`${err instanceof Error ? err.message : 'Não foi possível enviar a foto.'} O resto do formulário foi mantido.`)
+          setSalvando(false)
+          return
+        }
+      }
+      foto = { cover_image: enviada.current.url, image_url: enviada.current.url }
+    } else if (removida) {
+      foto = { cover_image: FOTO_PADRAO, image_url: FOTO_PADRAO }
+    }
     try {
       const category = eventType === 'Outro' ? customType || 'Outro' : eventType
 
@@ -115,8 +124,8 @@ export default function ProducerEditEvent() {
         venue_name: formData.location || null,
         category: category,
         status: existingEvent?.status || 'published',
-        cover_image: image || '/images/hero-bg.jpg',
-        image_url: image || '/images/hero-bg.jpg',
+        ...foto,
+        ...(corEditada ? { accent_color: corEditada.valor } : {}),
         capacity: tickets.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) || null
       }
 
@@ -139,6 +148,7 @@ export default function ProducerEditEvent() {
       toast.success('Alterações salvas. Mudanças no conteúdo do evento voltam para a análise da equipe.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
+      setSalvando(false)
       toast.error(err.message || 'Erro ao atualizar evento')
     }
   }
@@ -330,29 +340,20 @@ export default function ProducerEditEvent() {
       {step === 3 && (
         <div className="space-y-6">
           <section className={cartao}>
-            <h2 className="mb-4 text-base font-semibold text-foreground">Imagem do evento</h2>
-            <div className="rounded-[10px] border border-dashed border-border p-6 text-center sm:p-10">
-              {image ? (
-                <div className="relative">
-                  <img src={image} alt="Prévia da capa" className="max-h-64 w-full rounded-lg object-cover" />
-                  <Button variant="secondary" size="icon-sm" className="absolute right-2 top-2" onClick={() => setImage(null)} aria-label="Remover imagem">
-                    <X aria-hidden="true" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Upload className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
-                  <p className="text-sm text-foreground">Selecione uma imagem de capa</p>
-                  <p className="text-xs text-muted-foreground">PNG ou JPG até 5 MB</p>
-                  <Button asChild variant="outline">
-                    <label className="cursor-pointer has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50">
-                      Selecionar arquivo
-                      <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
-                    </label>
-                  </Button>
-                </div>
-              )}
-            </div>
+            <h2 className="mb-4 text-base font-semibold text-foreground">Capa e cor do evento</h2>
+            <CapaEventoCampo
+              evento={{ id: existingEvent.id, title: formData.title, date: formData.date }}
+              urlAtual={removida ? null : existingEvent.cover_image}
+              capa={capa}
+              onCapa={setCapa}
+              onRemover={() => setRemovida(temFoto(existingEvent.cover_image))}
+              cor={corEditada?.valor ?? (ehHex(existingEvent.accent_color) ? existingEvent.accent_color : corSorteada(existingEvent.id))}
+              corManual={!!corEditada?.manual}
+              onCor={(valor, manual) => setCorEditada(c => ({ valor, manual: manual || !!c?.manual }))}
+              ocupado={salvando}
+              podeEnviar={existingEvent.producer_id === user?.id}
+              avisoAnalise
+            />
           </section>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
@@ -392,8 +393,8 @@ export default function ProducerEditEvent() {
           </section>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
-            <Button onClick={handleSave} disabled={updateEvent.isPending}>
-              {updateEvent.isPending ? 'Salvando…' : <><Check aria-hidden="true" />Salvar alterações</>}
+            <Button onClick={handleSave} disabled={salvando}>
+              {salvando ? (capa ? 'Enviando a foto…' : 'Salvando…') : <><Check aria-hidden="true" />Salvar alterações</>}
             </Button>
           </div>
         </div>

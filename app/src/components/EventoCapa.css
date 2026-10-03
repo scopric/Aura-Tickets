@@ -1,0 +1,53 @@
+/* Capa do evento (V6b; contrato v3.4, 2.2 e 2.8): foto em duotone ou cartaz tipografico, nos dois temas.
+   As variaveis --evento, --duo-* e --cz* vem de varsDoEvento (lib/corEvento.ts), no estilo do proprio elemento. */
+
+/* Cor do evento nos dois temas: quem pinta com --evento-fundo, --evento-texto ou --evento-grafico poe esta classe */
+.evento-cor { --evento-fundo: var(--evento-fundo-c); --evento-texto: var(--evento-texto-c); --evento-grafico: var(--evento-grafico-c); }
+.dark .evento-cor { --evento-fundo: var(--evento-fundo-e); --evento-texto: var(--evento-texto-e); --evento-grafico: var(--evento-grafico-e); }
+
+.evcapa { position: relative; display: block; flex: none; overflow: hidden; isolation: isolate; border-radius: 10px; }
+/* Contorno de 1 px (2.8.5): no escuro a sombra do duotone some no fundo, por isso e mais claro */
+.evcapa::after { content: ""; position: absolute; inset: 0; z-index: 3; border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(11 13 18 / 0.08); pointer-events: none; }
+.dark .evcapa::after { box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.16); }
+.evcapa-mini { width: 40px; height: 50px; border-radius: 6px; }
+.evcapa-mini-p { width: 32px; height: 32px; border-radius: 6px; }
+.evcapa-cartao { width: 100%; aspect-ratio: 4 / 5; }
+/* Faixa do cabecalho: preenche o pai (que precisa ser relative, ter altura e cortar o excesso) */
+.evcapa-faixa { position: absolute; inset: 0; border-radius: inherit; }
+
+/* Foto em duotone: cinza, multiplica sobre a luz e clareia sobre a sombra. Todo pixel fica entre as duas cores */
+.evcapa-duo { position: absolute; inset: 0; background: var(--duo-luz); isolation: isolate; }
+.evcapa-duo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; filter: grayscale(1) contrast(1.55) brightness(1.7); mix-blend-mode: multiply; }
+.evcapa-duo::after { content: ""; position: absolute; inset: 0; background: var(--duo-sombra); mix-blend-mode: lighten; pointer-events: none; }
+
+/* Cartaz: campo chapado na cor do evento, reticula e grao (as duas unicas texturas) */
+.evcapa-cz { position: absolute; inset: 0; container-type: size; background: var(--cz); color: var(--cz-tinta); font-family: 'Archivo', 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-stretch: 112%; text-transform: uppercase; --cz-ponto: color-mix(in srgb, var(--cz-tinta) 26%, transparent); --cz-ret: 0 0 46% 44%; }
+.evcapa-cz::before { content: ""; position: absolute; inset: var(--cz-ret); background-image: radial-gradient(circle, var(--cz-ponto) 0 30%, transparent 34%); background-size: 5px 5px; pointer-events: none; }
+.evcapa-cz::after { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20width=%27180%27%20height=%27180%27%3E%3Cfilter%20id=%27g%27%3E%3CfeTurbulence%20type=%27fractalNoise%27%20baseFrequency=%27.85%27%20numOctaves=%273%27%20stitchTiles=%27stitch%27/%3E%3CfeColorMatrix%20type=%27saturate%27%20values=%270%27/%3E%3C/filter%3E%3Crect%20width=%27100%25%27%20height=%27100%25%27%20filter=%27url(%23g)%27/%3E%3C/svg%3E"); background-size: 180px; mix-blend-mode: multiply; opacity: 0.22; pointer-events: none; }
+.evcapa-mini .evcapa-cz::before, .evcapa-mini-p .evcapa-cz::before { background-size: 4px 4px; }
+.evcapa-mini .evcapa-cz::after, .evcapa-mini-p .evcapa-cz::after { opacity: 0.3; }
+.evcz-b { --cz-ret: 52% 0 0 34%; }
+.evcz-c { --cz-ret: 0 42% 30% 0; }
+.evcz-data, .evcz-tit { position: absolute; display: block; z-index: 1; }
+.evcz-tit span { display: block; white-space: nowrap; }
+.evcz-dia { display: block; line-height: 0.82; letter-spacing: -0.03em; }
+.evcz-mes { display: block; font-weight: 600; font-stretch: 100%; letter-spacing: 0.06em; }
+
+.evcz-a .evcz-data { left: 7cqw; top: 6cqh; }
+.evcz-a .evcz-dia { font-size: 24cqmin; }
+.evcz-a .evcz-mes { font-size: 7cqmin; margin-top: 2cqmin; }
+.evcz-a .evcz-tit { left: 6cqw; right: -2cqw; bottom: 5cqh; font-size: calc(var(--cz-k) * 1cqw); line-height: 0.86; letter-spacing: -0.015em; }
+
+.evcz-b .evcz-data { right: 7cqw; top: 6cqh; text-align: right; }
+.evcz-b .evcz-dia { font-size: 22cqmin; }
+.evcz-b .evcz-mes { font-size: 7cqmin; margin-top: 2cqmin; }
+.evcz-b .evcz-tit { left: 5cqw; bottom: 5cqh; width: 90cqh; transform-origin: left bottom; transform: rotate(-90deg) translateY(100%); font-size: calc(var(--cz-k) * 0.92cqh); line-height: 0.86; letter-spacing: -0.015em; }
+
+.evcz-c .evcz-data { left: 5cqw; top: 3cqh; }
+.evcz-c .evcz-dia { font-size: 64cqmin; letter-spacing: -0.05em; }
+.evcz-c .evcz-mes { font-size: 9cqmin; margin: 1cqmin 0 0 1cqmin; }
+.evcz-c .evcz-tit { left: 7cqw; right: 7cqw; bottom: 6cqh; font-size: calc(var(--cz-k) * 0.5cqw); line-height: 0.92; }
+
+/* Cartaz da faixa do cabecalho: so a reticula, o grao e o dia grande (o titulo fica no texto da pagina) */
+.evcapa-faixa .evcapa-cz { --cz-ret: 0 0 0 56%; }
+.evcz-faixa-dia { position: absolute; z-index: 1; right: 40px; bottom: -44px; font-size: 150px; line-height: 1; letter-spacing: -0.05em; }

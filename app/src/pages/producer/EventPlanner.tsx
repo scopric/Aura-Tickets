@@ -2,6 +2,10 @@ import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Music, Heart, Mic, Building, Guitar, Cake, GraduationCap, ArrowRight, ArrowLeft, Check, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
+import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
+import { enviarEGravarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
+import { corSorteada } from '../../lib/corEvento'
+import { useAuth } from '../../hooks/useAuth'
 import { useCreateEvent } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
 import { eventProfiles } from '../../data/eventManagerData'
@@ -43,6 +47,11 @@ interface ExpenseItem {
 export default function EventPlanner() {
   const navigate = useNavigate()
   const createEvent = useCreateEvent()
+  const { user } = useAuth()
+  const [capa, setCapa] = useState<CapaPronta | null>(null) // foto pronta; só sobe depois de o evento existir
+  const [cor, setCor] = useState<{ valor: string; manual: boolean } | null>(null) // null: ainda a cor sorteada pelo título
+  const [salvando, setSalvando] = useState(false) // cobre o criar + enviar a foto: sem clique duplo
+  useLiberarPrevia(capa)
   const [step, setStep] = useState(1)
   const [data, setData] = useState({
     profile: '' as EventProfile | '',
@@ -120,6 +129,7 @@ export default function EventPlanner() {
   }, [data])
 
   const handleFinish = async () => {
+    setSalvando(true)
     try {
       const eventData = {
         title: data.title,
@@ -130,7 +140,8 @@ export default function EventPlanner() {
         capacity: Number(data.capacity) || null,
         category: data.profile ? eventProfiles[data.profile as EventProfile].label : 'Outros',
         status: 'published' as const, // Criar publicado por padrão para aparecer na listagem
-        cover_image: '/images/hero-bg.jpg', // Placeholder de imagem premium
+        cover_image: '/images/hero-bg.jpg', // Placeholder de imagem premium; a foto entra depois, quando o evento já existe
+        accent_color: cor?.valor ?? corSorteada(data.title || 'evento'),
       }
 
       const ticketsData = data.batches
@@ -143,14 +154,20 @@ export default function EventPlanner() {
           type: 'individual' as const,
         }))
 
-      await createEvent.mutateAsync({
+      const novo = (await createEvent.mutateAsync({
         event: eventData,
         tickets: ticketsData
-      })
+      })) as { id: string }
 
-      toast.success('Evento criado. Ele passa pela análise da equipe antes de aparecer ao público.')
+      let fotoFalhou = false
+      if (capa && user?.id) {
+        fotoFalhou = !(await enviarEGravarCapa(capa, user.id, novo.id))
+      }
+      if (fotoFalhou) toast.warning('Evento criado, mas a foto de capa não foi enviada. Abra "Editar evento" para enviar de novo.')
+      else toast.success('Evento criado. Ele passa pela análise da equipe antes de aparecer ao público.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
+      setSalvando(false)
       toast.error(err.message || 'Erro ao salvar o evento no Supabase')
     }
   }
@@ -274,6 +291,19 @@ export default function EventPlanner() {
             <div className="grid gap-1.5">
               <Label htmlFor="plan-descricao">Descrição</Label>
               <Textarea id="plan-descricao" value={data.description} onChange={e => setData({ ...data, description: e.target.value })} rows={3} placeholder="Descreva seu evento…" className="resize-none" />
+            </div>
+            <div className="border-t border-border pt-4">
+              <h3 className="mb-3 text-sm font-medium text-foreground">Capa e cor do evento (opcional)</h3>
+              <CapaEventoCampo
+                evento={{ id: data.title || 'evento', title: data.title, date: data.date }}
+                capa={capa}
+                onCapa={setCapa}
+                onRemover={() => {}}
+                cor={cor?.valor ?? corSorteada(data.title || 'evento')}
+                corManual={!!cor?.manual}
+                onCor={(valor, manual) => setCor(c => ({ valor, manual: manual || !!c?.manual }))}
+                ocupado={salvando}
+              />
             </div>
           </div>
         )}
@@ -484,8 +514,8 @@ export default function EventPlanner() {
               Próximo<ArrowRight aria-hidden="true" />
             </Button>
           ) : (
-            <Button onClick={handleFinish} disabled={createEvent.isPending}>
-              {createEvent.isPending ? 'Criando…' : <><Check aria-hidden="true" />Criar evento</>}
+            <Button onClick={handleFinish} disabled={salvando}>
+              {salvando ? (capa ? 'Enviando a foto…' : 'Criando…') : <><Check aria-hidden="true" />Criar evento</>}
             </Button>
           )}
         </div>

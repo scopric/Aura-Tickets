@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
+import EventoCapa from '../../components/EventoCapa'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -144,7 +145,7 @@ export default function ProducerEvents() {
               return (
                 <li key={event.id} className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center">
                   <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="size-12 shrink-0 rounded-md object-cover" />
+                    <EventoCapa evento={event} tamanho="mini" />
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
                         <span className="truncate text-sm font-medium text-foreground">{event.title}</span>

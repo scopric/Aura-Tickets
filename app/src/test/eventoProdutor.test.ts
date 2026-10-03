@@ -99,7 +99,8 @@ describe('copiaDoEvento', () => {
   const tipo = (o: Partial<DbTicketType>) => ({ id: 't', event_id: 'e1', name: 'Pista', description: null, price: 50, capacity: 10, quantity_total: 100, sold: 7, type: 'individual', perks: [], is_active: true, sale_start: null, sale_end: null, created_at: '', updated_at: '', ...o }) as DbTicketType
   const evento = {
     id: 'e1', slug: 'festa-1', producer_id: 'p1', title: 'Festa', status: 'published', approval_status: 'approved',
-    end_date: '2026-12-01T04:00:00Z', ticket_types: [tipo({}), tipo({ id: 't2', name: 'Oculto', is_active: false })],
+    end_date: '2026-12-01T04:00:00Z', cover_image: 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp',
+    image_url: 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp', accent_color: '#a55c65', ticket_types: [tipo({}), tipo({ id: 't2', name: 'Oculto', is_active: false })],
   } as unknown as DbEvent
   const { event, tickets } = copiaDoEvento(evento)
 
@@ -108,6 +109,11 @@ describe('copiaDoEvento', () => {
     expect(event.title).toBe('Festa (cópia)')
     expect(event.end_date).toBe('2026-12-01T04:00:00Z')
     for (const k of ['id', 'slug', 'producer_id', 'approval_status']) expect(event).not.toHaveProperty(k)
+  })
+  it('a cópia não leva a foto do original (vira a foto padrão nas duas colunas) e leva a cor', () => {
+    expect(event.cover_image).toBe('/images/hero-bg.jpg')
+    expect(event.image_url).toBe('/images/hero-bg.jpg')
+    expect(event.accent_color).toBe('#a55c65')
   })
   it('ingressos sem id nem vendas, com a quantidade real e o oculto continua oculto', () => {
     for (const t of tickets) for (const k of ['id', 'event_id', 'sold']) expect(t).not.toHaveProperty(k)
