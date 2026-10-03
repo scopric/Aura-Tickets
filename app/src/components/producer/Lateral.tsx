@@ -10,10 +10,11 @@ import { TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui
 import { cn } from '@/lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
+import { useFixados } from '../../hooks/useFixados'
 import { dataPorVir, situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerFixados, lerSecoes,
-  textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
+  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerSecoes,
+  rotasDaTela, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
 
@@ -73,7 +74,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
   const { pathname, search } = useLocation()
   const { user, logout } = useAuth()
   const { data: eventos = [], isLoading } = useProducerEvents()
-  const [fixados, setFixados] = useState(lerFixados)
+  const [fixados, alternaFixo] = useFixados()
   const [abertas, setAbertas] = useState(lerSecoes) // abertas ou fechadas à mão, por `escopo:Seção`
 
   const eventId = eventoDaUrl(pathname, search)
@@ -88,18 +89,12 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
   const foto = user?.avatar_url || user?.avatar
 
   const ativa = (rota: string) => rota.includes(':')
-    ? !!matchPath(rota, pathname)
+    ? rotasDaTela(rota).some(r => !!matchPath(r, pathname))
     : pathname === rota || pathname.startsWith(rota + '/') || (rota === INICIO.rota && pathname === '/producer')
 
   const sair = () => {
     toast.info('Você saiu da sua conta')
     logout() // o logout já faz window.location.href = '/'
-  }
-
-  const alternaFixo = (id: string) => {
-    const novos = fixados.includes(id) ? fixados.filter(f => f !== id) : [id, ...fixados]
-    setFixados(novos)
-    gravarNav('fixados', JSON.stringify(novos))
   }
 
   // Eventos da lista da produtora: fixados primeiro (estrela), depois os próximos (sem cancelado), até 3

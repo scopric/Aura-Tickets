@@ -54,7 +54,7 @@ const ProducerDashboard = lazy(() => import('./pages/producer/Dashboard'))
 const ProducerEvents = lazy(() => import('./pages/producer/Events'))
 const ProducerNewEvent = lazy(() => import('./pages/producer/NewEvent'))
 const ProducerEditEvent = lazy(() => import('./pages/producer/EditEvent'))
-const EventFolder = lazy(() => import('./pages/producer/EventFolder'))
+const EventOverview = lazy(() => import('./pages/producer/EventOverview'))
 const EventPlanner = lazy(() => import('./pages/producer/EventPlanner'))
 const ProducerCRM = lazy(() => import('./pages/producer/CRM'))
 const ProducerFinance = lazy(() => import('./pages/producer/Finance'))
@@ -376,7 +376,7 @@ function Layout() {
               <Route path="/producer/events/new" element={<ProducerNewEvent />} />
               <Route path="/producer/events/:eventId/edit" element={<ComChaveDoEvento><ProducerEditEvent /></ComChaveDoEvento>} />
               <Route path="/producer/event-manager" element={<Navigate to="/producer/events" replace />} />
-              <Route path="/producer/event/:eventId" element={<ComingSoonRoute title="A Pasta do Evento"><ComChaveDoEvento><EventFolder /></ComChaveDoEvento></ComingSoonRoute>} />
+              <Route path="/producer/event/:eventId" element={<ComChaveDoEvento><EventOverview /></ComChaveDoEvento>} />
               <Route path="/producer/planner" element={<EventPlanner />} />
               <Route path="/producer/brand" element={<ComingSoonRoute title="O Brand Studio"><BrandStudio /></ComingSoonRoute>} />
               <Route path="/producer/crm" element={<FeatureGuard featureKey="crm"><ProducerCRM /></FeatureGuard>} />

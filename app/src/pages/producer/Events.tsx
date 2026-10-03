@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
+import { abreEvento } from '../../lib/navegacaoProdutor'
 import EventoCapa from '../../components/EventoCapa'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -148,7 +149,7 @@ export default function ProducerEvents() {
                     <EventoCapa evento={event} tamanho="mini" />
                     <div className="min-w-0">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-medium text-foreground">{event.title}</span>
+                        <Link to={abreEvento(event.id)} className="truncate rounded-ev-xs text-sm font-medium text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{event.title}</Link>
                         <Badge variant={st === 'Publicado' ? 'default' : 'secondary'}>{st}</Badge>
                       </div>
                       <p className="truncate text-xs text-muted-foreground">
@@ -168,7 +169,7 @@ export default function ProducerEvents() {
                       </Button>
                     ) : (
                       <Button asChild variant="ghost" size="icon-sm" className={icone}>
-                        <Link to={`/producer/events/${event.id}/edit`} aria-label={`Ver ${event.title} (ainda não está no ar)`}>
+                        <Link to={abreEvento(event.id)} aria-label={`Ver ${event.title} (ainda não está no ar)`}>
                           <Eye aria-hidden="true" />
                         </Link>
                       </Button>

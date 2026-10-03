@@ -25,9 +25,8 @@ export interface Tela {
 export const NAV: Tela[] = [
   { tela: 'Início', secao: 'Topo', rota: '/producer/dashboard' },
   { tela: 'Meus eventos', secao: 'Eventos', rota: '/producer/events', rotulo: 'Todos os eventos' },
-  // ponytail: a Pasta do evento (/producer/event/:eventId) é "Em construção" até a V7; até lá o evento abre na edição.
-  // Na V7: trocar a rota por '/producer/event/:eventId' e noEvento por 'Visão geral'.
-  { tela: 'Pasta do evento', secao: 'Eventos', rota: '/producer/events/:eventId/edit', noEvento: 'Editar evento' },
+  // A Pasta do evento é a Visão geral (V7, EventOverview); a edição fica no botão "Editar" dela.
+  { tela: 'Pasta do evento', secao: 'Eventos', rota: '/producer/event/:eventId', noEvento: 'Visão geral' },
   { tela: 'Relatório pós-evento', secao: 'Eventos', rota: '/producer/pos-evento', rotulo: 'Relatórios', noEvento: 'Relatório' },
   { tela: 'Cupons', secao: 'Vendas', rota: '/producer/cupons', noEvento: 'Cupons' },
   { tela: 'Afiliados', secao: 'Vendas', rota: '/producer/afiliados', noEvento: 'Afiliados' },
@@ -79,9 +78,12 @@ export function hrefDaTela(rota: string, eventId?: string | null): string {
 /** Para onde vai quem abre um evento (linha da lista, bloco do evento) */
 export const abreEvento = (eventId: string) => hrefDaTela(PASTA.rota, eventId)
 
-// Rotas em que o evento vem no caminho (a edição e, na V7, a Pasta do evento)
-const ROTAS_COM_EVENTO = ['/producer/events/:eventId/edit', '/producer/event/:eventId']
+// Rotas em que o evento vem no caminho (a edição e a Visão geral)
+const ROTA_EDICAO = '/producer/events/:eventId/edit'
+const ROTAS_COM_EVENTO = [ROTA_EDICAO, '/producer/event/:eventId']
 
+/** Rotas que a lateral conta como a tela da rota dada: a edição do evento fica sob a Visão geral */
+export const rotasDaTela = (rota: string): string[] => (rota === PASTA.rota ? [rota, ROTA_EDICAO] : [rota])
 
 /** Evento da URL: `:eventId` do caminho ou `?eventId=`. null quando a URL não é de um evento */
 export function eventoDaUrl(pathname: string, search: string): string | null {
