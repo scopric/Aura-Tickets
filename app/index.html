@@ -5,14 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Evokaa Eventos — Plataforma Completa para Criacao e Gestao de Eventos</title>
     <meta name="description" content="Crie, gerencie e venda ingressos para seus eventos com a Evokaa. Plataforma completa para produtores, participantes e administradores." />
-    <meta name="theme-color" content="#7a3b69" />
+    <meta name="theme-color" content="#0b0d12" />
+    <!-- Tema antes da primeira pintura (sem piscar). Mesma regra de src/lib/tema.ts (rotas, padrão por área e host);
+         o teste tema.test.tsx executa este script e confere. Mudou este script? Atualize o sha256 na CSP do vercel.json. -->
+    <script>
+      (function () {
+        var t = null
+        try { t = localStorage.getItem('evokaa-theme') } catch (e) {}
+        var p = location.pathname, h = location.hostname
+        if (t !== 'auto' && t !== 'light' && t !== 'dark') t = p.indexOf('/producer') === 0 ? 'auto' : 'dark'
+        var raizDaPlataforma = p === '/' && (h.indexOf('alpha.') === 0 || h.indexOf('app.') === 0)
+        var forcado = !raizDaPlataforma && !['/producer', '/admin', '/app', '/checkout', '/auth'].some(function (r) { return p.indexOf(r) === 0 })
+        var escuro = forcado || t === 'dark' || (t === 'auto' && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
+        document.documentElement.classList.add(escuro ? 'dark' : 'light')
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', escuro ? '#0b0d12' : '#ffffff')
+      })()
+    </script>
     <meta property="og:title" content="Evokaa Eventos" />
     <meta property="og:description" content="Crie, gerencie e venda ingressos para seus eventos com a Evokaa." />
     <meta property="og:type" content="website" />
     <meta property="og:image" content="/images/logo-evokaa.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100,600;112,800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&family=Outfit:wght@400;500;600;700;800&display=swap" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="icon" type="image/png" href="/images/logo-evokaa-sm.png" />
   </head>

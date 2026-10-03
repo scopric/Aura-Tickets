@@ -1,57 +1,56 @@
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-
-type Theme = 'dark' | 'light'
+import { CHAVE_TEMA, lerTema, rotaForcadaEscuro, temaPadrao, type Tema } from '../lib/tema'
 
 interface ThemeContextType {
-  theme: Theme
-  toggleTheme: () => void
+  tema: Tema                          // o que vale como escolha (a salva ou o padrão da área)
+  temaResolvido: 'light' | 'dark'     // o que está valendo na tela
+  setTema: (tema: Tema) => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+const consultaEscuro = () => window.matchMedia?.('(prefers-color-scheme: dark)')
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const saved = localStorage.getItem('evokaa-theme')
-    return (saved as Theme) || 'dark'
-  })
+  const [salvo, setSalvo] = useState<Tema | null>(lerTema)
+  const [aparelhoEscuro, setAparelhoEscuro] = useState(() => consultaEscuro()?.matches ?? false)
+  const { pathname } = useLocation()
+  const tema = salvo ?? temaPadrao(pathname) // sem escolha salva, recalcula a cada troca de rota
+  const forcadoEscuro = rotaForcadaEscuro(pathname)
 
-  const location = useLocation()
-
-  // Determina se a rota atual pertence a landing page
-  const isLandingPage = !['/producer', '/admin', '/app', '/checkout', '/auth'].some(path => 
-    location.pathname.startsWith(path)
-  )
-
+  // Em 'auto', acompanha a troca de tema do aparelho na hora
   useEffect(() => {
-    const root = window.document.documentElement
-    
-    if (isLandingPage) {
-      // Landing page sempre fica no modo escuro
-      root.classList.add('dark')
-      root.classList.remove('light')
-    } else {
-      // Plataforma aplica o tema configurado
-      if (theme === 'dark') {
-        root.classList.add('dark')
-        root.classList.remove('light')
-      } else {
-        root.classList.remove('dark')
-        root.classList.add('light')
-      }
-    }
-  }, [theme, isLandingPage])
+    if (tema !== 'auto') return
+    const mq = consultaEscuro()
+    if (!mq) return
+    const mudou = () => setAparelhoEscuro(mq.matches)
+    mudou()
+    mq.addEventListener('change', mudou)
+    return () => mq.removeEventListener('change', mudou)
+  }, [tema])
 
-  const toggleTheme = () => {
-    setTheme(prev => {
-      const next = prev === 'dark' ? 'light' : 'dark'
-      localStorage.setItem('evokaa-theme', next)
-      return next
-    })
+  const temaResolvido = forcadoEscuro || tema === 'dark' || (tema === 'auto' && aparelhoEscuro) ? 'dark' : 'light'
+
+  // useLayoutEffect: a classe troca antes da pintura da rota nova (sem um quadro com o tema anterior)
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    root.classList.toggle('dark', temaResolvido === 'dark')
+    root.classList.toggle('light', temaResolvido === 'light')
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', temaResolvido === 'dark' ? '#0b0d12' : '#ffffff')
+  }, [temaResolvido])
+
+  const setTema = (novo: Tema) => {
+    setSalvo(novo)
+    try {
+      localStorage.setItem(CHAVE_TEMA, novo)
+    } catch {
+      // sem armazenamento (navegação privada): vale só nesta aba
+    }
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ tema, temaResolvido, setTema }}>
       {children}
     </ThemeContext.Provider>
   )

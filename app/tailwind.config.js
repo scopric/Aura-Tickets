@@ -4,6 +4,17 @@ module.exports = {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
+      // text-primary e text-destructive usam a cor de TEXTO (passa AA nos dois temas); bg-, border- e ring- seguem com o preenchimento
+      textColor: {
+        primary: {
+          DEFAULT: "hsl(var(--primary-text) / <alpha-value>)",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive-text) / <alpha-value>)",
+          foreground: "hsl(var(--destructive-foreground) / <alpha-value>)",
+        },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -56,8 +67,11 @@ module.exports = {
         },
       },
       fontFamily: {
-        serif: ['Outfit', 'Plus Jakarta Sans', 'sans-serif'],
+        // Outfit só na Home (index.css, body.home-outfit); as telas antigas com font-serif ficam em Jakarta
+        serif: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
         sans: ['Plus Jakarta Sans', 'Inter', 'Geist', 'system-ui', 'sans-serif'],
+        // nome do evento e números de dado (contrato v3.4, §3); largura com font-stretch
+        display: ['Archivo', 'Plus Jakarta Sans', 'system-ui', 'sans-serif'],
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
@@ -65,11 +79,38 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
         xs: "calc(var(--radius) - 6px)",
+        // contrato v3.4, §2.3: o raio cresce com a altura
+        "ev-xs": "4px",
+        "ev-sm": "6px",
+        "ev-md": "8px",
+        "ev-lg": "10px",
+        "ev-xl": "12px",
+        "ev-2xl": "20px",
+        "ev-pill": "999px",
       },
       boxShadow: {
         xs: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
         elevated: "0px 20px 40px rgba(12, 35, 64, 0.15)",   /* marinho: #0c2340 -> rgba(12, 35, 64, 0.15) */
         glow: "0px 0px 30px rgba(29, 104, 196, 0.3)",       /* azul royal: #1d68c4 -> rgba(29, 104, 196, 0.3) */
+        // contrato v3.4, §2.4: três níveis e mais nada (valores por tema no index.css)
+        "ev-0": "0 0 #0000",
+        "ev-1": "var(--ev-sombra-1)",
+        "ev-2": "var(--ev-sombra-2)",
+        "ev-foco": "var(--ev-foco)",                     // anel de foco duplo, só em :focus-visible
+      },
+      // contrato v3.4, §9 (tokens no index.css; "reduzir movimento" encurta o lento)
+      transitionDuration: {
+        micro: "var(--mov-micro)",
+        rapido: "var(--mov-rapido)",
+        base: "var(--mov-base)",
+        lento: "var(--mov-lento)",
+      },
+      transitionTimingFunction: {
+        sai: "var(--curva-sai)",
+        entra: "var(--curva-entra)",
+        move: "var(--curva-move)",
+        gaveta: "var(--curva-gaveta)",
+        mola: "var(--curva-mola)",
       },
       keyframes: {
         "accordion-down": {
