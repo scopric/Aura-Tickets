@@ -165,8 +165,8 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
 
   const area = (s: Secao) => {
     const chave = `${escopo}:${s}`
-    // no escopo do evento todas abertas (cabem, §5.1); na produtora, a da tela atual e a de Eventos
-    const aberta = abertas[chave] ?? (escopo === 'evento' || secaoAtiva(s) || s === 'Eventos')
+    // a da tela atual sempre aberta (§5.3); no escopo do evento todas (cabem, §5.1); na produtora, também a de Eventos
+    const aberta = secaoAtiva(s) || (abertas[chave] ?? (escopo === 'evento' || s === 'Eventos'))
     const id = `lateral-${s}`
     const Icone = ICONE[s]
     return (
