@@ -1,5 +1,6 @@
-import { lazy, Suspense, useLayoutEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState, type ComponentType } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
 import { useAoVivo } from '../../hooks/useAoVivo'
@@ -12,8 +13,10 @@ import { INICIO, NAV, eventoDaUrl, hrefDaTela, rotaAtiva } from '../../lib/naveg
 // `.vidro [aria-current="page"]` (opaca, contraste sem depender do que passa atrás).
 // ponytail: a pílula não desliza entre abas e a barra não encolhe ao rolar (movimentos M2 e M3 da prancha).
 
-// Folha Menu e vaul só são baixados no primeiro toque em Menu ou na busca
-const FolhaMenu = lazy(() => import('./FolhaMenu'))
+// Folha Menu e vaul ficam fora da entrada: baixados quando o navegador está ocioso (ou no toque, se ainda não vieram).
+// Falha de rede ao baixar vira aviso e a página segue de pé (um novo toque tenta de novo).
+const carregarFolha = () => import('./FolhaMenu')
+type Folha = { modo: 'menu' | 'busca'; rota: string } | null
 
 const rotaDe = (tela: string) => NAV.find(t => t.tela === tela)!.rota
 const EVENTOS = rotaDe('Meus eventos')
@@ -30,29 +33,46 @@ export default function BarraCelular() {
   const { pathname, search } = useLocation()
   const { data: eventos = [] } = useProducerEvents()
   const aoVivo = useAoVivo(eventos)
-  const [folha, setFolha] = useState({ carregada: false, aberta: false, buscar: false })
-  const abre = (buscar: boolean) => setFolha({ carregada: true, aberta: true, buscar })
-  const fecha = () => setFolha(f => ({ ...f, aberta: false }))
+  // Guarda a rota em que abriu: trocar de rota por fora da folha (voltar, link do Evo) fecha, como a gaveta da V4a
+  const [folha, setFolha] = useState<Folha>(null)
+  const [Comp, setComp] = useState<ComponentType<{ aberta: boolean; buscar: boolean; onFechar: () => void }> | null>(null)
+  const [vez, setVez] = useState(0) // remonta a folha a cada abertura: o filtro começa vazio
+  const aberta = folha && folha.rota === pathname ? folha.modo : null
+  const abre = (modo: 'menu' | 'busca') => {
+    carregarFolha().then(
+      m => { setComp(() => m.default); setVez(v => v + 1); setFolha({ modo, rota: pathname }) },
+      () => toast.error('Não foi possível abrir o menu. Tente de novo.'),
+    )
+  }
+  const fecha = () => setFolha(null)
+
+  useEffect(() => {
+    const baixar = () => { carregarFolha().catch(() => {}) }
+    if ('requestIdleCallback' in window) { const id = window.requestIdleCallback(baixar); return () => window.cancelIdleCallback(id) }
+    const id = setTimeout(baixar, 2000)
+    return () => clearTimeout(id)
+  }, [])
 
   // Evo e aviso de cookies sobem acima da barra (e da faixa) pela variável no <body>
+  const temFaixa = !!aoVivo
   useLayoutEffect(() => {
-    document.body.style.setProperty('--barra-cel', `calc(${aoVivo ? 124 : 68}px + env(safe-area-inset-bottom))`)
+    document.body.style.setProperty('--barra-cel', `calc(${temFaixa ? 124 : 68}px + env(safe-area-inset-bottom))`)
     return () => { document.body.style.removeProperty('--barra-cel') }
-  }, [aoVivo])
+  }, [temFaixa])
 
   const eventId = eventoDaUrl(pathname, search)
   const noInicio = rotaAtiva(INICIO.rota, pathname)
   const noEventos = rotaAtiva(EVENTOS, pathname) || /^\/producer\/events?\//.test(pathname)
   const noCheckin = rotaAtiva(CHECKIN, pathname)
   // qualquer outra tela vive dentro do Menu: a aba Menu fica marcada (e também com a folha aberta)
-  const noMenu = folha.aberta || !(noInicio || noEventos || noCheckin)
+  const noMenu = !!aberta || !(noInicio || noEventos || noCheckin)
 
   return (
     <>
       {aoVivo && (
         <div
           role="region"
-          aria-label="Evento de hoje"
+          aria-label="Evento em andamento"
           style={{ bottom: 'calc(76px + env(safe-area-inset-bottom))' }}
           className="vidro fixed inset-x-3 z-40 flex h-12 items-center gap-2.5 rounded-3xl pl-4 pr-1 text-[13px]"
         >
@@ -86,9 +106,9 @@ export default function BarraCelular() {
         <button
           type="button"
           aria-haspopup="dialog"
-          aria-expanded={folha.aberta}
+          aria-expanded={aberta === 'menu'}
           data-state={noMenu ? 'active' : 'inactive'}
-          onClick={() => abre(false)}
+          onClick={() => abre('menu')}
           className={aba}
         >
           <I.Mais size={24} ativo={noMenu} />Menu
@@ -100,18 +120,15 @@ export default function BarraCelular() {
         type="button"
         aria-label="Buscar tela"
         aria-haspopup="dialog"
+        aria-expanded={aberta === 'busca'}
         style={{ bottom: BAIXO }}
-        onClick={() => abre(true)}
+        onClick={() => abre('busca')}
         className="vidro fixed right-3 z-40 grid size-14 place-items-center rounded-full text-[var(--vidro-texto)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <I.Buscar size={24} />
       </button>
 
-      {folha.carregada && (
-        <Suspense fallback={null}>
-          <FolhaMenu aberta={folha.aberta} buscar={folha.buscar} onFechar={fecha} />
-        </Suspense>
-      )}
+      {Comp && <Comp key={vez} aberta={!!aberta} buscar={aberta === 'busca'} onFechar={fecha} />}
     </>
   )
 }

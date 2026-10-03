@@ -82,7 +82,7 @@ export default function AppLayout() {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 flex flex-col transition-all duration-300 ease-out',
+          'fixed left-0 top-0 bottom-0 z-50 flex flex-col pl-[env(safe-area-inset-left)] transition-all duration-300 ease-out',
           'lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
           collapsed ? 'w-[72px]' : 'w-[250px]',
@@ -236,7 +236,8 @@ export default function AppLayout() {
       {/* Main Content */}
       <div
         className={cn(
-          'flex-1 flex flex-col min-h-screen transition-all duration-300',
+          // laterais: com viewport-fit=cover o conteúdo não pode ir para baixo do entalhe (iPhone deitado)
+          'flex-1 flex flex-col min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-all duration-300',
           'lg:ml-[72px]',
           !collapsed && 'lg:ml-[250px]'
         )}

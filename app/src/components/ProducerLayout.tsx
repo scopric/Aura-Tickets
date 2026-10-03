@@ -52,7 +52,7 @@ export default function ProducerLayout() {
     const h1 = paginaRef.current?.querySelector('h1')
     if (h1) { h1.tabIndex = -1; h1.focus() }
   }, [tour])
-  const mobileOpen = !celular && gavetaEm === location.pathname
+  const mobileOpen = gavetaEm === location.pathname
   // Trilho só no computador: na gaveta a lateral abre sempre com os nomes
   const trilho = recolhida && computador
 
@@ -64,7 +64,8 @@ export default function ProducerLayout() {
   useEffect(() => {
     const m = window.matchMedia(COMPUTADOR)
     const c = window.matchMedia(CELULAR)
-    const muda = () => { setComputador(m.matches); setCelular(c.matches) }
+    // virar celular fecha a gaveta (senão ela reabriria ao voltar para o tablet)
+    const muda = () => { setComputador(m.matches); setCelular(c.matches); if (c.matches) setGavetaEm(null) }
     m.addEventListener('change', muda)
     c.addEventListener('change', muda)
     return () => { m.removeEventListener('change', muda); c.removeEventListener('change', muda) }
@@ -110,7 +111,7 @@ export default function ProducerLayout() {
     <div className="painel-produtor glass-canvas flex min-h-screen">
       {mobileOpen && (
         <div
-          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
+          className="fixed inset-0 glass-backdrop z-40 max-md:hidden lg:hidden"
           onClick={() => {
             setGavetaEm(null)
             menuBtnRef.current?.focus()
@@ -123,7 +124,7 @@ export default function ProducerLayout() {
       <aside
         id="produtor-menu"
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 max-md:hidden lg:z-40 flex w-[248px] flex-col border-r border-border bg-[var(--ev-sidebar)] transition-[width,transform] duration-base ease-move motion-reduce:transition-none',
+          'fixed left-0 top-0 bottom-0 z-50 max-md:hidden lg:z-40 flex w-[248px] flex-col border-r pl-[env(safe-area-inset-left)] border-border bg-[var(--ev-sidebar)] transition-[width,transform] duration-base ease-move motion-reduce:transition-none',
           'lg:translate-x-0',
           // ao abrir, a visibilidade muda na hora (sem transição), para o foco poder entrar na gaveta
           mobileOpen ? 'translate-x-0 max-lg:[transition-property:transform]' : '-translate-x-full max-lg:invisible',
@@ -134,7 +135,7 @@ export default function ProducerLayout() {
       </aside>
 
       {/* Conteúdo (pb-24: o fim da página rola acima do Evo flutuante; no celular, também acima da barra e da faixa) */}
-      <div className={cn('min-w-0 flex-1 min-h-screen transition-[margin] duration-base ease-move motion-reduce:transition-none', celular ? 'pb-[calc(var(--barra-cel,0px)+6rem)]' : 'pb-24', trilho ? 'lg:ml-14' : 'lg:ml-[248px]')}>
+      <div className={cn('min-w-0 flex-1 min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-[margin] duration-base ease-move motion-reduce:transition-none', 'pb-24 max-md:pb-[calc(var(--barra-cel,0px)+6rem)]', trilho ? 'lg:ml-14' : 'lg:ml-[248px]')}>
         {/* Barra do topo fixa ao rolar. Celular: 56 px com menu, logo, sino e feedback.
             Computador: faixa invisível de 40 px só com os ícones à direita (não cobre botões do cabeçalho das páginas) */}
         <div className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-background px-4 lg:pointer-events-none lg:h-10 lg:justify-end lg:border-0 lg:bg-transparent">

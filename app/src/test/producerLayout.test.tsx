@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
 
@@ -62,10 +62,7 @@ describe('ProducerLayout com a lateral nova', () => {
     montar('/producer/dashboard')
     fireEvent.keyDown(window, { key: 'b', metaKey: true })
     expect(localStorage.getItem('evk.nav.recolhida')).toBeNull()
-    vi.mock('../components/producer/BarraCelular', () => ({ default: () => <nav aria-label="Navegação do celular" /> }))
-// computador (>= 1024 px) por padrão; `celular` liga só a consulta (max-width: 767px)
-const mediaQuery = (celular: boolean) => (q: string) => ({ matches: q.includes('max-width') ? celular : true, addEventListener: () => {}, removeEventListener: () => {} })
-vi.stubGlobal('matchMedia', mediaQuery(false))
+    vi.stubGlobal('matchMedia', mediaQuery(false))
   })
 
   it('começa no trilho quando a pessoa tinha recolhido', () => {
@@ -90,12 +87,30 @@ vi.stubGlobal('matchMedia', mediaQuery(false))
     vi.stubGlobal('matchMedia', mediaQuery(false))
   })
 
-  it('no celular o botão da gaveta não abre nada (a barra e a folha a substituem)', () => {
-    vi.stubGlobal('matchMedia', mediaQuery(true))
+  it('virar celular (redimensionar) fecha a gaveta do tablet; ela não reabre ao voltar', () => {
+    // tablet: nem computador nem celular; os ouvintes ficam guardados para disparar a mudança
+    const estado = { celular: false }
+    const ouvintes: Array<() => void> = []
+    vi.stubGlobal('matchMedia', (q: string) => ({
+      get matches() { return q.includes('max-width') ? estado.celular : false },
+      addEventListener: (_: string, f: () => void) => ouvintes.push(f),
+      removeEventListener: () => {},
+    }))
     montar('/producer/dashboard')
-    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu', hidden: true }))
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
+    expect(screen.getByRole('button', { name: 'Fechar menu' })).toBeInTheDocument()
+    estado.celular = true
+    act(() => ouvintes.forEach(f => f()))
     expect(screen.queryByRole('button', { name: 'Fechar menu', hidden: true })).toBeNull()
-    expect(document.getElementById('produtor-menu')!.className).toContain('max-md:hidden')
+    estado.celular = false
+    act(() => ouvintes.forEach(f => f()))
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument()
     vi.stubGlobal('matchMedia', mediaQuery(false))
+  })
+
+  it('no celular a lateral some por classe (max-md) e o conteúdo ganha folga para a barra', () => {
+    const { container } = montar('/producer/dashboard')
+    expect(document.getElementById('produtor-menu')!.className).toContain('max-md:hidden')
+    expect(container.innerHTML).toContain('max-md:pb-[calc(var(--barra-cel,0px)+6rem)]')
   })
 })

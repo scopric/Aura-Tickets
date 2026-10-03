@@ -21,8 +21,6 @@ import { ICONE, dataCurta, eventosDaLista } from './lateralComum'
 // Lateral do produtor por escopo (fase V4a; estudos/navegacao.md §5 e prancha Navegação do protótipo v3.4).
 // Só tokens da V1; sem vidro (a prancha só põe vidro no menu flutuante do trilho, aqui um popover opaco).
 
-type Evento = DbEvent
-
 const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const toque = '[@media(pointer:coarse)]:min-h-11'
 const itemBase = cn('relative flex h-8 w-full items-center gap-2.5 rounded-ev-md px-2 text-left text-[13px] font-medium transition-colors duration-rapido motion-reduce:transition-none', foco, toque)
@@ -33,7 +31,7 @@ const itemCor = (ativo: boolean) => ativo
 const iniciais = (nome: string) => nome.trim().split(/\s+/).map(p => p[0]).filter((_, i, l) => i === 0 || i === l.length - 1).join('').toUpperCase() || '?'
 
 /** Miniatura simples da capa (a V6b troca por EventoCapa): foto http ou quadrado na cor do evento */
-function Capa({ evento, className }: { evento: Evento; className?: string }) {
+function Capa({ evento, className }: { evento: DbEvent; className?: string }) {
   return <EventoCapa evento={evento} tamanho="mini-p" className={cn('shrink-0', className)} />
 }
 
@@ -64,7 +62,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
   const [abertas, setAbertas] = useState(lerSecoes) // abertas ou fechadas à mão, por `escopo:Seção`
 
   const eventId = eventoDaUrl(pathname, search)
-  const evento: Evento | undefined = eventos.find(e => e.id === eventId)
+  const evento: DbEvent | undefined = eventos.find(e => e.id === eventId)
   const escopo: Escopo = eventId && (evento || isLoading) ? 'evento' : 'produtora'
 
   // evento aberto vira o "último evento usado" (as telas por evento começam nele)
@@ -98,7 +96,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
     )
   }
 
-  const linhaEvento = (e: Evento) => {
+  const linhaEvento = (e: DbEvent) => {
     const aviso = situacaoEvento(e) === 'Em análise'
     return (
       <Link
@@ -396,7 +394,7 @@ function AreaTrilho({ rotulo, icone: Icone, ativo, children }: { rotulo: string;
   )
 }
 
-function RailEvento({ e }: { e: Evento }) {
+function RailEvento({ e }: { e: DbEvent }) {
   return (
     <TooltipRoot>
       <TooltipTrigger asChild>

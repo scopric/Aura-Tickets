@@ -1,13 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, within, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { MemoryRouter } from 'react-router-dom'
+import { Link, MemoryRouter } from 'react-router-dom'
 import BarraCelular from '../components/producer/BarraCelular'
-import { eventoDeHoje } from '../hooks/useAoVivo'
+import { eventoEmAndamento, instanteLocal } from '../hooks/useAoVivo'
 
-const hoje = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
-const amanha = new Date(Date.now() + 86_400_000).toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
+// relógio fixo (só o Date): sexta 03/10/2026, 23:30 em Brasília
+const AGORA = '2026-10-03T23:30:00-03:00'
+const hoje = '2026-10-03'
+const amanha = '2026-10-04'
 const evento = (id: string, title: string, date: string, extra: object = {}) =>
   ({ id, title, date, time: '20:00', start_date: `${date}T20:00:00-03:00`, end_date: null, status: 'published', approval_status: 'approved', cover_image: null, ...extra })
 let eventos: ReturnType<typeof evento>[] = []
@@ -19,16 +21,21 @@ vi.mock('../lib/supabase', () => ({
   supabase: { from: () => ({ select: () => ({ eq: (...a: unknown[]) => ({ gte: (...b: unknown[]) => { consulta(a, b); return Promise.resolve({ count: 312, error: null }) } }) }) }) },
 }))
 
+afterEach(() => vi.useRealTimers())
+
 const montar = (url = '/producer/dashboard') =>
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[url]}>
+        <Link to="/producer/cupons">sair da folha</Link>
         <BarraCelular />
       </MemoryRouter>
     </QueryClientProvider>,
   )
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] })
+  vi.setSystemTime(new Date(AGORA))
   eventos = []
   consulta.mockClear()
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
@@ -89,6 +96,20 @@ describe('barra inferior do celular (V4b)', () => {
     expect(within(folha).queryByRole('link', { name: 'Cupons' })).toBeNull()
     fireEvent.change(filtro, { target: { value: 'zzz' } })
     expect(within(folha).getByText('Nenhuma tela com esse nome.')).toBeInTheDocument()
+    // Criar evento, Tema e Sair são fixos: o filtro é só de telas
+    expect(within(folha).getByRole('link', { name: 'Criar evento' })).toBeInTheDocument()
+    expect(within(folha).getByRole('radiogroup', { name: 'Tema' })).toBeInTheDocument()
+    expect(within(folha).getByRole('button', { name: 'Sair' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Buscar tela', hidden: true })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('trocar de rota por fora da folha fecha a folha', async () => {
+    montar('/producer/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    const folha = await screen.findByRole('dialog', { name: 'Menu' })
+    expect(folha).toHaveAttribute('data-state', 'open')
+    fireEvent.click(screen.getByText('sair da folha', { selector: 'a' }), { bubbles: true })
+    await waitFor(() => expect(folha).toHaveAttribute('data-state', 'closed'))
   })
 
   it('dentro de um evento a folha mostra "← Eventos", o nome e só as telas do evento (Conta continua)', async () => {
@@ -112,35 +133,53 @@ describe('barra inferior do celular (V4b)', () => {
 })
 
 describe('faixa "ao vivo" (V4b)', () => {
-  it('só no dia de um evento publicado, com a contagem de check-ins de hoje', async () => {
-    eventos = [evento('e1', 'Noite de Forró', hoje)]
+  it('com evento publicado em andamento, mostra a contagem de check-ins desde 3 h antes do início', async () => {
+    eventos = [evento('e1', 'Noite de Forró', hoje, { time: '22:00' })]
     montar()
-    const faixa = await screen.findByRole('region', { name: 'Evento de hoje' })
+    const faixa = await screen.findByRole('region', { name: 'Evento em andamento' })
     expect(faixa).toHaveTextContent('312 entraram · Noite de Forró')
     expect(within(faixa).getByRole('link', { name: 'Abrir check-in' })).toHaveAttribute('href', '/producer/checkin?eventId=e1')
-    expect(consulta).toHaveBeenCalledWith([ 'event_id', 'e1' ], [ 'checked_in_at', `${hoje}T00:00:00-03:00` ])
+    // início 22:00 em Brasília = 01:00 UTC; a contagem começa às 19:00 de lá = 22:00 UTC
+    expect(consulta).toHaveBeenCalledWith(['event_id', 'e1'], ['checked_in_at', '2026-10-03T22:00:00.000Z'])
     await waitFor(() => expect(document.body.style.getPropertyValue('--barra-cel')).toContain('124px'))
   })
 
-  it('some sem evento hoje (evento de amanhã, rascunho, em análise ou cancelado não contam)', () => {
+  it('não some à meia-noite: 01:00 do dia seguinte, evento das 22:00, a faixa continua', async () => {
+    vi.setSystemTime(new Date('2026-10-04T01:00:00-03:00'))
+    eventos = [evento('e1', 'Noite de Forró', hoje, { time: '22:00' })]
+    montar()
+    expect(await screen.findByRole('region', { name: 'Evento em andamento' })).toHaveTextContent('312 entraram')
+  })
+
+  it('festival de vários dias: vale até o end_date, depois some', async () => {
+    eventos = [evento('f1', 'Festival', '2026-10-02', { time: '18:00', end_date: '2026-10-05T03:00:00-03:00' })]
+    vi.setSystemTime(new Date('2026-10-04T15:00:00-03:00'))
+    const { unmount } = montar()
+    expect(await screen.findByRole('region', { name: 'Evento em andamento' })).toHaveTextContent('Festival')
+    unmount()
+    vi.setSystemTime(new Date('2026-10-05T04:00:00-03:00'))
+    montar()
+    expect(screen.queryByRole('region', { name: 'Evento em andamento' })).toBeNull()
+  })
+
+  it('some fora da janela (mais de 3 h antes, depois do fim) e com rascunho, em análise ou cancelado', () => {
     eventos = [
       evento('a', 'Amanhã', amanha),
+      evento('e', 'Já acabou', hoje, { time: '08:00' }), // sem end_date: acaba 12 h depois, às 20:00
       evento('b', 'Rascunho', hoje, { status: 'draft' }),
       evento('c', 'Em análise', hoje, { approval_status: 'pending' }),
       evento('d', 'Cancelado', hoje, { status: 'cancelled' }),
     ]
     montar()
-    expect(screen.queryByRole('region', { name: 'Evento de hoje' })).toBeNull()
+    expect(screen.queryByRole('region', { name: 'Evento em andamento' })).toBeNull()
     expect(consulta).not.toHaveBeenCalled()
   })
 
-  it('eventoDeHoje escolhe o mais cedo do dia e usa a data de Brasília', () => {
-    const cedo = evento('x', 'Cedo', hoje, { time: '10:00' })
-    const tarde = evento('y', 'Tarde', hoje, { time: '22:00' })
-    expect(eventoDeHoje([tarde, cedo] as never)?.id).toBe('x')
-    // 01:00 UTC do dia seguinte ainda é a noite de hoje em Brasília
-    const agora = new Date(`${amanha}T01:00:00Z`)
-    expect(eventoDeHoje([cedo] as never, agora)?.id).toBe('x')
+  it('eventoEmAndamento escolhe o de início mais perto de agora; instanteLocal usa o fuso de Brasília', () => {
+    const cedo = evento('x', 'Cedo', hoje, { time: '19:00' })
+    const tarde = evento('y', 'Tarde', hoje, { time: '23:00' })
+    expect(eventoEmAndamento([cedo, tarde] as never, new Date(AGORA))?.id).toBe('y')
+    expect(instanteLocal('2026-10-03', '22:00')).toBe(Date.parse('2026-10-03T22:00:00-03:00'))
+    expect(instanteLocal('2026-10-03')).toBe(Date.parse('2026-10-03T00:00:00-03:00'))
   })
 })
-

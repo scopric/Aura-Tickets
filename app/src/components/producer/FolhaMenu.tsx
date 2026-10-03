@@ -23,7 +23,7 @@ const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring
 const item = cn('flex min-h-12 w-full items-center gap-3 rounded-ev-lg px-3 text-left text-[15px] font-medium transition-colors duration-rapido motion-reduce:transition-none hover:bg-[var(--ev-tint-hover)]', foco)
 const ativoCls = 'bg-[var(--ev-tint-ativo)] font-semibold'
 
-const normaliza = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const normaliza = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 interface FolhaProps {
   aberta: boolean
@@ -93,21 +93,18 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
   }
 
   const secoes = SECOES.filter(s => s !== 'Topo').map(s => ({ s, itens: itensDe(s) })).filter(x => x.itens.length > 0)
-  const mostraCriar = bate('criar evento')
-  const mostraTema = bate('tema aparencia claro escuro automatico')
-  const mostraSair = bate('sair')
-  const vazio = !secoes.length && !mostraCriar && !mostraTema && !mostraSair
+  const vazio = !secoes.length
 
   return (
     <Drawer.Root open={aberta} onOpenChange={o => { if (!o) onFechar() }}>
       <Drawer.Portal>
-        <Drawer.Overlay className="fixed inset-0 z-[60] bg-[var(--ev-veu)]" />
+        <Drawer.Overlay className="fixed inset-0 z-[110] bg-[var(--ev-veu)]" />
         <Drawer.Content
           onOpenAutoFocus={e => { if (buscar) { e.preventDefault(); filtroRef.current?.focus() } }}
-          className="fixed inset-x-0 bottom-0 z-[61] flex h-[90dvh] flex-col overflow-hidden rounded-t-[20px] bg-background text-foreground shadow-ev-2 outline-none"
+          className="fixed inset-x-0 bottom-0 z-[111] flex h-[90dvh] flex-col overflow-hidden rounded-t-[20px] bg-background text-foreground shadow-ev-2 outline-none"
         >
           <div className="shrink-0 px-4 pb-3 pt-2">
-            <div aria-hidden="true" className="mx-auto mb-2 h-[5px] w-9 rounded-[3px] bg-muted-foreground/45" />
+            <Drawer.Handle className="mb-2 !h-[5px] !w-9 !bg-muted-foreground/45" />
             <div className="mb-2.5 flex items-center gap-2">
               <Drawer.Title className="flex-1 text-[17px] font-semibold leading-6">Menu</Drawer.Title>
               <Drawer.Close aria-label="Fechar" className={cn('grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground', foco)}>
@@ -145,11 +142,6 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
                 </div>
               </div>
             )}
-            {mostraCriar && (
-              <Link to={ROTA_CRIAR_EVENTO} onClick={onFechar} className={item}>
-                <I.Criar size={16} />Criar evento
-              </Link>
-            )}
             {secoes.map(({ s, itens }) => {
               const Icone = ICONE[s]
               return (
@@ -161,18 +153,20 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
                 </section>
               )
             })}
-            {mostraTema && (
-              <div className="mt-2 grid gap-2 border-t border-border px-3 pb-3 pt-3">
+            {vazio && <p className="px-3 py-4 text-sm text-muted-foreground">Nenhuma tela com esse nome.</p>}
+            {/* fixos: o filtro é só de telas */}
+            <div className="mt-2 border-t border-border pt-2">
+              <Link to={ROTA_CRIAR_EVENTO} onClick={onFechar} className={item}>
+                <I.Criar size={16} />Criar evento
+              </Link>
+              <div className="grid gap-2 px-3 py-3">
                 <span className="text-[15px] font-medium">Tema</span>
                 <ThemeToggle className="[&_[role=radiogroup]]:h-11" />
               </div>
-            )}
-            {mostraSair && (
               <button type="button" onClick={sair} className={item}>
                 <I.Sair size={16} />Sair
               </button>
-            )}
-            {vazio && <p className="px-3 py-4 text-sm text-muted-foreground">Nenhuma tela com esse nome.</p>}
+            </div>
           </div>
         </Drawer.Content>
       </Drawer.Portal>
