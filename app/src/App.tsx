@@ -16,10 +16,6 @@ import { useAuthStore, isMockSession } from './stores/authStore'
 import { Loader2 } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 
-// Layouts (pequenos, carregados estaticamente)
-import ProducerLayout from './components/ProducerLayout'
-import AdminLayout from './components/AdminLayout'
-import AppLayout from './components/AppLayout'
 import FeatureGuard from './components/FeatureGuard'
 import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent, semHash } from './lib/tracking'
@@ -29,6 +25,11 @@ import { useTwoFactor } from './hooks/useTwoFactor'
 
 // O host não muda durante a sessão do SPA
 const appMode = getAppMode()
+
+// Layouts sob demanda: o que eles importam (menu, Evo, tour) fica fora da entrada; as rotas já estão dentro de <Suspense>
+const ProducerLayout = lazy(() => import('./components/ProducerLayout'))
+const AdminLayout = lazy(() => import('./components/AdminLayout'))
+const AppLayout = lazy(() => import('./components/AppLayout'))
 
 // Public pages (lazy loaded)
 const Home = lazy(() => import('./pages/Home'))
