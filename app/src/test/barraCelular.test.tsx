@@ -160,6 +160,18 @@ describe('barra inferior do celular (V4b)', () => {
     localStorage.clear()
   })
 
+  it('foco entra na folha (Fechar) e volta ao botão Menu ao fechar pelo X', async () => {
+    montar('/producer/dashboard')
+    const menu = screen.getByRole('button', { name: 'Menu' })
+    menu.focus()
+    fireEvent.click(menu)
+    const folha = await screen.findByRole('dialog', { name: 'Menu' })
+    const fechar = within(folha).getByRole('button', { name: 'Fechar' })
+    await waitFor(() => expect(fechar).toHaveFocus())
+    fireEvent.click(fechar)
+    await waitFor(() => expect(menu).toHaveFocus())
+  })
+
   it('--barra-cel no body enquanto a barra existe (Evo e cookies sobem acima dela)', () => {
     const { unmount } = montar()
     expect(document.body.style.getPropertyValue('--barra-cel')).toContain('68px')

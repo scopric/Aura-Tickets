@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Drawer } from 'vaul'
 import { Link, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -40,6 +40,16 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
   const [fixados] = useFixados() // a mesma lista da lateral e da Visão geral
   const [busca, setBusca] = useState('')
   const filtroRef = useRef<HTMLInputElement>(null)
+  const fecharRef = useRef<HTMLButtonElement>(null)
+  const origem = useRef<HTMLElement | null>(null)
+  // foco: entra na folha (busca ou Fechar) e volta a quem abriu ao fechar, de qualquer jeito (o vaul controlado não faz sozinho)
+  useEffect(() => {
+    if (!aberta) return
+    origem.current = document.activeElement as HTMLElement | null
+    const id = requestAnimationFrame(() => (buscar ? filtroRef.current : fecharRef.current)?.focus())
+    // setTimeout: no toque fora, o mousedown do navegador põe o foco no body depois do fechamento
+    return () => { cancelAnimationFrame(id); const o = origem.current; setTimeout(() => o?.focus()) }
+  }, [aberta, buscar])
 
   const eventId = eventoDaUrl(pathname, search)
   const evento: DbEvent | undefined = eventos.find(e => e.id === eventId)
@@ -102,14 +112,15 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
       <Drawer.Portal>
         <Drawer.Overlay className="fixed inset-0 z-[110] bg-[var(--ev-veu)]" />
         <Drawer.Content
-          onOpenAutoFocus={e => { if (buscar) { e.preventDefault(); filtroRef.current?.focus() } }}
+          onOpenAutoFocus={e => e.preventDefault()}
+          onCloseAutoFocus={e => e.preventDefault()}
           className="fixed inset-x-0 bottom-0 z-[111] flex h-[90dvh] flex-col overflow-hidden rounded-t-[20px] bg-background text-foreground shadow-ev-2 outline-none"
         >
           <div className="shrink-0 px-4 pb-3 pt-2">
             <Drawer.Handle className="mb-2 !h-[5px] !w-9 !bg-muted-foreground/45" />
             <div className="mb-2.5 flex items-center gap-2">
               <Drawer.Title className="flex-1 text-[17px] font-semibold leading-6">Menu</Drawer.Title>
-              <Drawer.Close aria-label="Fechar" className={cn('grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground', foco)}>
+              <Drawer.Close ref={fecharRef} aria-label="Fechar" className={cn('grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground', foco)}>
                 <I.Fechar size={16} />
               </Drawer.Close>
             </div>
