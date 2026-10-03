@@ -488,9 +488,9 @@
 @layer utilities {
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
-  .perspective-1000 { perspective: 1000px; }
-  /* Archivo largura 112 (contrato v3.4, 3.1): o Tailwind 3 não tem utilidade de font-stretch */
+  /* nome do evento em Archivo larga (contrato v3.4, §3): junto de font-display font-extrabold */
   .wide { font-stretch: 112%; }
+  .perspective-1000 { perspective: 1000px; }
 
   /* Sobrescreve as classes de fundo claro do Tailwind quando o tema for escuro (.dark) */
   .dark .bg-white\/60 {

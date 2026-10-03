@@ -7,6 +7,7 @@ export default defineConfig(() => {
   return {
     base: '/',
     plugins: [react()],
+    optimizeDeps: { include: ['vaul'] }, // sem isto o dev recarrega a página ao achar o vaul ("new dependencies optimized")
     server: {
       port: 3000,
       strictPort: false,

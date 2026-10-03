@@ -1,12 +1,18 @@
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { appUrl } from '../lib/appHost'
+import { rotaForcadaEscuro } from '../lib/tema'
 import { ArrowUpRight, Loader2 } from 'lucide-react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
 
 // Fundo escuro fixo em qualquer tema: o texto tem de ser fixo também (text-white/NN e text-cream mudam no tema claro e davam 2,66:1)
+// Decisão 142: a troca de tema das páginas públicas fica no rodapé. Decisão 144: o tema é por área, e só as rotas de
+// ROTAS_COM_TEMA o seguem; nas outras (a Home e as forçadas no escuro) o seletor não aparece e este pedaço nem baixa
+const ThemeToggle = lazy(() => import('./ThemeToggle'))
+
 export default function Footer() {
+  const { pathname } = useLocation()
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -163,6 +169,16 @@ export default function Footer() {
             </button>
           </div>
         </div>
+
+        {/* o rodapé é escuro nos dois temas: o seletor também (a classe dark refaz as cores só dentro dele) */}
+        {!rotaForcadaEscuro(pathname) && (
+          <div className="dark mt-8 max-w-xs">
+            <p className="mb-2 text-xs font-medium uppercase tracking-widest text-slate-400">Aparência</p>
+            <Suspense fallback={<div className="h-8" />}>
+              <ThemeToggle />
+            </Suspense>
+          </div>
+        )}
       </div>
     </footer>
   )

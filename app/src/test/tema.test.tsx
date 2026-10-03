@@ -6,7 +6,11 @@ import { render, screen, fireEvent, act } from '@testing-library/react'
 import { MemoryRouter, useNavigate } from 'react-router-dom'
 import { ThemeProvider, useTheme } from '../contexts/ThemeContext'
 import ThemeToggle from '../components/ThemeToggle'
+import Footer from '../components/Footer'
 import { ROTAS_COM_TEMA, rotaForcadaEscuro, temaPadrao } from '../lib/tema'
+
+// o rodapé importa o cliente do banco; aqui ele não é usado
+vi.mock('../lib/supabase', () => ({ supabase: {} }))
 
 const html = readFileSync(resolve(__dirname, '../../index.html'), 'utf8')
 const vercel = JSON.parse(readFileSync(resolve(__dirname, '../../vercel.json'), 'utf8'))
@@ -132,7 +136,7 @@ describe('ThemeContext: 3 estados', () => {
   it('raiz "/" só é forçada no escuro no site; em app.* e alpha.* ela redireciona', () => {
     for (const h of ['www.evokaa.com.br', 'evokaa.com.br', 'localhost']) expect(rotaForcadaEscuro('/', h)).toBe(true)
     for (const h of ['app.evokaa.com.br', 'alpha.evokaa.com.br', 'app.localhost', 'alpha.localhost']) expect(rotaForcadaEscuro('/', h)).toBe(false)
-    expect(rotaForcadaEscuro('/events', 'app.evokaa.com.br')).toBe(true)
+    expect(rotaForcadaEscuro('/contato', 'app.evokaa.com.br')).toBe(true)
     expect(rotaForcadaEscuro('/producer/lugar-marcado', 'www.evokaa.com.br')).toBe(false)
   })
 
@@ -150,8 +154,22 @@ describe('ThemeContext: 3 estados', () => {
   it('rota pública ainda não refeita fica no escuro, mesmo com claro escolhido', () => {
     aparelho(false)
     localStorage.setItem('evokaa-theme', 'light')
+    for (const rota of ['/', '/contato']) {
+      const { unmount } = montar(rota)
+      expect(screen.getByTestId('resolvido').textContent, rota).toBe('dark')
+      unmount()
+    }
+  })
+
+  it('Explorar (/events, V11b) já segue o tema escolhido; sem escolha, começa no escuro', () => {
+    aparelho(false)
+    const { unmount } = montar('/events')
+    expect(screen.getByTestId('tema').textContent).toBe('dark')
+    unmount()
+    localStorage.setItem('evokaa-theme', 'light')
     montar('/events')
-    expect(screen.getByTestId('resolvido').textContent).toBe('dark')
+    expect(screen.getByTestId('resolvido').textContent).toBe('light')
+    expect(classeHtml()).toBe('light')
   })
 })
 
@@ -193,6 +211,23 @@ describe('ThemeToggle', () => {
   })
 })
 
+describe('Rodapé público (Decisão 142)', () => {
+  it('Explorar mostra a troca de tema no rodapé', async () => {
+    aparelho(false)
+    montar('/events', <Footer />)
+    expect(await screen.findByRole('radiogroup', { name: 'Tema' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('radio', { name: 'Claro' }))
+    expect(classeHtml()).toBe('light')
+  })
+
+  it.each(['/', '/contato'])('%s (forçada no escuro) não mostra a troca', async rota => {
+    aparelho(false)
+    montar(rota, <Footer />)
+    expect(screen.queryByText('Aparência')).not.toBeInTheDocument()
+    expect(screen.queryByRole('radiogroup', { name: 'Tema' })).not.toBeInTheDocument()
+  })
+})
+
 describe('script contra a piscada (index.html)', () => {
   it('há um único script embutido', () => {
     expect(scripts).toHaveLength(1)
@@ -208,7 +243,7 @@ describe('script contra a piscada (index.html)', () => {
     let casos = 0
     for (const salvo of [null, 'auto', 'light', 'dark', 'roxo'])
       for (const escuro of [true, false])
-        for (const rota of ['/', '/producer', '/producer/lugar-marcado', '/app/tickets', '/admin/users', '/auth/login', '/checkout', '/checkout/payment', '/event/abc', '/events'])
+        for (const rota of ['/', '/producer', '/producer/lugar-marcado', '/app/tickets', '/admin/users', '/auth/login', '/checkout', '/checkout/payment', '/event/abc', '/events', '/contato'])
           for (const host of ['www.evokaa.com.br', 'app.evokaa.com.br', 'alpha.evokaa.com.br', 'app.localhost', 'localhost']) {
             aparelho(escuro)
             localStorage.clear()
@@ -222,7 +257,7 @@ describe('script contra a piscada (index.html)', () => {
             expect(corDaBarra()).toBe(esperado === 'dark' ? '#0b0d12' : '#ffffff')
             casos++
           }
-    expect(casos).toBe(500)
+    expect(casos).toBe(550)
   })
 
   it('o hash na CSP do vercel.json bate com o script', () => {

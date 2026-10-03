@@ -1,240 +1,314 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { supabase } from '../lib/supabase'
-import { Search, Calendar, MapPin, ArrowRight, Loader2 } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { supabase } from '../lib/supabase'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import EventoCapa from '../components/EventoCapa'
+import { temFoto } from '../lib/corEvento'
+import { brl, TAXA_MINIMA, TAXA_PERCENTUAL } from '../lib/taxa'
+import { cn } from '../lib/utils'
+import {
+  agruparPorDia, aPartirDe, categoriasDoCatalogo, cidadesDoCatalogo, ordenarPorData, passa, rotuloDia,
+  type EventoCatalogo, type Filtros,
+} from '../lib/explorar'
+import { diaBR, horaCurta } from '../lib/visaoEvento'
 
-const CATEGORIES = ['Todos', 'Festa', 'Corporativo', 'Workshop', 'Show', 'Palestra', 'Networking', 'Gastronomia', 'Esporte']
+// Folha de cidade: o Vaul só baixa na primeira vez que a pessoa abre
+const FolhaCidade = lazy(() => import('../components/FolhaCidade'))
+
+const QUANDO = { hoje: 'Hoje', fds: 'Fim de semana' } as const
+const QUANDO_FRASE = { hoje: 'hoje', fds: 'neste fim de semana' } as const
+const FILTRO_VAZIO: Filtros = { cidade: null, quando: '', categoria: null, busca: '' }
+
+function Chip({ marcado, onClick, children }: { marcado: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={marcado}
+      onClick={onClick}
+      className={cn(
+        'h-10 flex-none whitespace-nowrap rounded-ev-pill px-4 text-sm transition-colors duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none',
+        marcado
+          ? 'bg-[var(--ev-brand-soft)] font-semibold text-primary'
+          : 'font-medium text-foreground shadow-[inset_0_0_0_1px_hsl(var(--input))] hover:bg-[var(--ev-tint-hover)] active:bg-[var(--ev-tint-press)]'
+      )}
+    >
+      {children}
+    </button>
+  )
+}
+
+// "a partir de R$ 88,00 com taxa", "Gratuito" ou nada (sem ingresso cadastrado, não afirmamos preço)
+function Preco({ evento }: { evento: EventoCatalogo }) {
+  const p = aPartirDe(evento)
+  if (p === null) return null
+  if (p === 0) return <>Gratuito</>
+  return (
+    <>
+      a partir de <span className="whitespace-nowrap"><span className="font-display text-sm font-semibold tabular-nums">{brl(p)}</span> com taxa</span>
+    </>
+  )
+}
+
+const hojeSP = () => diaBR(Date.now())
+const linhaLocal = (e: EventoCatalogo) => [horaCurta(e.time), e.venue_name || e.venue_city || 'Local a definir'].filter(Boolean).join(' · ')
 
 export default function EventsBrowse() {
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('Todos')
-  const [dateFilter, setDateFilter] = useState('Todos') // 'Todos', 'hoje', 'fim-de-semana', 'mes', 'especifica', 'periodo'
-  const [specificDate, setSpecificDate] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [filtros, setFiltros] = useState<Filtros>(FILTRO_VAZIO)
+  const [folha, setFolha] = useState(false)
+  const [folhaPedida, setFolhaPedida] = useState(false)
+  const hoje = hojeSP() // a cada renderização: rótulo, filtro e consulta concordam depois da meia-noite
+  const muda = (p: Partial<Filtros>) => setFiltros(f => ({ ...f, ...p }))
 
-  const { data: events = [], isLoading } = useQuery({
-    queryKey: ['browse-events', category, dateFilter, search, specificDate, startDate, endDate],
+  // ponytail: traz todos os publicados de uma vez e filtra no navegador (a folha de cidade e os chips precisam do
+  // conjunto inteiro). Passou de ~1000 eventos (limite do PostgREST), paginar ou filtrar no banco.
+  const { data: catalogo = [], isLoading, isError, refetch } = useQuery({
+    queryKey: ['explorar-eventos', hoje],
     queryFn: async () => {
-      const todayStr = new Date().toISOString().split('T')[0]
-      let query = supabase
+      const { data, error } = await supabase
         .from('events')
         .select('*, ticket_types (*)')
         .eq('status', 'published')
         .eq('approval_status', 'approved')
-        .gte('date', todayStr)
-
-      if (category !== 'Todos') {
-        query = query.eq('category', category)
-      }
-
-      // vírgula, parênteses, aspas e barra invertida quebram a sintaxe do .or() do PostgREST (% * _ são curingas do ilike):
-      // viram separadores, e as palavras se juntam com % ("Tardizinha, Bora" acha "Tardizinha Bora Dançar")
-      const termo = search.split(/[\s,()"\\%*_:]+/).filter(Boolean).join('%')
-      if (termo) {
-        query = query.or(`title.ilike.%${termo}%,description.ilike.%${termo}%,venue_name.ilike.%${termo}%`)
-      }
-
-      const { data, error } = await query.order('date', { ascending: true })
+        .gte('date', hoje)
+        .order('date', { ascending: true })
       if (error) throw error
-
-      // Filtro de data local para maior flexibilidade
-      return (data || []).map((evt: any) => ({
-        ...evt,
-        ticket_types: (evt.ticket_types || []).map((t: any) => ({
-          ...t,
-          price: Number(t.price) || 0
-        }))
-      })).filter(evt => {
-        if (dateFilter === 'Todos') return true
-        if (!evt.date) return false
-
-        const evtDate = new Date(evt.date + 'T00:00:00')
-        const now = new Date()
-        now.setHours(0, 0, 0, 0)
-        
-        if (dateFilter === 'hoje') {
-          return evt.date === now.toISOString().split('T')[0]
-        }
-        
-        if (dateFilter === 'fim-de-semana') {
-          const nextSunday = new Date(now)
-          nextSunday.setDate(now.getDate() + (7 - now.getDay()) % 7)
-          const prevFriday = new Date(nextSunday)
-          prevFriday.setDate(nextSunday.getDate() - 2)
-          return evtDate >= prevFriday && evtDate <= nextSunday
-        }
-
-        if (dateFilter === 'mes') {
-          return evtDate.getMonth() === now.getMonth() && evtDate.getFullYear() === now.getFullYear()
-        }
-
-        if (dateFilter === 'especifica' && specificDate) {
-          return evt.date === specificDate
-        }
-
-        if (dateFilter === 'periodo' && startDate) {
-          const start = new Date(startDate + 'T00:00:00')
-          const end = endDate ? new Date(endDate + 'T23:59:59') : null
-          if (end) {
-            return evtDate >= start && evtDate <= end
-          }
-          return evtDate >= start
-        }
-
-        return true
-      })
-    }
+      return (data ?? []) as EventoCatalogo[]
+    },
+    select: ordenarPorData,
   })
 
+  const cidades = cidadesDoCatalogo(catalogo)
+  const categorias = categoriasDoCatalogo(catalogo)
+  const visiveis = catalogo.filter(e => passa(e, filtros, hoje))
+  const grupos = agruparPorDia(visiveis, hoje)
+  // Destaque: o marcado (featured_carousel) mais próximo, senão o primeiro; com um só evento, só a lista. Como na prancha,
+  // o evento em destaque continua na lista do dia.
+  const destaque = visiveis.length > 1 ? (visiveis.find(e => e.featured_carousel) ?? visiveis[0]) : undefined
+
+  const temFiltro = !!(filtros.cidade || filtros.quando || filtros.categoria || filtros.busca.trim())
+  const nomeCidade = cidades.find(c => c.chave === filtros.cidade)?.nome
+  const nomeCategoria = categorias.find(c => c.chave === filtros.categoria)?.nome
+
+  // Vazio: a frase fala do primeiro filtro (busca, data, categoria, cidade) que, tirado, traz eventos de volta
+  function vazio() {
+    const ativos = (['busca', 'quando', 'categoria', 'cidade'] as const).filter(k => (k === 'busca' ? filtros.busca.trim() : filtros[k]))
+    const culpado = ativos.find(k => catalogo.some(e => passa(e, filtros, hoje, k))) ?? ativos[0]
+    const emCidade = nomeCidade ? ` em ${nomeCidade}` : ''
+    if (culpado === 'busca') return { frase: `Nada para “${filtros.busca.trim()}”.`, apoio: 'Confira a grafia ou busque pelo local, pela cidade ou pelo tipo de evento.', botao: 'Limpar busca', acao: () => muda({ busca: '' }) }
+    if (culpado === 'categoria') return { frase: `Nada de ${nomeCategoria}${filtros.quando ? ' ' + QUANDO_FRASE[filtros.quando] : ''}${emCidade}.`, apoio: '', botao: 'Ver todas as categorias', acao: () => muda({ categoria: null }) }
+    if (culpado === 'quando') {
+      const prox = catalogo.find(e => passa(e, filtros, hoje, 'quando'))
+      return {
+        frase: `Nada ${nomeCategoria ? `de ${nomeCategoria} ` : ''}${QUANDO_FRASE[filtros.quando as 'hoje' | 'fds']}${emCidade}.`,
+        apoio: prox?.date ? `O próximo é ${prox.title}, ${rotuloDia(prox.date, hoje).curto}.` : '',
+        botao: 'Ver todas as datas',
+        acao: () => muda({ quando: '' }),
+      }
+    }
+    if (culpado === 'cidade') return { frase: `Ainda não tem evento publicado em ${nomeCidade}.`, apoio: 'Quando sair o primeiro, ele aparece aqui.', botao: 'Ver todas as cidades', acao: () => muda({ cidade: null }) }
+    return { frase: 'Ainda não tem evento publicado.', apoio: 'Quando sair o primeiro, ele aparece aqui.', botao: '', acao: () => {} }
+  }
+
   return (
-    <div className="min-h-screen bg-canvas pt-28 pb-20">
-      <div className="max-w-6xl mx-auto px-6">
-        <div className="mb-12">
-          <h1 className="font-serif text-4xl text-espresso">Catálogo de <em className="text-rose-500">Eventos</em></h1>
-          <p className="text-sm text-espresso/70 mt-1">Explore e garanta seu ingresso para as melhores experiências da plataforma</p>
-        </div>
+    <div className="min-h-screen bg-background pb-24 pt-24 text-foreground">
+      <div className="mx-auto max-w-6xl px-5 lg:px-8">
+        <h1 className="text-2xl font-semibold tracking-[-0.015em]">Explorar</h1>
 
-        {/* Barra de Busca e Filtros */}
-        <div className="flex flex-col gap-4 mb-8">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-espresso/30" />
-              <input
-                type="text"
-                placeholder="Buscar por nome, atração ou cidade..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 transition-all text-espresso placeholder:text-espresso/70"
-              />
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-2">
-              <select
-                value={dateFilter}
-                onChange={e => {
-                  setDateFilter(e.target.value)
-                  if (e.target.value !== 'especifica') setSpecificDate('')
-                  if (e.target.value !== 'periodo') {
-                    setStartDate('')
-                    setEndDate('')
-                  }
-                }}
-                className="px-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 text-espresso/80 font-medium cursor-pointer"
-                aria-label="Filtrar por data"
-              >
-                <option value="Todos">Todas as Datas</option>
-                <option value="hoje">Hoje</option>
-                <option value="fim-de-semana">Este Fim de Semana</option>
-                <option value="mes">Este Mês</option>
-                <option value="especifica">Escolher Dia Específico...</option>
-                <option value="periodo">Escolher Período...</option>
-              </select>
+        {cidades.length > 0 && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            onClick={() => { setFolhaPedida(true); setFolha(true) }}
+            className="-ml-2 mt-1 flex h-11 items-center gap-1 rounded-ev-lg px-2 text-[15px] font-semibold hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:shadow-ev-foco"
+          >
+            <span className="sr-only">Cidade: </span>
+            {nomeCidade ?? 'Todas as cidades'}
+            <I.ChevronBaixo size={16} className="text-muted-foreground" />
+          </button>
+        )}
 
-              {/* Data específica input */}
-              {dateFilter === 'especifica' && (
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={specificDate}
-                    onChange={e => setSpecificDate(e.target.value)}
-                    className="px-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 text-espresso/80 font-medium"
-                    aria-label="Selecionar data específica"
-                  />
-                </div>
-              )}
-
-              {/* Período de datas inputs */}
-              {dateFilter === 'periodo' && (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={e => setStartDate(e.target.value)}
-                    placeholder="Início"
-                    className="px-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 text-espresso/80 font-medium"
-                    aria-label="Data inicial"
-                  />
-                  <span className="text-xs text-espresso/70">até</span>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={e => setEndDate(e.target.value)}
-                    placeholder="Fim"
-                    className="px-4 py-3 bg-white/60 border border-white/80 rounded-2xl text-sm focus:outline-none focus:border-rose-500/30 text-espresso/80 font-medium"
-                    aria-label="Data final"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Categorias rápidas */}
-        <div className="flex gap-2 overflow-x-auto pb-4 mb-10 scrollbar-thin">
-          {CATEGORIES.map(cat => (
+        <form role="search" onSubmit={e => e.preventDefault()} className="relative mt-2 max-w-xl">
+          <label className="relative block">
+            <span className="sr-only">Buscar evento, local ou cidade</span>
+            <I.Buscar size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground" />
+            <Input
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              placeholder="Evento, local ou cidade"
+              value={filtros.busca}
+              onChange={e => muda({ busca: e.target.value })}
+              className="h-11 rounded-ev-lg bg-card pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden"
+            />
+          </label>
+          {filtros.busca && (
             <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              className={`px-4 py-2 rounded-full text-xs font-semibold whitespace-nowrap border transition-all ${
-                category === cat
-                  ? 'bg-rose-600 text-white border-rose-600'
-                  : 'bg-white/40 border-white/60 text-espresso/70 hover:border-rose-500/20 hover:text-rose-500'
-              }`}
+              type="button"
+              aria-label="Limpar busca"
+              onClick={() => muda({ busca: '' })}
+              className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-ev-lg text-muted-foreground focus-visible:outline-none focus-visible:shadow-ev-foco"
             >
-              {cat}
+              <I.Fechar size={16} />
             </button>
-          ))}
-        </div>
+          )}
+        </form>
+      </div>
 
-        {/* Resultados */}
+      <div role="group" aria-label="Filtros" className="mx-auto mt-3 flex max-w-6xl items-center gap-2 overflow-x-auto px-5 py-1 [scrollbar-width:none] lg:px-8 [&::-webkit-scrollbar]:hidden">
+        {(Object.keys(QUANDO) as (keyof typeof QUANDO)[]).map(k => (
+          <Chip key={k} marcado={filtros.quando === k} onClick={() => muda({ quando: filtros.quando === k ? '' : k })}>{QUANDO[k]}</Chip>
+        ))}
+        {categorias.length > 0 && <span aria-hidden="true" className="mx-1 h-6 w-px flex-none bg-border" />}
+        {categorias.map(c => (
+          <Chip key={c.chave} marcado={filtros.categoria === c.chave} onClick={() => muda({ categoria: filtros.categoria === c.chave ? null : c.chave })}>{c.nome}</Chip>
+        ))}
+      </div>
+
+      <div className="mx-auto max-w-6xl px-5 lg:px-8">
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="h-80 bg-white/40 border border-white/60 rounded-3xl animate-pulse" />
-            ))}
-          </div>
-        ) : events.length === 0 ? (
-          <div className="text-center py-20 bg-white/30 border border-dashed border-white/60 rounded-3xl">
-            <p className="text-sm text-espresso/70">Nenhum evento publicado para estes filtros.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {events.map(evt => (
-              <div key={evt.id} className="bg-white/50 border border-white/60 rounded-3xl overflow-hidden hover:-translate-y-1 transition-all duration-300 flex flex-col group shadow-sm">
-                <div className="h-44 overflow-hidden relative">
-                  <img src={evt.cover_image || '/images/hero-bg.jpg'} alt={evt.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <span className="absolute top-4 left-4 px-2.5 py-1 bg-white/80 backdrop-blur-md rounded-full text-[10px] font-bold text-rose-500 uppercase tracking-wider">
-                    {evt.category || 'Geral'}
-                  </span>
-                </div>
-                
-                <div className="p-6 flex-1 flex flex-col">
-                  <h3 className="font-serif text-lg text-espresso mb-2 line-clamp-1">{evt.title}</h3>
-                  <p className="text-xs text-espresso/70 mb-4 line-clamp-2 flex-1">{evt.short_description || evt.description}</p>
-                  
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center gap-2 text-xs text-espresso/70">
-                      <Calendar className="w-3.5 h-3.5 text-rose-400" />
-                      {evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' }) : 'A combinar'}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-espresso/70">
-                      <MapPin className="w-3.5 h-3.5 text-rose-400" />
-                      {evt.venue_name || 'Local não definido'}
-                    </div>
+          <div aria-busy="true" className="mt-4 lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-10 motion-reduce:[&_[data-slot=skeleton]]:animate-none">
+            <div>
+              <Skeleton className="h-3.5 w-24" />
+              <Skeleton className="mt-3 aspect-[4/5] w-full max-w-[360px] rounded-ev-xl" />
+              <Skeleton className="mt-3.5 h-[22px] w-44" />
+              <Skeleton className="mt-2 h-3.5 w-60" />
+            </div>
+            <div>
+              {[1, 2, 3].map(k => (
+                <div key={k} className="mt-6 flex gap-3">
+                  <Skeleton className="h-14 w-12 flex-none rounded-ev-lg" />
+                  <Skeleton className="h-[120px] w-24 flex-none rounded-ev-md" />
+                  <div className="flex-1 pt-1">
+                    <Skeleton className="h-4 w-[90%]" />
+                    <Skeleton className="mt-1.5 h-4 w-[60%]" />
+                    <Skeleton className="mt-3.5 h-3 w-[75%]" />
                   </div>
-
-                  <Link to={`/event/${evt.id}`} className="w-full flex items-center justify-between px-5 py-2.5 border border-rose-500/10 text-rose-500 text-xs font-semibold rounded-2xl hover:bg-rose-500 hover:text-white transition-all">
-                    <span>Ver Ingressos</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
                 </div>
+              ))}
+            </div>
+            <span className="sr-only" role="status">Carregando eventos</span>
+          </div>
+        ) : isError ? (
+          <div role="alert" className="mt-10 flex max-w-sm flex-col items-start gap-3">
+            <p className="text-lg font-semibold">Não deu para carregar os eventos.</p>
+            <p className="text-[15px] text-muted-foreground">Confira a conexão e tente de novo.</p>
+            <Button variant="outline" size="lg" onClick={() => refetch()}>Tentar de novo</Button>
+          </div>
+        ) : visiveis.length === 0 ? (
+          (() => {
+            const v = vazio()
+            return (
+              <div role="status" className="mx-auto mt-10 flex max-w-sm flex-col items-center px-4 text-center">
+                <img src="/evo/evo-corpo-celular.webp" alt="" width={76} height={132} className="h-[132px] w-auto" />
+                <p className="mt-4 text-pretty text-lg font-semibold leading-6">{v.frase}</p>
+                {v.apoio && <p className="mt-1.5 text-pretty text-[15px] leading-[22px] text-muted-foreground">{v.apoio}</p>}
+                {v.botao && <Button variant="outline" size="lg" className="mt-5" onClick={v.acao}>{v.botao}</Button>}
               </div>
-            ))}
+            )
+          })()
+        ) : (
+          <div className={cn('lg:mt-2', destaque && 'lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-10')}>
+            {destaque && (
+              <section aria-labelledby="t-destaque" className="mt-4 lg:sticky lg:top-24">
+                <h2 id="t-destaque" className="mb-3 text-[15px] font-semibold">Em destaque</h2>
+                <Link
+                  to={`/event/${destaque.id}`}
+                  className="block max-w-[360px] rounded-ev-xl focus-visible:outline-none focus-visible:shadow-ev-foco"
+                >
+                  <span className="relative block">
+                    <EventoCapa evento={destaque} tamanho="cartao" />
+                    {(temFoto(destaque.cover_image) || temFoto(destaque.image_url)) && (
+                      <span aria-hidden="true" className="wide absolute left-3 top-3 rounded-ev-sm bg-[#0b0d12] px-2 py-1 font-display text-[13px] font-extrabold uppercase leading-4 tracking-[0.02em] text-white">
+                        {rotuloDia(destaque.date!, hoje).curto}
+                      </span>
+                    )}
+                  </span>
+                  <span className="wide mt-3 block font-display text-2xl font-extrabold leading-7 tracking-[-0.015em]">{destaque.title}</span>
+                  <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">
+                    {rotuloDia(destaque.date!, hoje).curto} · {linhaLocal(destaque)}
+                  </span>
+                  <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={destaque} /></span>
+                </Link>
+              </section>
+            )}
+
+            <section aria-labelledby="t-lista" className="min-w-0">
+              <div className="mt-7 flex items-baseline justify-between lg:mt-4">
+                <h2 id="t-lista" aria-live="polite" className="text-[15px] font-semibold">
+                  {visiveis.length === 1 ? '1 evento' : `${visiveis.length} eventos`}
+                </h2>
+                {temFiltro && (
+                  <Button variant="ghost" size="sm" className="-mr-2 text-primary" onClick={() => setFiltros(FILTRO_VAZIO)}>Limpar filtros</Button>
+                )}
+              </div>
+
+              {grupos.map(g => (
+                <div key={g.data}>
+                  {g.novoMes && (
+                    <h3 className="-mb-2 mt-7 flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground after:h-px after:flex-1 after:bg-border after:content-['']">
+                      {g.rotulo.mesNome}
+                    </h3>
+                  )}
+                  <section aria-labelledby={`dia-${g.data}`} className="mt-6 flex gap-3">
+                    <div
+                      aria-hidden="true"
+                      className={cn(
+                        'sticky top-24 flex h-14 w-12 flex-none flex-col items-center justify-center gap-px self-start rounded-ev-lg',
+                        g.rotulo.hoje ? 'bg-[var(--ev-warm)] text-[#0b0d12]' : 'bg-secondary'
+                      )}
+                    >
+                      <span className={cn('text-[10px] font-semibold uppercase leading-[14px] tracking-[0.04em]', g.rotulo.hoje ? 'text-[#0b0d12]' : 'text-muted-foreground')}>{g.rotulo.sem}</span>
+                      <span className="font-display text-[22px] font-semibold leading-6 tracking-[-0.01em] tabular-nums">{g.rotulo.dia}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <h4 id={`dia-${g.data}`} className="sr-only">{g.rotulo.cabecalho}</h4>
+                      <ul className="divide-y divide-border sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0">
+                        {g.eventos.map(e => (
+                          <li key={e.id} className="py-4 first:pt-0 last:pb-0 sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3">
+                            <Link to={`/event/${e.id}`} className="group flex gap-3 rounded-ev-lg focus-visible:outline-none focus-visible:shadow-ev-foco">
+                              <span aria-hidden="true" className="block w-24 flex-none transition-transform duration-micro ease-sai group-active:scale-[.98] motion-reduce:transform-none">
+                                <EventoCapa evento={e} tamanho="cartao" />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                {e.category && <span className="block text-xs font-medium leading-4 text-muted-foreground">{e.category}</span>}
+                                <span className="mt-0.5 line-clamp-2 block text-base font-semibold leading-[22px]">{e.title}</span>
+                                <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">{linhaLocal(e)}</span>
+                                <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={e} /></span>
+                              </span>
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                </div>
+              ))}
+
+              <p className="mt-6 text-xs leading-4 text-muted-foreground">
+                Preços já com a taxa de serviço ({TAXA_PERCENTUAL}%, mínimo de {brl(TAXA_MINIMA)} por ingresso). A página do evento mostra o valor do ingresso e a taxa separados.
+              </p>
+            </section>
           </div>
         )}
       </div>
+
+      {folhaPedida && (
+        <Suspense fallback={null}>
+          <FolhaCidade
+            aberta={folha}
+            onAbrir={setFolha}
+            cidades={cidades}
+            total={catalogo.length}
+            atual={filtros.cidade}
+            onEscolher={chave => { muda({ cidade: chave }); setFolha(false) }}
+          />
+        </Suspense>
+      )}
     </div>
   )
 }

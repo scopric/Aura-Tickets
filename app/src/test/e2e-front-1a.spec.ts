@@ -8,7 +8,7 @@ test.describe('Front 1A — navegação e barra do carrinho', () => {
     if (await menu.isVisible()) await menu.click() // celular: o menu fica atrás do botão
     await page.getByRole('link', { name: 'Eventos' }).filter({ visible: true }).first().click()
     await expect(page).toHaveURL(/\/events$/)
-    await expect(page.getByRole('heading', { name: /Catálogo de Eventos/ })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Explorar' })).toBeVisible()
   })
 
   test('barra "Finalizar" é clicável com o aviso de cookies aberto', async ({ page }) => {
