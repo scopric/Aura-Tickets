@@ -234,6 +234,15 @@ describe('IngressosDoEvento', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('fechar o QR ampliado devolve o foco ao botão que o abriu', async () => {
+    render(tela(1, { abrirNoQr: true }))
+    const ampliar = screen.getByRole('button', { name: /Ampliar o QR/ })
+    ampliar.focus()
+    fireEvent.click(ampliar)
+    fireEvent.click(await screen.findByRole('button', { name: /Fechar/ }))
+    await waitFor(() => expect(ampliar).toHaveFocus())
+  })
+
   it('Wake Lock recusado pelo aparelho não quebra', async () => {
     const request = vi.fn(() => Promise.reject(new Error('NotAllowedError')))
     Object.defineProperty(navigator, 'wakeLock', { value: { request }, configurable: true })

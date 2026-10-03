@@ -23,16 +23,24 @@ const rotulo = 'text-[11px] font-semibold uppercase leading-[14px] tracking-[0.0
 // 17 px abaixo de 380 px: "Qua, 30 set · 22h30 · Em 120 dias" cabe em 320 px
 const valor = 'font-display text-[17px] font-semibold leading-6 tabular-nums min-[380px]:text-[20px]'
 
+// Diálogos abertos por estado (sem Dialog.Trigger): o Radix não sabe para onde devolver o foco; guardamos quem abriu.
+// setTimeout: no toque fora, o mousedown do navegador põe o foco no body depois do fechamento.
+function useFocoDeVolta() {
+  const origem = useRef(document.activeElement as HTMLElement | null)
+  return (e: Event) => { e.preventDefault(); const o = origem.current; setTimeout(() => o?.focus()) }
+}
+
 // ---- QR ampliado: tela branca inteira, tela acesa (Wake Lock). O QR é o mesmo de sempre (TicketQRCode). ----------
 function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFechar: () => void }) {
   const { temaResolvido } = useTheme()
   const acesa = useTelaAcesa(true)
+  const devolverFoco = useFocoDeVolta()
   const quando = [dataCurta(evento.date), horaCurta(evento.time)].filter(Boolean).join(' · ')
   return (
     <Dialog.Root open onOpenChange={aberto => { if (!aberto) aoFechar() }}>
       <Dialog.Portal>
         {/* fundo branco puro nos dois temas: é o que dá o maior contraste para o leitor da portaria */}
-        <Dialog.Content className="fixed inset-0 z-[70] flex flex-col items-center overflow-y-auto bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-14 text-center text-[#0b0d12] outline-none">
+        <Dialog.Content onCloseAutoFocus={devolverFoco} className="fixed inset-0 z-[70] flex flex-col items-center overflow-y-auto bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-14 text-center text-[#0b0d12] outline-none">
           <p className="text-sm font-medium text-[#5b6472]">{quando}</p>
           <Dialog.Title className="mt-1 font-display text-[22px] font-extrabold leading-6 wide">{evento.title}</Dialog.Title>
           <TicketQRCode code={t.code} size={320} className="mt-7 h-auto w-full max-w-[320px]" />
@@ -63,11 +71,12 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
     ['Comprado em', t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR') : null],
     ['Local', enderecoDoEvento(evento) || null],
   ]
+  const devolverFoco = useFocoDeVolta()
   return (
     <Dialog.Root open onOpenChange={aberto => { if (!aberto) aoFechar() }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[60] bg-[rgb(11_13_18/0.45)] motion-safe:animate-in motion-safe:fade-in-0" />
-        <Dialog.Content className="fixed inset-x-0 bottom-0 z-[61] mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-[20px] bg-card px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-5 text-card-foreground shadow-ev-2 outline-none">
+        <Dialog.Content onCloseAutoFocus={devolverFoco} className="fixed inset-x-0 bottom-0 z-[61] mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-[20px] bg-card px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-5 text-card-foreground shadow-ev-2 outline-none">
           <div className="flex items-center justify-between">
             <Dialog.Title className="text-xl font-semibold leading-7">Detalhes do ingresso</Dialog.Title>
             <Dialog.Close asChild><Button variant="ghost" size="icon" aria-label="Fechar"><Fechar aria-hidden="true" /></Button></Dialog.Close>
