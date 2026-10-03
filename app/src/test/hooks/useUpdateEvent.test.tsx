@@ -46,12 +46,12 @@ describe('useUpdateEvent grava só o que a tela mandou', () => {
 })
 
 // Ingressos: existente vai por update sem type/is_active; novo vai por insert.
-async function salvaIngressos(tickets: Record<string, unknown>[], linhasDoUpdate = [{ id: 'a' }]) {
+async function salvaIngressos(tickets: Record<string, unknown>[], linhasDoUpdate = [{ id: 'a' }], erroLeitura: unknown = null) {
   const update = vi.fn((_: Record<string, unknown>) => ({ eq: () => ({ eq: () => ({ select: () => Promise.resolve({ data: linhasDoUpdate, error: null }) }) }) }))
   const insert = vi.fn((_: Record<string, unknown>[]) => Promise.resolve({ error: null }))
   vi.mocked(supabase.from).mockImplementation(((tabela: string) => tabela === 'events'
     ? { update: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'e1' }, error: null }) }) }) }) }
-    : { select: () => ({ eq: () => Promise.resolve({ data: [{ id: 'a' }], error: null }) }), update, insert }) as any)
+    : { select: () => ({ eq: () => Promise.resolve({ data: erroLeitura ? null : [{ id: 'a' }], error: erroLeitura }) }), update, insert }) as any)
   const { result } = renderHook(() => useUpdateEvent(), { wrapper })
   await result.current.mutateAsync({ eventId: 'e1', event: {} as any, tickets: tickets as any })
   return { update, insert }
@@ -79,6 +79,26 @@ describe('useUpdateEvent preserva tipo e situação dos ingressos', () => {
   })
 
   it('update que volta 0 linha gera erro', async () => {
-    await expect(salvaIngressos([{ id: 'a', name: 'X', price: 1 }], [])).rejects.toThrow()
+    await expect(salvaIngressos([{ id: 'a', name: 'X', price: 1 }], [])).rejects.toThrow('Não foi possível salvar um dos ingressos')
+  })
+
+  it('leitura dos ingressos com erro: rejeita e não insere', async () => {
+    const insert = vi.fn()
+    vi.mocked(supabase.from).mockImplementation(((tabela: string) => tabela === 'events'
+      ? { update: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'e1' }, error: null }) }) }) }) }
+      : { select: () => ({ eq: () => Promise.resolve({ data: null, error: new Error('falhou') }) }), insert }) as any)
+    const { result } = renderHook(() => useUpdateEvent(), { wrapper })
+    await expect(result.current.mutateAsync({ eventId: 'e1', event: {} as any, tickets: [{ name: 'M', price: 1, type: 'coletiva' }] as any })).rejects.toThrow('falhou')
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('existente sem description: update não manda description', async () => {
+    const { update } = await salvaIngressos([{ id: 'a', name: 'X', price: 1 }])
+    expect(update.mock.calls[0][0]).not.toHaveProperty('description')
+  })
+
+  it('preço 0 grava price 0', async () => {
+    const { update } = await salvaIngressos([{ id: 'a', name: 'X', price: 0 }])
+    expect(update.mock.calls[0][0]).toMatchObject({ price: 0 })
   })
 })

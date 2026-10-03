@@ -131,7 +131,7 @@ export default function ProducerEditEvent() {
       }
 
       const ticketsPayload = tickets
-        .filter(t => t.name && t.price !== '' && t.price != null)
+        .filter(t => t.name && t.price)
         .map(t => ({
           id: t.id.startsWith('new-') ? undefined : t.id,
           name: t.name,

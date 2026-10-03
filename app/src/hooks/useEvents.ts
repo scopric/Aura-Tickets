@@ -372,10 +372,11 @@ export function useUpdateEvent() {
 
       if (eventError) throw eventError
 
-      const { data: existingTickets } = await supabase
+      const { data: existingTickets, error: lerErro } = await supabase
         .from('ticket_types')
         .select('id')
         .eq('event_id', eventId)
+      if (lerErro) throw lerErro // sem a lista, todo ingresso viraria "novo" e o insert duplicaria
 
       const existingIds = new Set((existingTickets || []).map(t => t.id))
 
@@ -385,7 +386,7 @@ export function useUpdateEvent() {
       for (const [idx, t] of tickets.entries()) {
         const campos = {
           name: t.name || `Ingresso ${idx + 1}`,
-          description: t.description || null,
+          ...(t.description !== undefined ? { description: t.description || null } : {}),
           price: Number(t.price) || 0,
           capacity: t.capacity ? Number(t.capacity) : null,
           quantity_total: t.capacity ? Number(t.capacity) : 0,
