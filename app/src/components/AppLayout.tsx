@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
@@ -13,6 +13,7 @@ import { ErrorBoundary } from './error-boundary'
 import { uploadAvatar } from '../lib/avatarUpload'
 import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
+import * as I from './icones/evokaa16'
 
 const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Início' },
@@ -23,6 +24,14 @@ const navItems = [
   { to: '/app/notifications', icon: Bell, label: 'Notificações' },
   { to: '/app/profile', icon: User, label: 'Perfil' },
   { to: '/app/settings', icon: Settings, label: 'Configurações' },
+]
+
+// Barra inferior do celular (V10a, como a prancha): Explorar, Ingressos e Conta, mais o círculo de busca à parte.
+// Início, Chat, Compras, Notificações e Configurações seguem no menu do topo (e Notificações no sino); a V10b decide o resto.
+const abas = [
+  { to: '/app/events', Icone: I.Explorar, label: 'Explorar' },
+  { to: '/app/tickets', Icone: I.Ingressos, label: 'Ingressos' },
+  { to: '/app/profile', Icone: I.Conta, label: 'Conta' },
 ]
 
 function formatTimeAgo(dateStr: string) {
@@ -68,6 +77,17 @@ export default function AppLayout() {
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
+
+  // Avisa o resto da página que a barra existe (--barra-cel no <body>, abaixo de lg, já com a área segura): o Evo e o
+  // aviso de cookies sobem sobre ela. Limpa ao sair.
+  useEffect(() => {
+    const mq = window.matchMedia?.('(max-width: 1023px)')
+    if (!mq) return
+    const aplicar = () => document.body.style.setProperty('--barra-cel', mq.matches ? 'calc(68px + env(safe-area-inset-bottom, 0px))' : '0px')
+    aplicar()
+    mq.addEventListener('change', aplicar)
+    return () => { mq.removeEventListener('change', aplicar); document.body.style.removeProperty('--barra-cel') }
+  }, [])
 
   return (
     <div className="layout-antigo flex min-h-screen glass-canvas">
@@ -237,7 +257,7 @@ export default function AppLayout() {
       <div
         className={cn(
           // laterais: com viewport-fit=cover o conteúdo não pode ir para baixo do entalhe (iPhone deitado)
-          'flex-1 flex flex-col min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-all duration-300',
+          'flex-1 min-w-0 flex flex-col min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-all duration-300',
           'lg:ml-[72px]',
           !collapsed && 'lg:ml-[250px]'
         )}
@@ -264,8 +284,8 @@ export default function AppLayout() {
               />
             </Link>
 
-            {/* Search */}
-            <div className="relative w-72 max-w-full">
+            {/* Search (no celular some: ainda desabilitada, alargaria a página inteira) */}
+            <div className="relative hidden w-72 max-w-full sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               {/* A busca ainda não filtra nada: fica desabilitada e avisa, em vez de fingir (pendência: filtro real) */}
               <input
@@ -354,11 +374,39 @@ export default function AppLayout() {
         </header>
 
         {/* Page Content (pb-24: o fim da página rola acima do Evo flutuante) */}
-        <main className="flex-1 p-6 pb-24 lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
+        <main className="flex-1 p-6 pb-[calc(6rem+var(--barra-cel,0px))] lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
           <ErrorBoundary resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>
         </main>
+      </div>
+
+      {/* Barra inferior em vidro (só celular), com a busca em círculo à parte. Item ativo: pílula opaca e ícone com a
+          camada tint (.vidro, index.css). A busca leva ao Explorar com o campo de busca focado. */}
+      <div className="fixed inset-x-3 bottom-[calc(12px+env(safe-area-inset-bottom,0px))] z-30 mx-auto flex max-w-[420px] items-center gap-3 lg:hidden">
+        <nav aria-label="Navegação principal" className="vidro flex h-14 min-w-0 flex-1 items-center p-1">
+          {abas.map(({ to, Icone, label }) => {
+            const ativa = isActive(to)
+            return (
+              <Link
+                key={to}
+                to={to}
+                aria-current={ativa ? 'page' : undefined}
+                className="flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold leading-[14px] text-[var(--vidro-texto-2)] focus-visible:outline-none focus-visible:shadow-ev-foco"
+              >
+                <Icone size={24} ativo={ativa} />
+                <span>{label}</span>
+              </Link>
+            )
+          })}
+        </nav>
+        <Link
+          to="/app/events?busca=1"
+          aria-label="Buscar eventos"
+          className="vidro grid size-14 shrink-0 place-items-center text-[var(--vidro-texto)] transition-transform duration-micro active:scale-[1.06] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:shadow-ev-foco"
+        >
+          <I.Buscar size={24} />
+        </Link>
       </div>
 
       <EvoHub />

@@ -1,0 +1,29 @@
+/* Carteira e ingresso (V10a; prancha Ingresso, estudos/participante.md 6.4 e 6.5). O ingresso e um objeto opaco na cor
+   do evento, nao vidro. Recorte so no topo, como o Wallet, por mascara (radial-gradient, sem imagem). */
+.ingresso, .passe-recorte {
+  -webkit-mask: radial-gradient(28px 14px at 50% 0, #0000 98%, #000);
+          mask: radial-gradient(28px 14px at 50% 0, #0000 98%, #000);
+}
+.ingresso { border-radius: 20px; }
+
+/* Ingresso que vira (M12): 400 ms, rotateY 180 graus. As duas faces ocupam a mesma celula; a mais alta da a altura. */
+.ingresso-virador { display: grid; transform-style: preserve-3d; transform: perspective(1000px) rotateY(0deg); transition: transform var(--mov-lento) var(--curva-sai); }
+.ingresso-virador.virado { transform: perspective(1000px) rotateY(180deg); }
+.ingresso-face { grid-area: 1 / 1; display: flex; flex-direction: column; overflow: hidden; border-radius: 20px; background: var(--evento-fundo-e); color: #fff; -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+.ingresso-verso { transform: rotateY(180deg); }
+/* Reduzir movimento: troca seca, sem giro */
+@media (prefers-reduced-motion: reduce) {
+  .ingresso-virador, .ingresso-virador.virado { transform: none; transition: none; }
+  .ingresso-verso { transform: none; }
+  .ingresso-virador:not(.virado) .ingresso-verso, .ingresso-virador.virado .ingresso-frente { visibility: hidden; }
+}
+
+/* Carteira: a linha-ingresso, com recortes laterais */
+.linha-recorte {
+  -webkit-mask: radial-gradient(circle 8px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 8px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+          mask: radial-gradient(circle 8px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 8px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+}
+/* Ponto que pulsa ao lado da contagem; parado com reduzir movimento */
+@keyframes ingresso-pulso { 50% { opacity: 0.35; } }
+.ingresso-pulso { animation: ingresso-pulso 1.6s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .ingresso-pulso { animation: none; } }

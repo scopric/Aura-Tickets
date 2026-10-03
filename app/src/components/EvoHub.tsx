@@ -145,7 +145,7 @@ export default function EvoHub() {
             mudarAberto(false)
             mascoteRef.current?.focus()
           }}
-          posicao="bottom-36 h-[min(620px,calc(100dvh-10rem))]"
+          posicao="bottom-[calc(9rem+var(--barra-cel,0px))] h-[min(620px,calc(100dvh-10rem-var(--barra-cel,0px)))]"
         />
       )}
       {/* --barra-cel: topo da barra inferior do celular do produtor (BarraCelular); sem ela vale 0 */}

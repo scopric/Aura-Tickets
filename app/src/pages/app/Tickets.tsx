@@ -1,157 +1,224 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { siteUrl } from '../../lib/appHost'
-import {
-  Ticket, QrCode, Calendar, MapPin, Clock, CheckCircle2, XCircle,
-  AlertTriangle, Share2, Loader2, Users, X
-} from 'lucide-react'
-import { toast } from 'sonner'
-import { useUserTickets, type DbTicket } from '../../hooks/useUserTickets'
-import TicketQRCode from '../../components/TicketQRCode'
+import { useState, type CSSProperties } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { X } from 'lucide-react'
+import { Ingressos, Qr, SetaEsquerda } from '../../components/icones/evokaa16'
+import EventoCapa from '../../components/EventoCapa'
+import IngressosDoEvento from '../../components/Ingresso'
+import ThemeToggle from '../../components/ThemeToggle'
 import YourTable from '../../components/YourTable'
+import { Button } from '../../components/ui/button'
+import { Spinner } from '../../components/ui/spinner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
+import { useUserTickets } from '../../hooks/useUserTickets'
+import { temFoto, varsDoEvento } from '../../lib/corEvento'
+import { useFalta } from '../../hooks/useFalta'
+import { agruparPorEvento, corDoEvento, dataCurta, diasAte, ehProximo, enderecoDoEvento, horaCurta, linkMapa, quandoFalta, type GrupoIngressos } from '../../lib/ingresso'
+import '../../components/Ingresso.css'
 
-const statusConfig: Record<string, { label: string; bg: string; text: string; icon: typeof CheckCircle2 }> = {
-  active: { label: 'Ativo', bg: 'bg-green-500/10 border-green-500/20', text: 'text-green-400', icon: CheckCircle2 },
-  used: { label: 'Utilizado', bg: 'bg-blue-500/10 border-blue-500/20', text: 'text-blue-400', icon: CheckCircle2 },
-  cancelled: { label: 'Cancelado', bg: 'bg-red-500/10 border-red-500/20', text: 'text-red-400', icon: XCircle },
-  transferred: { label: 'Transferido', bg: 'bg-purple-500/10 border-purple-500/20', text: 'text-purple-400', icon: AlertTriangle },
+const quando = (g: GrupoIngressos) => [dataCurta(g.evento?.date), horaCurta(g.evento?.time)].filter(Boolean).join(' · ')
+const contar = (n: number) => `${n} ingresso${n > 1 ? 's' : ''}`
+const foco = 'has-[:focus-visible]:shadow-ev-foco'
+
+// O botão quadrado do QR leva direto ao QR (o ingresso abre virado); o resto do cartão leva à frente do ingresso
+function QrChip({ g, className, icone }: { g: GrupoIngressos; className: string; icone: number }) {
+  return (
+    <Link to={`?evento=${g.id}&qr=1`} aria-label={`Mostrar o QR de ${g.evento?.title ?? 'Evento'}`} className={`z-10 grid place-items-center outline-none ${className}`}>
+      <Qr size={icone} aria-hidden="true" />
+    </Link>
+  )
 }
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '-'
-  return new Date(dateStr + 'T00:00:00').toLocaleDateString('pt-BR', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+// O próximo evento é o próprio passe (arte, nome, data e o QR), com recorte no topo como o Wallet
+function Passe({ g }: { g: GrupoIngressos }) {
+  const e = g.evento
+  const dias = diasAte(e?.date)
+  // um tipo só: mostra o nome; tipos diferentes no mesmo evento: só a quantidade
+  const tipos = new Set(g.ingressos.map(t => t.ticket_types?.name))
+  const tipo = tipos.size === 1 ? g.ingressos[0].ticket_types?.name : undefined
+  const comFoto = [e?.cover_image, e?.image_url].some(temFoto)
+  const hora = horaCurta(e?.time)
+  const { falta } = useFalta(e?.date, e?.time)
+  return (
+    <div className={`rounded-2xl ${foco}`}>
+      <div
+        className="evento-cor passe-recorte relative overflow-hidden rounded-2xl text-left text-[#fff] transition-transform duration-micro has-[a.passe-abrir:active]:scale-[0.985] motion-reduce:has-[a.passe-abrir:active]:scale-100"
+        style={e ? varsDoEvento(corDoEvento(e)) as CSSProperties : undefined}
+      >
+        {e && <EventoCapa evento={e} tamanho="cartao" className="!aspect-[3/2] !rounded-none" />}
+        <div className="flex items-end gap-3 px-4 pb-4 pt-3.5" style={{ background: 'var(--evento-fundo-e)' }}>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              {dias !== null && dias >= 0 && (
+                <span
+                  className="inline-flex h-[22px] items-center rounded-full px-[9px] text-xs font-semibold"
+                  style={dias === 0 ? { background: 'var(--ev-warm)', color: '#0b0d12' } : { background: 'rgb(255 255 255 / 0.16)' }}
+                >
+                  {quandoFalta(dias)}
+                </span>
+              )}
+              <span className="text-[13px] font-medium text-[rgb(255_255_255/0.9)]">{[tipo, contar(g.ingressos.length)].filter(Boolean).join(' · ')}</span>
+            </div>
+            {/* o cartaz já traz o nome e a data; com foto, eles vão no texto */}
+            {comFoto && <p className="mt-2 break-words font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.015em] wide">{e?.title ?? 'Evento'}</p>}
+            <p className={`${comFoto ? 'mt-1 text-sm font-medium text-[rgb(255_255_255/0.9)]' : 'mt-2 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.015em] wide'}`}>
+              {hora ? `${comFoto ? `${dataCurta(e?.date)} · ` : ''}Começa às ${hora}` : quando(g)}
+            </p>
+            {falta && (
+              <p className="mt-1.5 flex items-center gap-2 text-sm font-medium text-[rgb(255_255_255/0.9)]">
+                <span aria-hidden="true" className="ingresso-pulso size-1.5 rounded-full bg-[var(--ev-warm)]" />
+                <span aria-hidden="true">Começa em <span className="font-display text-[15px] font-semibold tabular-nums text-[#fff]">{falta.texto}</span></span>
+                <span className="sr-only">{falta.leitura}</span>
+              </p>
+            )}
+          </div>
+          <span aria-hidden="true" className="size-12 shrink-0" />
+        </div>
+        <Link to={`?evento=${g.id}`} aria-label={`Abrir ${contar(g.ingressos.length)} de ${e?.title ?? 'Evento'}, ${quando(g)}`} className="passe-abrir absolute inset-0 outline-none" />
+        <QrChip g={g} className="absolute bottom-4 right-4 size-12 rounded-xl bg-white text-[#0b0d12] focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]" icone={24} />
+      </div>
+    </div>
+  )
+}
+
+// Os demais: linha-ingresso com recortes laterais, miniatura e o botão do QR
+function Linha({ g }: { g: GrupoIngressos }) {
+  const e = g.evento
+  const dias = diasAte(e?.date)
+  return (
+    <div className={`rounded-xl ${foco}`}>
+      <div className="linha-recorte relative flex h-20 items-center gap-3 rounded-xl bg-secondary px-3 text-left has-[a.linha-abrir:hover]:bg-[var(--ev-sec-press)]">
+        {e && <EventoCapa evento={e} tamanho="mini" className="!size-14" />}
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-xs leading-4 text-muted-foreground">{[quando(g), dias !== null && dias >= 0 ? quandoFalta(dias).toLowerCase() : null].filter(Boolean).join(' · ')}</span>
+          <span className="block truncate font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{e?.title ?? 'Evento'}</span>
+          <span className="block truncate text-[13px] leading-[18px] text-muted-foreground">{[[e?.venue_name, e?.venue_city].filter(Boolean).join(', '), contar(g.ingressos.length)].filter(Boolean).join(' · ')}</span>
+        </span>
+        <span aria-hidden="true" className="size-11 shrink-0" />
+        <Link to={`?evento=${g.id}`} aria-label={`Abrir ${contar(g.ingressos.length)} de ${e?.title ?? 'Evento'}, ${quando(g)}`} className="linha-abrir absolute inset-0 rounded-xl outline-none" />
+        <QrChip g={g} className="absolute right-3 top-1/2 size-11 -translate-y-1/2 rounded-full bg-card text-foreground shadow-ev-secondary focus-visible:shadow-ev-foco" icone={16} />
+      </div>
+    </div>
+  )
+}
+
+// Ingresso que já passou, foi usado, cancelado ou transferido: só consulta, não abre o QR
+const SITUACAO: Record<string, [string, string]> = {
+  used: ['usado', 'usados'], cancelled: ['cancelado', 'cancelados'], transferred: ['transferido', 'transferidos'],
+  refunded: ['reembolsado', 'reembolsados'], active: ['encerrado', 'encerrados'],
+}
+function LinhaAnterior({ g }: { g: GrupoIngressos }) {
+  const e = g.evento
+  const [um] = g.ingressos
+  // um ingresso: a situação dele; vários: a contagem por situação ("1 usado · 1 cancelado")
+  const palavra = (st: string, n: number) => (SITUACAO[st] ?? [st, st])[n > 1 ? 1 : 0]
+  const tally = g.ingressos.reduce<Record<string, number>>((m, t) => ({ ...m, [t.status]: (m[t.status] ?? 0) + 1 }), {})
+  const situacao = g.ingressos.length > 1
+    ? Object.entries(tally).map(([st, n]) => `${n} ${palavra(st, n)}`).join(' · ')
+    : um.status === 'used' ? `Usado${um.checked_in_at ? ` em ${new Date(um.checked_in_at).toLocaleDateString('pt-BR')}` : ''}`
+    : um.status === 'active' ? 'Evento encerrado'
+    : palavra(um.status, 1).replace(/^./, c => c.toUpperCase())
+  return (
+    <li className="flex h-20 items-center gap-3 rounded-xl bg-secondary px-3">
+      {e && <EventoCapa evento={e} tamanho="mini" className="!size-14" />}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs leading-4 text-muted-foreground">{quando(g)}</p>
+        <p className="truncate font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{e?.title ?? 'Evento'}</p>
+        <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{situacao}</p>
+      </div>
+    </li>
+  )
 }
 
 export default function ParticipantTickets() {
-  const [filter, setFilter] = useState<'all' | 'active' | 'past'>('all')
-  const [selected, setSelected] = useState<DbTicket | null>(null)
+  const [params] = useSearchParams()
   const [mesaDe, setMesaDe] = useState<string | null>(null) // evento da "Sua mesa" aberta
   const { data: tickets = [], isLoading } = useUserTickets()
 
-  const filtered = tickets.filter(t => {
-    if (filter === 'all') return true
-    if (filter === 'active') return t.status === 'active'
-    return t.status !== 'active'
-  })
-
-  const activeCount = tickets.filter(t => t.status === 'active').length
-  const totalSpent = tickets
-    .filter(t => t.status !== 'cancelled' && t.status !== 'transferred')
-    .reduce((s, t) => s + (t.ticket_types?.price || 0), 0)
-
-  const handleShare = (eventId?: string) => {
-    if (!eventId) { toast.error('Evento indisponível para compartilhar.'); return }
-    navigator.clipboard.writeText(siteUrl(`/event/${eventId}`))
-    toast.success('Link do evento copiado!')
-  }
+  const [agora] = useState(() => Date.now()) // a lista vale para esta abertura da tela
+  const proximos = agruparPorEvento(tickets.filter(t => ehProximo(t, agora)))
+  const anteriores = agruparPorEvento(tickets.filter(t => !ehProximo(t, agora)), true)
+  const eventoId = params.get('evento')
+  // o link direto abre qualquer ingresso ativo, mesmo o de um evento que a lista já considera anterior
+  const aberto = eventoId ? agruparPorEvento(tickets.filter(t => t.status === 'active')).find(g => g.id === eventoId) : undefined
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="font-serif text-3xl text-cream">Meus Ingressos</h1>
-        <p className="text-sm text-white/60 mt-1">Gerencie seus ingressos e acompanhe seus eventos</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        {[
-          { label: 'Ativos', value: activeCount.toString(), color: 'text-green-400' },
-          { label: 'Total Gasto', value: `R$ ${totalSpent.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: 'text-plum-light' },
-          { label: 'Eventos', value: tickets.length.toString(), color: 'text-blue-400' },
-        ].map(s => (
-          <div key={s.label} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md text-center">
-            <div className={`font-serif text-2xl ${s.color}`}>{s.value}</div>
-            <div className="text-xs text-white/40 mt-1">{s.label}</div>
+    <div className="mx-auto w-full max-w-lg">
+      {eventoId ? (
+        <>
+          <div className="mb-4 flex items-center gap-2">
+            <Button asChild variant="ghost" size="icon" className="-ml-2.5">
+              <Link to="/app/tickets" aria-label="Voltar para Ingressos"><SetaEsquerda aria-hidden="true" /></Link>
+            </Button>
+            <h1 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{aberto?.evento?.title ?? 'Ingressos'}</h1>
           </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-full w-fit mb-6">
-        {(['all', 'active', 'past'] as const).map((key) => {
-          const labels: Record<string, string> = { all: 'Todos', active: 'Ativos', past: 'Histórico' }
-          return (
-            <button key={key} onClick={() => setFilter(key)} className={`px-4 py-2 rounded-full text-xs font-medium transition-all ${filter === key ? 'bg-plum text-cream' : 'text-white/40 hover:text-white/60'}`}>{labels[key]}</button>
-          )
-        })}
-      </div>
-
-      {/* Tickets */}
-      {isLoading ? (
-        <div className="py-20 text-center">
-          <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-3" />
-          <p className="text-sm text-white/45">Carregando ingressos...</p>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-20 text-center">
-          <Ticket className="w-10 h-10 text-white/10 mx-auto mb-3" />
-          <p className="text-sm text-white/40">Nenhum ingresso encontrado.</p>
-        </div>
+          {isLoading ? (
+            <div className="py-20 text-center"><Spinner className="mx-auto size-6" /></div>
+          ) : aberto?.evento ? (
+            <IngressosDoEvento ingressos={aberto.ingressos} evento={aberto.evento} abrirNoQr={params.get('qr') === '1'} onSuaMesa={() => setMesaDe(aberto.id)} />
+          ) : (
+            <div className="py-16 text-center">
+              <p className="text-sm text-muted-foreground">Não encontramos ingressos ativos deste evento.</p>
+              <Button asChild variant="outline" className="mt-4"><Link to="/app/tickets">Ver meus ingressos</Link></Button>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {filtered.map(t => {
-            const sc = statusConfig[t.status] || statusConfig.active
-            return (
-              <div key={t.id} className={`p-5 rounded-2xl border backdrop-blur-md transition-all hover:shadow-glow ${t.status === 'active' ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-white/[0.01] border-white/[0.04] opacity-50'}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h3 className="text-sm font-medium text-cream">{t.events?.title || 'Evento'}</h3>
-                    <div className="flex items-center gap-2 mt-1 text-[10px] text-white/30">
-                      <Calendar className="w-3 h-3" />{formatDate(t.events?.date || null)} · <Clock className="w-3 h-3" />{t.events?.time || '--:--'}
-                    </div>
+        <>
+          <div className="mb-4 flex items-center gap-2">
+            <h1 className="flex-1 text-2xl font-semibold tracking-[-0.015em]">Ingressos</h1>
+            <ThemeToggle collapsed className="size-11" />
+          </div>
+
+          {isLoading ? (
+            <div className="py-20 text-center"><Spinner className="mx-auto size-6" /></div>
+          ) : (
+            <Tabs defaultValue="proximos">
+              <TabsList variant="pilula" className="h-10 w-full">
+                <TabsTrigger value="proximos">Próximos <span className="font-display tabular-nums text-muted-foreground">{proximos.length}</span></TabsTrigger>
+                <TabsTrigger value="anteriores">Anteriores <span className="font-display tabular-nums text-muted-foreground">{anteriores.length}</span></TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="proximos" className="mt-3">
+                {proximos.length === 0 ? (
+                  <div className="py-16 text-center">
+                    <Ingressos size={40} className="mx-auto mb-3 text-muted-foreground" aria-hidden="true" />
+                    <p className="text-sm text-muted-foreground">Seus ingressos aparecem aqui depois da compra.</p>
+                    <Button asChild className="mt-4"><Link to="/app/events">Explorar eventos</Link></Button>
                   </div>
-                  <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${sc.bg} ${sc.text} flex items-center gap-1`}><sc.icon className="w-3 h-3" />{sc.label}</span>
-                </div>
+                ) : (
+                  <div className="space-y-3">
+                    <Passe g={proximos[0]} />
+                    {proximos[0].evento && (
+                      <Button asChild variant="ghost" className="h-12 w-full justify-start gap-3 px-1 text-sm font-medium text-foreground">
+                        <a href={linkMapa(enderecoDoEvento(proximos[0].evento) || proximos[0].evento.title)} target="_blank" rel="noopener noreferrer">
+                          <span className="flex-1 truncate text-left">{[proximos[0].evento.venue_name, proximos[0].evento.venue_city].filter(Boolean).join(', ') || 'Local do evento'}</span>
+                          <span className="font-semibold text-primary">Como chegar</span>
+                        </a>
+                      </Button>
+                    )}
+                    {proximos.length > 1 && (
+                      <>
+                        <h2 className="pt-3 text-[15px] font-semibold">Mais adiante</h2>
+                        {proximos.slice(1).map(g => <Linha key={g.id} g={g} />)}
+                      </>
+                    )}
+                  </div>
+                )}
+              </TabsContent>
 
-                <div className="flex items-center gap-4 mb-3">
-                  <div className="flex items-center gap-1 text-xs text-white/50"><MapPin className="w-3 h-3" />{t.events?.venue_name || '-'}</div>
-                  <div className="flex items-center gap-1 text-xs text-plum-light font-medium"><Ticket className="w-3 h-3" />{t.ticket_types?.name || 'Ingresso'}</div>
-                  <div className="text-xs font-medium text-cream">R$ {(t.ticket_types?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                </div>
-
-                {t.status === 'active' && (
+              <TabsContent value="anteriores" className="mt-3">
+                {anteriores.length === 0 ? (
+                  <p className="py-16 text-center text-sm text-muted-foreground">Nenhum ingresso anterior.</p>
+                ) : (
                   <>
-                    <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-10 h-10 flex-shrink-0">
-                          <TicketQRCode code={t.code} size={40} className="rounded-lg" />
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-white/30">Código</div>
-                          <div className="text-xs font-mono text-cream">{t.code}</div>
-                        </div>
-                      </div>
-                      <span className="text-[10px] text-white/20">{t.seat_info || 'Livre'}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => setSelected(t)} className="flex-1 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-1"><QrCode className="w-3 h-3" /> Ver QR</button>
-                      {t.ticket_types?.type === 'coletiva' && t.events?.id && (
-                        <button onClick={() => setMesaDe(t.events!.id)} className="flex-1 py-2 bg-white/[0.05] text-cream text-xs rounded-full hover:bg-white/[0.1] transition-all flex items-center justify-center gap-1"><Users className="w-3 h-3" /> Sua mesa</button>
-                      )}
-                      <button onClick={() => handleShare(t.events?.id)} title="Copiar link do evento" aria-label="Copiar link do evento" className="p-2 rounded-xl bg-white/[0.05] text-white/40 hover:text-plum transition-colors"><Share2 className="w-3.5 h-3.5" /></button>
-                    </div>
+                    <ul className="space-y-3">{anteriores.map(g => <LinhaAnterior key={g.id + g.ingressos[0].id} g={g} />)}</ul>
+                    <p className="pt-5 text-[13px] leading-5 text-muted-foreground">Ingresso usado não abre o QR de novo.</p>
                   </>
                 )}
-
-                {t.status === 'cancelled' && (
-                  <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
-                    <div className="text-xs text-red-400">Ingresso cancelado</div>
-                  </div>
-                )}
-
-                {t.status === 'transferred' && (
-                  <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                    <div className="text-xs text-purple-400">Ingresso transferido</div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-        </div>
+              </TabsContent>
+            </Tabs>
+          )}
+        </>
       )}
 
       {/* Sua mesa (Match de Mesa) */}
@@ -166,24 +233,6 @@ export default function ParticipantTickets() {
           <div className="relative w-full max-w-2xl my-8">
             <button autoFocus onClick={() => setMesaDe(null)} aria-label="Fechar sua mesa" className="absolute -top-3 -right-3 z-10 w-9 h-9 rounded-full bg-void border border-white/10 text-cream flex items-center justify-center"><X className="w-4 h-4" /></button>
             <YourTable eventId={mesaDe} />
-          </div>
-        </div>
-      )}
-
-      {/* QR Modal */}
-      {selected && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
-          <div className="glass-panel relative w-full max-w-sm p-6">
-            <div className="text-center">
-              <h3 className="font-serif text-xl text-cream mb-1">{selected.events?.title || 'Evento'}</h3>
-              <p className="text-xs text-white/60">{formatDate(selected.events?.date || null)} · {selected.events?.time || '--:--'}</p>
-              <div className="w-48 h-48 mx-auto my-6">
-                <TicketQRCode code={selected.code} size={192} className="rounded-2xl" />
-              </div>
-              <div className="text-xs font-mono text-white/60 mb-4">{selected.code}</div>
-              <p className="text-xs text-white/60">Para cancelar, fale com o <Link to="/contato" className="text-plum-light hover:underline">suporte</Link>.</p>
-            </div>
           </div>
         </div>
       )}

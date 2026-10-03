@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import { Link, useLocation, useSearchParams } from 'react-router-dom'
 import {
   Search, Calendar, MapPin, Loader2, Star,
   Filter, ArrowRight, Clock, Ticket
@@ -42,6 +42,12 @@ export default function AppEvents() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
   const { data: events = [], isLoading } = usePublicEvents()
+  // o círculo de busca da barra inferior chega com ?busca=1: foca o campo. Espera a lista carregar (o campo só existe
+  // depois) e refoca a cada toque (location.key muda mesmo com a tela já aberta)
+  const [params] = useSearchParams()
+  const { key } = useLocation()
+  const campoBusca = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (params.has('busca') && !isLoading) campoBusca.current?.focus() }, [params, key, isLoading])
 
   const filtered = useMemo(() => {
     return events.filter((e) => {
@@ -81,7 +87,9 @@ export default function AppEvents() {
         <div className="relative w-full lg:w-96">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
           <input
+            ref={campoBusca}
             type="text"
+            aria-label="Buscar eventos"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome, cidade ou categoria..."

@@ -14,6 +14,7 @@ import { searchAddressByPostalCode } from '../../lib/cepService'
 import { formatCurrency } from '../../lib/formatters'
 import { FotoModeracaoAviso } from '../../components/CollectiveTableCard'
 import { useMatchmakingProfile, consentimentoVigente } from '../../hooks/useMatchmaking'
+import ThemeToggle from '../../components/ThemeToggle'
 
 export default function ParticipantProfile() {
   const { user } = useAuth()
@@ -378,6 +379,12 @@ export default function ParticipantProfile() {
             <div className="text-sm text-white/60">{profile.bio || 'Nenhuma bio adicionada.'}</div>
           )}
         </div>
+      </div>
+
+      {/* Aparência: o seletor de tema também mora na Conta (Decisão 143) */}
+      <div className="mt-6 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
+        <h3 className="text-sm font-semibold text-cream mb-3">Aparência</h3>
+        <ThemeToggle />
       </div>
 
       {/* Security */}
