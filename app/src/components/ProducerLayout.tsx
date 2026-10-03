@@ -52,7 +52,9 @@ export default function ProducerLayout() {
     const h1 = paginaRef.current?.querySelector('h1')
     if (h1) { h1.tabIndex = -1; h1.focus() }
   }, [tour])
-  const mobileOpen = gavetaEm === location.pathname
+  // Gaveta aberta numa rota e a rota mudou: fecha (ajuste no render, senão reabriria ao voltar a ela)
+  if (gavetaEm && gavetaEm !== location.pathname) setGavetaEm(null)
+  const mobileOpen = !!gavetaEm
   // Trilho só no computador: na gaveta a lateral abre sempre com os nomes
   const trilho = recolhida && computador
 

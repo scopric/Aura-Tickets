@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
 
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [], isLoading: false }) }))
@@ -20,8 +20,8 @@ const montar = (url: string) =>
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route element={<ProducerLayout />}>
-          <Route path="/producer/dashboard" element={<h1>Início <input aria-label="campo" /></h1>} />
-          <Route path="/producer/events" element={<h1 data-tour="eventos-criar">Eventos</h1>} />
+          <Route path="/producer/dashboard" element={<><h1>Início <input aria-label="campo" /></h1><Link to="/producer/events">ir</Link></>} />
+          <Route path="/producer/events" element={<><h1 data-tour="eventos-criar">Eventos</h1><Link to="/producer/dashboard">voltar</Link></>} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -104,6 +104,16 @@ describe('ProducerLayout com a lateral nova', () => {
     expect(screen.queryByRole('button', { name: 'Fechar menu', hidden: true })).toBeNull()
     estado.celular = false
     act(() => ouvintes.forEach(f => f()))
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument()
+    vi.stubGlobal('matchMedia', mediaQuery(false))
+  })
+
+  it('a gaveta do tablet não reabre ao voltar à rota em que foi aberta', () => {
+    vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} }))
+    montar('/producer/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
+    fireEvent.click(screen.getByText('ir', { selector: 'a' }))
+    fireEvent.click(screen.getByText('voltar', { selector: 'a' }))
     expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument()
     vi.stubGlobal('matchMedia', mediaQuery(false))
   })

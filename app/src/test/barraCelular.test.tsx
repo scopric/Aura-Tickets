@@ -28,6 +28,7 @@ const montar = (url = '/producer/dashboard') =>
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <MemoryRouter initialEntries={[url]}>
         <Link to="/producer/cupons">sair da folha</Link>
+        <Link to="/producer/dashboard">voltar</Link>
         <BarraCelular />
       </MemoryRouter>
     </QueryClientProvider>,
@@ -103,6 +104,19 @@ describe('barra inferior do celular (V4b)', () => {
     expect(screen.getByRole('button', { name: 'Buscar tela', hidden: true })).toHaveAttribute('aria-expanded', 'true')
   })
 
+  it('a folha não reabre sozinha ao voltar à rota; já baixada, abre no mesmo clique (dentro do gesto)', async () => {
+    montar('/producer/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    const folha = await screen.findByRole('dialog', { name: 'Menu' })
+    fireEvent.click(screen.getByText('sair da folha', { selector: 'a' }))
+    await waitFor(() => expect(folha).toHaveAttribute('data-state', 'closed'))
+    fireEvent.click(screen.getByText('voltar', { selector: 'a' }))
+    expect(document.querySelectorAll('[role=dialog][data-state=open]')).toHaveLength(0)
+    // a folha antiga ainda sai (sem transição no jsdom) e deixa o resto aria-hidden: por isso hidden: true
+    fireEvent.click(screen.getByRole('button', { name: 'Menu', hidden: true }))
+    expect(document.querySelectorAll('[role=dialog][data-state=open]')).toHaveLength(1) // sem await: abriu dentro do clique
+  })
+
   it('trocar de rota por fora da folha fecha a folha', async () => {
     montar('/producer/dashboard')
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
@@ -173,6 +187,14 @@ describe('faixa "ao vivo" (V4b)', () => {
     montar()
     expect(screen.queryByRole('region', { name: 'Evento em andamento' })).toBeNull()
     expect(consulta).not.toHaveBeenCalled()
+  })
+
+  it('evento sem hora vale o dia inteiro (00:00 a +24 h), sem a margem de 3 h', () => {
+    const semHora = evento('d', 'Dia todo', hoje, { time: null })
+    expect(eventoEmAndamento([semHora] as never, new Date('2026-10-03T00:00:00-03:00'))?.id).toBe('d')
+    expect(eventoEmAndamento([semHora] as never, new Date('2026-10-03T23:59:00-03:00'))?.id).toBe('d')
+    expect(eventoEmAndamento([semHora] as never, new Date('2026-10-02T22:00:00-03:00'))).toBeUndefined()
+    expect(eventoEmAndamento([semHora] as never, new Date('2026-10-04T00:01:00-03:00'))).toBeUndefined()
   })
 
   it('eventoEmAndamento escolhe o de início mais perto de agora; instanteLocal usa o fuso de Brasília', () => {

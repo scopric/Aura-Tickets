@@ -9,8 +9,10 @@ import { queryClient } from './lib/queryClient.ts'
 import { ouvirInstalacao } from './lib/instalar.ts'
 
 // Depois de um deploy, a aba aberta pede um pedaço (layout ou página) que não existe mais: recarrega uma vez
-// para pegar o index.html novo. Sem rede o erro volta; a trava de 10 s evita recarregar em laço.
+// para pegar o index.html novo. Offline não recarrega (a página nova também não viria): o erro segue para quem pediu
+// o pedaço, que mostra o aviso (ex.: folha Menu do celular). A trava de 10 s evita recarregar em laço.
 window.addEventListener('vite:preloadError', () => {
+  if (navigator.onLine === false) return
   try {
     const ultima = Number(sessionStorage.getItem('evk.recarga') || 0)
     if (Date.now() - ultima < 10_000) return

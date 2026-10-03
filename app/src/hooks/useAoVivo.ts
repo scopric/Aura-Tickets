@@ -6,11 +6,13 @@ import type { DbEvent } from './useEvents'
 
 // Faixa "ao vivo" do celular (V4b): só com evento publicado "em andamento" e só com a contagem real de check-ins.
 // Em andamento = agora entre 3 h antes do início e o fim (end_date, ou início + 12 h): a portaria abre antes da hora
-// e a festa passa da meia-noite. A hora do evento (date + time) é a de Brasília.
+// e a festa passa da meia-noite. Evento sem hora (só date) vale o dia inteiro, 00:00 a +24 h, como em dataPorVir.
+// A hora do evento (date + time) é a de Brasília.
 const FUSO = 'America/Sao_Paulo'
 const HORA = 3_600_000
 const ANTES = 3 * HORA
 const DURACAO_PADRAO = 12 * HORA
+const DIA = 24 * HORA
 
 // ms que o fuso está à frente do UTC no instante t (derivado do Intl: segue a regra do fuso, sem deslocamento fixo)
 function deslocamento(t: number): number {
@@ -27,14 +29,16 @@ export function instanteLocal(data: string, hora = '00:00:00'): number {
   return parede - deslocamento(parede - deslocamento(parede))
 }
 
+const diaInteiro = (e: DbEvent) => !!e.date && !e.time
 const inicioDe = (e: DbEvent) => (e.date ? instanteLocal(e.date, e.time || '00:00:00') : new Date(e.start_date).getTime())
-const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime() : inicioDe(e) + DURACAO_PADRAO)
+const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime() : inicioDe(e) + (diaInteiro(e) ? DIA : DURACAO_PADRAO))
+const abreEm = (e: DbEvent) => inicioDe(e) - (diaInteiro(e) ? 0 : ANTES) // a portaria abre 3 h antes, se há hora
 
 /** Evento publicado em andamento. Com mais de um, o de início mais perto de agora */
 export function eventoEmAndamento(eventos: DbEvent[], agora = new Date()): DbEvent | undefined {
   const t = agora.getTime()
   return eventos
-    .filter(e => situacaoEvento(e) === 'Publicado' && t >= inicioDe(e) - ANTES && t <= fimDe(e))
+    .filter(e => situacaoEvento(e) === 'Publicado' && t >= abreEm(e) && t <= fimDe(e))
     .sort((a, b) => Math.abs(inicioDe(a) - t) - Math.abs(inicioDe(b) - t))[0]
 }
 
@@ -47,7 +51,7 @@ export function useAoVivo(eventos: DbEvent[]) {
     return () => clearInterval(r)
   }, [])
   const evento = eventoEmAndamento(eventos)
-  const desde = evento ? new Date(inicioDe(evento) - ANTES).toISOString() : ''
+  const desde = evento ? new Date(abreEm(evento)).toISOString() : ''
   const { data } = useQuery({
     queryKey: ['ao-vivo', evento?.id, desde],
     enabled: !!evento,

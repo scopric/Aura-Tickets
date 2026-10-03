@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useState, type ComponentType } from 'react'
+import { useLayoutEffect, useState, type ComponentType } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -13,8 +13,9 @@ import { INICIO, NAV, eventoDaUrl, hrefDaTela, rotaAtiva } from '../../lib/naveg
 // `.vidro [aria-current="page"]` (opaca, contraste sem depender do que passa atrás).
 // ponytail: a pílula não desliza entre abas e a barra não encolhe ao rolar (movimentos M2 e M3 da prancha).
 
-// Folha Menu e vaul ficam fora da entrada: baixados quando o navegador está ocioso (ou no toque, se ainda não vieram).
-// Falha de rede ao baixar vira aviso e a página segue de pé (um novo toque tenta de novo).
+// Folha Menu e vaul ficam fora da entrada: baixados no 1º toque, como as páginas lazy (o Vite recarrega a página se o
+// pedaço sumiu depois de um deploy; sem rede, main.tsx não recarrega e o toque mostra o aviso, e um novo toque tenta de novo).
+// Já baixada, a folha abre dentro do gesto do toque (o teclado do iPhone só abre assim).
 const carregarFolha = () => import('./FolhaMenu')
 type Folha = { modo: 'menu' | 'busca'; rota: string } | null
 
@@ -35,23 +36,19 @@ export default function BarraCelular() {
   const aoVivo = useAoVivo(eventos)
   // Guarda a rota em que abriu: trocar de rota por fora da folha (voltar, link do Evo) fecha, como a gaveta da V4a
   const [folha, setFolha] = useState<Folha>(null)
+  if (folha && folha.rota !== pathname) setFolha(null) // ajuste no render: senão reabriria ao voltar à rota
   const [Comp, setComp] = useState<ComponentType<{ aberta: boolean; buscar: boolean; onFechar: () => void }> | null>(null)
   const [vez, setVez] = useState(0) // remonta a folha a cada abertura: o filtro começa vazio
-  const aberta = folha && folha.rota === pathname ? folha.modo : null
+  const aberta = folha?.modo ?? null
   const abre = (modo: 'menu' | 'busca') => {
+    const mostra = () => { setVez(v => v + 1); setFolha({ modo, rota: pathname }) }
+    if (Comp) return mostra()
     carregarFolha().then(
-      m => { setComp(() => m.default); setVez(v => v + 1); setFolha({ modo, rota: pathname }) },
+      m => { setComp(() => m.default); mostra() },
       () => toast.error('Não foi possível abrir o menu. Tente de novo.'),
     )
   }
   const fecha = () => setFolha(null)
-
-  useEffect(() => {
-    const baixar = () => { carregarFolha().catch(() => {}) }
-    if ('requestIdleCallback' in window) { const id = window.requestIdleCallback(baixar); return () => window.cancelIdleCallback(id) }
-    const id = setTimeout(baixar, 2000)
-    return () => clearTimeout(id)
-  }, [])
 
   // Evo e aviso de cookies sobem acima da barra (e da faixa) pela variável no <body>
   const temFaixa = !!aoVivo
