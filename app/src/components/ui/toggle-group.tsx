@@ -78,4 +78,59 @@ function ToggleGroupItem({
   )
 }
 
-export { ToggleGroup, ToggleGroupItem }
+// Escolha exclusiva entre 2 a 5 opções curtas (período do gráfico, Scanner/Lista). O botão em relevo desliza:
+// colunas iguais, largura 1/N, anda 100% por posição (nada é medido em JS). Teclado, foco e rádio vêm do Radix.
+function Segmented({
+  items,
+  value,
+  onValueChange,
+  size = "sm",
+  label,
+  className,
+}: {
+  items: { value: string; label: React.ReactNode; count?: number }[]
+  value: string
+  onValueChange: (value: string) => void
+  size?: "sm" | "md"
+  /** nome do grupo para o leitor de tela */
+  label: string
+  className?: string
+}) {
+  const i = Math.max(0, items.findIndex((it) => it.value === value))
+  return (
+    <ToggleGroupPrimitive.Root
+      type="single"
+      role="radiogroup"
+      value={value}
+      onValueChange={(v) => v && onValueChange(v)} // clicar no item já marcado não desmarca
+      aria-label={label}
+      data-slot="segmented"
+      className={cn("relative grid rounded-md bg-secondary p-0.5", size === "sm" ? "h-8" : "h-10", className)}
+      style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-y-0.5 left-0.5 rounded-sm bg-card shadow-ev-seg transition-transform duration-base ease-move motion-reduce:transition-none"
+        style={{ width: `calc((100% - 4px) / ${items.length})`, transform: `translateX(${i * 100}%)` }}
+      />
+      {items.map((it) => (
+        <ToggleGroupPrimitive.Item
+          key={it.value}
+          value={it.value}
+          data-slot="segmented-item"
+          className={cn(
+            "alvo-44 relative z-10 inline-flex items-center justify-center gap-1.5 rounded-sm px-3 font-medium text-muted-foreground outline-none",
+            "transition-colors duration-rapido hover:text-foreground data-[state=on]:text-foreground motion-reduce:transition-none",
+            "focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))]",
+            size === "sm" ? "text-[13px]" : "text-sm"
+          )}
+        >
+          {it.label}
+          {it.count != null && <span className="tabular-nums text-muted-foreground">{it.count}</span>}
+        </ToggleGroupPrimitive.Item>
+      ))}
+    </ToggleGroupPrimitive.Root>
+  )
+}
+
+export { ToggleGroup, ToggleGroupItem, Segmented }

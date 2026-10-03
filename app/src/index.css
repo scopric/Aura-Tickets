@@ -55,6 +55,15 @@
     --ev-sombra-2: 0 8px 24px -8px rgb(12 35 64 / 0.25), 0 1px 2px rgb(12 35 64 / 0.08);
     --ev-foco: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring)); /* anel duplo, só :focus-visible */
 
+    /* Botões e controles (estudos/botoes.md §5.3; valores das pranchas v3) */
+    --ev-hl: inset 0 1px 0 rgb(255 255 255 / 0.16), inset 0 -1px 0 rgb(0 0 0 / 0.12); /* luz interna do primário e do perigo */
+    --ev-danger-hover: #b42d27;
+    --ev-anel-sec: 0 0 0 1px rgb(11 13 18 / 0.10);
+    --ev-sombra-sec: 0 1px 2px rgb(11 13 18 / 0.06);
+    --ev-sec-hover: #f6f7f9;
+    --ev-sec-press: #eceef1;
+    --ev-seg-sombra: 0 1px 2px rgb(0 0 0 / 0.10), 0 0 0 1px rgb(0 0 0 / 0.04); /* botão em relevo do segmentado */
+
     /* Evokaa Brand Tokens v2.0 (Fidelidade ao logotipo) */
     --brand-cyan: #1d68c4;   /* Azul royal do ícone */
     --brand-blue: #4a60e3;   /* Azul-violeta intermediário */
@@ -138,6 +147,13 @@
     --ev-veu: rgb(0 0 0 / 0.48);
     --ev-sombra-1: 0 1px 2px rgb(0 0 0 / 0.40);
     --ev-sombra-2: 0 8px 24px -8px rgb(0 0 0 / 0.50), 0 1px 2px rgb(0 0 0 / 0.30);
+    --ev-hl: inset 0 1px 0 rgb(255 255 255 / 0.18), inset 0 -1px 0 rgb(0 0 0 / 0.20);
+    --ev-danger-hover: #d13a32;
+    --ev-anel-sec: inset 0 0 0 1px rgb(255 255 255 / 0.08), inset 0 1px 0 rgb(255 255 255 / 0.06), 0 0 0 1px rgb(0 0 0 / 0.6);
+    --ev-sombra-sec: 0 4px 4px rgb(0 0 0 / 0.10);
+    --ev-sec-hover: #1b1f27;
+    --ev-sec-press: #222731;
+    --ev-seg-sombra: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 1px 2px rgb(0 0 0 / 0.40);
 
     /* Neutrals - Invertidos para tema escuro coerente */
     --bg-dark: #07080c;        /* Marinho profundo escuro */
@@ -178,6 +194,7 @@
     --curva-move: cubic-bezier(0.4, 0, 0.2, 1);      /* já está na tela e muda de lugar */
     --curva-gaveta: cubic-bezier(0.32, 0.72, 0, 1);  /* Vaul */
     --curva-mola: cubic-bezier(0.34, 1.36, 0.64, 1); /* só festa e conquista */
+    --curva-hover: cubic-bezier(0.25, 0.46, 0.45, 0.94); /* troca de cor de botão e controle */
   }
   /* Reduzir movimento: nada atravessa a tela; troca vira esmaecer curto (valores corrigidos no contrato §9) */
   @media (prefers-reduced-motion: reduce) {
@@ -185,6 +202,13 @@
   }
 
   html { scroll-behavior: smooth; }
+
+  /* Foco do teclado nos <button> soltos (fora de ui/button). :where() zera a especificidade, então qualquer
+     classe do botão (outline-*, ring-*, focus*, shadow-ev-foco) continua mandando; o :not() pula quem já tem anel próprio. */
+  :where(button:not([class*="focus"], [class*="outline"], [class*="ring-"])):focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
   
   body { 
     @apply antialiased;
@@ -225,6 +249,22 @@
 }
 
 @layer components {
+  /* Área de toque de 44 px (Apple HIG), invisível e centrada no controle. Só em tela de toque: com mouse ela
+     invadiria os vizinhos em fileiras de ícones. O controle precisa de position: relative. */
+  @media (pointer: coarse) {
+    .alvo-44::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 100%;
+      height: 100%;
+      min-width: 44px;
+      min-height: 44px;
+      transform: translate(-50%, -50%);
+    }
+  }
+
   /* Premium surface - Bento Glassmorphism */
   .surface {
     background: rgba(255, 255, 255, 0.015);
@@ -1245,6 +1285,11 @@ body {
    ponytail: some quando as páginas forem migradas (B2–B4) */
 .painel-produtor .produtor-pagina > .p-6:not(.py-20) {
   padding: 0;
+}
+/* Conteúdo da aba que entra pelo lado da aba escolhida (--aba-dir: 1 ou -1, posta pelo TabsList). Com "reduzir
+   movimento" --mov-desloc vale 0 e sobra só o esmaecer */
+@keyframes aba-entra {
+  from { opacity: 0; transform: translateX(calc(var(--aba-dir, 1) * var(--mov-desloc))); }
 }
 /* Entrada de tela (o ProducerLayout reinicia a cada troca de rota) */
 @keyframes produtor-entrar {

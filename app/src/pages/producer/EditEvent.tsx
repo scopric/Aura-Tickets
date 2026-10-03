@@ -314,7 +314,7 @@ export default function ProducerEditEvent() {
                   </div>
                 </div>
               ))}
-              <Button variant="outline" className="w-full border-dashed" onClick={addTicket}>
+              <Button variant="outline" className="w-full border border-dashed border-input shadow-none" onClick={addTicket}>
                 <Plus aria-hidden="true" />Adicionar ingresso
               </Button>
             </div>

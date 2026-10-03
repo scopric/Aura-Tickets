@@ -97,6 +97,11 @@ module.exports = {
         "ev-1": "var(--ev-sombra-1)",
         "ev-2": "var(--ev-sombra-2)",
         "ev-foco": "var(--ev-foco)",                     // anel de foco duplo, só em :focus-visible
+        // botões e controles (valores por tema no index.css)
+        "ev-primary": "var(--ev-hl), var(--ev-sombra-1)",
+        "ev-primary-press": "inset 0 1px 2px rgb(0 0 0 / 0.20)",
+        "ev-secondary": "var(--ev-anel-sec), var(--ev-sombra-sec)",
+        "ev-seg": "var(--ev-seg-sombra)",
       },
       // contrato v3.4, §9 (tokens no index.css; "reduzir movimento" encurta o lento)
       transitionDuration: {
@@ -111,6 +116,7 @@ module.exports = {
         move: "var(--curva-move)",
         gaveta: "var(--curva-gaveta)",
         mola: "var(--curva-mola)",
+        hover: "var(--curva-hover)",
       },
       keyframes: {
         "accordion-down": {

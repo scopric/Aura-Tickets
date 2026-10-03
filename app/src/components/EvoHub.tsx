@@ -259,7 +259,7 @@ export default function EvoHub() {
             </div>
 
             <Tabs defaultValue="evo" className="min-h-0 flex-1 gap-0">
-              <TabsList className="mx-5 mb-3 h-auto w-auto justify-start gap-1 overflow-x-auto rounded-xl bg-slate-900/5 p-1 dark:bg-white/[0.05]">
+              <TabsList variant="pilula" className="mx-5 mb-3 h-auto w-auto justify-start gap-1 overflow-x-auto rounded-xl bg-slate-900/5 p-1 dark:bg-white/[0.05]">
                 <TabsTrigger value="evo" className={aba}>Evo</TabsTrigger>
                 <TabsTrigger value="suporte" className={aba}>Falar com a Evokaa</TabsTrigger>
               </TabsList>
