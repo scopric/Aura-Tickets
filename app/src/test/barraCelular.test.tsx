@@ -138,6 +138,28 @@ describe('barra inferior do celular (V4b)', () => {
     expect(within(folha).getByRole('link', { name: 'Configurações' })).toHaveAttribute('href', '/producer/settings')
   })
 
+  it('na Visão geral do evento e na edição, a aba Eventos fica marcada e a folha marca "Visão geral"', async () => {
+    eventos = [evento('e1', 'Noite de Forró', amanha)]
+    montar('/producer/events/e1/edit')
+    expect(screen.getByRole('link', { name: 'Eventos' })).toHaveAttribute('aria-current', 'page')
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    const folha = await screen.findByRole('dialog', { name: 'Menu' })
+    const visao = within(folha).getByRole('link', { name: 'Visão geral' })
+    expect(visao).toHaveAttribute('href', '/producer/event/e1')
+    expect(visao).toHaveAttribute('aria-current', 'page') // rotasDaTela: a edição fica sob a Visão geral
+  })
+
+  it('a folha lista os eventos fixados pela mesma lista da lateral (useFixados)', async () => {
+    eventos = [evento('e1', 'Noite de Forró', amanha), evento('e2', 'Baile Fixado', '2026-12-30', { status: 'draft' })]
+    localStorage.setItem('evk.nav.fixados', JSON.stringify(['e2']))
+    montar('/producer/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }))
+    const folha = await screen.findByRole('dialog', { name: 'Menu' })
+    const links = within(folha).getAllByRole('link').map(l => l.getAttribute('aria-label') ?? l.textContent)
+    expect(links.findIndex(t => /Baile Fixado/.test(t ?? ''))).toBeLessThan(links.findIndex(t => /Noite de Forró/.test(t ?? '')))
+    localStorage.clear()
+  })
+
   it('--barra-cel no body enquanto a barra existe (Evo e cookies sobem acima dela)', () => {
     const { unmount } = montar()
     expect(document.body.style.getPropertyValue('--barra-cel')).toContain('68px')

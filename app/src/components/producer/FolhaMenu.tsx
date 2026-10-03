@@ -7,9 +7,10 @@ import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
+import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, hrefDaTela, lerFixados, rotaAtiva, textoDaTela,
+  ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, hrefDaTela, rotaAtiva, textoDaTela,
   type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
@@ -36,6 +37,7 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
   const { pathname, search } = useLocation()
   const { logout } = useAuth()
   const { data: eventos = [], isLoading } = useProducerEvents()
+  const [fixados] = useFixados() // a mesma lista da lateral e da Visão geral
   const [busca, setBusca] = useState('')
   const filtroRef = useRef<HTMLInputElement>(null)
 
@@ -85,7 +87,7 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
     if (escopo === 'produtora' && s === 'Eventos') {
       return [
         ...telas.slice(0, 1).filter(t => bate(textoDaTela(t, escopo))).map(linkTela),
-        ...eventosDaLista(eventos, lerFixados()).filter(e => bate(e.title)).map(linkEvento),
+        ...eventosDaLista(eventos, fixados).filter(e => bate(e.title)).map(linkEvento),
         ...telas.slice(1).filter(t => bate(textoDaTela(t, escopo))).map(linkTela),
       ]
     }
