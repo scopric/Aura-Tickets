@@ -6,7 +6,7 @@ import { toast } from 'sonner'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
 import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
-import { FOTO_PADRAO, corSorteada, ehHex, temFoto } from '../../lib/corEvento'
+import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
 import { useAuth } from '../../hooks/useAuth'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -347,7 +347,7 @@ export default function ProducerEditEvent() {
               capa={capa}
               onCapa={setCapa}
               onRemover={() => setRemovida(temFoto(existingEvent.cover_image))}
-              cor={corEditada?.valor ?? (ehHex(existingEvent.accent_color) ? existingEvent.accent_color : corSorteada(existingEvent.id))}
+              cor={corEditada?.valor ?? corDoEvento(existingEvent)}
               corManual={!!corEditada?.manual}
               onCor={(valor, manual) => setCorEditada(c => ({ valor, manual: manual || !!c?.manual }))}
               ocupado={salvando}

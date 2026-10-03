@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProducerDashboard from '../pages/producer/Dashboard'
@@ -27,90 +27,232 @@ vi.mock('../lib/supabase', () => ({
 let reduzir = true // prefers-reduced-motion
 vi.stubGlobal('matchMedia', () => ({ matches: reduzir }))
 
-const ingressos = (total: number, porEvento: Record<string, number> = {}, checkin = false) => (c: Chamada[]): Resposta => {
+const DIA = 86400000
+const ha = (dias: number, min = 0) => new Date(Date.now() - dias * DIA - min * 60000).toISOString()
+
+type Pedido = { total: number; created_at: string; event_id: string }
+type Ingresso = { order_id: string; event_id: string; ticket_type_id: string; created_at: string }
+const pedidos = (linhas: Pedido[], count = linhas.length) => () => ({ data: linhas, error: null, count })
+// o check-in usa .not(); a contagem de um evento, .eq('event_id'); as vendas, .in('status') sem eq de evento
+const ingressos = (linhas: Ingresso[], checkin = false, count = linhas.length) => (c: Chamada[]): Resposta => {
   if (c.some(([n]) => n === 'not')) return { data: checkin ? [{ id: 't1' }] : [], error: null }
   const ev = c.find(([n, a]) => n === 'eq' && a[0] === 'event_id')
-  return { data: null, error: null, count: ev ? porEvento[ev[1][1] as string] ?? 0 : total }
+  return ev ? { data: null, error: null, count: linhas.filter(l => l.event_id === ev[1][1]).length } : { data: linhas, error: null, count }
 }
-const valorDe = (rotulo: string) => screen.getByText(rotulo).nextElementSibling?.textContent
+const ing = (n: number, ordem = (i: number) => `o${i}`): Ingresso[] =>
+  Array.from({ length: n }, (_, i) => ({ order_id: ordem(i), event_id: 'e1', ticket_type_id: 'tt1', created_at: ha(0, i + 1) }))
+
+const e1 = {
+  id: 'e1', title: '[TESTE] Show', status: 'published', approval_status: 'pending', date: '2099-01-10', time: '22:00:00',
+  start_date: '2099-01-10T20:00:00Z', capacity: null, accent_color: null, cover_image: null, image_url: null,
+  venue_name: 'Espaço Torres', venue_city: 'Curitiba',
+  ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 100, capacity: null, is_active: true }],
+}
+const noAr = { ...e1, approval_status: 'approved' }
+const lote10 = { ...noAr, ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 10, capacity: null, is_active: true }] }
+const passado = { ...e1, id: 'e2', title: 'Rascunho velho', status: 'draft', date: '2020-01-01', start_date: '2020-01-01T00:00:00Z', capacity: 50, ticket_types: [] }
+
+const aba = (nome: RegExp) => screen.getByRole('tab', { name: nome })
 const montar = () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  render(<QueryClientProvider client={qc}><MemoryRouter><ProducerDashboard /></MemoryRouter></QueryClientProvider>)
+  render(<QueryClientProvider client={qc}><MemoryRouter initialEntries={['/producer/dashboard']}><ProducerDashboard /></MemoryRouter></QueryClientProvider>)
   return qc
 }
-const e1 = { id: 'e1', title: '[TESTE] Show', status: 'published', approval_status: 'pending', date: '2099-01-10', start_date: '2099-01-10T20:00:00Z', capacity: null, ticket_types: [{ quantity_total: 100, capacity: null }] }
+// onboarding_logs com memória: o que o registrar() grava volta na próxima leitura
+const gravados: string[] = []
+const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empresa?: boolean; cortado?: number } = {}) => {
+  tabelas.events = () => ({ data: eventos, error: null })
+  tabelas.producer_profiles = () => ({ data: opcoes.empresa ? { company_name: 'Seda' } : null, error: opcoes.empresa ? null : { code: '42501' } })
+  tabelas.orders = pedidos(p, opcoes.cortado)
+  tabelas.tickets = ingressos(i, false, opcoes.cortado)
+  gravados.length = 0
+  tabelas.onboarding_logs = c => {
+    const grava = c.find(([n]) => n === 'insert')
+    if (grava) { gravados.push((grava[1][0] as { step_name: string }).step_name); return { data: null, error: null } }
+    return { data: gravados.map(step_name => ({ step_name })), error: null }
+  }
+}
+
+beforeEach(() => { localStorage.clear(); reduzir = true })
 
 describe('Início do produtor', () => {
-  it('sem eventos: convite, aviso honesto e passos zerados', async () => {
-    tabelas.events = () => ({ data: [], error: null })
-    tabelas.producer_profiles = () => ({ data: null, error: { code: '42501' } })
-    tabelas.orders = () => ({ data: [], error: null, count: 0 })
-    tabelas.tickets = ingressos(0)
+  it('sem eventos: data como título, convite, passos zerados e nada de gráfico', async () => {
+    preparar([], [], [])
     montar()
     expect(await screen.findByText('Você ainda não tem eventos')).toBeTruthy()
-    expect(screen.getByText('Nenhuma venda paga ainda.')).toBeTruthy()
-    expect(screen.getByText('0 de 5')).toBeTruthy()
-    expect(screen.getByRole('heading', { level: 1, name: 'Início' })).toBeTruthy()
-    expect(screen.getByText(/, Ricardo$/)).toBeTruthy()
+    expect(await screen.findByText('0 de 5')).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1 }).textContent).toMatch(/^(Dom|Seg|Ter|Qua|Qui|Sex|Sáb), \d{1,2} de [a-zç]+$/)
+    // o tour do Início tem onde apontar mesmo sem evento
+    expect(document.querySelector('[data-tour="inicio-numeros"]')).toBeTruthy()
+    expect(document.querySelector('[data-tour="inicio-checklist"]')).toBeTruthy()
+    expect(document.querySelector('[data-tour="inicio-proximos"]')).toBeTruthy()
+    expect(await screen.findByText('Nenhuma venda nos últimos 7 dias')).toBeTruthy()
   })
 
-  it('com eventos e vendas: publicado só se aprovado, só eventos futuros, vendidos por evento e ticket médio', async () => {
-    tabelas.events = () => ({ data: [
-      e1,
-      { id: 'e2', title: 'Rascunho velho', status: 'draft', approval_status: 'pending', date: '2020-01-01', start_date: '2020-01-01T00:00:00Z', capacity: 50, ticket_types: [] },
-    ], error: null })
-    tabelas.producer_profiles = () => ({ data: { company_name: 'Seda' }, error: null })
-    tabelas.orders = () => ({ data: [{ total: 55 }, { total: 110 }], error: null, count: 2 })
-    tabelas.tickets = ingressos(3, { e1: 3 })
+  it('com vendas: receita e ingressos do período, variação sobre o anterior, ticket médio e vendas recentes agrupadas', async () => {
+    preparar([e1, passado],
+      [{ total: 55, created_at: ha(0, 5), event_id: 'e1' }, { total: 110, created_at: ha(1), event_id: 'e1' }, { total: 100, created_at: ha(9), event_id: 'e1' }],
+      [
+        { order_id: 'o1', event_id: 'e1', ticket_type_id: 'tt1', created_at: ha(0, 5) },
+        { order_id: 'o2', event_id: 'e1', ticket_type_id: 'tt1', created_at: ha(1) },
+        { order_id: 'o2', event_id: 'e1', ticket_type_id: 'tt1', created_at: ha(1) },
+      ], { empresa: true })
     montar()
-    expect(await screen.findByText('[TESTE] Show')).toBeTruthy()
-    expect(valorDe('Eventos publicados')).toBe('0') // e1 está publicado, mas em análise
-    expect(valorDe('Ingressos vendidos')).toBe('3')
-    expect(valorDe('Vendas (bruto)')).toMatch(/165,00$/)
-    expect(valorDe('Ticket médio')).toMatch(/55,00$/)
-    expect(screen.queryByText('Rascunho velho')).toBeNull()
-    expect(screen.getByText('Em análise')).toBeTruthy()
-    expect(screen.getByText('3 de 100 vendidos')).toBeTruthy()
-    expect(screen.getByText('4 de 5')).toBeTruthy()
-    expect(screen.queryByText('Nenhuma venda paga ainda.')).toBeNull()
-    expect(screen.getByRole('link', { name: /\[TESTE\] Show/ }).getAttribute('href')).toBe('/producer/events/e1/edit')
+    await screen.findByText('[TESTE] Show', { selector: 'h3' })
+    await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/165,00/))
+    expect(aba(/Receita bruta/).textContent).toMatch(/ticket médio R\$\s55,00/)
+    expect(aba(/Receita bruta/).textContent).toMatch(/aumento de 65% sobre o período anterior/) // 165 contra 100
+    expect(aba(/Ingressos vendidos/).textContent).toMatch(/^Ingressos vendidos3/)
+    // próximo evento: só futuro, com "3 de 100" reais e o botão para a edição
+    expect(screen.getByText('de 100')).toBeTruthy()
+    await waitFor(() => expect(screen.getByText('de 100').previousElementSibling?.textContent).toBe('3'))
+    expect(aba(/Receita bruta/).textContent).toMatch(/inclui a taxa do comprador/)
+    expect(screen.getByRole('columnheader', { name: /Receita bruta/ }).textContent).toMatch(/inclui a taxa do comprador/)
+    expect(screen.getByRole('link', { name: 'Abrir evento' }).getAttribute('href')).toBe('/producer/events/e1/edit')
+    // tabela: Total e evento (todas as vendas, também a de 9 dias atrás), situação em texto
+    const tabela = screen.getByRole('table')
+    expect(within(tabela).getByText('Em análise')).toBeTruthy()
+    expect(within(tabela).getAllByText('3/100').length).toBe(1)
+    expect(within(tabela).getAllByText(/265,00/).length).toBe(2)
+    // vendas recentes: ingressos do mesmo pedido viram uma linha, sem nome de comprador
+    expect(screen.getByText('2 × Pista')).toBeTruthy()
+    expect(screen.getByText('1 × Pista')).toBeTruthy()
+    expect(screen.getByText('há 5 min')).toBeTruthy()
+    expect(await screen.findByText('4 de 6')).toBeTruthy() // checklist: falta o evento aprovado e o check-in
   })
 
-  it('mais pedidos que o limite de linhas: soma com "+" e sem ticket médio', async () => {
-    tabelas.events = () => ({ data: [e1], error: null })
-    tabelas.producer_profiles = () => ({ data: null, error: null })
-    tabelas.orders = () => ({ data: [{ total: 10 }], error: null, count: 1500 })
-    tabelas.tickets = ingressos(1500)
+  it('trocar o período refaz as contas; "Tudo" não tem período anterior', async () => {
+    preparar([e1], [{ total: 80, created_at: ha(3), event_id: 'e1' }], [{ order_id: 'o1', event_id: 'e1', ticket_type_id: 'tt1', created_at: ha(3) }], { empresa: true })
     montar()
-    await screen.findByText('[TESTE] Show')
-    expect(valorDe('Vendas (bruto)')).toMatch(/10,00\+$/)
-    expect(valorDe('Ticket médio')).toBe('—')
-    expect(screen.getByText('Soma parcial: mais de 1.000 pedidos pagos')).toBeTruthy()
+    await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/80,00/))
+    fireEvent.click(screen.getByRole('radio', { name: 'Hoje' }))
+    await waitFor(() => expect(screen.getByText('Nenhuma venda hoje')).toBeTruthy())
+    fireEvent.click(screen.getByRole('radio', { name: 'Tudo' }))
+    await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/80,00/))
+    expect(screen.queryByText(/comparado a/)).toBeNull()
+  })
+
+  it('publicado e sem venda: gráfico fantasma, texto honesto e "Copiar link do evento"', async () => {
+    preparar([noAr], [], [], { empresa: true })
+    montar()
+    expect(await screen.findByText('Nenhuma venda nos últimos 7 dias')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Copiar link do evento/ })).toBeTruthy()
+    expect(screen.queryByText('Vendas recentes')).toBeNull()
+    expect(aba(/Receita bruta/).textContent).toMatch(/R\$\s0,00/)
+  })
+
+  it('só rascunho e sem venda: não oferece copiar o link', async () => {
+    preparar([{ ...e1, status: 'draft' }], [], [], { empresa: true })
+    montar()
+    expect(await screen.findByText('As vendas aparecem aqui quando um evento estiver no ar.')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Copiar link/ })).toBeNull()
+  })
+
+  it('lote com 90% ou mais vendido: aviso com barra e dispensa lembrada', async () => {
+    preparar([lote10], [], ing(9), { empresa: true })
+    montar()
+    const aviso = await screen.findByRole('region', { name: 'Aviso de lote' })
+    expect(aviso.textContent).toMatch(/Pista do \[TESTE\] Show: 9 de 10 vendidos/)
+    expect(aviso.textContent).toMatch(/90%/)
+    expect(within(aviso).getByRole('link', { name: 'Editar ingressos' }).getAttribute('href')).toBe('/producer/events/e1/edit')
+    fireEvent.click(within(aviso).getByRole('button', { name: 'Dispensar aviso' }))
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull())
+    expect(gravados).toEqual(['aviso-lote:tt1:10']) // a capacidade vai na chave: abrir mais lugares faz o aviso voltar
+  })
+
+  it('aviso de lote dispensado volta se a capacidade mudou', async () => {
+    preparar([lote10], [], ing(9), { empresa: true })
+    gravados.push('aviso-lote:tt1:9')
+    montar()
+    expect(await screen.findByRole('region', { name: 'Aviso de lote' })).toBeTruthy()
+  })
+
+  it('lote abaixo de 90%, ou de evento que ainda não está no ar: sem aviso', async () => {
+    preparar([lote10], [], ing(8, () => 'o'), { empresa: true })
+    montar()
+    await screen.findByText('8 × Pista')
+    expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull()
+    cleanup()
+    preparar([{ ...lote10, approval_status: 'pending' }], [], ing(10, () => 'o'), { empresa: true })
+    montar()
+    await screen.findByText('10 × Pista')
+    expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull()
+  })
+
+  it('mais pedidos que o limite de linhas: soma com "+", sem ticket médio e sem variação', async () => {
+    preparar([e1], [{ total: 10, created_at: ha(0, 1), event_id: 'e1' }], ing(1), { empresa: true, cortado: 1500 })
+    montar()
+    await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/10,00\+/))
+    expect(aba(/Receita bruta/).textContent).toMatch(/Soma parcial: mais de 1\.000 pedidos pagos/)
+    expect(aba(/Receita bruta/).textContent).not.toMatch(/ticket médio|aumento|queda/)
+  })
+
+  it('lista de ingressos cortada: tabela e aviso com "+", e o próximo evento conta exato à parte', async () => {
+    const nove = ing(9)
+    preparar([lote10], [], nove, { empresa: true, cortado: 1500 })
+    const base = tabelas.tickets
+    // a contagem exata do evento (head + eq event_id) diz 1.480; a lista só trouxe 9 das 1.500
+    tabelas.tickets = c => c.some(([n, a]) => n === 'eq' && a[0] === 'event_id') ? { data: null, error: null, count: 1480 } : base(c)
+    montar()
+    const aviso = await screen.findByRole('region', { name: 'Aviso de lote' })
+    expect(aviso.textContent).toMatch(/9\+ de 10 vendidos/)
+    expect(screen.getByRole('table').textContent).toMatch(/9\+\/10/)
+    await waitFor(() => expect(screen.getByText('de 10').previousElementSibling?.textContent).toBe('1.480'))
+  })
+
+  it('ingressos sem receita: diz "Nenhuma receita", não "Nenhuma venda"', async () => {
+    preparar([noAr], [], ing(2), { empresa: true })
+    montar()
+    expect(await screen.findByText('Nenhuma receita nos últimos 7 dias')).toBeTruthy()
+  })
+
+  it('a aba Ingressos vendidos troca o gráfico', async () => {
+    preparar([noAr], [{ total: 50, created_at: ha(0, 5), event_id: 'e1' }], ing(1), { empresa: true })
+    montar()
+    await waitFor(() => expect(aba(/Receita bruta/).getAttribute('aria-selected')).toBe('true'))
+    fireEvent.mouseDown(aba(/Ingressos vendidos/), { button: 0 }) // o Radix troca a aba ao apertar
+    await waitFor(() => expect(aba(/Ingressos vendidos/).getAttribute('aria-selected')).toBe('true'))
+    expect(screen.getByRole('img', { name: /Ingressos vendidos, nos últimos 7 dias: 1/ })).toBeTruthy()
   })
 
   it('contagem animada vai a 0 quando o valor novo é 0', async () => {
     reduzir = false
-    tabelas.events = () => ({ data: [e1], error: null })
-    tabelas.producer_profiles = () => ({ data: null, error: null })
-    tabelas.orders = () => ({ data: [], error: null, count: 0 })
-    tabelas.tickets = ingressos(7)
+    preparar([e1], [], ing(7), { empresa: true })
     const qc = montar()
-    await waitFor(() => expect(valorDe('Ingressos vendidos')).toBe('7'), { timeout: 3000 })
-    tabelas.tickets = ingressos(0)
+    const valor = () => aba(/Ingressos vendidos/).querySelector('span span')?.textContent
+    await waitFor(() => expect(valor()).toBe('7'), { timeout: 3000 })
+    tabelas.tickets = ingressos([])
     await qc.refetchQueries()
     await new Promise(r => setTimeout(r, 100)) // deixa o React e a limpeza do efeito terminarem
-    expect(valorDe('Ingressos vendidos')).toBe('0')
-    reduzir = true
+    expect(valor()).toBe('0')
   })
 
-  it('erro de consulta (inclusive de rede no perfil) vira aviso com "Tentar de novo", não zeros', async () => {
-    tabelas.events = () => ({ data: [], error: null })
-    tabelas.producer_profiles = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
-    tabelas.orders = () => ({ data: [], error: null, count: 0 })
-    tabelas.tickets = ingressos(0)
+  it('erro nas vendas: aviso dentro do painel, o resto da página fica e dá para tentar de novo', async () => {
+    preparar([e1], [], [], { empresa: true })
+    tabelas.orders = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
     montar()
     // a tela tenta 1 vez de novo (retry: 1) antes de mostrar o erro
+    expect(await screen.findByText('Não deu para carregar o gráfico de vendas.', {}, { timeout: 4000 })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeTruthy()
+    expect(screen.getAllByText('[TESTE] Show').length).toBeGreaterThan(0)
+    expect(screen.getByRole('table').textContent).toMatch(/—/) // vendidos e receita sem número inventado
+    expect(screen.queryByText(/R\$\s0,00/)).toBeNull()
+  })
+
+  it('erro nos eventos vira aviso com "Tentar de novo", não zeros', async () => {
+    preparar([], [], [])
+    tabelas.events = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
+    montar()
     expect(await screen.findByRole('button', { name: 'Tentar de novo' }, { timeout: 4000 })).toBeTruthy()
-    expect(screen.queryByText('R$ 0,00')).toBeNull()
+    expect(screen.queryByRole('tab')).toBeNull()
+  })
+
+  it('perfil com erro de rede: sem checklist (não finge "perfil não preenchido")', async () => {
+    preparar([e1], [], [])
+    tabelas.producer_profiles = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
+    montar()
+    await screen.findByText('[TESTE] Show', { selector: 'h3' })
+    await new Promise(r => setTimeout(r, 1500)) // a consulta tenta 1 vez de novo antes de falhar
+    expect(screen.queryByText(/^\d de [56]$/)).toBeNull()
   })
 })
