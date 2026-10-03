@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ArrowRight, Zap, Users, BarChart3, Palette, Ticket, Shield, Check, CheckCircle2, Paintbrush, Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import gsap from 'gsap'
 import { useSEO } from '../hooks/useSEO'
 import { appUrl } from '../lib/appHost'
@@ -602,6 +602,13 @@ export default function Home() {
   const statsRef = useRef<HTMLDivElement>(null)
   const ctaRef = useRef<HTMLDivElement>(null)
   const howItWorksRef = useRef<HTMLDivElement>(null)
+
+  // Outfit nos títulos só na Home (index.css, body.home-outfit); cobre também o Header e o Footer.
+  // useLayoutEffect: a classe entra antes da 1ª pintura (sem um quadro em Jakarta)
+  useLayoutEffect(() => {
+    document.body.classList.add('home-outfit')
+    return () => document.body.classList.remove('home-outfit')
+  }, [])
 
   useEffect(() => {
     const ctx = gsap.context(() => {

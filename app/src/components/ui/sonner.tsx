@@ -1,13 +1,16 @@
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useTheme } from "@/contexts/ThemeContext"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   // No celular os avisos no canto inferior se empilhavam sobre o botão principal dos formulários
   // (ex.: "Avançar" do cadastro), que ficava inclicável até sumirem: lá eles vão para o topo.
   const isMobile = useIsMobile()
+  const { temaResolvido } = useTheme()
   return (
     <Sonner
+      theme={temaResolvido}
       position={isMobile ? "top-center" : "bottom-right"}
       richColors
       closeButton

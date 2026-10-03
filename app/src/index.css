@@ -4,97 +4,68 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* shadcn/ui tokens - updated to slate/cool grays for dark mode by default */
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 9% / 0.6;          /* material regular: cartões translúcidos sobre o fundo ambiente */
-    --card-foreground: 210 40% 98%;
-    --popover: 222 47% 9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 217 91% 60%;
+  /* Tema claro (padrão). Contrato visual v3.4, §2 (00-linguagem-visual.md). Tokens do shadcn sempre como
+     trio HSL opaco "H S% L%": o tailwind.config monta hsl(var(--x)) e acrescenta a opacidade das classes.
+     O ThemeContext (e o script do index.html, antes da primeira pintura) põe .light ou .dark no <html>;
+     .light também vale em ilhas claras dentro do escuro (planta do Mapa, .mapa-claro). */
+  :root, .light {
+    color-scheme: light;
+    --background: 0 0% 100%;              /* #ffffff */
+    --foreground: 222.9 24.1% 5.7%;       /* #0b0d12 */
+    --card: 0 0% 100%;                    /* #ffffff (superfície) */
+    --card-foreground: 222.9 24.1% 5.7%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.9 24.1% 5.7%;
+    --primary: 213.1 74.2% 44.1%;         /* #1d68c4 (marca); branco por cima 5,48:1 */
     --primary-foreground: 0 0% 100%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 47% 12%;
-    --muted-foreground: 215 16% 65%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 222 47% 15%;
-    --input: 222 47% 15%;
-    --ring: 217 91% 60%;
+    --secondary: 220 15.8% 96.3%;         /* #f4f5f7 (superfície 2) */
+    --secondary-foreground: 222.9 24.1% 5.7%;
+    --muted: 220 15.8% 96.3%;
+    --muted-foreground: 216.5 11.2% 40.2%; /* #5b6472; 5,98:1 no fundo */
+    --accent: 220 15.8% 96.3%;            /* hover de item (era roxo #7c3bed, que sai pelo contrato §2.7) */
+    --accent-foreground: 222.9 24.1% 5.7%;
+    --destructive: 2.7 64.6% 47.6%;       /* #c8322b; branco por cima 5,32:1 */
+    --destructive-foreground: 0 0% 100%;
+    /* Cor de TEXTO azul/vermelho (classes text-primary e text-destructive); no claro é a mesma do preenchimento */
+    --primary-text: 213.1 74.2% 44.1%;      /* #1d68c4 */
+    --destructive-text: 2.7 64.6% 47.6%;    /* #c8322b */
+    --border: 214.3 14.3% 90.4%;          /* #e3e6ea (linha decorativa) */
+    --input: 216.5 10.2% 55.9%;           /* #838c9a (borda de campo, >= 3:1) */
+    --ring: 222.9 24.1% 5.7%;             /* foco neutro #0b0d12 */
     --radius: 0.75rem;
-    
+
+    /* Evokaa: só o que o shadcn não tem (valores do contrato §2.1, §2.4 e §2.8.2) */
+    --ev-brand-hover: #1b60b4;
+    --ev-brand-press: #1857a5;
+    --ev-brand-soft: #e8f0f9;
+    --ev-indigo: #0c2340;
+    --ev-warm: #f2994a;         /* só festa e conquista; texto por cima #0b0d12 (branco reprova) */
+    --ev-warm-text: #a5520f;
+    --ev-success: #17784a;
+    --ev-warning: #a35a00;
+    --ev-sidebar: #f7f8fa;
+    --ev-focus-field: #1d68c4;  /* borda do campo em foco */
+    --ev-disabled-bg: #eef0f3;
+    --ev-disabled-fg: #9aa1ad;
+    --ev-tint-hover: rgb(0 0 0 / 0.04);
+    --ev-tint-ativo: rgb(0 0 0 / 0.07);
+    --ev-tint-press: rgb(0 0 0 / 0.10);
+    --ev-veu: rgb(11 13 18 / 0.32);
+    --ev-sombra-1: 0 1px 2px rgb(12 35 64 / 0.20);
+    --ev-sombra-2: 0 8px 24px -8px rgb(12 35 64 / 0.25), 0 1px 2px rgb(12 35 64 / 0.08);
+    --ev-foco: 0 0 0 2px hsl(var(--background)), 0 0 0 4px hsl(var(--ring)); /* anel duplo, só :focus-visible */
+
     /* Evokaa Brand Tokens v2.0 (Fidelidade ao logotipo) */
     --brand-cyan: #1d68c4;   /* Azul royal do ícone */
     --brand-blue: #4a60e3;   /* Azul-violeta intermediário */
     --brand-violet: #8f33f5; /* Roxo/violeta do ícone */
     --brand-indigo: #0c2340; /* Azul-marinho profundo do texto */
-    
+
     /* Gradients */
     --gradient-brand: linear-gradient(135deg, #1d68c4, #4a60e3, #8f33f5);
     --gradient-hero: linear-gradient(135deg, #0c2340 0%, #12335c 50%, #0c2340 100%);
     --gradient-subtle: linear-gradient(180deg, rgba(29,104,196,0.05), rgba(143,51,245,0.05));
     --gradient-glow: linear-gradient(135deg, rgba(29,104,196,0.3), rgba(143,51,245,0.3));
-    
-    /* Neutrals - Invertidos para tema escuro coerente */
-    --bg-dark: #07080c;        /* Marinho profundo escuro */
-    --bg-darker: #040508;      /* Ultra escuro */
-    --bg-light: #0a0b10;       /* Fundo da plataforma (escuro) */
-    --bg-card: rgba(255, 255, 255, 0.015);
-    --text-primary: #f8fafc;   /* Texto claro */
-    --text-secondary: #cbd5e1;
-    --text-muted: #64748b;
-    --border-subtle: rgba(255, 255, 255, 0.06);
-    
-    /* Legacy compat - Invertidos para tema escuro */
-    --canvas-rgb: 10 11 16;         /* Fundo da plataforma (escuro) */
-    --canvas: rgb(var(--canvas-rgb));
-    --canvas-deep: #07080c;    /* Fundo mais profundo */
-    --void-rgb: 7 8 12;           /* Barra lateral profunda */
-    --void: rgb(var(--void-rgb));
-    --plum-rgb: 143 51 245;           /* Roxo principal */
-    --plum: rgb(var(--plum-rgb));
-    --plum-light: #a78bfa;
-    --plum-muted: rgba(143, 51, 245, 0.1);
-    --cream-rgb: 248 250 252;          /* Creme claro para contraste */
-    --cream: rgb(var(--cream-rgb));
-    --espresso-rgb: 248 250 252;       /* Espresso agora é CLARO para contraste! */
-    --espresso: rgb(var(--espresso-rgb));
-    --ink: #f8fafc;            /* Tinta agora é CLARA! */
-    --ink-light: #cbd5e1;
-    --ink-faint: #64748b;
-  }
-
-  /* Tema Claro (Light Mode) */
-  .light {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100% / 0.6;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222 47% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
-
-    /* Evokaa Brand Tokens no tema claro */
-    --brand-cyan: #1d68c4;
-    --brand-blue: #4a60e3;
-    --brand-violet: #8f33f5;
-    --brand-indigo: #0c2340;
 
     /* Neutrals para Tema Claro */
     --bg-dark: #f8fafc;
@@ -108,15 +79,109 @@
 
     /* Legacy compat no tema claro */
     --canvas-rgb: 248 250 252;
+    --canvas: rgb(var(--canvas-rgb));
     --canvas-deep: #ffffff;
     --void-rgb: 255 255 255;
+    --void: rgb(var(--void-rgb));
+    --plum-rgb: 143 51 245;           /* Roxo principal */
+    --plum: rgb(var(--plum-rgb));
     --plum-light: #7c3aed;
     --plum-muted: rgba(143, 51, 245, 0.05);
     --cream-rgb: 30 41 59;          /* Cream vira escuro no tema claro */
+    --cream: rgb(var(--cream-rgb));
     --espresso-rgb: 45 37 34;       /* Espresso vira marrom escuro */
+    --espresso: rgb(var(--espresso-rgb));
     --ink: #1e293b;            /* Ink vira escuro */
     --ink-light: #475569;
     --ink-faint: #94a3b8;
+  }
+
+  /* Tema escuro: redefine tudo o que muda de um tema para o outro (o que é igual nos dois fica só no :root) */
+  .dark {
+    color-scheme: dark;
+    --background: 222.9 24.1% 5.7%;       /* #0b0d12 */
+    --foreground: 220 13.6% 91.4%;        /* #e6e8ec; 15,84:1 no fundo */
+    --card: 220 18.4% 9.6%;               /* #14171d (superfície), opaco */
+    --card-foreground: 220 13.6% 91.4%;
+    --popover: 220 18.4% 9.6%;
+    --popover-foreground: 220 13.6% 91.4%;
+    --primary: 213.1 74.2% 44.1%;         /* #1d68c4: a marca não muda no preenchimento */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 18.2% 12.9%;         /* #1b1f27 (superfície 2) */
+    --secondary-foreground: 220 13.6% 91.4%;
+    --muted: 220 18.2% 12.9%;
+    --muted-foreground: 217.9 10.4% 64.1%; /* #9aa1ad; 7,47:1 no fundo */
+    --accent: 220 18.2% 12.9%;
+    --accent-foreground: 220 13.6% 91.4%;
+    --destructive: 2.7 64.6% 47.6%;       /* #c8322b */
+    --destructive-foreground: 0 0% 100%;
+    /* Cor de TEXTO azul/vermelho (classes text-primary e text-destructive): no escuro o preenchimento #1d68c4 dá 3,5:1 como texto */
+    --primary-text: 214.2 83.2% 64.9%;      /* #5b9bf0 */
+    --destructive-text: 3.1 83.1% 62.9%;    /* #ef5a52 */
+    --border: 230 8.8% 13.3%;             /* #1f2025 = branco 8% sobre #0b0d12, já resolvido (opaco) */
+    --input: 216.5 10.3% 43.7%;           /* #646d7b */
+    --ring: 220 13.6% 91.4%;              /* foco neutro #e6e8ec */
+
+    --ev-brand-hover: #2f72c8;
+    --ev-brand-press: #1b60b4;
+    --ev-brand-soft: #13243b;
+    --ev-warm-text: #f2994a;
+    --ev-success: #4cc38a;
+    --ev-warning: #f0b44c;
+    --ev-sidebar: #0e1116;
+    --ev-focus-field: #5b9bf0;
+    --ev-disabled-bg: #1b1f27;
+    --ev-disabled-fg: #5b6472;
+    --ev-tint-hover: rgb(255 255 255 / 0.06);
+    --ev-tint-ativo: rgb(255 255 255 / 0.10);
+    --ev-tint-press: rgb(255 255 255 / 0.14);
+    --ev-veu: rgb(0 0 0 / 0.48);
+    --ev-sombra-1: 0 1px 2px rgb(0 0 0 / 0.40);
+    --ev-sombra-2: 0 8px 24px -8px rgb(0 0 0 / 0.50), 0 1px 2px rgb(0 0 0 / 0.30);
+
+    /* Neutrals - Invertidos para tema escuro coerente */
+    --bg-dark: #07080c;        /* Marinho profundo escuro */
+    --bg-darker: #040508;      /* Ultra escuro */
+    --bg-light: #0a0b10;       /* Fundo da plataforma (escuro) */
+    --bg-card: rgba(255, 255, 255, 0.015);
+    --text-primary: #f8fafc;   /* Texto claro */
+    --text-secondary: #cbd5e1;
+    --text-muted: #64748b;
+    --border-subtle: rgba(255, 255, 255, 0.06);
+
+    /* Legacy compat - Invertidos para tema escuro */
+    --canvas-rgb: 10 11 16;         /* Fundo da plataforma (escuro) */
+    --canvas-deep: #07080c;    /* Fundo mais profundo */
+    --void-rgb: 7 8 12;           /* Barra lateral profunda */
+    --plum-light: #a78bfa;
+    --plum-muted: rgba(143, 51, 245, 0.1);
+    --cream-rgb: 248 250 252;          /* Creme claro para contraste */
+    --espresso-rgb: 248 250 252;       /* Espresso agora é CLARO para contraste! */
+    --ink: #f8fafc;            /* Tinta agora é CLARA! */
+    --ink-light: #cbd5e1;
+    --ink-faint: #64748b;
+  }
+
+  /* Movimento (contrato §9; refs/movimento/codigo/00-tokens-movimento.css). Nunca "transition: all". */
+  :root {
+    --mov-0: 0ms;          /* teclado, Cmd+K, hover de linha e de item da lateral */
+    --mov-micro: 100ms;    /* pressionar botão */
+    --mov-rapido: 160ms;   /* menu, dica, troca de cor (tema) */
+    --mov-base: 240ms;     /* diálogo, indicador de aba e de segmentado */
+    --mov-lento: 400ms;    /* aviso (Sonner), ingresso que vira */
+    --mov-gaveta: 500ms;   /* folha inferior (Vaul) */
+    --mov-escalonar: 40ms; /* atraso entre itens de lista, no máximo 6 */
+    --mov-desloc: 8px;
+    --mov-escala: 0.96;
+    --curva-sai: cubic-bezier(0.22, 1, 0.36, 1);     /* tudo que entra */
+    --curva-entra: cubic-bezier(0.4, 0, 1, 1);       /* só saídas */
+    --curva-move: cubic-bezier(0.4, 0, 0.2, 1);      /* já está na tela e muda de lugar */
+    --curva-gaveta: cubic-bezier(0.32, 0.72, 0, 1);  /* Vaul */
+    --curva-mola: cubic-bezier(0.34, 1.36, 0.64, 1); /* só festa e conquista */
+  }
+  /* Reduzir movimento: nada atravessa a tela; troca vira esmaecer curto (valores corrigidos no contrato §9) */
+  @media (prefers-reduced-motion: reduce) {
+    :root { --mov-desloc: 0px; --mov-escala: 1; --mov-gaveta: 240ms; --mov-lento: 160ms; --mov-escalonar: 0ms; }
   }
 
   html { scroll-behavior: smooth; }
@@ -131,18 +196,26 @@
     line-height: 1.6;
   }
 
-  /* Typography - Outfit Display for Headings, Plus Jakarta Sans for Body */
-  h1, h2, h3, h4 { 
-    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  /* Títulos em Plus Jakarta Sans 600 (contrato §3). A Outfit fica só na Home (body.home-outfit, posto pela
+     Home.tsx), com os pesos de antes; :where() mantém a especificidade de um seletor de elemento */
+  h1, h2, h3, h4 {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     letter-spacing: -0.03em;
     line-height: 1.15;
+    font-weight: 600;
+  }
+
+  h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
+  h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); }
+  h3 { font-size: clamp(1.3rem, 2vw, 1.6rem); }
+  h4 { font-size: 1.125rem; letter-spacing: -0.02em; }
+
+  :where(body.home-outfit) :is(h1, h2, h3, h4) {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
     font-weight: 800;
   }
-  
-  h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
-  h2 { font-size: clamp(1.8rem, 3vw, 2.8rem); font-weight: 700; }
-  h3 { font-size: clamp(1.3rem, 2vw, 1.6rem); font-weight: 600; }
-  h4 { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.02em; }
+  :where(body.home-outfit) h2 { font-weight: 700; }
+  :where(body.home-outfit) :is(h3, h4) { font-weight: 600; }
 
   /* Better selection */
   ::selection { 
@@ -923,10 +996,6 @@
 .dark .glass-canvas [class^="bg-teal-50/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class*=" bg-teal-50/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class^="bg-teal-100/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class*=" bg-teal-100/"]:not(.mapa-claro, .mapa-claro *) { background-color: rgba(20, 184, 166, 0.08); }
 .dark .glass-canvas [class^="bg-cyan-50/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class*=" bg-cyan-50/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class^="bg-cyan-100/"]:not(.mapa-claro, .mapa-claro *), .dark .glass-canvas [class*=" bg-cyan-100/"]:not(.mapa-claro, .mapa-claro *) { background-color: rgba(6, 182, 212, 0.08); }
 
-/* Escuro: botões bg-primary com texto branco (--primary 60% dava 3,64:1). Só o fundo escurece; o azul dos
-   textos text-primary fica como está (a 50% ele cairia para 3,9:1 sobre o fundo escuro) */
-.dark .bg-primary { background-color: hsl(217 91% 50%); }
-.dark .hover\:bg-primary\/90:hover { background-color: hsl(217 91% 50% / 0.9); }
 /* Fundo -400/-500 com texto branco: troca pelo tom mais claro que dá 4,5:1 com branco (gerado da paleta) */
 .glass-canvas .bg-blue-400.text-white, .glass-canvas .bg-blue-500.text-white { background-color: #2563eb; } /* blue-600 5.17:1 */
 .glass-canvas .bg-green-400.text-white, .glass-canvas .bg-green-500.text-white { background-color: #15803d; } /* green-700 5.02:1 */
@@ -1049,8 +1118,9 @@ body {
 
 /* Vidro "Liquid Glass" (valores de seunghan91/ios27-design-system, MIT, packages/tokens/src/materials.json,
    lido em 29/09/2026). Segue o tema pela classe .dark do <html> (ThemeContext).
-   Apple (HIG, Materials): Liquid Glass só na camada de controle — sobreposições (glass-backdrop/-panel) e
+   Apple (HIG, Materials): Liquid Glass só na camada de controle — véu (glass-backdrop) e
    barras (glass-bar); cartões de conteúdo usam o material regular (remendos de bg-white/NN mais acima).
+   O .glass-panel virou superfície opaca e o vidro novo é o .vidro (contrato v3.4), ambos abaixo.
    Em @layer components: utilidades (rounded-*, h-full, border-*) ajustam o vidro; no painel, não deixe
    classes de fundo, cor de borda ou sombra — no claro elas ganham do vidro. */
 @layer components {
@@ -1068,22 +1138,14 @@ body {
   .dark .glass-backdrop::before {
     background: rgba(0, 0, 0, 0.35);
   }
+  /* Diálogos, menus e balões: superfície opaca (contrato v3.4, §2.6: vidro sai de modais e cartões).
+     O nome fica para não mexer nos 28 arquivos que usam a classe; as cores seguem o tema pelos tokens */
   .glass-panel {
-    color: #0c2340; /* marinho da marca */
-    /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09 */
-    background: rgba(255, 255, 255, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.6);
+    color: hsl(var(--popover-foreground));
+    background: hsl(var(--popover));
+    border: 1px solid hsl(var(--border));
     border-radius: 34px;
-    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.35);
-    -webkit-backdrop-filter: blur(24px) saturate(1.8);
-    backdrop-filter: blur(24px) saturate(1.8);
-  }
-  .dark .glass-panel {
-    color: #f8fafc;
-    /* mais transparente que o token (0.7) a pedido do Ricardo em 29/09; textos secundários em slate-300 para manter AA */
-    background: rgba(18, 20, 45, 0.5);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    box-shadow: var(--ev-sombra-2);
   }
   /* Barras (lateral e topo): material "sidebar" dos tokens (#f7f7f7 / preto a 80%, desfoque 40) */
   .glass-bar {
@@ -1103,62 +1165,60 @@ body {
       radial-gradient(60rem 40rem at 100% 0%, rgba(143, 51, 245, 0.10), transparent 60%),
       radial-gradient(50rem 40rem at 0% 100%, rgba(29, 104, 196, 0.10), transparent 60%);
   }
+  /* Vidro v3.4 (contrato §2.6 e §2.8.6; receita de refs/movimento/codigo/01-vidro-evokaa.css com as correções
+     da crítica: sem brilho ::before, sombra de nível 2, item ativo em pílula opaca). Só controles e navegação
+     da lista fechada do contrato, no máximo 3 por tela, nunca vidro dentro de vidro nem animar o blur.
+     Texto no vidro só com --vidro-texto e --vidro-texto-2 (nunca muted nem azul). */
+  .vidro {
+    --vidro-tinta: rgb(255 255 255 / 0.70);
+    --vidro-texto: #0c2340;
+    --vidro-texto-2: #334155;
+    --vidro-borda: rgb(255 255 255 / 0.70);
+    --vidro-base: rgb(12 35 64 / 0.10);
+    background: var(--vidro-tinta);
+    -webkit-backdrop-filter: blur(18px) saturate(1.8);
+    backdrop-filter: blur(18px) saturate(1.8);
+    box-shadow:
+      inset 0 1px 0 var(--vidro-borda),
+      inset 0 -1px 0 rgb(255 255 255 / 0.10),
+      0 0 0 0.5px var(--vidro-base),
+      var(--ev-sombra-2);
+    border-radius: 999px;
+    color: var(--vidro-texto);
+    isolation: isolate;
+  }
+  .dark .vidro {
+    --vidro-tinta: rgb(16 22 34 / 0.70);
+    --vidro-texto: #ffffff;
+    --vidro-texto-2: #d6dde6;
+    --vidro-borda: rgb(255 255 255 / 0.16);
+    --vidro-base: rgb(0 0 0 / 0.50);
+  }
+  /* Item ativo: pílula opaca, para o contraste não depender do que passa atrás (5,48:1 e 4,67:1) */
+  .vidro :is([aria-current="page"], [data-state="active"]) { background: #ffffff; color: #1d68c4; border-radius: 999px; }
+  .dark .vidro :is([aria-current="page"], [data-state="active"]) { background: #2a303b; color: #5b9bf0; }
   /* Sem transparência (preferência do sistema ou navegador sem backdrop-filter): fundo opaco, sem blur */
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    .glass-panel { background: #ffffff; }
-    .dark .glass-panel { background: #12142d; }
     .glass-bar { background: #f7f7f7; }
     .dark .glass-bar { background: #07080c; }
     .glass-backdrop::before, .dark .glass-backdrop::before { background: rgba(0, 0, 0, 0.5); }
+    .vidro { background: rgb(255 255 255 / 0.96); }
+    .dark .vidro { background: rgb(16 22 34 / 0.97); }
   }
   @media (prefers-reduced-transparency: reduce) {
-    .glass-panel { background: #ffffff; -webkit-backdrop-filter: none; backdrop-filter: none; }
-    .dark .glass-panel { background: #12142d; }
     .glass-bar { background: #f7f7f7; -webkit-backdrop-filter: none; backdrop-filter: none; }
     .dark .glass-bar { background: #07080c; }
     .glass-backdrop::before, .dark .glass-backdrop::before { background: rgba(0, 0, 0, 0.5); -webkit-backdrop-filter: none; backdrop-filter: none; }
   }
+  /* Reduzir transparência ou mais contraste: o sistema escolhe as cores (Canvas e CanvasText seguem o color-scheme) */
+  @media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    .vidro, .dark .vidro { -webkit-backdrop-filter: none; backdrop-filter: none; background: Canvas; box-shadow: 0 0 0 1px CanvasText; }
+  }
 }
 
 
-/* Painel do produtor (Decisão 112): estilo sóbrio (Linear/Stripe) só dentro de .painel-produtor, a raiz do
-   ProducerLayout. Site, participante e admin não mudam; janelas e gavetas do Radix vão para o <body> e ficam
-   fora do escopo. Tokens shadcn opacos e neutros, o azul da marca como único destaque (sem roxo).
-   Contraste (WCAG): muted-foreground 7,6:1 no fundo e 7,2:1 no cartão (escuro); 5,8:1 e 6,1:1 (claro). */
-.painel-produtor {
-  --background: 240 6% 5%;
-  --foreground: 240 5% 94%;
-  --card: 240 5% 8%;
-  --card-foreground: 240 5% 94%;
-  --popover: 240 5% 8%;
-  --popover-foreground: 240 5% 94%;
-  --primary: 214 80% 50%; /* azul da marca: branco sobre ele 4,58:1 (texto azul sobre o fundo 4,27:1) */
-  --secondary: 240 4% 12%;
-  --secondary-foreground: 240 5% 94%;
-  --muted: 240 4% 12%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 214 80% 50%;
-  --border: 240 4% 16%;
-  --input: 240 4% 16%;
-  --ring: 214 80% 50%;
-}
-.light .painel-produtor {
-  --background: 0 0% 98%;
-  --foreground: 240 6% 10%;
-  --card: 0 0% 100%;
-  --card-foreground: 240 6% 10%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 240 6% 10%;
-  --primary: 213 74% 44%; /* #1d68c4 */
-  --secondary: 240 5% 96%;
-  --secondary-foreground: 240 6% 10%;
-  --muted: 240 5% 96%;
-  --muted-foreground: 240 4% 40%;
-  --accent: 213 74% 44%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 213 74% 44%;
-}
+/* Painel do produtor (Decisão 112): só dentro de .painel-produtor, a raiz do ProducerLayout. As cores vêm
+   dos tokens globais do tema (contrato v3.4, §2); aqui fica só o que neutraliza as telas antigas. */
 /* Fundo sólido, sem o gradiente do .glass-canvas; a classe fica na raiz porque o remapeamento
    .dark .glass-canvas (acima) é o que deixa as páginas antigas legíveis no escuro */
 .painel-produtor.glass-canvas {
@@ -1175,6 +1235,10 @@ body {
 }
 .painel-produtor .font-serif {
   letter-spacing: -0.01em;
+}
+/* font-serif virou Jakarta (tailwind.config); na Home continua Outfit. Fora de @layer para vir depois das utilidades */
+:where(body.home-outfit) .font-serif {
+  font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
 }
 /* O contêiner do layout já dá o respiro (16/24/32 px); a raiz das páginas antigas (p-6 lg:p-10) não soma outro
    (as telas de carregando/vazio com py-20 ficam como estão: o respiro vertical delas centraliza o aviso).
