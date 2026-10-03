@@ -172,12 +172,13 @@ function Visao({ e }: { e: DbEvent }) {
   const [agora] = useState(() => Date.now()) // fixo na montagem: "hoje" e "abre em" partem do mesmo instante
   const hoje = diaBR(agora)
   const diaEv = diaDoEvento(e) // null: evento sem data
-  const noDia = diaEv === hoje && e.status !== 'cancelled' && e.status !== 'ended'
   const { data: dados, isPending, isError, refetch, isFetching } = useDadosDoEvento(e, hoje)
+  const sit = situacaoEvento(e)
+  // faixa do dia só em evento no ar (rascunho, em análise, recusado, cancelado e encerrado não têm portaria)
+  const noDia = diaEv === hoje && sit === 'Publicado'
   const { data: entraram } = useEntraram(e.id, noDia)
 
   const cor = ehHex(e.accent_color) ? e.accent_color : corSorteada(e.id)
-  const sit = situacaoEvento(e)
   const cap = (e.ticket_types ?? []).reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || e.capacity || 0
   const fixado = fixados.includes(e.id)
   const link = siteUrl(`/event/${e.slug || e.id}`)
@@ -283,14 +284,14 @@ function Visao({ e }: { e: DbEvent }) {
       ) : isError ? (
         <Erro texto="Não foi possível carregar as vendas deste evento." refetch={refetch} carregando={isFetching} className="mt-6" />
       ) : (
-        <Corpo e={e} dados={dados} cap={cap} agora={agora} hoje={hoje} diaEv={diaEv} entraram={noDia ? entraram : undefined} />
+        <Corpo e={e} dados={dados} cap={cap} agora={agora} hoje={hoje} diaEv={diaEv} noDia={noDia} entraram={entraram} />
       )}
     </div>
   )
 }
 
-function Corpo({ e, dados, cap, agora, hoje, diaEv, entraram }: {
-  e: DbEvent; dados: Dados; cap: number; agora: number; hoje: string; diaEv: string | null; entraram?: number
+function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
+  e: DbEvent; dados: Dados; cap: number; agora: number; hoje: string; diaEv: string | null; noDia: boolean; entraram?: number
 }) {
   const tipos = e.ticket_types ?? []
   const { vendidos } = dados
@@ -308,12 +309,12 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, entraram }: {
 
   return (
     <>
-      {entraram !== undefined && (
+      {noDia && (
         <section aria-labelledby="t-dia" className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-3 rounded-[10px] bg-secondary px-5 py-4">
           <div className="min-w-0 flex-1">
             <h2 id="t-dia" className="text-[15px] font-semibold leading-5">Hoje é o dia do evento</h2>
             <p className="mt-1 text-sm" aria-live="polite">
-              Entraram: <strong className="font-display text-[28px] font-semibold leading-8 tabular-nums">{inteiro(entraram)}</strong>
+              Entraram: <strong className="font-display text-[28px] font-semibold leading-8 tabular-nums">{entraram === undefined ? '—' : inteiro(entraram)}</strong>
               {vendidos > 0 && <span className="text-muted-foreground"> de {inteiro(vendidos)} ingressos</span>}
             </p>
             <p className="text-xs text-muted-foreground">Atualiza sozinho a cada 30 segundos.</p>
@@ -407,7 +408,7 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, entraram }: {
                   <span className="absolute inset-y-0 left-0 rounded-ev-xs bg-primary" style={{ width: `${pagosPct}%` }} />
                 </div>
                 <p className="mt-1.5 text-xs leading-4 text-muted-foreground">
-                  {pct(pagosPct)}% dos pedidos foram pagos · não pagos: {inteiro(naoPagos)} (pendentes, cancelados e reembolsados)
+                  {pct(pagosPct)}% dos pedidos foram pagos · não pagos: {inteiro(naoPagos)} (pendentes, recusados, cancelados e reembolsados)
                 </p>
               </li>
             </ul>

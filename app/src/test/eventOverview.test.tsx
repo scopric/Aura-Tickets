@@ -108,7 +108,7 @@ describe('Visão geral do evento (V7)', () => {
     expect(screen.getByRole('img', { name: /De 20 lugares: Pista 2, Camarote 2, não vendidos 16/ })).toBeTruthy()
 
     expect(screen.getByText('Pedidos iniciados')).toBeTruthy()
-    expect(screen.getByText('50% dos pedidos foram pagos · não pagos: 2 (pendentes, cancelados e reembolsados)')).toBeTruthy()
+    expect(screen.getByText('50% dos pedidos foram pagos · não pagos: 2 (pendentes, recusados, cancelados e reembolsados)')).toBeTruthy()
     expect(screen.queryByText(/desistiram/)).toBeNull()
     expect(screen.getByRole('img', { name: /Ingressos vendidos por semana.*4 no total/ })).toBeTruthy() // série longa: uma barra por semana
 
