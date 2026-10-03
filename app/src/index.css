@@ -1305,3 +1305,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .produtor-entrar { animation: none; }
 }
+
+/* Archivo largo (contrato v3.4, 3): nome do evento no ingresso e nos cartoes. Use com font-display e font-extrabold.
+   A fonte carrega a largura 112 em peso 800 (index.html). */
+.wide { font-stretch: 112%; }

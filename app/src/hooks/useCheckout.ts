@@ -26,12 +26,14 @@ export interface DbOrder {
 export interface DbTicket {
   id: string
   order_id: string
+  event_id: string
   ticket_type_id: string
   user_id: string
   code: string
   qr_code?: string
   status: 'active' | 'used' | 'cancelled' | 'transferred'
   seat_info: string | null
+  buyer_name?: string | null
   checked_in_at: string | null
   created_at: string
   updated_at: string
@@ -47,6 +49,13 @@ export interface DbTicket {
     date: string | null
     time: string | null
     venue_name: string | null
+    // só a carteira (useUserTickets) preenche estes; a cor e o endereço do ingresso (V10a)
+    image_url?: string | null
+    accent_color?: string | null
+    end_date?: string | null
+    venue_address?: string | null
+    venue_city?: string | null
+    venue_state?: string | null
   }
 }
 
@@ -171,9 +180,9 @@ export function useUserOrders() {
 }
 
 const MOCK_TICKETS: DbTicket[] = [
-  { id: 'tk-001', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
-  { id: 'tk-002', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-002', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
-  { id: 'tk-003', order_id: 'ord-002', ticket_type_id: 'tt-004', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-WSP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date(Date.now() - 86400000).toISOString(), ticket_types: { name: 'Presencial', price: 299, type: 'individual' }, events: { id: 'evt-002', title: 'Workshop de Marketing Digital', cover_image: '/images/hero-bg.jpg', date: '2025-11-20', time: '14:00', venue_name: 'WeWork Faria Lima' } },
+  { id: 'tk-001', event_id: 'evt-001', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
+  { id: 'tk-002', event_id: 'evt-001', order_id: 'ord-001', ticket_type_id: 'tt-002', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-VIP-002', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ticket_types: { name: 'VIP', price: 450, type: 'vip' }, events: { id: 'evt-001', title: 'Festival de Verão 2025', cover_image: '/images/hero-bg.jpg', date: '2025-12-15', time: '18:00', venue_name: 'Parque Ibirapuera' } },
+  { id: 'tk-003', event_id: 'evt-002', order_id: 'ord-002', ticket_type_id: 'tt-004', user_id: 'u1s2e3r4-e5f6-7a8b-9c0d-1e2f3a4b5c6d', code: 'TK-WSP-001', status: 'active', seat_info: null, checked_in_at: null, created_at: new Date(Date.now() - 86400000).toISOString(), updated_at: new Date(Date.now() - 86400000).toISOString(), ticket_types: { name: 'Presencial', price: 299, type: 'individual' }, events: { id: 'evt-002', title: 'Workshop de Marketing Digital', cover_image: '/images/hero-bg.jpg', date: '2025-11-20', time: '14:00', venue_name: 'WeWork Faria Lima' } },
 ]
 
 export function useUserTickets() {
@@ -190,7 +199,7 @@ export function useUserTickets() {
       }
 
       // Buscar ingressos do usuário e trazer dados do tipo de ingresso (ticket_types)
-      // E também do evento relacionado através do ticket_types
+      // E também do evento relacionado através do ticket_types.
       const { data, error } = await supabase
         .from('tickets')
         .select(`
@@ -203,9 +212,15 @@ export function useUserTickets() {
               id,
               title,
               cover_image,
+              image_url,
+              accent_color,
               date,
+              end_date,
               time,
-              venue_name
+              venue_name,
+              venue_address,
+              venue_city,
+              venue_state
             )
           )
         `)
@@ -223,14 +238,7 @@ export function useUserTickets() {
           price: Number(t.ticket_types?.price) || 0,
           type: t.ticket_types?.type,
         },
-        events: t.ticket_types?.events ? {
-          id: t.ticket_types.events.id,
-          title: t.ticket_types.events.title,
-          cover_image: t.ticket_types.events.cover_image,
-          date: t.ticket_types.events.date,
-          time: t.ticket_types.events.time,
-          venue_name: t.ticket_types.events.venue_name,
-        } : undefined
+        events: t.ticket_types?.events ?? undefined,
       })) as DbTicket[]
     },
     enabled: !!user?.id,
