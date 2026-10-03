@@ -294,7 +294,7 @@ export default function ProducerSettings() {
       {header}
 
       <div className="flex flex-col gap-6 lg:flex-row">
-        <nav aria-label="Seções das configurações" className="lg:w-56 lg:shrink-0">
+        <nav data-tour="cfg-secoes" aria-label="Seções das configurações" className="lg:w-56 lg:shrink-0">
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:flex-col lg:overflow-visible">
             {sidebarItems.map(item => (
               <Button
@@ -340,7 +340,7 @@ export default function ProducerSettings() {
                   <Label htmlFor="cfg-telefone">Telefone</Label>
                   <PhoneInput id="cfg-telefone" value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
                 </div>
-                <div className="grid gap-1.5">
+                <div data-tour="cfg-empresa" className="grid gap-1.5">
                   <Label htmlFor="cfg-empresa">Empresa (razão social)</Label>
                   <Input id="cfg-empresa" value={profile.company} onChange={e => setProfile({ ...profile, company: e.target.value })} />
                 </div>
@@ -373,7 +373,7 @@ export default function ProducerSettings() {
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <div data-tour="cfg-salvar" className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="outline" onClick={handleSaveCompany} disabled={isSaving}>
                   {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar empresa
                 </Button>

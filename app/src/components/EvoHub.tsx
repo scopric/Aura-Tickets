@@ -148,7 +148,7 @@ export default function EvoHub() {
           posicao="bottom-36 h-[min(620px,calc(100dvh-10rem))]"
         />
       )}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div data-tour="evo" className="fixed bottom-6 right-6 z-50">
         <p className="sr-only" role="status" aria-live="polite">{anuncio}</p>
 
         {balao && !aberto && (

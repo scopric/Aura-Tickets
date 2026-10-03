@@ -226,7 +226,7 @@ export default function ProducerCheckIn() {
         {/* Selector Dropdown */}
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {activeEvents.length > 0 && (
-            <div className="relative w-full sm:w-64">
+            <div data-tour="checkin-evento" className="relative w-full sm:w-64">
               <select
                 value={selectedEventId}
                 onChange={e => {
@@ -244,7 +244,7 @@ export default function ProducerCheckIn() {
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/40 pointer-events-none" />
             </div>
           )}
-          <div className="flex items-center gap-1 bg-white/40 border border-white/60 rounded-full p-1">
+          <div data-tour="checkin-modo" className="flex items-center gap-1 bg-white/40 border border-white/60 rounded-full p-1">
             <button 
               onClick={() => setMode('scanner')} 
               className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'scanner' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/70 hover:text-espresso'}`}
@@ -278,7 +278,7 @@ export default function ProducerCheckIn() {
       ) : (
         <>
           {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div data-tour="checkin-numeros" className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
             {[
               { label: 'Total Emitido', value: isLoadingTickets ? '...' : total.toString(), icon: Ticket, color: 'text-plum', bg: 'bg-plum/5' },
               { label: 'Check-in Realizado', value: isLoadingTickets ? '...' : checked.toString(), icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
@@ -309,7 +309,7 @@ export default function ProducerCheckIn() {
           {/* Scanner Mode */}
           {mode === 'scanner' && (
             <div className="space-y-6">
-              <div className="p-8 rounded-3xl bg-white/60 border border-white/60 text-center backdrop-blur-sm">
+              <div data-tour="checkin-leitor" className="p-8 rounded-3xl bg-white/60 border border-white/60 text-center backdrop-blur-sm">
                 <div className="w-20 h-20 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
                   <ScanLine className="w-10 h-10 text-plum" />
                 </div>
