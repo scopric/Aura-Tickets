@@ -379,24 +379,34 @@ export function useUpdateEvent() {
 
       const existingIds = new Set((existingTickets || []).map(t => t.id))
 
-      const ticketsToUpsert = tickets.map((t, idx) => ({
-        id: t.id && existingIds.has(t.id) ? t.id : undefined,
-        event_id: eventId,
-        name: t.name || `Ingresso ${idx + 1}`,
-        description: t.description || null,
-        price: Number(t.price) || 0,
-        capacity: t.capacity ? Number(t.capacity) : null,
-        quantity_total: t.capacity ? Number(t.capacity) : 0,
-        type: t.type || 'individual',
-        perks: t.perks || [],
-        is_active: true,
-      }))
+      // Existente: update só dos campos editáveis, sem type nem is_active (o gatilho mesa_tipo_guard recusa trocar
+      // o tipo com venda; desativado continua desativado). Novo: insert com type e is_active.
+      const novos: Record<string, unknown>[] = []
+      for (const [idx, t] of tickets.entries()) {
+        const campos = {
+          name: t.name || `Ingresso ${idx + 1}`,
+          description: t.description || null,
+          price: Number(t.price) || 0,
+          capacity: t.capacity ? Number(t.capacity) : null,
+          quantity_total: t.capacity ? Number(t.capacity) : 0,
+          ...(t.perks ? { perks: t.perks } : {}),
+        }
+        if (t.id && existingIds.has(t.id)) {
+          const { data, error } = await supabase
+            .from('ticket_types')
+            .update(campos)
+            .eq('id', t.id)
+            .eq('event_id', eventId)
+            .select('id')
+          if (error) throw error
+          if (data?.length !== 1) throw new Error('Não foi possível salvar um dos ingressos') // RLS que barra devolve 0 linhas sem erro
+        } else {
+          novos.push({ ...campos, perks: t.perks || [], event_id: eventId, type: t.type || 'individual', is_active: true })
+        }
+      }
 
-      if (ticketsToUpsert.length > 0) {
-        const { error: ticketsError } = await supabase
-          .from('ticket_types')
-          .upsert(ticketsToUpsert, { onConflict: 'id' })
-
+      if (novos.length > 0) {
+        const { error: ticketsError } = await supabase.from('ticket_types').insert(novos)
         if (ticketsError) throw ticketsError
       }
 

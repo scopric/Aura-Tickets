@@ -35,7 +35,7 @@ export default function ProducerEditEvent() {
     location: '',
   })
 
-  const [tickets, setTickets] = useState([{ id: '1', name: '', price: '', capacity: '' }])
+  const [tickets, setTickets] = useState<{ id: string; name: string; price: string; capacity: string; type?: string }[]>([{ id: '1', name: '', price: '', capacity: '' }])
   const [capa, setCapa] = useState<CapaPronta | null>(null) // foto nova, já reduzida; só sobe ao salvar
   const [removida, setRemovida] = useState(false)
   const [corEditada, setCorEditada] = useState<{ valor: string; manual: boolean } | null>(null) // null = não mexeu: a cor salva continua
@@ -72,6 +72,7 @@ export default function ProducerEditEvent() {
           name: t.name,
           price: String(t.price),
           capacity: t.capacity ? String(t.capacity) : '',
+          type: t.type,
         })))
       }
     }
@@ -130,13 +131,13 @@ export default function ProducerEditEvent() {
       }
 
       const ticketsPayload = tickets
-        .filter(t => t.name && t.price)
+        .filter(t => t.name && t.price !== '' && t.price != null)
         .map(t => ({
           id: t.id.startsWith('new-') ? undefined : t.id,
           name: t.name,
           price: Number(t.price) || 0,
           capacity: t.capacity ? Number(t.capacity) : null,
-          type: 'individual' as const
+          type: t.type as 'individual' | 'vip' | 'coletiva' | 'mesa' | undefined,
         }))
 
       await updateEvent.mutateAsync({

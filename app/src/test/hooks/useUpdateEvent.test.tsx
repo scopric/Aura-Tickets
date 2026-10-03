@@ -44,3 +44,41 @@ describe('useUpdateEvent grava só o que a tela mandou', () => {
     })
   })
 })
+
+// Ingressos: existente vai por update sem type/is_active; novo vai por insert.
+async function salvaIngressos(tickets: Record<string, unknown>[], linhasDoUpdate = [{ id: 'a' }]) {
+  const update = vi.fn((_: Record<string, unknown>) => ({ eq: () => ({ eq: () => ({ select: () => Promise.resolve({ data: linhasDoUpdate, error: null }) }) }) }))
+  const insert = vi.fn((_: Record<string, unknown>[]) => Promise.resolve({ error: null }))
+  vi.mocked(supabase.from).mockImplementation(((tabela: string) => tabela === 'events'
+    ? { update: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: { id: 'e1' }, error: null }) }) }) }) }
+    : { select: () => ({ eq: () => Promise.resolve({ data: [{ id: 'a' }], error: null }) }), update, insert }) as any)
+  const { result } = renderHook(() => useUpdateEvent(), { wrapper })
+  await result.current.mutateAsync({ eventId: 'e1', event: {} as any, tickets: tickets as any })
+  return { update, insert }
+}
+
+describe('useUpdateEvent preserva tipo e situação dos ingressos', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('existente coletiva: update sem type', async () => {
+    const { update, insert } = await salvaIngressos([{ id: 'a', name: 'Mesa', price: 100, capacity: 4, type: 'coletiva' }])
+    expect(update).toHaveBeenCalledTimes(1)
+    expect(update.mock.calls[0][0]).not.toHaveProperty('type')
+    expect(insert).not.toHaveBeenCalled()
+  })
+
+  it('existente inativo: update sem is_active', async () => {
+    const { update } = await salvaIngressos([{ id: 'a', name: 'X', price: 0, is_active: false }])
+    expect(update.mock.calls[0][0]).not.toHaveProperty('is_active')
+  })
+
+  it('novo: insert com type individual e is_active true', async () => {
+    const { update, insert } = await salvaIngressos([{ name: 'Novo', price: 10, capacity: 5 }])
+    expect(update).not.toHaveBeenCalled()
+    expect(insert.mock.calls[0][0]).toEqual([expect.objectContaining({ event_id: 'e1', type: 'individual', is_active: true })])
+  })
+
+  it('update que volta 0 linha gera erro', async () => {
+    await expect(salvaIngressos([{ id: 'a', name: 'X', price: 1 }], [])).rejects.toThrow()
+  })
+})
