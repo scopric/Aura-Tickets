@@ -13,9 +13,9 @@
         var t = null
         try { t = localStorage.getItem('evokaa-theme') } catch (e) {}
         var p = location.pathname, h = location.hostname
-        if (t !== 'auto' && t !== 'light' && t !== 'dark') t = p.indexOf('/producer') === 0 ? 'auto' : 'dark'
+        if (t !== 'auto' && t !== 'light' && t !== 'dark') t = p.indexOf('/producer') === 0 || p.indexOf('/event/') === 0 || p.indexOf('/checkout') === 0 ? 'auto' : 'dark'
         var raizDaPlataforma = p === '/' && (h.indexOf('alpha.') === 0 || h.indexOf('app.') === 0)
-        var forcado = !raizDaPlataforma && !['/producer', '/admin', '/app', '/checkout', '/auth'].some(function (r) { return p.indexOf(r) === 0 })
+        var forcado = !raizDaPlataforma && !['/producer', '/admin', '/app', '/checkout', '/auth', '/event/'].some(function (r) { return p.indexOf(r) === 0 })
         var escuro = forcado || t === 'dark' || (t === 'auto' && !!window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)
         document.documentElement.classList.add(escuro ? 'dark' : 'light')
         document.querySelector('meta[name="theme-color"]').setAttribute('content', escuro ? '#0b0d12' : '#ffffff')

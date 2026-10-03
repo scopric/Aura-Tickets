@@ -16,7 +16,7 @@ test.describe('Checkout', () => {
     await page.goto('/event/evt-001')
     await expect(page.getByRole('heading', { level: 1, name: /Festival de Verão/ })).toBeVisible()
 
-    await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).first().click()
+    await page.getByRole('button', { name: /^Adicionar um / }).first().click()
     await page.getByRole('button', { name: 'Finalizar' }).click()
     await expect(page).toHaveURL(/\/checkout$/)
     await expect(page.getByRole('heading', { name: 'Seu carrinho está vazio' })).toHaveCount(0)

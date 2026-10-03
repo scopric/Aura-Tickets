@@ -1,11 +1,17 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Minus, Plus, Ticket, MapPin, Calendar, CreditCard, Loader2, LogIn, Lock, Info, Building2, Armchair, ZoomIn, ZoomOut, RotateCcw, ShoppingCart } from 'lucide-react'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { usePublicEvent } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import ContadorIngresso from '../../components/ContadorIngresso'
+import { noLimite } from '../../lib/lotacao'
+import EventoCapa from '../../components/EventoCapa'
 
 // Match de Mesa: só maiores de 18 (o banco confere de novo no pedido, mesa_pedido_guard)
 function maiorDe18(iso: string) {
@@ -372,14 +378,14 @@ export default function Checkout() {
 
   if (!eventId) {
     return (
-      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md bg-white/60 border border-white/60 rounded-3xl p-8 backdrop-blur-sm shadow-elevated">
-          <ShoppingCart className="w-10 h-10 text-plum/40 mx-auto mb-4" />
-          <h2 className="font-serif text-2xl text-espresso mb-3">Seu carrinho está vazio</h2>
-          <p className="text-sm text-espresso/70 mb-6">Escolha um evento e adicione ingressos para continuar.</p>
-          <Link to="/events" className="btn-primary inline-flex items-center gap-2">
-            <Ticket className="w-4 h-4" /> Ver eventos
-          </Link>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center text-foreground">
+        <div className="max-w-md rounded-ev-2xl bg-card p-8 shadow-ev-secondary">
+          <I.Carrinho size={40} className="mx-auto mb-4 text-muted-foreground" />
+          <h2 className="mb-3 text-2xl font-semibold">Seu carrinho está vazio</h2>
+          <p className="mb-6 text-sm text-muted-foreground">Escolha um evento e adicione ingressos para continuar.</p>
+          <Button asChild size="lg" className="rounded-full">
+            <Link to="/events"><I.Ingressos size={16} /> Ver eventos</Link>
+          </Button>
         </div>
       </div>
     )
@@ -387,130 +393,113 @@ export default function Checkout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando detalhes do seu pedido...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+        <Spinner className="mb-4 size-8" />
+        <p className="text-sm text-muted-foreground">Carregando detalhes do seu pedido...</p>
       </div>
     )
   }
 
   if (error || !event) {
     return (
-      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center p-6 text-center">
-        <div className="max-w-md bg-white/60 border border-white/60 rounded-3xl p-8 backdrop-blur-sm shadow-elevated">
-          <h2 className="font-serif text-2xl text-espresso mb-3">Erro no Pedido</h2>
-          <p className="text-sm text-espresso/70 mb-6">Não conseguimos processar o seu pedido. Por favor, tente novamente.</p>
-          <Link to="/" className="btn-primary inline-flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" /> Voltar para Explorar
-          </Link>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center text-foreground">
+        <div className="max-w-md rounded-ev-2xl bg-card p-8 shadow-ev-secondary">
+          <h2 className="mb-3 text-2xl font-semibold">Erro no Pedido</h2>
+          <p className="mb-6 text-sm text-muted-foreground">Não conseguimos processar o seu pedido. Por favor, tente novamente.</p>
+          <Button asChild size="lg" className="rounded-full">
+            <Link to="/"><I.SetaEsquerda size={16} /> Voltar para Explorar</Link>
+          </Button>
         </div>
       </div>
     )
   }
 
+  const cartao = 'rounded-ev-xl bg-card p-5 shadow-ev-secondary'
+
   return (
-    <div className="min-h-screen glass-canvas pt-24 pb-16">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-serif text-3xl text-espresso">Checkout</h1>
+    <div className="min-h-screen bg-background pb-16 text-foreground">
+      <div className="mx-auto max-w-4xl px-4 pt-4 sm:px-6 lg:px-8">
+        {/* Passo 2 de 3: escolha (página do evento) → pedido (aqui) → pagamento */}
+        <div className="mb-6 flex items-center gap-2">
+          <Button type="button" variant="ghost" size="icon" className="-ml-2 rounded-full" onClick={() => navigate(-1)} aria-label="Voltar">
+            <I.ChevronEsquerda size={20} />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold leading-7">Seu pedido</h1>
+            <p className="truncate text-[13px] leading-5 text-muted-foreground">Passo 2 de 3 · {event.title}</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           {/* Left: Tickets */}
-          <div className="lg:col-span-3 space-y-4">
-            <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm space-y-4">
+          <div className="space-y-4 lg:col-span-3">
+            <div className={cartao}>
               <div className="flex items-center justify-between">
-                <h2 className="font-serif text-lg text-espresso">Ingressos</h2>
+                <h2 className="text-[15px] font-semibold leading-5">Ingressos</h2>
                 {seatingMap && (
                   <button
                     onClick={() => setChooseViaMap(!chooseViaMap)}
-                    className="text-xs font-bold text-plum hover:underline"
+                    className="text-[13px] font-semibold text-primary underline underline-offset-4"
                   >
                     {chooseViaMap ? 'Seleção rápida de ingressos' : 'Escolher assentos no mapa'}
                   </button>
                 )}
               </div>
-              
+
               {ticketTypes.length > 0 ? (
                 ticketTypes.map(ticket => {
                   const qty = cart[ticket.id] || 0
                   return (
-                    <div key={ticket.id} className="flex items-center gap-4 py-4 border-b border-espresso/5 last:border-0">
-                      <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center">
-                        <Ticket className="w-5 h-5 text-plum" />
+                    <div key={ticket.id} className="flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="text-base font-medium leading-6">{ticket.name}</div>
+                        <div className="text-[13px] leading-5 text-muted-foreground">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-espresso">{ticket.name}</div>
-                        <div className="text-xs text-espresso/70">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {chooseViaMap ? (
-                          <div className="text-xs font-bold text-plum/70 bg-plum/5 px-2.5 py-1 rounded-full border border-plum/15 font-mono">
-                            {qty} assento(s)
-                          </div>
-                        ) : (
-                          <>
-                            <button
-                              onClick={() => updateQty(ticket.id, -1)}
-                              className="w-8 h-8 rounded-full bg-espresso/5 flex items-center justify-center text-espresso hover:bg-plum/10 transition-colors"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="w-6 text-center text-sm font-medium">{qty}</span>
-                            <button
-                              onClick={() => updateQty(ticket.id, 1)}
-                              disabled={ticket.type === 'coletiva' && qty >= 1}
-                              aria-label={`Mais um ${ticket.name}`}
-                              className="w-8 h-8 rounded-full bg-espresso/5 flex items-center justify-center text-espresso hover:bg-plum/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      {chooseViaMap ? (
+                        <div className="rounded-full bg-secondary px-2.5 py-1 font-display text-xs font-semibold tabular-nums">
+                          {qty} assento(s)
+                        </div>
+                      ) : (
+                        <ContadorIngresso
+                          nome={ticket.name}
+                          qtd={qty}
+                          onMenos={() => updateQty(ticket.id, -1)}
+                          onMais={() => updateQty(ticket.id, 1)}
+                          maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
+                        />
+                      )}
                     </div>
                   )
                 })
               ) : (
-                <p className="text-sm text-espresso/70 italic py-4">Nenhum ingresso cadastrado para este evento.</p>
+                <p className="py-4 text-sm text-muted-foreground">Nenhum ingresso cadastrado para este evento.</p>
               )}
             </div>
 
             {temColetiva && isAuthenticated && (
               !nascimentoPerfil ? (
-                <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm space-y-3">
-                  <h2 className="font-serif text-lg text-espresso">Match de Mesa: sua data de nascimento</h2>
-                  <p className="text-xs text-espresso/70">
+                <div className={`${cartao} space-y-3`}>
+                  <h2 className="text-[15px] font-semibold leading-5">Match de Mesa: sua data de nascimento</h2>
+                  <p className="text-[13px] leading-5 text-muted-foreground">
                     Só maiores de 18 participam, com 1 lugar por conta em cada evento. A data fica no seu Perfil; os
                     colegas de mesa veem só a faixa de idade.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
-                    <input
+                    <Input
                       type="date"
                       aria-label="Data de nascimento"
                       value={nascimento}
                       max={new Date().toISOString().slice(0, 10)}
                       onChange={(e) => setNascimento(e.target.value)}
-                      className="px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+                      className="h-12 w-auto rounded-ev-lg bg-card"
                     />
-                    <button
-                      onClick={salvarNascimento}
-                      disabled={!nascimento || salvandoNascimento}
-                      className="px-4 py-2 rounded-full bg-plum text-cream text-sm font-medium disabled:opacity-50"
-                    >
+                    <Button type="button" size="lg" className="rounded-full" onClick={salvarNascimento} disabled={!nascimento || salvandoNascimento}>
                       {salvandoNascimento ? 'Salvando...' : 'Salvar data'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : !maiorDe18(nascimentoPerfil) && (
-                <div role="alert" className="p-5 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-espresso">
+                <div role="alert" className="rounded-ev-xl bg-destructive/10 p-5 text-sm">
                   O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.
                 </div>
               )
@@ -518,18 +507,18 @@ export default function Checkout() {
 
             {/* Renderização Interativa do Mapa de Assentos se ativo */}
             {seatingMap && chooseViaMap && (
-              <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm space-y-4">
+              <div className={`${cartao} space-y-4`}>
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-plum" />
-                  <h3 className="font-serif text-base text-espresso">Mapa do Salão - Seleção de Poltronas/Mesas</h3>
+                  <I.Lugar size={20} className="text-muted-foreground" />
+                  <h3 className="text-[15px] font-semibold leading-5">Mapa do Salão - Seleção de Poltronas/Mesas</h3>
                 </div>
-                
-                <p className="text-xs text-espresso/70">
+
+                <p className="text-[13px] leading-5 text-muted-foreground">
                   Clique nos assentos/mesas livres (em verde/cores do setor) para reservá-los digitando o nome do ocupante. Assentos azuis requerem contato.
                 </p>
 
                 {/* Legenda de Status */}
-                <div className="flex flex-wrap gap-3 text-[9px] font-bold text-espresso/70 bg-stone-50 p-2.5 rounded-xl border border-stone-200/50">
+                <div className="flex flex-wrap gap-3 rounded-ev-lg bg-secondary p-2.5 text-[11px] font-semibold text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span>Livre</span>
@@ -558,7 +547,7 @@ export default function Checkout() {
 
                 {loadingMap ? (
                   <div className="flex justify-center items-center py-12">
-                    <Loader2 className="w-6 h-6 animate-spin text-plum" />
+                    <Spinner className="size-6" />
                   </div>
                 ) : (() => {
                   const activeEnv = seatingMap.environments?.[0] || seatingMap.environments?.[0]
@@ -578,7 +567,7 @@ export default function Checkout() {
                   const canvasH = Math.max(60, roomHeight + 20) * ppm
 
                   return (
-                    <div className="relative border border-stone-200/50 rounded-2xl bg-stone-100 p-2 shadow-inner overflow-hidden select-none">
+                    <div className="light mapa-claro relative overflow-hidden rounded-ev-xl bg-stone-100 p-2 shadow-inner select-none" /* planta desenhada em branco: fica clara nos dois temas */>
                       {/* Controles de Zoom Flutuantes */}
                       <div className="absolute bottom-3 right-3 z-35 flex items-center gap-1 bg-white/95 dark:bg-canvas/90 backdrop-blur-xs p-1 rounded-xl border border-stone-200/80 shadow-md">
                         <button 
@@ -589,7 +578,7 @@ export default function Checkout() {
                           title="Afastar"
                           className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors"
                         >
-                          <ZoomOut className="w-3.5 h-3.5" />
+                          <I.Reduzir size={14} />
                         </button>
                         <span className="text-[10px] font-mono font-bold text-espresso/80 w-10 text-center">
                           {Math.round(mapZoom * 100)}%
@@ -602,7 +591,7 @@ export default function Checkout() {
                           title="Aproximar"
                           className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors"
                         >
-                          <ZoomIn className="w-3.5 h-3.5" />
+                          <I.Ampliar size={14} />
                         </button>
                         <button 
                           onClick={(ev) => {
@@ -612,7 +601,7 @@ export default function Checkout() {
                           title="Auto-Ajustar (Centralizar)"
                           className="p-1.5 rounded-lg hover:bg-stone-50 text-espresso/70 hover:text-espresso transition-colors border-l border-stone-200"
                         >
-                          <RotateCcw className="w-3.5 h-3.5" />
+                          <I.Restaurar size={14} />
                         </button>
                       </div>
 
@@ -745,7 +734,7 @@ export default function Checkout() {
                                     className="w-full h-full rounded border flex items-center justify-center bg-white dark:bg-white/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
                                     style={{ borderColor: statusColor, background: isSelected ? `${statusColor}25` : `${statusColor}10` }}
                                   >
-                                    <Armchair className="w-2.5 h-2.5" style={{ color: statusColor }} />
+                                    <I.Lugar size={10} style={{ color: statusColor }} />
                                   </div>
                                 )}
 
@@ -852,20 +841,18 @@ export default function Checkout() {
             )}
 
             {/* Event Info */}
-            <div className="p-5 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm">
-              <h2 className="font-serif text-lg text-espresso mb-4">Resumo do Evento</h2>
+            <div className={cartao}>
+              <h2 className="mb-4 text-[15px] font-semibold leading-5">Resumo do Evento</h2>
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0">
-                  <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-espresso">{event.title}</div>
-                  <div className="flex items-center gap-1 mt-1 text-xs text-espresso/70">
-                    <Calendar className="w-3 h-3" />
+                <EventoCapa evento={event} tamanho="mini" />
+                <div className="min-w-0">
+                  <div className="text-base font-medium leading-6">{event.title}</div>
+                  <div className="mt-1 flex items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
+                    <I.Agenda size={16} />
                     {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
                   </div>
-                  <div className="flex items-center gap-1 mt-0.5 text-xs text-espresso/70">
-                    <MapPin className="w-3 h-3" />
+                  <div className="flex items-center gap-1.5 text-[13px] leading-5 text-muted-foreground">
+                    <I.Local size={16} />
                     {event.venue_name || event.location || 'Local a definir'}
                   </div>
                 </div>
@@ -875,53 +862,55 @@ export default function Checkout() {
 
           {/* Right: Summary */}
           <div className="lg:col-span-2">
-            <div className="p-6 rounded-2xl bg-void text-cream sticky top-24">
-              <h2 className="font-serif text-xl mb-6">Resumo</h2>
+            <div className="sticky top-6 rounded-ev-xl bg-card p-6 shadow-ev-secondary">
+              <h2 className="mb-4 text-[15px] font-semibold leading-5">Resumo</h2>
               {items.length > 0 ? (
-                <div className="space-y-3 mb-6">
+                <div className="mb-4">
                   {items.map((item, i) => (
-                    <div key={i} className="flex justify-between text-sm">
-                      <span className="text-cream/70">{item.name} x{item.qty}</span>
-                      <span className="font-medium">R$ {item.total?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                    <div key={i} className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
+                      <span>{item.qty} × {item.name}</span>
+                      <span className="font-display font-semibold tabular-nums">{brl(item.total || 0)}</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-cream/70 italic mb-6">Seu carrinho está vazio.</p>
+                <p className="mb-4 text-sm text-muted-foreground">Seu carrinho está vazio.</p>
               )}
-              
-              <div className="border-t border-white/10 pt-4 space-y-2">
-                <div className="flex justify-between text-sm text-cream/70">
+
+              <div className="space-y-2">
+                <div className="flex justify-between gap-3 text-[15px] leading-5">
                   <span>Ingressos</span>
-                  <span>{brl(resumo.subtotal)}</span>
+                  <span className="font-display font-semibold tabular-nums">{brl(resumo.subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-sm text-cream/70">
+                <div className="flex justify-between gap-3 text-[15px] leading-5 text-muted-foreground">
                   <span>Taxa de serviço ({TAXA_PERCENTUAL}%, mín. {brl(TAXA_MINIMA)} por ingresso)</span>
-                  <span>{brl(resumo.taxa)}</span>
+                  <span className="font-display font-semibold tabular-nums">{brl(resumo.taxa)}</span>
                 </div>
-                <div className="flex justify-between text-lg font-serif pt-2 border-t border-white/10">
+                <div className="flex items-baseline justify-between gap-3 pt-2 text-base font-semibold">
                   <span>Total</span>
-                  <span>{brl(grandTotal)}</span>
+                  <span className="font-display text-xl tabular-nums">{brl(grandTotal)}</span>
                 </div>
               </div>
-              
-              <button
+
+              <Button
+                type="button"
+                size="lg"
+                className="mt-5 w-full rounded-full"
                 onClick={handleContinuePayment}
                 disabled={items.length === 0}
-                className="mt-6 w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
               >
                 {isAuthenticated ? (
                   <>
-                    <CreditCard className="w-4 h-4" />
+                    <I.Cartao size={16} />
                     Continuar para Pagamento
                   </>
                 ) : (
                   <>
-                    <LogIn className="w-4 h-4" />
+                    <I.Entrar size={16} />
                     Entrar e Continuar
                   </>
                 )}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -930,39 +919,33 @@ export default function Checkout() {
       {/* Modal de Ocupante */}
       {occupantModal && occupantModal.open && (
         <div className="fixed inset-0 flex items-center justify-center p-4 z-[55] animate-fade-in glass-backdrop">
-          <div className="glass-panel p-6 max-w-sm w-full space-y-4">
-            <div className="flex items-center gap-2 text-plum">
-              <Ticket className="w-5 h-5" />
-              <h3 className="font-serif text-lg text-espresso">Identificar Assento</h3>
+          <div role="dialog" aria-modal="true" aria-labelledby="modal-occ-titulo" className="glass-panel w-full max-w-sm space-y-4 p-6">
+            <div className="flex items-center gap-2">
+              <I.Ingressos size={20} className="text-muted-foreground" />
+              <h3 id="modal-occ-titulo" className="text-lg font-semibold">Identificar Assento</h3>
             </div>
-            <p className="text-xs text-espresso/70 font-medium">
-              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-plum">{occupantModal.label}</strong> (Lote: {textoPreco(ticketTypes.find(t => t.id === occupantModal.ticketTypeId)?.price ?? occupantModal.price)}).
+            <p className="text-[13px] leading-5 text-muted-foreground">
+              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-foreground">{occupantModal.label}</strong> (Lote: {textoPreco(ticketTypes.find(t => t.id === occupantModal.ticketTypeId)?.price ?? occupantModal.price)}).
             </p>
             <div>
-              <label htmlFor="modal-occ-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Nome do Ocupante</label>
-              <input 
+              <label htmlFor="modal-occ-inp" className="mb-1.5 block text-[13px] font-semibold leading-5">Nome do Ocupante</label>
+              <Input
                 id="modal-occ-inp"
                 type="text"
                 value={tempOccupantName}
                 onChange={e => setTempOccupantName(e.target.value)}
                 placeholder="Nome completo do ocupante"
-                className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-sm font-bold text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 shadow-xs"
+                className="h-12 rounded-ev-lg bg-card"
                 autoFocus
               />
             </div>
             <div className="flex gap-2 pt-2">
-              <button
-                onClick={() => setOccupantModal(null)}
-                className="flex-1 py-2 rounded-full border border-stone-200 hover:bg-stone-50 text-xs font-bold text-espresso/70 transition-colors"
-              >
+              <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => setOccupantModal(null)}>
                 Cancelar
-              </button>
-              <button
-                onClick={handleConfirmSeat}
-                className="flex-1 py-2 rounded-full bg-plum text-cream hover:bg-plum/90 hover:shadow-glow text-xs font-bold transition-all"
-              >
+              </Button>
+              <Button type="button" size="lg" className="flex-1 rounded-full" onClick={handleConfirmSeat}>
                 Confirmar
-              </button>
+              </Button>
             </div>
           </div>
         </div>

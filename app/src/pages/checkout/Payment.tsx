@@ -1,5 +1,8 @@
 import { useLocation, useNavigate } from 'react-router-dom'
-import { ArrowLeft, CreditCard, Lock, Shield, Loader2 } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { useState, useEffect } from 'react'
 import { useCreateOrder } from '../../hooks/useCheckout'
 import { usePayment } from '../../hooks/usePayment'
@@ -51,6 +54,8 @@ export default function CheckoutPayment() {
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
   const [currency, setCurrency] = useState('BRL')
+  const [qrAberto, setQrAberto] = useState(false)
+  const [pixCopiado, setPixCopiado] = useState(false)
 
   useEffect(() => {
     if (!eventId || !totalAmount) {
@@ -271,207 +276,133 @@ export default function CheckoutPayment() {
     })
   }
 
+  const ocupado = createOrderMutation.isPending || processing
+  const metodo = 'flex min-h-16 w-full items-center gap-3 rounded-ev-xl bg-card p-3.5 text-left shadow-ev-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-checked:shadow-[inset_0_0_0_2px_hsl(var(--primary))]'
+  const radio = 'grid size-5 shrink-0 place-items-center rounded-full shadow-[inset_0_0_0_1.5px_hsl(var(--input))] group-aria-checked:shadow-[inset_0_0_0_6px_hsl(var(--primary))]'
+  const rotulo = 'mb-1.5 block text-[13px] font-semibold leading-5'
+  const campo = 'h-12 rounded-ev-lg bg-card'
+
+  const copiarPix = () => {
+    if (!pixData) return
+    navigator.clipboard.writeText(pixData.qrCodeData)
+    setPixCopiado(true)
+    toast.success('Código Pix copiado!')
+  }
+
   return (
-    <div className="min-h-screen glass-canvas pt-24 pb-16">
-      <div className="max-w-lg mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4 mb-8">
-          <button
-            onClick={() => navigate(-1)}
-            aria-label="Voltar para a página anterior"
-            title="Voltar"
-            className="p-2 rounded-full bg-white/60 border border-white/60 text-espresso/70 hover:text-espresso transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-serif text-3xl text-espresso">Pagamento</h1>
+    <div className="min-h-screen bg-background pb-16 text-foreground">
+      <div className="mx-auto max-w-lg px-4 pt-4 sm:px-6 lg:px-8">
+        <div className="mb-6 flex items-center gap-2">
+          <Button type="button" variant="ghost" size="icon" className="-ml-2 rounded-full" onClick={() => navigate(-1)} aria-label="Voltar para a página anterior" title="Voltar">
+            <I.ChevronEsquerda size={20} />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl font-semibold leading-7">Pagamento</h1>
+            <p className="text-[13px] leading-5 text-muted-foreground">Passo 3 de 3</p>
+          </div>
         </div>
 
         <div className="space-y-4">
-          {/* Card Option Header */}
+          {/* Forma de pagamento */}
           {!pixData && (
-            <div
-              onClick={() => setPaymentMethod('credit_card')}
-              className={`p-6 rounded-2xl border backdrop-blur-sm cursor-pointer transition-all ${
-                paymentMethod === 'credit_card'
-                  ? 'bg-white/80 border-plum/30 shadow-sm'
-                  : 'bg-white/40 border-white/60 hover:bg-white/60'
-              }`}
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center">
-                  <CreditCard className="w-5 h-5 text-plum" />
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-sm font-medium text-espresso">Cartão de Crédito</h2>
-                  <p className="text-xs text-espresso/70">Pagamento seguro com formulário genérico</p>
-                </div>
-                <input
-                  type="radio"
-                  name="payment"
-                  aria-label="Selecionar Cartão de Crédito"
-                  title="Selecionar Cartão de Crédito"
-                  checked={paymentMethod === 'credit_card'}
-                  onChange={() => setPaymentMethod('credit_card')}
-                  className="accent-plum"
-                />
-              </div>
-
-              {paymentMethod === 'credit_card' && (
-                <div className="space-y-4 pt-2 border-t border-espresso/5 animate-fade-in">
-                  <div>
-                    <label className="text-xs text-espresso/70 mb-1 block">Número do Cartão</label>
-                    <input
-                      type="text"
-                      placeholder="0000 0000 0000 0000"
-                      value={cardNumber}
-                      onChange={e => setCardNumber(e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-espresso/70 mb-1 block">Nome no Cartão</label>
-                    <input
-                      type="text"
-                      placeholder="Nome completo"
-                      value={cardName}
-                      onChange={e => setCardName(e.target.value)}
-                      className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">Validade</label>
-                      <input
-                        type="text"
-                        placeholder="MM/AA"
-                        value={cardExpiry}
-                        onChange={e => setCardExpiry(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs text-espresso/70 mb-1 block">CVV</label>
-                      <input
-                        type="text"
-                        placeholder="123"
-                        value={cardCvv}
-                        onChange={e => setCardCvv(e.target.value)}
-                        className="w-full px-4 py-3 bg-white/50 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div role="radiogroup" aria-label="Forma de pagamento" className="grid gap-2">
+              <button type="button" role="radio" aria-checked={paymentMethod === 'credit_card'} onClick={() => setPaymentMethod('credit_card')} className={`group ${metodo}`}>
+                <span className={radio} aria-hidden="true" />
+                <span className="flex-1">
+                  <span className="block text-[15px] font-semibold leading-5">Cartão de Crédito</span>
+                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Pagamento seguro com formulário genérico</span>
+                </span>
+                <I.Cartao size={20} className="shrink-0 text-muted-foreground" />
+              </button>
+              <button type="button" role="radio" aria-checked={paymentMethod === 'pix'} onClick={() => setPaymentMethod('pix')} className={`group ${metodo}`}>
+                <span className={radio} aria-hidden="true" />
+                <span className="flex-1">
+                  <span className="block text-[15px] font-semibold leading-5">Pagar com Pix</span>
+                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Aprovação em segundos</span>
+                </span>
+              </button>
             </div>
           )}
 
-          {/* Pix Option */}
-          {!pixData && (
-            <div
-              onClick={() => setPaymentMethod('pix')}
-              className={`p-6 rounded-2xl border backdrop-blur-sm cursor-pointer transition-all ${
-                paymentMethod === 'pix'
-                  ? 'bg-white/80 border-plum/30 shadow-sm'
-                  : 'bg-white/40 border-white/60 hover:bg-white/60'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
-                  <span className="text-sm font-bold text-green-600">Pix</span>
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-sm font-medium text-espresso">Pagar com Pix</h2>
-                  <p className="text-xs text-espresso/70">Aprovação em segundos</p>
-                </div>
-                <input
-                  type="radio"
-                  name="payment"
-                  aria-label="Selecionar Pix"
-                  title="Selecionar Pix"
-                  checked={paymentMethod === 'pix'}
-                  onChange={() => setPaymentMethod('pix')}
-                  className="accent-plum"
-                />
-              </div>
-              {paymentMethod === 'pix' && (
-                <p className="text-xs text-espresso/70 mt-4 pt-3 border-t border-espresso/5 animate-fade-in">
-                  Ao clicar em "Pagar Agora", geraremos o código Pix Copia e Cola. O pedido será confirmado instantaneamente após o pagamento.
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Pix Getted View */}
-          {pixData && (
-            <div className="p-6 rounded-2xl border bg-white/80 border-plum/30 shadow-sm text-center space-y-4 animate-fade-in">
-              <h2 className="text-lg font-bold text-espresso">Efetue o pagamento Pix</h2>
-              <div className="flex justify-center">
-                <img 
-                  src={pixData.qrCodeImageUrl} 
-                  alt="Pix QR Code" 
-                  className="w-48 h-48 border rounded-lg p-2 bg-white"
-                />
+          {!pixData && paymentMethod === 'credit_card' && (
+            <div className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
+              <div>
+                <label htmlFor="cartao-numero" className={rotulo}>Número do Cartão</label>
+                <Input id="cartao-numero" type="text" inputMode="numeric" autoComplete="cc-number" placeholder="0000 0000 0000 0000" value={cardNumber} onChange={e => setCardNumber(e.target.value)} className={campo} />
               </div>
               <div>
-                <label htmlFor="pix-copia-cola" className="text-xs text-espresso/70 block mb-1">Código Copia e Cola:</label>
-                <textarea
-                  id="pix-copia-cola"
-                  readOnly
-                  value={pixData.qrCodeData}
-                  onClick={(e) => {
-                    (e.target as HTMLTextAreaElement).select();
-                    navigator.clipboard.writeText(pixData.qrCodeData);
-                    toast.success('Código Pix copiado!');
-                  }}
-                  className="w-full p-2 bg-white/50 border border-white/60 rounded-xl text-xs font-mono text-espresso text-center h-16 resize-none focus:outline-none"
-                />
+                <label htmlFor="cartao-nome" className={rotulo}>Nome no Cartão</label>
+                <Input id="cartao-nome" type="text" autoComplete="cc-name" placeholder="Nome completo" value={cardName} onChange={e => setCardName(e.target.value)} className={campo} />
               </div>
-              <p className="text-xs text-espresso/70">Aguardando confirmação de pagamento do banco...</p>
-              <div className="flex justify-center items-center gap-2 text-xs text-plum font-semibold">
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                Sincronizando Pix...
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="cartao-validade" className={rotulo}>Validade</label>
+                  <Input id="cartao-validade" type="text" inputMode="numeric" autoComplete="cc-exp" placeholder="MM/AA" value={cardExpiry} onChange={e => setCardExpiry(e.target.value)} className={campo} />
+                </div>
+                <div>
+                  <label htmlFor="cartao-cvv" className={rotulo}>CVV</label>
+                  <Input id="cartao-cvv" type="text" inputMode="numeric" autoComplete="cc-csc" placeholder="123" value={cardCvv} onChange={e => setCardCvv(e.target.value)} className={campo} />
+                </div>
               </div>
+            </div>
+          )}
+
+          {!pixData && paymentMethod === 'pix' && (
+            <p className="px-1 text-[13px] leading-5 text-muted-foreground">
+              Ao clicar em "Pagar Agora", geraremos o código Pix Copia e Cola. O pedido será confirmado instantaneamente após o pagamento.
+            </p>
+          )}
+
+          {/* Pix gerado: copiar o código primeiro, QR recolhido */}
+          {pixData && (
+            <div className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
+              <h2 className="text-lg font-semibold leading-7">Efetue o pagamento Pix</h2>
+              <Button type="button" size="lg" className="w-full rounded-full" onClick={copiarPix}>
+                {pixCopiado && <I.Check size={16} />}
+                <span role="status">{pixCopiado ? 'Código copiado' : 'Copiar código Pix'}</span>
+              </Button>
+              {pixCopiado && <p className="text-sm leading-5">Abra o app do seu banco e cole na área Pix.</p>}
+              <div className="truncate rounded-ev-lg bg-secondary px-3 py-2.5 font-display text-[13px] leading-[18px] text-muted-foreground" title="Código Pix Copia e Cola">
+                {pixData.qrCodeData}
+              </div>
+              <Button type="button" variant="outline" className="rounded-full" aria-expanded={qrAberto} onClick={() => setQrAberto(!qrAberto)}>
+                {qrAberto ? 'Esconder QR' : 'Mostrar QR'}
+              </Button>
+              {qrAberto && (
+                <div className="w-fit rounded-ev-xl bg-white p-3">
+                  <img src={pixData.qrCodeImageUrl} alt="Pix QR Code" className="size-44" />
+                </div>
+              )}
+              <p role="status" className="flex items-center gap-2 pt-1 text-sm font-medium leading-5">
+                <Spinner className="size-4" />
+                Aguardando confirmação de pagamento do banco...
+              </p>
             </div>
           )}
 
           {/* Summary */}
-          <div className="p-6 rounded-2xl bg-void text-cream">
-            <div className="flex justify-between text-sm text-cream/70 mb-1">
+          <div className="rounded-ev-xl bg-card p-6 shadow-ev-secondary">
+            <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
               <span>Ingressos</span>
-              <span>{formatCurrency(resumo.subtotal, currency)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal, currency)}</span>
             </div>
-            <div className="flex justify-between text-sm text-cream/70 mb-3">
+            <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5 text-muted-foreground">
               <span>Taxa de serviço</span>
-              <span>{formatCurrency(resumo.taxa, currency)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa, currency)}</span>
             </div>
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-cream/70">Total a pagar</span>
-              <span className="font-serif text-2xl">
-                {formatCurrency(resumo.total, currency)}
-              </span>
+            <div className="flex items-baseline justify-between gap-3 pt-3 text-base font-semibold">
+              <span>Total a pagar</span>
+              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total, currency)}</span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-cream/70 mb-4">
-              <Shield className="w-3 h-3" />
+            <p className="mt-4 flex items-center gap-2 text-xs leading-4 text-muted-foreground">
+              <I.Escudo size={14} />
               Pagamento seguro e criptografado
-            </div>
+            </p>
             {!pixData && (
-              <button
-                onClick={handlePay}
-                disabled={createOrderMutation.isPending || processing}
-                className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-              >
-                {createOrderMutation.isPending || processing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processando...
-                  </>
-                ) : (
-                  <>
-                    <Lock className="w-4 h-4" />
-                    Pagar Agora
-                  </>
-                )}
-              </button>
+              <Button type="button" size="lg" className="mt-4 w-full rounded-full" onClick={handlePay} loading={ocupado}>
+                <I.Cadeado size={16} />
+                Pagar Agora
+              </Button>
             )}
           </div>
         </div>

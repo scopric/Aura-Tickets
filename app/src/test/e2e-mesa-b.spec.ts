@@ -224,7 +224,7 @@ test('aceite e questionário: sem "Romance" nem gênero, tudo opcional; grava et
   await mockEvento(page)
   await page.goto(`/event/${EVENTO}`)
 
-  await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).nth(1).click() // o 2º é o Match de Mesa
+  await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).click() // só o botão do cartão do Match de Mesa
   const termo = page.getByRole('dialog', { name: 'Match de Mesa' })
   await expect(termo.getByText(/algoritmo|matchmaking/i)).toHaveCount(0)
   await expect(termo.getByRole('button', { name: 'Aceitar e continuar' })).toBeDisabled()
@@ -281,13 +281,13 @@ test('checkout de Match de Mesa: quantidade fixa em 1 e data de nascimento (18+)
     await route.fulfill({ json: [{ id: DEMO }] })
   })
   await page.goto(`/event/${EVENTO}`)
-  await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).nth(1).click()
+  await page.getByRole('button', { name: 'Adicionar ao Carrinho' }).click()
   await page.getByRole('dialog', { name: 'Match de Mesa' }).getByRole('button', { name: 'Agora não, só comprar o ingresso' }).click()
   await expect(page.getByRole('button', { name: 'Mais um Match de Mesa' })).toBeDisabled() // o + do cartão
   await page.getByRole('button', { name: 'Finalizar' }).click()
   await expect(page).toHaveURL(/\/checkout$/)
 
-  await expect(page.getByRole('button', { name: 'Mais um Match de Mesa' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Adicionar um Match de Mesa' })).toBeDisabled()
   await expect(page.getByRole('heading', { name: 'Match de Mesa: sua data de nascimento' })).toBeVisible()
   await page.getByRole('button', { name: 'Continuar para Pagamento' }).click()
   await expect(page.getByText('Informe sua data de nascimento para comprar o Match de Mesa.')).toBeVisible()

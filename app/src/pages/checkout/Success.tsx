@@ -1,17 +1,39 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { CheckCircle, Ticket, Calendar, Users, Sparkles, Loader2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import gsap from 'gsap'
-import YourTable from '../../components/YourTable'
-import { useOrderTickets } from '../../hooks/useCheckout'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import YourTable from '../../components/YourTable'
+import EventoCapa from '../../components/EventoCapa'
+import { useOrderTickets } from '../../hooks/useCheckout'
+import { usePublicEvent } from '../../hooks/useEvents'
 import TicketQRCode from '../../components/TicketQRCode'
+import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
+import { brl } from '../../lib/taxa'
+
+// O único confete do produto (contrato M14): ~1,5 s, cores do evento + acento quente. A biblioteca só é baixada aqui
+// (fora do pacote de entrada) e com "reduzir movimento" ligado ela não desenha nada.
+function Confete({ cor }: { cor: string }) {
+  useEffect(() => {
+    let cancelado = false
+    const d = derivarCor(cor)
+    import('canvas-confetti').then(({ default: confetti }) => {
+      if (cancelado) return
+      confetti({
+        particleCount: 70, spread: 75, startVelocity: 38, ticks: 110, origin: { y: 0.28 },
+        colors: [d.cor, d.duoLuz, '#f2994a'], disableForReducedMotion: true,
+      })
+    }).catch(() => {})
+    return () => { cancelado = true }
+  }, [cor])
+  return null
+}
 
 export default function CheckoutSuccess() {
-  const ref = useRef<HTMLDivElement>(null)
   const location = useLocation()
   const navigate = useNavigate()
-  
+
   const { orderId, totalAmount } = (location.state || {}) as {
     orderId?: string
     totalAmount?: number
@@ -27,26 +49,21 @@ export default function CheckoutSuccess() {
     }
   }, [orderId, navigate])
 
-  useEffect(() => {
-    const ctx = gsap.context(() => {
-      gsap.fromTo('.success-icon', { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.8, ease: 'back.out(1.7)' })
-      gsap.fromTo('.success-text', { y: 30, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', delay: 0.3 })
-      gsap.fromTo('.success-card', { y: 40, opacity: 0 }, { y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: 'power3.out', delay: 0.5 })
-    }, ref)
-    return () => ctx.revert()
-  }, [])
+  const firstTicket = tickets[0]
+  const event = firstTicket?.events
+  // A cor do evento vem do evento inteiro (os ingressos só trazem a capa); sem ela, o mesmo sorteio do restante do site
+  const { data: eventoCompleto, isLoading: carregandoEvento } = usePublicEvent(event?.id)
+  const corEv = ehHex(eventoCompleto?.accent_color) ? eventoCompleto.accent_color : corSorteada(event?.id ?? orderId ?? 'evento')
 
   if (isLoading) {
     return (
-      <div className="min-h-screen glass-canvas flex flex-col items-center justify-center">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando confirmação de compra...</p>
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
+        <Spinner className="mb-4 size-8" />
+        <p className="text-sm text-muted-foreground">Carregando confirmação de compra...</p>
       </div>
     )
   }
 
-  const firstTicket = tickets[0]
-  const event = firstTicket?.events
   // Sem gateway publicado, nenhum ticket nasce 'active' hoje. `some` (não `every`) porque, quando
   // a Fase 4 existir, o webhook do Pix insere tickets novos 'active' ao lado dos que o checkout já
   // criou 'cancelled' para o mesmo pedido — `every` ficaria preso em "Pedido registrado" mesmo pago.
@@ -60,139 +77,145 @@ export default function CheckoutSuccess() {
     return acc
   }, {} as Record<string, number>)
 
+  const dataEvento = event?.date ? new Date(event.date + 'T00:00:00') : null
+  const cartao = 'rounded-ev-xl bg-card p-5 shadow-ev-secondary'
+  const entra = 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 motion-safe:duration-lento'
+
   return (
-    <div ref={ref} className="min-h-screen glass-canvas pt-24 pb-16">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-10">
-          <div className="success-icon w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-green-600" />
+    <div className="evento-cor min-h-screen bg-background pb-16 text-foreground" style={varsDoEvento(corEv)}>
+      {/* Só celebra quando o pagamento está confirmado (um pedido pendente não é festa) */}
+      {ticketsActive && !carregandoEvento && <Confete cor={corEv} />}
+
+      {/* Topo na cor do evento */}
+      <div className="bg-[var(--evento-fundo)] px-5 pb-20 pt-6 text-center">
+        <img src="/evo/evo-corpo-joinha.webp" alt="" width={47} height={78} className="mx-auto h-[88px] w-auto" />
+        {/* O Payment.tsx manda para cá assim que o gateway não devolve erro — sem Stripe/Woovi
+            publicados isso nunca confirma pagamento de verdade hoje, então o texto segue o
+            status real do ticket, não a suposição de que chegar aqui = pago. */}
+        <h1 className={`mt-2 text-2xl font-semibold leading-8 tracking-[-0.015em] ${entra}`}>
+          {ticketsActive ? 'Pagamento confirmado!' : 'Pedido registrado!'}
+        </h1>
+        <p className="mx-auto mt-1 max-w-md text-[15px] leading-[22px]">
+          {ticketsActive
+            ? 'Seus ingressos já estão em "Meus ingressos".'
+            : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos em "Meus ingressos".'}
+        </p>
+      </div>
+
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        {/* O ingresso sobe em cima do topo colorido (cartão escuro nos dois temas, texto branco sobre a cor do evento) */}
+        {event && (
+          <div className={`relative -mt-14 mx-auto max-w-md overflow-hidden rounded-ev-2xl bg-[var(--evento-fundo-e)] text-white shadow-ev-2 ${entra}`}>
+            <div className="relative h-[132px] overflow-hidden">
+              <EventoCapa evento={{ ...event, ...eventoCompleto, id: event.id }} tamanho="faixa" />
+            </div>
+            <div className="px-[18px] pb-[18px] pt-3.5">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-sm font-bold leading-5">Evokaa</span>
+                <span className="text-right text-[13px] leading-5">{Object.entries(ticketSummary).map(([name, qty]) => `${name} x${qty}`).join(', ')}</span>
+              </div>
+              <p className="font-display wide mt-2 break-words text-[22px] font-extrabold uppercase leading-6">{event.title}</p>
+              <div className="mt-2.5 flex gap-6">
+                <div>
+                  <div className="text-[11px] font-semibold uppercase leading-[14px] tracking-[0.06em]">Data</div>
+                  <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'A definir'}</div>
+                </div>
+                {event.time && (
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase leading-[14px] tracking-[0.06em]">Horário</div>
+                    <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{event.time}</div>
+                  </div>
+                )}
+                <div className="ml-auto text-right">
+                  <div className="text-[11px] font-semibold uppercase leading-[14px] tracking-[0.06em]">Ingressos</div>
+                  <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{tickets.length}</div>
+                </div>
+              </div>
+            </div>
           </div>
-          {/* O Payment.tsx manda para cá assim que o gateway não devolve erro — sem Stripe/Woovi
-              publicados isso nunca confirma pagamento de verdade hoje, então o texto segue o
-              status real do ticket, não a suposição de que chegar aqui = pago. */}
-          <h1 className="success-text font-serif text-3xl text-espresso mb-2">
-            {ticketsActive ? 'Pagamento confirmado!' : 'Pedido registrado!'}
-          </h1>
-          <p className="success-text text-espresso/70">
-            {ticketsActive
-              ? 'Seus ingressos já estão em "Meus ingressos".'
-              : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos em "Meus ingressos".'}
-          </p>
-        </div>
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-5">
           {/* Left: Ticket + Actions */}
-          <div className="lg:col-span-2 space-y-4">
-            <div className="sticky top-24 space-y-4">
-              {/* Ticket Cards */}
-              {tickets.length > 0 ? (
-                <div className="space-y-4">
-                  {tickets.map((t, i) => (
-                    <div key={t.id} className="success-card bg-void text-cream rounded-3xl p-6 text-left shadow-elevated">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
-                          <img src={t.events?.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium">{t.events?.title || event?.title || 'Evento'}</div>
-                          <div className="text-xs text-cream/70">{t.ticket_types?.name || 'Ingresso'}</div>
-                        </div>
-                      </div>
-
-                      {/* QR só para ingresso já ativo — o de pedido pendente não passa no check-in */}
-                      <div className="flex items-center gap-4 mb-4 p-3 rounded-xl bg-white/5 border border-white/10">
-                        {t.status === 'active' ? (
-                          <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="rounded-lg flex-shrink-0" />
-                        ) : (
-                          <div className="w-20 h-20 rounded-lg flex-shrink-0 bg-white/5 border border-white/10 flex items-center justify-center text-[9px] text-cream/70 text-center px-1">
-                            Aguardando pagamento
-                          </div>
-                        )}
-                        <div className="min-w-0">
-                          <div className="text-[10px] text-cream/70">Código do Ingresso</div>
-                          <div className="text-xs font-mono text-cream/70 truncate">{t.qr_code || t.code}</div>
-                          <div className="text-[10px] text-cream/70 mt-1">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
-                        </div>
-                      </div>
-
-                      {totalAmount && (
-                        <div className="flex items-center gap-2 text-xs text-cream/70">
-                          <span className="text-plum font-semibold">Valor:</span>
-                          <span>R$ {(t.ticket_types?.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+          <div className="space-y-4 lg:col-span-2">
+            {/* Ticket Cards */}
+            {tickets.map((t, i) => (
+              <div key={t.id} className={cartao}>
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="grid size-10 shrink-0 place-items-center rounded-ev-lg bg-secondary text-muted-foreground">
+                    <I.Ingressos size={20} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-base font-medium leading-6">{t.ticket_types?.name || 'Ingresso'}</div>
+                    <div className="text-[13px] leading-5 text-muted-foreground">{t.events?.title || event?.title || 'Evento'}</div>
+                  </div>
                 </div>
-              ) : event && (
-                <div className="success-card bg-void text-cream rounded-3xl p-6 text-left shadow-elevated">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/10 flex-shrink-0">
-                      <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-medium">{event.title}</div>
-                      <div className="text-xs text-cream/70">
-                        {Object.entries(ticketSummary).map(([name, qty]) => `${name} x${qty}`).join(', ')}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-cream/70 mb-2">
-                    <Calendar className="w-3 h-3 text-plum" />
-                    {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Data a definir'}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-cream/70 mb-2">
-                    <Ticket className="w-3 h-3 text-plum" />
-                    Código do Pedido: <span className="font-mono text-cream/70">#{orderId?.substring(0, 8).toUpperCase()}</span>
-                  </div>
-                  {totalAmount && (
-                    <div className="flex items-center gap-2 text-xs text-cream/70">
-                      <span className="text-plum font-semibold">Total Pago:</span>
-                      <span>R$ {totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+
+                {/* QR só para ingresso já ativo — o de pedido pendente não passa no check-in */}
+                <div className="flex items-center gap-4 rounded-ev-lg bg-secondary p-3">
+                  {t.status === 'active' ? (
+                    <TicketQRCode code={t.qr_code || t.code || `TK-${i + 1}`} size={80} className="shrink-0 rounded-lg" />
+                  ) : (
+                    <div className="grid size-20 shrink-0 place-items-center rounded-lg bg-card px-1 text-center text-[11px] leading-[14px] text-muted-foreground">
+                      Aguardando pagamento
                     </div>
                   )}
-
-                  {hasCollectiveTable && (
-                    <div className="mt-4 p-3 rounded-xl bg-plum/10 border border-plum/20">
-                      <div className="flex items-center gap-2">
-                        <Users className="w-4 h-4 text-plum" />
-                        <span className="text-xs text-cream/70">Ingresso de mesa coletiva</span>
-                      </div>
-                    </div>
-                  )}
+                  <div className="min-w-0">
+                    <div className="text-[11px] leading-4 text-muted-foreground">Código do Ingresso</div>
+                    <div className="truncate font-display text-xs font-semibold tabular-nums">{t.qr_code || t.code}</div>
+                    <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
+                  </div>
                 </div>
-              )}
 
-              {/* Toggle Table View (only for collective tables) */}
-              {hasCollectiveTable && (
-                <button
-                  onClick={() => setShowTable(!showTable)}
-                  className="success-card w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  {showTable ? 'Ocultar Minha Mesa' : 'Ver Minha Mesa'}
-                </button>
-              )}
-
-              {/* Actions */}
-              <div className="success-card space-y-3">
-                <Link
-                  to="/app/tickets"
-                  className="w-full py-3 bg-void text-cream font-medium rounded-full hover:bg-void/80 transition-all flex items-center justify-center gap-2"
-                >
-                  <Ticket className="w-4 h-4" />
-                  Ver meus ingressos
-                </Link>
-                {event && (
-                  <Link
-                    to={`/event/${event.id}`}
-                    className="block w-full py-3 text-sm text-espresso/70 hover:text-plum transition-colors text-center"
-                  >
-                    Voltar ao evento
-                  </Link>
+                {totalAmount && (
+                  <div className="mt-3 flex justify-between gap-3 text-sm leading-5">
+                    <span className="text-muted-foreground">Valor</span>
+                    <span className="font-display font-semibold tabular-nums">{brl(t.ticket_types?.price || 0)}</span>
+                  </div>
                 )}
               </div>
+            ))}
+
+            {tickets.length === 0 && event && (
+              <div className={cartao}>
+                <div className="flex justify-between gap-3 border-b border-border py-2.5 text-sm leading-5">
+                  <span className="text-muted-foreground">Evento</span>
+                  <span className="text-right font-medium">{event.title}</span>
+                </div>
+                <div className="flex justify-between gap-3 border-b border-border py-2.5 text-sm leading-5">
+                  <span className="text-muted-foreground">Código do Pedido</span>
+                  <span className="font-display font-semibold tabular-nums">#{orderId?.substring(0, 8).toUpperCase()}</span>
+                </div>
+                {totalAmount && (
+                  <div className="flex justify-between gap-3 py-2.5 text-sm leading-5">
+                    <span className="text-muted-foreground">Total Pago</span>
+                    <span className="font-display font-semibold tabular-nums">{brl(totalAmount)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Toggle Table View (only for collective tables) */}
+            {hasCollectiveTable && (
+              <Button type="button" variant="outline" size="lg" className="w-full rounded-full" onClick={() => setShowTable(!showTable)}>
+                <I.Mesa size={16} />
+                {showTable ? 'Ocultar Minha Mesa' : 'Ver Minha Mesa'}
+              </Button>
+            )}
+
+            {/* Actions */}
+            <div className="space-y-2">
+              <Button asChild size="lg" className="w-full rounded-full">
+                <Link to="/app/tickets">
+                  <I.Ingressos size={16} />
+                  Ver meus ingressos
+                </Link>
+              </Button>
+              {event && (
+                <Button asChild variant="ghost" size="lg" className="w-full rounded-full">
+                  <Link to={`/event/${event.id}`}>Voltar ao evento</Link>
+                </Button>
+              )}
             </div>
           </div>
 
@@ -202,43 +225,40 @@ export default function CheckoutSuccess() {
               showTable ? (
                 event && <YourTable eventId={event.id} />
               ) : (
-                <div className="success-card bg-void text-cream rounded-3xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[400px] shadow-elevated">
-                  <div className="w-16 h-16 rounded-full bg-plum/20 flex items-center justify-center mb-4 animate-pulse-glow">
-                    <Users className="w-8 h-8 text-plum" />
+                <div className={`${cartao} flex min-h-[320px] flex-col items-center justify-center text-center`}>
+                  <div className="mb-4 grid size-14 place-items-center rounded-full bg-secondary text-muted-foreground">
+                    <I.Mesa size={28} />
                   </div>
-                  <h3 className="font-serif text-2xl mb-2">Match de Mesa</h3>
-                  <p className="text-sm text-cream/70 mb-6 max-w-sm">
+                  <h2 className="mb-2 text-2xl font-semibold">Match de Mesa</h2>
+                  <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
                     Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
                     {ticketsActive && ' Seu ingresso vale normalmente no evento.'}
                   </p>
                   <button
                     onClick={() => setShowTable(true)}
-                    className="mt-6 text-sm text-plum hover:text-cream transition-colors flex items-center gap-1"
+                    className="mt-6 flex items-center gap-1 text-sm font-semibold text-primary underline underline-offset-4"
                   >
-                    <Sparkles className="w-4 h-4" />
+                    <I.Estrela size={16} />
                     Ver minha mesa
                   </button>
                 </div>
               )
             ) : (
-              <div className="success-card bg-white/60 border border-white/60 backdrop-blur-sm text-espresso rounded-3xl p-8 text-center h-full flex flex-col items-center justify-center min-h-[400px] shadow-sm">
-                <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mb-4">
-                  <Ticket className="w-8 h-8 text-plum" />
+              <div className={`${cartao} flex min-h-[320px] flex-col items-center justify-center text-center`}>
+                <div className="mb-4 grid size-14 place-items-center rounded-full bg-secondary text-muted-foreground">
+                  <I.Ingressos size={28} />
                 </div>
-                <h3 className="font-serif text-2xl text-espresso mb-2">
+                <h2 className="mb-2 text-2xl font-semibold">
                   {ticketsActive ? 'Ingressos Emitidos com Sucesso!' : 'Pedido Registrado!'}
-                </h3>
-                <p className="text-sm text-espresso/70 mb-6 max-w-sm">
+                </h2>
+                <p className="mb-6 max-w-sm text-sm leading-relaxed text-muted-foreground">
                   {ticketsActive
                     ? 'Seus ingressos já estão ativos. Você pode acessá-los a qualquer momento pelo Hub Evokaa ou no aplicativo do Participante.'
                     : 'Assim que o pagamento for confirmado, seus ingressos ficam ativos e disponíveis pelo Hub Evokaa.'}
                 </p>
-                <Link
-                  to="/app/hub"
-                  className="px-6 py-2.5 bg-plum text-cream text-xs font-semibold rounded-full hover:shadow-glow transition-all"
-                >
-                  Ir para o Hub Evokaa
-                </Link>
+                <Button asChild variant="outline" className="rounded-full">
+                  <Link to="/app/hub">Ir para o Hub Evokaa</Link>
+                </Button>
               </div>
             )}
           </div>

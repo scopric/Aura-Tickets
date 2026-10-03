@@ -249,6 +249,22 @@
 }
 
 @layer components {
+  /* Contador de ingressos (contrato v3.4, 5.4): o número fica dentro de um ingresso recortado, preto no claro e
+     branco no escuro (cores do tema). Zero fica apagado. */
+  .cont-n {
+    display: grid; place-items: center; width: 40px; height: 40px; border-radius: 6px;
+    background: hsl(var(--foreground)); color: hsl(var(--background));
+    font-family: 'Archivo', 'Plus Jakarta Sans', sans-serif; font-weight: 600; font-size: 20px; line-height: 24px;
+    font-variant-numeric: tabular-nums;
+    -webkit-mask: radial-gradient(circle 5px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 5px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle 5px at 0 50%, #0000 98%, #000) left / 51% 100% no-repeat, radial-gradient(circle 5px at 100% 50%, #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+  .cont-n.zero { background: hsl(var(--secondary)); color: hsl(var(--muted-foreground)); }
+
+  /* Nome do evento: Archivo 800 largo (contrato v3.4, §3; a fonte vem com wdth 112 e peso 800, index.html).
+     Uso: font-display font-extrabold wide */
+  .wide { font-stretch: 112%; }
+
   /* Área de toque de 44 px (Apple HIG), invisível e centrada no controle. Só em tela de toque: com mouse ela
      invadiria os vizinhos em fileiras de ícones. O controle precisa de position: relative. */
   @media (pointer: coarse) {

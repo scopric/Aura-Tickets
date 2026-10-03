@@ -17,11 +17,12 @@ export interface EventoCapaDados {
 
 const TAMANHO = { mini: 'evcapa-mini', 'mini-p': 'evcapa-mini-p', cartao: 'evcapa-cartao', faixa: 'evcapa-faixa' } as const
 
-export default function EventoCapa({ evento, tamanho = 'cartao', cor, className = '' }: {
+export default function EventoCapa({ evento, tamanho = 'cartao', cor, className = '', prioridade = false }: {
   evento: EventoCapaDados
   tamanho?: keyof typeof TAMANHO
   cor?: string // sobrepõe a cor salva (prévia no formulário)
   className?: string
+  prioridade?: boolean // capa do topo da página (a maior imagem da tela): carrega já, sem esperar (LCP)
 }) {
   const url = [evento.cover_image, evento.image_url].find(temFoto)
   const [falhou, setFalhou] = useState<string>()
@@ -42,7 +43,7 @@ export default function EventoCapa({ evento, tamanho = 'cartao', cor, className 
     <span className={`evcapa ${TAMANHO[tamanho]} ${className}`} style={estilo} {...aria}>
       {foto ? (
         <span className="evcapa-duo">
-          <img src={foto} alt="" loading="lazy" decoding="async" onError={() => setFalhou(foto)} />
+          <img src={foto} alt="" loading={prioridade ? 'eager' : 'lazy'} fetchPriority={prioridade ? 'high' : undefined} decoding="async" onError={() => setFalhou(foto)} />
         </span>
       ) : (
         <span className={`evcapa-cz evcz-${comp}`}>
