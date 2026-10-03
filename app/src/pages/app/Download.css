@@ -1,0 +1,62 @@
+/* Instale o app (V11c): celular desenhado em CSS 3D, sem three.js. Prancha: redesenho/v3/project/App.dc.html.
+   Corpo do aparelho (cinza, titânio) e tela do app ficam iguais nos dois temas, como um objeto de verdade. */
+
+.cel-fundo { position: absolute; left: -40px; right: -40px; top: -40px; height: 700px; filter: blur(30px) saturate(1.1); opacity: 0.22; -webkit-mask: linear-gradient(#000 55%, #0000); mask: linear-gradient(#000 55%, #0000); pointer-events: none; }
+.dark .cel-fundo { opacity: 0.42; }
+.cel-fundo .evcapa-duo img { object-position: 50% 50%; }
+
+/* pan-y: o gesto vertical continua rolando a página; só o horizontal gira (sem armadilha de rolagem no toque) */
+.cel-cena { position: relative; height: 540px; perspective: 480px; perspective-origin: 50% 42%; touch-action: pan-y pinch-zoom; cursor: grab; user-select: none; -webkit-user-select: none; --cel-sombra: rgb(12 20 35 / 0.38); }
+.dark .cel-cena { --cel-sombra: rgb(0 0 0 / 0.75); }
+.cel-cena.arrastando { cursor: grabbing; }
+.cel-contato { position: absolute; left: 50%; top: 484px; width: 230px; height: 30px; margin-left: -104px; border-radius: 50%; background: radial-gradient(closest-side, var(--cel-sombra), transparent); filter: blur(5px); }
+.cel-camada { position: absolute; left: 50%; top: 18px; width: 228px; height: 470px; margin-left: -114px; transform-style: preserve-3d; }
+.cel-sub { top: 0; }
+
+/* backwards, não both: a opacidade presa no fim achatava o 3D (a perspectiva sumia na pose de repouso) */
+.cel-entrada { animation: cel-sobe 1100ms var(--curva-sai) backwards; }
+@keyframes cel-sobe { from { transform: translateY(140px) rotateX(28deg); opacity: 0; } }
+.cel-balanco { animation: cel-balanco 6s ease-in-out 2 forwards; /* duas idas e voltas depois da entrada e para (WCAG 2.2.2) */ }
+@keyframes cel-balanco { 0%, 100% { transform: rotateY(-3deg) translateY(0); } 50% { transform: rotateY(3deg) translateY(-6px); } }
+.arrastando .cel-balanco { animation-play-state: paused; }
+
+/* o aparelho sobe e assenta com a rolagem (nativo do CSS); em tela larga ele fica fixo ao lado do texto */
+@supports (animation-timeline: scroll()) {
+  @media (max-width: 1023px) {
+    .cel-rola { animation: cel-paralaxe linear both; animation-timeline: scroll(root block); animation-range: 0 380px; }
+    @keyframes cel-paralaxe { to { transform: translateY(-90px) rotateX(-10deg) scale(0.92); } }
+  }
+}
+/* legenda: arrastar ou, com "reduzir movimento", imagem parada (sem arraste) */
+.cel-dica-fixo { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .cel-entrada, .cel-balanco, .cel-rola { animation: none; }
+  .cel-cena { pointer-events: none; cursor: default; }
+  .cel-dica-giro { display: none; }
+  .cel-dica-fixo { display: inline; }
+}
+
+.cel-aparelho { position: absolute; inset: 0; transform-style: preserve-3d; }
+/* ao soltar, volta à pose com uma ultrapassagem curta; durante o arraste o transform segue o dedo sem atraso */
+.cel-aparelho.volta { transition: transform 700ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+.cel-fatia { position: absolute; inset: 0; border-radius: 46px; background: #8d939c; }
+.dark .cel-fatia { background: #7a808a; }
+.cel-fatia.borda { background: #d5d9de; }
+.cel-fatia.luz { background: #eef0f3; }
+.cel-costas { position: absolute; inset: 0; border-radius: 46px; background: #20242b; box-shadow: inset 0 0 0 2px #5d636c; transform: translateZ(-7px) rotateY(180deg); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cel-botao { position: absolute; width: 4px; border-radius: 2px; background: #6b717b; box-shadow: inset -1px 0 0 rgb(255 255 255 / 0.25); }
+.cel-frente { position: absolute; inset: 0; border-radius: 46px; padding: 4px; box-sizing: border-box; transform: translateZ(7px); backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: linear-gradient(var(--aro-ang), #a9afb8 0%, #4a4f58 16%, #7f858f 38%, #2e3239 62%, #8c929b 86%, #c3c8cf 100%);
+  box-shadow: inset 0 0 0 0.5px rgb(255 255 255 / 0.5), inset 1.5px 0 0 rgb(255 255 255 / 0.55), 0 30px 50px -18px var(--cel-sombra); }
+.cel-moldura { width: 220px; height: 462px; border-radius: 42px; background: #050608; padding: 6px; box-sizing: border-box; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06); }
+.cel-tela { position: relative; width: 208px; height: 450px; border-radius: 36px; overflow: hidden; background: #0b0d12; }
+.cel-ilha { position: absolute; top: 11px; left: 50%; width: 66px; height: 20px; margin-left: -33px; border-radius: 10px; background: #000; z-index: 3; }
+.cel-ilha.furo { top: 13px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; } /* Android: câmera em furo */
+.cel-reflexo { position: absolute; inset: 0; z-index: 4; pointer-events: none; border-radius: 36px; background: linear-gradient(105deg, transparent 34%, rgb(255 255 255 / 0.13) 47%, rgb(255 255 255 / 0.04) 52%, transparent 64%); background-size: 260% 100%; }
+
+/* tela do app: 390 x 844 reduzida a 208 px de largura */
+.cel-390 { position: absolute; left: 0; top: 0; width: 390px; height: 844px; transform: scale(0.5333); transform-origin: 0 0; color: #fff; }
+.cel-rot { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.78; display: block; }
+.cel-num { font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; font-size: 20px; line-height: 24px; display: block; }
+.cel-nome { font-family: 'Archivo', 'Plus Jakarta Sans', system-ui, sans-serif; font-weight: 800; font-stretch: 112%; font-size: 24px; line-height: 26px; text-transform: uppercase; }
+.cel-recorte { -webkit-mask: radial-gradient(28px 14px at 50% 0, #0000 98%, #000); mask: radial-gradient(28px 14px at 50% 0, #0000 98%, #000); }
