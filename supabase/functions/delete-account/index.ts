@@ -40,6 +40,14 @@ Deno.serve(async (req) => {
   if (!(await mfaOk(req))) return json(403, { error: 'Confirme o código do 2FA (saia e entre de novo) para excluir a conta.' })
   const uid = user.id
   const anonEmail = `removido-${uid}@anonimo.evokaa.com.br`
+  // remove() do Storage em lotes de até 1000 nomes (limite da API); para na primeira falha
+  const removerEmLotes = async (bucket: string, paths: string[]) => {
+    for (let i = 0; i < paths.length; i += 1000) {
+      const { error } = await admin.storage.from(bucket).remove(paths.slice(i, i + 1000))
+      if (error) return { error }
+    }
+    return { error: null }
+  }
 
   // Produtor com evento publicado e ainda por acontecer: não some enquanto há venda em curso
   // (o repasse ficaria sem destino). Ele cancela ou encerra o evento e tenta de novo.
@@ -85,14 +93,23 @@ Deno.serve(async (req) => {
     // atendeu (admin/produtor), as respostas dela nas conversas dos outros ficam. Arquivos: só os
     // que ELA subiu (owner) — anexos das mensagens dela de cliente e os nunca anexados
     // (chat_arquivos_a_apagar); arquivo de outra pessoa nunca é removido.
-    // ponytail: remove() numa chamada só; em lotes se alguém passar de centenas de arquivos.
     ['chat_anexos', async () => {
       const { data, error } = await admin.rpc('chat_arquivos_a_apagar', { p_user: uid })
       if (error) return { error }
-      const paths = (data ?? []) as string[]
-      if (!paths.length) return { error: null }
-      const { error: storageError } = await admin.storage.from('chat-anexos').remove(paths)
-      return { error: storageError }
+      return removerEmLotes('chat-anexos', (data ?? []) as string[])
+    }],
+    // Capas dos eventos do produtor (bucket capas-eventos, pasta <uid>/): só as dele, pelo caminho.
+    // Requer docs/sql/20261007 aplicado (função capas_arquivos_a_apagar): publicar esta função só depois de
+    // `select to_regproc('public.capas_arquivos_a_apagar')` vir não nulo. Primeiro os eventos voltam para a foto
+    // padrão (service_role passa direto pelo gatilho de moderação), depois os arquivos saem; se algo falhar, a
+    // repetição refaz os dois (idempotente) e nenhum evento fica apontando para arquivo apagado.
+    ['capas_eventos', async () => {
+      const { error: eventsReset } = await admin.from('events')
+        .update({ cover_image: '/images/hero-bg.jpg', image_url: '/images/hero-bg.jpg' }).eq('producer_id', uid)
+      if (eventsReset) return { error: eventsReset }
+      const { data, error } = await admin.rpc('capas_arquivos_a_apagar', { p_user: uid })
+      if (error) return { error }
+      return removerEmLotes('capas-eventos', (data ?? []) as string[])
     }],
     ['conversation_messages', () => admin.from('conversation_messages').delete().eq('sender_id', uid).eq('sender_role', 'customer')],
     ['conversations', () => admin.from('conversations').update({ last_message_preview: null }).eq('user_id', uid)],
