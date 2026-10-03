@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
 
@@ -10,7 +10,10 @@ vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
 vi.mock('../components/EvoHub', () => ({ default: () => null }))
 vi.mock('../components/FeedbackTopButton', () => ({ default: () => null }))
 vi.mock('../components/NotificationsTopButton', () => ({ default: () => null }))
-vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+vi.mock('../components/producer/BarraCelular', () => ({ default: () => <nav aria-label="Navegação do celular" /> }))
+// computador (>= 1024 px) por padrão; `celular` liga só a consulta (max-width: 767px)
+const mediaQuery = (celular: boolean) => (q: string) => ({ matches: q.includes('max-width') ? celular : true, addEventListener: () => {}, removeEventListener: () => {} })
+vi.stubGlobal('matchMedia', mediaQuery(false))
 
 const montar = (url: string) =>
   render(
@@ -59,7 +62,10 @@ describe('ProducerLayout com a lateral nova', () => {
     montar('/producer/dashboard')
     fireEvent.keyDown(window, { key: 'b', metaKey: true })
     expect(localStorage.getItem('evk.nav.recolhida')).toBeNull()
-    vi.stubGlobal('matchMedia', () => ({ matches: true, addEventListener: () => {}, removeEventListener: () => {} }))
+    vi.mock('../components/producer/BarraCelular', () => ({ default: () => <nav aria-label="Navegação do celular" /> }))
+// computador (>= 1024 px) por padrão; `celular` liga só a consulta (max-width: 767px)
+const mediaQuery = (celular: boolean) => (q: string) => ({ matches: q.includes('max-width') ? celular : true, addEventListener: () => {}, removeEventListener: () => {} })
+vi.stubGlobal('matchMedia', mediaQuery(false))
   })
 
   it('começa no trilho quando a pessoa tinha recolhido', () => {
@@ -71,5 +77,25 @@ describe('ProducerLayout com a lateral nova', () => {
   it('o conteúdo da página (com os data-tour) continua no Outlet', () => {
     const { container } = montar('/producer/events')
     expect(container.querySelector('[data-tour="eventos-criar"]')).not.toBeNull()
+  })
+
+  it('a barra inferior só existe abaixo de 768 px; entre 768 e 1023 px fica a gaveta', () => {
+    montar('/producer/dashboard')
+    expect(screen.queryByRole('navigation', { name: 'Navegação do celular' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toBeInTheDocument()
+    cleanup()
+    vi.stubGlobal('matchMedia', mediaQuery(true))
+    montar('/producer/dashboard')
+    expect(screen.getByRole('navigation', { name: 'Navegação do celular' })).toBeInTheDocument()
+    vi.stubGlobal('matchMedia', mediaQuery(false))
+  })
+
+  it('no celular o botão da gaveta não abre nada (a barra e a folha a substituem)', () => {
+    vi.stubGlobal('matchMedia', mediaQuery(true))
+    montar('/producer/dashboard')
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu', hidden: true }))
+    expect(screen.queryByRole('button', { name: 'Fechar menu', hidden: true })).toBeNull()
+    expect(document.getElementById('produtor-menu')!.className).toContain('max-md:hidden')
+    vi.stubGlobal('matchMedia', mediaQuery(false))
   })
 })

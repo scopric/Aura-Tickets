@@ -58,6 +58,13 @@ const porNome = (nome: string) => NAV.find(t => t.tela === nome)!
 /** Início é item solto (fora das seções); "Criar evento" é o botão "+", não item */
 export const INICIO = porNome('Início')
 export const ROTA_CRIAR_EVENTO = '/producer/planner'
+
+/** A rota é a da tela atual (a raiz /producer conta como Início); a lateral e a folha Menu usam a mesma regra */
+export function rotaAtiva(rota: string, pathname: string): boolean {
+  return rota.includes(':')
+    ? rotasDaTela(rota).some(r => !!matchPath(r, pathname))
+    : pathname === rota || pathname.startsWith(rota + '/') || (rota === INICIO.rota && pathname === '/producer')
+}
 const PASTA = porNome('Pasta do evento')
 
 /** Telas de uma seção no escopo pedido. No evento, só as que têm `noEvento`; `Topo` nunca entra (item solto);

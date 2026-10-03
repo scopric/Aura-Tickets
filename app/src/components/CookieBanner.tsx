@@ -33,7 +33,7 @@ export default function CookieBanner() {
   if (!showBanner) return null
 
   return (
-    <div ref={bannerRef} className="fixed bottom-0 left-0 right-0 z-[100] p-4 md:p-6 animate-in slide-in-from-bottom duration-500 pointer-events-none">
+    <div ref={bannerRef} className="fixed bottom-[var(--barra-cel,0px)] left-0 right-0 z-[100] p-4 md:p-6 animate-in slide-in-from-bottom duration-500 pointer-events-none">
       <div className="max-w-4xl mx-auto bg-popover text-popover-foreground border border-border rounded-2xl shadow-ev-2 p-5 relative overflow-hidden pointer-events-auto">
         {/* Glow de fundo sutil */}
         <div className="absolute -top-12 -left-12 w-24 h-24 bg-[#8f33f5]/10 rounded-full blur-2xl pointer-events-none" />
