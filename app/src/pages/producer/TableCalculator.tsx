@@ -153,7 +153,7 @@ export default function TableCalculator() {
       </div>
 
       {tables.length > 0 && (
-        <Button variant="outline" className="mt-4 w-full border-dashed" onClick={addTable}>
+        <Button variant="outline" className="mt-4 w-full border border-dashed border-input shadow-none" onClick={addTable}>
           <Plus aria-hidden="true" />Adicionar mesa
         </Button>
       )}

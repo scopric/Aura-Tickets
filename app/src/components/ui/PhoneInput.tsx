@@ -128,7 +128,7 @@ export default function PhoneInput({
         disabled={disabled || apenasBrasil}
         aria-label={apenasBrasil ? 'DDI do Brasil, +55' : undefined}
         onClick={() => setDropdownOpen(!dropdownOpen)}
-        className="flex items-center gap-1.5 px-3 py-2.5 bg-white/40 border border-white/60 rounded-l-xl text-sm text-espresso hover:bg-white/60 transition-all focus:outline-none focus:border-plum/30 h-[42px] border-r-0"
+        className="relative flex items-center gap-1.5 px-3 h-10 bg-transparent dark:bg-input/30 border border-input border-r-0 rounded-l-md text-sm text-foreground hover:bg-muted transition-colors outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
       >
         <span className="text-base leading-none select-none">{selectedCountry.flag}</span>
         <span className="text-xs font-semibold font-mono text-espresso/80">{selectedCountry.code}</span>
@@ -143,7 +143,7 @@ export default function PhoneInput({
         placeholder={selectedCountry.mask}
         value={localNumber}
         onChange={handleInputChange}
-        className="flex-1 px-4 py-2.5 bg-white/60 border border-white/60 rounded-r-xl text-sm text-espresso focus:outline-none focus:border-plum/30 h-[42px]"
+        className="flex-1 min-w-0 px-3 h-10 bg-transparent dark:bg-input/30 border border-input rounded-r-md text-sm text-foreground placeholder:text-muted-foreground transition-[color,box-shadow] outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
       />
 
       {/* Dropdown de Países */}
