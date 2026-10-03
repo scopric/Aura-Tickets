@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { toast } from 'sonner'
 
+// Fundo escuro fixo em qualquer tema: o texto tem de ser fixo também (text-white/NN e text-cream mudam no tema claro e davam 2,66:1)
 export default function Footer() {
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
@@ -45,7 +46,7 @@ export default function Footer() {
   }
 
   return (
-    <footer className="bg-slate-950 text-white relative overflow-hidden">
+    <footer className="bg-slate-950 text-slate-50 relative overflow-hidden">
       {/* Subtle gradient overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-blue-500/10 to-transparent pointer-events-none" />
       
@@ -60,7 +61,7 @@ export default function Footer() {
                 className="h-20 w-auto"
               />
             </Link>
-            <p className="text-white/60 text-sm leading-relaxed max-w-sm">
+            <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
               A plataforma definitiva para criadores de experiências. 
               Crie, gerencie e venda eventos extraordinários.
             </p>
@@ -69,7 +70,7 @@ export default function Footer() {
           {/* Links */}
           <div className="lg:col-span-4 grid grid-cols-2 gap-8">
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
+              <h4 className="text-xs font-medium uppercase tracking-widest text-slate-400 mb-4">
                 Plataforma
               </h4>
               <ul className="space-y-3">
@@ -77,7 +78,7 @@ export default function Footer() {
                   {/* painel do produtor fica em app.*: âncora comum, não <Link> (troca de host) */}
                   <a
                     href={appUrl('/producer/dashboard')}
-                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                    className="text-sm text-slate-400 hover:text-white transition-colors duration-300 inline-flex items-center gap-1 group"
                   >
                     Dashboard
                     <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
@@ -86,7 +87,7 @@ export default function Footer() {
                 <li>
                   <Link
                     to="/events"
-                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                    className="text-sm text-slate-400 hover:text-white transition-colors duration-300 inline-flex items-center gap-1 group"
                   >
                     Eventos
                     <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
@@ -95,7 +96,7 @@ export default function Footer() {
               </ul>
             </div>
             <div>
-              <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
+              <h4 className="text-xs font-medium uppercase tracking-widest text-slate-400 mb-4">
                 Empresa
               </h4>
               <ul className="space-y-3">
@@ -103,7 +104,7 @@ export default function Footer() {
                 <li>
                   <Link
                     to="/contato"
-                    className="text-sm text-white/60 hover:text-cream transition-colors duration-300 inline-flex items-center gap-1 group"
+                    className="text-sm text-slate-400 hover:text-white transition-colors duration-300 inline-flex items-center gap-1 group"
                   >
                     Contato
                     <ArrowUpRight className="w-3 h-3 opacity-0 -translate-y-1 translate-x-1 group-hover:opacity-100 group-hover:translate-y-0 group-hover:translate-x-0 transition-all" />
@@ -115,10 +116,10 @@ export default function Footer() {
 
           {/* Newsletter */}
           <div className="lg:col-span-4">
-            <h4 className="text-xs font-medium uppercase tracking-widest text-white/60 mb-4">
+            <h4 className="text-xs font-medium uppercase tracking-widest text-slate-400 mb-4">
               Newsletter
             </h4>
-            <p className="text-sm text-white/60 mb-4">
+            <p className="text-sm text-slate-400 mb-4">
               Receba novidades sobre eventos e atualizações da plataforma.
             </p>
             <form onSubmit={handleSubscribe} className="relative">
@@ -127,18 +128,18 @@ export default function Footer() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="seu@email.com"
-                className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-cream placeholder:text-cream/70 focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full bg-white/5 border border-white/10 rounded-full px-5 py-3 text-sm text-slate-50 placeholder:text-slate-400 focus:outline-none focus:border-blue-500/50 transition-colors"
               />
               <button
                 type="submit"
                 disabled={loading}
-                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 text-white text-xs font-medium rounded-full hover:opacity-90 transition-colors disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 px-4 py-1.5 text-slate-50 text-xs font-medium rounded-full hover:opacity-90 transition-colors disabled:opacity-50" style={{ background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)' }}
               >
                 {loading ? <Loader2 className="w-3 h-3 animate-spin" /> : subscribed ? 'Enviado!' : 'Assinar'}
               </button>
             </form>
             {subscribed && (
-              <p className="text-xs text-white/40 mt-2">
+              <p className="text-xs text-slate-400 mt-2">
                 Se você já tinha cancelado a inscrição, fale com a gente para voltar a receber.
               </p>
             )}
@@ -147,17 +148,17 @@ export default function Footer() {
 
         {/* Bottom bar */}
         <div className="mt-16 pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-white/60">
+          <p className="text-xs text-slate-400">
             &copy; 2025 Evokaa. Todos os direitos reservados.
           </p>
           <div className="flex items-center gap-6">
-            <Link to="/privacidade" className="text-xs text-white/60 hover:text-white/80 transition-colors">
+            <Link to="/privacidade" className="text-xs text-slate-400 hover:text-white transition-colors">
               Privacidade
             </Link>
-            <Link to="/termos" className="text-xs text-white/60 hover:text-white/80 transition-colors">
+            <Link to="/termos" className="text-xs text-slate-400 hover:text-white transition-colors">
               Termos
             </Link>
-            <button onClick={() => { if (typeof window !== 'undefined' && (window as any).__auraOpenCookieBanner) (window as any).__auraOpenCookieBanner() }} className="text-xs text-white/60 hover:text-white/80 transition-colors">
+            <button onClick={() => { if (typeof window !== 'undefined' && (window as any).__auraOpenCookieBanner) (window as any).__auraOpenCookieBanner() }} className="text-xs text-slate-400 hover:text-white transition-colors">
               Cookies
             </button>
           </div>

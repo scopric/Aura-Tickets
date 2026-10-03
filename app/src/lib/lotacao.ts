@@ -1,0 +1,8 @@
+import type { DbTicketType } from '../hooks/useEvents'
+
+// Esgotado só com a lotação real do banco (quantity_total; capacity é legado). Sem número, nunca se afirma esgotado
+// (antes a página usava `capacity || 100`, uma lotação inventada).
+export const lotacao = (t: DbTicketType) => ((t.quantity_total ?? 0) > 0 ? t.quantity_total! : (t.capacity ?? 0) > 0 ? t.capacity! : 0)
+export const esgotado = (t: DbTicketType) => lotacao(t) > 0 && (t.sold || 0) >= lotacao(t)
+// Já pôs no carrinho tudo o que resta
+export const noLimite = (t: DbTicketType, qtd: number) => lotacao(t) > 0 && qtd >= lotacao(t) - (t.sold || 0)

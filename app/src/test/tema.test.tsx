@@ -71,11 +71,19 @@ describe('ThemeContext: 3 estados', () => {
     expect(corDaBarra()).toBe('#0b0d12')
   })
 
-  it.each(['/app/tickets', '/admin/users', '/checkout', '/auth/login'])('%s sem nada salvo: escuro, mesmo com o aparelho claro', rota => {
+  it.each(['/app/tickets', '/admin/users', '/auth/login'])('%s sem nada salvo: escuro, mesmo com o aparelho claro', rota => {
     aparelho(false)
     montar(rota)
     expect(screen.getByTestId('tema').textContent).toBe('dark')
     expect(classeHtml()).toBe('dark')
+  })
+
+  // V11a (Decisão 142): página do evento e checkout começam em Automático; Explorar ('/events') segue forçado
+  it.each(['/event/abc', '/checkout', '/checkout/payment'])('%s sem nada salvo: automático, segue o aparelho', rota => {
+    aparelho(false)
+    montar(rota)
+    expect(screen.getByTestId('tema').textContent).toBe('auto')
+    expect(classeHtml()).toBe('light')
   })
 
   it('sem nada salvo, o padrão muda junto com a rota; com escolha salva, não', () => {
@@ -193,14 +201,14 @@ describe('script contra a piscada (index.html)', () => {
   it('usa a mesma lista de rotas do src/lib/tema.ts', () => {
     const lista = script.match(/\[([^\]]+)\]\.some/)?.[1]
     expect(lista).toBeDefined()
-    expect([...lista!.matchAll(/'([^']+)'/g)].map(m => m[1])).toEqual(ROTAS_COM_TEMA)
+    expect([...lista!.matchAll(/'([^']+)'/g)].map(m => m[1])).toEqual(ROTAS_COM_TEMA.map(r => r.rota))
   })
 
   it('dá o mesmo resultado de src/lib/tema.ts em todas as combinações (salvo, aparelho, rota, host)', () => {
     let casos = 0
     for (const salvo of [null, 'auto', 'light', 'dark', 'roxo'])
       for (const escuro of [true, false])
-        for (const rota of ['/', '/producer', '/producer/lugar-marcado', '/app/tickets', '/admin/users', '/auth/login', '/checkout', '/events'])
+        for (const rota of ['/', '/producer', '/producer/lugar-marcado', '/app/tickets', '/admin/users', '/auth/login', '/checkout', '/checkout/payment', '/event/abc', '/events'])
           for (const host of ['www.evokaa.com.br', 'app.evokaa.com.br', 'alpha.evokaa.com.br', 'app.localhost', 'localhost']) {
             aparelho(escuro)
             localStorage.clear()
@@ -214,7 +222,7 @@ describe('script contra a piscada (index.html)', () => {
             expect(corDaBarra()).toBe(esperado === 'dark' ? '#0b0d12' : '#ffffff')
             casos++
           }
-    expect(casos).toBe(400)
+    expect(casos).toBe(500)
   })
 
   it('o hash na CSP do vercel.json bate com o script', () => {

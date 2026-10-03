@@ -15,7 +15,7 @@ test.describe('Front 1A — navegação e barra do carrinho', () => {
     // evento real do banco de produção (criado em maio, sem aprovação; visível pelo slug)
     await page.goto('/event/noite-eletro-2025')
     await expect(page.getByRole('button', { name: /Rejeitar opcionais/ })).toBeVisible()
-    await page.getByRole('button', { name: /Adicionar ao Carrinho/ }).first().click()
+    await page.getByRole('button', { name: /^Adicionar um / }).first().click()
     // sem force: se o aviso cobrir a barra, o clique falha por interceptação
     await page.getByRole('button', { name: /^Finalizar/ }).click({ timeout: 5000 })
     await expect(page).toHaveURL(/\/checkout/)

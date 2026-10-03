@@ -332,7 +332,11 @@ function Layout() {
     )
   }
 
+  // A página do evento tem a barra de topo e a de compra próprias (V11a): sem Header, chat de suporte nem feedback; o Footer fica (termos, privacidade, empresa)
+  const naPaginaDoEvento = location.pathname.startsWith('/event/')
+
   const hideLayout =
+    naPaginaDoEvento ||
     location.pathname.startsWith('/producer') ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/auth') ||
@@ -345,6 +349,9 @@ function Layout() {
   const temEvo =
     (rota.startsWith('/producer') || rota.startsWith('/app')) &&
     !['/app/download', '/producer/lugar-marcado'].includes(rota)
+
+  // Dados e pagamento têm o botão principal fixo embaixo; o feedback flutuante o cobria em 360/390 px (a página de sucesso mantém)
+  const naCompra = rota === '/checkout' || rota === '/checkout/payment'
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -450,9 +457,12 @@ function Layout() {
           </Routes>
         </Suspense>
       </main>
-      {!hideLayout && <Footer />}
+      {(!hideLayout || naPaginaDoEvento) && (
+        // na página do evento a barra de compra fixa cobre o pé: folga igual à altura dela
+        <div className={naPaginaDoEvento ? 'bg-slate-950 pb-[calc(env(safe-area-inset-bottom)+5rem)]' : undefined}><Footer /></div>
+      )}
       <Toaster />
-      {!temEvo && <FeedbackButton />}
+      {!temEvo && !naPaginaDoEvento && !naCompra && <FeedbackButton />}
       {temEvo && <AvisoPolitica />}
       <CookieBanner />
       {!hideLayout && <SupportChatWidget />}

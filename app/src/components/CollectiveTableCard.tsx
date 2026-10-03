@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, Sparkles, ChevronDown, ChevronUp, Check, Info, Camera } from 'lucide-react'
+import { Users, Camera } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
 import type { Ticket } from '../data/mockData'
 import ProfileQuiz from './ProfileQuiz'
@@ -27,7 +28,8 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
   const { user } = useAuth()
   const { profile } = useMatchmakingProfile()
 
-  const fillPercent = (ticket.sold / ticket.capacity) * 100
+  // lotação real ou nada: sem número no banco, a barra de vagas não aparece (antes entrava `capacity || 100`)
+  const fillPercent = ticket.capacity > 0 ? Math.min((ticket.sold / ticket.capacity) * 100, 100) : 0
 
   // O aceite e o questionário são opcionais para comprar (a compra exige só a data de nascimento, no
   // checkout). Sem login não há como aceitar: o convite volta em "Sua mesa".
@@ -46,11 +48,11 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
 
   return (
     <>
-      <div className="ticket-card group relative rounded-3xl overflow-hidden backdrop-blur-sm transition-all duration-500 hover:shadow-glow border-2 border-plum/30 bg-gradient-to-br from-plum/10 via-white/5 to-plum/5">
+      <div className="relative overflow-hidden rounded-ev-2xl bg-card text-card-foreground shadow-ev-secondary">
         {/* Badge */}
         <div className="absolute top-4 right-4 z-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-plum text-cream text-xs font-medium rounded-full animate-pulse-glow">
-            <Sparkles className="w-3 h-3" />
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--ev-brand-soft)] px-3 py-1.5 text-xs font-semibold text-primary">
+            <I.Estrela size={12} />
             Experiência Social
           </span>
         </div>
@@ -58,46 +60,49 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
         {/* Header */}
         <div className="p-6 lg:p-8 pb-0">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl bg-plum flex items-center justify-center">
-              <Users className="w-5 h-5 text-cream" />
+            <div className="grid size-10 place-items-center rounded-ev-xl bg-primary text-primary-foreground">
+              <I.Mesa size={20} />
             </div>
             <div>
-              <h3 className="font-serif text-2xl text-cream">{ticket.name}</h3>
-              <p className="text-xs text-cream/70">Mesa compartilhada no evento</p>
+              <h3 className="text-xl font-semibold">{ticket.name}</h3>
+              <p className="text-xs text-muted-foreground">Mesa compartilhada no evento</p>
             </div>
           </div>
 
-          <p className="text-sm text-cream/70 mb-4 leading-relaxed">{ticket.description}</p>
+          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">{ticket.description}</p>
 
-          <div className="font-serif text-4xl text-cream mb-4">
+          <div className="font-display mb-4 text-3xl font-semibold tabular-nums">
             {ticket.price > 0 ? brl(calcularTaxa(ticket.price).total) : 'Gratuito'}
-            {ticket.price > 0 && <span className="text-sm text-cream/70 font-sans ml-2">/pessoa</span>}
-            {ticket.price > 0 && <p className="text-xs text-cream/60 font-sans mt-1">{brl(ticket.price)} + taxa {brl(calcularTaxa(ticket.price).taxa)}</p>}
+            {ticket.price > 0 && <span className="ml-2 font-sans text-sm font-normal text-muted-foreground">/pessoa</span>}
+            {ticket.price > 0 && <p className="mt-1 font-sans text-xs font-normal text-muted-foreground">{brl(ticket.price)} + taxa {brl(calcularTaxa(ticket.price).taxa)}</p>}
           </div>
 
-          {/* Progress */}
-          <div className="mb-4">
-            <div className="flex items-center justify-between text-xs text-cream/70 mb-2">
-              <span className="flex items-center gap-1"><Users className="w-3 h-3" />{ticket.sold} pessoas na comunidade</span>
-              <span>{ticket.capacity} vagas</span>
+          {/* Progress: só com a lotação real */}
+          {ticket.capacity > 0 && (
+            <div className="mb-4">
+              <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+                <span className="flex items-center gap-1"><I.Pessoas size={12} />{ticket.sold} pessoas na comunidade</span>
+                <span>{ticket.capacity} vagas</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+                <div className="h-full rounded-full bg-primary" style={{ width: `${fillPercent}%` }} />
+              </div>
             </div>
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-              <div className="h-full bg-plum rounded-full transition-all duration-1000" style={{ width: `${fillPercent}%` }} />
-            </div>
-          </div>
+          )}
 
           {/* Perks */}
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-2 text-sm text-plum hover:text-cream transition-colors mb-2"
+            aria-expanded={expanded}
+            className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary"
           >
-            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            {expanded ? <I.ChevronCima size={16} /> : <I.ChevronBaixo size={16} />}
             {expanded ? 'Ocultar benefícios' : 'Ver benefícios'}
           </button>
           <div className={`space-y-2 transition-all overflow-hidden ${expanded ? 'max-h-96 opacity-100 pb-4' : 'max-h-0 opacity-0'}`}>
             {ticket.perks.map((perk, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm text-cream/70">
-                <Check className="w-4 h-4 text-plum flex-shrink-0" />
+              <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                <I.Check size={16} className="shrink-0 text-primary" />
                 {perk}
               </div>
             ))}
@@ -105,10 +110,10 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
         </div>
 
         {/* How it works */}
-        <div className="px-6 lg:px-8 py-4 border-t border-white/10">
-          <div className="flex items-start gap-3 mb-3">
-            <Info className="w-4 h-4 text-cream/40 flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-cream/70 leading-relaxed">
+        <div className="border-t border-border px-6 py-4 lg:px-8">
+          <div className="mb-3 flex items-start gap-3">
+            <I.Info size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+            <p className="text-xs leading-relaxed text-muted-foreground">
               Você senta com outras pessoas que também compraram a mesa coletiva.
               Sua mesa é formada automaticamente 24 h antes do evento, e você pode escolher a sua antes.
             </p>
@@ -121,18 +126,18 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
           {cartQty > 0 ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <button onClick={onRemove} className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors">-</button>
-                <span className="text-cream font-medium">{cartQty}</span>
-                <button onClick={() => onQuantityChange(cartQty + 1)} disabled={cartQty >= 1} aria-label="Mais um Match de Mesa" title="1 lugar por conta em cada evento" className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-cream hover:bg-white/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">+</button>
+                <button onClick={onRemove} aria-label="Tirar um Match de Mesa" className="grid size-10 place-items-center rounded-full bg-secondary text-foreground transition-colors hover:bg-[var(--ev-sec-press)]"><I.Menos size={16} /></button>
+                <span className="font-display font-semibold tabular-nums">{cartQty}</span>
+                <button onClick={() => onQuantityChange(cartQty + 1)} disabled={cartQty >= 1} aria-label="Mais um Match de Mesa" title="1 lugar por conta em cada evento" className="grid size-10 place-items-center rounded-full bg-secondary text-foreground transition-colors hover:bg-[var(--ev-sec-press)] disabled:cursor-not-allowed disabled:opacity-40"><I.Criar size={16} /></button>
               </div>
-              <span className="text-cream/70 text-xs text-right">{textoPreco(ticket.price, cartQty)}</span>
+              <span className="text-right text-xs text-muted-foreground">{textoPreco(ticket.price, cartQty)}</span>
             </div>
           ) : (
             <button
               onClick={handleAdd}
-              className="w-full py-3 bg-plum text-cream font-medium rounded-full transition-all duration-300 hover:shadow-glow flex items-center justify-center gap-2"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary font-semibold text-primary-foreground shadow-ev-primary transition-colors hover:bg-[var(--ev-brand-hover)] active:bg-[var(--ev-brand-press)]"
             >
-              <Sparkles className="w-4 h-4" />
+              <I.Estrela size={16} />
               Adicionar ao Carrinho
             </button>
           )}
