@@ -56,7 +56,7 @@ function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFe
 // ---- Detalhes (titular, pedido, regras): folha por cima da tela do ingresso ----------------------------------------
 function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFechar: () => void }) {
   const dados: [string, string | null][] = [
-    ['Titular', t.buyer_name ?? null],
+    ['Comprador', t.buyer_name ?? null],
     ['Ingresso', t.ticket_types?.name ?? 'Ingresso'],
     ['Lugar', t.seat_info],
     ['Pedido', t.order_id ? `#${t.order_id.slice(0, 8).toUpperCase()}` : null],
@@ -169,7 +169,7 @@ function Cartao({ t, evento, verso, aoVirar, aoAmpliar }: { t: DbTicket; evento:
               <span className="block text-xs font-medium leading-4 text-[#5b6472]">Toque para ampliar</span>
             </button>
             <div className="mt-3.5 flex items-end gap-3">
-              <div className="min-w-0 flex-1"><div className={rotulo}>Titular</div><div className="truncate text-[15px] font-semibold leading-5">{t.buyer_name ?? '-'}</div></div>
+              <div className="min-w-0 flex-1"><div className={rotulo}>Comprador</div><div className="truncate text-[15px] font-semibold leading-5">{t.buyer_name ?? '-'}</div></div>
               <Button ref={botaoVerso} variant="ghost" size="icon-lg" onClick={aoVirar} aria-label="Voltar para a arte do ingresso" className="rounded-full bg-[rgb(255_255_255/0.14)] text-[#fff] hover:bg-[rgb(255_255_255/0.22)] hover:text-[#fff] active:bg-[rgb(255_255_255/0.22)] active:text-[#fff] focus-visible:shadow-[0_0_0_2px_#fff]">
                 <Atualizar aria-hidden="true" />
               </Button>
