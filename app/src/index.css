@@ -507,41 +507,42 @@
   }
 }
 
-/* Estilização da barra lateral no Modo Claro (Light Mode) */
-.light aside {
+/* Estilização da barra lateral no Modo Claro (Light Mode). Só dentro do AppLayout e do AdminLayout (classe
+   .layout-antigo na raiz): a lateral nova do produtor (V4a) usa tokens e não passa por estas regras. */
+.light .layout-antigo aside {
   border-right-color: rgba(15, 23, 42, 0.08) !important; /* fundo vem do .glass-bar */
 }
 
-.light aside div, .light aside header, .light aside .border-t {
+.light .layout-antigo aside div, .light .layout-antigo aside header, .light .layout-antigo aside .border-t {
   border-color: rgba(15, 23, 42, 0.06) !important;
 }
 
-.light aside .text-white\/60 {
+.light .layout-antigo aside .text-white\/60 {
   color: #475569 !important; /* slate-600 */
 }
 
-.light aside .text-white\/80 {
+.light .layout-antigo aside .text-white\/80 {
   color: #1e293b !important; /* slate-800 */
 }
 
-.light aside .text-white\/20, .light aside .text-white\/45, .light aside .text-white\/40, .light aside .text-white\/50, .light aside .text-white\/30 {
+.light .layout-antigo aside .text-white\/20, .light .layout-antigo aside .text-white\/45, .light .layout-antigo aside .text-white\/40, .light .layout-antigo aside .text-white\/50, .light .layout-antigo aside .text-white\/30 {
   color: #566174 !important; /* 5,7:1 na barra clara */
 }
 
-.light aside .text-purple-300 {
+.light .layout-antigo aside .text-purple-300 {
   color: #7c3aed !important; /* roxo de destaque (4,7:1; #8f33f5 dava 4,4:1) */
 }
 
-.light aside .hover\:text-white\/90:hover, .light aside .hover\:text-white\/85:hover, .light aside .hover\:text-white\/80:hover {
+.light .layout-antigo aside .hover\:text-white\/90:hover, .light .layout-antigo aside .hover\:text-white\/85:hover, .light .layout-antigo aside .hover\:text-white\/80:hover {
   color: #1e293b !important;
 }
 
-.light aside .hover\:bg-white\/\[0\.04\]:hover, .light aside .hover\:bg-white\/\[0\.03\]:hover, .light aside .hover\:bg-red-500\/\[0\.08\]:hover, .light aside .hover\:bg-red-500\/\[0\.06\]:hover {
+.light .layout-antigo aside .hover\:bg-white\/\[0\.04\]:hover, .light .layout-antigo aside .hover\:bg-white\/\[0\.03\]:hover, .light .layout-antigo aside .hover\:bg-red-500\/\[0\.08\]:hover, .light .layout-antigo aside .hover\:bg-red-500\/\[0\.06\]:hover {
   background-color: rgba(143, 51, 245, 0.06) !important;
 }
 
 /* Modificar itens ativos no sidebar */
-.light aside .bg-white\/\[0\.04\], .light aside .bg-white\/\[0\.03\], .light aside .bg-purple-500\/15 {
+.light .layout-antigo aside .bg-white\/\[0\.04\], .light .layout-antigo aside .bg-white\/\[0\.03\], .light .layout-antigo aside .bg-purple-500\/15 {
   background-color: rgba(143, 51, 245, 0.08) !important;
   color: #7c3aed !important;
 }
@@ -571,10 +572,10 @@
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
 }
 
-.light header {
+.light .layout-antigo header {
   border-bottom-color: rgba(15, 23, 42, 0.08) !important; /* fundo vem do .glass-bar (layouts) ou da própria tela */
 }
-.light header input::placeholder {
+.light .layout-antigo header input::placeholder {
   color: #94a3b8 !important;
 }
 

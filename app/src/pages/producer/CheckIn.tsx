@@ -4,8 +4,10 @@ import {
   Search, Ticket, AlertTriangle, Zap, ChevronDown
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 
 interface TicketCheck {
   id: string
@@ -22,8 +24,7 @@ interface TicketCheck {
 
 export default function ProducerCheckIn() {
   const { data: events, isLoading: isEventsLoading } = useProducerEvents()
-  
-  const [selectedEventId, setSelectedEventId] = useState<string>('')
+
   const [tickets, setTickets] = useState<TicketCheck[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
   const [search, setSearch] = useState('')
@@ -35,12 +36,12 @@ export default function ProducerCheckIn() {
   // Mapear eventos ativos
   const activeEvents = events?.filter(e => e.status === 'published') || []
 
-  // Selecionar o primeiro evento automaticamente ao carregar
-  useEffect(() => {
-    if (activeEvents.length > 0 && !selectedEventId) {
-      setSelectedEventId(activeEvents[0].id)
-    }
-  }, [activeEvents, selectedEventId])
+  // Evento da URL (?eventId=) ou o último usado; sem nenhum, o primeiro ao carregar
+  const [eventoEscolhido, setSelectedEventId] = useEventoDaUrl(activeEvents.map(e => e.id))
+  // ?eventId= de evento que existe mas não está publicado: aviso, em vez de cair em outro evento com a URL dizendo outro
+  const pedido = useSearchParams()[0].get('eventId')
+  const naoPublicado = !!pedido && !!events?.some(e => e.id === pedido && e.status !== 'published')
+  const selectedEventId = naoPublicado ? '' : (eventoEscolhido ?? activeEvents[0]?.id ?? '')
 
   // Mapear dados do banco de dados para o layout do frontend
   const mapDbTicketToTicketCheck = (dbTicket: any): TicketCheck => {
@@ -70,6 +71,7 @@ export default function ProducerCheckIn() {
   // Carregar ingressos do evento selecionado
   const loadTickets = async (eventId: string) => {
     if (!eventId) return
+    setLastScan(null) // o último ingresso lido é do evento anterior
     setIsLoadingTickets(true)
     try {
       const { data, error } = await supabase
@@ -237,6 +239,7 @@ export default function ProducerCheckIn() {
                 title="Selecionar Evento"
                 className="w-full pl-4 pr-10 py-2.5 bg-white/60 border border-white/60 rounded-xl text-xs font-medium text-espresso appearance-none focus:outline-none focus:border-plum/30 transition-all cursor-pointer"
               >
+                {!selectedEventId && <option value="" disabled>Selecione um evento</option>}
                 {activeEvents.map(e => (
                   <option key={e.id} value={e.id}>{e.title}</option>
                 ))}
@@ -264,6 +267,16 @@ export default function ProducerCheckIn() {
       {isEventsLoading ? (
         <div className="h-64 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-plum" />
+        </div>
+      ) : naoPublicado ? (
+        <div role="status" className="bg-white/60 border border-white/60 rounded-3xl p-12 text-center backdrop-blur-sm">
+          <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
+            <AlertTriangle className="w-8 h-8 text-plum" />
+          </div>
+          <h3 className="font-serif text-xl text-espresso mb-2">Este evento ainda não está publicado</h3>
+          <p className="text-sm text-espresso/70 max-w-sm mx-auto">
+            O check-in abre quando ele estiver no ar. Escolha outro evento acima ou <Link to="/producer/events" className="underline">veja seus eventos</Link>.
+          </p>
         </div>
       ) : activeEvents.length === 0 ? (
         <div className="bg-white/60 border border-white/60 rounded-3xl p-12 text-center backdrop-blur-sm">

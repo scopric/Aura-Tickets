@@ -1,5 +1,5 @@
-import { Suspense, lazy, useState, useEffect, useCallback } from 'react'
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom'
+import { Fragment, Suspense, lazy, useState, useEffect, useCallback, type ReactNode } from 'react'
+import { Routes, Route, useLocation, useParams, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import { ThemeProvider } from './contexts/ThemeContext'
 import { useAuth } from './hooks/useAuth'
@@ -54,7 +54,6 @@ const ProducerDashboard = lazy(() => import('./pages/producer/Dashboard'))
 const ProducerEvents = lazy(() => import('./pages/producer/Events'))
 const ProducerNewEvent = lazy(() => import('./pages/producer/NewEvent'))
 const ProducerEditEvent = lazy(() => import('./pages/producer/EditEvent'))
-const EventManager = lazy(() => import('./pages/producer/EventManager'))
 const EventFolder = lazy(() => import('./pages/producer/EventFolder'))
 const EventPlanner = lazy(() => import('./pages/producer/EventPlanner'))
 const ProducerCRM = lazy(() => import('./pages/producer/CRM'))
@@ -126,6 +125,13 @@ const AppSettings = lazy(() => import('./pages/app/Settings'))
 const Checkout = lazy(() => import('./pages/checkout/Checkout'))
 const CheckoutPayment = lazy(() => import('./pages/checkout/Payment'))
 const CheckoutSuccess = lazy(() => import('./pages/checkout/Success'))
+
+// Trocar de evento pela lateral só muda o :eventId e o React reaproveitaria a tela com o estado do evento anterior
+// (a edição gravaria os ingressos de um evento no outro). A chave remonta a tela a cada evento.
+function ComChaveDoEvento({ children }: { children: ReactNode }) {
+  const { eventId } = useParams()
+  return <Fragment key={eventId}>{children}</Fragment>
+}
 
 type AllowedRole = 'user' | 'producer' | 'admin' | 'editor' | 'customer'
 
@@ -368,9 +374,9 @@ function Layout() {
               <Route path="/producer/dashboard" element={<ProducerDashboard />} />
               <Route path="/producer/events" element={<ProducerEvents />} />
               <Route path="/producer/events/new" element={<ProducerNewEvent />} />
-              <Route path="/producer/events/:eventId/edit" element={<ProducerEditEvent />} />
-              <Route path="/producer/event-manager" element={<EventManager />} />
-              <Route path="/producer/event/:eventId" element={<ComingSoonRoute title="A Pasta do Evento"><EventFolder /></ComingSoonRoute>} />
+              <Route path="/producer/events/:eventId/edit" element={<ComChaveDoEvento><ProducerEditEvent /></ComChaveDoEvento>} />
+              <Route path="/producer/event-manager" element={<Navigate to="/producer/events" replace />} />
+              <Route path="/producer/event/:eventId" element={<ComingSoonRoute title="A Pasta do Evento"><ComChaveDoEvento><EventFolder /></ComChaveDoEvento></ComingSoonRoute>} />
               <Route path="/producer/planner" element={<EventPlanner />} />
               <Route path="/producer/brand" element={<ComingSoonRoute title="O Brand Studio"><BrandStudio /></ComingSoonRoute>} />
               <Route path="/producer/crm" element={<FeatureGuard featureKey="crm"><ProducerCRM /></FeatureGuard>} />

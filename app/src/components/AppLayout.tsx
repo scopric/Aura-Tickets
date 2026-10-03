@@ -70,7 +70,7 @@ export default function AppLayout() {
     location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
-    <div className="flex min-h-screen glass-canvas">
+    <div className="layout-antigo flex min-h-screen glass-canvas">
       {/* Mobile overlay */}
       {mobileOpen && (
         <div

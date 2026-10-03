@@ -1,10 +1,10 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { useEventSurveys, useEventZones } from '../../hooks/useProducerTools'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -26,7 +26,7 @@ function Alerta({ texto, onRetry, carregando }: { texto: string; onRetry: () => 
 export default function PostEventReport() {
   const eventosQ = useProducerEvents()
   const events = eventosQ.data ?? []
-  const [picked, setPicked] = useState<string | null>(null)
+  const [picked, setPicked] = useEventoDaUrl(events.map(e => e.id))
   // valor derivado (padrão do B0): a lista chega depois do 1º render e vale o primeiro evento até o produtor escolher
   const selectedEventId = picked ?? events[0]?.id ?? null
   const selectedEvent = events.find(e => e.id === selectedEventId)

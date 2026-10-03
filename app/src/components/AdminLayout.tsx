@@ -154,7 +154,7 @@ export default function AdminLayout() {
   })
 
   return (
-    <div className="flex min-h-screen glass-canvas">
+    <div className="layout-antigo flex min-h-screen glass-canvas">
       {mobileOpen && (
         <div
           className="fixed inset-0 glass-backdrop z-40 lg:hidden"

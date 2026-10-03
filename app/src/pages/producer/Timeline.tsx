@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import {
   useEventTimeline,
   useCreateTimelineItem,
@@ -48,7 +49,8 @@ const typeColors: Record<string, string> = {
 
 export default function ProducerTimeline() {
   const { data: events = [], isLoading: eventsLoading } = useProducerEvents()
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(events[0]?.id || null)
+  const [eventoEscolhido, setSelectedEventId] = useEventoDaUrl(events.map(e => e.id))
+  const selectedEventId = eventoEscolhido ?? events[0]?.id ?? null
 
   const { data: items = [], isLoading: itemsLoading } = useEventTimeline(selectedEventId)
   const createItem = useCreateTimelineItem()
@@ -132,7 +134,7 @@ export default function ProducerTimeline() {
           onChange={e => setSelectedEventId(e.target.value || null)}
           className="px-4 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
         >
-          <option value="">Selecione um evento</option>
+          {!selectedEventId && <option value="">Selecione um evento</option>}
           {events.map(e => (
             <option key={e.id} value={e.id}>{e.title}</option>
           ))}
