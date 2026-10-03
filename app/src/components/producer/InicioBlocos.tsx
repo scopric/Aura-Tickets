@@ -173,7 +173,7 @@ export function TabelaEventos({ eventos, linhas, vendidos, receita, receitaCorta
         <span className="ml-auto text-xs text-muted-foreground">Ordenados por data. Vendidos e receita desde o início.</span>
         <Link to="/producer/events" className="rounded-sm text-[13px] font-semibold leading-5 text-primary underline-offset-4 hover:underline focus-visible:shadow-ev-foco focus-visible:outline-none">Ver todos</Link>
       </div>
-      <div className="overflow-x-auto" role="region" aria-label="Tabela de eventos, role para ver todas as colunas" tabIndex={0}>
+      <div className="relative overflow-x-auto" role="region" aria-label="Tabela de eventos, role para ver todas as colunas" tabIndex={0}>
         <table className="w-full min-w-[760px] border-collapse text-[13px] leading-5">
           <thead>
             <tr className="border-t border-border">
