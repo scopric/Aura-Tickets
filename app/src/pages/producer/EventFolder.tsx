@@ -43,7 +43,7 @@ export default function EventFolder() {
         <div className="text-center">
           <div className="text-4xl font-serif text-espresso/10 mb-2">?</div>
           <p className="text-espresso/70">Evento nao encontrado</p>
-          <Link to="/producer/event-manager" className="text-plum text-sm hover:underline mt-2 inline-block">Voltar</Link>
+          <Link to="/producer/events" className="text-plum text-sm hover:underline mt-2 inline-block">Voltar</Link>
         </div>
       </div>
     )
@@ -73,7 +73,7 @@ export default function EventFolder() {
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
       {/* Header */}
       <div className="mb-6">
-        <Link to="/producer/event-manager" className="inline-flex items-center gap-1 text-xs text-espresso/70 hover:text-plum transition-colors mb-4">
+        <Link to="/producer/events" className="inline-flex items-center gap-1 text-xs text-espresso/70 hover:text-plum transition-colors mb-4">
           <ArrowLeft className="w-3 h-3" /> Gestor de Festas
         </Link>
         <div className="flex items-start justify-between">

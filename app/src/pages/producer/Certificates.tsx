@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { Palette, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import {
   useEventCertificates,
   useParticipantesCertificado,
@@ -43,8 +44,8 @@ function Alerta({ texto, onRetry, carregando }: { texto: string; onRetry: () => 
 export default function Certificates() {
   const eventosQ = useProducerEvents()
   const events = eventosQ.data ?? []
-  const [pickedEventId, setPickedEventId] = useState<string | null>(null)
-  // a lista chega depois do 1º render: sem escolha, vale o primeiro evento
+  const [pickedEventId, setPickedEventId] = useEventoDaUrl(events.map(e => e.id))
+  // a lista chega depois do 1º render: sem escolha (URL ou último usado), vale o primeiro evento
   const selectedEventId = pickedEventId ?? events[0]?.id ?? null
   // quem recebe: só quem fez check-in (ingresso usado) ou todo mundo com ingresso válido (ativo ou usado)
   const [somenteCheckin, setSomenteCheckin] = useState(true)
