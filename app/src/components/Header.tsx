@@ -43,7 +43,7 @@ export default function Header() {
           : 'bg-transparent'
       )}
     >
-      <div className="max-w-6xl mx-auto px-6 lg:px-8">
+      <div className="max-w-6xl mx-auto pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] lg:pl-[max(2rem,env(safe-area-inset-left))] lg:pr-[max(2rem,env(safe-area-inset-right))]">
         <div className="flex items-center justify-between h-16 lg:h-[4.5rem]">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
@@ -199,7 +199,7 @@ export default function Header() {
           isMobileMenuOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
         )}
       >
-        <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200/60 px-6 py-6 space-y-1">
+        <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200/60 pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))] py-6 space-y-1">
           {[
             { href: '/', label: 'Início' },
             { href: '/events', label: 'Eventos' },

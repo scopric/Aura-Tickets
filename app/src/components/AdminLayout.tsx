@@ -169,7 +169,7 @@ export default function AdminLayout() {
       <aside
         id="admin-menu"
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 lg:z-40 glass-bar border-r transition-all duration-300 flex flex-col',
+          'fixed left-0 top-0 bottom-0 z-50 lg:z-40 glass-bar border-r pl-[env(safe-area-inset-left)] transition-all duration-300 flex flex-col',
           'lg:translate-x-0',
           // ao abrir, a visibilidade muda na hora (sem transição), para o foco poder entrar na gaveta
           mobileOpen ? 'translate-x-0 max-lg:[transition-property:transform]' : '-translate-x-full max-lg:invisible',
@@ -270,7 +270,8 @@ export default function AdminLayout() {
         </button>
       </aside>
 
-      <div className={cn('min-w-0 flex-1 transition-all duration-300 min-h-screen', collapsed ? 'lg:ml-16' : 'lg:ml-60')}>
+      {/* laterais: com viewport-fit=cover o conteúdo não pode ir para baixo do entalhe (iPhone deitado) */}
+      <div className={cn('min-w-0 flex-1 pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-all duration-300 min-h-screen', collapsed ? 'lg:ml-16' : 'lg:ml-60')}>
         {/* Barra do topo fixa ao rolar (ocupa os 64 px que antes eram só pt-16): sino e feedback numa cápsula de vidro */}
         <div className="sticky top-0 z-30 flex h-16 items-center justify-between lg:justify-end px-4 pointer-events-none">
           {/* Faixa esmaecida: o conteúdo some suavemente sob os botões ao rolar (borda do Liquid Glass).

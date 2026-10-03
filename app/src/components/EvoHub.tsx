@@ -148,7 +148,8 @@ export default function EvoHub() {
           posicao="bottom-36 h-[min(620px,calc(100dvh-10rem))]"
         />
       )}
-      <div data-tour="evo" className="fixed bottom-6 right-6 z-50">
+      {/* --barra-cel: topo da barra inferior do celular do produtor (BarraCelular); sem ela vale 0 */}
+      <div data-tour="evo" className="fixed bottom-[calc(1.5rem+var(--barra-cel,0px))] right-6 z-50">
         <p className="sr-only" role="status" aria-live="polite">{anuncio}</p>
 
         {balao && !aberto && (

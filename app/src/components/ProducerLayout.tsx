@@ -4,6 +4,7 @@ import { ErrorBoundary } from './error-boundary'
 import { Menu } from 'lucide-react'
 import Tour from './producer/Tour'
 import Lateral from './producer/Lateral'
+import BarraCelular from './producer/BarraCelular'
 import { tourDaRota } from '../lib/tours'
 import { gravarNav, lerNav } from '../lib/navegacaoProdutor'
 import { useRegistrarTour } from '../hooks/useTourLog'
@@ -15,15 +16,19 @@ import NotificationsTopButton from './NotificationsTopButton'
 const botaoTopo = 'rounded-full p-2 text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 // Lateral por escopo (V4a, Decisões 141 e 143): o conteúdo está em producer/Lateral.tsx e as telas em lib/navegacaoProdutor.ts.
-// Aqui ficam a casca (trilho de 56 px no computador, gaveta no celular), o ⌘B, o tour e a barra do topo.
+// Aqui ficam a casca (trilho de 56 px no computador, gaveta de 768 a 1023 px, barra inferior abaixo de 768 px), o ⌘B,
+// o tour e a barra do topo. A barra inferior e a folha Menu do celular estão em producer/BarraCelular.tsx (V4b).
 // Todas as páginas continuam existindo; tela "em breve" fica fora da lateral (Decisão 22).
 
 const COMPUTADOR = '(min-width: 1024px)'
+const CELULAR = '(max-width: 767px)'
 
 export default function ProducerLayout() {
   const [recolhida, setRecolhida] = useState(() => lerNav('recolhida') === '1')
   const [computador, setComputador] = useState(() => window.matchMedia(COMPUTADOR).matches)
-  // Celular e tablet (abaixo de lg): a barra lateral vira gaveta, fechada por padrão (mesmo padrão do AdminLayout).
+  const [celular, setCelular] = useState(() => window.matchMedia(CELULAR).matches)
+  // Tablet (768 a 1023 px): a barra lateral vira gaveta, fechada por padrão (mesmo padrão do AdminLayout).
+  // Abaixo de 768 px a barra inferior com a folha Menu a substitui (V4b).
   // Guarda a rota em que foi aberta: trocar de rota (botão voltar, links do Evo) fecha sem efeito extra
   const [gavetaEm, setGavetaEm] = useState<string | null>(null)
   const menuBtnRef = useRef<HTMLButtonElement>(null)
@@ -47,7 +52,9 @@ export default function ProducerLayout() {
     const h1 = paginaRef.current?.querySelector('h1')
     if (h1) { h1.tabIndex = -1; h1.focus() }
   }, [tour])
-  const mobileOpen = gavetaEm === location.pathname
+  // Gaveta aberta numa rota e a rota mudou: fecha (ajuste no render, senão reabriria ao voltar a ela)
+  if (gavetaEm && gavetaEm !== location.pathname) setGavetaEm(null)
+  const mobileOpen = !!gavetaEm
   // Trilho só no computador: na gaveta a lateral abre sempre com os nomes
   const trilho = recolhida && computador
 
@@ -58,9 +65,12 @@ export default function ProducerLayout() {
 
   useEffect(() => {
     const m = window.matchMedia(COMPUTADOR)
-    const muda = () => setComputador(m.matches)
+    const c = window.matchMedia(CELULAR)
+    // virar celular fecha a gaveta (senão ela reabriria ao voltar para o tablet)
+    const muda = () => { setComputador(m.matches); setCelular(c.matches); if (c.matches) setGavetaEm(null) }
     m.addEventListener('change', muda)
-    return () => m.removeEventListener('change', muda)
+    c.addEventListener('change', muda)
+    return () => { m.removeEventListener('change', muda); c.removeEventListener('change', muda) }
   }, [])
 
   // ⌘B / Ctrl+B recolhe e abre. Ignorado: com Shift/Alt, abaixo de 1024 px (não há trilho), com o tour aberto
@@ -103,7 +113,7 @@ export default function ProducerLayout() {
     <div className="painel-produtor glass-canvas flex min-h-screen">
       {mobileOpen && (
         <div
-          className="fixed inset-0 glass-backdrop z-40 lg:hidden"
+          className="fixed inset-0 glass-backdrop z-40 max-md:hidden lg:hidden"
           onClick={() => {
             setGavetaEm(null)
             menuBtnRef.current?.focus()
@@ -111,11 +121,12 @@ export default function ProducerLayout() {
         />
       )}
 
-      {/* No celular a gaveta fecha fora da tela e fica invisível (sai da ordem do Tab); no computador, fixa */}
+      {/* No tablet a gaveta fecha fora da tela e fica invisível (sai da ordem do Tab); no computador, fixa; no celular não existe.
+          ponytail: abaixo de 768 px fica no DOM com display none (a lateral grava o "último evento usado" e a folha reaproveita os dados) */}
       <aside
         id="produtor-menu"
         className={cn(
-          'fixed left-0 top-0 bottom-0 z-50 lg:z-40 flex w-[248px] flex-col border-r border-border bg-[var(--ev-sidebar)] transition-[width,transform] duration-base ease-move motion-reduce:transition-none',
+          'fixed left-0 top-0 bottom-0 z-50 max-md:hidden lg:z-40 flex w-[248px] flex-col border-r pl-[env(safe-area-inset-left)] border-border bg-[var(--ev-sidebar)] transition-[width,transform] duration-base ease-move motion-reduce:transition-none',
           'lg:translate-x-0',
           // ao abrir, a visibilidade muda na hora (sem transição), para o foco poder entrar na gaveta
           mobileOpen ? 'translate-x-0 max-lg:[transition-property:transform]' : '-translate-x-full max-lg:invisible',
@@ -125,8 +136,8 @@ export default function ProducerLayout() {
         <Lateral rail={trilho} onNavega={() => setGavetaEm(null)} onRecolher={alternaTrilho} />
       </aside>
 
-      {/* Conteúdo (pb-24: o fim da página rola acima do Evo flutuante) */}
-      <div className={cn('min-w-0 flex-1 min-h-screen pb-24 transition-[margin] duration-base ease-move motion-reduce:transition-none', trilho ? 'lg:ml-14' : 'lg:ml-[248px]')}>
+      {/* Conteúdo (pb-24: o fim da página rola acima do Evo flutuante; no celular, também acima da barra e da faixa) */}
+      <div className={cn('min-w-0 flex-1 min-h-screen pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)] transition-[margin] duration-base ease-move motion-reduce:transition-none', 'pb-24 max-md:pb-[calc(var(--barra-cel,0px)+6rem)]', trilho ? 'lg:ml-14' : 'lg:ml-[248px]')}>
         {/* Barra do topo fixa ao rolar. Celular: 56 px com menu, logo, sino e feedback.
             Computador: faixa invisível de 40 px só com os ícones à direita (não cobre botões do cabeçalho das páginas) */}
         <div className="sticky top-0 z-30 flex h-14 items-center justify-between gap-2 border-b border-border bg-background px-4 lg:pointer-events-none lg:h-10 lg:justify-end lg:border-0 lg:bg-transparent">
@@ -140,7 +151,7 @@ export default function ProducerLayout() {
               aria-label={mobileOpen ? 'Fechar menu' : 'Abrir menu'}
               aria-expanded={mobileOpen}
               aria-controls="produtor-menu"
-              className="rounded-md p-2 text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="rounded-md p-2 text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:hidden"
             >
               <Menu className="size-5" strokeWidth={1.75} />
             </button>
@@ -158,6 +169,7 @@ export default function ProducerLayout() {
         </div>
       </div>
       <EvoHub />
+      {celular && <BarraCelular />}
       {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
       {tour && (
         <Tour key={tourId} tour={tour} onFim={puladas => {

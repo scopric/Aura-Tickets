@@ -1,7 +1,6 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import EventoCapa from '@/components/EventoCapa'
 import { Link, useLocation } from 'react-router-dom'
-import { matchPath } from 'react-router' // ver lib/navegacaoProdutor.ts
 import { Root as TooltipRoot } from '@radix-ui/react-tooltip'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -11,24 +10,16 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
-import { dataPorVir, situacaoEvento } from '../../lib/eventoProdutor'
+import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
   INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerSecoes,
-  rotasDaTela, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
+  rotaAtiva, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
+import { ICONE, dataCurta, eventosDaLista } from './lateralComum'
 
 // Lateral do produtor por escopo (fase V4a; estudos/navegacao.md §5 e prancha Navegação do protótipo v3.4).
 // Só tokens da V1; sem vidro (a prancha só põe vidro no menu flutuante do trilho, aqui um popover opaco).
-
-type Evento = DbEvent
-
-const ICONE: Record<Secao, I.IconeEvokaa> = {
-  Topo: I.Inicio, Eventos: I.Eventos, Vendas: I.Ingressos, Público: I.Publico,
-  Operação: I.Cronograma, Financeiro: I.Financeiro, Conta: I.Configuracoes,
-}
-const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
-const VISIVEIS = 3 // eventos na lista da produtora
 
 const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const toque = '[@media(pointer:coarse)]:min-h-11'
@@ -39,15 +30,8 @@ const itemCor = (ativo: boolean) => ativo
 
 const iniciais = (nome: string) => nome.trim().split(/\s+/).map(p => p[0]).filter((_, i, l) => i === 0 || i === l.length - 1).join('').toUpperCase() || '?'
 
-function dataCurta(e: Evento) {
-  const d = e.date ? new Date(`${e.date}T12:00:00`) : new Date(e.start_date)
-  return Number.isNaN(d.getTime()) ? '' : `${d.getDate()} ${MES[d.getMonth()]}`
-}
-
-const quando = (e: Evento) => new Date(e.date ? `${e.date}T${e.time || '00:00:00'}-03:00` : e.start_date).getTime()
-
 /** Miniatura simples da capa (a V6b troca por EventoCapa): foto http ou quadrado na cor do evento */
-function Capa({ evento, className }: { evento: Evento; className?: string }) {
+function Capa({ evento, className }: { evento: DbEvent; className?: string }) {
   return <EventoCapa evento={evento} tamanho="mini-p" className={cn('shrink-0', className)} />
 }
 
@@ -78,7 +62,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
   const [abertas, setAbertas] = useState(lerSecoes) // abertas ou fechadas à mão, por `escopo:Seção`
 
   const eventId = eventoDaUrl(pathname, search)
-  const evento: Evento | undefined = eventos.find(e => e.id === eventId)
+  const evento: DbEvent | undefined = eventos.find(e => e.id === eventId)
   const escopo: Escopo = eventId && (evento || isLoading) ? 'evento' : 'produtora'
 
   // evento aberto vira o "último evento usado" (as telas por evento começam nele)
@@ -88,23 +72,14 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
   const produtora = user?.producer_profile?.company_name || nome
   const foto = user?.avatar_url || user?.avatar
 
-  const ativa = (rota: string) => rota.includes(':')
-    ? rotasDaTela(rota).some(r => !!matchPath(r, pathname))
-    : pathname === rota || pathname.startsWith(rota + '/') || (rota === INICIO.rota && pathname === '/producer')
+  const ativa = (rota: string) => rotaAtiva(rota, pathname)
 
   const sair = () => {
     toast.info('Você saiu da sua conta')
     logout() // o logout já faz window.location.href = '/'
   }
 
-  // Eventos da lista da produtora: fixados primeiro (estrela), depois os próximos (sem cancelado), até 3
-  const linhas = (() => {
-    const fix = fixados.map(id => eventos.find(e => e.id === id)).filter((e): e is Evento => !!e)
-    const proximos = eventos
-      .filter(e => !fixados.includes(e.id) && e.status !== 'cancelled' && dataPorVir(e))
-      .sort((a, b) => quando(a) - quando(b))
-    return [...fix, ...proximos].slice(0, VISIVEIS)
-  })()
+  const linhas = eventosDaLista(eventos, fixados)
 
   const itemLink = (t: Tela, nivel: 1 | 2 = 2) => {
     const ativo = ativa(t.rota)
@@ -121,7 +96,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
     )
   }
 
-  const linhaEvento = (e: Evento) => {
+  const linhaEvento = (e: DbEvent) => {
     const aviso = situacaoEvento(e) === 'Em análise'
     return (
       <Link
@@ -419,7 +394,7 @@ function AreaTrilho({ rotulo, icone: Icone, ativo, children }: { rotulo: string;
   )
 }
 
-function RailEvento({ e }: { e: Evento }) {
+function RailEvento({ e }: { e: DbEvent }) {
   return (
     <TooltipRoot>
       <TooltipTrigger asChild>
