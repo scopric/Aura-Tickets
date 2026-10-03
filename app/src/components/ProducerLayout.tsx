@@ -1,12 +1,13 @@
 import { Outlet, useLocation, useSearchParams } from 'react-router-dom'
-import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, type ComponentType } from 'react'
 import { ErrorBoundary } from './error-boundary'
 import { Menu } from 'lucide-react'
+import { toast } from 'sonner'
 import Tour from './producer/Tour'
 import Lateral from './producer/Lateral'
 import BarraCelular from './producer/BarraCelular'
 import { tourDaRota } from '../lib/tours'
-import { gravarNav, lerNav } from '../lib/navegacaoProdutor'
+import { gravarNav, lerNav, noMac } from '../lib/navegacaoProdutor'
 import { useRegistrarTour } from '../hooks/useTourLog'
 import { cn } from '@/lib/utils'
 import EvoHub from './EvoHub'
@@ -19,6 +20,13 @@ const botaoTopo = 'rounded-full p-2 text-foreground hover:bg-foreground/5 focus-
 // Aqui ficam a casca (trilho de 56 px no computador, gaveta de 768 a 1023 px, barra inferior abaixo de 768 px), o ⌘B,
 // o tour e a barra do topo. A barra inferior e a folha Menu do celular estão em producer/BarraCelular.tsx (V4b).
 // Todas as páginas continuam existindo; tela "em breve" fica fora da lateral (Decisão 22).
+
+// Busca rápida ⌘K (V4c): fora da entrada, baixada no 1º uso (o Vite recarrega a página se o pedaço sumiu depois de um deploy;
+// sem rede, o toque mostra o aviso; o import() que falhou fica em cache no Chrome, então só recarregar a página resolve)
+const carregarBusca = () => import('./producer/BuscaRapida')
+// Modal que bloqueia o ⌘K: qualquer role=dialog fora de popover (o Radix não põe aria-modal), menos o não modal (Evo); alertdialog;
+// e menu do DropdownMenu aberto (modal no Radix: abrir a busca por cima deixaria o foco preso no menu)
+const MODAL = '[role="dialog"]:not([aria-modal="false"], [data-radix-popper-content-wrapper] *), [role="alertdialog"], [data-radix-menu-content]'
 
 const COMPUTADOR = '(min-width: 1024px)'
 const CELULAR = '(max-width: 767px)'
@@ -58,6 +66,16 @@ export default function ProducerLayout() {
   // Trilho só no computador: na gaveta a lateral abre sempre com os nomes
   const trilho = recolhida && computador
 
+  // Busca não nulo = aberta; a devolução do foco a quem abriu é da própria BuscaRapida
+  const [Busca, setBusca] = useState<ComponentType<{ onFechar: () => void }> | null>(null)
+  const fechaBusca = useCallback(() => setBusca(null), [])
+  const abreBusca = useCallback(() => {
+    carregarBusca().then(
+      m => setBusca(() => m.default),
+      () => toast.error('Não foi possível abrir a busca. Tente de novo.'),
+    )
+  }, [])
+
   const alternaTrilho = useCallback(() => setRecolhida(r => {
     gravarNav('recolhida', r ? '0' : '1')
     return !r
@@ -73,25 +91,39 @@ export default function ProducerLayout() {
     return () => { m.removeEventListener('change', muda); c.removeEventListener('change', muda) }
   }, [])
 
-  // ⌘B / Ctrl+B recolhe e abre. Ignorado: com Shift/Alt, abaixo de 1024 px (não há trilho), com o tour aberto
-  // (app inerte) e com o foco em campo de texto ou editor (⌘B é negrito lá)
+  // ⌘B / Ctrl+B recolhe e abre a lateral; ⌘K (Ctrl+K fora do Mac) abre a busca e, com ela aberta, fecha.
+  // Ignorado: com Shift/Alt, tour aberto (app inerte) e, no ⌘B, abaixo de 1024 px (não há trilho) e em campo
+  // de texto ou editor (⌘B é negrito lá). O ⌘K vale em campo de texto, mas não em editor (⌘K é link lá) nem sobre diálogo
+  // ou menu modal (popover não bloqueia: ao abrir a busca ele fecha sozinho, o Radix o dispensa). Tecla segurada: o que
+  // tratamos recebe preventDefault (não vaza para o navegador), mas só o primeiro toque age.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || e.key.toLowerCase() !== 'b' || !computador || tour) return
-      if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])')) return
-      e.preventDefault()
-      alternaTrilho()
+      const tecla = e.key?.toLowerCase() // o autopreenchimento do navegador dispara keydown sem `key`
+      if (!(e.metaKey || e.ctrlKey) || e.altKey || e.shiftKey || tour || (tecla !== 'b' && tecla !== 'k')) return
+      const alvo = e.target instanceof Element ? e.target : null
+      const editor = alvo?.closest('[contenteditable]:not([contenteditable="false"])')
+      if (tecla === 'b') {
+        if (!computador || editor || alvo?.closest('input, textarea, select')) return
+        e.preventDefault()
+        if (!e.repeat) alternaTrilho() // tecla segurada: não vaza para o navegador nem fica alternando
+      } else {
+        if (editor || !(noMac() ? e.metaKey : e.ctrlKey)) return
+        if (!Busca && document.querySelector(MODAL)) return
+        e.preventDefault()
+        if (e.repeat) return
+        if (Busca) fechaBusca(); else abreBusca()
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [alternaTrilho, computador, tour])
+  }, [Busca, abreBusca, alternaTrilho, computador, fechaBusca, tour])
 
   // Gaveta aberta: foco no 1º item; Esc fecha e devolve o foco ao botão de menu
   useEffect(() => {
     if (!mobileOpen) return
     document.getElementById('produtor-menu')?.querySelector<HTMLElement>('a, button')?.focus()
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return
+      if (e.key !== 'Escape' || e.defaultPrevented) return // defaultPrevented: o Esc já fechou a busca (Radix)
       setGavetaEm(null)
       menuBtnRef.current?.focus()
     }
@@ -133,7 +165,7 @@ export default function ProducerLayout() {
           trilho && 'lg:w-14'
         )}
       >
-        <Lateral rail={trilho} onNavega={() => setGavetaEm(null)} onRecolher={alternaTrilho} />
+        <Lateral rail={trilho} onNavega={() => setGavetaEm(null)} onRecolher={alternaTrilho} onBuscar={abreBusca} />
       </aside>
 
       {/* Conteúdo (pb-24: o fim da página rola acima do Evo flutuante; no celular, também acima da barra e da faixa) */}
@@ -170,6 +202,7 @@ export default function ProducerLayout() {
       </div>
       <EvoHub />
       {celular && <BarraCelular />}
+      {Busca && <Busca onFechar={fechaBusca} />}
       {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
       {tour && (
         <Tour key={tourId} tour={tour} onFim={puladas => {

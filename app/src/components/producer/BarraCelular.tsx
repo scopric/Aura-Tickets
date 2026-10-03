@@ -112,7 +112,7 @@ export default function BarraCelular() {
         </button>
       </nav>
 
-      {/* Busca da V4c (⌘K) ainda não existe: por ora abre a folha Menu com o foco no filtro de telas */}
+      {/* Prancha Navegação (abreBuscaCel): a lupa do celular abre a folha Menu com o foco no filtro de telas; o ⌘K (BuscaRapida) é do teclado */}
       <button
         type="button"
         aria-label="Buscar tela"

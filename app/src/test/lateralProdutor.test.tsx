@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, within, fireEvent, cleanup, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import Lateral from '../components/producer/Lateral'
 
+vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} }) // o Radix Tooltip usa
 const amanha = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10)
 const evento = (id: string, title: string, dias: number, extra: object = {}) =>
   ({ id, title, date: amanha(dias), time: '20:00', start_date: amanha(dias), end_date: null, status: 'published', approval_status: 'approved', cover_image: null, ...extra })
@@ -17,10 +19,10 @@ vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: eventos
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { name: 'Ricardo Scoparo', email: 'r@x.com', producer_profile: { company_name: 'Scoparo Produções' } }, logout: vi.fn() }) }))
 vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
 
-const montar = (url: string, rail = false) =>
+const montar = (url: string, rail = false, onBuscar = () => {}) =>
   render(
     <MemoryRouter initialEntries={[url]}>
-      <Lateral rail={rail} onNavega={() => {}} onRecolher={() => {}} />
+      <Lateral rail={rail} onNavega={() => {}} onRecolher={() => {}} onBuscar={onBuscar} />
     </MemoryRouter>,
   )
 
@@ -40,10 +42,21 @@ describe('lateral do produtor (V4a)', () => {
     expect(screen.queryByText(/ferrament/i)).toBeNull()
   })
 
-  it('a busca ⌘K não está na lateral até a V4c', () => {
-    montar('/producer/dashboard')
-    expect(screen.queryByRole('button', { name: /Buscar/ })).toBeNull()
+  it('o botão "Buscar…" (Ctrl K no jsdom, que não é Mac) chama a busca e fica ao lado do "+" (V4c)', () => {
+    const onBuscar = vi.fn()
+    montar('/producer/dashboard', false, onBuscar)
+    const buscar = screen.getByRole('button', { name: /^Buscar telas, eventos e ações/ })
+    expect(buscar).toHaveTextContent('Ctrl K')
+    fireEvent.click(buscar)
+    expect(onBuscar).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('link', { name: 'Criar evento' })).toHaveAttribute('href', '/producer/planner')
+  })
+
+  it('o "+" (só ícone) mostra a dica "Criar evento" também na lateral aberta', async () => {
+    montar('/producer/dashboard')
+    const user = userEvent.setup()
+    await user.hover(screen.getByRole('link', { name: 'Criar evento' }))
+    await waitFor(() => expect(screen.getAllByText('Criar evento').length).toBeGreaterThan(1)) // dica (role=tooltip + cópia acessível do Radix)
   })
 
   it('lembra seção aberta à mão em evk.nav.secoes', () => {
