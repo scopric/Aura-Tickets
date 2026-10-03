@@ -1,4 +1,5 @@
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
+import { FOTO_PADRAO } from './corEvento'
 
 // Regras de evento usadas pelas telas do produtor (Meus eventos, Pasta do evento).
 
@@ -92,8 +93,9 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       subtitle: e.subtitle,
       description: e.description,
       short_description: e.short_description,
-      cover_image: e.cover_image,
-      image_url: e.image_url,
+      cover_image: FOTO_PADRAO, // a foto do original não vai: a trava do banco aceita só a pasta do próprio evento
+      image_url: FOTO_PADRAO,
+      accent_color: e.accent_color,
       category: e.category,
       tags: e.tags,
       venue_name: e.venue_name,

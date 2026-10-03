@@ -1,0 +1,58 @@
+import { useState, type CSSProperties } from 'react'
+import { compDoCartaz, corSorteada, diaMesDoCartaz, ehHex, linhasDoCartaz, temFoto, varsDoEvento } from '../lib/corEvento'
+import './EventoCapa.css'
+
+// Capa do evento (contrato v3.4, 2.2): foto real em duotone na cor do evento; sem foto (vazio ou /images/hero-bg.jpg),
+// cartaz tipográfico. Foto que não carrega cai no cartaz. Tamanhos: mini (40x50), mini-p (32), cartao (4:5) e faixa
+// (preenche o cabeçalho; ver .evcapa-faixa). Nas miniaturas o nome fica fora (o texto ao lado já diz); o cartão é
+// uma imagem com o nome no aria-label.
+export interface EventoCapaDados {
+  id: string
+  title: string
+  cover_image?: string | null
+  image_url?: string | null
+  accent_color?: string | null
+  date?: string | null
+}
+
+const TAMANHO = { mini: 'evcapa-mini', 'mini-p': 'evcapa-mini-p', cartao: 'evcapa-cartao', faixa: 'evcapa-faixa' } as const
+
+export default function EventoCapa({ evento, tamanho = 'cartao', cor, className = '' }: {
+  evento: EventoCapaDados
+  tamanho?: keyof typeof TAMANHO
+  cor?: string // sobrepõe a cor salva (prévia no formulário)
+  className?: string
+}) {
+  const url = [evento.cover_image, evento.image_url].find(temFoto)
+  const [falhou, setFalhou] = useState<string>()
+  const foto = url && url !== falhou ? url : undefined
+
+  const corEv = cor && ehHex(cor) ? cor : ehHex(evento.accent_color) ? evento.accent_color : corSorteada(evento.id)
+  const faixa = tamanho === 'faixa'
+  const cartao = tamanho === 'cartao'
+  const comp = compDoCartaz(evento.id)
+  const dm = diaMesDoCartaz(evento.date)
+  const { linhas, k } = linhasDoCartaz(evento.title)
+  const estilo = { ...varsDoEvento(corEv, faixa), '--cz-k': k.toFixed(2) } as CSSProperties
+  const aria = cartao
+    ? { role: 'img', 'aria-label': foto ? `Capa do evento ${evento.title}` : `Cartaz de ${evento.title}${dm ? `, ${dm.dia} de ${dm.mes.toLowerCase()}` : ''}` }
+    : { 'aria-hidden': true as const }
+
+  return (
+    <span className={`evcapa ${TAMANHO[tamanho]} ${className}`} style={estilo} {...aria}>
+      {foto ? (
+        <span className="evcapa-duo">
+          <img src={foto} alt="" loading="lazy" decoding="async" onError={() => setFalhou(foto)} />
+        </span>
+      ) : (
+        <span className={`evcapa-cz evcz-${comp}`}>
+          {cartao && dm && (
+            <span className="evcz-data"><span className="evcz-dia">{dm.dia}</span><span className="evcz-mes">{dm.mes}</span></span>
+          )}
+          {cartao && <span className="evcz-tit">{linhas.map((l, i) => <span key={i}>{l}</span>)}</span>}
+          {faixa && dm && <span className="evcz-faixa-dia">{dm.dia}</span>}
+        </span>
+      )}
+    </span>
+  )
+}

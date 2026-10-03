@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Upload, Plus, X, Check } from 'lucide-react'
+import { ArrowLeft, Plus, X, Check } from 'lucide-react'
 import { useCreateEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
+import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
+import { enviarEGravarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
+import { corSorteada } from '../../lib/corEvento'
+import { useAuth } from '../../hooks/useAuth'
 import { PageHeader } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,6 +20,7 @@ const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground
 export default function ProducerNewEvent() {
   const navigate = useNavigate()
   const createEvent = useCreateEvent()
+  const { user } = useAuth()
   const [step, setStep] = useState(1)
   
   const [formData, setFormData] = useState({
@@ -27,7 +32,12 @@ export default function ProducerNewEvent() {
   })
 
   const [tickets, setTickets] = useState([{ id: '1', name: '', price: '', capacity: '' }])
-  const [image, setImage] = useState<string | null>(null)
+  const [capa, setCapa] = useState<CapaPronta | null>(null) // foto pronta; só sobe depois de o evento existir (o caminho do Storage leva o id)
+  const [cor, setCor] = useState<{ valor: string; manual: boolean } | null>(null) // null: ainda a cor sorteada pelo título
+  const [salvando, setSalvando] = useState(false) // cobre o criar + enviar a foto: sem clique duplo
+  useLiberarPrevia(capa)
+  const semente = formData.title || 'evento'
+  const corAtual = cor?.valor ?? corSorteada(semente)
   const [eventType, setEventType] = useState('Festa')
   const [customType, setCustomType] = useState('')
 
@@ -47,22 +57,8 @@ export default function ProducerNewEvent() {
     setTickets(tickets.map(t => t.id === id ? { ...t, [field]: value } : t))
   }
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('A imagem deve ter no máximo 5MB')
-        return
-      }
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setImage(reader.result as string)
-      }
-      reader.readAsDataURL(file)
-    }
-  }
-
   const handleCreate = async () => {
+    setSalvando(true)
     try {
       const category = eventType === 'Outro' ? customType || 'Outro' : eventType
 
@@ -74,7 +70,8 @@ export default function ProducerNewEvent() {
         location: formData.location || null,
         category: category,
         status: 'published' as const,
-        cover_image: '/images/hero-bg.jpg', // Usar cover de placeholder
+        cover_image: '/images/hero-bg.jpg', // Usar cover de placeholder; a foto entra depois, quando o evento já existe
+        accent_color: corAtual,
         capacity: tickets.reduce((sum, t) => sum + (Number(t.capacity) || 0), 0) || null
       }
 
@@ -87,14 +84,20 @@ export default function ProducerNewEvent() {
           type: 'individual' as const
         }))
 
-      await createEvent.mutateAsync({
+      const novo = (await createEvent.mutateAsync({
         event: eventPayload,
         tickets: ticketsPayload
-      })
+      })) as { id: string }
 
-      toast.success('Evento criado! Aguardando moderação administrativa.')
+      let fotoFalhou = false
+      if (capa && user?.id) {
+        fotoFalhou = !(await enviarEGravarCapa(capa, user.id, novo.id))
+      }
+      if (fotoFalhou) toast.warning('Evento criado, mas a foto de capa não foi enviada. Abra "Editar evento" para enviar de novo.')
+      else toast.success('Evento criado! Aguardando moderação administrativa.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
+      setSalvando(false)
       toast.error(err.message || 'Erro ao criar evento no Supabase')
     }
   }
@@ -252,29 +255,17 @@ export default function ProducerNewEvent() {
       {step === 3 && (
         <div className="space-y-6">
           <section className={cartao}>
-            <h2 className="mb-4 text-base font-semibold text-foreground">Imagem do evento</h2>
-            <div className="rounded-[10px] border border-dashed border-border p-6 text-center sm:p-10">
-              {image ? (
-                <div className="relative">
-                  <img src={image} alt="Prévia da capa" className="max-h-64 w-full rounded-lg object-cover" />
-                  <Button variant="secondary" size="icon-sm" className="absolute right-2 top-2" onClick={() => setImage(null)} aria-label="Remover imagem">
-                    <X aria-hidden="true" />
-                  </Button>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <Upload className="mx-auto size-6 text-muted-foreground" aria-hidden="true" />
-                  <p className="text-sm text-foreground">Selecione uma imagem de capa</p>
-                  <p className="text-xs text-muted-foreground">PNG ou JPG até 5 MB</p>
-                  <Button asChild variant="outline">
-                    <label className="cursor-pointer has-[:focus-visible]:ring-[3px] has-[:focus-visible]:ring-ring/50">
-                      Selecionar arquivo
-                      <input type="file" accept="image/*" onChange={handleImageChange} className="sr-only" />
-                    </label>
-                  </Button>
-                </div>
-              )}
-            </div>
+            <h2 className="mb-4 text-base font-semibold text-foreground">Capa e cor do evento</h2>
+            <CapaEventoCampo
+              evento={{ id: semente, title: formData.title, date: formData.date }}
+              capa={capa}
+              onCapa={setCapa}
+              onRemover={() => {}}
+              cor={corAtual}
+              corManual={!!cor?.manual}
+              onCor={(valor, manual) => setCor(c => ({ valor, manual: manual || !!c?.manual }))}
+              ocupado={salvando}
+            />
           </section>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setStep(2)}>Voltar</Button>
@@ -314,8 +305,8 @@ export default function ProducerNewEvent() {
           </section>
           <div className="flex items-center gap-3">
             <Button variant="outline" onClick={() => setStep(3)}>Voltar</Button>
-            <Button onClick={handleCreate} disabled={createEvent.isPending}>
-              {createEvent.isPending ? 'Criando…' : <><Check aria-hidden="true" />Criar evento</>}
+            <Button onClick={handleCreate} disabled={salvando}>
+              {salvando ? (capa ? 'Enviando a foto…' : 'Criando…') : <><Check aria-hidden="true" />Criar evento</>}
             </Button>
           </div>
         </div>

@@ -503,6 +503,7 @@ export interface Database {
           settings: Json
           meta_title: string | null
           meta_description: string | null
+          accent_color: string | null
           created_at: string
           updated_at: string
         }
@@ -537,6 +538,7 @@ export interface Database {
           settings?: Json
           meta_title?: string | null
           meta_description?: string | null
+          accent_color?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -571,6 +573,7 @@ export interface Database {
           settings?: Json
           meta_title?: string | null
           meta_description?: string | null
+          accent_color?: string | null
           created_at?: string
           updated_at?: string
         }
