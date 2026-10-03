@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within, fireEvent } from '@testing-library/react'
+import { render, screen, within, fireEvent, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import Lateral from '../components/producer/Lateral'
 
@@ -86,7 +86,17 @@ describe('lateral do produtor (V4a)', () => {
   it('edição do evento (/producer/events/:id/edit) também é escopo do evento', () => {
     montar('/producer/events/e2/edit')
     expect(screen.getByRole('button', { name: /Evento Validação: trocar de evento/ })).toBeInTheDocument()
-    expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Editar evento' })).toHaveAttribute('aria-current', 'page')
+    const visao = within(screen.getByRole('navigation')).getByRole('link', { name: 'Visão geral' })
+    expect(visao).toHaveAttribute('href', '/producer/event/e2')
+    expect(visao).toHaveAttribute('aria-current', 'page') // a edição fica sob a Visão geral
+  })
+
+  it('V7: a Visão geral (/producer/event/:id) é a tela ativa do evento e a linha do evento da produtora abre ela', () => {
+    montar('/producer/event/e1')
+    expect(within(screen.getByRole('navigation')).getByRole('link', { name: 'Visão geral' })).toHaveAttribute('aria-current', 'page')
+    cleanup()
+    montar('/producer/dashboard')
+    expect(within(screen.getByRole('navigation')).getAllByRole('link').find(a => a.getAttribute('aria-label')?.startsWith('Noite de Forró'))).toHaveAttribute('href', '/producer/event/e1')
   })
 
   it('estrela fixa o evento e lembra em evk.nav.fixados', () => {

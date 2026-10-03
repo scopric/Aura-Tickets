@@ -50,4 +50,6 @@
 
 /* Cartaz da faixa do cabecalho: so a reticula, o grao e o dia grande (o titulo fica no texto da pagina) */
 .evcapa-faixa .evcapa-cz { --cz-ret: 0 0 0 56%; }
-.evcz-faixa-dia { position: absolute; z-index: 1; right: 40px; bottom: -44px; font-size: 150px; line-height: 1; letter-spacing: -0.05em; }
+.evcz-faixa-dia { position: absolute; z-index: 1; right: 28px; bottom: 14px; font-size: 112px; line-height: 0.8; letter-spacing: -0.05em; pointer-events: none; }
+/* No celular o numero brigaria com o titulo (mesma cor): fica so a reticula e o grao */
+@media (max-width: 639px) { .evcz-faixa-dia { display: none; } }

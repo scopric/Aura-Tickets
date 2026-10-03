@@ -38,6 +38,13 @@ describe('mapa de navegação do produtor (V4a)', () => {
     }
   })
 
+  it('V7: a Visão geral é a tela do evento no mapa e não está atrás de "Em construção"', () => {
+    const pasta = NAV.find(t => t.tela === 'Pasta do evento')!
+    expect(pasta.rota).toBe('/producer/event/:eventId')
+    expect(pasta.noEvento).toBe('Visão geral')
+    expect(filtra('evento', 'Eventos').map(t => t.noEvento)).toContain('Visão geral')
+  })
+
   it('Decisão 143: Banners, Lista de interesse, Galeria, Tarefas e CRM só no escopo da produtora', () => {
     for (const nome of ['Banners', 'Lista de interesse', 'Galeria', 'Tarefas', 'CRM']) {
       expect(NAV.find(t => t.tela === nome)?.noEvento, nome).toBeUndefined()
@@ -78,12 +85,14 @@ describe('evento na URL', () => {
     expect(hrefDaTela('/producer/checkin')).toBe('/producer/checkin')
     expect(hrefDaTela('/producer/checkin', 'e 1')).toBe('/producer/checkin?eventId=e%201')
     expect(hrefDaTela('/producer/events/:eventId/edit', 'e1')).toBe('/producer/events/e1/edit')
-    expect(abreEvento('e1')).toBe('/producer/events/e1/edit')
+    expect(abreEvento('e1')).toBe('/producer/event/e1')
+    expect(hrefDaTela(NAV.find(t => t.tela === 'Pasta do evento')!.rota, 'e1')).toBe('/producer/event/e1')
   })
 
   it('trocar de evento mantém a tela; tela fora do escopo do evento abre o novo evento', () => {
     expect(trocaEvento('/producer/checkin', 'e2')).toBe('/producer/checkin?eventId=e2')
-    expect(trocaEvento('/producer/events/e1/edit', 'e2')).toBe('/producer/events/e2/edit')
-    expect(trocaEvento('/producer/crm', 'e2')).toBe('/producer/events/e2/edit')
+    expect(trocaEvento('/producer/event/e1', 'e2')).toBe('/producer/event/e2')
+    expect(trocaEvento('/producer/events/e1/edit', 'e2')).toBe('/producer/event/e2')
+    expect(trocaEvento('/producer/crm', 'e2')).toBe('/producer/event/e2')
   })
 })
