@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState, type ReactNode } from 'react'
+import EventoCapa from '@/components/EventoCapa'
 import { Link, useLocation } from 'react-router-dom'
 import { matchPath } from 'react-router' // ver lib/navegacaoProdutor.ts
 import { Root as TooltipRoot } from '@radix-ui/react-tooltip'
@@ -19,7 +20,7 @@ import ThemeToggle from '../ThemeToggle'
 // Lateral do produtor por escopo (fase V4a; estudos/navegacao.md §5 e prancha Navegação do protótipo v3.4).
 // Só tokens da V1; sem vidro (a prancha só põe vidro no menu flutuante do trilho, aqui um popover opaco).
 
-type Evento = DbEvent & { accent_color?: string | null } // accent_color chega na V6b
+type Evento = DbEvent
 
 const ICONE: Record<Secao, I.IconeEvokaa> = {
   Topo: I.Inicio, Eventos: I.Eventos, Vendas: I.Ingressos, Público: I.Publico,
@@ -46,13 +47,7 @@ const quando = (e: Evento) => new Date(e.date ? `${e.date}T${e.time || '00:00:00
 
 /** Miniatura simples da capa (a V6b troca por EventoCapa): foto http ou quadrado na cor do evento */
 function Capa({ evento, className }: { evento: Evento; className?: string }) {
-  const foto = /^https?:\/\//.test(evento.cover_image ?? '') && !evento.cover_image!.endsWith('/images/hero-bg.jpg') ? evento.cover_image : null
-  const cor = /^#[0-9a-f]{6}$/i.test(evento.accent_color ?? '') ? evento.accent_color! : 'hsl(var(--primary))'
-  return (
-    <span aria-hidden="true" className={cn('block shrink-0 overflow-hidden', className)} style={{ backgroundColor: cor }}>
-      {foto && <img src={foto} alt="" loading="lazy" onError={e => { e.currentTarget.style.display = 'none' }} className="size-full object-cover" />}
-    </span>
-  )
+  return <EventoCapa evento={evento} tamanho="mini-p" className={cn('shrink-0', className)} />
 }
 
 /** Dica à direita só no trilho (atraso e "pula atraso" no TooltipProvider da lateral); aberta, o próprio texto basta */
@@ -141,7 +136,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
         aria-label={`${e.title}, ${dataCurta(e)}${aviso ? ', em análise' : ''}`}
         className={cn(itemBase, itemCor(false), 'h-9 gap-2 pl-7')}
       >
-        <Capa evento={e} className="size-5 rounded-ev-xs" />
+        <Capa evento={e} className="!size-5 !rounded-ev-xs" />
         <span className="flex-1 truncate">{e.title}</span>
         {aviso && <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-[var(--ev-warning)]" />}
         <span className="shrink-0 text-xs font-medium tabular-nums text-muted-foreground">{dataCurta(e)}</span>
@@ -288,7 +283,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
                 aria-label={`Evento ${evento?.title ?? ''}: trocar de evento`}
                 className={cn('flex items-center gap-2.5 rounded-ev-md text-left hover:bg-[var(--ev-tint-hover)]', foco, rail ? 'size-10 justify-center' : 'w-full p-2')}
               >
-                {evento ? <Capa evento={evento} className="size-8 rounded-ev-sm" /> : <span className="size-8 rounded-ev-sm bg-muted" aria-hidden="true" />}
+                {evento ? <Capa evento={evento} className="!size-8 !rounded-ev-sm" /> : <span className="size-8 rounded-ev-sm bg-muted" aria-hidden="true" />}
                 {!rail && (
                   <>
                     <span className="min-w-0 flex-1">
@@ -311,7 +306,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
                 aria-current={e.id === eventId ? 'true' : undefined}
                 className={cn(itemBase, itemCor(e.id === eventId), 'h-9 gap-2')}
               >
-                <Capa evento={e} className="size-5 rounded-ev-xs" />
+                <Capa evento={e} className="!size-5 !rounded-ev-xs" />
                 <span className="flex-1 truncate">{e.title}</span>
                 <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{dataCurta(e)}</span>
               </Link>
@@ -434,7 +429,7 @@ function RailEvento({ e }: { e: Evento }) {
     <TooltipRoot>
       <TooltipTrigger asChild>
         <Link to={abreEvento(e.id)} aria-label={e.title} className={cn('flex size-10 items-center justify-center rounded-ev-md hover:bg-[var(--ev-tint-hover)]', foco)}>
-          <Capa evento={e} className="size-5 rounded-ev-xs" />
+          <Capa evento={e} className="!size-5 !rounded-ev-xs" />
         </Link>
       </TooltipTrigger>
       <TooltipContent side="right">{e.title}</TooltipContent>
