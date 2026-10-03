@@ -107,7 +107,7 @@ export default function Tour({ tour, onFim }: { tour: TourDef; onFim: (puladas: 
       <h2 ref={titulo} tabIndex={-1} id="tour-titulo" className="text-sm font-semibold text-foreground outline-none">{passo.titulo}</h2>
       <p className="mt-1 text-sm text-muted-foreground">{passo.texto}</p>
       <div className="mt-4 flex items-center gap-2">
-        <span className="mr-auto text-xs tabular-nums text-muted-foreground">{pos + 1} de {ordem.length}</span>
+        <span className="mr-auto whitespace-nowrap text-xs tabular-nums text-muted-foreground">{pos + 1} de {ordem.length}</span>
         <Button variant="ghost" size="sm" onClick={() => terminar(true)}>Pular</Button>
         <Button variant="outline" size="sm" onClick={() => setI(ordem[pos - 1])} disabled={pos === 0}>Voltar</Button>
         <Button size="sm" onClick={() => (ultimo ? terminar(false) : setI(ordem[pos + 1]))}>{ultimo ? 'Concluir' : 'Próximo'}</Button>

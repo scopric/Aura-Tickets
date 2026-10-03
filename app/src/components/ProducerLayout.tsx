@@ -140,6 +140,15 @@ export default function ProducerLayout() {
     [setSearchParams])
   // ?tour= que não existe ou não é desta tela: tira da URL
   useEffect(() => { if (tourId && !tour) tirarParametro() }, [tourId, tour, tirarParametro])
+  // Tour fechado: foco no título da tela. Roda depois da limpeza do Tour, que tira o inert do #root
+  // (com setTimeout o foco era pedido ainda com a página inerte e caía no body)
+  const focarTitulo = useRef(false)
+  useEffect(() => {
+    if (tour || !focarTitulo.current) return
+    focarTitulo.current = false
+    const h1 = paginaRef.current?.querySelector('h1')
+    if (h1) { h1.tabIndex = -1; h1.focus() }
+  }, [tour])
   const { user, logout } = useAuth()
   const mobileOpen = gavetaEm === location.pathname
 
@@ -341,12 +350,8 @@ export default function ProducerLayout() {
       {tour && (
         <Tour key={tourId} tour={tour} onFim={puladas => {
           void registrar(`tour:${tourId}`, { skipped: puladas })
+          focarTitulo.current = true
           tirarParametro()
-          // depois que o Tour desmonta e tira o inert do #root: foco no título da tela, não no body
-          setTimeout(() => {
-            const h1 = paginaRef.current?.querySelector('h1')
-            if (h1) { h1.tabIndex = -1; h1.focus() }
-          }, 0)
         }} />
       )}
     </div>
