@@ -7,9 +7,9 @@ export const TOURS: Record<string, Tour> = {
   inicio: {
     rota: '/producer/dashboard',
     passos: [
-      { alvo: 'inicio-numeros', titulo: 'Seus números', texto: 'Vendas, ingressos vendidos, ticket médio e eventos publicados. Contam só pedidos pagos.' },
+      { alvo: 'inicio-numeros', titulo: 'Seus números', texto: 'Receita bruta e ingressos vendidos do período, comparados com o período anterior. Contam só pedidos pagos e incluem a taxa do comprador.' },
       { alvo: 'inicio-checklist', titulo: 'Primeiro evento no ar', texto: 'Os passos para publicar seu primeiro evento. Cada item abre a tela certa com uma explicação.' },
-      { alvo: 'inicio-proximos', titulo: 'Próximos eventos', texto: 'Os eventos com data pela frente, com a situação e quantos ingressos já foram vendidos.' },
+      { alvo: 'inicio-proximos', titulo: 'Seus eventos', texto: 'Cada evento com a situação, quantos ingressos já foram vendidos e a receita bruta. Clique na linha para abrir.' },
       { alvo: 'evo', titulo: 'Evo, o assistente', texto: 'Tire dúvidas sobre a plataforma a qualquer momento por este botão.' },
     ],
   },

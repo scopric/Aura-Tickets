@@ -1,5 +1,5 @@
 import { useState, type CSSProperties } from 'react'
-import { compDoCartaz, corSorteada, diaMesDoCartaz, ehHex, linhasDoCartaz, temFoto, varsDoEvento } from '../lib/corEvento'
+import { compDoCartaz, corDoEvento, diaMesDoCartaz, ehHex, linhasDoCartaz, temFoto, varsDoEvento } from '../lib/corEvento'
 import './EventoCapa.css'
 
 // Capa do evento (contrato v3.4, 2.2): foto real em duotone na cor do evento; sem foto (vazio ou /images/hero-bg.jpg),
@@ -27,7 +27,7 @@ export default function EventoCapa({ evento, tamanho = 'cartao', cor, className 
   const [falhou, setFalhou] = useState<string>()
   const foto = url && url !== falhou ? url : undefined
 
-  const corEv = cor && ehHex(cor) ? cor : ehHex(evento.accent_color) ? evento.accent_color : corSorteada(evento.id)
+  const corEv = cor && ehHex(cor) ? cor : corDoEvento(evento)
   const faixa = tamanho === 'faixa'
   const cartao = tamanho === 'cartao'
   const comp = compDoCartaz(evento.id)

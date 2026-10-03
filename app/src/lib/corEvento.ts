@@ -112,6 +112,9 @@ const hash = (s: string) => { let h = 2166136261; for (let i = 0; i < s.length; 
 // Sorteio estável: o mesmo id (ou texto) dá sempre a mesma cor
 export const corSorteada = (semente: string) => SORTEIO[hash(semente) % SORTEIO.length]
 
+// Cor do evento: a salva (#rrggbb) ou, sem ela, o sorteio estável pelo id
+export const corDoEvento = (e: { id: string; accent_color?: string | null }) => (ehHex(e.accent_color) ? e.accent_color : corSorteada(e.id))
+
 // Cor do pixel mais saturado (peso para luminosidade média) numa imagem 24x24 (RGBA); null se a foto é cinza demais.
 // Testado em 03/10/2026 na foto concert-1.jpg: a média dá rgb(57 32 38), barrenta; esta dá rgb(165 92 101).
 export function corVivaDePixels(d: Uint8ClampedArray | number[]): string | null {
