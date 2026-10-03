@@ -1,12 +1,14 @@
 import { test, expect } from '@playwright/test'
 
 // PR 4B: vírgula, parênteses e aspas na busca de eventos quebravam o filtro .or() do PostgREST (erro 400).
+// V11b: o Explorar filtra no navegador (sem .or() no banco); a busca com esses caracteres continua sem erro.
 test('busca de eventos aceita vírgula, parênteses e aspas sem erro', async ({ page }) => {
+  const erros: string[] = []
+  page.on('pageerror', e => erros.push(e.message))
   await page.goto('/events')
-  const resposta = page.waitForResponse(r => r.url().includes('/rest/v1/events') && decodeURIComponent(r.url()).includes('rock'))
-  await page.getByPlaceholder('Buscar por nome, atração ou cidade...').fill('rock, (ao "vivo")')
-  const r = await resposta
-  expect(r.status()).toBe(200)
-  // separadores viram curinga: sem espaço duplo que nunca casa com o título
-  expect(decodeURIComponent(r.url())).toContain('title.ilike.%rock%ao%vivo%')
+  await page.getByPlaceholder('Evento, local ou cidade').fill('rock, (ao "vivo")')
+  await expect(page.getByText('Nada para “rock, (ao "vivo")”.')).toBeVisible()
+  await page.getByRole('button', { name: 'Limpar busca' }).first().click()
+  await expect(page.getByPlaceholder('Evento, local ou cidade')).toHaveValue('')
+  expect(erros).toEqual([])
 })

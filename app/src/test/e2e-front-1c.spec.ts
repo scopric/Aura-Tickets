@@ -5,7 +5,7 @@ test('visitante: evento de exemplo do código não abre e a vitrine vazia mostra
   await page.goto('/event/evt-001') // id dos eventos de exemplo do código (MOCK_EVENTS); só conta demo em desenvolvimento os vê
   await expect(page.getByText(/Evento Não Encontrado/i)).toBeVisible({ timeout: 15000 }) // a consulta ao banco pode demorar
   await page.goto('/events')
-  await expect(page.getByRole('heading', { name: /Catálogo de Eventos/ })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Explorar' })).toBeVisible()
   await expect(page.getByText('Festival de Verão 2026')).toHaveCount(0) // evento de exemplo do código
 })
 
