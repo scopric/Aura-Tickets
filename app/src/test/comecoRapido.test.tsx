@@ -39,6 +39,8 @@ describe('ComecoRapido: do zero', () => {
     criarRascunho()
     expect(screen.getByText('Escreva o nome: ele aparece na página e no ingresso.')).toBeInTheDocument()
     expect(screen.getByLabelText('Nome do evento')).toHaveAttribute('aria-invalid', 'true')
+    expect(screen.getByRole('alert')).toHaveTextContent('Escreva o nome') // anunciado pelo leitor de tela
+    expect(screen.getByLabelText('Nome do evento')).toHaveFocus() // o foco vai para o campo com erro
     expect(criar).not.toHaveBeenCalled()
     fireEvent.change(screen.getByLabelText('Nome do evento'), { target: { value: '   ' } }) // só espaços também não vale
     criarRascunho()
@@ -79,7 +81,8 @@ describe('ComecoRapido: do zero', () => {
     fireEvent.change(screen.getByLabelText('Nome do evento'), { target: { value: 'Teste' } })
     fireEvent.change(screen.getByLabelText('Hora de início'), { target: { value: '20:00' } })
     criarRascunho()
-    expect(screen.getByText('Escolha a data: a hora só vale junto com ela.')).toBeInTheDocument()
+    expect(screen.getByRole('alert')).toHaveTextContent('Escolha a data')
+    expect(screen.getByLabelText('Data')).toHaveFocus()
     expect(criar).not.toHaveBeenCalled()
   })
 

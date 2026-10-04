@@ -1,6 +1,6 @@
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 import { FOTO_PADRAO, temFoto } from './corEvento'
-import { prepararCapa, enviarEGravarCapa } from './capaEvento'
+import { enviarEGravarCapa } from './capaEvento'
 import { supabase } from './supabase'
 
 // Regras de evento usadas pelas telas do produtor (Meus eventos, Pasta do evento).
@@ -181,11 +181,12 @@ export async function duplicarEvento(
 
   if (tickets.length > 0) {
     // mesmos campos do useCreateEvent (sem lot_number: Decisão 20); `as never`: os tipos gerados do banco devolvem
-    // never para ticket_types (mesmo erro herdado em useEvents)
+    // never para ticket_types (mesmo erro herdado em useEvents). Toda linha leva as mesmas chaves e nenhum undefined:
+    // no insert em lote o supabase-js lista as colunas da primeira linha e a que faltar vira NULL (inclui_bebida é not null).
     const { error } = await supabase.from('ticket_types').insert(tickets.map((t, i) => ({
       event_id: novo.id, name: t.name || `Ingresso ${i + 1}`, description: t.description || null, price: Number(t.price) || 0,
       capacity: t.capacity ? Number(t.capacity) : null, quantity_total: t.capacity ? Number(t.capacity) : 0, sold: 0, quantity_sold: 0,
-      type: t.type || 'individual', perks: t.perks || [], is_active: t.is_active ?? true, inclui_bebida: t.inclui_bebida || undefined,
+      type: t.type === 'coletiva' ? 'coletiva' : 'individual', perks: t.perks || [], is_active: t.is_active ?? true, inclui_bebida: !!t.inclui_bebida,
     })) as never)
     if (error) { console.error('[duplicarEvento] ingressos', error); r.avisos.push('os ingressos não foram copiados') } else r.ingressos = tickets.length
   }
@@ -193,13 +194,14 @@ export async function duplicarEvento(
   const url = [original.cover_image, original.image_url].find(temFoto)
   if (url) {
     try {
-      // só foto pública em https (a do bucket capas-eventos); a cópia vai para a pasta do evento novo
+      // só foto pública em https (a do bucket capas-eventos). A do bucket já é webp ou jpeg de até 2 MB, passada pelo
+      // prepararCapa no envio original: sobe como está (sem recodificar), com nome novo, na pasta do evento novo.
       if (!url.startsWith('https://')) throw new Error('foto fora do bucket')
       const resp = await fetch(url)
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const blob = await resp.blob()
-      const capa = await prepararCapa(new File([blob], 'capa', { type: blob.type }), novo.id)
-      try { r.foto = await enviarEGravarCapa(capa, produtorId, novo.id) } finally { URL.revokeObjectURL(capa.previewUrl) }
+      if (blob.type !== 'image/webp' && blob.type !== 'image/jpeg') throw new Error(`tipo ${blob.type}`)
+      r.foto = await enviarEGravarCapa({ blob, previewUrl: '', cor: '' }, produtorId, novo.id)
     } catch (err) {
       console.error('[duplicarEvento] foto', err instanceof Error ? err.message : err)
     }
@@ -213,7 +215,7 @@ export const confirmacaoDuplicar = (titulo: string) =>
 
 // Texto do aviso depois de duplicar: o que foi copiado e o que não
 export function resumoDuplicacao(r: Duplicacao): string {
-  const copiado = ['os dados do evento', r.ingressos > 0 && `${r.ingressos} ${r.ingressos === 1 ? 'ingresso' : 'ingressos'}`, r.foto && 'a foto']
+  const copiado = ['os dados do evento', r.ingressos > 0 && `${r.ingressos} ${r.ingressos === 1 ? 'tipo de ingresso' : 'tipos de ingresso'}`, r.foto && 'a foto']
     .filter(Boolean).join(', ')
   const falhas = r.avisos.length ? ` Atenção: ${r.avisos.join('; ')}.` : ''
   return `Cópia criada como rascunho. Copiado: ${copiado}. Não vão: datas, vendas, aprovação e destaque.${falhas}`

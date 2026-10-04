@@ -28,6 +28,8 @@ export default function ComecoRapido() {
   const { duplicar, duplicando } = useDuplicarEvento()
   const podeEvo = user?.role === 'producer' || user?.role === 'admin' // o mesmo critério do EvoHub
 
+  const nomeRef = useRef<HTMLInputElement>(null)
+  const dataRef = useRef<HTMLInputElement>(null)
   const [nome, setNome] = useState('')
   const [formato, setFormato] = useState('')
   const [data, setData] = useState('')
@@ -46,7 +48,9 @@ export default function ComecoRapido() {
     if (emCurso.current) return
     setTentou(true)
     setErro('')
-    if (!nome.trim() || (hora && !data)) return
+    // com erro, o foco vai para o primeiro campo a corrigir (o leitor de tela lê a mensagem, que é um alerta)
+    if (!nome.trim()) { nomeRef.current?.focus(); return }
+    if (hora && !data) { dataRef.current?.focus(); return }
     emCurso.current = true
     setCriando(true)
     try {
@@ -84,10 +88,10 @@ export default function ComecoRapido() {
           <div>
             <Label htmlFor="c-nome" className={rotulo}>Nome do evento</Label>
             <Input
-              id="c-nome" value={nome} onChange={e => setNome(e.target.value)} maxLength={80} autoComplete="off" placeholder="Ex.: Noite de Forró"
+              id="c-nome" ref={nomeRef} value={nome} onChange={e => setNome(e.target.value)} maxLength={80} autoComplete="off" placeholder="Ex.: Noite de Forró"
               aria-invalid={erroNome || undefined} aria-describedby={erroNome ? 'e-nome' : undefined}
             />
-            {erroNome && <p id="e-nome" className={msgErro}><I.Erro size={16} aria-hidden="true" />{ERRO_NOME}</p>}
+            {erroNome && <p id="e-nome" role="alert" className={msgErro}><I.Erro size={16} aria-hidden="true" />{ERRO_NOME}</p>}
           </div>
 
           <div>
@@ -102,10 +106,10 @@ export default function ComecoRapido() {
             <div>
               <Label htmlFor="c-data" className={rotulo}>Data</Label>
               <Input
-                id="c-data" type="date" value={data} onChange={e => setData(e.target.value)}
+                id="c-data" ref={dataRef} type="date" value={data} onChange={e => setData(e.target.value)}
                 aria-invalid={erroData || undefined} aria-describedby={erroData ? 'e-data' : undefined}
               />
-              {erroData && <p id="e-data" className={msgErro}><I.Erro size={16} aria-hidden="true" />{ERRO_DATA}</p>}
+              {erroData && <p id="e-data" role="alert" className={msgErro}><I.Erro size={16} aria-hidden="true" />{ERRO_DATA}</p>}
             </div>
             <div>
               <Label htmlFor="c-hora" className={rotulo}>Hora de início</Label>

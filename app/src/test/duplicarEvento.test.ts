@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { supabase } from '@/lib/supabase'
 import { duplicarEvento, resumoDuplicacao } from '../lib/eventoProdutor'
-import { prepararCapa, enviarEGravarCapa } from '../lib/capaEvento'
+import { enviarEGravarCapa } from '../lib/capaEvento'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
-vi.mock('../lib/capaEvento', () => ({ prepararCapa: vi.fn(), enviarEGravarCapa: vi.fn() }))
+vi.mock('../lib/capaEvento', () => ({ prepararCapa: vi.fn(), enviarEGravarCapa: vi.fn() })) // prepararCapa fora: a foto não é recodificada
 
 const FOTO = 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp'
 const tipo = (o: Partial<DbTicketType> = {}) => ({ id: 't', event_id: 'e1', name: 'Pista', description: null, price: 50, capacity: 10, quantity_total: 100, sold: 7, type: 'individual', perks: [], is_active: true, ...o }) as DbTicketType
@@ -28,9 +28,7 @@ beforeEach(() => {
   criar.mockResolvedValue({ id: 'novo' })
   ingressos()
   vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['x'], { type: 'image/webp' })) })))
-  vi.mocked(prepararCapa).mockResolvedValue({ blob: new Blob(['x']), previewUrl: 'blob:x', cor: '#fff' })
   vi.mocked(enviarEGravarCapa).mockResolvedValue(true)
-  URL.revokeObjectURL = vi.fn()
 })
 
 describe('duplicarEvento', () => {
@@ -46,7 +44,29 @@ describe('duplicarEvento', () => {
     expect(tabela).toBe('ticket_types')
     expect(linhas.map(l => [l.event_id, l.name, l.sold, l.quantity_total])).toEqual([['novo', 'Pista', 0, 100], ['novo', 'Camarote', 0, 100]])
     expect(fetch).toHaveBeenCalledWith(FOTO)
-    expect(enviarEGravarCapa).toHaveBeenCalledWith(expect.anything(), 'p1', 'novo')
+    // o blob baixado sobe como está (webp), sem recodificar, para a pasta do evento novo
+    expect(enviarEGravarCapa).toHaveBeenCalledWith(expect.objectContaining({ blob: expect.objectContaining({ type: 'image/webp' }) }), 'p1', 'novo')
+  })
+
+  it('toda linha do insert tem as mesmas chaves, inclui_bebida booleano e nenhum valor undefined; tipo antigo vira individual', async () => {
+    const tipos = [tipo({ inclui_bebida: true }), tipo({ id: 't2', name: 'Camarote', description: undefined as never, perks: undefined as never, type: 'vip' }), tipo({ id: 't3', name: 'Mesa', type: 'coletiva', capacity: null as never, quantity_total: null as never })]
+    await duplicarEvento(original({ ticket_types: tipos }), criar, 'p1')
+    const linhas = (inserido[0] as [string, Record<string, unknown>[]])[1]
+    expect(linhas).toHaveLength(3)
+    const chaves = Object.keys(linhas[0]).sort()
+    for (const l of linhas) {
+      expect(Object.keys(l).sort()).toEqual(chaves)
+      expect(Object.values(l)).not.toContain(undefined)
+      expect(typeof l.inclui_bebida).toBe('boolean')
+    }
+    expect(linhas.map(l => l.inclui_bebida)).toEqual([true, false, false])
+    expect(linhas.map(l => l.type)).toEqual(['individual', 'individual', 'coletiva'])
+  })
+
+  it('foto que não é webp nem jpeg (fora do bucket) não sobe: aviso', async () => {
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, blob: () => Promise.resolve(new Blob(['x'], { type: 'image/svg+xml' })) })))
+    expect(await duplicarEvento(original(), criar, 'p1')).toMatchObject({ foto: false, avisos: ['foto não copiada'] })
+    expect(enviarEGravarCapa).not.toHaveBeenCalled()
   })
 
   it('ingressos falham: 1 evento só, aviso, e a foto ainda é copiada', async () => {
@@ -83,7 +103,7 @@ describe('duplicarEvento', () => {
 describe('resumoDuplicacao', () => {
   it('diz o que foi copiado e o que nunca vai', () => {
     const t = resumoDuplicacao({ id: 'n', ingressos: 2, foto: true, avisos: [] })
-    expect(t).toMatch(/Copiado: os dados do evento, 2 ingressos, a foto\./)
+    expect(t).toMatch(/Copiado: os dados do evento, 2 tipos de ingresso, a foto\./)
     expect(t).toMatch(/Não vão: datas, vendas, aprovação e destaque\./)
     expect(t).not.toMatch(/Atenção/)
   })

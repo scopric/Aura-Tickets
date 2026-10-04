@@ -7,9 +7,9 @@ import { test, expect, type Page } from '@playwright/test'
 // PW_CHANNEL=chrome PW_BASE_URL=http://localhost:3161 npx playwright test src/test/e2e-f1-comeco-rapido.spec.ts --project=chromium
 
 const PRODUTOR = 'd3f6ab7a-b847-4aa4-af6c-033a738c2ce4' // produtor@aura.teste
-const FOTO = 'https://x.supabase.co/storage/v1/object/public/capas-eventos/d3f6ab7a/e1/aaaaaaaa.png'
-// PNG de 4x4 px: o app reduz e regrava a foto no canvas antes de enviar
-const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGM4YRMFRwzEcQA/8hXhzZh4swAAAABJRU5ErkJggg==', 'base64')
+const FOTO = 'https://x.supabase.co/storage/v1/object/public/capas-eventos/d3f6ab7a/e1/aaaaaaaa.webp'
+// o app sobe a foto do bucket como está (webp, sem recodificar): o conteúdo não é decodificado, basta o tipo
+const FOTO_BYTES = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAEElEQVR4nGM4YRMFRwzEcQA/8hXhzZh4swAAAABJRU5ErkJggg==', 'base64')
 const PRINTS = path.resolve(process.cwd(), '../test-results/pr3c')
 
 test.skip(({ isMobile }) => isMobile, 'os prints de 390 px trocam o tamanho da janela dentro do teste')
@@ -58,7 +58,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> = {}): Promise<Banco>
     db.chamadas.push('UPLOAD capa')
     return route.fulfill({ json: { Key: 'capas-eventos/x' } })
   })
-  await page.route(FOTO, route => route.fulfill({ body: PNG, contentType: 'image/png', headers: { 'access-control-allow-origin': '*' } }))
+  await page.route(FOTO, route => route.fulfill({ body: FOTO_BYTES, contentType: 'image/webp', headers: { 'access-control-allow-origin': '*' } }))
   return db
 }
 
@@ -119,7 +119,7 @@ test.describe('começo rápido', () => {
     await page.getByRole('button', { name: 'Copiar Noite de Forró' }).click()
 
     await expect(page).toHaveURL(/\/producer\/events\/n0000001-0000-4000-8000-000000000000\/edit$/)
-    await expect(page.getByText(/Copiado: os dados do evento, 2 ingressos, a foto\./)).toBeVisible()
+    await expect(page.getByText(/Copiado: os dados do evento, 2 tipos de ingresso, a foto\./)).toBeVisible()
     await expect(page.getByText(/Não vão: datas, vendas, aprovação e destaque\./)).toBeVisible()
     expect(db.chamadas.slice(0, 4)).toEqual(['POST events', 'POST ticket_types 2', 'UPLOAD capa', expect.stringMatching(/^PATCH events cover_image/)])
     expect(db.posts).toHaveLength(1)
@@ -146,7 +146,7 @@ test.describe('começo rápido', () => {
     await page.goto('/producer/events/new')
     await page.getByRole('button', { name: 'Copiar Noite de Forró' }).click()
     await expect(page).toHaveURL(/\/producer\/events\/n0000001-[^/]+\/edit$/)
-    await expect(page.getByText(/Copiado: os dados do evento, 2 ingressos\..*Atenção: foto não copiada\./)).toBeVisible()
+    await expect(page.getByText(/Copiado: os dados do evento, 2 tipos de ingresso\..*Atenção: foto não copiada\./)).toBeVisible()
     expect(db.posts).toHaveLength(1)
     expect(db.chamadas).not.toContain('UPLOAD capa')
   })
@@ -158,7 +158,7 @@ test.describe('começo rápido', () => {
     await page.goto('/producer/events')
     await page.getByRole('button', { name: 'Duplicar Noite de Forró' }).click()
     await expect(page).toHaveURL(/\/producer\/events\/n0000001-[^/]+\/edit$/)
-    await expect(page.getByText(/Cópia criada como rascunho\. Copiado: os dados do evento, 2 ingressos, a foto\./)).toBeVisible()
+    await expect(page.getByText(/Cópia criada como rascunho\. Copiado: os dados do evento, 2 tipos de ingresso, a foto\./)).toBeVisible()
     expect(db.posts).toHaveLength(1)
   })
 
