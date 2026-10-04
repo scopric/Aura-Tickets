@@ -47,7 +47,7 @@ const dataBr = (iso: string) => diaBR(iso).split('-').reverse().join('/')
 // Bolinha de status: vazia (pendente), com ponto (em andamento), cheia com check (concluída)
 const Bolinha = ({ status }: { status: StatusTarefa }) => (
   <span className={`flex size-5 items-center justify-center rounded-full border-2 ${status === 'done' ? 'border-[var(--ev-success)] bg-[var(--ev-success)] text-background' : status === 'in_progress' ? 'border-primary' : 'border-input'}`}>
-    {status === 'done' && <I.Check size={12} aria-hidden="true" />}
+    {status === 'done' && <I.Check size={12} className="size-3" aria-hidden="true" />}
     {status === 'in_progress' && <span className="size-2 rounded-full bg-primary" />}
   </span>
 )
@@ -121,7 +121,7 @@ export default function ProducerTasks() {
         <>
           <div role="group" aria-label="Modo de exibição" className="flex gap-1">
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'list' ? '' : icone} aria-label="Ver em lista" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>
-              <I.Painel aria-hidden="true" />
+              <I.Lista aria-hidden="true" />
             </Button>
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'kanban' ? '' : icone} aria-label="Ver em colunas por status" aria-pressed={viewMode === 'kanban'} onClick={() => setViewMode('kanban')}>
               <I.Colunas aria-hidden="true" />
@@ -223,7 +223,7 @@ export default function ProducerTasks() {
               const doStatus = tasks.filter(t => t.status === col)
               return (
                 <section key={col} aria-label={rotuloStatus[col]} className="grid content-start gap-3">
-                  <div className={`rounded-md border p-2 text-center text-xs font-medium ${corColuna[col]}`}>{rotuloStatus[col]} ({doStatus.length})</div>
+                  <h2 className={`rounded-md border p-2 text-center text-xs font-medium ${corColuna[col]}`}>{rotuloStatus[col]} ({doStatus.length})</h2>
                   {doStatus.map(cartao)}
                 </section>
               )

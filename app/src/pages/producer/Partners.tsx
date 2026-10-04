@@ -22,6 +22,11 @@ const partnerTypes = ['Todos', 'Patrocinador', 'Fornecedor']
 const statusOptions = ['Todos', 'Confirmado', 'Pendente', 'Cancelado']
 const categories = ['Alimentacao', 'Bebidas', 'Audio/Som', 'Iluminacao', 'Decoracao', 'Seguranca', 'Fotografia', 'Marketing', 'Transporte', 'Outros']
 
+const categoryLabels: Record<string, string> = {
+  Alimentacao: 'Alimentação', 'Audio/Som': 'Áudio/Som', Iluminacao: 'Iluminação', Decoracao: 'Decoração', Seguranca: 'Segurança',
+}
+const categoryLabel = (c: string | null) => (c && categoryLabels[c]) || c
+
 const statusColors = {
   confirmado: chipOk,
   pendente: chipAviso,
@@ -166,7 +171,7 @@ export default function ProducerPartners() {
               <div className="grid gap-1.5">
                 <Label htmlFor="parc-categoria">Categoria</Label>
                 <select id="parc-categoria" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={selectNativo}>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}
                 </select>
               </div>
             </div>
@@ -262,7 +267,7 @@ export default function ProducerPartners() {
                 </div>
                 <div className="text-right text-xs">
                   <span className="text-muted-foreground">Categoria</span>
-                  <div className="font-medium text-foreground">{partner.category}</div>
+                  <div className="font-medium text-foreground">{categoryLabel(partner.category)}</div>
                 </div>
               </div>
 

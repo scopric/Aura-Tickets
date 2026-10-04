@@ -356,7 +356,7 @@ export default function TeamManager() {
             return (
               <div key={member.id} className="team-card overflow-hidden rounded-[10px] border border-border bg-card">
                 {/* Summary Row */}
-                <button type="button" aria-expanded={isExpanded} className="flex w-full items-center gap-4 p-4 text-left outline-none transition-colors hover:bg-[var(--ev-tint-hover)] focus-visible:shadow-ev-foco" onClick={() => setExpandedMember(isExpanded ? null : member.id)}>
+                <button type="button" aria-expanded={isExpanded} className="flex w-full items-center gap-4 p-4 text-left outline-none transition-colors hover:bg-[var(--ev-tint-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onClick={() => setExpandedMember(isExpanded ? null : member.id)}>
                   {member.avatar
                     ? <img src={member.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" />
                     : <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">{iniciais(member.name)}</span>}

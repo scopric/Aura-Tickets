@@ -41,6 +41,9 @@ const typeLabels: Record<string, string> = {
   encerramento: 'Encerramento',
 }
 
+const rotuloStatus: Record<DbTimelineItem['status'], string> = { futuro: 'Futuro', atual: 'Ao vivo', concluido: 'Concluído' }
+const proximoStatus: Record<DbTimelineItem['status'], DbTimelineItem['status']> = { futuro: 'atual', atual: 'concluido', concluido: 'futuro' }
+
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerTimeline() {
@@ -128,11 +131,11 @@ export default function ProducerTimeline() {
 
       {/* Event selector */}
       <div className="mb-6 flex flex-wrap items-center gap-2">
-        <I.Eventos size={16} aria-hidden="true" className="text-muted-foreground" />
+        <Label htmlFor="cron-evento" className="text-sm font-normal text-muted-foreground">Evento</Label>
         <select
+          id="cron-evento"
           value={selectedEventId || ''}
           onChange={e => setSelectedEventId(e.target.value || null)}
-          aria-label="Evento"
           className={cn(selectNativo, 'sm:w-auto sm:min-w-64')}
         >
           {!selectedEventId && <option value="">Selecione um evento</option>}
@@ -169,7 +172,7 @@ export default function ProducerTimeline() {
                     <button
                       type="button"
                       onClick={() => toggleStatus(item)}
-                      aria-label={`Avançar o status de ${item.title}`}
+                      aria-label={`${item.title}: ${rotuloStatus[item.status]}. Mudar para ${rotuloStatus[proximoStatus[item.status]]}`}
                       className={`alvo-44 relative z-10 flex size-12 shrink-0 items-center justify-center rounded-full border outline-none focus-visible:shadow-ev-foco ${
                         concluido ? chipOk :
                         atual ? 'border-primary bg-primary text-primary-foreground' :

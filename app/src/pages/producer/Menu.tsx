@@ -238,7 +238,7 @@ export default function ProducerMenu() {
 
       {/* Form Modal */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined} onInteractOutside={e => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editingId ? 'Editar Item' : 'Novo Item'}</DialogTitle>
           </DialogHeader>
