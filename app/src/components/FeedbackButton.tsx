@@ -51,7 +51,8 @@ export function FeedbackForm({ onDone }: { onDone?: () => void }) {
       }, 2000)
     } catch (err) {
       console.error('[Feedback]', err)
-      toast.error('Erro ao enviar feedback: ' + (err as Error).message)
+      const msg = (err as Error)?.message || 'tente de novo'
+      toast.error(msg.includes('row-level security') ? 'Não foi possível enviar: entre de novo e tente outra vez.' : 'Erro ao enviar feedback: ' + msg)
     }
   }
 
