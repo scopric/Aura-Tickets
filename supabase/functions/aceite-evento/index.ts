@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
     const textoHash = await sha256(texto)
     // nova tentativa em sequência (o duplo clique é barrado na tela): mesmo texto do mesmo evento, deste produtor, nos
     // últimos 5 minutos devolve o aceite anterior
-    const { data: recente, error: recenteError } = await admin.from('evento_aceites').select('id, aceito_em')
+    const { data: recente, error: recenteError } = await admin.from('evento_aceites').select('id, aceito_em, texto_hash')
       .eq('event_id', eventId).eq('producer_id', user.id).eq('texto_hash', textoHash)
       .gte('aceito_em', new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .order('aceito_em', { ascending: false }).limit(1)
@@ -81,7 +81,7 @@ Deno.serve(async (req) => {
       ip, forwarded_for, user_agent: (req.headers.get('user-agent') ?? '').slice(0, 300),
     }
     const { data: gravado, error: gravarError } = await admin.from('evento_aceites').insert(linha)
-      .select('id, aceito_em').single()
+      .select('id, aceito_em, texto_hash').single()
     if (gravarError) {
       console.error('[aceite-evento]', eventId, gravarError.message)
       return json(500, { error: 'Não foi possível registrar o aceite' })
