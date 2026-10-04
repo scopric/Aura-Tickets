@@ -8,7 +8,10 @@ export async function reduzirPlanta(arquivo: Blob, maxLado = 1600, alvoBytes = 3
   const c = document.createElement('canvas')
   c.width = Math.round(img.width * k)
   c.height = Math.round(img.height * k)
-  c.getContext('2d')!.drawImage(img, 0, 0, c.width, c.height)
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = '#fff' // fundo branco: no fallback jpeg (Safari) o transparente viraria preto
+  ctx.fillRect(0, 0, c.width, c.height)
+  ctx.drawImage(img, 0, 0, c.width, c.height)
   img.close()
   let tipo = 'image/webp'
   for (let q = 0.8; ; q -= 0.1) {

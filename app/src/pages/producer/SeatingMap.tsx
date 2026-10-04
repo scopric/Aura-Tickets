@@ -334,10 +334,11 @@ const montarFundo = (image: string | null, scale: number, offset: { x: number; y
 const instantaneo = (envs: Environment[], fundo: ReturnType<typeof montarFundo>) => JSON.stringify({ envs, fundo })
 
 export default function SeatingMap() {
-  const { data: eventos = [], isLoading: carregandoEventos } = useProducerEvents()
+  const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
   const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
   // Mapa carregado do evento escolhido e salvo por último (para o aviso de alterações não salvas)
   const [pronto, setPronto] = useState(false)
+  const [erroMapa, setErroMapa] = useState(false)
   const [salvo, setSalvo] = useState<string | null>(null)
 
   // Environments (múltiplos espaços)
@@ -557,6 +558,7 @@ export default function SeatingMap() {
     let cancelado = false
     const iniciais = novosPavimentos()
     setPronto(false)
+    setErroMapa(false)
     setSalvo(null)
     setEnvironments(iniciais)
     setActiveEnv(0)
@@ -582,6 +584,7 @@ export default function SeatingMap() {
 
       // Com erro de leitura o mapa não fica pronto: Salvar fica travado para não gravar um mapa vazio por cima do real
       if (error) {
+        setErroMapa(true)
         toast.error(`Erro ao carregar mapa: ${error.message}`)
         return
       }
@@ -617,7 +620,7 @@ export default function SeatingMap() {
           const cfg = data.config as any
           if (cfg.zoom) setZoom(cfg.zoom)
           if (cfg.pan) setPan(cfg.pan)
-          if (typeof cfg.background?.image === 'string') {
+          if (typeof cfg.background?.image === 'string' && cfg.background.image.startsWith('data:image/')) {
             const bg = cfg.background
             fundo = montarFundo(bg.image, bg.scale ?? fundoPadrao.scale, bg.offset ?? fundoPadrao.offset, bg.opacity ?? fundoPadrao.opacity)
             setBgImage(fundo!.image)
@@ -659,13 +662,17 @@ export default function SeatingMap() {
 
   const confirmarSaida = () => !sujo || window.confirm('Há alterações não salvas neste mapa. Sair mesmo assim?')
 
+  const eventIdRef = useRef(eventId)
+  eventIdRef.current = eventId
+
   const handleSaveMap = async () => {
     if (!eventId || !pronto) {
       toast.error('Escolha um evento e espere o mapa carregar antes de salvar.')
       return
     }
 
-    const fundo = fundoAtual
+    const fundo = fundoAtual?.image.startsWith('data:image/') ? fundoAtual : null // só planta enviada pelo produtor vai ao banco
+    const evento = eventId
     const { error } = await supabase
       .from('seating_maps')
       .upsert({
@@ -678,7 +685,8 @@ export default function SeatingMap() {
     if (error) {
       toast.error(`Não foi possível salvar o mapa: ${error.message}`, { duration: 6500 })
     } else {
-      setSalvo(instantaneo(environments, fundo))
+      // Se trocou de evento durante o salvamento, o "salvo" já é de outro mapa: não mexe nele
+      if (evento === eventIdRef.current) setSalvo(instantaneo(environments, fundo))
       toast.success('Mapa de assentos salvo!')
     }
   }
@@ -2271,7 +2279,7 @@ export default function SeatingMap() {
     return () => {
       canvas.removeEventListener('wheel', handleWheelNative)
     }
-  }, [pixelsPerMeter])
+  }, [pixelsPerMeter, eventId]) // eventId: sem evento a tela é a de escolha e o canvas ainda não existe
 
   // Ocultar a barra de rolagem global do body e html e resetar scroll ao carregar
   useEffect(() => {
@@ -2382,8 +2390,9 @@ export default function SeatingMap() {
       <div className="painel-produtor flex h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
         <h1 className="text-base font-semibold">Editor de mapa</h1>
         <p className="text-sm text-muted-foreground">
-          {carregandoEventos ? 'Carregando seus eventos…' : eventos.length ? 'Escolha o evento cujo mapa você quer editar.' : 'Crie um evento antes de montar o mapa.'}
+          {carregandoEventos ? 'Carregando seus eventos…' : erroEventos ? 'Não consegui carregar seus eventos.' : eventos.length ? 'Escolha o evento cujo mapa você quer editar.' : 'Crie um evento antes de montar o mapa.'}
         </p>
+        {erroEventos && <button onClick={() => recarregarEventos()} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">Tentar de novo</button>}
         {eventos.length > 0 && seletorEvento}
         <Link to={voltarPara} className="text-sm text-primary underline">Voltar ao painel</Link>
       </div>
@@ -2506,6 +2515,12 @@ export default function SeatingMap() {
           </label>
         </div>
       </header>
+
+      {erroMapa && (
+        <div role="alert" className="w-full flex-shrink-0 border-b border-border bg-amber-50 px-6 py-2 text-xs text-amber-900">
+          O mapa não carregou; recarregue antes de editar. Enquanto isso o botão Salvar fica travado.
+        </div>
+      )}
 
       {/* PAVIMENTOS / AMBIENTES */}
       <div className="w-full max-w-full flex items-center gap-2 px-3 md:px-6 py-2 border-b border-border bg-background text-foreground overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
