@@ -28,7 +28,8 @@ test.describe('admin com conta demo (DEV)', () => {
     await expect(page.getByText(/Nenhum usuário encontrado/)).toBeVisible({ timeout: 15000 })
     for (const t of FICTICIOS) await expect(page.getByText(t)).toHaveCount(0)
     await page.goto(`${ALPHA}/admin/events`)
-    await expect(page.locator('table')).toBeVisible({ timeout: 15000 })
+    // sem eventos a tela mostra só o estado vazio (sem tabela)
+    await expect(page.locator('table').or(page.getByText('Nenhum evento nesta categoria.'))).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('alert')).toHaveCount(0)
     await expect(page.getByText('Produtor Teste')).toHaveCount(0) // exemplo do código só apareceria se a consulta falhasse
   })
@@ -52,11 +53,12 @@ test.describe('admin com conta real', () => {
     await expect(page.locator('tbody').getByText(email!)).toBeVisible({ timeout: 15000 }) // só na tabela: a barra lateral também mostra o e-mail
     await page.goto(`${ALPHA}/admin/events`)
     await expect(page.getByRole('alert')).toHaveCount(0)
-    await expect(page.locator('tbody tr').first()).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('table').or(page.getByText('Nenhum evento nesta categoria.'))).toBeVisible({ timeout: 15000 })
     // A1b: painel de detalhes do evento (a barra lateral também tem "Ingressos", por isso o escopo no dialog)
     // Com o banco sem eventos (os de teste foram apagados em 28/09), a tabela mostra só o estado vazio
     const detalhes = page.getByRole('button', { name: 'Ver detalhes do evento' })
     if (await detalhes.count()) {
+      await expect(page.locator('tbody tr').first()).toBeVisible()
       await detalhes.first().click()
       await expect(page.getByRole('dialog')).toContainText('Ingressos')
       await page.keyboard.press('Escape')

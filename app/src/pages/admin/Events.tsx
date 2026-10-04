@@ -227,7 +227,7 @@ export default function AdminEvents() {
                         onClick={() => handleToggleFeatured(e.id, !!e.featured_carousel)}
                         disabled={e.approval_status !== 'approved'}
                         aria-pressed={!!e.featured_carousel}
-                        aria-label={e.featured_carousel ? 'Remover do carrossel' : 'Destacar no carrossel'}
+                        aria-label="Destaque no carrossel"
                         title={e.featured_carousel ? 'Remover do carrossel' : 'Destacar no carrossel'}
                         className={e.featured_carousel ? 'text-primary hover:text-primary' : undefined}
                       >

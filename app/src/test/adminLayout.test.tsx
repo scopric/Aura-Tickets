@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AdminLayout from '../components/AdminLayout'
 
-let permissoes: string[] = ['manage_events']
+let permissoes: string[] | undefined = ['manage_events']
 vi.mock('../hooks/useAuth', () => ({
   useAuth: () => ({ user: { id: 'u1', name: 'Ricardo', email: 'r@x.com', admin_permissions: permissoes }, logout: vi.fn() }),
 }))
@@ -44,6 +44,21 @@ describe('AdminLayout (V12a): casca com tokens, mesma regra de acesso', () => {
     permissoes = ['super_admin']
     montar()
     expect(screen.getByRole('navigation', { name: 'Menu do admin' }).querySelectorAll('a')).toHaveLength(18)
+  })
+
+  it('usuário sem admin_permissions vê só o que não exige permissão', () => {
+    permissoes = undefined
+    montar()
+    const nomes = Array.from(screen.getByRole('navigation', { name: 'Menu do admin' }).querySelectorAll('a')).map(a => a.textContent)
+    expect(nomes).toEqual(['Dashboard', 'Meu cadastro'])
+  })
+
+  it('Esc fecha a gaveta e devolve o foco ao botão de menu', () => {
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir menu' }))
+    expect(screen.getByRole('link', { name: 'Dashboard' })).toHaveFocus() // abriu: foco no 1º item
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.getByRole('button', { name: 'Abrir menu' })).toHaveFocus()
   })
 
   it('recolher vira trilho (itens só com ícone, mas com nome acessível) e expandir volta', () => {

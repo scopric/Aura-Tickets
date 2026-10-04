@@ -162,7 +162,7 @@ export default function AdminProducers() {
             <thead>
               <tr className="border-b border-border">
                 {['Produtor', 'Empresa / CNPJ', 'Eventos', 'Verificação', 'Cadastro', ''].map((h, i) => (
-                  <th key={i} className={cn(th, i === 1 ? 'hidden md:table-cell' : i === 2 || i === 4 ? 'hidden lg:table-cell' : '')}>{h}</th>
+                  <th key={i} className={cn(th, i === 1 ? 'hidden md:table-cell' : i === 2 || i === 4 ? 'hidden lg:table-cell' : '')}>{h || <span className="sr-only">Ações</span>}</th>
                 ))}
               </tr>
             </thead>

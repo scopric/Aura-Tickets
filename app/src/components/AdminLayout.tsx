@@ -134,7 +134,7 @@ export default function AdminLayout() {
   const avatar = user?.avatar_url || user?.avatar || '/images/logo-evokaa-sm.png'
 
   return (
-    <div className="flex min-h-screen glass-canvas">
+    <div className="flex min-h-screen glass-canvas bg-background bg-none">
       {mobileOpen && (
         <div
           className="fixed inset-0 glass-backdrop z-40 lg:hidden"
@@ -221,7 +221,7 @@ export default function AdminLayout() {
             </div>
           )}
 
-          <ThemeToggle collapsed={collapsed} />
+          <div className={cn(collapsed && 'flex justify-center')}><ThemeToggle collapsed={collapsed} /></div>
           <button
             type="button"
             onClick={handleLogout}

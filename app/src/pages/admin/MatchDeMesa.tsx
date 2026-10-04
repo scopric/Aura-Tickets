@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
 import { EmptyState, PageHeader, selectNativo } from '@/components/producer/ui'
 import { alertaAviso, alertaErro, chipAviso, chipInfo, painel } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
@@ -21,8 +22,6 @@ type Aba = 'fotos' | 'denuncias' | 'remocoes'
 
 const dataBr = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 const cartao = `${painel} p-4`
-// campo de texto das caixas de resolução (mesmo desenho do Input, 14 px)
-const campoTexto = 'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 const carregando = <div className="flex justify-center py-16"><Spinner className="size-6 text-primary" /></div>
 // só a foto que o app grava vira <img> e pode ser aprovada; outra coisa só pode ser recusada
 const jpeg = (foto: string) => foto.startsWith('data:image/jpeg;base64,')
@@ -129,7 +128,7 @@ function Fotos({ mfa }: { mfa: Mfa }) {
       )}
       {itens.length === 0 && <EmptyState title="Nenhuma foto esperando revisão." />}
       {itens.map(f => (
-        <div key={f.id} className={`${cartao} flex flex-wrap items-center gap-4`}>
+        <div key={f.id} data-foto className={`${cartao} flex flex-wrap items-center gap-4`}>
           {/* só a foto que o app grava (base64 JPEG); qualquer outra coisa não vira <img> */}
           {jpeg(f.foto)
             ? <img src={f.foto} alt={`Foto de ${f.nome ?? 'perfil'}`} className="size-20 rounded-xl object-cover" />
@@ -227,8 +226,7 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
               </fieldset>
               <label className="block">
                 <span className="text-xs text-muted-foreground">Explique por que está resolvida (obrigatório, de {EXPLICACAO_MIN} a {EXPLICACAO_MAX} caracteres)</span>
-                <textarea value={explicacao} onChange={e => setExplicacao(e.target.value)} maxLength={EXPLICACAO_MAX} rows={3}
-                  className={`${campoTexto} mt-1`} />
+                <Textarea value={explicacao} onChange={e => setExplicacao(e.target.value)} maxLength={EXPLICACAO_MAX} rows={3} className="mt-1" />
               </label>
               <p id={`resolver-falta-${d.id}`} aria-live="polite" className="text-xs text-[var(--ev-warning)]">{falta}</p>
               <div className="flex gap-2">

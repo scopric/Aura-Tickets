@@ -272,7 +272,7 @@ export default function Atendimento() {
   }
 
   return (
-    <div className="relative flex h-[calc(100dvh-4rem)] overflow-hidden border-t border-border bg-background text-foreground">
+    <div className="relative flex h-[calc(100dvh-3.5rem)] lg:h-[calc(100dvh-2.5rem)] overflow-hidden border-t border-border bg-background text-foreground">
       {/* 1. Lista: título, som, filtros (menu) e busca */}
       <div className={`${sel ? 'hidden lg:flex' : 'flex'} w-full shrink-0 flex-col border-r border-border lg:w-80`}>
         <div className="space-y-2 border-b border-border p-3">
