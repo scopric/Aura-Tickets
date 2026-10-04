@@ -66,6 +66,7 @@ const gravados: string[] = []
 const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empresa?: boolean; cortado?: number } = {}) => {
   tabelas.events = () => ({ data: eventos, error: null })
   tabelas.producer_profiles = () => ({ data: opcoes.empresa ? { company_name: 'Seda' } : null, error: opcoes.empresa ? null : { code: '42501' } })
+  tabelas.profiles = () => ({ data: { full_name: 'Fulano de Tal' }, error: null })
   tabelas.orders = pedidos(p, opcoes.cortado)
   tabelas.tickets = ingressos(i, false, opcoes.cortado)
   gravados.length = 0
@@ -274,6 +275,14 @@ describe('Início do produtor', () => {
     montar()
     expect(await screen.findByRole('button', { name: 'Tentar de novo' }, { timeout: 4000 })).toBeTruthy()
     expect(screen.queryByRole('tab')).toBeNull()
+  })
+
+  it('empresa com o nome da própria pessoa (valor de nascença) não conta como perfil preenchido', async () => {
+    preparar([e1], [], [], { empresa: true })
+    tabelas.producer_profiles = () => ({ data: { company_name: 'Fulano de Tal' }, error: null })
+    montar()
+    await screen.findByText('[TESTE] Show', { selector: 'h3' })
+    expect(await screen.findByText('Preencher o perfil da empresa')).toBeTruthy()
   })
 
   it('perfil com erro de rede: sem checklist (não finge "perfil não preenchido")', async () => {

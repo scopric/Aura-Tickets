@@ -9,7 +9,7 @@ import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
-import { formatCNPJ } from '../../lib/formatters'
+import { formatCNPJ, cnpjValido } from '../../lib/formatters'
 import { PageHeader, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -83,16 +83,19 @@ export default function ProducerSettings() {
     marketingEmails: false, pushEnabled: true, smsEnabled: false,
   })
 
-  // Sincronizar estado local com dados do Supabase
+  // Sincroniza com o servidor só na 1ª carga: depois de cada salvamento o cache é refeito e o reset
+  // apagaria o que foi digitado e ainda não salvo em outra aba/seção.
+  const sincronizado = useRef(false)
   useEffect(() => {
-    if (data) {
+    if (data && !sincronizado.current) {
+      sincronizado.current = true
       setProfile({
         name: data.profile.full_name || '',
         email: data.profile.email || '',
         phone: data.profile.phone || '',
         bio: data.profile.bio || '',
         company: data.producer_profile?.company_name || '',
-        cnpj: data.producer_profile?.cnpj ? formatCNPJ(data.producer_profile.cnpj) : '',
+        cnpj: data.producer_profile?.cnpj && !data.producer_profile.cnpj.startsWith('PENDENTE-') ? formatCNPJ(data.producer_profile.cnpj) : '', // PENDENTE-<id>: criado pelo admin, ainda sem CNPJ
         website: data.profile.website || '',
         instagram: data.profile.instagram || '',
         tiktok: data.profile.tiktok || '',
@@ -140,14 +143,16 @@ export default function ProducerSettings() {
   }
 
   const handleSaveCompany = async () => {
+    if (!profile.company.trim()) { toast.error('Informe a razão social'); return }
+    if (profile.cnpj && !cnpjValido(profile.cnpj)) { toast.error('CNPJ inválido: confira os números'); return }
     try {
       await saveProducerProfile({
-        company_name: profile.company,
+        company_name: profile.company.trim(),
         cnpj: profile.cnpj.replace(/\D/g, '') || null, // vazio é null: a UNIQUE não aceita dois ''
       })
       toast.success('Dados da empresa atualizados com sucesso!')
-    } catch {
-      toast.error('Erro ao salvar dados da empresa')
+    } catch (e) {
+      toast.error((e as { code?: string })?.code === '23505' ? 'Este CNPJ já está cadastrado em outra conta' : 'Erro ao salvar dados da empresa')
     }
   }
 
@@ -315,7 +320,7 @@ export default function ProducerSettings() {
           {/* PERFIL */}
           {section === 'perfil' && (
             <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
-              <SectionTitle>Perfil público</SectionTitle>
+              <SectionTitle>Perfil</SectionTitle>
 
               <div className="flex items-center gap-4">
                 <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} aria-label="Escolher foto" />

@@ -127,7 +127,8 @@ export function useProducerSettings() {
       if (!user?.id) throw new Error('Usuário não autenticado')
       const { error } = await supabase
         .from('producer_profiles')
-        .upsert({ id: user.id, ...payload }, { onConflict: 'id' })
+        .update(payload) // a linha já existe (criada na leitura); upsert faria INSERT sem company_name e falharia (23502)
+        .eq('id', user.id)
       if (error) throw error
     },
     onSuccess: () => {
