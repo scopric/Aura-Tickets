@@ -87,7 +87,7 @@ export default function ProducerEvents() {
     return (
       <div aria-busy="true">
         {header}
-        <Skeleton className="h-9 w-full max-w-md rounded-md bg-muted" />
+        <Skeleton className="h-10 w-full max-w-md rounded-md bg-muted" />
         <div className="mt-4 space-y-2">
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[72px] rounded-[10px] bg-muted" />)}
         </div>
