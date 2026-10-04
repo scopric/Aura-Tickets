@@ -17,7 +17,7 @@ describe('Admin: produtores', () => {
     render(<AdminProducers />)
     expect(await screen.findByText('Bia Eventos')).toBeInTheDocument()
     expect(screen.getByText('CNPJ a preencher')).toBeInTheDocument()
-    expect(screen.getByText('aguardando o produtor completar o cadastro')).toBeInTheDocument()
+    expect(screen.getByText('aguardando cadastro do produtor')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Completar cadastro' })).toBeNull()
   })
 })

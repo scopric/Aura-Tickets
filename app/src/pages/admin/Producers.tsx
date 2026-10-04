@@ -181,7 +181,7 @@ export default function AdminProducers() {
                     <td className="hidden px-4 py-3 text-xs tabular-nums text-muted-foreground lg:table-cell">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!c && <span className="text-xs text-muted-foreground">aguardando o produtor completar o cadastro</span>}
+                        {!c && <span className="whitespace-nowrap text-xs text-muted-foreground">aguardando cadastro do produtor</span>}
                         <Button
                           variant="outline"
                           size="sm"

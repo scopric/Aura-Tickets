@@ -43,7 +43,7 @@ for (const v of VARIANTES) {
       await expect(page.getByRole('heading', { name: 'Produtores' })).toBeVisible()
       await expect(page.getByText('Algo deu errado')).toHaveCount(0)
       if (v.w > 800) await expect(page.getByText('CNPJ a preencher')).toBeVisible()
-      await expect(page.getByText('aguardando o produtor completar o cadastro')).toBeVisible()
+      await expect(page.getByText('aguardando cadastro do produtor')).toBeVisible()
       await expect(page.getByRole('button', { name: /Completar cadastro/ })).toHaveCount(0)
       await shot(page, `1-${v.nome}`)
     })
