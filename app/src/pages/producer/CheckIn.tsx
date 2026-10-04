@@ -13,12 +13,11 @@ import { iniciais } from '../../hooks/useConversas'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
-import { codigoCompleto, EXEMPLO_CODIGO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
+import { codigoCompleto, codigoCurto, EXEMPLO_CODIGO, LEITURA_CODIGO_CURTO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
 
 interface TicketCheck {
   id: string
   name: string
-  email: string
   ticketType: string
   ticketCode: string
   status: 'pendente' | 'usado' | 'cancelado' | 'transferido'
@@ -53,7 +52,8 @@ export default function ProducerCheckIn() {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const eventoAtual = useRef('') // descarta resposta de evento que já não está na tela
-  const emVoo = useRef<string | null>(null) // código sendo validado: a mesma leitura não dispara duas vezes
+  const emVoo = useRef(new Set<string>()) // códigos sendo validados: a mesma leitura não dispara duas vezes
+  const ultimaLeitura = useRef(0) // só a leitura mais recente troca o cartão (resposta atrasada não)
   const cartaoRef = useRef<HTMLDivElement>(null)
 
   // Mapear eventos ativos
@@ -80,7 +80,6 @@ export default function ProducerCheckIn() {
     return {
       id: dbTicket.id,
       name: dbTicket.buyer_name || 'Participante',
-      email: dbTicket.buyer_email || '',
       ticketType: dbTicket.ticket_types?.name || 'Ingresso Comum',
       ticketCode: dbTicket.qr_code,
       status: checkStatus,
@@ -90,11 +89,8 @@ export default function ProducerCheckIn() {
     }
   }
 
-  // Carregar ingressos do evento selecionado. Números: contagem no servidor (a lista é limitada a 1000 linhas);
-  // silencioso = atualização automática (sem esqueleto nem aviso a cada falha).
-  const loadTickets = async (eventId: string, silencioso = false) => {
-    if (!eventId) return
-    if (!silencioso) setIsLoadingTickets(true)
+  // Números: contagem no servidor (a lista é limitada a 1000 linhas)
+  const contarIngressos = async (eventId: string) => {
     const contar = async (status?: string[]) => {
       let q = supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', eventId)
       if (status) q = q.in('status', status)
@@ -102,23 +98,32 @@ export default function ProducerCheckIn() {
       if (error) throw error
       return count ?? 0
     }
+    const [total, usados, cancelados, transferidos] = await Promise.all([contar(), contar(['used']), contar(['cancelled', 'refunded']), contar(['transferred'])])
+    return { total, usados, cancelados, transferidos }
+  }
+
+  // Carregar ingressos do evento selecionado.
+  // silencioso = atualização automática (sem esqueleto nem aviso a cada falha).
+  const loadTickets = async (eventId: string, silencioso = false) => {
+    if (!eventId) return
+    if (!silencioso) setIsLoadingTickets(true)
     try {
-      const [lista, total, usados, cancelados, transferidos] = await Promise.all([
+      const [lista, contagemNova] = await Promise.all([
         supabase.from('tickets')
           .select(`
-            id, buyer_name, buyer_email, qr_code, status, checked_in_at,
+            id, buyer_name, qr_code, status, checked_in_at,
             ticket_types (name),
             events (title)
           `)
           .eq('event_id', eventId)
           .order('created_at', { ascending: false })
           .range(0, LIMITE_LISTA - 1),
-        contar(), contar(['used']), contar(['cancelled', 'refunded']), contar(['transferred']),
+        contarIngressos(eventId),
       ])
       if (lista.error) throw lista.error
       if (eventoAtual.current !== eventId) return
       setTickets(lista.data.map(mapDbTicketToTicketCheck))
-      setContagem({ total, usados, cancelados, transferidos })
+      setContagem(contagemNova)
       setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
     } catch (err: any) {
       console.error('Erro ao carregar ingressos:', err)
@@ -150,8 +155,15 @@ export default function ProducerCheckIn() {
   // Escanear/validar ingresso na Edge Function
   const handleScan = async (code: string) => {
     const codigo = code.trim()
-    if (!codigo || !selectedEventId || emVoo.current === codigo) return
-    emVoo.current = codigo
+    if (!codigo || !selectedEventId || emVoo.current.has(codigo)) return
+    const minha = ++ultimaLeitura.current
+    // formato do e-mail (8 caracteres, traço, 1): o ingresso não se acha por prefixo
+    if (codigoCurto(codigo)) {
+      toast.warning(LEITURA_CODIGO_CURTO.mensagem)
+      setLastScan({ ticket: { id: '', name: 'Código incompleto', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '-', eventName: '' }, leitura: LEITURA_CODIGO_CURTO })
+      return
+    }
+    emVoo.current.add(codigo)
     const achado = tickets.find(t => t.ticketCode === codigo)
     const evento = selectedEventId
 
@@ -178,11 +190,10 @@ export default function ProducerCheckIn() {
       else toast.warning(leitura.mensagem)
 
       const nome = leitura.falha ? 'Leitura não concluída' : (achado?.name || dados.buyerName || (leitura.tom === 'ok' ? 'Participante' : 'Ingresso Inválido'))
-      setLastScan({
+      if (minha === ultimaLeitura.current) setLastScan({
         ticket: {
           id: achado?.id ?? '',
           name: nome,
-          email: '',
           ticketType: achado?.ticketType || dados.ticketType || '',
           ticketCode: codigo,
           status: 'pendente',
@@ -192,19 +203,23 @@ export default function ProducerCheckIn() {
         },
         leitura,
       })
-      // Conferiu no servidor (entrou ou já tinha entrado): atualiza lista e números
-      if (!leitura.falha) loadTickets(evento, true)
+      // Conferiu no servidor (entrou ou já tinha entrado): atualiza só este item e refaz só as contagens
+      if (leitura.tom === 'ok' || leitura.rotulo === 'Já usado') {
+        const quando = dados.checkedInAt ? hora(dados.checkedInAt) : null
+        setTickets(ts => ts.map(t => t.ticketCode === codigo ? { ...t, status: 'usado', checkInTime: quando ?? (leitura.tom === 'ok' ? hora(new Date().toISOString()) : t.checkInTime) } : t))
+      }
+      if (!leitura.falha) contarIngressos(evento).then(c => { if (eventoAtual.current === evento) setContagem(c) }).catch(() => {})
     } catch (err: any) {
       console.error('Erro ao validar check-in:', err)
       if (eventoAtual.current !== evento) return
       const leitura = motivoLeitura({})
       toast.error(leitura.mensagem)
-      setLastScan({
-        ticket: { id: '', name: 'Leitura não concluída', email: '', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '', eventName: '' },
+      if (minha === ultimaLeitura.current) setLastScan({
+        ticket: { id: '', name: 'Leitura não concluída', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '', eventName: '' },
         leitura,
       })
     } finally {
-      emVoo.current = null
+      emVoo.current.delete(codigo)
     }
   }
 

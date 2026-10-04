@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import ProducerCheckIn from '../pages/producer/CheckIn'
-import { codigoCompleto, EXEMPLO_CODIGO, motivoLeitura, normalizarCodigo } from '../lib/checkin'
+import { codigoCompleto, codigoCurto, EXEMPLO_CODIGO, motivoLeitura, normalizarCodigo } from '../lib/checkin'
 
 const invoke = vi.fn()
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [{ id: 'e1', title: 'No ar', status: 'published' }], isLoading: false }) }))
@@ -25,6 +25,12 @@ describe('formato do código', () => {
     expect(codigoCompleto('3f2504e0-4')).toBe(false)
     expect(codigoCompleto('AUR-XXXX-001')).toBe(false)
     expect(codigoCompleto(EXEMPLO_CODIGO)).toBe(true)
+  })
+  it('código curto do e-mail (8 hex, traço, 1 hex, maiúsculas) é reconhecido; uuid e texto livre não', () => {
+    expect(codigoCurto(UUID.slice(0, 10).toUpperCase())).toBe(true)
+    expect(codigoCurto('3F2504E0-4')).toBe(true)
+    expect(codigoCurto(UUID)).toBe(false)
+    expect(codigoCurto('ABC123')).toBe(false)
   })
   it('leitor com Caps Lock: uuid vira minúsculo; texto livre fica como veio', () => {
     expect(normalizarCodigo(` ${UUID.toUpperCase()} `)).toBe(UUID)
@@ -80,6 +86,32 @@ describe('campo do Scanner', () => {
     // o Enter que o leitor manda no fim da leitura não dispara de novo
     await u.type(campo, '{Enter}')
     expect(invoke).toHaveBeenCalledTimes(1)
+  })
+
+  it('a trava: a mesma leitura com a 1ª ainda pendente chama o servidor uma vez só', async () => {
+    let liberar!: (v: unknown) => void
+    invoke.mockReturnValue(new Promise(r => { liberar = r }))
+    const u = userEvent.setup()
+    render(<MemoryRouter><ProducerCheckIn /></MemoryRouter>)
+    const campo = screen.getByLabelText('Código do ingresso')
+    await u.type(campo, UUID)
+    await u.type(campo, UUID)
+    const chamadas = invoke.mock.calls.length // conferida depois de liberar a pendente, para o teste não ficar preso se a trava faltar
+    liberar({ data: { valid: true, message: 'Check-in realizado com sucesso!' }, error: null })
+    await waitFor(() => expect(screen.getByText('Acesso Permitido')).toBeInTheDocument())
+    expect(chamadas).toBe(1)
+    // terminada a 1ª, o código volta a poder ser lido
+    await u.type(campo, UUID)
+    expect(invoke).toHaveBeenCalledTimes(2)
+  })
+
+  it('código curto do e-mail: avisa para usar o código completo, sem chamar o servidor', async () => {
+    const u = userEvent.setup()
+    render(<MemoryRouter><ProducerCheckIn /></MemoryRouter>)
+    await u.type(screen.getByLabelText('Código do ingresso'), '3F2504E0-4{Enter}')
+    expect(await screen.findByText('Código curto: use o código completo do e-mail ou o QR do app')).toBeInTheDocument()
+    expect(screen.queryByText('Inválido')).toBeNull()
+    expect(invoke).not.toHaveBeenCalled()
   })
 
   it('Enter valida o que foi digitado, e o servidor diz que é inválido', async () => {

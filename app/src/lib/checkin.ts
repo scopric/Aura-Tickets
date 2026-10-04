@@ -4,6 +4,10 @@
 const CODIGO_INGRESSO = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 export const EXEMPLO_CODIGO = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 
+// Código do e-mail de entrega (send-email: qr_code.substring(0, 10).toUpperCase()): 8 hex, traço, 1 hex
+const CODIGO_CURTO = /^[0-9a-f]{8}-[0-9a-f]$/i
+export const codigoCurto = (s: string) => CODIGO_CURTO.test(s.trim())
+
 export const codigoCompleto = (s: string) => CODIGO_INGRESSO.test(s.trim())
 
 // Leitor com Caps Lock manda maiúsculas e a busca no banco diferencia: o formato real é sempre minúsculo
@@ -16,6 +20,8 @@ export interface RespostaLeitura {
   checkedInAt?: string | null
 }
 export interface Leitura { tom: 'ok' | 'aviso' | 'erro'; rotulo: string; mensagem: string; falha?: boolean }
+
+export const LEITURA_CODIGO_CURTO: Leitura = { tom: 'erro', rotulo: 'Código curto', mensagem: 'Código curto: use o código completo do e-mail ou o QR do app' }
 
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
