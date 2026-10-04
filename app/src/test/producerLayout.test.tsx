@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
-import { Link, MemoryRouter, Route, Routes } from 'react-router-dom'
+import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
 
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { name: 'Ricardo', email: 'r@x.com' }, logout: vi.fn() }) }))
-vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => vi.fn() }))
+const { registrar } = vi.hoisted(() => ({ registrar: vi.fn() }))
+vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => registrar }))
 vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
 vi.mock('../components/EvoHub', () => ({ default: () => null }))
 vi.mock('../components/FeedbackTopButton', () => ({ default: () => null }))
@@ -15,20 +16,21 @@ vi.mock('../components/producer/BarraCelular', () => ({ default: () => <nav aria
 const mediaQuery = (celular: boolean) => (q: string) => ({ matches: q.includes('max-width') ? celular : true, addEventListener: () => {}, removeEventListener: () => {} })
 vi.stubGlobal('matchMedia', mediaQuery(false))
 
+const Local = () => { const l = useLocation(); return <p data-testid="local">{l.pathname + l.search}</p> }
 const montar = (url: string) =>
   render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route element={<ProducerLayout />}>
           <Route path="/producer/dashboard" element={<><h1>Início <input aria-label="campo" /></h1><Link to="/producer/events">ir</Link></>} />
-          <Route path="/producer/events" element={<><h1 data-tour="eventos-criar">Eventos</h1><Link to="/producer/dashboard">voltar</Link></>} />
+          <Route path="/producer/events" element={<><h1 data-tour="eventos-criar">Eventos</h1><Local /><Link to="/producer/dashboard">voltar</Link></>} />
         </Route>
       </Routes>
     </MemoryRouter>,
   )
 
 describe('ProducerLayout com a lateral nova', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); registrar.mockClear() })
 
   it('mantém a raiz .painel-produtor e o menu com nome', () => {
     const { container } = montar('/producer/dashboard')
@@ -122,5 +124,22 @@ describe('ProducerLayout com a lateral nova', () => {
     const { container } = montar('/producer/dashboard')
     expect(document.getElementById('produtor-menu')!.className).toContain('max-md:hidden')
     expect(container.innerHTML).toContain('max-md:pb-[calc(var(--barra-cel,0px)+6rem)]')
+  })
+
+  it('?tour=eventos + Esc: grava tour:eventos como pulado, foco no h1 e só o tour sai da URL', () => {
+    montar('/producer/events?tour=eventos&x=1')
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(registrar).toHaveBeenCalledWith('tour:eventos', { skipped: true })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByRole('heading', { name: 'Eventos' })).toHaveFocus()
+    expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?x=1')
+  })
+
+  it('?tour= de outra tela: não abre, não grava e só o tour sai da URL', () => {
+    montar('/producer/events?tour=inicio&y=2')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(registrar).not.toHaveBeenCalled()
+    expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?y=2')
   })
 })
