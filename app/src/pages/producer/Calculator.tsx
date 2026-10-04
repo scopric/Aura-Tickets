@@ -102,7 +102,7 @@ function SplitCalc() {
     <Cartao titulo="Divisão de conta" descricao="Divida um valor entre pessoas da equipe">
       <div className="grid grid-cols-2 gap-3">
         <Campo id="div-total" label="Total (R$)" value={total} onChange={e => setTotal(e.target.value)} placeholder="0,00" />
-        <Campo id="div-pessoas" label="Pessoas" inputMode="numeric" min={2} value={people || ''} onChange={e => setPeople(e.target.value)} placeholder="2" />
+        <Campo id="div-pessoas" label="Pessoas" inputMode="numeric" min={2} max={500} step={1} value={people || ''} onChange={e => setPeople(e.target.value)} placeholder="2" />
       </div>
       <div className="grid gap-1.5">
         <span id="div-gorjeta" className="text-sm font-medium text-foreground">Gorjeta ou taxa</span>
@@ -190,7 +190,7 @@ function ProjectionCalc() {
           <Linha label="Receita" valor={brl(alt.receita)} />
           <Linha label="Lucro" valor={<span className={neg(alt.lucro)}>{brl(alt.lucro)}</span>} />
           <Linha label="Margem" valor={<span className={neg(alt.margem)}>{pct(alt.margem)}</span>} />
-          <Linha label="Equilíbrio" valor={`${alt.equilibrio.toLocaleString('pt-BR')} ingressos`} />
+          <Linha label="Equilíbrio" valor={`${alt.equilibrio.toLocaleString('pt-BR')} ${alt.equilibrio === 1 ? 'ingresso' : 'ingressos'}`} />
         </div>
       )}
     </Cartao>
