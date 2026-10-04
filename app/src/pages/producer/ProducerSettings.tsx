@@ -439,7 +439,7 @@ export default function ProducerSettings() {
               </section>
 
               <section className="rounded-[10px] border border-destructive/40 bg-card p-4 sm:p-6">
-                <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-5 text-destructive"><I.Alerta aria-hidden="true" className="size-4" />Zona de perigo</h2>
+                <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-5 tracking-normal text-destructive"><I.Alerta aria-hidden="true" className="size-4" />Zona de perigo</h2>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-foreground">Excluir conta</p>
