@@ -645,7 +645,8 @@ export default function SeatingMap() {
     return () => { cancelado = true }
   }, [eventId])
 
-  const fundoAtual = montarFundo(bgImage, bgScale, bgOffset, bgOpacity)
+  // só planta enviada pelo produtor (data:image/) conta para o banco e para o "alterado"
+  const fundoAtual = bgImage?.startsWith('data:image/') ? montarFundo(bgImage, bgScale, bgOffset, bgOpacity) : null
   // Alterado desde o último mapa carregado ou salvo (JSON do mapa inteiro, recalculado só quando ele muda)
   const sujo = useMemo(
     () => pronto && salvo !== null && instantaneo(environments, fundoAtual) !== salvo,
@@ -671,7 +672,7 @@ export default function SeatingMap() {
       return
     }
 
-    const fundo = fundoAtual?.image.startsWith('data:image/') ? fundoAtual : null // só planta enviada pelo produtor vai ao banco
+    const fundo = fundoAtual
     const evento = eventId
     const { error } = await supabase
       .from('seating_maps')

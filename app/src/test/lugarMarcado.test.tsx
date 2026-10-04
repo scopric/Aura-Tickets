@@ -176,6 +176,22 @@ describe('Lugar marcado: carga e erros', () => {
     expect(h.upsert.mock.calls[0][0].config.background).toBeNull()
   })
 
+  it('planta externa na tela (PDF falso) + salvar: grava sem planta e não fica "alterado"', async () => {
+    h.eventos = dois
+    montar('/producer/seating?eventId=e1')
+    const salvar = await screen.findByRole('button', { name: /Salvar/ })
+    await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    const pdf = document.querySelector('input[accept=".pdf"]') as HTMLInputElement
+    await act(async () => { fireEvent.change(pdf, { target: { files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] } }) })
+    fireEvent.click(salvar)
+    await waitFor(() => expect(h.upsert).toHaveBeenCalled())
+    expect(h.upsert.mock.calls[0][0].config.background).toBeNull()
+    const ev = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(ev)
+    expect(ev.defaultPrevented).toBe(false)
+  })
+
   it('salvar demorado + troca de evento: o fim do salvamento não marca o mapa novo como alterado', async () => {
     h.eventos = dois
     let termina!: (v: unknown) => void
