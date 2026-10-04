@@ -26,11 +26,12 @@ const LOG_FILTERS: { id: LogFilter; label: string }[] = [
 const LOG_LABEL: Record<string, string> = { login: 'Login', page_view: 'Página', session_start: 'Sessão' }
 
 // Colunas reais das tabelas (conferidas em produção); o PostgREST devolve no máximo 1.000 linhas por consulta
-const EXPORTS: Record<string, { table: string; columns: string[] }> = {
-  Usuários: { table: 'profiles', columns: ['id', 'email', 'full_name', 'role', 'created_at'] },
-  Eventos: { table: 'events', columns: ['id', 'title', 'venue_name', 'venue_city', 'date', 'status', 'approval_status', 'created_at'] },
-  Transações: { table: 'orders', columns: ['id', 'user_id', 'event_id', 'total', 'status', 'payment_method', 'created_at'] },
-  Logs: { table: 'user_activities', columns: ['id', 'user_id', 'session_id', 'event_type', 'path', 'created_at'] },
+// `permission`: Decisão 163 item 8, cada exportação exige a permissão da área (o banco devolve 0 linhas a quem não tem) e o botão some
+const EXPORTS: Record<string, { table: string; columns: string[]; permission: string }> = {
+  Usuários: { table: 'profiles', permission: 'manage_users', columns: ['id', 'email', 'full_name', 'role', 'created_at'] },
+  Eventos: { table: 'events', permission: 'manage_events', columns: ['id', 'title', 'venue_name', 'venue_city', 'date', 'status', 'approval_status', 'created_at'] },
+  Transações: { table: 'orders', permission: 'manage_finance', columns: ['id', 'user_id', 'event_id', 'total', 'status', 'payment_method', 'created_at'] },
+  Logs: { table: 'user_activities', permission: 'view_analytics', columns: ['id', 'user_id', 'session_id', 'event_type', 'path', 'created_at'] },
 }
 
 type Section = 'geral' | 'email' | 'moderacao' | 'backup' | 'logs' | 'seguranca'
@@ -52,6 +53,8 @@ export default function AdminSettingsPage() {
   }
 
   const mfa = useTwoFactor()
+  const permissoes = user?.admin_permissions ?? []
+  const exportacoes = Object.keys(EXPORTS).filter(item => permissoes.includes('super_admin') || permissoes.includes(EXPORTS[item].permission))
 
   const [general, setGeneral] = useState({
     platformName: 'Evokaa',
@@ -413,7 +416,8 @@ export default function AdminSettingsPage() {
                   <h3 className="mb-1 text-sm font-medium text-foreground">Exportar Dados</h3>
                   <p className="mb-4 text-xs text-muted-foreground">Extrato parcial em CSV: só o que a regra de acesso deixa o admin ler</p>
                   <div className="space-y-2">
-                    {Object.keys(EXPORTS).map(item => (
+                    {exportacoes.length === 0 && <p className="text-xs text-muted-foreground">Seu acesso não inclui nenhuma exportação.</p>}
+                    {exportacoes.map(item => (
                       <Button key={item} variant="outline" onClick={() => handleExport(item)} className="w-full justify-between">
                         <span>{item}</span>
                         <span className="text-xs font-medium text-primary">CSV</span>
