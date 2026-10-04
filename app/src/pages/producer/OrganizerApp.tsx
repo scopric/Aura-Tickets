@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { PageHeader } from '@/components/producer/ui'
+import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 
 // Não há app nas lojas: o painel roda no navegador do celular e pode ir para a tela inicial (public/manifest.json).
@@ -27,7 +27,7 @@ export default function OrganizerApp() {
         </p>
       </div>
 
-      <h2 className="mt-8 text-base font-semibold text-foreground">Como colocar na tela inicial</h2>
+      <div className="mt-8"><SectionTitle>Como colocar na tela inicial</SectionTitle></div>
       <ol className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
         {passos.map((p, i) => (
           <li key={p.titulo} className="rounded-[10px] border border-border bg-card p-4">
@@ -38,7 +38,7 @@ export default function OrganizerApp() {
         ))}
       </ol>
 
-      <h2 className="mt-8 text-base font-semibold text-foreground">O que dá para fazer pelo celular</h2>
+      <div className="mt-8"><SectionTitle>O que dá para fazer pelo celular</SectionTitle></div>
       <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
         {usos.map(u => (
           <div key={u.titulo} className="rounded-[10px] border border-border bg-card p-4">

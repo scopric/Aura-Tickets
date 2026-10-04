@@ -2,18 +2,15 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
-import {
-  User, Lock, CreditCard, Bell, Users, Save,
-  Eye, EyeOff, Instagram, Globe,
-  Shield, Smartphone, AlertTriangle, Loader2
-} from 'lucide-react'
+import { Instagram } from 'lucide-react' // sem equivalente na família Evokaa 16 (o lucide marca Instagram como obsoleto: some no lucide 1.0)
+import * as I from '@/components/icones/evokaa16'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
-import { PageHeader, selectNativo } from '@/components/producer/ui'
+import { PageHeader, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,7 +20,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe'
-
 
 export default function ProducerSettings() {
   const {
@@ -118,7 +114,6 @@ export default function ProducerSettings() {
     }
   }, [data])
 
-  const isSaving = isSavingProfile || isSavingProducerProfile
 
   const handleSaveProfile = async () => {
     try {
@@ -249,12 +244,12 @@ export default function ProducerSettings() {
     }
   }
 
-  const sidebarItems: { id: Section; label: string; icon: typeof User }[] = [
-    { id: 'perfil', label: 'Perfil', icon: User },
-    { id: 'conta', label: 'Conta e segurança', icon: Lock },
-    { id: 'pagamento', label: 'Pagamento', icon: CreditCard },
-    { id: 'notificacoes', label: 'Notificações', icon: Bell },
-    { id: 'equipe', label: 'Equipe', icon: Users },
+  const sidebarItems: { id: Section; label: string; icon: I.IconeEvokaa }[] = [
+    { id: 'perfil', label: 'Perfil', icon: I.Conta },
+    { id: 'conta', label: 'Conta e segurança', icon: I.Cadeado },
+    { id: 'pagamento', label: 'Pagamento', icon: I.Cartao },
+    { id: 'notificacoes', label: 'Notificações', icon: I.Notificacoes },
+    { id: 'equipe', label: 'Equipe', icon: I.Equipe },
   ]
 
   const header = <PageHeader title="Configurações" description="Sua conta, seus dados e suas preferências" />
@@ -278,8 +273,8 @@ export default function ProducerSettings() {
         {header}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar as configurações.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
+            Tentar de novo
           </Button>
         </div>
       </div>
@@ -313,7 +308,7 @@ export default function ProducerSettings() {
           {/* PERFIL */}
           {section === 'perfil' && (
             <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
-              <h2 className="text-base font-semibold text-foreground">Perfil público</h2>
+              <SectionTitle>Perfil público</SectionTitle>
 
               <div className="flex items-center gap-4">
                 <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} aria-label="Escolher foto" />
@@ -355,7 +350,7 @@ export default function ProducerSettings() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="grid gap-1.5">
-                  <Label htmlFor="cfg-site"><Globe aria-hidden="true" className="size-3.5" />Site</Label>
+                  <Label htmlFor="cfg-site"><I.Globo aria-hidden="true" className="size-3.5" />Site</Label>
                   <Input id="cfg-site" value={profile.website} onChange={e => setProfile({ ...profile, website: e.target.value })} />
                 </div>
                 <div className="grid gap-1.5">
@@ -363,21 +358,21 @@ export default function ProducerSettings() {
                   <Input id="cfg-instagram" value={profile.instagram} onChange={e => setProfile({ ...profile, instagram: e.target.value })} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="cfg-tiktok"><Smartphone aria-hidden="true" className="size-3.5" />TikTok</Label>
+                  <Label htmlFor="cfg-tiktok"><I.Celular aria-hidden="true" className="size-3.5" />TikTok</Label>
                   <Input id="cfg-tiktok" value={profile.tiktok} onChange={e => setProfile({ ...profile, tiktok: e.target.value })} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label htmlFor="cfg-linkedin"><Globe aria-hidden="true" className="size-3.5" />LinkedIn</Label>
+                  <Label htmlFor="cfg-linkedin"><I.Globo aria-hidden="true" className="size-3.5" />LinkedIn</Label>
                   <Input id="cfg-linkedin" value={profile.linkedin} onChange={e => setProfile({ ...profile, linkedin: e.target.value })} />
                 </div>
               </div>
 
               <div data-tour="cfg-salvar" className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="outline" onClick={handleSaveCompany} disabled={isSaving}>
-                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar empresa
+                <Button variant="outline" onClick={handleSaveCompany} disabled={isSavingProfile} loading={isSavingProducerProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar empresa
                 </Button>
-                <Button onClick={handleSaveProfile} disabled={isSaving}>
-                  {isSavingProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar perfil
+                <Button onClick={handleSaveProfile} disabled={isSavingProducerProfile} loading={isSavingProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar perfil
                 </Button>
               </div>
             </section>
@@ -387,7 +382,7 @@ export default function ProducerSettings() {
           {section === 'conta' && (
             <div className="space-y-6">
               <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
-                <h2 className="text-base font-semibold text-foreground">Alterar senha</h2>
+                <SectionTitle>Alterar senha</SectionTitle>
                 <div className="mt-4 max-w-md space-y-4">
                   {(['current', 'new', 'confirm'] as const).map((field) => {
                     const rotulo = field === 'current' ? 'Senha atual' : field === 'new' ? 'Nova senha' : 'Confirmar nova senha'
@@ -411,7 +406,7 @@ export default function ProducerSettings() {
                             aria-label={showPw[field] ? `Ocultar ${rotulo.toLowerCase()}` : `Mostrar ${rotulo.toLowerCase()}`}
                             className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                           >
-                            {showPw[field] ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                            {showPw[field] ? <I.OlhoFechado aria-hidden="true" /> : <I.Olho aria-hidden="true" />}
                           </Button>
                         </div>
                         {field === 'new' && <p className="text-xs text-muted-foreground">{PASSWORD_HINT}</p>}
@@ -423,7 +418,7 @@ export default function ProducerSettings() {
               </section>
 
               <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-foreground"><Shield aria-hidden="true" className="size-4 text-muted-foreground" />Verificação em duas etapas</h2>
+                <div className="flex items-center gap-2"><I.Escudo aria-hidden="true" className="size-4 text-muted-foreground" /><SectionTitle>Verificação em duas etapas</SectionTitle></div>
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="min-w-0">
                     <p className="text-sm text-foreground">Autenticação 2FA (app autenticador)</p>
@@ -444,7 +439,7 @@ export default function ProducerSettings() {
               </section>
 
               <section className="rounded-[10px] border border-destructive/40 bg-card p-4 sm:p-6">
-                <h2 className="flex items-center gap-2 text-base font-semibold text-destructive"><AlertTriangle aria-hidden="true" className="size-4" />Zona de perigo</h2>
+                <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-5 tracking-normal text-destructive"><I.Alerta aria-hidden="true" className="size-4" />Zona de perigo</h2>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-foreground">Excluir conta</p>
@@ -460,7 +455,7 @@ export default function ProducerSettings() {
           {section === 'pagamento' && (
             <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
               <div>
-                <h2 className="text-base font-semibold text-foreground">Dados bancários</h2>
+                <SectionTitle>Dados bancários</SectionTitle>
                 <p className="mt-1 text-sm text-muted-foreground">Ficam guardados para o repasse, que começa quando o pagamento estiver ligado.</p>
               </div>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -494,8 +489,8 @@ export default function ProducerSettings() {
                 </div>
               </div>
               <div className="flex justify-end">
-                <Button onClick={handleSavePayment} disabled={isSavingProducerProfile}>
-                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar
+                <Button onClick={handleSavePayment} loading={isSavingProducerProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>
             </section>
@@ -504,7 +499,7 @@ export default function ProducerSettings() {
           {/* NOTIFICAÇÕES */}
           {section === 'notificacoes' && (
             <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
-              <h2 className="text-base font-semibold text-foreground">Notificações</h2>
+              <SectionTitle>Notificações</SectionTitle>
 
               <ul className="divide-y divide-border">
                 {[
@@ -530,8 +525,8 @@ export default function ProducerSettings() {
               </ul>
 
               <div className="flex justify-end">
-                <Button onClick={handleSaveNotifications} disabled={isSavingProducerProfile}>
-                  {isSavingProducerProfile ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}Salvar
+                <Button onClick={handleSaveNotifications} loading={isSavingProducerProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>
             </section>
@@ -540,7 +535,7 @@ export default function ProducerSettings() {
           {/* EQUIPE: a gestão fica na tela Equipe (o módulo M3 refaz); aqui só o atalho */}
           {section === 'equipe' && (
             <section className="rounded-[10px] border border-border bg-card p-4 sm:p-6">
-              <h2 className="text-base font-semibold text-foreground">Equipe</h2>
+              <SectionTitle>Equipe</SectionTitle>
               <p className="mt-1 text-sm text-muted-foreground">Convites e funções da sua equipe ficam na tela Equipe.</p>
               <Button asChild className="mt-4">
                 <Link to="/producer/team">Gerenciar equipe</Link>
