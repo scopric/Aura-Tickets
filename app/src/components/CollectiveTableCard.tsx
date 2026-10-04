@@ -18,10 +18,11 @@ interface Props {
   onAdd: () => void
   onRemove: () => void
   onQuantityChange: (qty: number) => void
+  motivoFechado?: string | null // evento encerrado ou fora da janela de venda: sem "Adicionar", com o motivo
   mostrarAvisoFoto?: boolean // com mais de um ingresso coletivo no evento, o aviso da foto vai só no primeiro
 }
 
-export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, onQuantityChange, mostrarAvisoFoto = true }: Props) {
+export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, onQuantityChange, mostrarAvisoFoto = true, motivoFechado = null }: Props) {
   const [expanded, setExpanded] = useState(false)
   const [showQuiz, setShowQuiz] = useState(false)
   const [showConsent, setShowConsent] = useState(false)
@@ -132,6 +133,10 @@ export default function CollectiveTableCard({ ticket, cartQty, onAdd, onRemove, 
               </div>
               <span className="text-right text-xs text-muted-foreground">{textoPreco(ticket.price, cartQty)}</span>
             </div>
+          ) : motivoFechado ? (
+            <button disabled className="flex h-12 w-full cursor-not-allowed items-center justify-center rounded-full bg-secondary font-semibold text-muted-foreground">
+              {motivoFechado}
+            </button>
           ) : (
             <button
               onClick={handleAdd}

@@ -17,6 +17,8 @@ import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
 import { esgotado, lotacao, noLimite } from '../lib/lotacao'
+import { CLASSIFICACOES } from '../lib/tipoEvento'
+import { fimDe } from '../lib/eventoProdutor'
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -163,7 +165,16 @@ export default function EventPage() {
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0)
 
   // "A partir de": o menor total (com a taxa) entre os ingressos que ainda se vendem
-  const aVenda = ticketTypes.filter((t) => !esgotado(t))
+  // Janela de venda (sale_start/sale_end) e evento já realizado: sem isso o "+" e o "Comprar" seguiam ligados
+  const agora = Date.now()
+  const janela = (t: (typeof ticketTypes)[number]) =>
+    t.sale_end && Date.parse(t.sale_end) < agora ? 'Vendas encerradas'
+    : t.sale_start && Date.parse(t.sale_start) > agora ? `Vendas começam em ${new Date(t.sale_start).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
+    : null
+  const encerrado = fimDe(event) < agora // regra do projeto: sem end_date, início + 12h (como ehProximo)
+  const aVenda = encerrado ? [] : ticketTypes.filter((t) => !esgotado(t) && !janela(t))
+  const motivos = ticketTypes.filter((t) => !esgotado(t)).map(janela).filter(Boolean) as string[]
+  const motivoSemVenda = encerrado ? 'Evento encerrado' : motivos.find((m) => m.startsWith('Vendas começam')) ?? motivos[0] ?? null
   const menorTotal = aVenda.length ? Math.min(...aVenda.map((t) => calcularTaxa(t.price).total)) : 0
 
   const dataEvento = event.date ? new Date(event.date + 'T00:00:00') : null
@@ -239,7 +250,7 @@ export default function EventPage() {
             sub={hora || undefined}
           />
           <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} />
-          <Linha icone={<I.Info size={20} />} titulo="Classificação a definir" sub="Sujeito a lotação do espaço" />
+          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} />
         </div>
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
@@ -251,6 +262,7 @@ export default function EventPage() {
           )}
 
           {ticketTypes.map((ticket) => {
+            const fechado = encerrado ? 'Evento encerrado' : janela(ticket)
             if (ticket.type === 'coletiva') {
               return (
                 <div key={ticket.id} className="py-3">
@@ -266,6 +278,7 @@ export default function EventPage() {
                       perks: ticket.perks || [],
                     }}
                     cartQty={cart[ticket.id] || 0}
+                    motivoFechado={fechado}
                     mostrarAvisoFoto={ticket.id === ticketTypes.find((t) => t.type === 'coletiva')?.id}
                     // Match de Mesa: 1 lugar por conta em cada evento (o banco recusa quantidade maior)
                     onAdd={() => { if (!cart[ticket.id]) addToCart(ticket.id) }}
@@ -295,6 +308,8 @@ export default function EventPage() {
                     <div className="text-sm leading-5 text-muted-foreground">
                       {ticket.price > 0 && <><s className="font-display font-semibold tabular-nums">{brl(total)}</s> · </>}Esgotado
                     </div>
+                  ) : fechado ? (
+                    <div className="text-sm leading-5 text-muted-foreground">{fechado}</div>
                   ) : ticket.price > 0 ? (
                     <div className="flex flex-wrap items-center gap-x-1.5 text-sm leading-5">
                       <span className="font-display font-semibold tabular-nums">{brl(total)}</span>
@@ -328,7 +343,7 @@ export default function EventPage() {
                     </>
                   )}
                 </div>
-                {!acabou && (
+                {!acabou && !fechado && (
                   <ContadorIngresso
                     nome={ticket.name}
                     qtd={cart[ticket.id] || 0}
@@ -394,7 +409,7 @@ export default function EventPage() {
               {cartCount > 0 ? (
                 <span className="font-display tabular-nums">{cartCount} ingresso{cartCount > 1 ? 's' : ''} · {brl(cartResumo.total)}</span>
               ) : aVenda.length === 0 ? (
-                'Ingressos indisponíveis'
+                motivoSemVenda ?? 'Ingressos indisponíveis'
               ) : menorTotal === 0 ? (
                 'Gratuito'
               ) : (

@@ -856,7 +856,7 @@ export default function Home() {
 
                 <div className="relative z-10 mt-auto">
                   <Link
-                    to={registerUrl(appUrl)}
+                    to={registerUrl(appUrl, true)}
                     className="w-full py-3 bg-white text-slate-950 hover:bg-slate-100 active:scale-[0.98] text-xs font-bold rounded-full transition-all duration-300 flex items-center justify-center gap-1.5 uppercase tracking-wider"
                   >
                     <span>Criar Plataforma</span>
@@ -952,7 +952,7 @@ export default function Home() {
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
-                to={registerUrl(appUrl)}
+                to={registerUrl(appUrl, true)}
                 className="btn-primary flex items-center gap-2"
               >
                 Criar Meu Evento

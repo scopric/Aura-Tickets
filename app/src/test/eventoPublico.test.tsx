@@ -10,7 +10,9 @@ import ContadorIngresso from '../components/ContadorIngresso'
 // página mostra: taxa ao lado do preço, esgotado só com lotação real, a barra de compra e o "N pessoas vão" opcional.
 let evento: Record<string, unknown>
 vi.mock('../hooks/useEvents', () => ({ usePublicEvent: () => ({ data: evento, isLoading: false, error: null }) }))
-vi.mock('../components/CollectiveTableCard', () => ({ default: () => <div data-testid="mesa" /> }))
+vi.mock('../components/CollectiveTableCard', () => ({
+  default: ({ motivoFechado }: { motivoFechado?: string | null }) => <div data-testid="mesa">{motivoFechado ? <button disabled>{motivoFechado}</button> : <button>Adicionar ao Carrinho</button>}</div>,
+}))
 
 const ingresso = (o: Record<string, unknown>) => ({ id: 't1', name: 'Pista', price: 25, type: 'individual', sold: 0, perks: [], ...o })
 const base = (o: Record<string, unknown> = {}) => ({
@@ -60,6 +62,71 @@ describe('página do evento (V11a)', () => {
     expect(screen.getByText(/2 ingressos/).textContent).toMatch(/R\$\s56,00/)
     expect(screen.getByText(/R\$\s50,00 \+ taxa R\$\s6,00/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument()
+  })
+
+  it('evento já realizado: "Comprar" desligado com o motivo e sem contador', () => {
+    evento = base({ date: '2020-01-01' })
+    montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Evento encerrado').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByRole('button', { name: /^Adicionar um / })).toBeNull()
+  })
+
+  it('Match de Mesa (coletiva): evento encerrado ou fora da janela não deixa adicionar', () => {
+    evento = base({ date: '2020-01-01', ticket_types: [ingresso({ type: 'coletiva' })] })
+    const { unmount } = montar()
+    expect(screen.getByTestId('mesa')).toHaveTextContent('Evento encerrado')
+    expect(screen.queryByRole('button', { name: 'Adicionar ao Carrinho' })).toBeNull()
+    unmount()
+    evento = base({ ticket_types: [ingresso({ type: 'coletiva', sale_end: '2020-01-01T00:00:00Z' })] })
+    montar()
+    expect(screen.getByTestId('mesa')).toHaveTextContent('Vendas encerradas')
+  })
+
+  it('evento de hoje às 22h não está encerrado antes de começar; passa a estar 12h depois do início', () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      evento = base({ date: '2026-10-04', time: '22:00:00' })
+      vi.setSystemTime(new Date('2026-10-04T15:00:00Z')) // 12h em Brasília
+      const { unmount } = montar()
+      expect(screen.getByRole('button', { name: 'Comprar' })).toBeEnabled()
+      unmount()
+      vi.setSystemTime(new Date('2026-10-05T12:00:00Z')) // 09h do dia seguinte: 11h depois do início
+      const { unmount: u2 } = montar()
+      expect(screen.getByRole('button', { name: 'Comprar' })).toBeEnabled()
+      u2()
+      vi.setSystemTime(new Date('2026-10-05T13:30:00Z')) // 10h30: mais de 12h depois
+      montar()
+      expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('evento esportivo sem classificação: dispensa, não "não informada"', () => {
+    evento = base({ category: 'esporte' })
+    montar()
+    expect(screen.getByText('Evento esportivo: sem classificação indicativa')).toBeInTheDocument()
+  })
+
+  it('janela de venda: vencida e futura desligam a compra com o motivo', () => {
+    evento = base({ ticket_types: [ingresso({ sale_end: '2020-01-01T00:00:00Z' })] })
+    const { unmount } = montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Vendas encerradas').length).toBeGreaterThanOrEqual(1)
+    unmount()
+    evento = base({ ticket_types: [ingresso({ sale_start: '2099-03-05T12:00:00Z' })] })
+    montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Vendas começam em 05/03').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('classificação: mostra a do banco; vazia, diz que o produtor não informou', () => {
+    evento = base({ classificacao: 'A16' })
+    const { unmount } = montar()
+    expect(screen.getByText('Classificação: 16 anos')).toBeInTheDocument()
+    unmount()
+    evento = base()
+    montar()
+    expect(screen.getByText('Classificação não informada pelo produtor')).toBeInTheDocument()
   })
 
   it('Salvar (VF) e Compartilhar existem na barra de topo', () => {
