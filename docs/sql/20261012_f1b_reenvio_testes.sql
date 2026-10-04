@@ -211,6 +211,36 @@ begin
     raise exception 'T11b EXECUTE aberto';
   end if;
   raise notice 'T11 OK';
+
+  -- T12: qualquer coluna fora as contagens de venda conta (perks, min_per_order); venda + perks juntos conta;
+  --      mudar o event_id toca os dois eventos; só venda não toca
+  perform pg_temp.velho(45);
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$update public.ticket_types set perks = '["brinde"]'::jsonb where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T12a perks: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  r := pg_temp.erro($q$update public.ticket_types set min_per_order = 2 where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T12b min_per_order: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  r := pg_temp.erro($q$update public.ticket_types set sold = sold + 1, perks = '["outro"]'::jsonb where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T12c venda e perks: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  r := pg_temp.erro($q$update public.ticket_types set sold = sold + 1, quantity_sold = quantity_sold + 1 where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  if r <> 'ok' or pg_temp.upd(45) >= '2021-01-01' then raise exception 'T12d só venda tocou: % / %', r, pg_temp.upd(45); end if;
+  insert into public.events (id, producer_id, title, slug, status, approval_status)
+  values (pg_temp.u(47), pg_temp.u(1), 'Evento 47', 'f1b-evento-47', 'draft', 'pending');
+  perform pg_temp.velho(45);
+  perform pg_temp.velho(47);
+  r := pg_temp.erro($q$update public.ticket_types set event_id = 'f1b00000-0000-4000-8000-000000000047' where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' or pg_temp.upd(47) < '2021-01-01' then
+    raise exception 'T12e event_id mudou: % / % / %', r, pg_temp.upd(45), pg_temp.upd(47);
+  end if;
+  raise notice 'T12 OK';
+
+  -- T13: índice do limite de aceites
+  if to_regclass('public.evento_aceites_producer_aceito_idx') is null then raise exception 'T13 sem o índice'; end if;
+  raise notice 'T13 OK';
 end $$;
 
 rollback;

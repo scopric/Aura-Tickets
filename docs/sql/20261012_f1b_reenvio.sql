@@ -5,8 +5,9 @@
 -- (o painel mostra o motivo). Fecha a pendência "evento que volta a published sem nova análise".
 --   1. gf_protect_event_moderation recriada a partir da definição de PRODUÇÃO de 04/10/2026 (a da F1-a), mais a regra
 --      nova, depois da regra de conteúdo e antes do `return new` final.
---   2. ticket_types: mudar o conteúdo de um ingresso (ou criar/apagar) atualiza events.updated_at, para a trava de
---      aprovação por updated_at (useApproveEvent) cobrir também os ingressos.
+--   2. ticket_types: mudar um ingresso (menos as contagens de venda), criar ou apagar atualiza events.updated_at,
+--      para a trava de aprovação por updated_at (useApproveEvent) cobrir também os ingressos.
+--   3. Índice evento_aceites (producer_id, aceito_em desc), para o limite de 20 aceites por hora da aceite-evento.
 --
 -- DEPOIS DESTE SQL: NÃO RODAR 20261009_f1a_tipo_evento.sql DE NOVO (ele recriaria a função sem a regra do reenvio; o
 -- bloco 0 dele aborta se a F1-b já estiver aplicada). O realinhamento de start_date da F1-a já foi feito em produção.
@@ -31,12 +32,13 @@
 -- 3. Evento publicado e aprovado que o produtor só edita (status continua published) não passa por esta regra:
 --    a regra de conteúdo já devolve para análise quando muda campo de conteúdo.
 -- 4. Evento novo (INSERT) não passa por aqui: já entra pending.
--- 5. Gatilho em ticket_types: só as colunas de CONTEÚDO (nome, descrição, preço, capacidade, quantidade total, tipo,
---    ativo, bebida) e INSERT/DELETE. Colunas de venda (sold, quantity_sold) ficam de fora: venda não deve dar "o evento
---    mudou" ao admin. O UPDATE em events só mexe em updated_at: para a função de moderação (que roda com o papel de
+-- 5. Gatilho em ticket_types: INSERT, DELETE e UPDATE em que mudou QUALQUER coluna menos as contagens de venda
+--    (sold, quantity_sold) e updated_at: venda não deve dar "o evento mudou" ao admin, e coluna nova de conteúdo no
+--    futuro já conta sem mexer aqui. Se o event_id do ingresso mudar, os dois eventos são tocados. O UPDATE em events só mexe em updated_at: para a função de moderação (que roda com o papel de
 --    quem chamou) nada de aprovação, data, local, conteúdo ou status muda, então não cai em exceção. No DELETE em
---    cascata do evento o UPDATE não acha a linha e não faz nada. Capacidade (capacity) entra junto com
---    quantity_total porque o painel grava as duas.
+--    cascata do evento o UPDATE não acha a linha e não faz nada.
+-- 6. Índice (producer_id, aceito_em) em evento_aceites: a função aceite-evento conta os aceites da última hora do
+--    produtor (limite de 20 por hora).
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -47,6 +49,7 @@ declare
   def text;
 begin
   if to_regclass('public.events') is null or to_regclass('public.ticket_types') is null
+     or to_regclass('public.evento_aceites') is null
      or to_regprocedure('public.gf_protect_event_moderation()') is null
      or to_regprocedure('public.gf_is_admin()') is null then
     raise exception 'events, gf_protect_event_moderation ou gf_is_admin não existem';
@@ -141,8 +144,18 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
+declare
+  antigo uuid;
+  novo uuid;
 begin
-  update public.events set updated_at = now() where id = coalesce(new.event_id, old.event_id);
+  if tg_op = 'UPDATE'
+     and (to_jsonb(old) - array['sold', 'quantity_sold', 'updated_at'])
+         is not distinct from (to_jsonb(new) - array['sold', 'quantity_sold', 'updated_at']) then
+    return null; -- só venda (ou nada): não é mudança do evento
+  end if;
+  if tg_op <> 'INSERT' then antigo := old.event_id; end if;
+  if tg_op <> 'DELETE' then novo := new.event_id; end if;
+  update public.events set updated_at = now() where id in (antigo, novo);
   return null;
 end;
 $$;
@@ -150,9 +163,11 @@ revoke all on function public.gf_ticket_types_toca_evento() from public, anon, a
 
 drop trigger if exists gf_ticket_types_toca_evento on public.ticket_types;
 create trigger gf_ticket_types_toca_evento
-  after insert or delete or update of name, description, price, capacity, quantity_total, type, is_active, inclui_bebida
-  on public.ticket_types
+  after insert or delete or update on public.ticket_types
   for each row execute function public.gf_ticket_types_toca_evento();
+
+-- Limite de aceites por hora (aceite-evento): a contagem filtra producer_id e aceito_em
+create index if not exists evento_aceites_producer_aceito_idx on public.evento_aceites (producer_id, aceito_em desc);
 
 -- 3. Conferência que aborta (tudo ou nada) ----------------------------------------------------------------------
 do $$
@@ -182,6 +197,9 @@ begin
   if not exists (select 1 from pg_trigger where tgrelid = 'public.ticket_types'::regclass
                  and tgname = 'gf_ticket_types_toca_evento' and tgenabled <> 'D') then
     raise exception 'gatilho gf_ticket_types_toca_evento ausente ou desligado em ticket_types';
+  end if;
+  if to_regclass('public.evento_aceites_producer_aceito_idx') is null then
+    raise exception 'índice evento_aceites_producer_aceito_idx ausente';
   end if;
 end $$;
 
