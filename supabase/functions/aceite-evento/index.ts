@@ -57,14 +57,31 @@ Deno.serve(async (req) => {
     const temBebida = (bebida ?? []).length > 0
     const texto = textoAceite({ titulo: evento.title, formato: evento.category, classificacao: evento.classificacao, temBebida })
     const { ip, forwarded_for } = clientIp(req.headers)
+    const textoHash = await sha256(texto)
+    // nova tentativa em sequência (o duplo clique é barrado na tela): mesmo texto do mesmo evento, deste produtor, nos
+    // últimos 5 minutos devolve o aceite anterior
+    const { data: recente, error: recenteError } = await admin.from('evento_aceites').select('id, aceito_em, texto_hash')
+      .eq('event_id', eventId).eq('producer_id', user.id).eq('texto_hash', textoHash)
+      .gte('aceito_em', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+      .order('aceito_em', { ascending: false }).limit(1)
+    if (recenteError) return json(500, { error: 'Não foi possível conferir o aceite anterior' })
+    const classificacao = evento.category === 'esporte' ? null : evento.classificacao
+    if (recente && recente.length > 0) {
+      return json(200, { ok: true, ...recente[0], versao, classificacao, tem_bebida: temBebida })
+    }
+    // limite: 20 aceites novos por produtor por hora (a tabela é prova e não se apaga: nada de inflá-la em laço)
+    const { count, error: contarError } = await admin.from('evento_aceites').select('id', { count: 'exact', head: true })
+      .eq('producer_id', user.id).gte('aceito_em', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+    if (contarError) return json(500, { error: 'Não foi possível conferir o limite de aceites' })
+    if ((count ?? 0) >= 20) return json(429, { error: 'Muitas tentativas. Tente novamente mais tarde.' })
     const linha = {
-      event_id: eventId, producer_id: user.id, versao, texto, texto_hash: await sha256(texto),
+      event_id: eventId, producer_id: user.id, versao, texto, texto_hash: textoHash,
       // esporte não é classificado (variante 2b do texto): nada de classificação contraditória no registro
-      classificacao: evento.category === 'esporte' ? null : evento.classificacao, tem_bebida: temBebida,
+      classificacao, tem_bebida: temBebida,
       ip, forwarded_for, user_agent: (req.headers.get('user-agent') ?? '').slice(0, 300),
     }
     const { data: gravado, error: gravarError } = await admin.from('evento_aceites').insert(linha)
-      .select('id, aceito_em').single()
+      .select('id, aceito_em, texto_hash').single()
     if (gravarError) {
       console.error('[aceite-evento]', eventId, gravarError.message)
       return json(500, { error: 'Não foi possível registrar o aceite' })

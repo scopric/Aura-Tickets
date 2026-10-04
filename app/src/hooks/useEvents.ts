@@ -694,7 +694,9 @@ export function useApproveEvent() {
   const queryClient = useQueryClient()
   return useMutation({
     // 'pending' = suspender: devolve o evento à fila de moderação (usado para revogar uma aprovação já concedida)
-    mutationFn: async ({ eventId, status, rejectionReason }: { eventId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string }) => {
+    // updatedAt: o updated_at lido, como texto do banco (sem Date: perderia os microssegundos). Se o produtor mexeu
+    // no evento depois da leitura, o update não acha a linha e a decisão não vale sobre conteúdo que o admin não viu.
+    mutationFn: async ({ eventId, status, rejectionReason, updatedAt }: { eventId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string; updatedAt?: string }) => {
       const { data: session } = await supabase.auth.getSession()
       const adminId = session.session?.user.id
 
@@ -707,14 +709,12 @@ export function useApproveEvent() {
       // qualquer decisão que não seja aprovação tira o evento dos destaques
       if (status !== 'approved') updatePayload.featured_carousel = false
 
-      const { data, error } = await supabase
-        .from('events')
-        .update(updatePayload)
-        .eq('id', eventId)
-        .select()
-        .single()
+      let atualizar = supabase.from('events').update(updatePayload).eq('id', eventId)
+      if (updatedAt) atualizar = atualizar.eq('updated_at', updatedAt)
+      const { data, error } = await atualizar.select().maybeSingle()
 
       if (error) throw error
+      if (!data) throw new Error('O evento mudou ou você não tem permissão para esta ação: recarregue a página.')
 
       // só despublica o que ESTIVER 'published' no momento do update (condição no WHERE, sem
       // janela de leitura-e-grava): 'cancelled'/'ended' são decisão do produtor e não se perdem
@@ -733,10 +733,11 @@ export function useApproveEvent() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       queryClient.invalidateQueries({ queryKey: ['public-events'] })
       queryClient.invalidateQueries({ queryKey: ['featured-events'] })
-    }
+    },
+    // também na falha ("o evento mudou"): a lista do admin recarrega e mostra o que o produtor mudou
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin-events'] }),
   })
 }
 

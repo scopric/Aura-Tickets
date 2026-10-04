@@ -60,16 +60,16 @@ export default function AdminEvents() {
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; opener?.focus?.() }
   }, [detailId])
 
-  const handleApprove = async (eventId: string) => {
+  const handleApprove = async (eventId: string, updatedAt: string) => {
     try {
-      await approveMutation.mutateAsync({ eventId, status: 'approved' })
+      await approveMutation.mutateAsync({ eventId, status: 'approved', updatedAt })
       toast.success('Evento aprovado com sucesso!')
     } catch (err: any) {
       toast.error('Erro ao aprovar evento: ' + err.message)
     }
   }
 
-  const handleReject = async (eventId: string) => {
+  const handleReject = async (eventId: string, updatedAt: string) => {
     const reason = window.prompt('Informe o motivo da rejeição do evento:')
     if (reason === null) return // clicou em cancelar
     if (!reason.trim()) {
@@ -78,7 +78,7 @@ export default function AdminEvents() {
     }
 
     try {
-      await approveMutation.mutateAsync({ eventId, status: 'rejected', rejectionReason: reason })
+      await approveMutation.mutateAsync({ eventId, status: 'rejected', rejectionReason: reason, updatedAt })
       toast.success('Evento rejeitado com sucesso.')
     } catch (err: any) {
       toast.error('Erro ao rejeitar evento: ' + err.message)
@@ -255,7 +255,7 @@ export default function AdminEvents() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => handleApprove(e.id)}
+                            onClick={() => handleApprove(e.id, e.updated_at)}
                             disabled={approveMutation.isPending}
                             className={acaoOk}
                             title="Aprovar"
@@ -281,7 +281,7 @@ export default function AdminEvents() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => handleReject(e.id)}
+                            onClick={() => handleReject(e.id, e.updated_at)}
                             disabled={approveMutation.isPending}
                             className={acaoErro}
                             title="Rejeitar"
@@ -404,7 +404,7 @@ export default function AdminEvents() {
 
               <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
                 {(detail.approval_status === 'pending' || !detail.approval_status) && (
-                  <Button size="sm" onClick={() => handleApprove(detail.id)} disabled={approveMutation.isPending}>
+                  <Button size="sm" onClick={() => handleApprove(detail.id, detail.updated_at)} disabled={approveMutation.isPending}>
                     <I.Check /> Aprovar
                   </Button>
                 )}
@@ -414,7 +414,7 @@ export default function AdminEvents() {
                   </Button>
                 )}
                 {(detail.approval_status === 'pending' || !detail.approval_status || detail.approval_status === 'approved') && (
-                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending}>
+                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleReject(detail.id, detail.updated_at)} disabled={approveMutation.isPending}>
                     <I.Fechar /> Rejeitar
                   </Button>
                 )}

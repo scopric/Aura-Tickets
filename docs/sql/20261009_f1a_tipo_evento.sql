@@ -16,6 +16,9 @@
 -- transação; o lock_timeout de 5 s faz o arquivo desistir sem gravar nada se algo estiver segurando a tabela.
 -- Uma transação só; idempotente (pode rodar de novo). NÃO mover para supabase/migrations/.
 -- Testes: 20261009_f1a_tipo_evento_testes.sql (só em banco descartável).
+-- ATENÇÃO: este arquivo JÁ FOI APLICADO em produção (inclusive o realinhamento do bloco 1b). Depois que
+-- 20261012_f1b_reenvio.sql for aplicado, NÃO rodar este de novo: o bloco 0 aborta, porque o bloco 7 recriaria
+-- gf_protect_event_moderation sem a regra do reenvio. O passo (d) da ORDEM abaixo já foi cumprido.
 -- ORDEM: (a) PASSO 0; (b) este SQL; (c) o merge do front do PR e, no mesmo momento, publicar a função `agent`
 -- (o Evo novo manda `formato` em vez de `genero`: front e função fora de sincronia recusam o "Planejar");
 -- (d) RODAR ESTE SQL DE NOVO depois do merge: o bloco 1b realinha o start_date de evento criado pelas telas antigas
@@ -86,6 +89,10 @@ begin
   if not exists (select 1 from pg_trigger
                  where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_moderation') then
     raise exception 'Falta o gatilho gf_protect_event_moderation (20260930_f0a_moderacao_eventos.sql): aplicar antes';
+  end if;
+  -- F1-b (20261012_f1b_reenvio.sql) já aplicada: recriar a função aqui apagaria a regra do reenvio, sem erro
+  if position('voltou a published' in pg_get_functiondef('public.gf_protect_event_moderation'::regproc)) > 0 then
+    raise exception 'A F1b (20261012_f1b_reenvio) já foi aplicada: a F1a não deve rodar de novo (recriaria a função sem a regra do reenvio)';
   end if;
   -- a função é recriada abaixo a partir da definição conferida em 04/10; outra versão = alguém mudou depois.
   -- Na 2ª aplicação ela já é a deste arquivo (cita privado_alterado_em) e passa.
