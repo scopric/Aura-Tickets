@@ -72,10 +72,12 @@ function DialogContent({
         onOpenAutoFocus={e => { origem.current = document.activeElement as HTMLElement | null; onOpenAutoFocus?.(e) }}
         onCloseAutoFocus={e => {
           onCloseAutoFocus?.(e)
-          if (e.defaultPrevented) return
-          e.preventDefault()
           const o = origem.current
-          setTimeout(() => o?.focus()) // depois do fechamento, senão o foco não fica
+          origem.current = null
+          // sem origem útil (Safari e iOS não focam o botão no clique): o Radix devolve ao DialogTrigger, se houver
+          if (e.defaultPrevented || !o || o === document.body || !o.isConnected) return
+          e.preventDefault()
+          setTimeout(() => { if (document.activeElement === document.body) o.focus() }) // depois do fechamento; quem já moveu o foco fica onde está
         }}
       >
         {children}
