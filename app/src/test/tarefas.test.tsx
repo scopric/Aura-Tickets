@@ -3,10 +3,12 @@ import { render, screen, fireEvent, within, cleanup, waitFor } from '@testing-li
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProducerTasks from '../pages/producer/Tasks'
-import { atrasada, diaEmSP, prazoDoDia } from '../lib/tarefas'
+import { atrasada, prazoDoDia } from '../lib/tarefas'
+import { diaBR } from '../lib/visaoEvento'
 
 // E2: Tarefas grava só as colunas de producer_tasks, com status/prioridade do CHECK e prazo em -03:00
-const db = vi.hoisted(() => ({ insert: vi.fn(), update: vi.fn(), leitura: vi.fn() }))
+const db = vi.hoisted(() => ({ insert: vi.fn(), update: vi.fn(), leitura: vi.fn(), apagou: vi.fn(), erro: vi.fn() }))
+vi.mock('sonner', () => ({ toast: { error: db.erro, success: vi.fn() } }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../hooks/useEvents', () => ({
   useProducerEvents: () => ({ data: [{ id: 'e1', title: 'Festa Um' }], isPending: false, isError: false }),
@@ -16,6 +18,7 @@ vi.mock('../lib/supabase', () => ({
     from: () => ({
       select: () => ({ eq: () => ({ order: () => db.leitura() }) }),
       insert: (p: unknown) => { db.insert(p); return { select: () => ({ single: () => Promise.resolve({ data: { id: 't9' }, error: null }) }) } },
+      delete: () => ({ eq: () => ({ eq: () => ({ select: () => db.apagou() }) }) }),
       update: (p: unknown) => { db.update(p); return { eq: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: {}, error: null }) }) }) }) } },
     }),
   },
@@ -57,6 +60,15 @@ describe('Tarefas', () => {
     await waitFor(() => expect(db.update).toHaveBeenCalledWith({ status: 'in_progress' }))
   })
 
+  it('excluir que o banco barra (0 linhas, sem erro) avisa "Nada foi apagado"', async () => {
+    db.leitura.mockResolvedValue({ data: [tarefa({})], error: null })
+    db.apagou.mockResolvedValue({ data: [], error: null })
+    montar()
+    fireEvent.click(await screen.findByRole('button', { name: 'Excluir Contratar DJ' }))
+    fireEvent.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Excluir' }))
+    await waitFor(() => expect(db.erro).toHaveBeenCalledWith('Não foi possível remover a tarefa: Nada foi apagado'))
+  })
+
   it('erro de leitura aparece com a causa e não como lista vazia', async () => {
     db.leitura.mockResolvedValue({ data: null, error: { message: 'JWT expired', code: 'PGRST301' } })
     montar()
@@ -74,7 +86,7 @@ describe('Tarefas', () => {
 
   it('atrasada: compara o dia de Brasília, não o do UTC', () => {
     // 22h de 09/10 em Brasília já é 01h de 10/10 em UTC
-    expect(diaEmSP('2026-10-10T01:00:00Z')).toBe('2026-10-09')
+    expect(diaBR('2026-10-10T01:00:00Z')).toBe('2026-10-09')
     expect(prazoDoDia('2026-10-09')).toBe('2026-10-09T12:00:00-03:00')
     const t = (status: string, due_date: string | null) => ({ status, due_date }) as Parameters<typeof atrasada>[0]
     expect(atrasada(t('todo', '2026-10-09T15:00:00Z'), '2026-10-10')).toBe(true)

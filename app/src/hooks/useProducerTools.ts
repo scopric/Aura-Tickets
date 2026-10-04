@@ -91,13 +91,15 @@ export function useDeleteTask() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('producer_tasks')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {

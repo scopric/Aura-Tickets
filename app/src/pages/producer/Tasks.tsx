@@ -12,7 +12,8 @@ import {
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
-import { atrasada, diaEmSP, prazoDoDia } from '../../lib/tarefas'
+import { atrasada, prazoDoDia } from '../../lib/tarefas'
+import { diaBR } from '../../lib/visaoEvento'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -41,7 +42,7 @@ const emptyForm = { title: '', description: '', priority: 'medium' as Prioridade
 
 // O erro do Supabase é um objeto com `message`, não uma instância de Error
 const causa = (e: unknown) => (e as { message?: string } | null)?.message || 'erro desconhecido'
-const dataBr = (iso: string) => diaEmSP(iso).split('-').reverse().join('/')
+const dataBr = (iso: string) => diaBR(iso).split('-').reverse().join('/')
 
 export default function ProducerTasks() {
   const { data: todas = [], isPending, isError, error, refetch, isFetching } = useProducerTasks()
@@ -60,7 +61,7 @@ export default function ProducerTasks() {
   const total = tasks.length
   const done = tasks.filter(t => t.status === 'done').length
   const pendentes = total - done
-  const hoje = diaEmSP(new Date())
+  const hoje = diaBR(new Date())
   const atrasadas = tasks.filter(t => atrasada(t, hoje)).length
 
   const abrir = () => { setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
