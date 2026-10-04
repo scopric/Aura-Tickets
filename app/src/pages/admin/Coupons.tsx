@@ -618,7 +618,7 @@ export default function AdminCoupons() {
                 <span className={rotulo}>Afiliado *</span>
                 <select className={selectNativo} value={form.affiliate_id} onChange={e => set('affiliate_id', e.target.value)} disabled={!!form.request_id || !!form.id}>
                   <option value="">Escolha o afiliado…</option>
-                  {afiliados.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome} ({a.codigo})</option>)}
+                  {afiliados.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome || 'Afiliado'} ({a.codigo})</option>)}
                   {form.affiliate_id && !afiliados.some(a => a.ativo && a.id === form.affiliate_id) && <option value={form.affiliate_id}>Afiliado não ativo</option>}
                 </select>
               </label>

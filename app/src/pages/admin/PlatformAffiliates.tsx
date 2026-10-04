@@ -88,6 +88,7 @@ const vazio = {
   agreement_date: '',
   notes: '',
   payout_account_id: '',
+  conta_salva: false, // já há conta de recebimento gravada: só o afiliado troca (banco, Decisão 163)
   full_name: '',
   cpf: '',
   birth_date: '',
@@ -220,12 +221,10 @@ export default function AdminPlatformAffiliates() {
   const salvar = useMutation({
     mutationFn: async (f: Form) => {
       const payload = {
-        referral_code: f.referral_code,
         recurring_percent: f.recurring_percent,
         status: f.status,
         agreement_date: f.agreement_date,
         notes: f.notes.trim() || null,
-        payout_account_id: f.payout_account_id.trim() || null,
         full_name: f.full_name.trim(),
         cpf: digitos(f.cpf),
         birth_date: f.birth_date,
@@ -242,8 +241,9 @@ export default function AdminPlatformAffiliates() {
         updated_at: new Date().toISOString(),
       }
       const q = f.id
-        ? supabase.from('platform_affiliates').update(payload as never).eq('id', f.id).select('id')
-        : supabase.from('platform_affiliates').insert({ ...payload, user_id: f.pessoa!.id, created_by: user?.id ?? null } as never).select('id')
+        // o banco trava o código de indicação depois de criado e a conta de recebimento depois de preenchida
+        ? supabase.from('platform_affiliates').update((f.conta_salva ? payload : { ...payload, payout_account_id: f.payout_account_id.trim() || null }) as never).eq('id', f.id).select('id')
+        : supabase.from('platform_affiliates').insert({ ...payload, referral_code: f.referral_code, payout_account_id: f.payout_account_id.trim() || null, user_id: f.pessoa!.id, created_by: user?.id ?? null } as never).select('id')
       const { data: d, error: e } = await q
       if (e) {
         if (e.code === '23505') throw new Error('CPF, código de indicação, conta Evokaa ou conta de recebimento já usados por outro afiliado.')
@@ -310,6 +310,7 @@ export default function AdminPlatformAffiliates() {
     agreement_date: a.agreement_date,
     notes: a.notes || '',
     payout_account_id: a.payout_account_id || '',
+    conta_salva: !!a.payout_account_id,
     full_name: a.full_name || a.user?.full_name || '',
     cpf: a.cpf ? fmtCpf(a.cpf) : '',
     birth_date: a.birth_date || '',
@@ -601,7 +602,8 @@ export default function AdminPlatformAffiliates() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="space-y-1">
                   <span className={rotulo}>Código de indicação *</span>
-                  <Input className="font-mono uppercase" value={form.referral_code} onChange={e => set('referral_code', e.target.value.toUpperCase().replace(/\s/g, ''))} maxLength={30} placeholder="EX: JOAO" />
+                  <Input className="font-mono uppercase" value={form.referral_code} onChange={e => set('referral_code', e.target.value.toUpperCase().replace(/\s/g, ''))} maxLength={30} placeholder="EX: JOAO" disabled={!!form.id} />
+                  {form.id && <span className="text-[11px] text-muted-foreground block">O código não muda depois de criado.</span>}
                   <span className="text-[11px] text-muted-foreground block">Link: app.evokaa.com.br/auth/register?ref={form.referral_code || 'CODIGO'}</span>
                 </label>
                 <label className="space-y-1">
@@ -624,7 +626,8 @@ export default function AdminPlatformAffiliates() {
               <p className="text-[11px] text-muted-foreground">Primeira venda: 50% do valor fechado do plano (regra geral da Evokaa).</p>
               <label className="space-y-1 block">
                 <span className={rotulo}>Conta de recebimento do afiliado no gateway (para o split)</span>
-                <Input className="font-mono" value={form.payout_account_id} onChange={e => set('payout_account_id', e.target.value.trim())} maxLength={80} placeholder="deixe em branco até definir o gateway" />
+                <Input className="font-mono" value={form.payout_account_id} onChange={e => set('payout_account_id', e.target.value.trim())} maxLength={80} placeholder="deixe em branco até definir o gateway" disabled={form.conta_salva} />
+                {form.conta_salva && <span className="text-[11px] text-muted-foreground block">Só o afiliado troca a conta depois de cadastrada.</span>}
                 <span className="text-[11px] text-muted-foreground block">O gateway de pagamento ainda não foi escolhido. Quando for, é o identificador da conta do afiliado nele (ex.: walletId no Asaas); a comissão cai direto nela pelo split, sem passar pela Evokaa.</span>
               </label>
               <label className="space-y-1 block">
