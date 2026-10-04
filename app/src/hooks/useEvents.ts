@@ -338,6 +338,55 @@ export function useCreateEvent() {
   })
 }
 
+// Lista branca das colunas de events que as telas do produtor gravam (EditEvent, Events e o painel do evento).
+export function colunasDoEvento(event: Partial<DbEvent>): Record<string, unknown> {
+  // Lista branca: só grava a coluna que a tela mandou. Chave ausente não é regravada:
+  // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins
+  // ficam de fora (moderação é do banco, F0a).
+  const enviados = new Set(Object.keys(event))
+  if (enviados.has('date')) ['time', 'start_date'].forEach(k => enviados.add(k)) // gravados sempre juntos
+  const colunas = {
+    title: event.title,
+    subtitle: event.subtitle || null,
+    description: event.description || null,
+    short_description: event.short_description || null,
+    cover_image: event.cover_image || '/images/hero-bg.jpg',
+    image_url: event.image_url || '/images/hero-bg.jpg',
+    accent_color: event.accent_color || null,
+    category: event.category || null,
+    temas: event.temas || [],
+    estilos: event.estilos || [],
+    classificacao: event.classificacao || null,
+    local_modo: event.local_modo || 'presencial',
+    tags: event.tags || [],
+    venue_name: event.venue_name || null,
+    venue_address: event.venue_address || null,
+    venue_city: event.venue_city || null,
+    venue_state: event.venue_state || null,
+    venue_zip: event.venue_zip || null,
+    date: event.date || null,
+    time: event.date ? event.time || null : null, // hora sem data não existe
+    // sem data o start_date não é enviado: o início anterior fica (não vira "agora")
+    ...(event.date ? { start_date: inicioEm(event.date, event.time) } : {}),
+    end_date: event.end_date || null,
+    status: event.status || 'draft',
+    visibility: event.visibility || 'public',
+    capacity: event.capacity || null,
+    branding: event.branding || {},
+    settings: event.settings || {},
+  }
+  return Object.fromEntries(Object.entries(colunas).filter(([k]) => enviados.has(k)))
+}
+
+// Salvamento automático do painel: só as colunas mandadas, pela mesma lista branca, sem tocar nos ingressos.
+// Sem coluna nenhuma não chama o banco (update vazio). select + single: RLS que filtra devolve 0 linhas sem erro.
+export async function gravarEvento(eventId: string, event: Partial<DbEvent>): Promise<void> {
+  const colunas = colunasDoEvento(event)
+  if (Object.keys(colunas).length === 0) return
+  const { error } = await supabase.from('events').update(colunas).eq('id', eventId).select('id, updated_at').single()
+  if (error) throw error
+}
+
 export function useUpdateEvent() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -354,50 +403,20 @@ export function useUpdateEvent() {
     }) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
 
-      // Lista branca: só grava a coluna que a tela mandou. Chave ausente não é regravada:
-      // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins
-      // ficam de fora (moderação é do banco, F0a).
-      const enviados = new Set(Object.keys(event))
-      if (enviados.has('date')) ['time', 'start_date'].forEach(k => enviados.add(k)) // gravados sempre juntos
-      const colunas = {
-        title: event.title,
-        subtitle: event.subtitle || null,
-        description: event.description || null,
-        short_description: event.short_description || null,
-        cover_image: event.cover_image || '/images/hero-bg.jpg',
-        image_url: event.image_url || '/images/hero-bg.jpg',
-        accent_color: event.accent_color || null,
-        category: event.category || null,
-        temas: event.temas || [],
-        estilos: event.estilos || [],
-        classificacao: event.classificacao || null,
-        local_modo: event.local_modo || 'presencial',
-        tags: event.tags || [],
-        venue_name: event.venue_name || null,
-        venue_address: event.venue_address || null,
-        venue_city: event.venue_city || null,
-        venue_state: event.venue_state || null,
-        venue_zip: event.venue_zip || null,
-        date: event.date || null,
-        time: event.date ? event.time || null : null, // hora sem data não existe
-        // sem data o start_date não é enviado: o início anterior fica (não vira "agora")
-        ...(event.date ? { start_date: inicioEm(event.date, event.time) } : {}),
-        end_date: event.end_date || null,
-        status: event.status || 'draft',
-        visibility: event.visibility || 'public',
-        capacity: event.capacity || null,
-        branding: event.branding || {},
-        settings: event.settings || {},
+      const colunas = colunasDoEvento(event)
+
+      // "Salvar ingressos" do painel manda event {}: sem coluna nenhuma não há update (o corpo vazio não é confiável)
+      let eventData = null
+      if (Object.keys(colunas).length > 0) {
+        const { data, error: eventError } = await supabase
+          .from('events')
+          .update(colunas)
+          .eq('id', eventId)
+          .select()
+          .single()
+        if (eventError) throw eventError
+        eventData = data
       }
-
-      const { data: eventData, error: eventError } = await supabase
-        .from('events')
-        .update(Object.fromEntries(Object.entries(colunas).filter(([k]) => enviados.has(k))))
-        .eq('id', eventId)
-        .select()
-        .single()
-
-      if (eventError) throw eventError
 
       const { data: existingTickets, error: lerErro } = await supabase
         .from('ticket_types')
@@ -408,7 +427,7 @@ export function useUpdateEvent() {
       const existingIds = new Set((existingTickets || []).map(t => t.id))
 
       // Existente: update só dos campos editáveis, sem type nem is_active (o gatilho mesa_tipo_guard recusa trocar
-      // o tipo com venda; desativado continua desativado). Novo: insert com type e is_active.
+      // o tipo com venda; desativado continua desativado). Novo: insert com type (só individual ou coletiva, F1) e is_active.
       const novos: Record<string, unknown>[] = []
       for (const [idx, t] of tickets.entries()) {
         const campos = {
@@ -430,7 +449,7 @@ export function useUpdateEvent() {
           if (error) throw error
           if (data?.length !== 1) throw new Error('Não foi possível salvar um dos ingressos') // RLS que barra devolve 0 linhas sem erro
         } else {
-          novos.push({ ...campos, perks: t.perks || [], event_id: eventId, type: t.type || 'individual', is_active: true })
+          novos.push({ ...campos, perks: t.perks || [], event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
         }
       }
 

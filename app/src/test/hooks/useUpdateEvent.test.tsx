@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useCreateEvent, useUpdateEvent } from '../../hooks/useEvents'
+import { gravarEvento, useCreateEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { supabase } from '../../lib/supabase'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
@@ -116,6 +116,19 @@ describe('useUpdateEvent preserva tipo e situação dos ingressos', () => {
     expect(insert.mock.calls[0][0]).toEqual([expect.objectContaining({ event_id: 'e1', type: 'individual', is_active: true })])
   })
 
+  it('novo: o painel escolhe individual ou coletiva; qualquer outro tipo vira individual (vip e mesa não se criam por aqui)', async () => {
+    const { insert } = await salvaIngressos([
+      { name: 'A', price: 1, capacity: 1, type: 'coletiva' }, { name: 'B', price: 1, capacity: 1, type: 'individual' },
+      { name: 'C', price: 1, capacity: 1, type: 'vip' }, { name: 'D', price: 1, capacity: 1, type: 'mesa' }, { name: 'E', price: 1, capacity: 1, type: 'qualquer' },
+    ])
+    expect((insert.mock.calls[0][0] as { type: string }[]).map(t => t.type)).toEqual(['coletiva', 'individual', 'individual', 'individual', 'individual'])
+  })
+
+  it('existente com tipo no payload: o tipo nunca vai no update (só no insert)', async () => {
+    const { update } = await salvaIngressos([{ id: 'a', name: 'Mesa', price: 100, capacity: 4, type: 'individual' }])
+    expect(update.mock.calls[0][0]).not.toHaveProperty('type')
+  })
+
   it('update que volta 0 linha gera erro', async () => {
     await expect(salvaIngressos([{ id: 'a', name: 'X', price: 1 }], [])).rejects.toThrow('Não foi possível salvar um dos ingressos')
   })
@@ -183,5 +196,43 @@ describe('useCreateEvent: formato, datas e colunas da F1', () => {
   it('ingresso leva inclui_bebida só quando marcado', async () => {
     const { ingressos } = await criado({ title: 'X' }, [{ name: 'Open bar', price: 100, capacity: 10, inclui_bebida: true }, { name: 'Pista', price: 50, capacity: 10 }])
     expect(ingressos.map(t => t.inclui_bebida)).toEqual([true, undefined])
+  })
+})
+
+describe('gravação sem ingressos (painel do evento)', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('useUpdateEvent com event {} não chama update em events (corpo vazio) e só mexe nos ingressos', async () => {
+    const updateEvento = vi.fn()
+    const insert = vi.fn(() => Promise.resolve({ error: null }))
+    vi.mocked(supabase.from).mockImplementation(((tabela: string) => tabela === 'events'
+      ? { update: updateEvento }
+      : { select: () => ({ eq: () => Promise.resolve({ data: [], error: null }) }), insert }) as never)
+    const { result } = renderHook(() => useUpdateEvent(), { wrapper })
+    await result.current.mutateAsync({ eventId: 'e1', event: {}, tickets: [{ name: 'Novo', price: 10, capacity: 5 }] as never })
+    expect(updateEvento).not.toHaveBeenCalled()
+    expect(insert).toHaveBeenCalledTimes(1)
+  })
+
+  it('gravarEvento: mesma lista branca, um update só, sem ler ingressos; select só de id e updated_at', async () => {
+    const select = vi.fn(() => ({ single: () => Promise.resolve({ data: { id: 'e1' }, error: null }) }))
+    const update = vi.fn(() => ({ eq: () => ({ select }) }))
+    const from = vi.mocked(supabase.from).mockReturnValue({ update } as never)
+    await gravarEvento('e1', { title: 'Novo', date: '2026-12-12', time: '22:00', approval_status: 'approved', location: 'x' } as never)
+    expect(update).toHaveBeenCalledWith({ title: 'Novo', date: '2026-12-12', time: '22:00', start_date: '2026-12-12T22:00:00-03:00' })
+    expect(select).toHaveBeenCalledWith('id, updated_at')
+    expect(from).toHaveBeenCalledTimes(1) // events; nada de ticket_types
+  })
+
+  it('gravarEvento sem coluna nenhuma não chama o banco', async () => {
+    const from = vi.mocked(supabase.from)
+    await gravarEvento('e1', {})
+    await gravarEvento('e1', { approval_status: 'approved' } as never) // fora da lista branca
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('gravarEvento propaga o erro (o painel mostra "Não salvou")', async () => {
+    vi.mocked(supabase.from).mockReturnValue({ update: () => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: new Error('RLS') }) }) }) }) } as never)
+    await expect(gravarEvento('e1', { title: 'x' })).rejects.toThrow('RLS')
   })
 })

@@ -7,14 +7,20 @@ export type Situacao = 'Rascunho' | 'Em análise' | 'Publicado' | 'Encerrado' | 
 
 // Selo de situação, o mesmo do Início (B2): status do produtor + moderação do admin (F0a).
 // "Publicado" = no ar para o público: publicado E aprovado.
-export function situacaoEvento(e: { status: string; approval_status?: string | null }): Situacao {
-  if (e.status === 'draft') return 'Rascunho'
+export function situacaoEvento(e: { status: string; approval_status?: string | null; rejection_reason?: string | null }): Situacao {
+  // recusado pela equipe volta a rascunho (useApproveEvent) mas guarda o motivo e approval_status 'rejected'
+  if (e.status === 'draft') return e.approval_status === 'rejected' || e.rejection_reason ? 'Recusado' : 'Rascunho'
   if (e.status === 'ended') return 'Encerrado'
   if (e.status === 'cancelled') return 'Cancelado'
   if (e.approval_status === 'approved') return 'Publicado'
   if (e.approval_status === 'rejected') return 'Recusado'
   return 'Em análise'
 }
+
+// Fila de moderação do admin (F1): só o que o produtor ENVIOU (published) e ainda não foi decidido. Rascunho com
+// approval_status 'pending' (o padrão do banco) não é pedido de análise. Sem approval_status conta como pendente.
+export const naFilaDeModeracao = (e: { status: string; approval_status?: string | null }): boolean =>
+  e.status === 'published' && (e.approval_status === 'pending' || !e.approval_status)
 
 // Decisão 129: com ingresso vendido o produtor não tira o evento do ar nem reabre o cancelado até existir reembolso
 // (M12). O banco recusa (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql): EV001 ao

@@ -48,6 +48,10 @@ const erro = (code: string, message: string) => ({ status: code === '42501' ? 40
 
 async function mockEventos(page: Page, eventos: object[] = [EVENTO_ROW]) {
   await page.route('**/rest/v1/events?*', (route) => route.fulfill({ json: eventos }))
+  // O painel do evento (F1 PR3b) também lê o link da transmissão (evento_privado) e conta os ingressos vendidos
+  await page.route(/\/rest\/v1\/evento_privado(\?|$)/, (route) => route.fulfill({ json: [] }))
+  await page.route(/\/rest\/v1\/evento_aceites(\?|$)/, (route) => route.fulfill({ json: [] }))
+  await page.route(/\/rest\/v1\/tickets(\?|$)/, (route) => route.fulfill({ headers: { 'content-range': '*/0', 'access-control-expose-headers': 'content-range' }, json: [] }))
 }
 
 // A conta demo de admin não tem moderate_mesa nem super_admin: acrescenta na lista fixa dela
@@ -480,7 +484,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await mockEventos(page, [{ ...EVENTO_ROW, ticket_types: [EVENTO_ROW.ticket_types[0]] }])
     const chamadas = await mockRpc(page, { mesas_do_evento: [], mesa_denuncias_do_evento: [] })
     await page.goto(`/producer/events/${EVENTO}/edit`)
-    await expect(page.getByText('Editar Evento')).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Noite de teste' })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Match de Mesa' })).toHaveCount(0)
     expect(chamadas).toEqual([])
   })
@@ -490,7 +494,7 @@ test.describe('produtor — Match de Mesa no evento', () => {
     await mockEventos(page, [{ ...EVENTO_ROW, producer_id: 'f0000000-0000-4000-8000-00000000000f' }])
     const chamadas = await mockRpc(page, { mesas_do_evento: [], mesa_denuncias_do_evento: [] })
     await page.goto(`/producer/events/${EVENTO}/edit`)
-    await expect(page.getByText('Editar Evento')).toBeVisible()
+    await expect(page.getByText('Evento não encontrado')).toBeVisible() // evento no ar de outro produtor: nem o painel
     await expect(page.getByRole('region', { name: 'Match de Mesa' })).toHaveCount(0)
     expect(chamadas).toEqual([])
   })
