@@ -193,7 +193,7 @@ export default function CheckoutPayment() {
               amount: resumo.total,
               customerEmail: order.customer_email || 'comprador@cliente.com',
               customerName: order.customer_name || 'Comprador Evokaa',
-              customerCpf: order.customer_cpf || '',
+              customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
             })
 
             if (result.status === 'error') {
@@ -220,7 +220,7 @@ export default function CheckoutPayment() {
               amount: resumo.total,
               customerEmail: order.customer_email || '',
               customerName: order.customer_name || '',
-              customerCpf: order.customer_cpf || '',
+              customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
             })
 
             if (result.status === 'error' || !result.qrCodeData || !result.qrCodeImageUrl) {

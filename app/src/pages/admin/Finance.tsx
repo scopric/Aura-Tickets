@@ -60,7 +60,7 @@ export default function AdminFinance() {
     }
     try {
       const linhas = await fetchAllRows<Record<string, unknown>>((from, to) =>
-        supabase.from(tabela).select('*').order('id').range(from, to)
+        supabase.from(tabela).select(colunas[tabela].join(', ')).order('id').range(from, to)
       )
       if (linhas.length === 0) {
         toast.info('Não há registros para exportar nesta tabela.')
