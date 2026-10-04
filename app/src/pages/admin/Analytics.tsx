@@ -957,7 +957,7 @@ export default function AdminAnalytics() {
           </div>
 
           {recentLogs.length === 0 ? (
-            <div className="p-4"><EmptyState title="Nenhuma atividade registrada ainda." /></div>
+            <div className="p-4"><EmptyState title={loadError ? 'Atividades indisponíveis (erro acima).' : 'Nenhuma atividade registrada ainda.'} /></div>
           ) : (
             <Tabela label="Registro de acessos recentes">
               <thead>
