@@ -1,19 +1,11 @@
 import type { ReactNode } from 'react'
 
-// Peças só do painel de admin (V12a). PageHeader, Stat, EmptyState, SectionTitle e selectNativo vêm de
-// components/producer/ui.tsx (não duplicar). Só tokens: bg-card, bg-secondary, border-border, text-muted-foreground
-// e as cores de estado (--ev-success, --ev-warning, destructive, primary). Todo par texto/fundo passa de 4,5:1 nos
-// dois temas (conferido em card e secondary: sucesso 5,04, aviso 4,79, erro 4,88, azul 5,03 no claro; mais no escuro).
+// Peças só do painel de admin (V12a). PageHeader, Stat, EmptyState, SectionTitle, selectNativo e os selos
+// (chipOk, chipAviso, chipErro, chipInfo, chipNeutro; usar dentro de <Badge variant="secondary">) vêm de
+// components/producer/ui.tsx (não duplicar). Só tokens: bg-card, bg-secondary, border-border, text-muted-foreground.
 
 /** Painel (gráfico, tabela, lista): superfície sólida com fio de 1 px */
 export const painel = 'rounded-[10px] border border-border bg-card'
-
-const chip = 'inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-border bg-secondary px-2 py-0.5 text-[11px] font-medium leading-4 [&_svg]:size-3 [&_svg]:shrink-0'
-export const chipNeutro = `${chip} text-muted-foreground`
-export const chipOk = `${chip} text-[var(--ev-success)]`
-export const chipAviso = `${chip} text-[var(--ev-warning)]`
-export const chipErro = `${chip} text-destructive`
-export const chipInfo = `${chip} text-primary`
 
 /** Erro de carga ou de gravação (role="alert" fica na tela) */
 export const alertaErro = 'rounded-[10px] border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive'

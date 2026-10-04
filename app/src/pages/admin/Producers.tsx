@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { iniciais } from '../../hooks/useConversas'
 import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { EmptyState, PageHeader, Stat } from '@/components/producer/ui'
-import { Tabela, alertaErro, chipAviso, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { EmptyState, PageHeader, Stat, chipAviso, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
@@ -197,11 +198,11 @@ export default function AdminProducers() {
                     <td className="hidden px-4 py-3 text-sm tabular-nums text-foreground lg:table-cell">{p.events}</td>
                     <td className="px-4 py-3">
                       {!c ? (
-                        <span className={chipNeutro}>Sem cadastro</span>
+                        <Badge variant="secondary" className={chipNeutro}>Sem cadastro</Badge>
                       ) : c.is_verified ? (
-                        <span className={chipOk}><I.Verificado />Verificado</span>
+                        <Badge variant="secondary" className={chipOk}><I.Verificado />Verificado</Badge>
                       ) : (
-                        <span className={chipAviso}>Não verificado</span>
+                        <Badge variant="secondary" className={chipAviso}>Não verificado</Badge>
                       )}
                     </td>
                     <td className="hidden px-4 py-3 text-xs tabular-nums text-muted-foreground lg:table-cell">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
-import { EmptyState, PageHeader, selectNativo } from '@/components/producer/ui'
-import { alertaAviso, alertaErro, chipAviso, chipInfo, painel } from '@/components/admin/ui'
+import { EmptyState, PageHeader, selectNativo, chipAviso, chipInfo } from '@/components/producer/ui'
+import { alertaAviso, alertaErro, painel } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { useAdminEvents } from '../../hooks/useEvents'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -135,13 +136,13 @@ function Fotos({ mfa }: { mfa: Mfa }) {
             : <div className="flex size-20 items-center justify-center rounded-xl bg-secondary text-center text-[11px] text-muted-foreground">formato não aceito</div>}
           <div className="flex-1 min-w-0">
             <div className="truncate text-sm font-semibold text-foreground">{f.nome || 'Sem nome'}</div>
-            <span className={`${chipAviso} mt-1`}>
+            <Badge variant="secondary" className={`${chipAviso} mt-1`}>
               {f.situacao === 'revisar' ? (f.contestada ? 'Revisar' : 'Revisar (dúvida da IA)') : 'Pendente'}
-            </span>
+            </Badge>
             {f.contestada && (
-              <span className={`${chipInfo} mt-1 ml-1`}>
+              <Badge variant="secondary" className={`${chipInfo} mt-1 ml-1`}>
                 Contestada pela pessoa
-              </span>
+              </Badge>
             )}
             {f.ia && (
               <div className="mt-1 text-xs text-muted-foreground">

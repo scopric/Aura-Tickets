@@ -2,9 +2,10 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import * as I from '@/components/icones/evokaa16'
 import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
-import { EmptyState, PageHeader, Stat, selectNativo } from '@/components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, chipErro, chipInfo, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { EmptyState, PageHeader, Stat, selectNativo, chipErro, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAdminTickets } from '../../hooks/useEvents'
@@ -215,7 +216,7 @@ export default function AdminTickets() {
                         <td className="px-4 py-3 text-right text-[13px] font-semibold tabular-nums text-primary">{t.sold || 0}</td>
                         <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-muted-foreground lg:table-cell">{t.capacity || '—'}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={t.is_active ? chipOk : chipNeutro}>{t.is_active ? 'Ativo' : 'Inativo'}</span>
+                          <Badge variant="secondary" className={t.is_active ? chipOk : chipNeutro}>{t.is_active ? 'Ativo' : 'Inativo'}</Badge>
                         </td>
                       </tr>
                     ))}
@@ -278,13 +279,13 @@ export default function AdminTickets() {
                           <div className="text-xs text-muted-foreground">{tk.ticket_types?.name || 'Ingresso'}</div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={tk.status === 'active' ? chipOk : tk.status === 'used' ? chipInfo : chipErro}>
+                          <Badge variant="secondary" className={tk.status === 'active' ? chipOk : tk.status === 'used' ? chipInfo : chipErro}>
                             {tk.status === 'active' ? 'Ativo' : tk.status === 'used' ? 'Utilizado' : 'Cancelado'}
-                          </span>
+                          </Badge>
                         </td>
                         <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{new Date(tk.created_at).toLocaleDateString('pt-BR')}</td>
                         <td className="px-4 py-3 text-right">
-                          <span className={chipNeutro} title="Reenvio de ingressos e reembolsos manuais desabilitados em modo de teste até a Fase 4">Modo Teste</span>
+                          <Badge variant="secondary" className={chipNeutro} title="Reenvio de ingressos e reembolsos manuais desabilitados em modo de teste até a Fase 4">Modo Teste</Badge>
                         </td>
                       </tr>
                     ))}
@@ -352,7 +353,7 @@ export default function AdminTickets() {
                         <td className="px-4 py-3 text-xs text-foreground">{rf.events?.title || 'Evento'}</td>
                         <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{new Date(rf.created_at).toLocaleDateString('pt-BR')}</td>
                         <td className="px-4 py-3 text-center">
-                          <span className={chipErro}>{rf.status === 'refunded' ? 'Reembolsado' : 'Cancelado'}</span>
+                          <Badge variant="secondary" className={chipErro}>{rf.status === 'refunded' ? 'Reembolsado' : 'Cancelado'}</Badge>
                         </td>
                       </tr>
                     ))}

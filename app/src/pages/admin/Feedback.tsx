@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
-import { EmptyState, PageHeader, SectionTitle, Stat, selectNativo } from '@/components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, chipAviso, chipErro, chipInfo, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { EmptyState, PageHeader, SectionTitle, Stat, selectNativo, chipAviso, chipErro, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 
@@ -232,7 +233,7 @@ export default function AdminFeedback() {
               Tabela <span className="font-mono">contact_messages</span> — o que chegou pelo formulário <span className="font-mono">/contato</span> e pelo rodapé.
             </p>
           </div>
-          <span className={cn(chipNeutro, 'shrink-0 tabular-nums')}>{contatos.length}</span>
+          <Badge variant="secondary" className={cn(chipNeutro, 'shrink-0 tabular-nums')}>{contatos.length}</Badge>
         </div>
 
         {data?.contatosErro && (
@@ -354,7 +355,7 @@ export default function AdminFeedback() {
                 return (
                   <tr key={item.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
                     <td className="px-4 py-3">
-                      <span className={tc.chip}><TIcon aria-hidden="true" /> {tc.label}</span>
+                      <Badge variant="secondary" className={tc.chip}><TIcon aria-hidden="true" /> {tc.label}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="line-clamp-2 max-w-xs text-[13px] text-foreground">{item.message}</div>
@@ -375,7 +376,7 @@ export default function AdminFeedback() {
                       <span className="rounded-ev-xs bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{item.page || '—'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={sc.chip}>{sc.label}</span>
+                      <Badge variant="secondary" className={sc.chip}>{sc.label}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
@@ -414,7 +415,7 @@ export default function AdminFeedback() {
                   const tc = getTypeConfig(selected.type)
                   return (
                     <div className="flex flex-col items-start gap-1">
-                      <span className={tc.chip}><tc.icon aria-hidden="true" /> {tc.label}</span>
+                      <Badge variant="secondary" className={tc.chip}><tc.icon aria-hidden="true" /> {tc.label}</Badge>
                       <p className="text-xs tabular-nums text-muted-foreground">{dataBr(selected.createdAt)}</p>
                     </div>
                   )

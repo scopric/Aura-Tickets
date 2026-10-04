@@ -1,9 +1,10 @@
 import { useRef, useEffect, useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { EmptyState, PageHeader, Stat } from '@/components/producer/ui'
-import { Tabela, alertaErro, chipAviso, chipErro, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { EmptyState, PageHeader, Stat, chipAviso, chipErro, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
@@ -202,8 +203,8 @@ export default function AdminEvents() {
                           <div className="text-sm font-medium text-foreground">{e.title}</div>
                           <div className="text-xs text-muted-foreground">{e.venue_city || e.venue_name || 'Local a definir'}</div>
                           <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
-                            <span className={pubStatus.cls}>{pubStatus.label}</span>
-                            <span className={appStatus.cls}>{appStatus.label}</span>
+                            <Badge variant="secondary" className={pubStatus.cls}>{pubStatus.label}</Badge>
+                            <Badge variant="secondary" className={appStatus.cls}>{appStatus.label}</Badge>
                           </div>
                         </div>
                       </div>
@@ -215,10 +216,10 @@ export default function AdminEvents() {
                       <div className="text-xs text-muted-foreground">{e.profiles?.full_name || '—'}</div>
                     </td>
                     <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
-                      <span className={pubStatus.cls}>{pubStatus.label}</span>
+                      <Badge variant="secondary" className={pubStatus.cls}>{pubStatus.label}</Badge>
                     </td>
                     <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
-                      <span className={appStatus.cls}>{appStatus.label}</span>
+                      <Badge variant="secondary" className={appStatus.cls}>{appStatus.label}</Badge>
                     </td>
                     <td className="px-2 py-3 text-center sm:px-4">
                       <Button
@@ -335,13 +336,13 @@ export default function AdminEvents() {
               {detail.cover_image && <img src={detail.cover_image} alt="" className="w-full aspect-video object-cover rounded-xl bg-muted" />}
 
               <div className="flex flex-wrap gap-2">
-                <span className={(statusCfg[detail.status] || { cls: chipNeutro }).cls}>
+                <Badge variant="secondary" className={(statusCfg[detail.status] || { cls: chipNeutro }).cls}>
                   Publicação: {statusCfg[detail.status]?.label || detail.status}
-                </span>
-                <span className={approvalStatusCfg[detail.approval_status || 'pending'].cls}>
+                </Badge>
+                <Badge variant="secondary" className={approvalStatusCfg[detail.approval_status || 'pending'].cls}>
                   Moderação: {approvalStatusCfg[detail.approval_status || 'pending'].label}
-                </span>
-                {detail.featured_carousel && <span className={chipAviso}>Em destaque</span>}
+                </Badge>
+                {detail.featured_carousel && <Badge variant="secondary" className={chipAviso}>Em destaque</Badge>}
               </div>
 
               {detail.description && <p className="text-muted-foreground whitespace-pre-line">{detail.description}</p>}
