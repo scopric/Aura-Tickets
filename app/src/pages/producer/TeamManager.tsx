@@ -5,6 +5,7 @@ import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { iniciais } from '../../hooks/useConversas'
+import { exigirLinhas } from '../../lib/equipe'
 import { PageHeader, Stat, selectNativo, chipAviso, chipErro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -13,52 +14,15 @@ import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 
-interface Permission {
-  view: boolean
-  edit: boolean
-  delete: boolean
-}
-
 interface TeamMember {
   id: string
   name: string
   email: string
   role: 'admin' | 'editor' | 'viewer'
   status: 'active' | 'pending' | 'blocked'
-  permissions: Record<string, Permission>
   lastActive: string
   joinedAt: string
   avatar: string | null
-}
-
-const defaultPermissions: Record<string, { label: string; icon: I.IconeEvokaa }> = {
-  dashboard: { label: 'Dashboard', icon: I.Painel },
-  events: { label: 'Eventos', icon: I.Eventos },
-  eventManager: { label: 'Gestor de Festas', icon: I.Pasta },
-  planner: { label: 'Planejar Evento', icon: I.Editar },
-  brand: { label: 'Brand Studio', icon: I.Paleta },
-  crm: { label: 'CRM', icon: I.Atividade },
-  finance: { label: 'Financeiro', icon: I.Relatorio },
-  wallet: { label: 'Carteira', icon: I.Carteira },
-  menu: { label: 'Cardápio', icon: I.Cardapio },
-  tables: { label: 'Mesas', icon: I.Calculadora },
-  settings: { label: 'Configurações', icon: I.Configuracoes },
-}
-
-const createDefaultPermissions = (): Record<string, Permission> => {
-  const perms: Record<string, Permission> = {}
-  Object.keys(defaultPermissions).forEach(key => {
-    perms[key] = { view: true, edit: false, delete: false }
-  })
-  return perms
-}
-
-const createAdminPermissions = (): Record<string, Permission> => {
-  const perms: Record<string, Permission> = {}
-  Object.keys(defaultPermissions).forEach(key => {
-    perms[key] = { view: true, edit: true, delete: true }
-  })
-  return perms
 }
 
 export default function TeamManager() {
@@ -71,7 +35,6 @@ export default function TeamManager() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor')
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
-  const [editingMember, setEditingMember] = useState<string | null>(null)
 
   // Mapear dados do banco de dados para a interface local
   const mapDbMemberToTeamMember = (dbMember: any): TeamMember => {
@@ -83,15 +46,12 @@ export default function TeamManager() {
       status = 'blocked'
     }
 
-    const isAdm = dbMember.role === 'admin'
-
     return {
       id: dbMember.id,
       name: profile.full_name || dbMember.email?.split('@')[0] || 'Convidado',
       email: dbMember.email || profile.email || '',
       role: (dbMember.role || 'viewer') as TeamMember['role'],
       status: status,
-      permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
       avatar: profile.avatar_url || null
@@ -173,7 +133,7 @@ export default function TeamManager() {
       }
       const targetUserId = profileData.id
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('team_members')
         .insert({
           producer_id: user.id,
@@ -181,8 +141,9 @@ export default function TeamManager() {
           role: inviteRole,
           invited_at: new Date().toISOString(),
         })
+        .select('id')
 
-      if (error) throw error
+      exigirLinhas(error, data)
 
       toast.success('Membro adicionado')
       setInviteEmail('')
@@ -194,27 +155,16 @@ export default function TeamManager() {
     }
   }
 
-  // Atualizar permissões locais (simulado para o layout visual)
-  const updatePermission = (memberId: string, module: string, type: 'view' | 'edit' | 'delete') => {
-    setMembers(members.map(m => {
-      if (m.id !== memberId) return m
-      const current = m.permissions[module] || { view: false, edit: false, delete: false }
-      const updated = { ...current, [type]: !current[type] }
-      if (type === 'edit' && updated.edit && !updated.view) updated.view = true
-      if (type === 'view' && !updated.view) { updated.edit = false; updated.delete = false }
-      return { ...m, permissions: { ...m.permissions, [module]: updated } }
-    }))
-  }
-
   // Atualizar role do membro no banco
   const updateRole = async (memberId: string, role: 'admin' | 'editor' | 'viewer') => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('team_members')
         .update({ role: role })
         .eq('id', memberId)
+        .select('id')
 
-      if (error) throw error
+      exigirLinhas(error, data)
 
       toast.success('Permissão de nível de acesso atualizada!')
       loadMembers()
@@ -230,15 +180,16 @@ export default function TeamManager() {
       // Se for bloqueado, mudamos a role para blocked na tabela
       const dbRole = status === 'blocked' ? 'blocked' : 'viewer'
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('team_members')
         .update({ 
           role: dbRole,
           accepted_at: status === 'active' ? new Date().toISOString() : null
         })
         .eq('id', memberId)
+        .select('id')
 
-      if (error) throw error
+      exigirLinhas(error, data)
 
       toast.success(`Membro ${status === 'blocked' ? 'bloqueado' : 'ativado'}`)
       loadMembers()
@@ -252,12 +203,13 @@ export default function TeamManager() {
   const removeMember = async (memberId: string) => {
     if (window.confirm('Tem certeza que deseja remover este membro da equipe?')) {
       try {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('team_members')
           .delete()
           .eq('id', memberId)
+          .select('id')
 
-        if (error) throw error
+        exigirLinhas(error, data)
 
         toast.success('Membro removido da equipe')
         loadMembers()
@@ -350,7 +302,6 @@ export default function TeamManager() {
         <div className="mt-6 grid gap-3">
           {members.map(member => {
             const isExpanded = expandedMember === member.id
-            const isEditing = editingMember === member.id
             const roleCfg = roleLabels[member.role] || roleLabels.viewer
 
             return (
@@ -389,50 +340,8 @@ export default function TeamManager() {
                       ) : (
                         <Button variant="outline" size="sm" className="text-[var(--ev-success)]" onClick={() => updateStatus(member.id, 'active')}><I.Check aria-hidden="true" /> Ativar</Button>
                       )}
-                      <Button variant="secondary" size="sm" aria-pressed={isEditing} onClick={() => { setEditingMember(isEditing ? null : member.id) }}><I.Escudo aria-hidden="true" /> {isEditing ? 'Fechar' : 'Permissões'}</Button>
                       <Button variant="ghost" size="sm" className="ml-auto text-destructive hover:bg-foreground/5 hover:text-destructive" onClick={() => removeMember(member.id)}><I.Lixeira aria-hidden="true" /> Remover</Button>
                     </div>
-
-                    {/* Permissions Grid */}
-                    {isEditing && (
-                      <div className="grid gap-3">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-[15px] font-semibold leading-5 text-foreground">Permissões de Módulo</h3>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><I.Olho size={16} aria-hidden="true" /> Ver</span>
-                            <span className="flex items-center gap-1"><I.Editar size={16} aria-hidden="true" /> Editar</span>
-                            <span className="flex items-center gap-1"><I.Lixeira size={16} aria-hidden="true" /> Excluir</span>
-                          </div>
-                        </div>
-                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                          {Object.entries(defaultPermissions).map(([key, mod]) => {
-                            const perm = member.permissions[key] || { view: false, edit: false, delete: false }
-                            const Icon = mod.icon
-                            return (
-                              <div key={key} className="rounded-[10px] border border-border bg-card p-3">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Icon size={16} aria-hidden="true" className="text-muted-foreground" />
-                                    <span className="text-xs text-foreground">{mod.label}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.view} onClick={() => updatePermission(member.id, key, 'view')} aria-label={`Permissão de Visualização: ${mod.label}`} title="Visualizar" className={perm.view ? 'bg-[var(--ev-brand-soft)] text-primary hover:bg-[var(--ev-brand-soft)] hover:text-primary' : 'bg-secondary text-muted-foreground'}><I.Olho aria-hidden="true" /></Button>
-                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.edit} onClick={() => updatePermission(member.id, key, 'edit')} aria-label={`Permissão de Edição: ${mod.label}`} title="Editar" className={perm.edit ? `${chipAviso} border hover:text-[var(--ev-warning)]` : 'bg-secondary text-muted-foreground'}><I.Editar aria-hidden="true" /></Button>
-                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.delete} onClick={() => updatePermission(member.id, key, 'delete')} aria-label={`Permissão de Exclusão: ${mod.label}`} title="Excluir" className={perm.delete ? `${chipErro} border hover:text-destructive` : 'bg-secondary text-muted-foreground'}><I.Lixeira aria-hidden="true" /></Button>
-                                  </div>
-                                </div>
-                                <div className="flex gap-1">
-                                  {perm.view && <Badge variant="secondary" className="border-transparent bg-[var(--ev-brand-soft)] text-primary">Ver</Badge>}
-                                  {perm.edit && <Badge variant="secondary" className={chipAviso}>Editar</Badge>}
-                                  {perm.delete && <Badge variant="secondary" className={chipErro}>Excluir</Badge>}
-                                  {!perm.view && !perm.edit && !perm.delete && <span className="text-xs font-medium text-muted-foreground">Sem acesso</span>}
-                                </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Stats */}
                     <div className="grid grid-cols-1 gap-3">

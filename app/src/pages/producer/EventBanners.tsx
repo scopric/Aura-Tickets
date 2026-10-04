@@ -105,8 +105,8 @@ export default function ProducerEventBanners() {
     return (
       <div aria-busy="true">
         {header}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-56 rounded-[10px] bg-muted" />
       </div>
@@ -131,10 +131,13 @@ export default function ProducerEventBanners() {
     <div>
       {header}
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        Os banners ficam guardados só aqui no painel: ainda não aparecem ao comprador no site nem contam cliques.
+      </p>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="Banners" value={banners.length} />
         <Stat label="Ativos" value={banners.filter(b => b.active).length} />
-        <Stat label="Cliques" value={banners.reduce((s, b) => s + (b.clicks || 0), 0)} />
         <Stat label="Eventos" value={[...new Set(banners.map(b => b.event_name).filter(Boolean))].length} />
       </div>
 
@@ -158,7 +161,7 @@ export default function ProducerEventBanners() {
                     <h2 className="truncate text-sm font-medium text-foreground">{banner.name}</h2>
                     <p className="truncate text-xs text-muted-foreground">{banner.event_name || 'Sem evento'} · {positionLabels[banner.position]}</p>
                     <p className="mt-1 text-xs tabular-nums text-muted-foreground">
-                      {banner.clicks || 0} cliques · {new Date(banner.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
+                      {new Date(banner.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })}
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -233,7 +236,7 @@ export default function ProducerEventBanners() {
               <DialogHeader className="p-6 pt-0">
                 <DialogTitle>{previewBanner.name}</DialogTitle>
                 <DialogDescription>
-                  {previewBanner.event_name || 'Sem evento'} · {positionLabels[previewBanner.position]} · {previewBanner.active ? 'Ativo' : 'Inativo'} · {previewBanner.clicks || 0} cliques
+                  {previewBanner.event_name || 'Sem evento'} · {positionLabels[previewBanner.position]} · {previewBanner.active ? 'Ativo' : 'Inativo'}
                 </DialogDescription>
               </DialogHeader>
             </>
