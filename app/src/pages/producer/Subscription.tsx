@@ -165,16 +165,11 @@ export default function ProducerSubscription() {
       const expiresAt = new Date()
       expiresAt.setDate(expiresAt.getDate() + 30)
 
-      // Se o plano que ele está assinando coincidir com o configurado com preco customizado,
-      // nós mantemos, caso contrário passamos null (preço padrão)
-      const customPriceVal = subscription?.plan === planToSubscribe ? subscription.custom_price : null
-
       const { error } = await supabase
         .from('producer_subscriptions')
         .upsert({
           producer_id: user.id,
           plan: planToSubscribe,
-          custom_price: customPriceVal,
           expires_at: expiresAt.toISOString(),
           is_active: true,
           started_at: new Date().toISOString()
@@ -243,11 +238,7 @@ export default function ProducerSubscription() {
                   <span>Assinatura ativa (Sem prazo de expiração)</span>
                 )}
                 {' · '}
-                <span>
-                  {subscription.custom_price !== null 
-                    ? `R$ ${subscription.custom_price}/mês (Preço Customizado pelo Admin)` 
-                    : `R$ ${plans.find(pl => pl.id === subscription.plan)?.price || 0}/mês`}
-                </span>
+                <span>R$ {plans.find(pl => pl.id === subscription.plan)?.price || 0}/mês</span>
               </div>
             </div>
           </div>
@@ -273,12 +264,8 @@ export default function ProducerSubscription() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
         {plans.map(p => {
           const I = p.icon
-          
-          // Se houver um preco customizado atribuido a este plano especifico, exibe ele!
-          const hasCustomPrice = subscription?.plan === p.id && subscription.custom_price !== null
-          const basePrice = hasCustomPrice ? subscription.custom_price : p.price
-          const price = billingPeriod === 'anual' ? Math.round(basePrice * 0.8) : basePrice
-          
+          const price = billingPeriod === 'anual' ? Math.round(p.price * 0.8) : p.price
+
           return (
             <div key={p.id} className={`relative p-6 rounded-3xl border backdrop-blur-sm transition-all hover:shadow-xl hover:-translate-y-1 cursor-pointer ${selectedPlan === p.id ? p.bg + ' ' + p.border + ' ring-2 ring-plum/20' : 'bg-white/60 border-white/60'}`}  onClick={() => setSelectedPlan(p.id)}>
               {p.popular && (
@@ -295,14 +282,8 @@ export default function ProducerSubscription() {
                 <span className="font-serif text-3xl animate-fade-in" style={{ color: p.color }}>R$ {price}</span>
                 <span className="text-xs" style={{ color: 'var(--espresso)', opacity: 0.35 }}>{billingPeriod === 'anual' ? '/mes (anual)' : '/mes'}</span>
               </div>
-              
-              {hasCustomPrice && (
-                <div className="text-[10px] mb-3 px-2 py-1 rounded bg-green-50 text-green-700 font-semibold inline-block">
-                  Preço Customizado pelo Admin!
-                </div>
-              )}
 
-              {billingPeriod === 'anual' && !hasCustomPrice && (
+              {billingPeriod === 'anual' && (
                 <div className="text-[10px] mb-3 px-2 py-1 rounded-full bg-green-50 text-green-700 inline-block">
                   R$ {price * 12}/ano · 20% OFF
                 </div>
@@ -360,9 +341,7 @@ export default function ProducerSubscription() {
             
             {/* Preço de confirmação */}
             {(() => {
-              const basePrice = subscription?.plan === currentPlan?.id && subscription.custom_price !== null
-                ? subscription.custom_price
-                : (currentPlan?.price || 0)
+              const basePrice = currentPlan?.price || 0
               const price = billingPeriod === 'anual' ? Math.round(basePrice * 0.8) : basePrice
               
               return (

@@ -17,7 +17,7 @@ const producerSteps: TourStep[] = [
   { title: 'Financeiro', description: 'Veja o valor bruto dos pedidos pagos de cada evento e exporte em CSV. O repasse aparece quando o pagamento estiver ligado.' },
   { title: 'Orçamento do evento', description: 'Anote o previsto de cada gasto (marketing, decoração, emergência) e acompanhe quanto já separou.' },
   { title: 'Comunicação', description: 'A comunicação com os participantes chega em breve.' },
-  { title: 'Cupons', description: 'Crie cupons de desconto para impulsionar vendas. Percentual ou valor fixo, com limite de usos e validade.' },
+  { title: 'Cupons', description: 'Cadastre cupons de desconto, percentuais ou de valor fixo, com limite de usos e validade. O checkout ainda não aplica cupom: ele passa a valer com a integração de pagamentos.' },
   { title: 'Cronograma', description: 'Monte a linha do tempo do evento: soundcheck, abertura, shows e encerramento. Marque os itens concluídos.' },
   { title: 'Tudo pronto!', description: 'Explore o menu lateral para conhecer as ferramentas. Dúvidas? As perguntas frequentes estão em "Ajuda".' },
 ]
@@ -26,7 +26,7 @@ const buyerSteps: TourStep[] = [
   { title: 'Boas-vindas à Evokaa!', description: 'Aqui você descobre eventos, compra ingressos e vive experiências únicas.' },
   { title: 'Descobrir Eventos', description: 'Navegue pela lista de eventos. Filtre por tipo (festa, show, workshop), data e local.' },
   { title: 'Mesa Coletiva', description: 'Não tem grupo? Com o ingresso de Mesa Coletiva você senta com outras pessoas no evento. A formação automática por afinidade chega em breve.' },
-  { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa), aplique um cupom de desconto e pague por Pix ou cartão.' },
+  { title: 'Comprar Ingresso', description: 'Escolha o tipo (Pista, VIP, Mesa) e pague por Pix ou cartão.' },
   { title: 'Meus Ingressos', description: 'Acesse seus ingressos com QR code. Mostre na entrada do evento para o check-in.' },
   { title: 'Cardápio', description: 'Veja as bebidas e comidas do evento no Hub. Pedidos pelo app chegam em breve.' },
   { title: 'Tudo pronto!', description: 'Explore o app e encontre seu próximo evento. Dúvidas? As perguntas frequentes estão em "Ajuda".' },

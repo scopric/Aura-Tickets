@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { MessageSquarePlus, X, Send, Star, Bug, Lightbulb, HelpCircle, ThumbsUp, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useFeedback } from '../hooks/useFeedback'
+import { MAX_MENSAGEM } from '../hooks/useFeedback'
 import type { FeedbackType } from '../hooks/useFeedback'
 
 type FeedbackTypeConfig = {
@@ -13,8 +14,8 @@ type FeedbackTypeConfig = {
 const typeConfig: Record<FeedbackType, FeedbackTypeConfig> = {
   melhoria: { icon: Lightbulb, label: 'Melhoria', color: 'text-amber-600' },
   bug: { icon: Bug, label: 'Bug', color: 'text-red-500' },
-  duvida: { icon: HelpCircle, label: 'Duvida', color: 'text-blue-600' },
-  sugestao: { icon: Star, label: 'Sugestao', color: 'text-violet-600' },
+  duvida: { icon: HelpCircle, label: 'Dúvida', color: 'text-blue-600' },
+  sugestao: { icon: Star, label: 'Sugestão', color: 'text-violet-600' },
   elogio: { icon: ThumbsUp, label: 'Elogio', color: 'text-green-600' },
 }
 
@@ -92,7 +93,8 @@ export function FeedbackForm({ onDone }: { onDone?: () => void }) {
       <textarea
         value={message}
         onChange={(e) => setMessage(e.target.value)}
-        placeholder="Conte-nos o que voce pensa..."
+        maxLength={MAX_MENSAGEM}
+        placeholder="Conte-nos o que você pensa..."
         aria-label="Mensagem do feedback"
         className="w-full px-3 py-2 bg-canvas border border-slate-500/40 rounded-xl text-xs text-espresso placeholder:text-slate-500 focus:outline-none focus:border-plum focus-visible:ring-2 focus-visible:ring-plum transition-colors resize-none h-20"
       />

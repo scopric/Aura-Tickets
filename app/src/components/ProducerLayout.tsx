@@ -12,7 +12,6 @@ import { useRegistrarTour } from '../hooks/useTourLog'
 import { cn } from '@/lib/utils'
 import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
-import NotificationsTopButton from './NotificationsTopButton'
 
 const botaoTopo = 'rounded-full p-2 text-foreground hover:bg-foreground/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
@@ -190,7 +189,9 @@ export default function ProducerLayout() {
             <img src="/images/logo-evokaa-sm.png" alt="Evokaa" className="h-7 w-auto" />
           </div>
           <div className="pointer-events-auto flex items-center gap-1 lg:rounded-full lg:border lg:border-border lg:bg-card lg:p-0.5">
-            <NotificationsTopButton className={botaoTopo} />
+            {/* ponytail: sino escondido até a L5 (a tabela notifications não tem política de leitura e nada grava).
+                Religa: política SELECT/UPDATE do próprio usuário + gatilho que grava aviso; aí voltar
+                `import NotificationsTopButton from './NotificationsTopButton'` e <NotificationsTopButton className={botaoTopo} /> aqui. */}
             <FeedbackTopButton className={botaoTopo} />
           </div>
         </div>
