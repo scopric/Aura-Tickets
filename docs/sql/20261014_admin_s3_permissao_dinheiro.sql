@@ -28,7 +28,9 @@
 --      manage_affiliates (era gf_is_admin).
 --   5. gf_protect_withdrawals (gatilho novo): pelo site, saque só muda status e processed_at; producer_id, amount,
 --      pix_key, bank_account, created_at (e coluna futura) ficam travados. service_role e SQL Editor passam.
---   6. gf_protect_platform_affiliate_payout (gatilho novo): payout_account_id (única coluna de conta de recebimento de
+--   6. gf_protect_platform_affiliate_payout (gatilho novo): user_id e referral_code nunca mudam pelo site; e
+--      affiliate_id de affiliate_links nunca muda (item 4, mesmo para manage_affiliates: senão desvia comissão).
+--      payout_account_id (única coluna de conta de recebimento de
 --      platform_affiliates; cpf é dado pessoal, não conta) só se preenche quando está nulo; trocar valor já preenchido dá
 --      42501 para qualquer um do site, inclusive super_admin (Decisão 163, item 10). PENDÊNCIA: tela do afiliado para
 --      trocar a própria conta (hoje ele não grava a própria linha; até lá a troca é só por service_role/SQL Editor).
@@ -86,7 +88,7 @@
 --    em Pix e conta da PRÓPRIA linha como dono, nunca na dos outros.
 -- 8. gf_protect_coupon_uses: cupom de produtor passa a ter `uses` alterável por admin só com manage_coupons (antes
 --    qualquer admin). O incremento do checkout segue pela chave de serviço.
--- 9. Bloco 0, reaplicação: só vale o md5 de produção OU o md5 exato da versão desta S3 (gravado abaixo, calculado no
+-- 9. Bloco 0, reaplicação: só vale o md5 de produção OU o md5 exato da versão desta S3 (gravado no bloco, calculado no
 --    ensaio); nunca uma frase. Mudou depois da S3 = aborta e refaz a partir da definição atual.
 -- =============================================================================
 begin;
@@ -107,11 +109,16 @@ declare
     'gf_protect_producer_profile_privileges()', '4c54ac1c4b549d478a71ec021a6b111a',
     'gf_protect_coupon_uses()', '73c7e315fce49fa3d503625fa108185c',
     'gf_protect_affiliate_link()', '9981d9aacfdfac0e94e5858a5b270f07');
+  -- funções NOVAS: ou não existem ou são exatamente as desta S3
+  novas jsonb := jsonb_build_object(
+    'gf_protect_withdrawals()', '9c576419ef85417faa73fae3d6072a42',
+    'gf_protect_platform_affiliate_payout()', 'd215e0f14e0027973965bffda5115a94',
+    'afiliados_para_cupons()', 'e92d3eece72279afa23af23ec4d14e0f');
   -- md5 exato das versões desta S3 (2ª aplicação)
   versao_s3 jsonb := jsonb_build_object(
     'gf_protect_producer_profile_privileges()', '5c97dec667d533f5e761742ce43fa698',
     'gf_protect_coupon_uses()', '4065ca8d3ee0ae40bb3fca910a21cddb',
-    'gf_protect_affiliate_link()', '050ec47b9044b8dadbbc104080e8a121');
+    'gf_protect_affiliate_link()', '80fcbfa04ce8c5e6a310321b33c1e416');
 begin
   foreach t in array array['affiliate_coupon_requests', 'affiliate_links', 'coupons', 'order_items', 'orders',
       'platform_affiliate_producers', 'platform_affiliates', 'platform_settings', 'producer_profiles',
@@ -150,6 +157,12 @@ begin
     def := pg_get_functiondef(('public.' || f)::regprocedure);
     if md5(def) <> gatilhos ->> f and md5(def) <> versao_s3 ->> f then
       raise exception 'public.% mudou desde 04/10 (md5 diferente): refazer o bloco a partir da definição atual', f;
+    end if;
+  end loop;
+  for f in select jsonb_object_keys(novas) loop
+    if to_regprocedure('public.' || f) is not null
+       and md5(pg_get_functiondef(('public.' || f)::regprocedure)) <> novas ->> f then
+      raise exception 'public.% existe e não é a versão desta S3 (md5 diferente): conferir antes de sobrescrever', f;
     end if;
   end loop;
   foreach t in array array['producer_profiles', 'coupons', 'affiliate_links'] loop
@@ -377,6 +390,10 @@ set search_path = ''
 as $$
 begin
   -- S3 (Decisão 163): manage_affiliates no lugar de gf_is_admin
+  -- o link não muda de afiliado depois de criado, nem por manage_affiliates (desviaria comissão; Decisão 163)
+  if current_user in ('authenticated', 'anon') and new.affiliate_id is distinct from old.affiliate_id then
+    raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
+  end if;
   -- só trava quem edita pelo site (papéis do PostgREST); a contagem de cliques roda dentro de
   -- affiliate_link_hit (security definer, como dona da função) e passa
   if current_user in ('authenticated', 'anon') and not (select public.gf_admin_can('manage_affiliates'))
@@ -417,11 +434,13 @@ language plpgsql
 set search_path = ''
 as $$
 begin
-  -- S3 (Decisão 163, item 10): nem super_admin troca a conta já preenchida
+  -- S3 (Decisão 163, item 10): nem super_admin troca a conta já preenchida, nem muda de quem é a linha
+  -- (user_id) ou o código de indicação (referral_code): desviaria a comissão do afiliado
   if (current_user in ('anon', 'authenticated')
       or coalesce(auth.jwt()->>'role', '') in ('anon', 'authenticated'))
-     and old.payout_account_id is not null
-     and new.payout_account_id is distinct from old.payout_account_id then
+     and ((old.payout_account_id is not null and new.payout_account_id is distinct from old.payout_account_id)
+          or new.user_id is distinct from old.user_id
+          or new.referral_code is distinct from old.referral_code) then
     raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
   end if;
   return new;

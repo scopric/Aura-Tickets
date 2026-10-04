@@ -26,7 +26,10 @@ insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) value
   ('e4000000-0000-4000-8000-000000000009', 'p@teste-e4.local', now(), '{"role":"producer","full_name":"Paula"}'),
   ('e4000000-0000-4000-8000-00000000000c', 'c@teste-e4.local', now(), '{"full_name":"Caio"}'),
   ('e4000000-0000-4000-8000-00000000000a', 'a@teste-e4.local', now(), '{"full_name":"Admin"}');
-update public.profiles set role = 'admin' where id = 'e4000000-0000-4000-8000-00000000000a';
+-- Admin como em produção (Decisão 99 e S3): fator verificado, token aal2 e a permissão da tela (manage_finance)
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at) values
+  ('e4000000-0000-4000-8000-0000000000fa', 'e4000000-0000-4000-8000-00000000000a', 'teste', 'totp', 'verified', now(), now());
+update public.profiles set role = 'admin', admin_permissions = array['manage_finance'] where id = 'e4000000-0000-4000-8000-00000000000a';
 insert into public.events (id, producer_id, title, slug, status, approval_status) values
   ('e4000000-0000-4000-8000-0000000000e1', 'e4000000-0000-4000-8000-000000000009', 'Evento E4', 'e4-e1', 'published', 'approved');
 insert into public.orders (id, user_id, event_id, total, status, customer_name, customer_email, customer_cpf, customer_phone) values
@@ -105,7 +108,7 @@ select lives_ok($$select id, order_id, event_id, ticket_type_id, user_id, qr_cod
 select throws_ok($$select buyer_cpf from tickets$$, '42501', null, 'comprador não lê o próprio buyer_cpf');
 
 -- Admin -----------------------------------------------------------------------------------------------------------
-select pg_temp.como('authenticated', 'e4000000-0000-4000-8000-00000000000a');
+select pg_temp.como('authenticated', 'e4000000-0000-4000-8000-00000000000a', 'aal2');
 select results_eq($$select count(*) from (select id, total, status, payment_method, created_at, customer_name, customer_email
   from orders where event_id = 'e4000000-0000-4000-8000-0000000000e1' and status = 'paid') s$$, array[1::bigint],
   'admin lê as colunas do Financeiro (useAdminFinance)');

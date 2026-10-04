@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(330);
+select plan(340);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -771,6 +771,29 @@ select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000014', 'aa
 select throws_ok($$select * from public.afiliados_para_cupons()$$, '42501', null, 'afiliados_para_cupons: comum barrado (42501)');
 select pg_temp.como('anon');
 select throws_ok($$select * from public.afiliados_para_cupons()$$, '42501', null, 'afiliados_para_cupons: anônimo barrado (42501)');
+-- desvio de comissão: affiliate_id do link, user_id e referral_code do afiliado nunca mudam pelo site
+select pg_temp.como('postgres');
+insert into public.platform_affiliates (id, user_id, referral_code, recurring_percent) values ('d5000000-0000-4000-8000-0000000000ab', 'd5000000-0000-4000-8000-000000000018', 'S3AFIL2', 20);
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000005', 'aal2');
+select throws_ok($$update public.affiliate_links set affiliate_id = 'd5000000-0000-4000-8000-0000000000ab' where id = 'd5000000-0000-4000-8000-0000000000a9'$$, '42501', null, 'manage_affiliates troca affiliate_id do link: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
+select throws_ok($$update public.affiliate_links set affiliate_id = 'd5000000-0000-4000-8000-0000000000ab' where id = 'd5000000-0000-4000-8000-0000000000a9'$$, '42501', null, 'super_admin troca affiliate_id do link: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000016', 'aal1');
+select throws_ok($$update public.affiliate_links set affiliate_id = 'd5000000-0000-4000-8000-0000000000ab' where id = 'd5000000-0000-4000-8000-0000000000a9'$$, '42501', null, 'afiliado troca affiliate_id do próprio link: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000005', 'aal2');
+select is(pg_temp.upd($$update public.affiliate_links set affiliate_id = affiliate_id, label = 'mesmo afiliado' where id = 'd5000000-0000-4000-8000-0000000000a9'$$), 1::bigint, 'mandar o mesmo affiliate_id passa');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000005', 'aal2');
+select throws_ok($$update public.platform_affiliates set user_id = 'd5000000-0000-4000-8000-000000000017' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, '42501', null, 'manage_affiliates troca user_id do afiliado: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
+select throws_ok($$update public.platform_affiliates set user_id = 'd5000000-0000-4000-8000-000000000017' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, '42501', null, 'super_admin troca user_id do afiliado: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000005', 'aal2');
+select throws_ok($$update public.platform_affiliates set referral_code = 'S3OUTRO' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, '42501', null, 'manage_affiliates troca referral_code: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
+select throws_ok($$update public.platform_affiliates set referral_code = 'S3OUTRO' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, '42501', null, 'super_admin troca referral_code: 42501');
+select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000005', 'aal2');
+select is(pg_temp.upd($$update public.platform_affiliates set referral_code = referral_code, user_id = user_id, notes = 'ok' where id = 'd5000000-0000-4000-8000-0000000000a7'$$), 1::bigint, 'mandar o mesmo código e user_id passa (editar outra coisa)');
+select pg_temp.como('service_role');
+select lives_ok($$update public.platform_affiliates set referral_code = 'S3SERV' where id = 'd5000000-0000-4000-8000-0000000000a7'$$, 'service_role troca referral_code');
 select pg_temp.como('postgres');
 select is((select commission_rate::text || '/' || stripe_account_id || '/' || pix_key from public.producer_profiles where id = 'd5000000-0000-4000-8000-000000000012'), '12.00/acct_ok/p1@upsert', 'valores finais do p1: só as gravações permitidas ficaram');
 
