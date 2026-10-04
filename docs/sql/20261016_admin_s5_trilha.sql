@@ -6,19 +6,18 @@
 --      ip). IMUTÁVEL em três camadas: sem GRANT a ninguém (nem service_role) e RLS ligada sem regra permissiva; gatilho que
 --      recusa UPDATE, DELETE e TRUNCATE (só a limpeza agendada apaga, e só o vencido); só gatilho e funções SECURITY
 --      DEFINER (search_path '') inserem. Limite: o dono do banco pode desligar o gatilho (não se fecha dentro do Supabase).
---   2. audit_registra(): gatilho genérico AFTER por linha. Argumentos do gatilho: (coluna do id, colunas ocultas, regras de
---      motivo obrigatório, colunas ignoradas). UPDATE grava só o que mudou (nunca updated_at); colunas ocultas aparecem como
+--   2. audit_registra(): gatilho genérico AFTER por linha. Argumentos do gatilho: (coluna do id, colunas ocultas, colunas
+--      ignoradas). UPDATE grava só o que mudou (nunca updated_at); colunas ocultas aparecem como
 --      "«oculto»" em antes e depois; INSERT e DELETE gravam a linha com as ocultas mascaradas. Motivo: cabeçalho
 --      x-evokaa-motivo (base64 UTF-8; sem ele, nulo). IP: cf-connecting-ip, senão o ÚLTIMO x-forwarded-for.
---      Motivo obrigatório: só para quem chega pelo site (papel anon/authenticated); service_role e SQL Editor passam.
---      NÃO VERIFICADO em produção: se o gateway da Supabase deixa o cabeçalho x-evokaa-motivo e o IP chegarem a
---      request.headers (se não chegar, motivo e IP ficam nulos e a regra de motivo obrigatório recusa a comissão e a taxa:
---      a S6 troca por RPC).
+--      O motivo NÃO é obrigatório no banco: grava quando vem, nulo quando não vem. NÃO VERIFICADO em produção se o gateway
+--      da Supabase deixa o cabeçalho x-evokaa-motivo e o IP chegarem a request.headers; por isso a obrigatoriedade
+--      (comissão do produtor e taxa em platform_settings 'fees', Decisão 163) entra na S6, via RPC ou depois de testar
+--      o cabeçalho no navegador.
 --   3. Gatilhos (AFTER, nome próprio audit_<tabela>_<ins|upd|del>, WHEN só nas colunas que interessam; nenhuma função
 --      alheia é recriada): profiles (role, admin_permissions, is_verified), admin_invites (token_hash oculto),
---      producer_profiles (comissão com motivo obrigatório, is_verified; pix_key, bank_account, cnpj, stripe_account_id e
---      woovi_account_id ocultos), withdrawals (status), revenue_advances (status e DELETE), platform_settings (tudo; motivo
---      obrigatório na linha key = 'fees'), events (só as 5 colunas de moderação), coupons (só da plataforma, sem contar
+--      producer_profiles (comissão, is_verified; pix_key, bank_account, cnpj, stripe_account_id e
+--      woovi_account_id ocultos), withdrawals (status), revenue_advances (status e DELETE), platform_settings (tudo), events (só as 5 colunas de moderação), coupons (só da plataforma, sem contar
 --      `uses`), affiliate_coupon_requests, platform_affiliates (dados pessoais ocultos), platform_affiliate_producers,
 --      affiliate_links (sem contar `clicks`), feedback e contact_messages (só UPDATE e DELETE; conteúdo oculto),
 --      ai_settings, ai_credit_grants (só INSERT), chat_settings, kb_articles (body e busca ocultos), kb_termos, newsletters
@@ -51,9 +50,8 @@
 -- (nomes reais das tabelas que AdminSettings e Finance exportam; o plano só listava users, events, orders, transactions,
 -- user_activities); objeto_id é text (ai_settings tem id inteiro); contact_messages e feedback não registram INSERT (é o
 -- formulário público).
--- ORDEM DE APLICAÇÃO: depois do 20261014 (S3). Não depende do 20261015 (S4). APLICAR JUNTO COM O FRONT DO PR2: a regra de
--- motivo obrigatório (comissão do produtor e taxa em platform_settings) recusa quem muda pelo site sem o cabeçalho
--- x-evokaa-motivo; as telas de hoje não o mandam.
+-- ORDEM DE APLICAÇÃO: depois do 20261014 (S3). Não depende do 20261015 (S4). Não muda o comportamento do site (nada é recusado
+-- por falta de motivo).
 --
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA pelo TextEdit: erro 17). Uma transação só:
 -- se o bloco 0 ou a conferência do fim falhar, nada é gravado. Idempotente. `set local lock_timeout = '5s'`: se algo
@@ -246,8 +244,7 @@ end;
 $$;
 
 -- 3. Gatilho genérico -------------------------------------------------------------------------------------------------
--- Argumentos: (coluna do id, colunas ocultas, regras de motivo obrigatório, colunas ignoradas), listas separadas por vírgula.
--- Regra de motivo: 'coluna' (obrigatório quando a coluna muda) ou 'coluna=valor' (quando a linha tem esse valor).
+-- Argumentos: (coluna do id, colunas ocultas, colunas ignoradas), listas separadas por vírgula.
 create or replace function public.audit_registra()
 returns trigger
 language plpgsql
@@ -257,15 +254,12 @@ as $$
 declare
   v_id text := coalesce(nullif(tg_argv[0], ''), 'id');
   v_ocultar text[] := string_to_array(coalesce(tg_argv[1], ''), ',');
-  v_regras text[] := string_to_array(coalesce(tg_argv[2], ''), ',');
-  v_ignorar text[] := array['updated_at'] || string_to_array(coalesce(tg_argv[3], ''), ',');
+  v_ignorar text[] := array['updated_at'] || string_to_array(coalesce(tg_argv[2], ''), ',');
   v_old jsonb;
   v_new jsonb;
   v_antes jsonb;
   v_depois jsonb;
   v_motivo text;
-  v_exige boolean := false;
-  r text;
 begin
   if tg_op <> 'INSERT' then v_old := to_jsonb(old); end if;
   if tg_op <> 'DELETE' then v_new := to_jsonb(new); end if;
@@ -290,20 +284,7 @@ begin
   v_depois := v_depois || (select coalesce(jsonb_object_agg(k, to_jsonb('«oculto»'::text)), '{}'::jsonb)
                            from unnest(v_ocultar) k where v_depois ? k);
 
-  -- motivo obrigatório (só para quem chega pelo site)
-  foreach r in array v_regras loop
-    if position('=' in r) > 0 then
-      v_exige := v_exige or coalesce((coalesce(v_new, v_old) ->> split_part(r, '=', 1)) = split_part(r, '=', 2), false);
-    else
-      v_exige := v_exige or (tg_op = 'UPDATE' and v_depois ? r);
-    end if;
-  end loop;
   v_motivo := public.audit_motivo_cabecalho();
-  if v_exige and v_motivo is null
-     and (current_setting('role', true) in ('anon', 'authenticated')
-          or coalesce((select auth.jwt()) ->> 'role', '') in ('anon', 'authenticated')) then
-    raise exception 'Informe o motivo da alteração.' using errcode = '22023';
-  end if;
 
   insert into public.admin_audit_log (autor, tipo, acao, tabela, objeto_id, antes, depois, motivo, ip)
   values ((select auth.uid()), 'acao', case tg_op when 'INSERT' then 'criar' when 'UPDATE' then 'alterar' else 'excluir' end,
@@ -352,16 +333,16 @@ create trigger withdrawals_quem_processou before insert or update on public.with
 
 -- 5. Gatilhos de auditoria (tabela por tabela; WHEN nas colunas que interessam) -----------------------------------------
 -- Cada item: t = tabela; ins/upd/del = condição WHEN do gatilho (ausente = sem gatilho nesse evento); o = colunas
--- ocultas; m = regras de motivo obrigatório; i = colunas ignoradas.
+-- ocultas; i = colunas ignoradas.
 do $$
 declare
   spec jsonb := $j$[
     {"t":"profiles","upd":"old.role is distinct from new.role or old.admin_permissions is distinct from new.admin_permissions or old.is_verified is distinct from new.is_verified"},
     {"t":"admin_invites","ins":"true","upd":"old.status is distinct from new.status or old.permissions is distinct from new.permissions or old.token_hash is distinct from new.token_hash or old.expires_at is distinct from new.expires_at","o":"token_hash"},
-    {"t":"producer_profiles","upd":"old.commission_rate is distinct from new.commission_rate or old.is_verified is distinct from new.is_verified or old.pix_key is distinct from new.pix_key or old.bank_account is distinct from new.bank_account or old.cnpj is distinct from new.cnpj or old.stripe_account_id is distinct from new.stripe_account_id or old.woovi_account_id is distinct from new.woovi_account_id","o":"pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id","m":"commission_rate"},
+    {"t":"producer_profiles","upd":"old.commission_rate is distinct from new.commission_rate or old.is_verified is distinct from new.is_verified or old.pix_key is distinct from new.pix_key or old.bank_account is distinct from new.bank_account or old.cnpj is distinct from new.cnpj or old.stripe_account_id is distinct from new.stripe_account_id or old.woovi_account_id is distinct from new.woovi_account_id","o":"pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id"},
     {"t":"withdrawals","upd":"old.status is distinct from new.status"},
     {"t":"revenue_advances","upd":"old.status is distinct from new.status","del":"true"},
-    {"t":"platform_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true","m":"key=fees"},
+    {"t":"platform_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
     {"t":"events","upd":"old.approval_status is distinct from new.approval_status or old.approved_at is distinct from new.approved_at or old.approved_by is distinct from new.approved_by or old.rejection_reason is distinct from new.rejection_reason or old.featured_carousel is distinct from new.featured_carousel"},
     {"t":"coupons","ins":"new.producer_id is null","upd":"old.producer_id is null and (to_jsonb(new) - 'uses' - 'updated_at') is distinct from (to_jsonb(old) - 'uses' - 'updated_at')","del":"old.producer_id is null","i":"uses"},
     {"t":"affiliate_coupon_requests","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes or old.coupon_id is distinct from new.coupon_id","del":"true"},
@@ -388,8 +369,8 @@ begin
       continue when s ->> ev.k is null;
       nome := 'audit_' || (s ->> 't') || '_' || ev.k;
       execute format('drop trigger if exists %I on public.%I', nome, s ->> 't');
-      execute format('create trigger %I after %s on public.%I for each row when (%s) execute function public.audit_registra(%L, %L, %L, %L)',
-        nome, ev.op, s ->> 't', s ->> ev.k, 'id', coalesce(s ->> 'o', ''), coalesce(s ->> 'm', ''), coalesce(s ->> 'i', ''));
+      execute format('create trigger %I after %s on public.%I for each row when (%s) execute function public.audit_registra(%L, %L, %L)',
+        nome, ev.op, s ->> 't', s ->> ev.k, 'id', coalesce(s ->> 'o', ''), coalesce(s ->> 'i', ''));
     end loop;
   end loop;
 end $$;

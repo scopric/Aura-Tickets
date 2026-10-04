@@ -647,8 +647,6 @@ select throws_ok($$update public.producer_profiles set cnpj = '00000000000191' w
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select throws_ok($$update public.producer_profiles set company_name = 'Outro nome' where id = 'd5000000-0000-4000-8000-000000000012'$$, '42501', null, 'manage_users troca o nome da empresa: 42501');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
--- S5: comissão só muda com motivo (cabeçalho x-evokaa-motivo, base64); sem a S5 aplicada o cabeçalho não faz nada
-select set_config('request.headers', json_build_object('x-evokaa-motivo', encode(convert_to('teste da S3', 'UTF8'), 'base64'))::text, true);
 select lives_ok($$update public.producer_profiles set commission_rate = 12 where id = 'd5000000-0000-4000-8000-000000000012'$$, 'super_admin troca commission_rate: passa');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select lives_ok($$update public.producer_profiles set stripe_account_id = 'acct_ok', woovi_account_id = 'w_ok', webhook_url = null where id = 'd5000000-0000-4000-8000-000000000012'$$, 'super_admin troca Stripe e Woovi: passa');

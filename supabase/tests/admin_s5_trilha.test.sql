@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(113);
+select plan(114);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -157,8 +157,7 @@ select is(pg_temp.nlog($$tabela = 'platform_settings' and objeto_id = (select id
   'platform_settings (general) grava 1 linha');
 select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'motivo', null, 'sem cabeçalho, motivo nulo');
 select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000003', 'aal2');
-select throws_ok($$update public.platform_settings set value = '{"taxa":12}' where key = 'fees'$$, '22023', 'Informe o motivo da alteração.',
-  'taxa sem motivo é recusada');
+select lives_ok($$update public.platform_settings set value = '{"taxa":11}' where key = 'fees'$$, 'taxa sem motivo passa (motivo ainda não é obrigatório)');
 select pg_temp.hdr('{"x-evokaa-motivo":"' || encode(convert_to('Revisão da taxa, às 10h: ação áçã', 'UTF8'), 'base64')
   || '","cf-connecting-ip":"203.0.113.7","x-forwarded-for":"10.0.0.1, 198.51.100.9"}');
 select lives_ok($$update public.platform_settings set value = '{"taxa":12}' where key = 'fees'$$, 'taxa com motivo no cabeçalho passa');
@@ -183,10 +182,12 @@ update public.platform_settings set value = '{"taxa":15}' where key = 'fees';
 select is(pg_temp.nlog($$tabela = 'platform_settings'$$), 1::bigint, 'SQL Editor (dono) muda a taxa sem motivo: passa e grava');
 select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'autor', null, 'autor nulo fora da API');
 
--- F. Comissão exige motivo; coupons e events ---------------------------------------------------------------------------------
+-- F. Comissão; coupons e events ---------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000006', 'aal2');
-select throws_ok($$update public.producer_profiles set commission_rate = 8 where id = 'd7000000-0000-4000-8000-000000000008'$$, '22023',
-  'Informe o motivo da alteração.', 'comissão sem motivo é recusada');
+select lives_ok($$update public.producer_profiles set commission_rate = 9 where id = 'd7000000-0000-4000-8000-000000000008'$$, 'comissão sem motivo passa (motivo ainda não é obrigatório)');
+select pg_temp.como('postgres');
+select is(pg_temp.ult($$tabela = 'producer_profiles'$$) -> 'motivo', 'null'::jsonb, 'comissão sem motivo: grava com motivo nulo');
+select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000006', 'aal2');
 select pg_temp.hdr('{"x-evokaa-motivo":"' || encode(convert_to('contrato novo', 'UTF8'), 'base64') || '"}');
 select lives_ok($$update public.producer_profiles set commission_rate = 8 where id = 'd7000000-0000-4000-8000-000000000008'$$, 'comissão com motivo passa');
 select pg_temp.como('postgres');
