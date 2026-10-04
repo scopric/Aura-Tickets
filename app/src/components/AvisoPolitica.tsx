@@ -1,36 +1,22 @@
-import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { PRIVACY_VERSION } from '../lib/legal'
+import { fecharPolitica, useCamada } from '../lib/camadas'
+import { useAuthStore } from '../stores/authStore'
 
 // Aviso da mudança da Política de Privacidade (a própria política, seção 9, promete avisar).
-// Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar.
+// Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar. Só aparece quando a camada aberta é a
+// da Política (depois da decisão de cookies; conta que aceitou a versão vigente no cadastro não vê: ver lib/camadas.ts).
 // ponytail: o texto fala da mudança de 04/10/2026 (favoritos); trocar junto com a próxima versão.
-const CHAVE = `aviso-politica-${PRIVACY_VERSION}`
 const DATA = new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')
 
-function jaFechado() {
-  try {
-    return localStorage.getItem(CHAVE) === '1'
-  } catch {
-    return false
-  }
-}
-
 export default function AvisoPolitica() {
-  const [aberto, setAberto] = useState(() => !jaFechado())
+  const camada = useCamada()
+  // a sessão chega assíncrona: até lá não dá para saber se a conta já aceitou esta versão (evita piscar)
+  const carregando = useAuthStore((s) => s.isLoading)
   // no painel do produtor, celular e tablet: abaixo da barra de 56 px do topo (menu, sino e feedback)
   const produtor = useLocation().pathname.startsWith('/producer')
-  if (!aberto) return null
-
-  const fechar = () => {
-    try {
-      localStorage.setItem(CHAVE, '1')
-    } catch {
-      // sem armazenamento no navegador: o aviso some só nesta visita
-    }
-    setAberto(false)
-  }
+  if (camada !== 'politica' || carregando) return null
 
   return (
     <div
@@ -46,7 +32,7 @@ export default function AvisoPolitica() {
       </p>
       <button
         type="button"
-        onClick={fechar}
+        onClick={fecharPolitica} // sem armazenamento no navegador, o aviso some só nesta visita
         aria-label="Fechar aviso da Política de Privacidade"
         className="rounded-lg p-1 hover:bg-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:hover:bg-white/10 dark:focus-visible:ring-violet-300"
       >

@@ -21,7 +21,9 @@ export function ehAutomacao(): boolean {
 export const semHash: BeforeSend = (event) =>
   ehAutomacao() ? null : { ...event, url: event.url.split('#')[0] }
 
-const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
+export const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
+// versão do formato salvo; useCookieConsent e camadas.ts leem daqui
+export const COOKIE_CONSENT_VERSION = '1.0'
 const SESSION_ID_KEY = 'aura_session_id'
 
 /**
@@ -47,7 +49,8 @@ export function hasAnalyticsConsent(): boolean {
     const stored = localStorage.getItem(COOKIE_CONSENT_KEY)
     if (!stored) return false
     const parsed = JSON.parse(stored)
-    return !!parsed?.consent?.analytics
+    // versão diferente = o aviso de cookies reabre (useCookieConsent): sem decisão válida, sem rastreio
+    return parsed?.version === COOKIE_CONSENT_VERSION && !!parsed?.consent?.analytics
   } catch {
     return false
   }

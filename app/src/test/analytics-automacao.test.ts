@@ -31,13 +31,20 @@ describe('trackEvent (GA4 e user_activities)', () => {
     vi.mocked(supabase.from).mockClear()
   })
   const comConsentimento = () =>
-    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ consent: { analytics: true } }) })
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ version: '1.0', consent: { analytics: true } }) })
 
   it('navegador comum com consentimento: grava', () => {
     comConsentimento()
     navegador(false, chrome)
     trackPageView('/producer')
     expect(supabase.from).toHaveBeenCalledWith('user_activities')
+  })
+
+  it('consentimento de outra versão do aviso: não grava (o aviso de cookies reabre)', () => {
+    vi.stubGlobal('localStorage', { getItem: () => JSON.stringify({ version: '0.9', consent: { analytics: true } }) })
+    navegador(false, chrome)
+    trackPageView('/producer')
+    expect(supabase.from).not.toHaveBeenCalled()
   })
 
   it('automação com consentimento: não grava', () => {
