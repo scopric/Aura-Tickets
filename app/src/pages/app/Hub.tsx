@@ -12,7 +12,6 @@ import { useAuth } from '../../hooks/useAuth'
 import TicketQRCode from '../../components/TicketQRCode'
 import { useEventMenuItems } from '../../hooks/useMenuItems'
 import { useChat } from '../../hooks/useChat'
-import OnboardingTour from '../../components/OnboardingTour'
 import Chip from '../../components/Chip'
 import EventoCapa from '../../components/EventoCapa'
 import EventoLinha from '../../components/EventoLinha'
@@ -418,9 +417,6 @@ export default function AppHub() {
           </div>
         </div>
       </div>
-
-      {/* Onboarding Tour */}
-      <OnboardingTour role="buyer" onComplete={() => {}} />
 
       {/* QR Code Modal */}
       {showQR && (

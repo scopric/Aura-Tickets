@@ -521,6 +521,46 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
   })
 
+  it('participante em /app/hub com o tour não feito: pergunta, e Mostrar põe ?tour=app-inicio', async () => {
+    role = 'user'
+    delete mem['evo-convite-v1']
+    try {
+      montarTour('/app/hub')
+      expect(await screen.findByRole('button', { name: 'Mostrar' }, { timeout: 4000 })).toBeInTheDocument()
+      expect(screen.getByText('Primeira vez em Início? Quer ver em 3 passos?', { selector: 'span' })).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: 'Mostrar' }))
+      expect(screen.getByTestId('local')).toHaveTextContent('/app/hub?tour=app-inicio')
+      expect(inserts).not.toHaveBeenCalled() // quem grava é o AppLayout, ao fim
+    } finally {
+      role = 'producer'
+    }
+  })
+
+  it('participante: Agora não grava dica:app-inicio', async () => {
+    role = 'user'
+    delete mem['evo-convite-v1']
+    try {
+      montarTour('/app/hub')
+      fireEvent.click(await screen.findByRole('button', { name: 'Agora não' }, { timeout: 4000 }))
+      await waitFor(() => expect(inserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:app-inicio' })))
+    } finally {
+      role = 'producer'
+    }
+  })
+
+  it('participante em rota sem tour: convite normal e nenhuma leitura de onboarding_logs', async () => {
+    role = 'user'
+    delete mem['evo-convite-v1']
+    vi.mocked(supabase.from).mockClear()
+    try {
+      montarTour('/app/tickets')
+      expect(await screen.findByText('Oi! Sou o Evo 👋 Precisa de ajuda?', {}, { timeout: 4000 })).toBeInTheDocument()
+      expect(vi.mocked(supabase.from).mock.calls.map((c) => c[0])).not.toContain('onboarding_logs')
+    } finally {
+      role = 'producer'
+    }
+  })
+
   it('camada aberta (cookies ainda sem decisão): nem a pergunta nem o convite', async () => {
     semConvitePrevio()
     const salvo = mem[COOKIES]

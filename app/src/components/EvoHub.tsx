@@ -71,10 +71,10 @@ export default function EvoHub() {
   const conviteDisparado = useRef(false) // nesta carga o convite vale uma vez, mesmo se a camada sair e voltar a null
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
   // Tour da tela: o Evo oferece se a pessoa ainda não fez nem dispensou. O tour nunca abre sozinho.
-  // Só o produtor tem tour (V9c traz o do participante): os outros papéis nem leem o registro
-  const temTour = user?.role === 'producer'
-  const { feitos, registrar, carregou } = useTourLog({ ativo: temTour })
-  const tour = temTour ? tourDoCaminho(pathname) : null
+  // Produtor: tours de /producer. Participante: só o de /app/*. Quem não tem tour na tela nem lê o registro
+  const ehProdutor = user?.role === 'producer'
+  const tour = (ehProdutor || (user?.role === 'user' && pathname.startsWith('/app/'))) ? tourDoCaminho(pathname) : null
+  const { feitos, registrar, carregou } = useTourLog({ ativo: ehProdutor || !!tour })
   const tourAberto = new URLSearchParams(search).has('tour')
   const oferecer = !!tour && !tourAberto && !feitos.has(`tour:${tour.id}`) && !feitos.has(`dica:${tour.id}`)
   const oferecerRef = useRef(oferecer)

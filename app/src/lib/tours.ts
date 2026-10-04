@@ -1,4 +1,4 @@
-// Catálogo fechado dos tours do produtor. O alvo é o valor de data-tour no elemento da tela.
+// Catálogo fechado dos tours (produtor e participante). O alvo é o valor de data-tour no elemento da tela.
 // Se o alvo não existir na tela (lista vazia, menu recolhido), o balão aparece centralizado.
 export type PassoTour = { alvo: string; titulo: string; texto: string }
 export type Tour = { nome: string; rota: string; passos: PassoTour[] }
@@ -12,6 +12,15 @@ export const TOURS: Record<string, Tour> = {
       { alvo: 'inicio-checklist', titulo: 'Primeiro evento no ar', texto: 'Os passos para publicar seu primeiro evento. Cada item abre a tela certa com uma explicação.' },
       { alvo: 'inicio-proximos', titulo: 'Seus eventos', texto: 'Cada evento com a situação, quantos ingressos já foram vendidos e a receita bruta. Clique na linha para abrir.' },
       { alvo: 'evo', titulo: 'Evo, o assistente', texto: 'Tire dúvidas sobre a plataforma a qualquer momento por este botão.' },
+    ],
+  },
+  'app-inicio': {
+    nome: 'Início',
+    rota: '/app/hub',
+    passos: [
+      { alvo: 'app-ingressos', titulo: 'Seus ingressos', texto: 'Os ingressos que você comprou ficam aqui, com o QR Code para entrar no evento.' },
+      { alvo: 'app-explorar', titulo: 'Explorar eventos', texto: 'Veja os eventos à venda e escolha o seu.' },
+      { alvo: 'evo', titulo: 'Evo, o assistente', texto: 'Tire dúvidas ou fale com a equipe da Evokaa por este botão.' },
     ],
   },
   'criar-evento': {
