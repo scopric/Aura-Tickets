@@ -456,7 +456,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const aceiteTrava = !esporte && !form.classificacao
 
   // Prévia: o que está na tela (não salvo), sem travar a digitação. Só memória: nada vai ao navegador nem ao banco.
-  const previaEvento = useDeferredValue({ ...eventoDaPrevia(form, ings, { evento, capaUrl: capa?.previewUrl ?? (removida ? null : urlAtual) }), accent_color: cor })
+  const capaPrevia = capa?.previewUrl ?? (removida ? null : urlAtual)
+  const previaEvento = useDeferredValue(useMemo(() => ({ ...eventoDaPrevia(form, ings, { evento, capaUrl: capaPrevia }), accent_color: cor }), [form, ings, evento, capaPrevia, cor]))
 
   const corpo = (id: string) => {
     switch (id) {

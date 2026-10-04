@@ -63,7 +63,19 @@ describe('prévia no celular', () => {
     expect(e.title).toBe('Nome novo')
     expect(e.cover_image).toBeNull()
     expect(e.ticket_types?.map(t => t.name)).toEqual(['Pista', 'Ingresso sem nome'])
-    expect(e.ticket_types?.[0]).toMatchObject({ price: 1234.5, quantity_total: 200, sold: 3, is_active: true })
+    expect(e.ticket_types?.[0]).toMatchObject({ price: 1234.5, quantity_total: 200, is_active: true })
+  })
+})
+
+describe('prévia: ingresso salvo', () => {
+  const salvo = (o: object) => evento({ ticket_types: [{ id: 'i1', description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', sold: 7, name: 'Antigo', ...o }] } as Partial<DbEvent>)
+  it('preserva descrição, benefícios e fim da venda do banco; o formulário vale para nome e preço; sold vem do banco', () => {
+    const t = eventoDaPrevia(form(), [ing({ nome: 'Novo', vendidos: 99 })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]
+    expect(t).toMatchObject({ description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', name: 'Novo', price: 80, sold: 7 })
+  })
+  it('perks que não é lista vira []; ingresso novo (fora do banco) tem sold 0', () => {
+    expect(eventoDaPrevia(form(), [ing()], { evento: salvo({ perks: 'x' }), capaUrl: null }).ticket_types?.[0].perks).toEqual([])
+    expect(eventoDaPrevia(form(), [ing({ id: 'novo', vendidos: 5 })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]).toMatchObject({ sold: 0, perks: [] })
   })
 })
 

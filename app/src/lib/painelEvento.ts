@@ -228,13 +228,16 @@ export const temErro = (e: object) => Object.keys(e).length > 0
 export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { evento: DbEvent; capaUrl: string | null }): DbEvent {
   return {
     ...evento, ...snapDoForm(form),
-    ...(form.inicioD ? {} : { start_date: new Date().toISOString() }), // sem data a página não diz "Evento encerrado" por causa do rascunho antigo
+    // start_date é obrigatório para publicar; sem data na tela, um rascunho antigo mostraria "Evento encerrado" na prévia
+    ...(form.inicioD ? {} : { start_date: new Date().toISOString() }),
     cover_image: capaUrl, image_url: capaUrl,
-    ticket_types: ings.filter(i => i.ativo).map(i => ({
-      id: i.id, event_id: evento.id, name: i.nome.trim() || 'Ingresso sem nome', description: null, price: precoDe(i.preco) ?? 0,
-      capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: i.vendidos, type: i.tipo as DbTicketType['type'],
-      perks: [], is_active: true, inclui_bebida: i.bebida, sale_start: null, sale_end: null, created_at: '', updated_at: '',
-    })),
+    ticket_types: ings.filter(i => i.ativo).map(i => {
+      const db = evento.ticket_types?.find(t => t.id === i.id) // o que não é editado no formulário (descrição, benefícios, datas de venda) vem do salvo
+      return {
+        ...db, id: i.id, event_id: evento.id, perks: Array.isArray(db?.perks) ? db.perks : [], name: i.nome.trim() || 'Ingresso sem nome', price: precoDe(i.preco) ?? 0,
+        capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: db?.sold ?? 0, type: i.tipo as DbTicketType['type'], is_active: true, inclui_bebida: i.bebida,
+      }
+    }),
   } as DbEvent
 }
 

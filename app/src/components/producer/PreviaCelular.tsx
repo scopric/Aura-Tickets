@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
@@ -17,7 +17,7 @@ function Tela({ evento, previa, className }: { evento: DbEvent; previa: 'moldura
 }
 
 /** Moldura de celular ao lado do formulário (a partir de 1180 px) */
-export function PreviaMoldura({ evento }: { evento: DbEvent }) {
+export const PreviaMoldura = memo(function PreviaMoldura({ evento }: { evento: DbEvent }) {
   return (
     <aside aria-label="Prévia no celular" className="sticky top-5 hidden self-start min-[1180px]:grid">
       <div className="w-[300px] justify-self-center overflow-hidden rounded-[36px] border-[6px] border-foreground bg-background">
@@ -26,10 +26,10 @@ export function PreviaMoldura({ evento }: { evento: DbEvent }) {
       <p className="mt-3 text-center text-[13px] leading-5 text-muted-foreground">Prévia do que o público vê. Na prévia a compra fica desligada.</p>
     </aside>
   )
-}
+})
 
 /** Abaixo de 1180 px não há moldura: o botão abre a prévia numa folha */
-export function PreviaFolha({ evento }: { evento: DbEvent }) {
+export const PreviaFolha = memo(function PreviaFolha({ evento }: { evento: DbEvent }) {
   const [aberta, setAberta] = useState(false)
   return (
     <div className="mb-4 min-[1180px]:hidden">
@@ -51,4 +51,4 @@ export function PreviaFolha({ evento }: { evento: DbEvent }) {
       </Drawer>
     </div>
   )
-}
+})
