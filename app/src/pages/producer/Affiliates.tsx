@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { UserPlus, Search, Pencil } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -31,7 +31,7 @@ interface Afiliado {
 }
 
 const formVazio = { email: '', eventId: '', comissao: '' }
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const select = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const filtros = [['all', 'Todos'], ['active', 'Ativos'], ['inactive', 'Inativos']] as const
 
@@ -139,7 +139,7 @@ export default function ProducerAffiliates() {
       <PageHeader
         title="Afiliados"
         description="Pessoas com conta na Evokaa que divulgam seus eventos por comissão"
-        actions={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
+        actions={<Button onClick={abrirNovo}><I.PessoaMais aria-hidden="true" />Vincular afiliado</Button>}
       />
 
       <FiltroEvento />
@@ -173,14 +173,14 @@ export default function ProducerAffiliates() {
               <EmptyState
                 title={filtroEvento ? 'Nenhum afiliado neste evento' : 'Nenhum afiliado vinculado'}
                 description="Vincule pelo e-mail da conta Evokaa da pessoa e escolha o evento."
-                action={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
+                action={<Button onClick={abrirNovo}><I.PessoaMais aria-hidden="true" />Vincular afiliado</Button>}
               />
             </div>
           ) : (
             <>
               <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="relative w-full sm:max-w-sm">
-                  <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <I.Buscar aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                   <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por e-mail ou evento" aria-label="Buscar afiliado" className="pl-9" />
                 </div>
                 <div role="group" aria-label="Filtrar por status" className="flex flex-wrap gap-1">
@@ -210,7 +210,7 @@ export default function ProducerAffiliates() {
                       </dl>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" className={icone} onClick={() => { setEditando(a); setComissaoNova(String(a.commission_percent)) }} aria-label={`Editar comissão de ${a.email_mascarado}`}>
-                          <Pencil aria-hidden="true" />
+                          <I.Editar aria-hidden="true" />
                         </Button>
                         <Button variant="outline" size="sm" onClick={() => toggleStatus(a)} aria-label={a.status === 'active' ? `Desativar ${a.email_mascarado}` : `Ativar ${a.email_mascarado}`}>
                           {a.status === 'active' ? 'Desativar' : 'Ativar'}

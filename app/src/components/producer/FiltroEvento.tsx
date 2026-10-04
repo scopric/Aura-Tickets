@@ -12,7 +12,7 @@ export default function FiltroEvento() {
         id="filtro-evento"
         value={id ?? ''}
         onChange={e => trocar(e.target.value || null)}
-        className="h-9 min-w-48 rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+        className="h-10 min-w-48 rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30"
       >
         <option value="">Todos os eventos</option>
         {id && !eventos.some(e => e.id === id) && <option value={id}>{isPending ? 'Carregando…' : 'Evento não encontrado'}</option>}

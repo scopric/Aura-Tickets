@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, Trash2, Loader2, Copy } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
 import {
   useProducerLeads,
@@ -84,10 +84,10 @@ export default function ProducerInterestList() {
       actions={
         <>
           {emails.length > 0 && (
-            <Button variant="outline" onClick={copiarEmails}><Copy aria-hidden="true" />Copiar e-mails</Button>
+            <Button variant="outline" onClick={copiarEmails}><I.Copiar aria-hidden="true" />Copiar e-mails</Button>
           )}
           {pendingCount > 0 && (
-            <Button onClick={() => setShowNotifyModal(true)}><Check aria-hidden="true" />Marcar {pendingCount} como avisados</Button>
+            <Button onClick={() => setShowNotifyModal(true)}><I.Check aria-hidden="true" />Marcar {pendingCount} como avisados</Button>
           )}
         </>
       }
@@ -167,11 +167,11 @@ export default function ProducerInterestList() {
                 <div className="flex shrink-0 items-center gap-1">
                   {!item.notified && (
                     <Button variant="outline" size="sm" onClick={() => handleNotifyOne(item.id)} aria-label={`Marcar ${item.full_name} como avisado`}>
-                      <Check aria-hidden="true" /><span className="hidden sm:inline">Marcar como avisado</span>
+                      <I.Check aria-hidden="true" /><span className="hidden sm:inline">Marcar como avisado</span>
                     </Button>
                   )}
                   <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item.id, item.full_name)} aria-label={`Remover ${item.full_name}`}>
-                    <Trash2 aria-hidden="true" />
+                    <I.Lixeira aria-hidden="true" />
                   </Button>
                 </div>
               </li>
@@ -190,8 +190,8 @@ export default function ProducerInterestList() {
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNotifyModal(false)}>Cancelar</Button>
-            <Button onClick={handleNotify} disabled={notifyAll.isPending}>
-              {notifyAll.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Marcando…</> : 'Marcar como avisados'}
+            <Button onClick={handleNotify} loading={notifyAll.isPending}>
+              Marcar como avisados
             </Button>
           </DialogFooter>
         </DialogContent>
