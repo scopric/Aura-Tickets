@@ -195,10 +195,9 @@ for (const v of VARIANTES) {
 
     test('8b configurações feliz', async ({ page }) => {
       await entrar(page, v, '/admin/settings', SUPER, { '**/rest/v1/platform_settings*': (r) => r.request().method() === 'GET' ? json(r, 200, [{ key: 'general', value: { platformName: 'Evokaa' } }]) : json(r, 200, [{ id: 1 }]) })
-      await expect(page.getByRole('button', { name: 'Salvar' }).first()).toBeEnabled({ timeout: 15000 })
+      // a aba Geral está desligada desde a S1 (nada no site lê esses campos): sem erro de leitura, só o aviso da S1
+      await expect(page.getByText(/Ainda não funciona: nenhum destes campos/)).toBeVisible({ timeout: 15000 })
       await expect(page.getByRole('alert').filter({ hasText: 'Recarregue a página' })).toHaveCount(0)
-      await page.getByRole('button', { name: 'Salvar' }).first().click()
-      await expect(page.getByText('Configurações salvas com sucesso!')).toBeVisible()
       await shot(page, `8b-${v.nome}`)
     })
   })
