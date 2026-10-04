@@ -596,6 +596,10 @@
 .light .layout-antigo header input::placeholder {
   color: #94a3b8 !important;
 }
+/* busca do AppLayout (participante): o #94a3b8 acima dá ~2:1 no claro; aqui o token de texto apagado (5,98:1) */
+.light .layout-antigo header input[data-busca-app]::placeholder {
+  color: hsl(var(--muted-foreground)) !important;
+}
 
 /* 2. Tabela Premium no Modo Claro */
 .light .table-premium thead th {

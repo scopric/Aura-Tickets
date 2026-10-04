@@ -1,22 +1,21 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { siteUrl } from '../../lib/appHost'
-import {
-  Ticket, MessageSquare, QrCode, Clock, MapPin, Calendar,
-  ChevronRight, Star, Share2, Wine, UtensilsCrossed,
-  Package, Send, User, Bell, Search, Sparkles,
-  ShoppingCart, Image as ImageIcon, Loader2
-} from 'lucide-react'
-import gsap from 'gsap'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { useUserTickets } from '../../hooks/useCheckout'
 import { useAuth } from '../../hooks/useAuth'
 import TicketQRCode from '../../components/TicketQRCode'
 import { useEventMenuItems } from '../../hooks/useMenuItems'
 import { useChat } from '../../hooks/useChat'
-import { rotuloFormato } from '../../lib/tipoEvento'
 import OnboardingTour from '../../components/OnboardingTour'
+import Chip from '../../components/Chip'
+import EventoCapa from '../../components/EventoCapa'
+import EventoLinha from '../../components/EventoLinha'
 
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
@@ -43,12 +42,6 @@ export default function AppHub() {
   const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
   const { messages: chatMessages, isLoading: isLoadingChat, sendMessage, markAsRead } = useChat(activeEventId)
 
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    gsap.fromTo('.hub-tab-content', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' })
-  }, [activeTab])
-
   // Marcar mensagens como lidas quando abrir a aba de chat
   useEffect(() => {
     if (activeTab === 'chat' && activeEventId) {
@@ -65,6 +58,7 @@ export default function AppHub() {
       id: t.id,
       eventId: t.events?.id || t.event_id || '',
       eventName: t.events?.title || 'Evento',
+      capa: t.events,
       date: eventDate,
       time: t.events?.time || '--:--',
       location: t.events?.venue_name || 'Local a definir',
@@ -85,246 +79,190 @@ export default function AppHub() {
   }
 
   const tabs = [
-    { id: 'ingressos' as const, label: 'Meus Ingressos', icon: Ticket, count: myTickets.length > 0 ? myTickets.length : undefined },
-    { id: 'eventos' as const, label: 'Eventos', icon: Star, count: dbEvents.length > 0 ? dbEvents.length : undefined },
-    { id: 'cardapio' as const, label: 'Cardápio', icon: ShoppingCart, count: undefined },
-    { id: 'chat' as const, label: 'Chat', icon: MessageSquare },
+    { id: 'ingressos' as const, label: 'Meus Ingressos', count: myTickets.length > 0 ? myTickets.length : undefined },
+    { id: 'eventos' as const, label: 'Eventos', count: dbEvents.length > 0 ? dbEvents.length : undefined },
+    { id: 'cardapio' as const, label: 'Cardápio', count: undefined },
+    { id: 'chat' as const, label: 'Chat', count: undefined },
   ]
 
   const filteredEvents = dbEvents.filter(e => 
     e.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (e.venue_name || e.location || '').toLowerCase().includes(searchTerm.toLowerCase())
-  )  const renderStats = () => (
-    <div className="grid grid-cols-2 gap-3">
-      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
-        <Ticket className="w-4 h-4 text-plum mx-auto mb-1" />
-        <div className="font-serif text-xl text-cream">{isLoadingTickets ? '...' : myTickets.length}</div>
-        <div className="text-[10px] text-cream/70">Ingressos</div>
+  )
+
+  const tituloSecao = 'text-[15px] font-semibold leading-5'
+  const diaCurto = (data: string | null) => data ? new Date(data + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Data a definir'
+
+  const renderStats = () => (
+    <dl className="grid grid-cols-2 divide-x divide-border border-y border-border py-3 text-center">
+      <div className="flex flex-col-reverse">
+        <dt className="text-xs leading-4 text-muted-foreground">Ingressos</dt>
+        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{isLoadingTickets ? '–' : myTickets.length}</dd>
       </div>
-      <div className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
-        <Calendar className="w-4 h-4 text-amber-400 mx-auto mb-1" />
-        <div className="font-serif text-xl text-cream">{dbEvents.length}</div>
-        <div className="text-[10px] text-cream/70">Eventos</div>
+      <div className="flex flex-col-reverse">
+        <dt className="text-xs leading-4 text-muted-foreground">Eventos</dt>
+        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{dbEvents.length}</dd>
       </div>
-    </div>
+    </dl>
   )
 
   const renderTickets = () => (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><Ticket className="w-4 h-4 text-plum" /> Meus Ingressos</h2>
+      <h2 className={tituloSecao}>Meus Ingressos</h2>
       {isLoadingTickets ? (
-        <div className="space-y-3">
-          {[1, 2].map(i => (
-            <div key={i} className="h-32 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-          ))}
+        <div aria-busy="true" className="space-y-3">
+          {[1, 2].map(i => <Skeleton key={i} className="h-[132px] w-full rounded-ev-lg" />)}
         </div>
       ) : myTickets.length === 0 ? (
-        <div className="p-8 rounded-2xl bg-white/[0.03] border border-white/[0.06] text-center">
-          <Ticket className="w-8 h-8 text-cream/20 mx-auto mb-3" />
-          <p className="text-sm text-cream/70">Você ainda não tem ingressos.</p>
-          <p className="text-[11px] text-cream/70 mt-1 mb-4">Explore eventos e faça sua primeira compra!</p>
-          <button onClick={() => setActiveTab('eventos')} className="px-4 py-2 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">
-            Explorar Eventos
-          </button>
+        <div className="flex flex-col items-start gap-3 py-4">
+          <I.Ingressos size={40} className="text-muted-foreground" aria-hidden="true" />
+          <p className="text-base font-semibold">Você ainda não tem ingressos.</p>
+          <p className="text-[13px] leading-[18px] text-muted-foreground">Explore eventos e faça sua primeira compra!</p>
+          <Button variant="outline" onClick={() => setActiveTab('eventos')}>Explorar Eventos</Button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <ul className="divide-y divide-border">
           {myTickets.map(ticket => (
-            <div key={ticket.id} className="p-4 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-plum/10 flex items-center justify-center">
-                    <Ticket className="w-5 h-5 text-plum" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium text-cream">{ticket.eventName}</div>
-                    <div className="text-[10px] text-cream/70">{ticket.type}</div>
-                  </div>
+            <li key={ticket.id} className="py-4 first:pt-0 last:pb-0">
+              <div className="flex gap-3">
+                {ticket.capa && <EventoCapa evento={ticket.capa} tamanho="mini" className="!size-14" />}
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs leading-4 text-muted-foreground">{ticket.date} · {ticket.time}</p>
+                  <p className="line-clamp-2 font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{ticket.eventName}</p>
+                  <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{ticket.location}</p>
                 </div>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${ticket.status === 'ativo' ? 'bg-green-500/10 text-green-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.status === 'ativo' ? 'text-[var(--ev-success)]' : 'text-[var(--ev-warning)]'}`}>
                   {{ ativo: 'Ativo', usado: 'Usado', cancelado: 'Cancelado', transferido: 'Transferido' }[ticket.status]}
                 </span>
               </div>
-              <div className="flex items-center gap-4 text-[11px] text-cream/70 mb-3 overflow-x-auto pb-1">
-                <span className="flex items-center gap-1 whitespace-nowrap"><Calendar className="w-3 h-3" />{ticket.date}</span>
-                <span className="flex items-center gap-1 whitespace-nowrap"><Clock className="w-3 h-3" />{ticket.time}</span>
-                <span className="flex items-center gap-1 whitespace-nowrap"><MapPin className="w-3 h-3" />{ticket.location}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] mb-3 flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-plum flex-shrink-0" />
-                <span className="text-xs text-cream/70">{ticket.seat}</span>
-              </div>
+              <p className="mt-2 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+                <I.Lugar size={16} aria-hidden="true" className="flex-none" />
+                <span className="truncate">{ticket.type} · {ticket.seat}</span>
+              </p>
               {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button onClick={() => setShowQR(ticket.qr)} className="flex-1 py-2 bg-plum text-cream text-xs font-medium rounded-xl hover:shadow-glow transition-all flex items-center justify-center gap-1.5">
-                  <QrCode className="w-3.5 h-3.5" /> Ver QR Code
-                </button>
-                <button onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label="Copiar link do evento" title="Copiar link do evento" className="p-2.5 rounded-xl bg-white/[0.05] text-cream/70 hover:text-cream transition-colors">
-                  <Share2 className="w-4 h-4" />
-                </button>
+              <div className="mt-3 flex items-center gap-2">
+                <Button className="flex-1" onClick={() => setShowQR(ticket.qr)} aria-label={`Ver QR Code de ${ticket.eventName}`}>
+                  <I.Qr aria-hidden="true" /> Ver QR Code
+                </Button>
+                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label={`Copiar link do evento ${ticket.eventName}`} title="Copiar link do evento">
+                  <I.Compartilhar aria-hidden="true" />
+                </Button>
               </div>
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   )
 
   const renderNextEvents = () => (
-    <div className="space-y-3">
-      <h2 className="text-sm font-semibold text-cream/70 mb-2 mt-6">Próximos Eventos</h2>
-      <div className="space-y-2">
-        {isLoadingEvents ? (
-          [1, 2].map(i => (
-            <div key={i} className="h-16 rounded-xl bg-white/[0.03] border border-white/[0.06] animate-pulse" />
-          ))
-        ) : dbEvents.length > 0 ? (
-          dbEvents.slice(0, 2).map(event => (
-            <Link to={`/event/${event.id}`} key={event.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:border-plum/20 transition-all">
-              <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-cream font-medium truncate">{event.title}</div>
-                <div className="text-[10px] text-cream/70">
-                  {event.date ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) : 'Data a definir'} · {event.venue_name || event.location || 'Local a definir'}
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-cream/20" />
-            </Link>
-          ))
-        ) : (
-          <p className="text-xs text-cream/70 italic">Nenhum evento agendado no momento.</p>
-        )}
-      </div>
+    <div className="space-y-4">
+      <h2 className={`${tituloSecao} mt-6`}>Próximos Eventos</h2>
+      {isLoadingEvents ? (
+        <div aria-busy="true" className="space-y-3">
+          {[1, 2].map(i => <Skeleton key={i} className="h-[120px] w-full rounded-ev-lg" />)}
+        </div>
+      ) : dbEvents.length > 0 ? (
+        <ul className="divide-y divide-border">
+          {dbEvents.slice(0, 2).map(event => (
+            <EventoLinha key={event.id} evento={event} to={`/event/${event.id}`} linha={`${diaCurto(event.date)} · ${event.venue_name || event.location || 'Local a definir'}`} />
+          ))}
+        </ul>
+      ) : (
+        <p className="text-[13px] leading-[18px] text-muted-foreground">Nenhum evento agendado no momento.</p>
+      )}
     </div>
   )
 
   const renderEventosList = () => (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><Calendar className="w-4 h-4 text-plum" /> Descobrir Eventos</h2>
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cream/20" />
-        <input
+      <h2 className={tituloSecao}>Descobrir Eventos</h2>
+      <label className="relative block">
+        <span className="sr-only">Buscar eventos</span>
+        <I.Buscar size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground" />
+        <Input
           value={searchTerm}
           onChange={e => setSearchTerm(e.target.value)}
           placeholder="Buscar eventos..."
-          className="w-full pl-10 pr-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-xl text-sm text-cream placeholder:text-cream/70 focus:outline-none focus:border-plum/30 transition-colors"
+          className="h-11 rounded-ev-lg bg-card pl-10 text-base"
         />
-      </div>
-      
-      <div className="space-y-3">
-        {isLoadingEvents ? (
-          [1, 2].map(i => (
-            <div key={i} className="h-48 rounded-2xl bg-white/[0.03] border border-white/[0.06] animate-pulse flex flex-col justify-end p-4 gap-2">
-              <div className="h-6 w-3/4 bg-white/10 rounded" />
-              <div className="h-4 w-1/2 bg-white/5 rounded" />
-            </div>
-          ))
-        ) : filteredEvents.length > 0 ? (
-          filteredEvents.map(event => {
-            const formattedDate = event.date 
+      </label>
+
+      {isLoadingEvents ? (
+        <div aria-busy="true" className="space-y-3">
+          {[1, 2].map(i => <Skeleton key={i} className="h-[120px] w-full rounded-ev-lg" />)}
+        </div>
+      ) : filteredEvents.length > 0 ? (
+        <ul className="divide-y divide-border">
+          {filteredEvents.map(event => {
+            const formattedDate = event.date
               ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
               : 'Data a definir'
-            const tags = event.tags && event.tags.length > 0 ? event.tags : (event.category ? [rotuloFormato(event.category)] : [])
-            
             return (
-              <div key={event.id} className="rounded-2xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">
-                <div className="relative h-44">
-                  <img src={event.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-transparent to-transparent" />
-                  <div className="absolute bottom-3 left-4 right-4">
-                    <h3 className="font-serif text-base text-cream">{event.title}</h3>
-                    <p className="text-[10px] text-cream/70">{formattedDate} · {event.venue_name || event.location || 'Local a definir'}</p>
-                  </div>
-                </div>
-                <div className="p-3 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-[60%] scrollbar-none">
-                    {tags.slice(0, 2).map(tag => (
-                      <span key={tag} className="px-2 py-0.5 bg-white/[0.05] text-cream/70 text-[9px] rounded-full whitespace-nowrap">{tag}</span>
-                    ))}
-                  </div>
-                  <Link to={`/event/${event.id}`} className="px-3.5 py-1.5 bg-plum text-cream text-[11px] font-medium rounded-full hover:shadow-glow transition-all flex items-center gap-1">
-                    Ingressos <ChevronRight className="w-3 h-3" />
-                  </Link>
-                </div>
-              </div>
+              <EventoLinha key={event.id} evento={event} to={`/event/${event.id}`} linha={`${formattedDate} · ${event.venue_name || event.location || 'Local a definir'}`} />
             )
-          })
-        ) : (
-          <div className="text-center py-12 text-cream/70 text-xs italic">
-            Nenhum evento encontrado.
-          </div>
-        )}
-      </div>
+          })}
+        </ul>
+      ) : (
+        <p className="py-12 text-center text-[13px] leading-[18px] text-muted-foreground">Nenhum evento encontrado.</p>
+      )}
     </div>
   )
 
   const renderCardapio = () => (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><ShoppingCart className="w-4 h-4 text-plum" /> Cardápio do Evento</h2>
-      <p className="text-[11px] text-amber-400 mb-2">Pedidos pelo app em breve: por enquanto, o cardápio é só para consulta.</p>
+      <h2 className={tituloSecao}>Cardápio do Evento</h2>
+      <p className="text-[13px] leading-[18px] text-[var(--ev-warning)]">Pedidos pelo app em breve: por enquanto, o cardápio é só para consulta.</p>
       {activeEventId ? (
         <>
-          <div className="p-3.5 rounded-xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20">
-            <h3 className="text-xs font-semibold text-cream mb-0.5 truncate">
-              {activeEventName}
-            </h3>
-            <p className="text-[10px] text-cream/70">Consulte os itens e preços do evento</p>
+          <div>
+            <h3 className="truncate text-sm font-semibold">{activeEventName}</h3>
+            <p className="text-xs leading-4 text-muted-foreground">Consulte os itens e preços do evento</p>
           </div>
 
           {/* Categories */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-none">
+          <div role="group" aria-label="Categorias do cardápio" className="flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {['Todos', 'bebida', 'comida', 'combo', 'servico'].map((cat) => (
-              <button 
-                key={cat} 
-                onClick={() => setMenuCategory(cat)}
-                className={`px-3 py-1 text-[10px] font-medium rounded-full whitespace-nowrap transition-all ${menuCategory === cat ? 'bg-plum text-cream' : 'bg-white/[0.05] text-cream/70 hover:bg-white/10'}`}
-              >
+              <Chip key={cat} marcado={menuCategory === cat} onClick={() => setMenuCategory(cat)}>
                 {cat === 'Todos' ? 'Todos' : cat.charAt(0).toUpperCase() + cat.slice(1)}
-              </button>
+              </Chip>
             ))}
           </div>
 
           {/* Menu items */}
           {isLoadingMenu ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 text-plum animate-spin" />
+              <Spinner className="size-5" />
             </div>
           ) : dbMenuItems.length === 0 ? (
-            <div className="text-center py-8 text-cream/70 text-xs">
-              Cardápio não disponível para este evento.
-            </div>
+            <p className="py-8 text-center text-[13px] leading-[18px] text-muted-foreground">Cardápio não disponível para este evento.</p>
           ) : (
-            <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            <ul className="max-h-[300px] divide-y divide-border overflow-y-auto">
               {dbMenuItems
                 .filter(item => menuCategory === 'Todos' || item.category === menuCategory)
                 .map(item => {
-                  const icons: Record<string, typeof Wine> = { bebida: Wine, comida: UtensilsCrossed, combo: Package, merchandise: Package, servico: Sparkles }
-                  const Icon = icons[item.category] || Package
+                  const icons: Record<string, I.IconeEvokaa> = { bebida: I.Cardapio, comida: I.Talheres, combo: I.Pacote, merchandise: I.Pacote, servico: I.Destaque }
+                  const Icon = icons[item.category] || I.Pacote
                   return (
-                    <div key={item.id} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                      <div className="w-8 h-8 rounded-lg bg-plum/10 flex items-center justify-center flex-shrink-0">
-                        <Icon className="w-3.5 h-3.5 text-plum" />
+                    <li key={item.id} className="flex items-center gap-3 py-3">
+                      <span aria-hidden="true" className="grid size-9 flex-none place-items-center rounded-ev-md bg-secondary text-muted-foreground">
+                        <Icon size={16} />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium">{item.name}</div>
+                        <div className="truncate text-xs leading-4 text-muted-foreground">{item.description}</div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-cream font-medium truncate">{item.name}</div>
-                        <div className="text-[9px] text-cream/70 truncate">{item.description}</div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <div className="text-xs text-cream font-medium">R$ {item.price}</div>
-                      </div>
-                    </div>
+                      <div className="flex-none font-display text-sm font-semibold tabular-nums">R$ {item.price}</div>
+                    </li>
                   )
                 })}
-            </div>
+            </ul>
           )}
         </>
       ) : (
-        <div className="text-center py-8 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4">
-          <ShoppingCart className="w-8 h-8 text-cream/10 mx-auto mb-2" />
-          <p className="text-cream/70 text-xs mb-1">Você não tem ingressos ativos</p>
-          <p className="text-cream/70 text-[10px]">Compre um ingresso para ver o cardápio do evento</p>
+        <div className="space-y-1 py-8 text-center">
+          <p className="text-sm font-semibold">Você não tem ingressos ativos</p>
+          <p className="text-[13px] leading-[18px] text-muted-foreground">Compre um ingresso para ver o cardápio do evento</p>
         </div>
       )}
     </div>
@@ -332,55 +270,53 @@ export default function AppHub() {
 
   const renderChat = () => (
     <div className="space-y-4">
-      <h2 className="text-sm font-semibold text-cream/70 mb-2 flex items-center gap-1.5"><MessageSquare className="w-4 h-4 text-plum" /> Chat com o Produtor</h2>
+      <h2 className={tituloSecao}>Chat com o Produtor</h2>
       {!activeEventId ? (
-        <div className="text-center py-8 bg-white/[0.02] border border-white/[0.06] rounded-2xl p-4">
-          <MessageSquare className="w-8 h-8 text-cream/10 mx-auto mb-2" />
-          <p className="text-cream/70 text-xs mb-1">Chat disponível para eventos ativos</p>
-          <p className="text-cream/70 text-[10px]">Adquira um ingresso para conversar com o produtor</p>
+        <div className="space-y-1 py-8 text-center">
+          <p className="text-sm font-semibold">Chat disponível para eventos ativos</p>
+          <p className="text-[13px] leading-[18px] text-muted-foreground">Adquira um ingresso para conversar com o produtor</p>
         </div>
       ) : (
         <>
           {/* Producer info */}
-          <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-plum/20 flex items-center justify-center flex-shrink-0">
-                <Sparkles className="w-4 h-4 text-plum" />
-              </div>
+          <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span aria-hidden="true" className="grid size-9 flex-none place-items-center rounded-full bg-secondary text-muted-foreground">
+                <I.Conta size={16} />
+              </span>
               <div className="min-w-0">
-                <div className="text-xs font-medium text-cream truncate">Produtor</div>
-                <div className="text-[9px] text-cream/70 truncate">{activeEventName}</div>
+                <div className="truncate text-sm font-semibold">Produtor</div>
+                <div className="truncate text-xs leading-4 text-muted-foreground">{activeEventName}</div>
               </div>
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-[9px] text-green-400">Online</span>
+            <div className="flex flex-none items-center gap-1.5">
+              <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--ev-success)]" />
+              <span className="text-xs font-medium text-[var(--ev-success)]">Online</span>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="border border-white/[0.06] rounded-xl p-3 bg-white/[0.01] h-[220px] overflow-y-auto flex flex-col justify-between">
+          <div className="flex h-[220px] flex-col justify-between overflow-y-auto rounded-ev-lg border border-border p-3">
             {isLoadingChat ? (
-              <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-5 h-5 text-plum animate-spin" />
+              <div className="flex h-full items-center justify-center">
+                <Spinner className="size-5" />
               </div>
             ) : chatMessages.length === 0 ? (
-              <div className="text-center py-8 my-auto">
-                <MessageSquare className="w-6 h-6 text-cream/10 mx-auto mb-2" />
-                <p className="text-cream/70 text-xs">Nenhuma mensagem ainda</p>
-                <p className="text-cream/70 text-[10px] mt-0.5">Envie uma mensagem para o produtor!</p>
+              <div className="my-auto space-y-1 py-8 text-center">
+                <p className="text-sm font-semibold">Nenhuma mensagem ainda</p>
+                <p className="text-[13px] leading-[18px] text-muted-foreground">Envie uma mensagem para o produtor!</p>
               </div>
             ) : (
-              <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+              <div className="flex-1 space-y-2 overflow-y-auto">
                 {chatMessages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] p-2.5 rounded-xl ${
+                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                       msg.sender_id === user?.id
-                        ? 'bg-plum text-cream rounded-br-none'
-                        : 'bg-white/[0.06] text-cream/80 rounded-bl-none border border-white/[0.06]'
+                        ? 'rounded-br-sm bg-primary text-primary-foreground'
+                        : 'rounded-bl-sm bg-secondary text-foreground'
                     }`}>
-                      <p className="text-xs leading-normal">{msg.content}</p>
-                      <span className={`text-[8px] mt-0.5 block text-right ${msg.sender_id === user?.id ? 'text-cream/70' : 'text-cream/70'}`}>
+                      <p className="text-sm leading-5">{msg.content}</p>
+                      <span className={`mt-0.5 block text-right text-[11px] leading-4 ${msg.sender_id === user?.id ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
                         {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
@@ -391,22 +327,25 @@ export default function AppHub() {
           </div>
 
           {/* Input */}
-          <div className="flex items-center gap-1.5">
-            <input
+          <div className="flex items-center gap-2">
+            <Input
               value={chatMessage}
               onChange={e => setChatMessage(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSendChat()}
+              aria-label="Mensagem para o produtor"
               placeholder="Escreva uma mensagem..."
               disabled={sendMessage.isPending}
-              className="flex-1 px-3 py-2 bg-white/[0.05] border border-white/[0.08] rounded-xl text-xs text-cream placeholder:text-cream/70 focus:outline-none focus:border-plum/30 disabled:opacity-50 transition-colors"
+              className="h-11 flex-1 rounded-ev-lg bg-card text-base"
             />
-            <button 
-              onClick={handleSendChat} 
-              disabled={sendMessage.isPending || !chatMessage.trim()}
-              className="p-2 bg-plum text-cream rounded-xl hover:shadow-glow transition-all disabled:opacity-50"
+            <Button
+              size="icon-lg"
+              onClick={handleSendChat}
+              disabled={!chatMessage.trim()}
+              loading={sendMessage.isPending}
+              aria-label="Enviar mensagem"
             >
-              {sendMessage.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-            </button>
+              <I.Enviar aria-hidden="true" />
+            </Button>
           </div>
         </>
       )}
@@ -414,16 +353,16 @@ export default function AppHub() {
   )
 
   return (
-    <div ref={ref} className="w-full bg-void text-cream pb-8">
+    <div className="w-full pb-8 text-foreground">
       {/* Welcome */}
       <div className="max-w-lg lg:max-w-7xl mx-auto px-4 py-4 lg:py-6">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-10 h-10 rounded-full bg-plum/20 flex items-center justify-center ring-1 ring-plum/30">
-            <User className="w-5 h-5 text-plum" />
-          </div>
+        <div className="flex items-center gap-3">
+          <span aria-hidden="true" className="grid size-10 flex-none place-items-center rounded-full bg-secondary text-muted-foreground">
+            <I.Conta size={20} />
+          </span>
           <div>
-            <p className="text-xs text-cream/70">Olá,</p>
-            <h1 className="font-serif text-xl text-cream">{user?.full_name || user?.name || 'Participante'}</h1>
+            <p className="text-[13px] leading-[18px] text-muted-foreground">Olá,</p>
+            <h1 className="text-2xl font-semibold leading-8 tracking-[-0.015em]">{user?.full_name || user?.name || 'Participante'}</h1>
           </div>
         </div>
       </div>
@@ -431,28 +370,19 @@ export default function AppHub() {
       {/* Layout Responsivo: Grid no Desktop / Abas no Mobile */}
       <div className="max-w-lg lg:max-w-7xl mx-auto px-4">
         {/* Seletor de Abas (Visível apenas no Mobile) */}
-        <div className="lg:hidden mb-6">
-          <div className="flex items-center gap-1 p-1 bg-white/[0.03] border border-white/[0.06] rounded-2xl">
-            {tabs.map(t => (
-              <button
-                key={t.id}
-                onClick={() => setActiveTab(t.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[11px] font-medium transition-all ${
-                  activeTab === t.id ? 'bg-plum text-cream shadow-lg shadow-plum/20' : 'text-cream/70 hover:text-cream'
-                }`}
-              >
-                <t.icon className="w-3.5 h-3.5" />
-                {t.label}
-                {t.count !== undefined && t.count > 0 && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${activeTab === t.id ? 'bg-cream/20' : 'bg-white/[0.08]'}`}>{t.count}</span>
-                )}
-              </button>
-            ))}
-          </div>
+        <div role="group" aria-label="Seções do Hub" className="lg:hidden mb-6 flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {tabs.map(t => (
+            <Chip key={t.id} marcado={activeTab === t.id} onClick={() => setActiveTab(t.id)}>
+              {t.label}
+              {t.count !== undefined && t.count > 0 && (
+                <>{' '}<span className="ml-0.5 font-display tabular-nums">{t.count}</span></>
+              )}
+            </Chip>
+          ))}
         </div>
 
-        {/* Visualização Mobile (Abas) */}
-        <div className="lg:hidden hub-tab-content space-y-4">
+        {/* Visualização Mobile (Abas): o conteúdo entra pelo lado, 8 px, e só esmaece com "reduzir movimento" (aba-entra, index.css) */}
+        <div key={activeTab} className="lg:hidden space-y-4 animate-[aba-entra_var(--mov-rapido)_var(--curva-sai)]">
           {activeTab === 'ingressos' && (
             <div className="space-y-6">
               {renderStats()}
@@ -466,7 +396,7 @@ export default function AppHub() {
         </div>
 
         {/* Visualização Desktop (Grid Completo de 3 Colunas) */}
-        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-6">
+        <div className="hidden lg:grid lg:grid-cols-12 lg:gap-10">
           {/* Coluna 1: Ingressos & Stats (4 colunas) */}
           <div className="lg:col-span-4 space-y-6">
             {renderStats()}
@@ -479,12 +409,10 @@ export default function AppHub() {
             {renderEventosList()}
           </div>
 
-          {/* Coluna 3: Interação Local - Cardápio & Chat do Evento Ativo (4 colunas) */}
+          {/* Coluna 3: Interação Local - Cardápio & Chat do Evento Ativo (4 colunas): seções separadas por fio, sem caixa */}
           <div className="lg:col-span-4 space-y-6">
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
-              {renderCardapio()}
-            </div>
-            <div className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
+            {renderCardapio()}
+            <div className="border-t border-border pt-6">
               {renderChat()}
             </div>
           </div>
@@ -497,14 +425,14 @@ export default function AppHub() {
       {/* QR Code Modal */}
       {showQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" onClick={() => setShowQR(null)}>
-          <div className="glass-panel p-8 max-w-xs w-full text-center" onClick={e => e.stopPropagation()}>
-            <h3 className="font-serif text-xl text-cream mb-2">Ingresso</h3>
-            <p className="text-xs text-cream/70 mb-6">Apresente na entrada do evento</p>
-            <div className="w-48 h-48 mx-auto mb-4">
-              <TicketQRCode code={showQR} size={192} className="rounded-2xl" />
+          <div className="w-full max-w-xs rounded-ev-xl border border-border bg-card p-8 text-center text-card-foreground shadow-ev-2" onClick={e => e.stopPropagation()}>
+            <h3 className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</h3>
+            <p className="mb-6 text-[13px] leading-[18px] text-muted-foreground">Apresente na entrada do evento</p>
+            <div className="mx-auto mb-4 size-48">
+              <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
             </div>
-            <p className="text-xs text-cream/70 font-mono">{showQR}</p>
-            <button onClick={() => setShowQR(null)} className="mt-6 w-full py-2.5 bg-plum text-cream text-xs rounded-full hover:shadow-glow transition-all">Fechar</button>
+            <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
+            <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
           </div>
         </div>
       )}

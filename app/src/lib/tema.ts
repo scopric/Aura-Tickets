@@ -9,13 +9,14 @@ export const CHAVE_TEMA = 'evokaa-theme'
 // test/tema.test.tsx executa o script e confere que ele dá o mesmo resultado destas funções.
 
 // Rotas que seguem o tema escolhido, e o tema de quem nunca escolheu (decisão do Ricardo, 03/10/2026: a produtora e a
-// compra, página do evento e checkout, seguem o aparelho, Decisão 142; o resto começa escuro). O resto das rotas
+// compra, página do evento e checkout, seguem o aparelho, Decisão 142; a área do participante (/app) também, desde a V10b,
+// com as telas refeitas nos dois temas, Decisão 144; o resto começa escuro). O resto das rotas
 // (páginas públicas ainda não refeitas) fica forçado no escuro. O script do index.html repete esta lista à mão.
 // '/event/' leva a barra final de propósito, para não casar com '/events' (Explorar, V11b: segue o tema, padrão escuro, Decisão 144).
 export const ROTAS_COM_TEMA: { rota: string; padrao: Tema }[] = [
   { rota: '/producer', padrao: 'auto' },
   { rota: '/admin', padrao: 'dark' },
-  { rota: '/app', padrao: 'dark' },
+  { rota: '/app', padrao: 'auto' },
   { rota: '/checkout', padrao: 'auto' },
   { rota: '/auth', padrao: 'dark' },
   { rota: '/event/', padrao: 'auto' },

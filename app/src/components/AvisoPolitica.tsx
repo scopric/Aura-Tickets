@@ -14,6 +14,8 @@ export default function AvisoPolitica() {
   const camada = useCamada()
   // a sessão chega assíncrona: até lá não dá para saber se a conta já aceitou esta versão (evita piscar)
   const carregando = useAuthStore((s) => s.isLoading)
+  // z-50, como antes: no empate com o véu do tour do Hub (também z-50, dentro do <main>) o aviso vem depois no DOM e ganha;
+  // diálogos em portal (z-50) vêm depois e ficam por cima do aviso.
   // no painel do produtor, celular e tablet: abaixo da barra de 56 px do topo (menu, sino e feedback)
   const produtor = useLocation().pathname.startsWith('/producer')
   if (camada !== 'politica' || carregando) return null

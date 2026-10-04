@@ -78,8 +78,11 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
   useEffect(() => {
     if (!show) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { skip(); return }
       const el = dialogRef.current
+      // tecla já tratada por outra camada, ou foco dentro de outro diálogo (ex.: o Evo aberto por cima): não é do tour
+      const outroDialogo = (document.activeElement as HTMLElement | null)?.closest('[role="dialog"]')
+      if (e.defaultPrevented || (outroDialogo && outroDialogo !== el)) return
+      if (e.key === 'Escape') { skip(); return }
       if (e.key !== 'Tab' || !el) return
       const focaveis = el.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
       if (!focaveis.length) return
@@ -98,8 +101,9 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
   const s = steps[step]
   const progress = ((step + 1) / steps.length) * 100
 
+  // z-50 (não 70): o aviso da Política (z-50, depois do <main> no DOM) tem de ficar por cima do véu e clicável
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 glass-backdrop" onClick={() => setShow(false)} />
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-titulo" className="glass-panel relative w-full max-w-md overflow-hidden outline-none">
         {/* Progress bar */}

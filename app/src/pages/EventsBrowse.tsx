@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import BotaoSalvar from '../components/BotaoSalvar'
+import Chip from '../components/Chip'
 import EventoCapa from '../components/EventoCapa'
 import { temFoto } from '../lib/corEvento'
 import { rotuloFormato } from '../lib/tipoEvento'
@@ -24,24 +25,6 @@ const FolhaCidade = lazy(() => import('../components/FolhaCidade'))
 const QUANDO = { hoje: 'Hoje', fds: 'Fim de semana' } as const
 const QUANDO_FRASE = { hoje: 'hoje', fds: 'neste fim de semana' } as const
 const FILTRO_VAZIO: Filtros = { cidade: null, quando: '', categoria: null, busca: '' }
-
-function Chip({ marcado, onClick, children }: { marcado: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={marcado}
-      onClick={onClick}
-      className={cn(
-        'h-10 flex-none whitespace-nowrap rounded-ev-pill px-4 text-sm transition-colors duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none',
-        marcado
-          ? 'bg-[var(--ev-brand-soft)] font-semibold text-primary'
-          : 'font-medium text-foreground shadow-[inset_0_0_0_1px_hsl(var(--input))] hover:bg-[var(--ev-tint-hover)] active:bg-[var(--ev-tint-press)]'
-      )}
-    >
-      {children}
-    </button>
-  )
-}
 
 // "a partir de R$ 88,00 com taxa", "Gratuito" ou nada (sem ingresso cadastrado, não afirmamos preço)
 function Preco({ evento }: { evento: EventoCatalogo }) {
@@ -225,7 +208,7 @@ export default function EventsBrowse() {
                   <span className="relative block">
                     <EventoCapa evento={destaque} tamanho="cartao" />
                     {(temFoto(destaque.cover_image) || temFoto(destaque.image_url)) && (
-                      <span aria-hidden="true" className="wide absolute left-3 top-3 rounded-ev-sm bg-[#0b0d12] px-2 py-1 font-display text-[13px] font-extrabold uppercase leading-4 tracking-[0.02em] text-white">
+                      <span aria-hidden="true" className="wide absolute left-3 top-3 rounded-ev-sm bg-[#0b0d12] px-2 py-1 font-display text-[13px] font-extrabold uppercase leading-4 tracking-[0.02em] text-[#fff]">
                         {rotuloDia(destaque.date!, hoje).curto}
                       </span>
                     )}

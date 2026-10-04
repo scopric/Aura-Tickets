@@ -36,6 +36,7 @@ function Mostra() {
     <div>
       <button onClick={() => navegar('/producer')}>ir ao produtor</button>
       <button onClick={() => navegar('/app/tickets')}>ir ao participante</button>
+      <button onClick={() => navegar('/admin/users')}>ir ao admin</button>
       <span data-testid="tema">{tema}</span>
       <span data-testid="resolvido">{temaResolvido}</span>
       <button onClick={() => setTema('auto')}>auto</button>
@@ -75,9 +76,27 @@ describe('ThemeContext: 3 estados', () => {
     expect(corDaBarra()).toBe('#0b0d12')
   })
 
-  it.each(['/app/tickets', '/admin/users', '/auth/login'])('%s sem nada salvo: escuro, mesmo com o aparelho claro', rota => {
+  it.each(['/admin/users', '/auth/login'])('%s sem nada salvo: escuro, mesmo com o aparelho claro', rota => {
     aparelho(false)
     montar(rota)
+    expect(screen.getByTestId('tema').textContent).toBe('dark')
+    expect(classeHtml()).toBe('dark')
+  })
+
+  // V10b (Decisão 144): a área do participante (/app/*) também começa em Automático; a escolha salva continua valendo
+  it.each(['/app/hub', '/app/tickets', '/app/profile'])('%s sem nada salvo: automático, segue o aparelho', rota => {
+    const mudar = aparelho(false)
+    montar(rota)
+    expect(screen.getByTestId('tema').textContent).toBe('auto')
+    expect(classeHtml()).toBe('light')
+    mudar(true)
+    expect(classeHtml()).toBe('dark')
+  })
+
+  it('participante com escolha salva: vale a escolha, não o aparelho', () => {
+    aparelho(false)
+    localStorage.setItem('evokaa-theme', 'dark')
+    montar('/app/tickets')
     expect(screen.getByTestId('tema').textContent).toBe('dark')
     expect(classeHtml()).toBe('dark')
   })
@@ -92,7 +111,7 @@ describe('ThemeContext: 3 estados', () => {
 
   it('sem nada salvo, o padrão muda junto com a rota; com escolha salva, não', () => {
     aparelho(false)
-    montar('/app/tickets')
+    montar('/admin/users')
     expect(screen.getByTestId('tema').textContent).toBe('dark')
     fireEvent.click(screen.getByText('ir ao produtor'))
     expect(screen.getByTestId('tema').textContent).toBe('auto')
@@ -197,11 +216,11 @@ describe('ThemeToggle', () => {
     expect(screen.getByRole('button', { name: 'Tema: escuro. Mudar para automático' })).toBeInTheDocument()
   })
 
-  it('participante sem nada salvo: mostra "Escuro" selecionado', () => {
+  it('participante sem nada salvo: mostra "Automático" selecionado e o que está valendo', () => {
     aparelho(false)
     montar('/app/tickets', <ThemeToggle />)
-    expect(screen.getByRole('radio', { name: 'Escuro' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.queryByText(/Seguindo o aparelho/)).not.toBeInTheDocument()
+    expect(screen.getByRole('radio', { name: 'Automático' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByText('Seguindo o aparelho: claro')).toBeInTheDocument()
   })
 
   it('não aparece nas rotas forçadas no escuro', () => {
