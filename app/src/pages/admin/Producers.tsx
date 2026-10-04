@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { iniciais } from '../../hooks/useConversas'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -173,11 +174,10 @@ export default function AdminProducers() {
                   <tr key={p.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <img
-                          src={p.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.full_name || 'Produtor')}`}
-                          alt=""
-                          className="size-9 rounded-full bg-muted object-cover"
-                        />
+                        {/* sem foto: iniciais locais (o nome não vai mais a api.dicebear.com; LGPD) */}
+                        {p.avatar_url
+                          ? <img src={p.avatar_url} alt="" className="size-9 rounded-full bg-muted object-cover" />
+                          : <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{iniciais(p.full_name || 'Produtor')}</span>}
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground">{p.full_name || 'Sem nome'}</div>
                           <div className="text-xs text-muted-foreground">{p.email}</div>
