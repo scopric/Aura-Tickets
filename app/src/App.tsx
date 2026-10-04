@@ -403,7 +403,7 @@ function Layout() {
               <Route path="/producer/timeline" element={<ProducerTimeline />} />
               <Route path="/producer/faq" element={<ProducerFAQ />} />
               <Route path="/producer/settings" element={<ProducerSettings />} />
-              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A área de Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
+              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />

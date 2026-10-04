@@ -10,8 +10,8 @@ interface ComingSoonProps {
 
 /**
  * Tela honesta de "em construção" para funcionalidades ainda não finalizadas.
- * Usada para ocultar páginas que hoje exibiriam dados mockados, sem deletar o
- * código original (que permanece pronto para ser religado quando a feature ficar real).
+ * O `ComingSoonRoute` esconde páginas cujo código ainda existe; a `ComingSoon`
+ * direta serve a rotas sem tela (ex.: Borderô, até ter dado real).
  */
 export default function ComingSoon({ title = 'Esta ferramenta', backTo = '/producer/dashboard' }: ComingSoonProps) {
   return (

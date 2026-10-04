@@ -31,10 +31,10 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(rotasDoApp).toContain(ROTA_CRIAR_EVENTO)
   })
 
-  it('tela que está atrás de ComingSoonRoute não entra no mapa (Decisão 22)', () => {
+  it('tela "Em construção" (ComingSoon ou ComingSoonRoute) não entra no mapa (Decisão 22)', () => {
     for (const t of NAV) {
       const linha = app.split('\n').find(l => l.includes(`path="${t.rota}"`)) ?? ''
-      expect(linha, t.tela).not.toContain('ComingSoonRoute')
+      expect(linha, t.tela).not.toMatch(/<ComingSoon/)
     }
   })
 
