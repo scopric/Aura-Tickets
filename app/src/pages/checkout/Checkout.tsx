@@ -193,7 +193,8 @@ export default function Checkout() {
         
       if (data) {
         setSeatingMap(data)
-        setChooseViaMap(true)
+        // começa na seleção rápida (o carrinho da página do evento); o mapa só abre de cara se já havia assento escolhido
+        if (Object.keys(pendingCheckout?.selectedSeats || {}).length > 0) setChooseViaMap(true)
       }
       setLoadingMap(false)
     }
@@ -201,16 +202,16 @@ export default function Checkout() {
     loadSeatingMap()
   }, [eventId])
 
-  // Sincronizar carrinho com os assentos escolhidos no mapa
+  // Sincronizar carrinho com os assentos escolhidos no mapa (só no modo mapa: a seleção rápida mantém o carrinho)
   useEffect(() => {
-    if (seatingMap) {
+    if (seatingMap && chooseViaMap) {
       const newCart: Record<string, number> = {}
       Object.values(selectedSeats).forEach(s => {
         newCart[s.ticketTypeId] = (newCart[s.ticketTypeId] || 0) + 1
       })
       setCart(newCart)
     }
-  }, [selectedSeats, seatingMap])
+  }, [selectedSeats, seatingMap, chooseViaMap])
 
   const ticketTypes = event?.ticket_types || []
 
@@ -260,7 +261,8 @@ export default function Checkout() {
       open: true,
       seatId: seat.id,
       label: seat.label,
-      ticketTypeId: seat.sectionId,
+      // setor ligado a um ingresso real no editor (E7a); mapas antigos seguem usando o id do setor
+      ticketTypeId: seatingMap?.environments?.[0]?.sections?.find((x: any) => x.id === seat.sectionId)?.ticketTypeId || seat.sectionId,
       price: seat.price
     })
     setTempOccupantName('')
