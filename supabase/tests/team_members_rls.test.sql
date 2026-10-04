@@ -32,7 +32,7 @@ insert into public.team_members (id, producer_id, user_id, role) values
 
 select pg_temp.como('authenticated', 'c1000000-0000-4000-8000-000000000001');
 select is((select count(*)::int from public.team_members), 1, 'dono lê só os seus');
-select lives_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', 'editor')$$, 'dono convida');
+select lives_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000002', 'editor') returning id$$, 'dono convida (colunas e returning iguais aos do front)');
 select throws_ok($$insert into public.team_members (producer_id, user_id, role) values ('c1000000-0000-4000-8000-000000000002', 'c1000000-0000-4000-8000-000000000001', 'editor')$$, '42501', null, 'não convida em nome de outro produtor');
 select throws_ok($$insert into public.team_members (producer_id, user_id, accepted_at) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000004', now())$$, '42501', null, 'dono não grava accepted_at no convite');
 select throws_ok($$insert into public.team_members (producer_id, user_id) values ('c1000000-0000-4000-8000-000000000001', 'c1000000-0000-4000-8000-000000000001')$$, '42501', null, 'não se convida');

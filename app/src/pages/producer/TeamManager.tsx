@@ -139,7 +139,6 @@ export default function TeamManager() {
           producer_id: user.id,
           user_id: targetUserId,
           role: inviteRole,
-          invited_at: new Date().toISOString(),
         })
         .select('id')
 
