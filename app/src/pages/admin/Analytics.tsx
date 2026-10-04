@@ -829,8 +829,8 @@ export default function AdminAnalytics() {
               <span className="mr-1 text-xs text-muted-foreground">Período</span>
               <Segmented
                 label="Período"
-                // no celular (4 colunas de 85 px) "Todo período" não cabe: vira "Tudo"
-                items={[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => ({ value: p.id, label: p.id === 'all' ? <><span className="sm:hidden">Tudo</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.rotulo }))}
+                // no celular (4 colunas estreitas) "Todo período" e "Personalizado" não cabem: viram "Tudo" e "Outro"
+                items={[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => ({ value: p.id, label: p.id === 'all' ? <><span className="sm:hidden">Tudo</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.id === 'custom' ? <><span className="sm:hidden">Outro</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.rotulo }))}
                 value={period}
                 onValueChange={v => {
                   if (v === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })

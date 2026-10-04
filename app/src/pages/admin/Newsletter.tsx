@@ -1069,18 +1069,18 @@ export default function AdminNewsletter() {
                   <Tabela label="Lista de assinantes">
                     <thead>
                       <tr className="border-b border-border bg-secondary/50">
-                        <th className={th}>E-mail</th>
+                        <th className={cn(th, 'px-3 sm:px-4')}>E-mail</th>
                         <th className={cn(th, 'hidden sm:table-cell')}>Data de Inscrição</th>
-                        <th className={cn(th, 'text-right')}>Ações</th>
+                        <th className={cn(th, 'px-3 text-right sm:px-4')}>Ações</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredSubscribers.map(sub => (
                         <tr key={sub.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
+                          <td className="px-3 py-3 sm:px-4">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                               <I.Email size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
-                              <span className="text-xs font-medium text-foreground">{sub.email}</span>
+                              <span className="break-all text-xs font-medium text-foreground">{sub.email}</span>
                               {sub.unsubscribed_at && (
                                 <Badge variant="secondary" className={chipNeutro}>Descadastrado</Badge>
                               )}
@@ -1095,7 +1095,7 @@ export default function AdminNewsletter() {
                               minute: '2-digit'
                             })}
                           </td>
-                          <td className="px-4 py-3 text-right">
+                          <td className="px-3 py-3 text-right sm:px-4">
                             {/* quem descadastrou fica na base como prova do opt-out (LGPD); apagar
                                 a linha também deixaria o e-mail ser reinscrito pelo rodapé */}
                             {!sub.unsubscribed_at && (

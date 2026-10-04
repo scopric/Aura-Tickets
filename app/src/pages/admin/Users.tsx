@@ -558,12 +558,12 @@ export default function AdminUsers() {
           <Tabela label="Usuários">
             <thead>
               <tr className="border-b border-border">
-                <th className={th}>Usuário</th>
+                <th className={cn(th, 'px-3 sm:px-4')}>Usuário</th>
                 <th className={cn(th, 'hidden md:table-cell')}>Contato</th>
                 <th className={cn(th, 'hidden lg:table-cell')}>Assinatura / Preço</th>
                 <th className={cn(th, 'hidden lg:table-cell')}>Recursos Extras</th>
-                <th className={th}>Cadastro</th>
-                <th className={th}><span className="sr-only">Ações</span></th>
+                <th className={cn(th, 'px-3 sm:px-4')}>Cadastro</th>
+                <th className={cn(th, 'px-3 sm:px-4')}><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
@@ -573,7 +573,7 @@ export default function AdminUsers() {
 
                 return (
                   <tr key={p.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 sm:px-4">
                       <div className="flex items-center gap-3">
                         {avatar(p, 'size-9')}
                         <div className="min-w-0">
@@ -620,13 +620,14 @@ export default function AdminUsers() {
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-3 py-3 sm:px-4">
                       <span className="text-xs text-muted-foreground" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
                     </td>
-                    <td className="px-4 py-3">
-                      <Button variant="outline" size="sm" onClick={ev => { openerRef.current = ev.currentTarget; handleOpenEdit(p) }}>
+                    <td className="px-3 py-3 sm:px-4">
+                      {/* no celular só o ícone (a coluna não pode empurrar a tabela além da tela); o nome acessível leva o nome da pessoa */}
+                      <Button variant="outline" size="sm" className="max-sm:size-8 max-sm:px-0" aria-label={`Gerenciar ${p.full_name || p.email}`} onClick={ev => { openerRef.current = ev.currentTarget; handleOpenEdit(p) }}>
                         <I.Editar aria-hidden="true" />
-                        Gerenciar
+                        <span className="max-sm:sr-only">Gerenciar</span>
                       </Button>
                     </td>
                   </tr>
