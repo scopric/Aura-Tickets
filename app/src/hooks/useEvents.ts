@@ -714,7 +714,7 @@ export function useApproveEvent() {
       const { data, error } = await atualizar.select().maybeSingle()
 
       if (error) throw error
-      if (!data) throw new Error('O evento mudou: recarregue antes de aprovar')
+      if (!data) throw new Error('O evento mudou ou você não tem permissão para esta ação: recarregue a página.')
 
       // só despublica o que ESTIVER 'published' no momento do update (condição no WHERE, sem
       // janela de leitura-e-grava): 'cancelled'/'ended' são decisão do produtor e não se perdem
@@ -733,10 +733,11 @@ export function useApproveEvent() {
       return data
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-events'] })
       queryClient.invalidateQueries({ queryKey: ['public-events'] })
       queryClient.invalidateQueries({ queryKey: ['featured-events'] })
-    }
+    },
+    // também na falha ("o evento mudou"): a lista do admin recarrega e mostra o que o produtor mudou
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['admin-events'] }),
   })
 }
 
