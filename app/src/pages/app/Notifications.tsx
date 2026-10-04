@@ -90,7 +90,7 @@ export default function ParticipantNotifications() {
         <div>
           <h1 className="text-2xl font-semibold tracking-[-0.015em]">Notificações</h1>
           <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">
-            {unreadCount > 0 ? `${unreadCount} não lida${unreadCount > 1 ? 's' : ''}` : 'Tudo em dia'}
+            {unreadCount > 0 ? `${unreadCount} não lida${unreadCount > 1 ? 's' : ''}` : notifications.length > 0 ? 'Tudo em dia' : ''}
           </p>
         </div>
         <div role="group" aria-label="Filtro" className="flex flex-wrap items-center gap-2">

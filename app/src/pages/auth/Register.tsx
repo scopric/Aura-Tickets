@@ -34,7 +34,6 @@ export default function AuthRegister() {
   const [marketingConsent, setMarketingConsent] = useState(false)
   const [dataSharingConsent, setDataSharingConsent] = useState(false)
   const [howDidYouHear, setHowDidYouHear] = useState('')
-  const [referralEmail, setReferralEmail] = useState('')
   // Código do Afiliado Evokaa: vem do link (?ref=) quando houver; o produtor também pode digitar
   // lê o ?ref= do próprio endereço antes: o código chega do site (www) nesta mesma carga
   const [refGuardado] = useState(() => { captureAffiliateRef(window.location.search); return getAffiliateRef() })
@@ -114,7 +113,6 @@ export default function AuthRegister() {
       marketingConsent,
       dataSharingConsent,
       howDidYouHear,
-      referralEmail,
       affiliateCode: type === 'producer' ? affiliateCode : '',
       // a data do link só vale se o código não foi trocado à mão
       affiliateRefSeenAt: refGuardado && refGuardado.code === affiliateCode.trim().toUpperCase() ? refGuardado.firstSeenAt : undefined,
@@ -236,7 +234,7 @@ export default function AuthRegister() {
                   aria-invalid={!!errors.password}
                   className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
                 />
-                <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors">
+                <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -289,11 +287,7 @@ export default function AuthRegister() {
               <label className="text-xs font-medium text-espresso/70 block">Como nos conheceu?</label>
               <AuthAcquisitionSelector
                 value={howDidYouHear}
-                referralEmail={referralEmail}
-                onChange={(value, email) => {
-                  setHowDidYouHear(value)
-                  if (email) setReferralEmail(email)
-                }}
+                onChange={setHowDidYouHear}
               />
             </div>
 

@@ -15,7 +15,7 @@ export default function ParticipantSettings() {
     if (deleteConfirm !== 'EXCLUIR') { toast.error('Digite EXCLUIR para confirmar'); return }
     if (!user?.id) { toast.error('Usuário não autenticado'); return }
 
-    const toastId = toast.loading('Excluindo sua conta e dados do sistema...')
+    const toastId = toast.loading('Excluindo sua conta...')
     try {
       // Função com chave de serviço: anonimiza o perfil, apaga os dados só pessoais e desativa o login.
       // (Apagar `profiles` daqui nunca funcionou: não há regra de DELETE, e pedidos apontam para o perfil.)
@@ -54,7 +54,7 @@ export default function ParticipantSettings() {
       {/* Danger Zone */}
       <section aria-labelledby="t-perigo" className="border-t border-border py-6">
         <h2 id="t-perigo" className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-destructive"><I.Alerta size={16} aria-hidden="true" /> Zona de Perigo</h2>
-        <p className="mb-3 text-sm leading-5 text-muted-foreground">Ao excluir sua conta, seus dados pessoais são apagados de forma permanente e o acesso é encerrado.</p>
+        <p className="mb-3 text-sm leading-5 text-muted-foreground">Ao excluir sua conta, o acesso é encerrado e seu perfil é anonimizado: nome, CPF, telefone e foto saem do cadastro. Pedidos e ingressos já comprados continuam guardados, com seu nome e CPF, por obrigação legal e fiscal.</p>
         <Button variant="destructive" onClick={() => setShowDelete(true)}>
           <I.Lixeira aria-hidden="true" /> Excluir conta
         </Button>
@@ -64,10 +64,10 @@ export default function ParticipantSettings() {
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowDelete(false)} />
-          <div className="relative w-full max-w-sm rounded-ev-xl border border-border bg-card p-6 text-card-foreground shadow-ev-2">
+          <div role="dialog" aria-modal="true" aria-labelledby="excluir-titulo" className="relative w-full max-w-sm rounded-ev-xl border border-border bg-card p-6 text-card-foreground shadow-ev-2">
             <div aria-hidden="true" className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-secondary text-destructive"><I.Lixeira size={24} /></div>
-            <h3 className="mb-2 text-center text-xl font-semibold tracking-[-0.015em]">Excluir conta</h3>
-            <p className="mb-4 text-center text-sm leading-5 text-muted-foreground">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
+            <h3 id="excluir-titulo" className="mb-2 text-center text-xl font-semibold tracking-[-0.015em]">Excluir conta</h3>
+            <p className="mb-4 text-center text-sm leading-5 text-muted-foreground">Esta ação é irreversível: o acesso é encerrado e seu perfil é anonimizado. Pedidos e ingressos continuam guardados, com seu nome e CPF, por obrigação legal e fiscal.</p>
             <div className="mb-4 rounded-ev-lg bg-secondary p-3">
               <label htmlFor="excluir-confirma" className="mb-2 block text-[13px] leading-[18px]">Digite <strong>EXCLUIR</strong> para confirmar:</label>
               <Input id="excluir-confirma" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="bg-card" />

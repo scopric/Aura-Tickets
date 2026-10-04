@@ -328,7 +328,7 @@ export default function ParticipantProfile() {
         <div className="flex items-start gap-3">
           <I.Local size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
           <div className="relative min-w-0 flex-1">
-            <div className={rotulo}>Cidade e Endereço</div>
+            <div className={rotulo}>Cidade</div>
 
             {editing ? (
               <div className="mt-1 space-y-3">

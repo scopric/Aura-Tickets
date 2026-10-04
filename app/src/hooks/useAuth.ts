@@ -81,7 +81,8 @@ export function useAuth() {
       // 2. Login real via Supabase JS client (API oficial)
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        throw new Error(error.message || 'Erro ao realizar login')
+        // o Supabase responde em inglês: a credencial errada vira a frase que a tela de login já usa
+        throw new Error(/invalid login credentials/i.test(error.message) ? 'E-mail ou senha incorretos' : error.message || 'Erro ao realizar login')
       }
       if (!data.session) {
         throw new Error('Sessão não retornada pelo servidor')
