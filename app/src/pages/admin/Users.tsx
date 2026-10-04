@@ -69,8 +69,8 @@ const availableFeatures = [
   { key: 'seating_map', name: 'Lugar Marcado', desc: 'Editor de mapas de assentos' },
   { key: 'api_access', name: 'Acesso à API', desc: 'Ainda não libera nada' },
   { key: 'banners', name: 'Banners Destaque', desc: 'Banners promocionais na home' },
-  { key: 'communications', name: 'Campanhas de E-mail', desc: 'Disparos ilimitados para base' },
-  { key: 'checkin', name: 'Scanner de Portaria', desc: 'App de check-in com leitura de QR' },
+  { key: 'communications', name: 'Campanhas de E-mail', desc: 'Ainda não libera nada' },
+  { key: 'checkin', name: 'Scanner de Portaria', desc: 'Leitura de QR na entrada' },
 ]
 
 export default function AdminUsers() {

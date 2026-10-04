@@ -636,7 +636,7 @@ export default function AdminTeamManager() {
                 <div>
                   <div className="font-semibold">Aviso de Segurança</div>
                   <p className="mt-0.5 leading-normal text-muted-foreground">
-                    As funções escolhem as telas que a pessoa vê. No banco, a maioria ainda equivale a acesso de administrador: convide só quem precisa.
+                    As funções escolhem as telas que a pessoa vê. No banco, toda a equipe ainda lê pedidos, financeiro e cupons; só Usuários, Eventos, Configurações, Atendimento, Newsletter, Match de Mesa e Analytics conferem a função.
                   </p>
                 </div>
               </div>

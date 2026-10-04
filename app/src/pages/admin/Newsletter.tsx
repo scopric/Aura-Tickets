@@ -109,7 +109,7 @@ export default function AdminNewsletter() {
   const [includeCoupon, setIncludeCoupon] = useState(false)
   const [couponTitle, setCouponTitle] = useState('Cupom para produtores')
   const [couponCode, setCouponCode] = useState('CLUBEEVOKAA10')
-  const [couponDesc, setCouponDesc] = useState('Organiza eventos? 10% de desconto no plano de produtor da Evokaa.')
+  const [couponDesc, setCouponDesc] = useState('Cupom para produtores (ainda não ativo)')
 
   const [includeCta, setIncludeCta] = useState(true)
   const [ctaText, setCtaText] = useState('Buscar Todos os Eventos')
@@ -314,11 +314,11 @@ export default function AdminNewsletter() {
       setHeading('Em breve: novo evento na Evokaa')
       setSubtitle('Aviso para quem assina a newsletter')
       setPrimaryColor('#f43f5e')
-      setBodyText(`Um evento que combina com você está chegando. Assim que as vendas abrirem, o botão abaixo leva direto aos ingressos.`)
-      setIncludeCoupon(true)
+      setBodyText(`Um evento que combina com você está chegando. Assim que as vendas abrirem, o botão abaixo leva aos eventos.`)
+      setIncludeCoupon(false)
       setCouponTitle('Cupom para produtores')
       setCouponCode('CLUBEEVOKAA10')
-      setCouponDesc('Organiza eventos? 10% de desconto no plano de produtor da Evokaa.')
+      setCouponDesc('Cupom para produtores (ainda não ativo)')
       setIncludeCta(true)
       setCtaText('Ver eventos')
       setCtaUrl('https://evokaa.com.br/events')
@@ -777,6 +777,7 @@ export default function AdminNewsletter() {
                           className={marca}
                         />
                       </div>
+                      <p className="text-xs text-muted-foreground">Só ative quando o cupom existir em Cupons e a assinatura do produtor estiver no ar. Hoje a newsletter vai para todos os inscritos, não só produtores.</p>
 
                       {includeCoupon && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1.5 anim-fade">

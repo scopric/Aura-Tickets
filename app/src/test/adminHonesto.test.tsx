@@ -6,12 +6,15 @@ import Newsletter from '../pages/admin/Newsletter'
 import Tickets from '../pages/admin/Tickets'
 import Finance from '../pages/admin/Finance'
 import TeamManager from '../pages/admin/TeamManager'
+import Users from '../pages/admin/Users'
+import homeFonte from '../pages/Home.tsx?raw'
 import { TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
 // S1: o painel do admin não promete o que o sistema não faz. Banco e hooks simulados (listas vazias).
 vi.mock('../lib/supabase', () => {
-  const q: unknown = new Proxy(() => {}, { get: (_, k) => (k === 'then' ? (r: (v: unknown) => void) => r({ data: [], error: null }) : () => q) })
-  return { supabase: { from: () => q, rpc: () => q, functions: { invoke: vi.fn() } } }
+  const fila = (data: unknown[]): unknown => new Proxy(() => {}, { get: (_, k) => (k === 'then' ? (r: (v: unknown) => void) => r({ data, error: null }) : () => fila(data)) })
+  const perfil = { id: 'p1', email: 'ana@x.com', full_name: 'Ana', phone: null, role: 'producer', created_at: '2026-01-01T00:00:00Z', avatar_url: null, producer_subscriptions: [], user_custom_features: [] }
+  return { supabase: { from: (t: string) => fila(t === 'profiles' ? [perfil] : []), rpc: () => fila([]), functions: { invoke: vi.fn() } } }
 })
 vi.mock('../hooks/useEvents', () => ({ useAdminTickets: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAdminFinance', () => ({ useAdminFinance: () => ({ data: { orders: [], transactions: [], withdrawals: [] }, isLoading: false, isError: false, error: null }) }))
@@ -35,8 +38,25 @@ describe('Admin sem promessa falsa (S1)', () => {
         expect(t).not.toContain(proibida)
     }
     fireEvent.click(screen.getByRole('button', { name: 'Aviso de pré-venda' }))
+    expect(tudo()).toContain('Evokaa Eventos <contato@evokaa.com.br>')
+    expect(tudo()).not.toContain('news@evokaa.com.br')
+  })
+
+  it('Newsletter: o cupom fica no construtor, desligado de início e depois de cada modelo, com o aviso ao lado', async () => {
+    montar(<Newsletter />)
+    const cupom = () => screen.getByLabelText('Habilitar Bloco de Cupom') as HTMLInputElement
+    expect(cupom().checked).toBe(false)
+    expect(screen.getByText(/Só ative quando o cupom existir em Cupons/)).toBeInTheDocument()
+    for (const botao of [/Destaques/, 'Aviso de pré-venda', /Informativo/]) {
+      fireEvent.click(cupom()) // liga à mão; o modelo tem de desligar
+      expect(cupom().checked).toBe(true)
+      fireEvent.click(await screen.findByRole('button', { name: botao }))
+      expect(cupom().checked).toBe(false)
+    }
+    fireEvent.click(cupom())
     expect(tudo()).toContain('CLUBEEVOKAA10')
-    expect(tudo()).toContain('Cupom para produtores')
+    expect(tudo()).toContain('Cupom para produtores (ainda não ativo)')
+    expect(tudo()).not.toMatch(/10% de desconto/)
   })
 
   it('Tickets: não fala em webhooks e diz que o pagamento está em teste', async () => {
@@ -58,6 +78,23 @@ describe('Admin sem promessa falsa (S1)', () => {
     montar(<TeamManager />)
     await waitFor(() => expect(screen.getByText(/Estorno e cortesia ainda não existem/)).toBeInTheDocument())
     expect(tudo()).not.toMatch(/realizar estornos/i)
-    expect(tudo()).not.toContain('Autenticação antifraude')
+    expect(tudo()).toContain('toda a equipe ainda lê pedidos, financeiro e cupons')
+  })
+
+  it('Users: sem papel Editor (o banco recusa) e recursos sem efeito marcados', async () => {
+    montar(<Users />)
+    fireEvent.click(await screen.findByRole('button', { name: /Gerenciar Ana/ }))
+    await screen.findByText('Ainda não libera nada', {}, { timeout: 3000 }).catch(() => {})
+    const opcoes = [...document.querySelectorAll('option')].map(o => o.textContent)
+    expect(opcoes).toContain('Produtor')
+    expect(opcoes).not.toContain('Editor')
+    expect(tudo()).not.toMatch(/ou Editor/)
+    expect(tudo()).not.toContain('Disparos ilimitados')
+    expect(screen.getAllByText('Ainda não libera nada').length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('Home: o card de segurança não promete antifraude', () => {
+    expect(homeFonte).not.toContain('Autenticação antifraude')
+    expect(homeFonte).toContain('Seus dados tratados conforme a LGPD')
   })
 })

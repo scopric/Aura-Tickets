@@ -444,7 +444,7 @@ export default function AdminFinance() {
             <div className={cn('space-y-6 p-6', painel)}>
               <div>
                 <SectionTitle>Taxa de serviço</SectionTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">Taxa de serviço cobrada do comprador.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Taxa de serviço cobrada do comprador; ingresso gratuito não paga taxa.</p>
               </div>
 
               <p className="text-sm text-foreground">

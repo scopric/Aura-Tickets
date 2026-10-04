@@ -38,7 +38,6 @@ interface LinhaInbox {
   assignee_id: string | null
   department_name: string | null
   topic_label: string | null
-  mediation: boolean
   contact_name: string | null
   last_message_at: string
   last_message_preview: string | null
@@ -64,7 +63,7 @@ interface ConversaAdmin {
   rating: number | null
   bot_state: 'bot' | 'humano'
   bot_resolveu: boolean
-  chat_topics: { label: string; mediation: boolean } | null
+  chat_topics: { label: string } | null
   chat_contacts: { name: string; email: string | null; phone: string | null; origin: string; marketing_opt_in: boolean } | null
 }
 
@@ -106,7 +105,7 @@ function useConversaAdmin(id: string | null) {
     queryFn: async () => {
       const { data: d, error } = await supabase
         .from('conversations' as never)
-        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
+        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label), chat_contacts(name, email, phone, origin, marketing_opt_in)')
         .eq('id', id!)
         .maybeSingle()
       if (error) throw error
