@@ -228,6 +228,7 @@ export const temErro = (e: object) => Object.keys(e).length > 0
 export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { evento: DbEvent; capaUrl: string | null }): DbEvent {
   return {
     ...evento, ...snapDoForm(form),
+    ...(form.inicioD ? {} : { start_date: new Date().toISOString() }), // sem data a página não diz "Evento encerrado" por causa do rascunho antigo
     cover_image: capaUrl, image_url: capaUrl,
     ticket_types: ings.filter(i => i.ativo).map(i => ({
       id: i.id, event_id: evento.id, name: i.nome.trim() || 'Ingresso sem nome', description: null, price: precoDe(i.preco) ?? 0,
