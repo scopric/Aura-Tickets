@@ -4,12 +4,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 const from = vi.hoisted(() => vi.fn())
-vi.mock('../lib/supabase', () => ({ supabase: { from } }))
+vi.mock('../lib/supabase', () => ({ supabase: { from, auth: { mfa: { listFactors: () => Promise.resolve({ data: { totp: [] } }) } } } }))
 const usuario = { id: 'a1', admin_permissions: ['manage_events'] }
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: usuario }) }))
 
 import AdminDashboard from '../pages/admin/Dashboard'
 import AdminCoupons from '../pages/admin/Coupons'
+import AdminSettings from '../pages/admin/AdminSettings'
 
 describe('Admin: Painel com permissão', () => {
   it('sem manage_newsletter mostra "—", não consulta a tabela e sem manage_finance não há link do financeiro', async () => {
@@ -43,5 +44,19 @@ describe('Admin: Cupons', () => {
     expect(await screen.findByText(/Não foi possível carregar os pedidos: permission denied/)).toBeInTheDocument()
     expect(screen.queryByText('Nenhum pedido de cupom dos afiliados.')).toBeNull()
     expect(screen.getByRole('button', { name: 'Pedidos dos afiliados (—)' })).toBeInTheDocument()
+  })
+})
+
+describe('Admin: Configurações', () => {
+  it('falha ao ler platform_settings avisa e trava o Salvar (não grava os padrões por cima)', async () => {
+    from.mockImplementation((t: string) => {
+      const r = Promise.resolve(t === 'platform_settings' ? { data: null, error: { message: 'timeout' } } : { data: [], error: null })
+      const q: any = { select: () => q, order: () => q, limit: () => r, eq: () => q, then: r.then.bind(r) }
+      return q
+    })
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    render(<MemoryRouter><AdminSettings /></MemoryRouter>)
+    expect(await screen.findByText(/Não foi possível ler as configurações/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Salvar/ })).toBeDisabled()
   })
 })

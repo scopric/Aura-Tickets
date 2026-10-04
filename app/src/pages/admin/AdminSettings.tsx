@@ -72,6 +72,7 @@ export default function AdminSettingsPage() {
   })
 
   const [isLoadingSettings, setIsLoadingSettings] = useState(true)
+  const [erroLeitura, setErroLeitura] = useState(false) // sem leitura, Salvar gravaria os padrões por cima do banco
   const [isSavingSettings, setIsSavingSettings] = useState(false)
 
   // Logs reais (user_activities): últimos 200, filtrados por event_type no servidor
@@ -126,6 +127,7 @@ export default function AdminSettingsPage() {
         }
       } catch (err) {
         console.error('[AdminSettings] Erro ao carregar configuracoes:', err)
+        setErroLeitura(true)
       } finally {
         setIsLoadingSettings(false)
       }
@@ -234,6 +236,11 @@ export default function AdminSettingsPage() {
   return (
     <div className="p-6 lg:p-10 max-w-6xl">
       <PageHeader title="Configurações" description="Administração da plataforma" />
+      {erroLeitura && (
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
+          Não foi possível ler as configurações; salvar agora gravaria os valores padrão por cima.
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar */}
