@@ -6,11 +6,12 @@ import { PageHeader, SectionTitle, Stat } from '@/components/producer/ui'
 import { painel } from '@/components/admin/ui'
 import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
 import { supabase } from '../../lib/supabase'
+import { useAuth } from '../../hooks/useAuth'
 
 type Res<T> = { data: T | null; error: string | null }
 
 // Cada consulta falha sozinha: tabela sem regra de acesso vira "—" com o erro no title, não derruba a tela.
-async function tenta<T>(
+async function tentaConsulta<T>(
   q: PromiseLike<{ data: any; error: { message: string } | null; count?: number | null }>,
   pick: (r: { data: any; count?: number | null }) => T,
 ): Promise<Res<T>> {
@@ -22,6 +23,8 @@ async function tenta<T>(
     return { data: null, error: e?.message || String(e) }
   }
 }
+
+const SEM_ACESSO = 'Sem acesso a esta área'
 
 interface FilaItem { id: string; title: string; date: string | null; created_at: string; profiles: { full_name: string | null } | null }
 interface Conta { id: string; full_name: string | null; email: string; role: string; created_at: string }
@@ -45,25 +48,31 @@ export default function AdminDashboard() {
   const [dados, setDados] = useState<Dados | null>(null)
   const [loading, setLoading] = useState(true)
   const [atualizadoEm, setAtualizadoEm] = useState<Date | null>(null)
+  const { user } = useAuth()
+  // mesmo padrão do AdminLayout: super_admin vale para tudo
+  const pode = useCallback((p: string) => !!user?.admin_permissions?.some(x => x === p || x === 'super_admin'), [user])
 
   const carregar = useCallback(async () => {
     setLoading(true)
+    // sem permissão a consulta nem é feita (vira "sem dado", não erro)
+    const tenta = <T,>(p: string, q: () => PromiseLike<any>, pick: (r: { data: any; count?: number | null }) => T): Promise<Res<T>> =>
+      pode(p) ? tentaConsulta(q(), pick) : Promise.resolve({ data: null, error: null })
     const [roles, eventos, newsletter, suporte, contato, fila, eventosRecentes, contasRecentes] = await Promise.all([
       // ponytail: o PostgREST corta em 1.000 linhas; trocar por count head por papel quando passar de centenas de contas
-      tenta(supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
-      tenta(supabase.from('events').select('id, status, approval_status, start_date, end_date, date, time'), r => (r.data || []).map((e: any) => ({ status: String(e.status), approval_status: e.approval_status ?? null, start_date: String(e.start_date), end_date: e.end_date ?? null, date: e.date ?? null, time: e.time ?? null }))),
-      tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
-      tenta(supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open'), r => r.count ?? 0),
-      tenta(supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
+      tenta('manage_users', () => supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
+      tenta('manage_events', () => supabase.from('events').select('id, status, approval_status, start_date, end_date, date, time'), r => (r.data || []).map((e: any) => ({ status: String(e.status), approval_status: e.approval_status ?? null, start_date: String(e.start_date), end_date: e.end_date ?? null, date: e.date ?? null, time: e.time ?? null }))),
+      tenta('manage_newsletter', () => supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
+      tenta('manage_support', () => supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open').eq('bot_state', 'humano'), r => r.count ?? 0),
+      tenta('manage_feedback', () => supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
       // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201
-      tenta(supabase.from('events').select('id, title, date, created_at, profiles!producer_id(full_name)').eq('status', 'published').or('approval_status.eq.pending,approval_status.is.null').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as FilaItem[]),
-      tenta(supabase.from('events').select('id, title, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as EventoRecente[]),
-      tenta(supabase.from('profiles').select('id, full_name, email, role, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as Conta[]),
+      tenta('manage_events', () => supabase.from('events').select('id, title, date, created_at, profiles!producer_id(full_name)').eq('status', 'published').or('approval_status.eq.pending,approval_status.is.null').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as FilaItem[]),
+      tenta('manage_events', () => supabase.from('events').select('id, title, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as EventoRecente[]),
+      tenta('manage_users', () => supabase.from('profiles').select('id, full_name, email, role, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as Conta[]),
     ])
     setDados({ roles, eventos, newsletter, suporte, contato, fila, eventosRecentes, contasRecentes })
     setAtualizadoEm(new Date())
     setLoading(false)
-  }, [])
+  }, [pode])
 
   useEffect(() => { carregar() }, [carregar])
 
@@ -75,13 +84,13 @@ export default function AdminDashboard() {
     admins: roles.filter(r => r === 'admin').length,
   } : null
   const ev = dados?.eventos.data
-  const kpis: { label: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
-    { label: 'Contas', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
-    { label: 'Eventos pendentes', value: ev ? ev.filter(naFilaDeModeracao).length : null, error: dados?.eventos.error },
-    { label: 'Eventos no ar', value: ev ? ev.filter(noAr).length : null, sub: ev ? `${ev.filter(e => e.approval_status === 'approved').length} aprovados no total` : null, error: dados?.eventos.error },
-    { label: 'Inscritos na newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
-    { label: 'Conversas de suporte abertas', value: dados?.suporte.data, error: dados?.suporte.error },
-    { label: 'Mensagens de contato', value: dados?.contato.data, error: dados?.contato.error },
+  const kpis: { label: string; perm: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
+    { label: 'Contas', perm: 'manage_users', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
+    { label: 'Eventos pendentes', perm: 'manage_events', value: ev ? ev.filter(naFilaDeModeracao).length : null, error: dados?.eventos.error },
+    { label: 'Eventos no ar', perm: 'manage_events', value: ev ? ev.filter(noAr).length : null, sub: ev ? `${ev.filter(e => e.approval_status === 'approved').length} aprovados no total` : null, error: dados?.eventos.error },
+    { label: 'Inscritos na newsletter', perm: 'manage_newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
+    { label: 'Conversas abertas com a equipe', perm: 'manage_support', value: dados?.suporte.data, error: dados?.suporte.error },
+    { label: 'Mensagens de contato', perm: 'manage_feedback', value: dados?.contato.data, error: dados?.contato.error },
   ]
 
   const atividade = [
@@ -115,7 +124,7 @@ export default function AdminDashboard() {
             key={k.label}
             label={k.label}
             value={<span title={k.error || undefined}>{loading && !dados ? '…' : k.value ?? '—'}</span>}
-            hint={k.error ? <span className="text-destructive">{k.error}</span> : k.sub}
+            hint={k.error ? <span className="text-destructive">{k.error}</span> : pode(k.perm) ? k.sub : SEM_ACESSO}
           />
         ))}
       </div>
@@ -124,10 +133,10 @@ export default function AdminDashboard() {
         <section aria-labelledby="fila-titulo" className={`${painel} p-5 lg:col-span-2`}>
           <div className="mb-4 flex items-center justify-between">
             <SectionTitle id="fila-titulo">Fila de moderação</SectionTitle>
-            <Link to="/admin/events" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">Ver todos <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>
+            {pode('manage_events') && <Link to="/admin/events" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">Ver todos <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>}
           </div>
           {dados?.fila.error ? alerta(dados.fila.error) : !dados?.fila.data?.length ? (
-            <p className="text-sm text-muted-foreground">{dados ? 'Nenhum evento aguardando moderação.' : 'Carregando…'}</p>
+            <p className="text-sm text-muted-foreground">{!pode('manage_events') ? SEM_ACESSO : dados ? 'Nenhum evento aguardando moderação.' : 'Carregando…'}</p>
           ) : (
             <ul className="divide-y divide-border">
               {dados.fila.data.map(e => (
@@ -148,7 +157,7 @@ export default function AdminDashboard() {
         <section aria-labelledby="receita-titulo" className={`${painel} p-5`}>
           <SectionTitle id="receita-titulo">Receita e planos</SectionTitle>
           <p className="mt-3 text-sm text-muted-foreground">Pagamentos em modo de teste: ainda não há receita nem assinaturas reais.</p>
-          <Link to="/admin/finance" className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Abrir financeiro <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>
+          {pode('manage_finance') && <Link to="/admin/finance" className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Abrir financeiro <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>}
         </section>
       </div>
 
@@ -156,7 +165,7 @@ export default function AdminDashboard() {
         <div className="mb-4"><SectionTitle id="atividade-titulo">Atividade recente</SectionTitle></div>
         {erroAtividade && alerta(erroAtividade)}
         {!erroAtividade && atividade.length === 0 && (
-          <p className="text-sm text-muted-foreground">{dados ? 'Nenhuma atividade registrada.' : 'Carregando…'}</p>
+          <p className="text-sm text-muted-foreground">{!pode('manage_events') && !pode('manage_users') ? SEM_ACESSO : dados ? 'Nenhuma atividade registrada.' : 'Carregando…'}</p>
         )}
         {atividade.length > 0 && (
           <ul className="divide-y divide-border">
