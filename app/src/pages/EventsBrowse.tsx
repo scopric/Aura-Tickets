@@ -35,7 +35,7 @@ const linhaLocal = (e: EventoCatalogo) => [horaCurta(e.time), e.venue_name || e.
 // Uma tela só para /events (visitante) e /app/events (participante), com a aba Salvos (/app/salvos).
 // O atalho de data é o endereço: /events/hoje, /events/amanha, /events/fim-de-semana, /events/este-mes.
 export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
-  const { pathname, key } = useLocation()
+  const { pathname, search, key } = useLocation()
   const noApp = pathname.startsWith('/app')
   const base = noApp ? '/app/events' : '/events'
   const navigate = useNavigate()
@@ -116,7 +116,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
     return { frase: 'Ainda não tem evento publicado.', apoio: 'Quando sair o primeiro, ele aparece aqui. Assine a newsletter para saber quando.', botao: '', acao: () => {} }
   }
 
-  if (slugQuando && !quando) return <Navigate to={base} replace /> // atalho que não existe: volta para o Explorar
+  if (slugQuando && !quando) return <Navigate to={{ pathname: base, search }} replace /> // atalho que não existe: volta para o Explorar
   const px = noApp ? '' : 'px-5 lg:px-8'
   const abas = !!userId && noApp // só o participante salva; visitante e equipe não veem a aba
 
