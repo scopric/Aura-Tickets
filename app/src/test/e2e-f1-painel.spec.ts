@@ -17,7 +17,7 @@ test.skip(({ isMobile }) => isMobile, 'a lateral do produtor cobre a tela no cel
 type Linha = Record<string, unknown>
 type Banco = {
   evento: Linha; ingressos: Linha[]; link: string | null; vendidos: Record<string, number>; aceites: Linha[]
-  chamadas: string[]; patches: Linha[]; aceite: () => { status: number; json: unknown }
+  chamadas: string[]; patches: Linha[]; guia: string[] | 'erro'; aceite: () => { status: number; json: unknown }
 }
 
 const evento = (o: Linha = {}): Linha => ({
@@ -51,6 +51,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
   const db: Banco = {
     ingressos: [], link: null, vendidos: {}, chamadas: [], patches: [],
     aceites: [], aceite: () => aceiteOk(db),
+    guia: ['guia:painel-evento'], // padrão: o guia já foi visto (só os testes do guia o tiram)
     ...ini,
   }
   // evento que já foi aprovado tem um aceite coerente com ele, salvo se o teste disser outra coisa
@@ -119,6 +120,18 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
     db.chamadas.push('INVOKE aceite-evento')
     const a = db.aceite()
     return route.fulfill({ status: a.status, json: a.json })
+  })
+  // onboarding_logs (V9): leitura dos registros do produtor e gravação (upsert) do que ele concluiu ou pulou
+  await page.route(/\/rest\/v1\/onboarding_logs(\?|$)/, route => {
+    const r = route.request()
+    if (r.method() === 'GET') return db.guia === 'erro' ? route.fulfill({ status: 500, json: { message: 'falha' } }) : route.fulfill({ json: db.guia.map(step_name => ({ step_name })) })
+    if (r.method() === 'POST') {
+      const b = r.postDataJSON() as { step_name: string; skipped: boolean }
+      db.chamadas.push(`UPSERT onboarding_logs ${b.step_name} skipped=${b.skipped}`)
+      if (db.guia !== 'erro' && !db.guia.includes(b.step_name)) db.guia.push(b.step_name)
+      return route.fulfill({ status: 201, body: '' })
+    }
+    return route.fallback()
   })
   await page.route('https://viacep.com.br/**', route => route.fulfill({ json: { logradouro: 'Rua das Flores', bairro: 'Centro', localidade: 'Curitiba', uf: 'PR' } }))
   return db
@@ -300,6 +313,110 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     falhar = false
     await salva(page, db, () => page.getByRole('button', { name: 'Tentar de novo' }).click())
     expect(db.patches.at(-1)).toEqual({ title: 'Nome novo' })
+  })
+})
+
+test.describe('painel do evento: modo guiado "Passo N de 6"', () => {
+  // a seção que fecha ainda está no DOM durante a animação: só vale o botão da seção aberta
+  const proximo = (p: Page) => p.locator('[role=region][data-state=open]').getByRole('button', { name: 'Próximo' })
+  const voltar = (p: Page) => p.locator('[role=region][data-state=open]').getByRole('button', { name: 'Voltar' })
+  const secaoAberta = (page: Page) => page.locator('button[aria-expanded="true"][id^="s-"]')
+
+  test('rascunho sem registro: passo 1, Próximo e Voltar, uma seção aberta por vez', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Passo 1 de 6 · O que é')).toBeVisible()
+    await expect(page.getByText(/de 8\s*prontos/)).toHaveCount(0)
+    await expect(secaoAberta(page)).toHaveCount(1)
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(voltar(page)).toHaveCount(0)
+    await proximo(page).click()
+    await expect(page.getByText('Passo 2 de 6 · Quando e onde')).toBeVisible()
+    await expect(secaoAberta(page)).toHaveCount(1)
+    await expect(secao(page, /^Quando e onde/)).toBeFocused()
+    await voltar(page).click()
+    await expect(page.getByText('Passo 1 de 6 · O que é')).toBeVisible()
+    for (let i = 2; i <= 6; i++) await proximo(page).click()
+    await expect(page.getByText('Passo 6 de 6 · Publicar')).toBeVisible()
+    await expect(proximo(page)).toHaveCount(0)
+  })
+
+  test('"Ver todas as seções" registra skipped e mostra "N de 8 prontos"; recarregar não traz o guia de volta', async ({ page }) => {
+    const db = await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await proximo(page).click()
+    await page.getByRole('button', { name: 'Ver todas as seções' }).click()
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+    await expect(secao(page, /^Quando e onde/)).toBeFocused()
+    await expect(secao(page, /^Quando e onde/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false') // só a do passo, não as já visitadas
+    await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=true')
+    await page.reload()
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('evento em análise ou no ar nunca mostra o guia', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('evento no ar sem registro: sem guia', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('À venda', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('falha ao ler o onboarding_logs: painel normal, sem guia', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: 'erro' })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('enviar para aprovação pelo guia registra skipped false', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Passo 1 de 6')).toBeVisible()
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=false')
+  })
+
+  test('enviar pelo passo 6: Publicar continua aberta em análise e o foco não cai no body', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible()
+    await expect(secao(page, /^Publicar/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('body')).not.toBeFocused()
+  })
+
+  test('passo 6: Voltar sem Próximo, e o link de "falta" troca de passo', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await expect(page.getByText('Passo 6 de 6 · Publicar')).toBeVisible()
+    await expect(voltar(page)).toHaveCount(1)
+    await expect(proximo(page)).toHaveCount(0)
+    await page.locator('[role=region][data-state=open]').getByRole('button', { name: /^Ir para / }).first().click()
+    await expect(page.getByText(/Passo [1-5] de 6/)).toBeVisible()
+    await expect(page.getByText('Passo 6 de 6')).toHaveCount(0)
   })
 })
 
