@@ -151,14 +151,12 @@ export default function ProducerAffiliates() {
         </div>
       ) : isPending ? (
         <div aria-busy="true">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
-          </div>
+          <Skeleton className="h-[92px] rounded-[10px] bg-muted sm:max-w-xs" />
           <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="sm:max-w-xs">
             <Stat label="Afiliados ativos" value={stats.active} />
           </div>
 
