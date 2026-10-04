@@ -58,9 +58,10 @@ Deno.serve(async (req) => {
     const texto = textoAceite({ titulo: evento.title, formato: evento.category, classificacao: evento.classificacao, temBebida })
     const { ip, forwarded_for } = clientIp(req.headers)
     const textoHash = await sha256(texto)
-    // duplo clique ou nova tentativa: mesmo texto do mesmo evento nos últimos 5 minutos devolve o aceite anterior
+    // nova tentativa em sequência (o duplo clique é barrado na tela): mesmo texto do mesmo evento, deste produtor, nos
+    // últimos 5 minutos devolve o aceite anterior
     const { data: recente, error: recenteError } = await admin.from('evento_aceites').select('id, aceito_em')
-      .eq('event_id', eventId).eq('texto_hash', textoHash)
+      .eq('event_id', eventId).eq('producer_id', user.id).eq('texto_hash', textoHash)
       .gte('aceito_em', new Date(Date.now() - 5 * 60 * 1000).toISOString())
       .order('aceito_em', { ascending: false }).limit(1)
     if (recenteError) return json(500, { error: 'Não foi possível conferir o aceite anterior' })
@@ -68,6 +69,11 @@ Deno.serve(async (req) => {
     if (recente && recente.length > 0) {
       return json(200, { ok: true, ...recente[0], versao, classificacao, tem_bebida: temBebida })
     }
+    // limite: 20 aceites novos por produtor por hora (a tabela é prova e não se apaga: nada de inflá-la em laço)
+    const { count, error: contarError } = await admin.from('evento_aceites').select('id', { count: 'exact', head: true })
+      .eq('producer_id', user.id).gte('aceito_em', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+    if (contarError) return json(500, { error: 'Não foi possível conferir o limite de aceites' })
+    if ((count ?? 0) >= 20) return json(429, { error: 'Muitas tentativas. Tente novamente mais tarde.' })
     const linha = {
       event_id: eventId, producer_id: user.id, versao, texto, texto_hash: textoHash,
       // esporte não é classificado (variante 2b do texto): nada de classificação contraditória no registro
