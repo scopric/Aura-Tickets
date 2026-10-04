@@ -1,13 +1,20 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Link, useLocation, useSearchParams } from 'react-router-dom'
-import {
-  Search, Calendar, MapPin, Loader2, Star,
-  Filter, ArrowRight, Clock, Ticket
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import Chip from '../../components/Chip'
+import EventoCapa from '../../components/EventoCapa'
+import EventoLinha from '../../components/EventoLinha'
 import { usePublicEvents } from '../../hooks/useEvents'
-import { cn } from '../../lib/utils'
+import { temFoto } from '../../lib/corEvento'
+import { rotuloDia } from '../../lib/explorar'
 import { calcularTaxa, brl } from '../../lib/taxa'
 import { rotuloFormato } from '../../lib/tipoEvento'
+import { diaBR } from '../../lib/visaoEvento'
+
+const hojeSP = () => diaBR(Date.now())
 
 const categories = [
   'Todos',
@@ -31,12 +38,18 @@ function formatEventDate(dateStr: string | null, timeStr: string | null) {
   return timeStr ? `${formatted} às ${timeStr}` : formatted
 }
 
-function getMinPrice(ticketTypes: any[]) {
+function getMinPrice(ticketTypes?: { price: number | string }[] | null) {
   if (!ticketTypes || ticketTypes.length === 0) return null
   const prices = ticketTypes.map((t) => Number(t.price) || 0).filter((p) => p > 0)
   if (prices.length === 0) return 'Gratuito'
   const { preco, taxa, total } = calcularTaxa(Math.min(...prices))
   return `${brl(total)} (${brl(preco)} + taxa ${brl(taxa)})`
+}
+
+// "a partir de R$ 55,00 (R$ 50,00 + taxa R$ 5,00)": o preço sempre com a taxa ao lado; sem ingresso cadastrado, nada
+const precoDe = (ticketTypes?: { price: number | string }[] | null) => {
+  const p = getMinPrice(ticketTypes)
+  return p === null ? null : p === 'Gratuito' ? p : `a partir de ${p}`
 }
 
 export default function AppEvents() {
@@ -65,215 +78,143 @@ export default function AppEvents() {
 
   const featured = filtered[0]
   const rest = filtered.slice(1)
+  const hoje = hojeSP() // a cada renderização: o rótulo "Hoje" confere depois da meia-noite
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center py-32">
-        <Loader2 className="w-12 h-12 text-plum animate-spin mb-6" />
-        <p className="text-espresso/70 text-base">Carregando eventos...</p>
+      <div className="py-32 text-center text-foreground">
+        <Spinner className="mx-auto size-6" />
+        <p className="mt-4 text-base text-muted-foreground">Carregando eventos...</p>
       </div>
     )
   }
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8 text-foreground">
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="font-serif text-4xl text-cream font-bold">Descubra Eventos</h1>
-          <p className="text-white/60 mt-2 text-base">
+          <h1 className="text-2xl font-semibold tracking-[-0.015em]">Descubra Eventos</h1>
+          <p className="mt-1 text-[15px] text-muted-foreground">
             Encontre os melhores eventos perto de você
           </p>
         </div>
-        <div className="relative w-full lg:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-white/30" />
-          <input
-            ref={campoBusca}
-            type="text"
-            aria-label="Buscar eventos"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Buscar por nome, cidade ou categoria..."
-            className="w-full pl-12 pr-4 py-3 bg-white/[0.03] border border-white/[0.06] rounded-2xl text-base text-cream placeholder:text-white/30 focus:outline-none focus:border-plum/30 focus:bg-white/[0.05] transition-all"
-          />
-        </div>
+        <form role="search" onSubmit={e => e.preventDefault()} className="relative w-full lg:w-96">
+          <label className="relative block">
+            <span className="sr-only">Buscar eventos</span>
+            <I.Buscar size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground" />
+            <Input
+              ref={campoBusca}
+              type="search"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por nome, cidade ou categoria..."
+              className="h-11 rounded-ev-lg bg-card pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden"
+            />
+          </label>
+          {search && (
+            <button
+              type="button"
+              aria-label="Limpar busca"
+              onClick={() => setSearch('')}
+              className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-ev-lg text-muted-foreground focus-visible:outline-none focus-visible:shadow-ev-foco"
+            >
+              <I.Fechar size={16} />
+            </button>
+          )}
+        </form>
       </div>
 
       {/* Category Filters */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
-        <Filter className="w-4 h-4 text-white/30 flex-shrink-0 mr-1" />
+      <div role="group" aria-label="Filtros" className="-mt-2 flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {categories.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={cn(
-              'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all',
-              activeCategory === cat
-                ? 'bg-plum text-cream shadow-md'
-                : 'bg-white/[0.03] text-white/50 hover:bg-white/[0.06] hover:text-cream border border-white/[0.04]'
-            )}
-          >
-            {cat}
-          </button>
+          <Chip key={cat} marcado={activeCategory === cat} onClick={() => setActiveCategory(cat)}>{cat}</Chip>
         ))}
       </div>
 
-      {/* Featured Event */}
-      {featured && (
-        <div className="relative rounded-3xl overflow-hidden group">
-          <img
-            src={featured.cover_image || featured.image_url || '/images/hero-bg.jpg'}
-            alt={featured.title}
-            className="w-full h-[360px] object-cover transition-transform duration-700 group-hover:scale-105"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#07080c] via-black/20 to-transparent" />
-          <div className="absolute bottom-0 left-0 right-0 p-8">
-            <div className="flex items-center gap-3 mb-3">
-              <span className="px-3 py-1 rounded-full bg-plum/90 text-cream text-xs font-semibold">
-                {rotuloFormato(featured.category) || 'Evento'}
-              </span>
-              {getMinPrice(featured.ticket_types) && (
-                <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur text-cream text-xs font-semibold">
-                  A partir de {getMinPrice(featured.ticket_types)}
-                </span>
-              )}
-            </div>
-            <h2 className="font-serif text-3xl text-white mb-2">{featured.title}</h2>
-            <p className="text-white/70 text-base max-w-xl line-clamp-2 mb-4">
-              {featured.short_description || featured.description}
-            </p>
-            <div className="flex items-center gap-6 mb-5">
-              <span className="flex items-center gap-2 text-white/60 text-sm">
-                <Calendar className="w-4 h-4" />
-                {formatEventDate(featured.date, featured.time)}
-              </span>
-              <span className="flex items-center gap-2 text-white/60 text-sm">
-                <MapPin className="w-4 h-4" />
-                {featured.venue_city || featured.venue_name || 'Local a definir'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Link
-                to={`/event/${featured.slug || featured.id}`}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-plum text-cream rounded-full text-sm font-semibold hover:shadow-glow transition-all"
-              >
-                Ver detalhes
-                <ArrowRight className="w-4 h-4" />
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Events Grid */}
+      {/* Featured Event: o destaque do Explorar (capa 4:5, selo da data sobre a foto, nome abaixo); no computador, ao lado da lista */}
       {rest.length === 0 && !featured ? (
-        <div className="text-center py-24">
-          <div className="w-20 h-20 rounded-full bg-white/[0.02] flex items-center justify-center mx-auto mb-6">
-            <Star className="w-10 h-10 text-white/10" />
-          </div>
-          <h3 className="font-serif text-xl text-cream mb-2">Nenhum evento encontrado</h3>
-          <p className="text-white/40 text-base">
+        <div role="status" className="mx-auto flex max-w-sm flex-col items-center px-4 py-12 text-center">
+          <img src="/evo/evo-corpo-celular.webp" alt="" width={76} height={132} className="h-[132px] w-auto" />
+          <h2 className="mt-4 text-lg font-semibold leading-6">Nenhum evento encontrado</h2>
+          <p className="mt-1.5 text-[15px] leading-[22px] text-muted-foreground">
             Tente ajustar os filtros ou a busca para encontrar o que procura.
           </p>
         </div>
       ) : (
-        <div>
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="font-serif text-2xl text-cream">
-              {rest.length > 0 ? 'Próximos eventos' : 'Eventos'}
-            </h3>
-            <span className="text-sm text-white/45">
-              {filtered.length} evento{filtered.length !== 1 ? 's' : ''}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-            {rest.map((event) => (
-              <div
-                key={event.id}
-                className="group rounded-2xl bg-white/[0.02] border border-white/[0.06] hover:border-plum/25 hover:shadow-glow backdrop-blur-md transition-all overflow-hidden flex flex-col"
+        <div className={featured ? 'lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-10' : undefined}>
+          {featured && (
+            <section aria-labelledby="t-destaque" className="lg:sticky lg:top-24">
+              <h2 id="t-destaque" className="mb-3 text-[15px] font-semibold">Em destaque</h2>
+              <Link
+                to={`/event/${featured.slug || featured.id}`}
+                className="block max-w-[360px] rounded-ev-xl focus-visible:outline-none focus-visible:shadow-ev-foco"
               >
-                {/* Image */}
-                <div className="relative h-48 overflow-hidden">
-                  <img
-                    src={event.cover_image || event.image_url || '/images/hero-bg.jpg'}
-                    alt={event.title}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute top-3 left-3">
-                    <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur text-xs font-medium text-cream border border-white/[0.05]">
-                      {rotuloFormato(event.category) || 'Evento'}
+                <span className="relative block">
+                  <EventoCapa evento={featured} tamanho="cartao" />
+                  {/* selo sobre a foto: placa preta com texto branco nos dois temas (text-[#fff]: o .light .text-white do index.css escureceria o texto) */}
+                  {(temFoto(featured.cover_image) || temFoto(featured.image_url)) && featured.date && (
+                    <span aria-hidden="true" className="wide absolute left-3 top-3 rounded-ev-sm bg-[#0b0d12] px-2 py-1 font-display text-[13px] font-extrabold uppercase leading-4 tracking-[0.02em] text-[#fff]">
+                      {rotuloDia(featured.date, hoje).curto}
                     </span>
-                  </div>
-                  {getMinPrice(event.ticket_types) && (
-                    <div className="absolute bottom-3 left-3 px-3 py-1.5 rounded-lg bg-plum/90 text-cream text-sm font-semibold">
-                      {getMinPrice(event.ticket_types)}
-                    </div>
                   )}
-                </div>
+                </span>
+                <span className="wide mt-3 block font-display text-2xl font-extrabold leading-7 tracking-[-0.015em]">{featured.title}</span>
+                <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">
+                  {formatEventDate(featured.date, featured.time)} · {featured.venue_city || featured.venue_name || 'Local a definir'}
+                </span>
+                {precoDe(featured.ticket_types) && <span className="mt-1 block text-[13px] leading-[18px]">{precoDe(featured.ticket_types)}</span>}
+              </Link>
+            </section>
+          )}
 
-                {/* Content */}
-                <div className="p-5 flex flex-col flex-1">
-                  <Link
-                    to={`/event/${event.slug || event.id}`}
-                    className="font-semibold text-cream text-base group-hover:text-plum-light transition-colors line-clamp-1"
-                  >
-                    {event.title}
-                  </Link>
-                  <p className="text-sm text-white/45 mt-1 line-clamp-2 flex-1">
-                    {event.short_description || event.description}
-                  </p>
+          <section aria-labelledby="t-lista" className="min-w-0">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 id="t-lista" className="text-[15px] font-semibold">
+                {rest.length > 0 ? 'Próximos eventos' : 'Eventos'}
+              </h2>
+              <span className="text-[13px] text-muted-foreground">
+                {filtered.length} evento{filtered.length !== 1 ? 's' : ''}
+              </span>
+            </div>
 
-                  <div className="mt-4 space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-white/30">
-                      <Calendar className="w-3.5 h-3.5" />
-                      <span>{formatEventDate(event.date, event.time)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-white/30">
-                      <MapPin className="w-3.5 h-3.5" />
-                      <span className="truncate">
-                        {event.venue_city || event.venue_name || 'Local a definir'}
-                      </span>
-                    </div>
-                    {event.capacity && (
-                      <div className="flex items-center gap-2 text-xs text-white/30">
-                        <Ticket className="w-3.5 h-3.5" />
-                        <span>{event.capacity} vagas</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Link
-                    to={`/event/${event.slug || event.id}`}
-                    className="mt-4 inline-flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-plum/20 text-plum-light text-sm font-medium hover:bg-plum hover:text-cream transition-all border border-plum/30"
-                  >
-                    Ver detalhes
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+            <ul className="divide-y divide-border sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0">
+              {rest.map((event) => (
+                <EventoLinha
+                  key={event.id}
+                  evento={event}
+                  to={`/event/${event.slug || event.id}`}
+                  linha={`${formatEventDate(event.date, event.time)} · ${event.venue_city || event.venue_name || 'Local a definir'}`}
+                  preco={precoDe(event.ticket_types)}
+                  className="sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3"
+                />
+              ))}
+            </ul>
+          </section>
         </div>
       )}
 
       {/* Bottom CTA */}
-      <div className="rounded-2xl bg-gradient-to-r from-plum/10 to-transparent border border-plum/20 p-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 border-t border-border pt-6 md:flex-row md:items-center">
         <div>
-          <h3 className="font-serif text-xl text-cream font-bold">Não encontrou o que procura?</h3>
-          <p className="text-white/60 text-sm mt-1">
+          <h2 className="text-lg font-semibold leading-6">Não encontrou o que procura?</h2>
+          <p className="mt-1 text-[15px] text-muted-foreground">
             Explore todos os eventos disponíveis na plataforma Evokaa.
           </p>
         </div>
-        <button
+        <Button
+          variant="outline"
+          size="lg"
           onClick={() => {
             setSearch('')
             setActiveCategory('Todos')
           }}
-          className="px-6 py-2.5 bg-plum text-cream rounded-full text-sm font-semibold hover:shadow-glow transition-all whitespace-nowrap"
         >
           Ver todos os eventos
-        </button>
+        </Button>
       </div>
     </div>
   )

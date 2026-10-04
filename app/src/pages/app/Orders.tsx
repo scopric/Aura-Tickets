@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
-import { Calendar, MapPin, CreditCard, QrCode, Loader2, Ticket, ChevronRight } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import EventoCapa from '../../components/EventoCapa'
 import { useUserOrders } from '../../hooks/useCheckout'
-import { useAuth } from '../../hooks/useAuth'
 
 const methodLabels: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
@@ -10,71 +12,63 @@ const methodLabels: Record<string, string> = {
   cashless: 'Cashless',
 }
 
-const methodIcons: Record<string, typeof CreditCard> = {
-  credit_card: CreditCard,
-  pix: QrCode,
-  boleto: Ticket,
-  cashless: CreditCard,
+const methodIcons: Record<string, I.IconeEvokaa> = {
+  credit_card: I.Cartao,
+  pix: I.Qr,
+  boleto: I.Recibo,
+  cashless: I.Cartao,
 }
 
+// Situação do pedido: texto na cor do significado (contrato 2.1), sem caixa colorida
 const statusLabels: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Pendente', color: 'text-amber-400 bg-amber-400/10 border border-amber-400/20' },
-  paid: { label: 'Pago', color: 'text-emerald-400 bg-emerald-400/10 border border-emerald-400/20' },
-  failed: { label: 'Falhou', color: 'text-rose-400 bg-rose-400/10 border border-rose-400/20' },
-  cancelled: { label: 'Cancelado', color: 'text-rose-400 bg-rose-400/10 border border-rose-400/20' },
-  refunded: { label: 'Reembolsado', color: 'text-slate-400 bg-slate-400/10 border border-slate-400/20' },
+  pending: { label: 'Pendente', color: 'text-[var(--ev-warning)]' },
+  paid: { label: 'Pago', color: 'text-[var(--ev-success)]' },
+  failed: { label: 'Falhou', color: 'text-destructive' },
+  cancelled: { label: 'Cancelado', color: 'text-destructive' },
+  refunded: { label: 'Reembolsado', color: 'text-muted-foreground' },
 }
 
 export default function AppOrders() {
-  const { user } = useAuth()
   const { data: orders = [], isLoading } = useUserOrders()
 
   if (isLoading) {
     return (
-      <div className="max-w-3xl flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
-        <p className="text-white/60 text-sm">Carregando suas compras...</p>
+      <div className="max-w-3xl py-20 text-center text-foreground">
+        <Spinner className="mx-auto size-6" />
+        <p className="mt-4 text-sm text-muted-foreground">Carregando suas compras...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl">
-      <h1 className="text-3xl font-bold text-white mb-6">Minhas Compras</h1>
+    <div className="max-w-3xl text-foreground">
+      <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Minhas Compras</h1>
 
       {orders.length === 0 ? (
-        <div className="text-center py-16 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-3xl">
-          <Ticket className="w-12 h-12 text-white/10 mx-auto mb-4" />
-          <p className="text-white/40 text-sm mb-2">Você ainda não fez nenhuma compra.</p>
-          <Link to="/app/events" className="text-purple-400 hover:text-purple-300 text-sm hover:underline font-medium">
-            Explorar eventos
-          </Link>
+        <div role="status" className="flex max-w-sm flex-col items-start gap-3">
+          <I.Ingressos size={40} className="text-muted-foreground" aria-hidden="true" />
+          <p className="text-lg font-semibold">Você ainda não fez nenhuma compra.</p>
+          <Button asChild variant="outline" size="lg"><Link to="/app/events">Explorar eventos</Link></Button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <ul className="divide-y divide-border">
           {orders.map((order) => {
-            const status = statusLabels[order.status] || { label: order.status, color: 'text-slate-400 bg-slate-400/10 border border-slate-400/20' }
-            const MethodIcon = methodIcons[order.payment_method] || CreditCard
+            const status = statusLabels[order.status] || { label: order.status, color: 'text-muted-foreground' }
+            const MethodIcon = methodIcons[order.payment_method] || I.Cartao
 
             return (
-              <div
-                key={order.id}
-                className="p-5 rounded-2xl bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] hover:border-purple-500/20 transition-all duration-200"
-              >
+              <li key={order.id} className="py-5 first:pt-0">
                 <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={order.events?.cover_image || '/images/hero-bg.jpg'}
-                      alt={order.events?.title || 'Evento'}
-                      className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
-                    />
-                    <div>
-                      <h3 className="font-semibold text-white text-sm">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {/* a consulta de pedidos não traz a cor salva do evento (accent_color): a capa usa a cor sorteada pelo id */}
+                    <EventoCapa evento={{ ...order.events, id: order.event_id, title: order.events?.title || 'Evento' }} tamanho="mini" className="!size-14" />
+                    <div className="min-w-0">
+                      <h2 className="truncate font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">
                         {order.events?.title || 'Evento'}
-                      </h3>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="flex items-center gap-1 text-[10px] text-white/40">
-                          <Calendar className="w-3 h-3" />
+                      </h2>
+                      <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs leading-4 text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <I.Eventos size={16} aria-hidden="true" />
                           {order.created_at
                             ? new Date(order.created_at).toLocaleDateString('pt-BR', {
                                 day: 'numeric',
@@ -83,40 +77,40 @@ export default function AppOrders() {
                               })
                             : '-'}
                         </span>
-                        <span className="flex items-center gap-1 text-[10px] text-white/40">
-                          <MapPin className="w-3 h-3" />
+                        <span className="flex items-center gap-1">
+                          <I.Local size={16} aria-hidden="true" />
                           {order.events?.venue_name || 'Local a definir'}
                         </span>
-                      </div>
+                      </p>
                     </div>
                   </div>
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${status.color} flex-shrink-0`}>
+                  <span className={`flex-none text-xs font-semibold leading-4 ${status.color}`}>
                     {status.label}
                   </span>
                 </div>
 
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-white/[0.06]">
+                <div className="mt-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1 text-xs text-white/60">
-                      <MethodIcon className="w-3.5 h-3.5 text-purple-400" />
+                    <span className="flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
+                      <MethodIcon size={16} aria-hidden="true" />
                       {methodLabels[order.payment_method] || order.payment_method}
                     </span>
-                    <span className="text-lg font-bold text-white">
+                    <span className="font-display text-lg font-semibold tabular-nums">
                       R$ {order.total_amount?.toFixed(2).replace('.', ',')}
                     </span>
                   </div>
                   <Link
                     to={`/app/tickets`}
-                    className="flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 hover:underline font-semibold"
+                    className="flex items-center gap-1 rounded-ev-md text-[13px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco"
                   >
                     Ver ingressos
-                    <ChevronRight className="w-3 h-3" />
+                    <I.ChevronDireita size={16} aria-hidden="true" />
                   </Link>
                 </div>
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
     </div>
   )

@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { Bell, Check, Clock, Calendar, DollarSign, Ticket, AlertTriangle, Trash2, CheckCircle2, Loader2, Info } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import Chip from '../../components/Chip'
 import {
   useUserNotifications,
   useMarkNotificationRead,
@@ -8,17 +11,19 @@ import {
   useDeleteNotification,
 } from '../../hooks/useNotifications'
 
-const typeConfig: Record<string, { icon: typeof Bell; color: string; bg: string; label: string }> = {
-  info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-500/10 border border-blue-500/20', label: 'Info' },
-  sale: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/20', label: 'Venda' },
-  reminder: { icon: Clock, color: 'text-purple-400', bg: 'bg-purple-500/10 border border-purple-500/20', label: 'Lembrete' },
-  promo: { icon: Ticket, color: 'text-amber-400', bg: 'bg-amber-500/10 border border-amber-500/20', label: 'Promoção' },
-  system: { icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/10 border border-rose-500/20', label: 'Sistema' },
-  evento: { icon: Calendar, color: 'text-purple-400', bg: 'bg-purple-500/10 border border-purple-500/20', label: 'Evento' },
-  pagamento: { icon: DollarSign, color: 'text-emerald-400', bg: 'bg-emerald-500/10 border border-emerald-500/20', label: 'Pagamento' },
-  lembrete: { icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10 border border-blue-500/20', label: 'Lembrete' },
-  promocao: { icon: Ticket, color: 'text-amber-400', bg: 'bg-amber-500/10 border border-amber-500/20', label: 'Promoção' },
-  alerta: { icon: AlertTriangle, color: 'text-rose-400', bg: 'bg-rose-500/10 border border-rose-500/20', label: 'Alerta' },
+// Cor pelo significado (contrato 2.1): venda e pagamento verdes, sistema e alerta vermelhos, o resto neutro
+const neutro = 'text-muted-foreground'
+const typeConfig: Record<string, { icon: I.IconeEvokaa; color: string; label: string }> = {
+  info: { icon: I.Info, color: neutro, label: 'Info' },
+  sale: { icon: I.Financeiro, color: 'text-[var(--ev-success)]', label: 'Venda' },
+  reminder: { icon: I.Horario, color: neutro, label: 'Lembrete' },
+  promo: { icon: I.Cupom, color: neutro, label: 'Promoção' },
+  system: { icon: I.Alerta, color: 'text-destructive', label: 'Sistema' },
+  evento: { icon: I.Eventos, color: neutro, label: 'Evento' },
+  pagamento: { icon: I.Financeiro, color: 'text-[var(--ev-success)]', label: 'Pagamento' },
+  lembrete: { icon: I.Horario, color: neutro, label: 'Lembrete' },
+  promocao: { icon: I.Cupom, color: neutro, label: 'Promoção' },
+  alerta: { icon: I.Alerta, color: 'text-destructive', label: 'Alerta' },
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -72,118 +77,82 @@ export default function ParticipantNotifications() {
 
   if (isLoading) {
     return (
-      <div className="max-w-3xl flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
-        <p className="text-white/60 text-sm">Carregando notificações...</p>
+      <div className="max-w-3xl py-20 text-center text-foreground">
+        <Spinner className="mx-auto size-6" />
+        <p className="mt-4 text-sm text-muted-foreground">Carregando notificações...</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+    <div className="max-w-3xl text-foreground">
+      <div className="mb-6 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold text-white">Notificações</h1>
-          <p className="text-sm text-white/40 mt-1">
+          <h1 className="text-2xl font-semibold tracking-[-0.015em]">Notificações</h1>
+          <p className="mt-1 text-[13px] leading-[18px] text-muted-foreground">
             {unreadCount > 0 ? `${unreadCount} não lida${unreadCount > 1 ? 's' : ''}` : 'Tudo em dia'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setFilter('all')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              filter === 'all'
-                ? 'bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] text-white shadow-lg shadow-purple-500/10 border border-purple-500/20'
-                : 'bg-white/[0.02] border border-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            Todas
-          </button>
-          <button
-            onClick={() => setFilter('unread')}
-            className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
-              filter === 'unread'
-                ? 'bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] text-white shadow-lg shadow-purple-500/10 border border-purple-500/20'
-                : 'bg-white/[0.02] border border-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.04]'
-            }`}
-          >
-            Não lidas
-          </button>
+        <div role="group" aria-label="Filtro" className="flex flex-wrap items-center gap-2">
+          <Chip marcado={filter === 'all'} onClick={() => setFilter('all')}>Todas</Chip>
+          <Chip marcado={filter === 'unread'} onClick={() => setFilter('unread')}>Não lidas</Chip>
           {unreadCount > 0 && (
-            <button
-              onClick={handleMarkAllRead}
-              disabled={markAllRead.isPending}
-              className="px-4 py-1.5 rounded-xl text-xs font-semibold bg-white/[0.02] border border-white/[0.06] text-white/60 hover:text-white hover:bg-white/[0.04] transition-all flex items-center gap-1 disabled:opacity-50"
-            >
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <Button variant="outline" className="rounded-ev-pill" onClick={handleMarkAllRead} loading={markAllRead.isPending}>
+              <I.CheckDuplo aria-hidden="true" />
               <span>Marcar todas</span>
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-center py-16 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-3xl">
-          <Bell className="w-12 h-12 text-white/10 mx-auto mb-4" />
-          <p className="text-white/40 text-sm">
+        <div role="status" className="flex max-w-sm flex-col items-start gap-3 py-8">
+          <I.Notificacoes size={40} className="text-muted-foreground" aria-hidden="true" />
+          <p className="text-lg font-semibold">
             {filter === 'unread' ? 'Nenhuma notificação não lida.' : 'Nenhuma notificação ainda.'}
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <ul className="divide-y divide-border">
           {filtered.map((n) => {
             const cfg = typeConfig[n.type] || typeConfig.info
             const Icon = cfg.icon
 
             return (
-              <div
-                key={n.id}
-                className={`p-4 rounded-2xl border transition-all duration-200 ${
-                  n.is_read
-                    ? 'bg-white/[0.01] border-white/[0.04]'
-                    : 'bg-white/[0.03] border-white/[0.08] shadow-sm shadow-purple-500/5 hover:border-purple-500/20'
-                }`}
-              >
+              <li key={n.id} className="py-4 first:pt-0">
                 <div className="flex items-start gap-3">
-                  <div className={`w-9 h-9 rounded-xl ${cfg.bg} flex items-center justify-center flex-shrink-0`}>
-                    <Icon className={`w-4 h-4 ${cfg.color}`} />
-                  </div>
-                  <div className="flex-1 min-w-0">
+                  <span aria-hidden="true" className={`grid size-9 flex-none place-items-center rounded-ev-md bg-secondary ${cfg.color}`}>
+                    <Icon size={16} />
+                  </span>
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <h3 className={`text-sm ${n.is_read ? 'text-white/60' : 'text-white font-semibold'}`}>
+                      <h2 className={`text-[15px] leading-5 ${n.is_read ? 'font-medium text-muted-foreground' : 'font-semibold text-foreground'}`}>
+                        {!n.is_read && <span className="sr-only">Não lida: </span>}
                         {n.title}
-                      </h3>
-                      <span className="text-[10px] text-white/40 flex-shrink-0">{formatTimeAgo(n.created_at)}</span>
+                      </h2>
+                      <span className="flex-none text-xs leading-5 text-muted-foreground">{formatTimeAgo(n.created_at)}</span>
                     </div>
                     {n.message && (
-                      <p className="text-xs text-white/40 mt-1">{n.message}</p>
+                      <p className="mt-1 text-sm leading-5 text-muted-foreground">{n.message}</p>
                     )}
+                    <div className="-ml-3 mt-2 flex items-center gap-1">
+                      {!n.is_read && (
+                        <Button variant="ghost" size="sm" className="text-primary hover:text-primary" onClick={() => handleMarkRead(n.id)} disabled={markAsRead.isPending}>
+                          <I.Check aria-hidden="true" />
+                          <span>Marcar como lida</span>
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => handleDelete(n.id)} disabled={deleteNotification.isPending}>
+                        <I.Lixeira aria-hidden="true" />
+                        <span>Remover</span>
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center justify-end gap-3 mt-3 pt-3 border-t border-white/[0.04]">
-                  {!n.is_read && (
-                    <button
-                      onClick={() => handleMarkRead(n.id)}
-                      disabled={markAsRead.isPending}
-                      className="text-[10px] text-purple-400 hover:text-purple-300 font-semibold hover:underline flex items-center gap-1 disabled:opacity-50"
-                    >
-                      <Check className="w-3 h-3" />
-                      <span>Marcar como lida</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => handleDelete(n.id)}
-                    disabled={deleteNotification.isPending}
-                    className="text-[10px] text-white/40 hover:text-rose-400 font-semibold flex items-center gap-1 disabled:opacity-50 transition-colors"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Remover</span>
-                  </button>
-                </div>
-              </div>
+              </li>
             )
           })}
-        </div>
+        </ul>
       )}
     </div>
   )

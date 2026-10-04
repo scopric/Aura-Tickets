@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { MessageSquare, Send, User, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
 import { useAuth } from '../../hooks/useAuth'
 import { useUserTickets } from '../../hooks/useUserTickets'
 import { useChat } from '../../hooks/useChat'
@@ -46,106 +49,92 @@ export default function AppChat() {
 
   if (isLoadingTickets) {
     return (
-      <div className="max-w-3xl flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-purple-500 animate-spin mb-4" />
-        <p className="text-white/60 text-sm">Carregando conversas...</p>
+      <div className="max-w-3xl py-20 text-center text-foreground">
+        <Spinner className="mx-auto size-6" />
+        <p className="mt-4 text-sm text-muted-foreground">Carregando conversas...</p>
       </div>
     )
   }
 
   if (eventConversations.length === 0) {
     return (
-      <div className="max-w-3xl">
-        <h1 className="text-3xl font-bold text-white mb-6">Chat</h1>
-        <div className="text-center py-16 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-3xl">
-          <MessageSquare className="w-12 h-12 text-white/10 mx-auto mb-4" />
-          <p className="text-white/40 text-sm mb-2">Você ainda não tem conversas.</p>
-          <p className="text-white/30 text-xs">Adquira um ingresso para conversar com os produtores.</p>
+      <div className="max-w-3xl text-foreground">
+        <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Chat</h1>
+        <div role="status" className="flex max-w-sm flex-col items-start gap-3">
+          <I.Conversa size={40} className="text-muted-foreground" aria-hidden="true" />
+          <p className="text-lg font-semibold">Você ainda não tem conversas.</p>
+          <p className="text-[15px] text-muted-foreground">Adquira um ingresso para conversar com os produtores.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-3xl flex flex-col h-[calc(100vh-140px)]">
-      <h1 className="text-3xl font-bold text-white mb-4">Chat</h1>
+    <div className="flex h-[calc(100dvh-18rem)] min-h-[26rem] max-w-3xl flex-col text-foreground lg:h-[calc(100vh-140px)]">
+      <h1 className="mb-4 text-2xl font-semibold tracking-[-0.015em]">Chat</h1>
 
-      <div className="flex gap-4 flex-1 min-h-0">
-        {/* Sidebar — lista de conversas */}
-        <div className="w-64 flex-shrink-0 bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden flex flex-col">
-          <div className="p-3.5 border-b border-white/[0.06]">
-            <p className="text-xs font-semibold text-white/40 uppercase tracking-wider">Conversas</p>
-          </div>
-          <div className="overflow-y-auto flex-1">
-            {eventConversations.map((conv) => (
-              <button
-                key={conv.eventId}
-                onClick={() => setSelectedEventId(conv.eventId)}
-                className={`w-full text-left p-3.5 border-b border-white/[0.04] transition-colors ${
-                  activeEventId === conv.eventId ? 'bg-purple-500/10' : 'hover:bg-white/[0.02]'
-                }`}
-              >
-                <p className={`text-sm font-semibold truncate ${activeEventId === conv.eventId ? 'text-purple-400' : 'text-white/95'}`}>
-                  {conv.eventTitle}
-                </p>
-                <p className="text-[11px] text-white/40 truncate mt-0.5">Produtor</p>
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row">
+        {/* Lista de conversas: fileira que rola no celular, coluna a partir de md */}
+        <nav aria-label="Conversas" className="flex flex-none gap-2 overflow-x-auto py-1 [scrollbar-width:none] md:w-64 md:flex-col md:gap-0 md:overflow-y-auto md:overflow-x-visible md:rounded-ev-lg md:border md:border-border md:bg-card md:p-0 [&::-webkit-scrollbar]:hidden">
+          <p className="hidden border-b border-border p-3.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground md:block">Conversas</p>
+          {eventConversations.map((conv) => (
+            <button
+              key={conv.eventId}
+              type="button"
+              aria-current={activeEventId === conv.eventId ? 'true' : undefined}
+              onClick={() => setSelectedEventId(conv.eventId)}
+              className={`max-w-[16rem] flex-none rounded-ev-lg px-4 py-2 text-left transition-colors duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none md:max-w-none md:rounded-none md:border-b md:border-border md:p-3.5 md:last:border-b-0 ${
+                activeEventId === conv.eventId
+                  ? 'bg-[var(--ev-brand-soft)] text-primary'
+                  : 'text-foreground shadow-[inset_0_0_0_1px_hsl(var(--input))] hover:bg-[var(--ev-tint-hover)] md:shadow-none'
+              }`}
+            >
+              <p className="truncate text-sm font-semibold">{conv.eventTitle}</p>
+              <p className={`truncate text-xs leading-4 ${activeEventId === conv.eventId ? 'text-primary' : 'text-muted-foreground'}`}>Produtor</p>
+            </button>
+          ))}
+        </nav>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col bg-white/[0.02] backdrop-blur-xl border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-ev-lg border border-border bg-card text-card-foreground">
           {/* Header */}
-          <div className="p-3.5 border-b border-white/[0.06] flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center border border-purple-500/20">
-              <User className="w-4 h-4 text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white/90">Produtor</p>
-              <p className="text-[11px] text-white/40">
+          <div className="flex items-center gap-3 border-b border-border p-3.5">
+            <span aria-hidden="true" className="grid size-9 flex-none place-items-center rounded-full bg-secondary text-muted-foreground">
+              <I.Conta size={16} />
+            </span>
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">Produtor</p>
+              <p className="truncate text-xs leading-4 text-muted-foreground">
                 {eventConversations.find((c) => c.eventId === activeEventId)?.eventTitle || 'Evento'}
               </p>
             </div>
           </div>
 
           {/* Messages */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-4">
             {isLoadingChat ? (
               <div className="flex items-center justify-center py-10">
-                <Loader2 className="w-6 h-6 text-purple-500 animate-spin" />
+                <Spinner className="size-6" />
               </div>
             ) : chatMessages.length === 0 ? (
-              <div className="text-center py-10">
-                <MessageSquare className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p className="text-white/40 text-sm">Inicie uma conversa com o produtor.</p>
-              </div>
+              <p className="py-10 text-center text-sm text-muted-foreground">Inicie uma conversa com o produtor.</p>
             ) : (
               chatMessages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`flex gap-3 ${msg.sender_id === user?.id ? 'flex-row-reverse' : ''}`}
+                  className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${
                       msg.sender_id === user?.id
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white/10 text-white'
-                    }`}
-                  >
-                    <User className="w-4 h-4" />
-                  </div>
-                  <div
-                    className={`max-w-[70%] px-4 py-2.5 rounded-2xl text-sm ${
-                      msg.sender_id === user?.id
-                        ? 'bg-purple-600 text-white rounded-tr-sm shadow-md'
-                        : 'bg-white/[0.05] border border-white/[0.08] text-white rounded-tl-sm shadow-md'
+                        ? 'rounded-br-sm bg-primary text-primary-foreground'
+                        : 'rounded-bl-sm bg-secondary text-foreground'
                     }`}
                   >
                     <p className="leading-relaxed">{msg.content}</p>
                     <span
-                      className={`text-[9px] mt-1.5 block ${
-                        msg.sender_id === user?.id ? 'text-white/60' : 'text-white/40'
+                      className={`mt-1 block text-right text-[11px] leading-4 ${
+                        msg.sender_id === user?.id ? 'text-primary-foreground' : 'text-muted-foreground'
                       }`}
                     >
                       {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
@@ -157,27 +146,26 @@ export default function AppChat() {
           </div>
 
           {/* Input */}
-          <div className="p-3 border-t border-white/[0.06]">
+          <div className="border-t border-border p-3">
             <div className="flex items-center gap-2">
-              <input
+              <Input
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+                aria-label="Mensagem para o produtor"
                 placeholder="Escreva uma mensagem..."
                 disabled={sendMessage.isPending}
-                className="flex-1 px-4 py-2.5 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/30 disabled:opacity-50"
+                className="h-11 flex-1 rounded-ev-lg text-base"
               />
-              <button
+              <Button
+                size="icon-lg"
                 onClick={handleSend}
-                disabled={sendMessage.isPending || !message.trim()}
-                className="p-2.5 bg-gradient-to-r from-[#1d68c4] to-[#8f33f5] hover:from-[#2573d9] hover:to-[#9d47ff] text-white rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!message.trim()}
+                loading={sendMessage.isPending}
+                aria-label="Enviar mensagem"
               >
-                {sendMessage.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </button>
+                <I.Enviar aria-hidden="true" />
+              </Button>
             </div>
           </div>
         </div>

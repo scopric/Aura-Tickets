@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { FileText, Trash2, AlertTriangle, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { useAuth } from '../../hooks/useAuth'
 import { supabase } from '../../lib/supabase'
 
@@ -36,51 +38,51 @@ export default function ParticipantSettings() {
   }
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="font-serif text-3xl text-cream mb-6">Configurações</h1>
+    <div className="max-w-2xl text-foreground">
+      <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Configurações</h1>
 
       {/* Terms */}
-      <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md mb-4">
-        <h3 className="text-sm font-semibold text-cream flex items-center gap-2 mb-3"><FileText className="w-4 h-4 text-plum" /> Termos e Privacidade</h3>
+      <section aria-labelledby="t-termos" className="pb-6">
+        <h2 id="t-termos" className="mb-3 flex items-center gap-2 text-[15px] font-semibold"><I.Documento size={16} aria-hidden="true" className="text-muted-foreground" /> Termos e Privacidade</h2>
         {/* Um único texto oficial: o da página /termos. (Antes havia aqui uma amostra fixa, com data de aceite fictícia.) */}
         <div className="flex flex-wrap gap-2">
-          <a href="/termos" target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-xs text-plum hover:bg-plum/10 rounded-full transition-colors">Termos de Uso</a>
-          <a href="/privacidade" target="_blank" rel="noopener noreferrer" className="px-4 py-2 text-xs text-plum hover:bg-plum/10 rounded-full transition-colors">Política de Privacidade</a>
+          <Button asChild variant="outline" size="sm"><a href="/termos" target="_blank" rel="noopener noreferrer">Termos de Uso</a></Button>
+          <Button asChild variant="outline" size="sm"><a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a></Button>
         </div>
-      </div>
+      </section>
 
       {/* Danger Zone */}
-      <div className="p-6 rounded-2xl bg-red-500/5 border border-red-500/20">
-        <h3 className="text-sm font-semibold text-red-400 mb-2 flex items-center gap-2"><AlertTriangle className="w-4 h-4" /> Zona de Perigo</h3>
-        <p className="text-xs text-red-700 dark:text-red-400/80 mb-3">Ao excluir sua conta, seus dados pessoais são apagados de forma permanente e o acesso é encerrado.</p>
-        <button onClick={() => setShowDelete(true)} className="px-5 py-2.5 bg-red-500 text-white text-xs font-medium rounded-full hover:bg-red-600 transition-all flex items-center gap-2">
-          <Trash2 className="w-3.5 h-3.5" /> Excluir conta
-        </button>
-      </div>
+      <section aria-labelledby="t-perigo" className="border-t border-border py-6">
+        <h2 id="t-perigo" className="mb-2 flex items-center gap-2 text-[15px] font-semibold text-destructive"><I.Alerta size={16} aria-hidden="true" /> Zona de Perigo</h2>
+        <p className="mb-3 text-sm leading-5 text-muted-foreground">Ao excluir sua conta, seus dados pessoais são apagados de forma permanente e o acesso é encerrado.</p>
+        <Button variant="destructive" onClick={() => setShowDelete(true)}>
+          <I.Lixeira aria-hidden="true" /> Excluir conta
+        </Button>
+      </section>
 
       {/* Delete Modal */}
       {showDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setShowDelete(false)} />
-          <div className="glass-panel relative w-full max-w-sm p-6">
-            <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><Trash2 className="w-6 h-6 text-red-500" /></div>
-            <h3 className="font-serif text-xl text-cream text-center mb-2">Excluir conta</h3>
-            <p className="text-xs text-white/60 text-center mb-4">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
-            <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 mb-4">
-              <p className="text-xs text-red-700 dark:text-red-400 mb-2">Digite <strong>EXCLUIR</strong> para confirmar:</p>
-              <input value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="w-full px-3 py-2 bg-white/[0.04] border border-red-500/20 rounded-lg text-sm text-red-700 dark:text-red-400 placeholder:text-red-600/50 dark:placeholder:text-red-300 focus:outline-none focus:border-red-400/50" />
+          <div className="relative w-full max-w-sm rounded-ev-xl border border-border bg-card p-6 text-card-foreground shadow-ev-2">
+            <div aria-hidden="true" className="mx-auto mb-4 grid size-14 place-items-center rounded-full bg-secondary text-destructive"><I.Lixeira size={24} /></div>
+            <h3 className="mb-2 text-center text-xl font-semibold tracking-[-0.015em]">Excluir conta</h3>
+            <p className="mb-4 text-center text-sm leading-5 text-muted-foreground">Esta ação é irreversível. Todos os seus dados, ingressos e histórico serão excluídos permanentemente.</p>
+            <div className="mb-4 rounded-ev-lg bg-secondary p-3">
+              <label htmlFor="excluir-confirma" className="mb-2 block text-[13px] leading-[18px]">Digite <strong>EXCLUIR</strong> para confirmar:</label>
+              <Input id="excluir-confirma" value={deleteConfirm} onChange={e => setDeleteConfirm(e.target.value)} placeholder="EXCLUIR" className="bg-card" />
             </div>
             <div className="space-y-2">
-              <button onClick={handleDelete} className="w-full py-3 bg-red-500 text-white text-sm font-medium rounded-full hover:bg-red-600 transition-all">Confirmar exclusão</button>
-              <button onClick={() => setShowDelete(false)} className="w-full py-3 text-sm text-white/60 hover:text-white/80 transition-colors">Voltar</button>
+              <Button variant="destructive" size="lg" className="w-full" onClick={handleDelete}>Confirmar exclusão</Button>
+              <Button variant="ghost" size="lg" className="w-full" onClick={() => setShowDelete(false)}>Voltar</Button>
             </div>
           </div>
         </div>
       )}
 
-      <button onClick={() => { logout(); toast.success('Sessão encerrada') }} className="mt-6 w-full py-3 bg-white/[0.02] border border-white/[0.06] text-white/40 text-sm rounded-full hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center justify-center gap-2">
-        <LogOut className="w-4 h-4" /> Encerrar Sessão
-      </button>
+      <Button variant="outline" size="lg" className="mt-2 w-full" onClick={() => { logout(); toast.success('Sessão encerrada') }}>
+        <I.Sair aria-hidden="true" /> Encerrar Sessão
+      </Button>
     </div>
   )
 }

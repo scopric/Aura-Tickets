@@ -1,7 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { User, Mail, Phone, Calendar, MapPin, Edit3, Save, Ticket, DollarSign, Shield, Loader2, Search, Camera } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { useAuth } from '../../hooks/useAuth'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { useAuthStore } from '../../stores/authStore'
@@ -166,12 +171,17 @@ export default function ParticipantProfile() {
     } finally { setEnviandoFoto(false) }
   }
 
-  return (
-    <div className="max-w-3xl">
-      <h1 className="font-serif text-3xl text-cream mb-6">Meu Perfil</h1>
+  const tituloSecao = 'mb-3 flex items-center gap-2 text-[15px] font-semibold leading-5'
+  const rotulo = 'text-xs leading-4 text-muted-foreground'
+  const campo = 'mt-1 h-10 rounded-ev-lg bg-card'
+  const icone = 'flex-none text-muted-foreground'
 
-      {/* Header Card */}
-      <div className="p-6 rounded-3xl bg-gradient-to-br from-plum/10 to-transparent border border-plum/20 mb-6">
+  return (
+    <div className="max-w-3xl text-foreground">
+      <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Meu Perfil</h1>
+
+      {/* Header */}
+      <div className="mb-6">
         <div className="flex items-center gap-4">
           <input ref={fotoRef} type="file" accept="image/*" className="hidden" onChange={trocarFoto} />
           <button
@@ -180,90 +190,87 @@ export default function ParticipantProfile() {
             disabled={enviandoFoto}
             aria-label="Alterar foto de perfil"
             title="Alterar foto de perfil"
-            className="relative w-20 h-20 shrink-0 rounded-full bg-plum/20 flex items-center justify-center text-2xl font-serif text-plum-light overflow-hidden group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum disabled:opacity-60"
+            className="relative flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary text-2xl font-semibold text-foreground focus-visible:outline-none focus-visible:shadow-ev-foco disabled:opacity-60"
           >
             {user?.avatar_url || user?.avatar
-              ? <img src={user.avatar_url || user.avatar} alt="" className="w-full h-full object-cover" />
+              ? <img src={user.avatar_url || user.avatar} alt="" className="h-full w-full object-cover" />
               : (profile.name || 'U').charAt(0).toUpperCase()}
-            <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/55 py-1 text-[10px] font-sans text-[#fff]">{/* branco nos dois temas (.light .text-white escureceria) */}
-              {enviandoFoto ? <Loader2 className="w-3 h-3 animate-spin" /> : <Camera className="w-3 h-3" />} Alterar
+            <span className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-black/55 py-1 text-[11px] font-medium text-[#fff]">{/* branco sobre véu preto nos dois temas: cor própria, não depende do tema */}
+              {enviandoFoto ? <Spinner role="presentation" aria-hidden="true" className="size-3" /> : <I.Camera size={12} aria-hidden="true" />} Alterar
             </span>
           </button>
-          <div className="flex-1">
-            <h2 className="font-serif text-2xl text-cream">{profile.name || 'Usuário'}</h2>
-            <p className="text-xs text-white/40">{profile.email}</p>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-xl font-semibold leading-7 tracking-[-0.015em]">{profile.name || 'Usuário'}</h2>
+            <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{profile.email}</p>
           </div>
-          <button 
-            disabled={isSaving}
-            onClick={() => { if (editing) { handleSave() } else setEditing(true) }} 
-            className="px-4 py-2 bg-white/[0.05] border border-white/[0.08] rounded-full text-xs text-white/60 hover:text-plum-light transition-colors flex items-center gap-1.5 disabled:opacity-50"
+          <Button
+            variant="outline"
+            loading={isSaving}
+            onClick={() => { if (editing) { handleSave() } else setEditing(true) }}
           >
-            {isSaving ? (
-              <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Salvando</>
-            ) : editing ? (
-              <><Save className="w-3.5 h-3.5" /> Salvar</>
+            {editing ? (
+              <><I.Guardar aria-hidden="true" /> Salvar</>
             ) : (
-              <><Edit3 className="w-3.5 h-3.5" /> Editar</>
+              <><I.Editar aria-hidden="true" /> Editar</>
             )}
-          </button>
+          </Button>
         </div>
         {user && consentimentoVigente(perfilMesa) && <div className="mt-4"><FotoModeracaoAviso onTrocar={() => fotoRef.current?.click()} trocarDesativado={enviandoFoto} /></div>}
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
+      <dl className="mb-6 grid grid-cols-[1fr_1fr_1.6fr] divide-x divide-border border-y border-border py-3 text-center">
         {[
-          { label: 'Eventos', value: isLoading ? '-' : eventCount.toString(), icon: Calendar },
-          { label: 'Ingressos', value: isLoading ? '-' : activeTickets.toString(), icon: Ticket },
-          { label: 'Gasto Total', value: isLoading ? '-' : formatCurrency(totalSpent, 'BRL'), icon: DollarSign },
+          { label: 'Eventos', value: isLoading ? '-' : eventCount.toString() },
+          { label: 'Ingressos', value: isLoading ? '-' : activeTickets.toString() },
+          { label: 'Gasto Total', value: isLoading ? '-' : formatCurrency(totalSpent, 'BRL') },
         ].map(s => (
-          <div key={s.label} className="p-4 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md text-center">
-            <s.icon className="w-4 h-4 text-plum mx-auto mb-1.5" />
-            <div className="font-serif text-xl text-cream">{s.value}</div>
-            <div className="text-[10px] text-white/40">{s.label}</div>
+          <div key={s.label} className="px-1">
+            <dd className="whitespace-nowrap font-display text-lg font-semibold leading-6 tabular-nums">{s.value}</dd>
+            <dt className="mt-0.5 text-xs leading-4 text-muted-foreground">{s.label}</dt>
           </div>
         ))}
-      </div>
+      </dl>
 
       {/* Info */}
-      <div className="p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md space-y-5">
-        <h3 className="text-sm font-semibold text-cream mb-2">Informações Pessoais</h3>
-        
+      <section aria-labelledby="t-info" className="space-y-5">
+        <h3 id="t-info" className={`${tituloSecao} !mb-0`}>Informações Pessoais</h3>
+
         {/* Nome */}
-        <div className="flex items-center gap-3">
-          <User className="w-4 h-4 text-white/20 flex-shrink-0" />
-          <div className="flex-1">
-            <div className="text-[10px] text-white/30 uppercase">Nome</div>
+        <div className="flex items-start gap-3">
+          <I.Conta size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
+          <div className="min-w-0 flex-1">
+            <div className={rotulo}>Nome</div>
             {editing ? (
-              <input value={profile.name} onChange={e => setProfile({ ...profile, name: e.target.value })} className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-cream focus:outline-none focus:border-plum/30 mt-0.5" />
+              <Input value={profile.name} aria-label="Nome" onChange={e => setProfile({ ...profile, name: e.target.value })} className={campo} />
             ) : (
-              <div className="text-sm text-cream">{profile.name || '-'}</div>
+              <div className="text-base">{profile.name || '-'}</div>
             )}
           </div>
         </div>
 
         {/* Email */}
-        <div className="flex items-center gap-3">
-          <Mail className="w-4 h-4 text-white/20 flex-shrink-0" />
-          <div className="flex-1">
-            <div className="text-[10px] text-white/30 uppercase">Email</div>
+        <div className="flex items-start gap-3">
+          <I.Email size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
+          <div className="min-w-0 flex-1">
+            <div className={rotulo}>Email</div>
             {editing ? (
-              <input value={profile.email} disabled className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-white/40 focus:outline-none cursor-not-allowed mt-0.5" />
+              <Input value={profile.email} aria-label="Email" disabled className={`${campo} bg-secondary`} />
             ) : (
-              <div className="text-sm text-cream">{profile.email || '-'}</div>
+              <div className="break-words text-base">{profile.email || '-'}</div>
             )}
           </div>
         </div>
 
         {/* Telefone Internacional com PhoneInput */}
         <div className="flex items-start gap-3">
-          <Phone className="w-4 h-4 text-white/20 flex-shrink-0 mt-3" />
-          <div className="flex-1">
-            <div className="text-[10px] text-white/30 uppercase mb-1">Telefone</div>
+          <I.Telefone size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
+          <div className="min-w-0 flex-1">
+            <div className={`${rotulo} mb-1`}>Telefone</div>
             {editing ? (
               <PhoneInput value={profile.phone} onChange={val => setProfile({ ...profile, phone: val })} />
             ) : (
-              <div className="text-sm text-cream">
+              <div className="text-base">
                 {profile.phone ? (
                   (() => {
                     const ddiMatch = COUNTRIES_DDI.find(c => profile.phone.startsWith(c.code))
@@ -292,14 +299,14 @@ export default function ParticipantProfile() {
         </div>
 
         {/* Nascimento */}
-        <div className="flex items-center gap-3">
-          <Calendar className="w-4 h-4 text-white/20 flex-shrink-0" />
-          <div className="flex-1">
-            <div className="text-[10px] text-white/30 uppercase">Nascimento</div>
+        <div className="flex items-start gap-3">
+          <I.Eventos size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
+          <div className="min-w-0 flex-1">
+            <div className={rotulo}>Nascimento</div>
             {editing ? (
-              <input type="date" value={profile.birthDate} onChange={e => setProfile({ ...profile, birthDate: e.target.value })} className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-cream focus:outline-none focus:border-plum/30 mt-0.5" />
+              <Input type="date" value={profile.birthDate} aria-label="Nascimento" onChange={e => setProfile({ ...profile, birthDate: e.target.value })} className={campo} />
             ) : (
-              <div className="text-sm text-cream">
+              <div className="text-base">
                 {profile.birthDate ? new Date(profile.birthDate + 'T00:00:00').toLocaleDateString('pt-BR') : '-'}
               </div>
             )}
@@ -308,54 +315,51 @@ export default function ParticipantProfile() {
 
         {/* CEP/Código Postal & Cidade com Autocomplete */}
         <div className="flex items-start gap-3">
-          <MapPin className="w-4 h-4 text-white/20 flex-shrink-0 mt-3" />
-          <div className="flex-1 relative">
-            <div className="text-[10px] text-white/30 uppercase mb-1">Cidade e Endereço</div>
-            
+          <I.Local size={16} aria-hidden="true" className={`${icone} mt-0.5`} />
+          <div className="relative min-w-0 flex-1">
+            <div className={rotulo}>Cidade e Endereço</div>
+
             {editing ? (
-              <div className="space-y-3 mt-0.5">
+              <div className="mt-1 space-y-3">
                 {/* Busca CEP */}
                 <div className="flex gap-2">
-                  <input
+                  <Input
                     type="text"
+                    aria-label="CEP ou código postal"
                     placeholder="CEP (Brasil) ou Código Postal"
                     value={cep}
                     onChange={e => setCep(e.target.value)}
-                    className="flex-1 px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-cream focus:outline-none focus:border-plum/30"
+                    className="h-10 flex-1 rounded-ev-lg bg-card"
                   />
-                  <button
-                    type="button"
-                    onClick={handleCepSearch}
-                    disabled={searchingCep}
-                    className="px-4 py-2 bg-plum/20 hover:bg-plum/30 text-plum-light border border-plum/30 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-50"
-                  >
-                    {searchingCep ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                  <Button type="button" variant="outline" onClick={handleCepSearch} loading={searchingCep}>
+                    <I.Buscar aria-hidden="true" />
                     Buscar
-                  </button>
+                  </Button>
                 </div>
 
                 {/* Input de Cidade (com autocomplete) */}
                 <div className="relative">
-                  <input
+                  <Input
                     type="text"
+                    aria-label="Cidade"
                     placeholder="Digite sua cidade"
                     value={profile.city}
                     onChange={e => handleCityChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-cream focus:outline-none focus:border-plum/30"
+                    className="h-10 rounded-ev-lg bg-card"
                   />
                   {loadingCities && (
-                    <div className="absolute right-3 top-2.5">
-                      <Loader2 className="w-4 h-4 animate-spin text-white/20" />
+                    <div className="absolute right-3 top-3">
+                      <Spinner role="presentation" aria-hidden="true" className="size-4 text-muted-foreground" />
                     </div>
                   )}
                   {showCitiesDropdown && citiesList.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-stone-900 border border-white/10 rounded-lg shadow-lg z-50 py-1 max-h-40 overflow-y-auto">
+                    <div className="absolute left-0 right-0 top-full z-50 mt-1 max-h-40 overflow-y-auto rounded-ev-md border border-border bg-popover py-1 text-popover-foreground shadow-ev-2">
                       {citiesList.map((cityName, index) => (
                         <button
                           key={index}
                           type="button"
                           onClick={() => handleSelectCity(cityName)}
-                          className="w-full text-left px-4 py-2 text-sm text-cream hover:bg-white/[0.05] transition-colors"
+                          className="w-full px-4 py-2 text-left text-sm hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:bg-[var(--ev-tint-hover)]"
                         >
                           {cityName}
                         </button>
@@ -365,63 +369,62 @@ export default function ParticipantProfile() {
                 </div>
               </div>
             ) : (
-              <div className="text-sm text-cream">{profile.city || '-'}</div>
+              <div className="text-base">{profile.city || '-'}</div>
             )}
           </div>
         </div>
 
         {/* Bio */}
-        <div className="pt-2">
-          <div className="text-[10px] text-white/30 uppercase mb-1">Bio</div>
+        <div>
+          <div className={`${rotulo} mb-1`}>Bio</div>
           {editing ? (
-            <textarea value={profile.bio} onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={2} className="w-full px-3 py-2 bg-white/[0.04] border border-white/[0.08] rounded-lg text-sm text-cream focus:outline-none focus:border-plum/30 resize-none" />
+            <Textarea value={profile.bio} aria-label="Bio" onChange={e => setProfile({ ...profile, bio: e.target.value })} rows={2} className="resize-none rounded-ev-lg bg-card" />
           ) : (
-            <div className="text-sm text-white/60">{profile.bio || 'Nenhuma bio adicionada.'}</div>
+            <div className="text-base text-muted-foreground">{profile.bio || 'Nenhuma bio adicionada.'}</div>
           )}
         </div>
-      </div>
+      </section>
 
       {/* Eventos salvos (VF): sem item na barra do celular (a prancha tem só Explorar, Ingressos e Conta) */}
-      <Link to="/app/salvos" className="mt-6 flex items-center justify-between px-1 py-2 text-sm font-semibold text-cream transition-colors hover:text-plum-light">
-        Eventos salvos <span aria-hidden="true">→</span>
-      </Link>
-
-      {/* Aparência: o seletor de tema também mora na Conta (Decisão 143) */}
-      <div className="mt-6 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
-        <h3 className="text-sm font-semibold text-cream mb-3">Aparência</h3>
-        <ThemeToggle />
+      <div className="mt-6 border-t border-border">
+        <Link to="/app/salvos" className="flex items-center justify-between rounded-ev-md px-1 py-4 text-[15px] font-semibold transition-colors hover:text-primary focus-visible:outline-none focus-visible:shadow-ev-foco">
+          Eventos salvos <I.ChevronDireita size={16} aria-hidden="true" />
+        </Link>
       </div>
 
+      {/* Aparência: o seletor de tema também mora na Conta (Decisão 143) */}
+      <section aria-labelledby="t-aparencia" className="border-t border-border py-6">
+        <h3 id="t-aparencia" className={tituloSecao}>Aparência</h3>
+        <ThemeToggle />
+      </section>
+
       {/* Security */}
-      <div className="mt-6 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
-        <h3 className="text-sm font-semibold text-cream mb-3 flex items-center gap-2"><Shield className="w-4 h-4 text-plum" /> Segurança</h3>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
+      <section aria-labelledby="t-seguranca" className="border-t border-border pt-6">
+        <h3 id="t-seguranca" className={tituloSecao}><I.Escudo size={16} aria-hidden="true" className="text-muted-foreground" /> Segurança</h3>
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm text-cream">Senha</div>
-              <div className="text-xs text-white/30">Altere sua senha periodicamente</div>
+              <div className="text-base">Senha</div>
+              <div className="text-[13px] leading-[18px] text-muted-foreground">Altere sua senha periodicamente</div>
             </div>
-            <Link to="/auth/forgot" className="px-4 py-2 text-xs text-plum-light hover:bg-plum/10 rounded-full transition-colors">Alterar</Link>
+            <Button asChild variant="outline" size="sm"><Link to="/auth/forgot">Alterar</Link></Button>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm text-cream">Autenticação de dois fatores</div>
-              <div className="text-xs text-white/30">
+              <div id="rotulo-2fa" className="text-base">Autenticação de dois fatores</div>
+              <div className="text-[13px] leading-[18px] text-muted-foreground">
                 {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativa — o login pede o código do aplicativo autenticador' : 'Adicione segurança extra com um aplicativo autenticador'}
               </div>
             </div>
-            <button
+            <Switch
+              checked={mfa.enabled}
               disabled={mfa.loading}
-              aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
-              aria-pressed={mfa.enabled}
-              onClick={mfa.toggle}
-              className={`relative w-11 h-6 shrink-0 rounded-full transition-colors ${mfa.enabled ? 'bg-plum' : 'bg-espresso/50'} disabled:opacity-55`}
-            >
-              <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-            </button>
+              aria-labelledby="rotulo-2fa"
+              onCheckedChange={() => mfa.toggle()}
+            />
           </div>
         </div>
-      </div>
+      </section>
       {mfa.modal}
     </div>
   )
