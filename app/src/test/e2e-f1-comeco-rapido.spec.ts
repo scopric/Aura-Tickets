@@ -80,6 +80,18 @@ test.describe('começo rápido', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Criar evento' })).toBeVisible()
   })
 
+  test('celular de 320 e 375 px: sem rolagem para o lado, mesmo com título longo na lista de copiar', async ({ page }) => {
+    await montarBanco(page, { eventos: [original({ title: '[TESTE] Evento de validação Evokaa (F0a) com um título bem comprido' })] })
+    await entrarProdutor(page)
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 800 })
+      await page.goto('/producer/events/new')
+      await expect(page.getByRole('heading', { level: 1, name: 'Criar evento' })).toBeVisible()
+      const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(sobra, `largura ${width}`).toBeLessThanOrEqual(0)
+    }
+  })
+
   test('do zero: o nome é obrigatório; cria rascunho sem ingressos e abre o painel', async ({ page }) => {
     const db = await montarBanco(page)
     await entrarProdutor(page)
