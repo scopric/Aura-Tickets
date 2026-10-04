@@ -9,6 +9,7 @@ import { PreviaFolha, PreviaMoldura } from '../../components/producer/PreviaCelu
 import SecaoIngressos from '../../components/producer/painel/SecaoIngressos'
 import SecaoOQueE from '../../components/producer/painel/SecaoOQueE'
 import SecaoPublicar, { type Falta } from '../../components/producer/painel/SecaoPublicar'
+import VisibilidadeEvento from '../../components/producer/painel/VisibilidadeEvento'
 import SecaoQuandoOnde from '../../components/producer/painel/SecaoQuandoOnde'
 import SecaoRegras from '../../components/producer/painel/SecaoRegras'
 import { Faixa } from '../../components/producer/painel/campos'
@@ -497,11 +498,14 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       )
       case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
       default: return (
+        <div className="grid gap-6">
+        <VisibilidadeEvento eventoId={evento.id} slug={evento.slug} visibilidade={evento.visibility} onSalvo={() => { for (const k of ['painel-evento', 'public-event', 'public-events', 'explorar-eventos', 'featured-events']) void qc.invalidateQueries({ queryKey: [k] }) }} />
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
           onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
           noArDesde={evento.approved_at ? new Date(evento.approved_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', timeZone: 'America/Sao_Paulo' }) : undefined}
         />
+        </div>
       )
     }
   }

@@ -17,6 +17,7 @@ export default function EventPage() {
     description: event?.short_description || event?.description || 'Detalhes do evento e compra de ingressos na Evokaa Tickets.',
     image: event?.image_url || event?.cover_image || '/og-image.jpg',
     type: 'event',
+    noindex: !!event && event.visibility !== 'public',
   })
 
   useEffect(() => {

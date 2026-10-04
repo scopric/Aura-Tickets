@@ -171,6 +171,7 @@ export default function AdminNewsletter() {
         .select('*')
         .eq('status', 'published')
         .eq('approval_status', 'approved')
+        .eq('visibility', 'public')
         .order('date', { ascending: true })
 
       if (error) throw error
