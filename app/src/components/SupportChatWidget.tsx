@@ -481,7 +481,7 @@ export function JanelaSuporte({ publico, aoFechar, posicao }: { publico: Publico
       role="dialog"
       aria-modal="false"
       aria-labelledby="suporte-titulo"
-      onKeyDown={(e) => e.key === 'Escape' && aoFechar()}
+      onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); aoFechar() } }} // preventDefault: o Esc é do Evo (o tour do Hub ignora tecla já tratada)
       className={`glass-panel fixed right-6 z-50 flex w-[380px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden max-sm:inset-x-2 max-sm:w-auto max-sm:max-w-none motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 ${posicao}`}
       style={{ borderRadius: 28 }}
     >
