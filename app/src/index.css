@@ -1158,12 +1158,6 @@ a, button { transition: all 0.2s ease; }
   75% { transform: translateY(-5px); }
 }
 
-/* Carregando de tela: a cabeça do Evo gira no eixo vertical (o rosto nunca fica de cabeça para baixo) */
-@keyframes evo-girando {
-  from { transform: rotateY(0deg); }
-  to { transform: rotateY(360deg); }
-}
-
 @keyframes evo-brilho {
   0%, 100% { filter: drop-shadow(0 0 8px rgba(143, 51, 245, 0.55)); }
   50% { filter: drop-shadow(0 0 14px rgba(29, 104, 196, 0.6)); }
