@@ -1,5 +1,7 @@
 import type { DbEvent } from '../hooks/useEvents'
 import { brl } from './taxa'
+import { temFoto } from './corEvento'
+import { dataPorVir, situacaoEvento, vendidosDe } from './eventoProdutor'
 
 // Contas do Início da produtora (V5): períodos, séries por dia ou hora, variação e textos de data. Sem dependência.
 // Tudo no horário do navegador (a produtora vê o dia dela).
@@ -18,6 +20,7 @@ export const ehPeriodo = (v: unknown): v is Periodo => PERIODOS.some(p => p.valu
 export const VENDIDO = ['active', 'used']
 
 const HORA = 3600000
+const DIA_MS = 86400000
 const MES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb']
 
@@ -138,3 +141,78 @@ export const inteiroMais = mais(inteiro)
 export const capacidadeDoTipo = (t: { quantity_total?: number | null; capacity: number | null }) => t.quantity_total || t.capacity || 0
 export const capacidadeDe = (e: DbEvent) => (e.ticket_types ?? []).reduce((s, t) => s + capacidadeDoTipo(t), 0) || e.capacity || 0
 export const editarEvento = (e: { id: string }) => `/producer/events/${e.id}/edit`
+
+// "Evo sugere" (V9d): uma sugestão por vez, a primeira das 8 regras que vale e não foi dispensada. Só dados que o Início
+// já carregou; vendas ou perfil ainda sem chegar (undefined) deixam de fora as regras que dependem deles.
+export type Sugestao = {
+  chave: string // a que vai para o registro de dispensa
+  texto: string
+  barra?: { pct: number; mais: boolean } // regra do lote: quanto do lote já foi
+  acao: { texto: string; to?: string; copiar?: string } // `copiar` = id do evento cujo link vai para a área de transferência
+}
+export type DadosSugestao = {
+  eventos: DbEvent[]
+  vendidos?: { porEvento: Record<string, number>; cortado: boolean } // ingressos por evento (lista cortada em 1.000 linhas)
+  porTipo: Record<string, number> // ingressos por tipo de ingresso
+  checkinFeito?: boolean
+  empresa?: boolean // perfil da empresa preenchido
+}
+
+export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>, agora: number): Sugestao | null {
+  const hoje = meiaNoite(agora)
+  const { eventos, vendidos } = d
+  const noFuturo = (e: DbEvent) => dataDoEvento(e).getTime() >= hoje
+  const naoPassou = (e: DbEvent) => !(dataDoEvento(e).getTime() < hoje) // sem data legível também conta (rascunho novo)
+  const publicados = eventos.filter(e => situacaoEvento(e) === 'Publicado')
+  const noAr = publicados.filter(noFuturo)
+  const abertos = eventos.filter(e => ['Publicado', 'Em análise', 'Rascunho'].includes(situacaoEvento(e)) && naoPassou(e))
+  const mais = vendidos?.cortado ? '+' : ''
+  const sug = (chave: string, texto: string, acao: Sugestao['acao'], barra?: Sugestao['barra']): Sugestao => ({ chave, texto, acao, barra })
+
+  const candidatas: Sugestao[] = [
+    // 1. recusado pela análise
+    ...eventos.filter(e => situacaoEvento(e) === 'Recusado').map(e => {
+      const motivo = e.rejection_reason?.trim()
+      return sug(`sugestao:recusado:${e.id}`,
+        `O ${e.title} voltou da análise com um pedido de ajuste${motivo ? `: "${motivo}"` : ''}. Corrija e envie de novo.`,
+        { texto: 'Abrir evento', to: editarEvento(e) })
+    }),
+    // 2. lote com 90% ou mais (conta tickets, não ticket_types.sold). A capacidade vai na chave: abrir mais lugares faz voltar.
+    ...(vendidos ? noAr
+      .flatMap(e => (e.ticket_types ?? []).filter(t => t.is_active !== false).map(t => ({ e, t, vend: d.porTipo[t.id] ?? 0, cap: capacidadeDoTipo(t) })))
+      .filter(c => c.cap > 0 && c.vend / c.cap >= 0.9)
+      .sort((a, b) => b.vend / b.cap - a.vend / a.cap)
+      .map(c => sug(`aviso-lote:${c.t.id}:${c.cap}`,
+        `${c.t.name} do ${c.e.title}: ${inteiro(c.vend)}${mais} de ${inteiro(c.cap)} vendidos.`,
+        { texto: 'Editar ingressos', to: editarEvento(c.e) },
+        { pct: Math.min(100, (c.vend / c.cap) * 100), mais: !!mais })) : []),
+    // 3. testar o check-in: no ar, faltam até 7 dias, ao menos 1 ingresso vendido, nenhum check-in feito
+    ...(vendidos && d.checkinFeito === false ? noAr
+      .filter(e => dataDoEvento(e).getTime() <= agora + 7 * DIA_MS && (vendidos.porEvento[e.id] ?? 0) >= 1)
+      .map(e => sug(`dica:checkin:${e.id}`, 'Teste o check-in antes do dia.', { texto: 'Abrir check-in', to: '/producer/checkin?tour=checkin' })) : []),
+    // 4. rascunho sem ingresso
+    ...abertos.filter(e => e.status === 'draft' && !(e.ticket_types ?? []).length).map(e => sug(`sugestao:sem-ingresso:${e.id}`,
+      `O ${e.title} ainda não tem ingressos. Crie pelo menos um para poder vender.`, { texto: 'Criar ingressos', to: editarEvento(e) })),
+    // 5. no ar há 3 dias ou mais e sem venda (vendidosDe devolve undefined quando a lista cortada não permite afirmar zero)
+    ...(vendidos ? noAr.flatMap(e => {
+      const aprovado = e.approved_at ? Date.parse(e.approved_at) : NaN
+      const dias = Math.floor((agora - aprovado) / DIA_MS)
+      return dias >= 3 && vendidosDe(vendidos, e.id) === 0
+        ? [sug(`sugestao:sem-venda:${e.id}`, `O ${e.title} está no ar há ${dias} dias e ainda não vendeu. Compartilhe o link com o seu público.`,
+          { texto: 'Copiar link', copiar: e.id })]
+        : []
+    }) : []),
+    // 6. sem foto de capa
+    ...abertos.filter(e => ![e.cover_image, e.image_url].some(temFoto)).map(e => sug(`sugestao:sem-foto:${e.id}`,
+      `O ${e.title} está sem foto de capa; a página mostra o cartaz na cor do evento. Se tiver uma foto, dá para pôr na edição.`,
+      { texto: 'Adicionar foto', to: editarEvento(e) })),
+    // 7. terminou há até 7 dias (a maior data conhecida, como no banco) e teve venda
+    ...(vendidos ? eventos
+      .filter(e => ['Publicado', 'Encerrado'].includes(situacaoEvento(e)) && !dataPorVir(e, agora) && dataPorVir(e, agora - 7 * DIA_MS) && (vendidosDe(vendidos, e.id) ?? 0) > 0)
+      .map(e => sug(`sugestao:pos-evento:${e.id}`, `O ${e.title} terminou. Veja quantas pessoas entraram no relatório pós-evento.`,
+        { texto: 'Abrir relatório', to: `/producer/pos-evento?eventId=${e.id}` })) : []),
+    // 8. perfil da empresa
+    ...(d.empresa === false ? [sug('sugestao:empresa:perfil', 'Faltam os dados da empresa em Configurações.', { texto: 'Preencher', to: '/producer/settings' })] : []),
+  ]
+  return candidatas.find(c => !registrados.has(c.chave)) ?? null
+}

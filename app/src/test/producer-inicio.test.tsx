@@ -151,32 +151,47 @@ describe('Início do produtor', () => {
   it('lote com 90% ou mais vendido: aviso com barra e dispensa lembrada', async () => {
     preparar([lote10], [], ing(9), { empresa: true })
     montar()
-    const aviso = await screen.findByRole('region', { name: 'Aviso de lote' })
-    expect(aviso.textContent).toMatch(/Pista do \[TESTE\] Show: 9 de 10 vendidos/)
+    const aviso = await screen.findByRole('region', { name: 'Evo sugere' })
+    expect(aviso.textContent).toMatch(/Evo sugere.*Pista do \[TESTE\] Show: 9 de 10 vendidos\./)
     expect(aviso.textContent).toMatch(/90%/)
     expect(within(aviso).getByRole('link', { name: 'Editar ingressos' }).getAttribute('href')).toBe('/producer/events/e1/edit')
-    fireEvent.click(within(aviso).getByRole('button', { name: 'Dispensar aviso' }))
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull())
+    fireEvent.click(within(aviso).getByRole('button', { name: 'Dispensar sugestão' }))
+    await waitFor(() => expect(screen.queryByText(/de 10 vendidos/)).toBeNull()) // vem a próxima sugestão (sem foto)
     expect(gravados).toEqual(['aviso-lote:tt1:10']) // a capacidade vai na chave: abrir mais lugares faz o aviso voltar
+  })
+
+  it('sem venda há 5 dias de aprovado: "Copiar link" copia o link daquele evento', async () => {
+    const escrever = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: escrever } })
+    preparar([{ ...noAr, cover_image: 'https://x.supabase.co/capa.jpg', approved_at: ha(5) }], [], [], { empresa: true })
+    montar()
+    const faixa = await screen.findByRole('region', { name: 'Evo sugere' })
+    expect(faixa.textContent).toMatch(/está no ar há 5 dias e ainda não vendeu/)
+    fireEvent.click(within(faixa).getByRole('button', { name: 'Copiar link' }))
+    await waitFor(() => expect(escrever).toHaveBeenCalledWith(expect.stringMatching(/\/event\/e1$/)))
+    fireEvent.click(within(faixa).getByRole('button', { name: 'Dispensar sugestão' }))
+    await waitFor(() => expect(gravados).toEqual(['sugestao:sem-venda:e1']))
+    vi.unstubAllGlobals()
+    vi.stubGlobal('matchMedia', () => ({ matches: reduzir }))
   })
 
   it('aviso de lote dispensado volta se a capacidade mudou', async () => {
     preparar([lote10], [], ing(9), { empresa: true })
     gravados.push('aviso-lote:tt1:9')
     montar()
-    expect(await screen.findByRole('region', { name: 'Aviso de lote' })).toBeTruthy()
+    expect(await screen.findByRole('region', { name: 'Evo sugere' })).toBeTruthy()
   })
 
   it('lote abaixo de 90%, ou de evento que ainda não está no ar: sem aviso', async () => {
     preparar([lote10], [], ing(8, () => 'o'), { empresa: true })
     montar()
     await screen.findByText('8 × Pista')
-    expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull()
+    expect(screen.queryByText(/de 10 vendidos/)).toBeNull() // outra sugestão (ex.: sem foto) pode aparecer, a do lote não
     cleanup()
     preparar([{ ...lote10, approval_status: 'pending' }], [], ing(10, () => 'o'), { empresa: true })
     montar()
     await screen.findByText('10 × Pista')
-    expect(screen.queryByRole('region', { name: 'Aviso de lote' })).toBeNull()
+    expect(screen.queryByText(/de 10 vendidos/)).toBeNull()
   })
 
   it('mais pedidos que o limite de linhas: soma com "+", sem ticket médio e sem variação', async () => {
@@ -194,7 +209,7 @@ describe('Início do produtor', () => {
     // a contagem exata do evento (head + eq event_id) diz 1.480; a lista só trouxe 9 das 1.500
     tabelas.tickets = c => c.some(([n, a]) => n === 'eq' && a[0] === 'event_id') ? { data: null, error: null, count: 1480 } : base(c)
     montar()
-    const aviso = await screen.findByRole('region', { name: 'Aviso de lote' })
+    const aviso = await screen.findByRole('region', { name: 'Evo sugere' })
     expect(aviso.textContent).toMatch(/9\+ de 10 vendidos/)
     expect(screen.getByRole('table').textContent).toMatch(/9\+\/10/)
     await waitFor(() => expect(screen.getByText('de 10').previousElementSibling?.textContent).toBe('1.480'))
