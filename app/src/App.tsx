@@ -52,10 +52,9 @@ const AppDownload = lazy(() => import('./pages/app/Download'))
 // Producer pages (lazy loaded)
 const ProducerDashboard = lazy(() => import('./pages/producer/Dashboard'))
 const ProducerEvents = lazy(() => import('./pages/producer/Events'))
-const ProducerNewEvent = lazy(() => import('./pages/producer/NewEvent'))
+const ComecoRapido = lazy(() => import('./pages/producer/ComecoRapido'))
 const PainelEvento = lazy(() => import('./pages/producer/PainelEvento'))
 const EventOverview = lazy(() => import('./pages/producer/EventOverview'))
-const EventPlanner = lazy(() => import('./pages/producer/EventPlanner'))
 const ProducerCRM = lazy(() => import('./pages/producer/CRM'))
 const ProducerFinance = lazy(() => import('./pages/producer/Finance'))
 const ProducerBordero = lazy(() => import('./pages/producer/Bordero'))
@@ -381,11 +380,11 @@ function Layout() {
               <Route path="/producer" element={<ProducerDashboard />} />
               <Route path="/producer/dashboard" element={<ProducerDashboard />} />
               <Route path="/producer/events" element={<ProducerEvents />} />
-              <Route path="/producer/events/new" element={<ProducerNewEvent />} />
+              <Route path="/producer/events/new" element={<ComecoRapido />} />
               <Route path="/producer/events/:eventId/edit" element={<ComChaveDoEvento><PainelEvento /></ComChaveDoEvento>} />
               <Route path="/producer/event-manager" element={<Navigate to="/producer/events" replace />} />
               <Route path="/producer/event/:eventId" element={<ComChaveDoEvento><EventOverview /></ComChaveDoEvento>} />
-              <Route path="/producer/planner" element={<EventPlanner />} />
+              <Route path="/producer/planner" element={<Navigate to="/producer/events/new" replace />} />
               <Route path="/producer/brand" element={<ComingSoonRoute title="O Brand Studio"><BrandStudio /></ComingSoonRoute>} />
               <Route path="/producer/crm" element={<FeatureGuard featureKey="crm"><ProducerCRM /></FeatureGuard>} />
               <Route path="/producer/finance" element={<ProducerFinance />} />
