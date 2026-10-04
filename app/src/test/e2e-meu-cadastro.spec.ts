@@ -112,7 +112,7 @@ test.describe('Meu cadastro do colaborador', () => {
   test('conta sem ficha vê um aviso, não o formulário', async ({ page }) => {
     await simular(page, null)
     await entrar(page)
-    await expect(page.getByText('Esta conta não tem cadastro de colaborador.')).toBeVisible()
+    await expect(page.getByText('Sua conta foi criada como administradora antes do convite')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Salvar alterações' })).toHaveCount(0)
   })
 
