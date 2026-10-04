@@ -121,7 +121,7 @@ export default function Footer() {
           </div>
 
           {/* Newsletter */}
-          <div className="lg:col-span-4">
+          <div id="newsletter" className="lg:col-span-4 scroll-mt-24">
             <h4 className="text-xs font-medium uppercase tracking-widest text-slate-400 mb-4">
               Newsletter
             </h4>

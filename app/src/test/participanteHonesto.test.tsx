@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
-import AppEvents from '../pages/app/Events'
 import AppHub from '../pages/app/Hub'
 import AppChat from '../pages/app/Chat'
 import ParticipantSettings from '../pages/app/Settings'
@@ -32,43 +31,6 @@ const Local = () => { const l = useLocation(); return <p data-testid="local">{l.
 const montar = (ui: React.ReactElement, url = '/') => render(<MemoryRouter initialEntries={[url]}>{ui}<Local /></MemoryRouter>)
 
 beforeEach(() => { cleanup(); eventos = []; ingressos = [] })
-
-describe('Explorar do app (/app/events)', () => {
-  it('chips = categorias reais dos eventos (rótulo do formato; texto antigo passa como está), não uma lista fixa; clicar filtra e clicar de novo limpa', () => {
-    eventos = [evento('a', 'show'), evento('b', 'show'), evento('c', 'Festa'), evento('d', null)]
-    montar(<AppEvents />)
-    const filtros = within(screen.getByRole('group', { name: 'Filtros' }))
-    expect(filtros.getAllByRole('button').map(b => b.textContent)).toEqual(['Todos', 'Show ou apresentação', 'Festa'])
-    expect(screen.queryByRole('button', { name: 'Tecnologia' })).toBeNull()
-    fireEvent.click(filtros.getByRole('button', { name: 'Festa' }))
-    expect(filtros.getByRole('button', { name: 'Festa' })).toHaveAttribute('aria-pressed', 'true')
-    expect(screen.getByText('1 evento')).toBeInTheDocument()
-    fireEvent.click(filtros.getByRole('button', { name: 'Festa' }))
-    expect(screen.getByText('4 eventos')).toBeInTheDocument()
-  })
-
-  it('a busca ignora acento: "forro" acha "Noite de Forró"', () => {
-    eventos = [evento('a', 'show', { title: 'Baile do Sol' }), evento('b', 'show', { title: 'Noite de Forró' })]
-    montar(<AppEvents />, '/app/events?q=forro')
-    expect(screen.getByText('1 evento')).toBeInTheDocument()
-  })
-
-  it('sem eventos: sem chips; cada evento (destaque e lista) tem o coração Salvar evento', () => {
-    montar(<AppEvents />)
-    expect(screen.queryByRole('group', { name: 'Filtros' })).toBeNull()
-    cleanup()
-    eventos = [evento('a', 'show'), evento('b', 'show')]
-    montar(<AppEvents />)
-    expect(screen.getAllByRole('button', { name: 'Salvar evento' }).map(b => b.getAttribute('data-evento')).sort()).toEqual(['a', 'b'])
-  })
-
-  it('?q= (busca do topo) chega com o termo no campo e filtra', () => {
-    eventos = [evento('a', 'show', { title: 'Baile do Sol' }), evento('b', 'show', { title: 'Noite de Forró' })]
-    montar(<AppEvents />, '/app/events?q=forr%C3%B3')
-    expect(screen.getByRole('searchbox', { name: 'Buscar eventos' })).toHaveValue('forró')
-    expect(screen.getByText('1 evento')).toBeInTheDocument()
-  })
-})
 
 describe('Início do app (Hub)', () => {
   const ingresso = (id: string, status: string, extra: Record<string, unknown> = {}) => ({

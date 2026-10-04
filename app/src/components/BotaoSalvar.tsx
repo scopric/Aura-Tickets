@@ -23,12 +23,14 @@ export default function BotaoSalvar({ eventId, className }: { eventId: string; c
     else window.location.assign(appUrl(caminho))
   }
 
+  const alternar = () => definir(eventId, !marcado, true) // remover avisa com "Desfazer" (no useFavoritos)
+
   return (
     <button
       type="button"
       aria-pressed={marcado}
       aria-label="Salvar evento"
-      onClick={() => (isAuthenticated ? definir(eventId, !marcado) : entrar())}
+      onClick={() => (isAuthenticated ? alternar() : entrar())}
       className={cn(
         'relative grid shrink-0 place-items-center rounded-full alvo-44',
         'transition-transform duration-micro active:scale-105 motion-reduce:active:scale-100',

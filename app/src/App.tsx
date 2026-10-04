@@ -112,8 +112,6 @@ const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 // App pages (lazy loaded)
 const AppHub = lazy(() => import('./pages/app/Hub'))
 const AppTickets = lazy(() => import('./pages/app/Tickets'))
-const AppSalvos = lazy(() => import('./pages/app/Salvos'))
-const AppEvents = lazy(() => import('./pages/app/Events'))
 const AppOrders = lazy(() => import('./pages/app/Orders'))
 const AppChat = lazy(() => import('./pages/app/Chat'))
 const AppNotifications = lazy(() => import('./pages/app/Notifications'))
@@ -360,7 +358,7 @@ function Layout() {
           <Routes>
             {/* Public */}
             <Route path="/" element={appMode === 'app' ? <RootRedirect /> : <Home />} />
-            <Route path="/events" element={<EventsBrowse />} />
+            <Route path="/events/:quando?" element={<EventsBrowse />} />
             <Route path="/event/:eventId" element={<EventPage />} />
             <Route path="/app/download" element={<AppDownload />} />
             <Route path="/contato" element={<ContactPage />} />
@@ -438,8 +436,8 @@ function Layout() {
             <Route element={<ProtectedRoute allowedRoles={['user']}><AppLayout /></ProtectedRoute>}>
               <Route path="/app/hub" element={<AppHub />} />
               <Route path="/app/tickets" element={<AppTickets />} />
-              <Route path="/app/events" element={<AppEvents />} />
-              <Route path="/app/salvos" element={<AppSalvos />} />
+              <Route path="/app/events/:quando?" element={<EventsBrowse />} />
+              <Route path="/app/salvos" element={<EventsBrowse aba="salvos" />} />
               <Route path="/app/orders" element={<AppOrders />} />
               <Route path="/app/chat" element={<AppChat />} />
               <Route path="/app/notifications" element={<AppNotifications />} />

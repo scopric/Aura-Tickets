@@ -76,7 +76,7 @@ export default function AppLayout() {
   const unreadCount = notifications.filter((n: any) => !n.is_read).length
 
   const isActive = (path: string) =>
-    location.pathname === path || location.pathname.startsWith(path + '/')
+    location.pathname === path || location.pathname.startsWith(path + '/') || (path === '/app/events' && location.pathname === '/app/salvos') // Salvos é aba do Explorar
 
   // Avisa o resto da página que a barra existe (--barra-cel no <body>, abaixo de lg, já com a área segura): o Evo e o
   // aviso de cookies sobem sobre ela. Limpa ao sair.

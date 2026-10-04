@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
@@ -9,44 +9,56 @@ import { Skeleton } from '@/components/ui/skeleton'
 import BotaoSalvar from '../components/BotaoSalvar'
 import Chip from '../components/Chip'
 import EventoCapa from '../components/EventoCapa'
+import EventoLinha, { Preco } from '../components/EventoLinha'
+import { useFavoritos } from '../hooks/useFavoritos'
+import { getAppMode, siteUrl } from '../lib/appHost'
+import Salvos from './app/Salvos'
 import { temFoto } from '../lib/corEvento'
-import { rotuloFormato } from '../lib/tipoEvento'
 import { brl, TAXA_MINIMA, TAXA_PERCENTUAL } from '../lib/taxa'
 import { cn } from '../lib/utils'
 import {
-  agruparPorDia, aPartirDe, categoriasDoCatalogo, cidadesDoCatalogo, ordenarPorData, passa, rotuloDia,
-  type EventoCatalogo, type Filtros,
+  agruparPorDia, categoriasDoCatalogo, cidadesDoCatalogo, estilosDoCatalogo, ordenarPorData, passa, quandoDoSlug, QUANDO_SLUG,
+  rotuloClassificacao, rotuloDia, type EventoCatalogo, type Filtros,
 } from '../lib/explorar'
 import { diaBR, horaCurta } from '../lib/visaoEvento'
 
 // Folha de cidade: o Vaul só baixa na primeira vez que a pessoa abre
 const FolhaCidade = lazy(() => import('../components/FolhaCidade'))
 
-const QUANDO = { hoje: 'Hoje', fds: 'Fim de semana' } as const
-const QUANDO_FRASE = { hoje: 'hoje', fds: 'neste fim de semana' } as const
-const FILTRO_VAZIO: Filtros = { cidade: null, quando: '', categoria: null, busca: '' }
-
-// "a partir de R$ 88,00 com taxa", "Gratuito" ou nada (sem ingresso cadastrado, não afirmamos preço)
-function Preco({ evento }: { evento: EventoCatalogo }) {
-  const p = aPartirDe(evento)
-  if (p === null) return null
-  if (p === 0) return <>Gratuito</>
-  return (
-    <>
-      a partir de <span className="whitespace-nowrap"><span className="font-display text-sm font-semibold tabular-nums">{brl(p)}</span> com taxa</span>
-    </>
-  )
-}
+const QUANDO = { hoje: 'Hoje', amanha: 'Amanhã', fds: 'Fim de semana', mes: 'Este mês' } as const
+const QUANDO_FRASE = { hoje: 'hoje', amanha: 'amanhã', fds: 'neste fim de semana', mes: 'neste mês' } as const
+const FILTRO_VAZIO: Filtros = { cidade: null, quando: '', categoria: null, estilo: null, gratis: false, busca: '' }
 
 const hojeSP = () => diaBR(Date.now())
 const linhaLocal = (e: EventoCatalogo) => [horaCurta(e.time), e.venue_name || e.venue_city || 'Local a definir'].filter(Boolean).join(' · ')
 
-export default function EventsBrowse() {
-  const [filtros, setFiltros] = useState<Filtros>(FILTRO_VAZIO)
+// Uma tela só para /events (visitante) e /app/events (participante), com a aba Salvos (/app/salvos).
+// O atalho de data é o endereço: /events/hoje, /events/amanha, /events/fim-de-semana, /events/este-mes.
+export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
+  const { pathname, search, key } = useLocation()
+  const noApp = pathname.startsWith('/app')
+  const base = noApp ? '/app/events' : '/events'
+  const navigate = useNavigate()
+  const { userId } = useFavoritos()
+  const slugQuando = useParams().quando
+  const quando = quandoDoSlug(slugQuando)
+  // o círculo de busca da barra inferior do app chega com ?busca=1 (foca o campo); a busca do topo, com ?q=termo
+  const [params] = useSearchParams()
+  const campoBusca = useRef<HTMLInputElement>(null)
+  const [resto, setResto] = useState<Omit<Filtros, 'quando'>>({ ...FILTRO_VAZIO, busca: params.get('q') ?? '' })
+  const filtros: Filtros = { ...resto, quando }
+  const [decrescente, setDecrescente] = useState(false)
   const [folha, setFolha] = useState(false)
   const [folhaPedida, setFolhaPedida] = useState(false)
   const hoje = hojeSP() // a cada renderização: rótulo, filtro e consulta concordam depois da meia-noite
-  const muda = (p: Partial<Filtros>) => setFiltros(f => ({ ...f, ...p }))
+  const irParaQuando = (q: Filtros['quando']) => navigate(q ? `${base}/${QUANDO_SLUG[q]}` : base, { replace: true })
+  const muda = (p: Partial<Filtros>) => {
+    const { quando: q, ...outros } = p
+    if (q !== undefined) irParaQuando(q)
+    if (Object.keys(outros).length) setResto(f => ({ ...f, ...outros }))
+  }
+  useEffect(() => { const q = params.get('q'); if (q !== null) setResto(f => ({ ...f, busca: q })) }, [params, key])
+  useEffect(() => { if (params.has('busca') && !aba) campoBusca.current?.focus() }, [params, key, aba])
 
   // ponytail: traz todos os publicados de uma vez e filtra no navegador (a folha de cidade e os chips precisam do
   // conjunto inteiro). Passou de ~1000 eventos (limite do PostgREST), paginar ou filtrar no banco.
@@ -64,46 +76,67 @@ export default function EventsBrowse() {
       return (data ?? []) as EventoCatalogo[]
     },
     select: ordenarPorData,
+    enabled: !aba,
   })
 
   const cidades = cidadesDoCatalogo(catalogo)
   const categorias = categoriasDoCatalogo(catalogo)
+  const estilos = estilosDoCatalogo(catalogo)
   const visiveis = catalogo.filter(e => passa(e, filtros, hoje))
-  const grupos = agruparPorDia(visiveis, hoje)
+  const grupos = agruparPorDia(decrescente ? [...visiveis].reverse() : visiveis, hoje)
   // Destaque: o marcado (featured_carousel) mais próximo, senão o primeiro; com um só evento, só a lista. Como na prancha,
   // o evento em destaque continua na lista do dia.
   const destaque = visiveis.length > 1 ? (visiveis.find(e => e.featured_carousel) ?? visiveis[0]) : undefined
 
-  const temFiltro = !!(filtros.cidade || filtros.quando || filtros.categoria || filtros.busca.trim())
+  const temFiltro = !!(filtros.cidade || filtros.quando || filtros.categoria || filtros.estilo || filtros.gratis || filtros.busca.trim())
+  const limpar = () => { setResto(FILTRO_VAZIO); irParaQuando('') }
   const nomeCidade = cidades.find(c => c.chave === filtros.cidade)?.nome
   const nomeCategoria = categorias.find(c => c.chave === filtros.categoria)?.nome
+  const nomeEstilo = estilos.find(c => c.chave === filtros.estilo)?.nome
 
   // Vazio: a frase fala do primeiro filtro (busca, data, categoria, cidade) que, tirado, traz eventos de volta
   function vazio() {
-    const ativos = (['busca', 'quando', 'categoria', 'cidade'] as const).filter(k => (k === 'busca' ? filtros.busca.trim() : filtros[k]))
+    const ativos = (['busca', 'quando', 'categoria', 'estilo', 'gratis', 'cidade'] as const).filter(k => (k === 'busca' ? filtros.busca.trim() : filtros[k]))
     const culpado = ativos.find(k => catalogo.some(e => passa(e, filtros, hoje, k))) ?? ativos[0]
     const emCidade = nomeCidade ? ` em ${nomeCidade}` : ''
     if (culpado === 'busca') return { frase: `Nada para “${filtros.busca.trim()}”.`, apoio: 'Confira a grafia ou busque pelo local, pela cidade ou pelo tipo de evento.', botao: 'Limpar busca', acao: () => muda({ busca: '' }) }
     if (culpado === 'categoria') return { frase: `Nada de ${nomeCategoria}${filtros.quando ? ' ' + QUANDO_FRASE[filtros.quando] : ''}${emCidade}.`, apoio: '', botao: 'Ver todas as categorias', acao: () => muda({ categoria: null }) }
+    if (culpado === 'estilo') return { frase: `Nada de ${nomeEstilo}${filtros.quando ? ' ' + QUANDO_FRASE[filtros.quando] : ''}${emCidade}.`, apoio: '', botao: 'Ver todos os estilos', acao: () => muda({ estilo: null }) }
+    if (culpado === 'gratis') return { frase: `Nenhum evento gratuito${filtros.quando ? ' ' + QUANDO_FRASE[filtros.quando] : ''}${emCidade}.`, apoio: '', botao: 'Ver os pagos também', acao: () => muda({ gratis: false }) }
     if (culpado === 'quando') {
       const prox = catalogo.find(e => passa(e, filtros, hoje, 'quando'))
       return {
-        frase: `Nada ${nomeCategoria ? `de ${nomeCategoria} ` : ''}${QUANDO_FRASE[filtros.quando as 'hoje' | 'fds']}${emCidade}.`,
+        frase: `Nada ${nomeCategoria ? `de ${nomeCategoria} ` : ''}${QUANDO_FRASE[filtros.quando as keyof typeof QUANDO_FRASE]}${emCidade}.`,
         apoio: prox?.date ? `O próximo é ${prox.title}, ${rotuloDia(prox.date, hoje).curto}.` : '',
         botao: 'Ver todas as datas',
         acao: () => muda({ quando: '' }),
       }
     }
     if (culpado === 'cidade') return { frase: `Ainda não tem evento publicado em ${nomeCidade}.`, apoio: 'Quando sair o primeiro, ele aparece aqui.', botao: 'Ver todas as cidades', acao: () => muda({ cidade: null }) }
-    return { frase: 'Ainda não tem evento publicado.', apoio: 'Quando sair o primeiro, ele aparece aqui.', botao: '', acao: () => {} }
+    return { frase: 'Ainda não tem evento publicado.', apoio: 'Quando sair o primeiro, ele aparece aqui. Assine a newsletter para saber quando.', botao: '', acao: () => {} }
   }
 
-  return (
-    <div className="min-h-screen bg-background pb-24 pt-24 text-foreground">
-      <div className="mx-auto max-w-6xl px-5 lg:px-8">
-        <h1 className="text-2xl font-semibold tracking-[-0.015em]">Explorar</h1>
+  if (slugQuando && !quando) return <Navigate to={{ pathname: base, search }} replace /> // atalho que não existe: volta para o Explorar
+  const px = noApp ? '' : 'px-5 lg:px-8'
+  const abas = !!userId && noApp // só o participante salva; visitante e equipe não veem a aba
 
-        {cidades.length > 0 && (
+  return (
+    <div className={noApp ? 'text-foreground' : 'min-h-screen bg-background pb-24 pt-24 text-foreground'}>
+      <div className={cn('mx-auto max-w-6xl', px)}>
+        <h1 className="text-2xl font-semibold tracking-[-0.015em]">{aba ? 'Salvos' : 'Explorar'}</h1>
+
+        {abas && (
+          <div role="group" aria-label="Explorar" className="mt-3 flex gap-2">
+            {([['/app/events', 'Eventos', !aba], ['/app/salvos', 'Salvos', !!aba]] as const).map(([to, nome, atual]) => (
+              <Link key={to} to={to} aria-current={atual ? 'page' : undefined} className={cn(
+                'grid h-10 place-items-center rounded-ev-pill px-4 text-sm focus-visible:outline-none focus-visible:shadow-ev-foco',
+                atual ? 'bg-[var(--ev-brand-soft)] font-semibold text-primary' : 'font-medium shadow-[inset_0_0_0_1px_hsl(var(--input))] hover:bg-[var(--ev-tint-hover)]'
+              )}>{nome}</Link>
+            ))}
+          </div>
+        )}
+
+        {!aba && cidades.length > 0 && (
           <button
             type="button"
             aria-haspopup="dialog"
@@ -116,46 +149,56 @@ export default function EventsBrowse() {
           </button>
         )}
 
-        <form role="search" onSubmit={e => e.preventDefault()} className="relative mt-2 max-w-xl">
-          <label className="relative block">
-            <span className="sr-only">Buscar evento, local ou cidade</span>
-            <I.Buscar size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground" />
-            <Input
-              type="search"
-              inputMode="search"
-              enterKeyHint="search"
-              autoComplete="off"
-              placeholder="Evento, local ou cidade"
-              value={filtros.busca}
-              onChange={e => muda({ busca: e.target.value })}
-              className="h-11 rounded-ev-lg bg-card pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden"
-            />
-          </label>
-          {filtros.busca && (
-            <button
-              type="button"
-              aria-label="Limpar busca"
-              onClick={() => muda({ busca: '' })}
-              className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-ev-lg text-muted-foreground focus-visible:outline-none focus-visible:shadow-ev-foco"
-            >
-              <I.Fechar size={16} />
-            </button>
-          )}
-        </form>
+        {!aba && (
+          <form role="search" onSubmit={e => e.preventDefault()} className="relative mt-2 max-w-xl">
+            <label className="relative block">
+              <span className="sr-only">Buscar evento, local ou cidade</span>
+              <I.Buscar size={16} className="pointer-events-none absolute left-3.5 top-3.5 text-muted-foreground" />
+              <Input
+                ref={campoBusca}
+                type="search"
+                inputMode="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                placeholder="Evento, local ou cidade"
+                value={filtros.busca}
+                onChange={e => muda({ busca: e.target.value })}
+                className="h-11 rounded-ev-lg bg-card pl-10 pr-11 text-base [&::-webkit-search-cancel-button]:hidden"
+              />
+            </label>
+            {filtros.busca && (
+              <button
+                type="button"
+                aria-label="Limpar busca"
+                onClick={() => { muda({ busca: '' }); campoBusca.current?.focus() }}
+                className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-ev-lg text-muted-foreground focus-visible:outline-none focus-visible:shadow-ev-foco"
+              >
+                <I.Fechar size={16} />
+              </button>
+            )}
+          </form>
+        )}
       </div>
 
-      <div role="group" aria-label="Filtros" className="mx-auto mt-3 flex max-w-6xl items-center gap-2 overflow-x-auto px-5 py-1 [scrollbar-width:none] lg:px-8 [&::-webkit-scrollbar]:hidden">
-        {(Object.keys(QUANDO) as (keyof typeof QUANDO)[]).map(k => (
-          <Chip key={k} marcado={filtros.quando === k} onClick={() => muda({ quando: filtros.quando === k ? '' : k })}>{QUANDO[k]}</Chip>
-        ))}
-        {categorias.length > 0 && <span aria-hidden="true" className="mx-1 h-6 w-px flex-none bg-border" />}
-        {categorias.map(c => (
-          <Chip key={c.chave} marcado={filtros.categoria === c.chave} onClick={() => muda({ categoria: filtros.categoria === c.chave ? null : c.chave })}>{c.nome}</Chip>
-        ))}
-      </div>
+      {!aba && (
+        <div role="group" aria-label="Filtros" className={cn('mx-auto mt-3 flex max-w-6xl items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden', px)}>
+          {(Object.keys(QUANDO) as (keyof typeof QUANDO)[]).map(k => (
+            <Chip key={k} marcado={filtros.quando === k} onClick={() => muda({ quando: filtros.quando === k ? '' : k })}>{QUANDO[k]}</Chip>
+          ))}
+          <Chip marcado={filtros.gratis} onClick={() => muda({ gratis: !filtros.gratis })}>Grátis</Chip>
+          {categorias.length > 0 && <span aria-hidden="true" className="mx-1 h-6 w-px flex-none bg-border" />}
+          {categorias.map(c => (
+            <Chip key={c.chave} marcado={filtros.categoria === c.chave} onClick={() => muda({ categoria: filtros.categoria === c.chave ? null : c.chave })}>{c.nome}</Chip>
+          ))}
+          {estilos.length > 0 && <span aria-hidden="true" className="mx-1 h-6 w-px flex-none bg-border" />}
+          {estilos.map(c => (
+            <Chip key={c.chave} marcado={filtros.estilo === c.chave} onClick={() => muda({ estilo: filtros.estilo === c.chave ? null : c.chave })}>{c.nome}</Chip>
+          ))}
+        </div>
+      )}
 
-      <div className="mx-auto max-w-6xl px-5 lg:px-8">
-        {isLoading ? (
+      <div className={cn('mx-auto max-w-6xl', px)}>
+        {aba ? <Salvos /> : isLoading ? (
           <div aria-busy="true" className="mt-4 lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:gap-10 motion-reduce:[&_[data-slot=skeleton]]:animate-none">
             <div>
               <Skeleton className="h-3.5 w-24" />
@@ -193,16 +236,18 @@ export default function EventsBrowse() {
                 <p className="mt-4 text-pretty text-lg font-semibold leading-6">{v.frase}</p>
                 {v.apoio && <p className="mt-1.5 text-pretty text-[15px] leading-[22px] text-muted-foreground">{v.apoio}</p>}
                 {v.botao && <Button variant="outline" size="lg" className="mt-5" onClick={v.acao}>{v.botao}</Button>}
+                {/* catálogo vazio: a newsletter fica no rodapé do site (no app não há rodapé: abre o do site) */}
+                {!v.botao && <Button asChild variant="outline" size="lg" className="mt-5"><a href={getAppMode() === 'app' ? siteUrl('/events#newsletter') : '#newsletter'}>Assinar a newsletter</a></Button>}
               </div>
             )
           })()
         ) : (
           <div className={cn('lg:mt-2', destaque && 'lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-10')}>
             {destaque && (
-              <section aria-labelledby="t-destaque" className="mt-4 lg:sticky lg:top-24">
+              <section aria-labelledby="t-destaque" className="relative mt-4 max-w-[360px] lg:sticky lg:top-24">
                 <h2 id="t-destaque" className="mb-3 text-[15px] font-semibold">Em destaque</h2>
                 <Link
-                  to={`/event/${destaque.id}`}
+                  to={`/event/${destaque.slug || destaque.id}`}
                   className="block max-w-[360px] rounded-ev-xl focus-visible:outline-none focus-visible:shadow-ev-foco"
                 >
                   <span className="relative block">
@@ -214,11 +259,13 @@ export default function EventsBrowse() {
                     )}
                   </span>
                   <span className="wide mt-3 block font-display text-2xl font-extrabold leading-7 tracking-[-0.015em]">{destaque.title}</span>
-                  <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">
+                  <span className="mt-1 block pr-11 text-[13px] leading-[18px] text-muted-foreground">
                     {rotuloDia(destaque.date!, hoje).curto} · {linhaLocal(destaque)}
+                    {rotuloClassificacao(destaque.classificacao) && <> · <span className="sr-only">Classificação </span>{rotuloClassificacao(destaque.classificacao)}</>}
                   </span>
-                  <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={destaque} /></span>
+                  <span className="mt-1 block pr-11 text-[13px] leading-[18px]"><Preco evento={destaque} /></span>
                 </Link>
+                <BotaoSalvar eventId={destaque.id} className="absolute bottom-0 right-0 size-11 text-muted-foreground" />
               </section>
             )}
 
@@ -227,9 +274,14 @@ export default function EventsBrowse() {
                 <h2 id="t-lista" aria-live="polite" className="text-[15px] font-semibold">
                   {visiveis.length === 1 ? '1 evento' : `${visiveis.length} eventos`}
                 </h2>
-                {temFiltro && (
-                  <Button variant="ghost" size="sm" className="-mr-2 text-primary" onClick={() => setFiltros(FILTRO_VAZIO)}>Limpar filtros</Button>
-                )}
+                <div className="-mr-2 flex items-baseline gap-1">
+                  {visiveis.length > 1 && (
+                    <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={() => setDecrescente(d => !d)}>
+                      {decrescente ? 'Mais distantes primeiro' : 'Mais próximos primeiro'}
+                    </Button>
+                  )}
+                  {temFiltro && <Button variant="ghost" size="sm" className="text-primary" onClick={limpar}>Limpar filtros</Button>}
+                </div>
               </div>
 
               {grupos.map(g => (
@@ -254,20 +306,15 @@ export default function EventsBrowse() {
                       <h4 id={`dia-${g.data}`} className="sr-only">{g.rotulo.cabecalho}</h4>
                       <ul className="divide-y divide-border sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0">
                         {g.eventos.map(e => (
-                          <li key={e.id} className="relative py-4 first:pt-0 last:pb-0 sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3">
-                            <Link to={`/event/${e.id}`} className="group flex gap-3 rounded-ev-lg focus-visible:outline-none focus-visible:shadow-ev-foco">
-                              <span aria-hidden="true" className="block w-24 flex-none transition-transform duration-micro ease-sai group-active:scale-[.98] motion-reduce:transform-none">
-                                <EventoCapa evento={e} tamanho="cartao" />
-                              </span>
-                              <span className="min-w-0 flex-1 pr-11">
-                                {e.category && <span className="block text-xs font-medium leading-4 text-muted-foreground">{rotuloFormato(e.category)}</span>}
-                                <span className="mt-0.5 line-clamp-2 block text-base font-semibold leading-[22px]">{e.title}</span>
-                                <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">{linhaLocal(e)}</span>
-                                <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={e} /></span>
-                              </span>
-                            </Link>
-                            <BotaoSalvar eventId={e.id} className="absolute bottom-2 right-0 size-11 text-muted-foreground sm:bottom-1 sm:right-1" />
-                          </li>
+                          <EventoLinha
+                            key={e.id}
+                            evento={e}
+                            to={`/event/${e.slug || e.id}`}
+                            linha={linhaLocal(e)}
+                            preco={<Preco evento={e} />}
+                            className="sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3"
+                            salvavel
+                          />
                         ))}
                       </ul>
                     </div>
