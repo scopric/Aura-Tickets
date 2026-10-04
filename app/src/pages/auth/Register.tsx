@@ -9,6 +9,7 @@ import AuthLGPDConsent from '../../components/AuthLGPDConsent'
 import AuthAcquisitionSelector from '../../components/AuthAcquisitionSelector'
 import AuthPasswordStrength from '../../components/AuthPasswordStrength'
 import { captureAffiliateRef, getAffiliateRef } from '../../lib/affiliateRef'
+import { consumirVolta } from '../../lib/voltaEvento'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
@@ -52,9 +53,10 @@ export default function AuthRegister() {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated && currentRoleContext) {
-      if (currentRoleContext === 'admin') navigate('/admin/dashboard')
-      else if (currentRoleContext === 'producer') navigate('/producer/dashboard')
-      else navigate('/app/hub')
+      if (currentRoleContext === 'admin' || currentRoleContext === 'producer') {
+        consumirVolta(currentRoleContext, null) // só limpa: produtor e admin não voltam ao evento
+        navigate(currentRoleContext === 'admin' ? '/admin/dashboard' : '/producer/dashboard')
+      } else navigate(consumirVolta(currentRoleContext, null) ?? '/app/hub')
     }
   }, [isAuthenticated, currentRoleContext, navigate])
 

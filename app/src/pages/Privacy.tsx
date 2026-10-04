@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/70">Última atualização: 29 de setembro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
+          <p className="text-xs text-espresso/70">Última atualização: 4 de outubro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
@@ -34,6 +34,7 @@ export default function PrivacyPage() {
               <li>Dados de eventos: informações criadas por produtores</li>
               <li>Dados de transações: histórico de compras (processado por parceiros)</li>
               <li>Dados de navegação: cookies e logs para melhorar a experiência</li>
+              <li>Eventos salvos: os eventos que você marca com o coração, ligados à sua conta, com a data em que marcou. A lista não é mostrada ao produtor do evento nem a outras pessoas</li>
               <li>Uso do Evo, o assistente de inteligência artificial (só para produtores): as mensagens e os dados de planejamento que você envia e o registro de cada uso, conforme a seção 8</li>
               <li>Registros de acesso: data, hora e endereço IP de cada login, guardados por 6 meses por obrigação legal (Marco Civil da Internet, art. 15) e depois apagados automaticamente; e o registro do seu aceite dos Termos de Uso e desta Política (versão, data e IP), mantido enquanto a conta existir e, depois, pelo prazo de defesa de direitos</li>
             </ul>
@@ -45,6 +46,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-5 space-y-1">
               <li>Criar e gerenciar sua conta</li>
               <li>Processar compras e emissão de ingressos</li>
+              <li>Lembrar os eventos que você salvou, a seu pedido (base legal: execução do serviço a seu pedido, LGPD, art. 7º, V). A lista fica até você remover o evento dela ou excluir a conta. Se um evento salvo sair do ar, ele continua na tela Salvos como "fora do ar" e você pode removê-lo; a exclusão da conta apaga toda a lista</li>
               <li>Enviar comunicações sobre eventos e atualizações (com seu consentimento)</li>
               <li>Oferecer o Evo, o assistente de inteligência artificial que ajuda o produtor a planejar e criar eventos (seção 8)</li>
               <li>Melhorar a plataforma e prevenir fraudes</li>

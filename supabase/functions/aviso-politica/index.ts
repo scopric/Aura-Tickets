@@ -18,7 +18,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 
 // Igual a PRIVACY_VERSION de app/src/lib/legal.ts: mudar os dois juntos.
-const VERSAO = '2026-09-29'
+const VERSAO = '2026-10-04'
 const REMETENTE = 'Evokaa <contato@evokaa.com.br>'
 // A Edge Function tem 150 s de parede; 110 s de envios + no máx. 15 s do último pedido deixa folga.
 const PRAZO_MS = 110_000
@@ -38,15 +38,13 @@ async function getCaller(req: Request) {
 }
 
 const ASSUNTO = 'Atualizamos a nossa Política de Privacidade'
-const INTRO = 'Atualizamos a Política de Privacidade da Evokaa em 29 de setembro de 2026. A mudança explica o Evo, o nosso novo assistente de inteligência artificial para produtores de eventos.'
+const INTRO = 'Atualizamos a Política de Privacidade da Evokaa em 4 de outubro de 2026. A mudança descreve os eventos que você salva (favoritos).'
 const ITENS = [
-  'Quando um produtor usa o Evo, as mensagens que ele escreve e os dados de planejamento do evento são processados pelo Google (Gemini), em nome da Evokaa. O Google não usa esse conteúdo para treinar os modelos dele e o guarda por 55 dias, só para prevenir abuso.',
-  'Esse processamento pode acontecer fora do Brasil, com as garantias contratuais previstas na LGPD (art. 33).',
-  'Não enviamos ao Evo dados de quem compra ingressos.',
-  'O Evo só sugere: nada é criado, publicado ou pago sem o clique do produtor.',
-  'A Evokaa não grava a conversa; guarda um registro de cada uso (com um resumo curto e mascarado da mensagem) até você pedir a eliminação.',
+  'Quando você marca um evento com o coração, guardamos o evento ligado à sua conta, com a data em que marcou.',
+  'A lista não é mostrada ao produtor do evento nem a outras pessoas.',
+  'Ela fica até você remover o evento ou excluir a conta; um evento que saiu do ar continua na lista, marcado como fora do ar, e você pode removê-lo.',
 ]
-const PARTICIPANTE = 'Se você participa de eventos pela Evokaa, nada muda no uso dos seus dados: o Evo é usado só por produtores.'
+const PARTICIPANTE = 'Se você não salva eventos, nada muda no uso dos seus dados.'
 const URL_POLITICA = 'https://www.evokaa.com.br/privacidade'
 const URL_CONTATO = 'https://www.evokaa.com.br/contato'
 const ASSINATURA = 'Equipe Evokaa — Evoka Soluções Ltda, CNPJ 68.076.437/0001-42'

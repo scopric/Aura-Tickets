@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 
-// PR 3B: participante sem dado de exemplo nem botão falso. Favoritos saem até existir tabela (Decisão 21).
+// PR 3B: participante sem dado de exemplo nem botão falso. Favoritos voltaram na VF (Decisão 143): a tela chama "Salvos" e abre pela Conta.
 // Conta de demonstração (só em desenvolvimento), como no e2e-front-1b.
 async function entrarParticipante(page: Page) {
   await page.goto('/auth/login')
@@ -23,14 +23,18 @@ test('Perfil sem "Plano Gratuito" nem nota 4.8 fixos', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Alterar' })).toHaveAttribute('href', '/auth/forgot')
 })
 
-test('Hub e menu lateral sem "Favoritos"', async ({ page }) => {
+test('Hub e menu lateral não têm item "Favoritos": a tela é "Salvos", pela Conta', async ({ page }) => {
   await page.goto('/app/hub')
   await expect(page.getByRole('link', { name: 'Início' }).first()).toBeVisible()
   await expect(page.getByText('Favoritos')).toHaveCount(0)
   await expect(page.getByRole('link', { name: 'Favoritos' })).toHaveCount(0)
 })
 
-test('/app/favorites não é mais rota (cai no 404)', async ({ page }) => {
+test('Conta leva aos Salvos (/app/salvos); /app/favorites continua sem rota (404)', async ({ page }) => {
+  await page.goto('/app/profile')
+  await page.getByRole('link', { name: 'Eventos salvos' }).click()
+  await expect(page).toHaveURL(/\/app\/salvos$/)
+  await expect(page.getByRole('heading', { name: 'Salvos', level: 1 })).toBeVisible()
   await page.goto('/app/favorites')
   await expect(page.getByRole('heading', { name: 'Pagina nao encontrada' })).toBeVisible()
 })

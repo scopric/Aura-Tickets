@@ -7,6 +7,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { cn } from '@/lib/utils'
 import { useSEO } from '../hooks/useSEO'
 import { usePublicEvent } from '../hooks/useEvents'
+import { useSalvarPendente } from '../hooks/useFavoritos'
+import BotaoSalvar from '../components/BotaoSalvar'
 import CollectiveTableCard from '../components/CollectiveTableCard'
 import ContadorIngresso from '../components/ContadorIngresso'
 import EventoCapa from '../components/EventoCapa'
@@ -48,6 +50,7 @@ export default function EventPage() {
   const { eventId } = useParams()
   const navigate = useNavigate()
   const { data: event, isLoading, error } = usePublicEvent(eventId)
+  useSalvarPendente(event?.id, isLoading) // volta do login pelo coração: grava o favorito aqui
 
   useSEO({
     title: event ? `${event.title} | Evokaa Tickets` : 'Evento | Evokaa Tickets',
@@ -208,10 +211,10 @@ export default function EventPage() {
           >
             {event.title}
           </span>
-          {/* Salvar entra na fase VF (Favoritos): sem botão morto até lá */}
           <button type="button" onClick={handleShare} aria-label="Compartilhar" className={cn(circulo, circuloFundo)}>
             <I.Compartilhar size={20} />
           </button>
+          <BotaoSalvar eventId={event.id} className={cn(circulo, circuloFundo)} />
         </div>
       </header>
 

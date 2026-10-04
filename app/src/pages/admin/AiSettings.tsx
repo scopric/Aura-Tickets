@@ -4,6 +4,7 @@ import { KeyRound, Loader2, PlugZap, Info, Search, Gift, Save, Mail } from 'luci
 import { toast } from 'sonner'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
+import { PRIVACY_VERSION } from '../../lib/legal'
 import { PLANS, type PlanId } from '../../lib/plans'
 import { Switch } from '../../components/ui/switch'
 
@@ -657,7 +658,7 @@ export default function AdminAiSettings() {
 
       {/* 7. Aviso da Política de Privacidade por e-mail */}
       <section className={cardCls} aria-labelledby="ia-aviso">
-        <h2 id="ia-aviso" className="text-lg font-semibold text-foreground flex items-center gap-2"><Mail className="w-5 h-5 text-primary" aria-hidden="true" /> Aviso da Política de Privacidade (29/09/2026)</h2>
+        <h2 id="ia-aviso" className="text-lg font-semibold text-foreground flex items-center gap-2"><Mail className="w-5 h-5 text-primary" aria-hidden="true" /> Aviso da Política de Privacidade ({new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')})</h2>
         <p className="text-xs text-muted-foreground">Envio único: quem já recebeu não recebe de novo.</p>
         <button type="button" onClick={() => contarAviso.mutate()} disabled={contarAviso.isPending} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground flex items-center gap-2 disabled:opacity-50">
           {contarAviso.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Contar destinatários
