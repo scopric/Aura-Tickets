@@ -78,7 +78,7 @@ describe('Admin sem promessa falsa (S1)', () => {
     montar(<TeamManager />)
     await waitFor(() => expect(screen.getByText(/Estorno e cortesia ainda não existem/)).toBeInTheDocument())
     expect(tudo()).not.toMatch(/realizar estornos/i)
-    expect(tudo()).toContain('toda a equipe ainda lê pedidos, financeiro e cupons')
+    expect(tudo()).toContain('toda a equipe ainda lê pedidos, financeiro, cupons, perfis de usuários e atividade de navegação')
   })
 
   it('Users: sem papel Editor (o banco recusa) e recursos sem efeito marcados', async () => {

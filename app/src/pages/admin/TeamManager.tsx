@@ -636,7 +636,7 @@ export default function AdminTeamManager() {
                 <div>
                   <div className="font-semibold">Aviso de Segurança</div>
                   <p className="mt-0.5 leading-normal text-muted-foreground">
-                    As funções escolhem as telas que a pessoa vê. No banco, toda a equipe ainda lê pedidos, financeiro e cupons; só Usuários, Eventos, Configurações, Atendimento, Newsletter, Match de Mesa e Analytics conferem a função.
+                    As funções escolhem as telas que a pessoa vê. No banco, toda a equipe ainda lê pedidos, financeiro, cupons, perfis de usuários e atividade de navegação; a função só é conferida para editar usuários, moderar eventos, configurações, atendimento, newsletter e Match de Mesa, e nos painéis do GA4 e da Vercel.
                   </p>
                 </div>
               </div>
