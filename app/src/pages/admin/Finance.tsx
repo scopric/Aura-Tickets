@@ -113,8 +113,8 @@ export default function AdminFinance() {
         <h4 className="text-xs font-semibold">Cobrança e repasses desativados até a Fase 4</h4>
         <p className="mt-0.5 text-xs leading-normal text-muted-foreground">
           A Evokaa ainda não tem gateway de pagamento. Saques, reembolsos e comissão não podem ser executados
-          por aqui: aprovar um saque aqui só mudaria o texto na tela, sem mover dinheiro. Estes números são
-          <strong> reais</strong> — o que estiver zerado é porque ainda não houve venda confirmada.
+          por aqui: aprovar um saque aqui só mudaria o texto na tela, sem mover dinheiro.
+          {!isError && <> Estes números são <strong>reais</strong> — o que estiver zerado é porque ainda não houve venda confirmada.</>}
         </p>
       </div>
     </div>
@@ -123,7 +123,7 @@ export default function AdminFinance() {
   const abas = [
     { id: 'overview', icon: I.Carteira, label: 'Visão Geral' },
     { id: 'transactions', icon: I.Relatorio, label: 'Extrato Comercial' },
-    { id: 'withdraws', icon: I.Horario, label: `Repasses / Saques (${pendingWithdrawals.length})` },
+    { id: 'withdraws', icon: I.Horario, label: `Repasses / Saques (${pronto ? pendingWithdrawals.length : '—'})` },
     { id: 'tools', icon: I.Configuracoes, label: 'Taxas' },
   ] as const
 
@@ -145,7 +145,7 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {!isError && aviso}
+      {aviso}
 
       {isLoading && (
         <div className="flex items-center justify-center py-20">
