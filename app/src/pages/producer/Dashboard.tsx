@@ -11,7 +11,7 @@ import { siteUrl } from '../../lib/appHost'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
   PERIODOS, VENDIDO, ehPeriodo, janelas, resumoDe, serie, rotuloDoBalde, dataPorExtenso, dataDoEvento,
-  capacidadeDoTipo, inteiro, inteiroMais, brlMais, editarEvento, type Linha, type Periodo,
+  inteiro, inteiroMais, brlMais, sugestaoDoEvo, type Linha, type Periodo,
 } from '../../lib/inicioProdutor'
 import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import GraficoLinha from '@/components/producer/GraficoLinha'
@@ -22,7 +22,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Skeleton } from '@/components/ui/skeleton'
 import * as I from '@/components/icones/evokaa16'
 
-const DIA = 86400000
 const eixoBrl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', notation: 'compact', maximumFractionDigits: 1 })
 
 type Metrica = 'receita' | 'ingressos'
@@ -273,26 +272,11 @@ export default function ProducerDashboard() {
     return (da >= hojeMs) === (db >= hojeMs) ? (da >= hojeMs ? da - db : db - da) : da >= hojeMs ? -1 : 1
   })
 
-  // Aviso de lote: um tipo de ingresso de evento no ar passou de 90% vendido (conta tickets, não ticket_types.sold).
-  // Dispensa pelo registro do tour, com a capacidade na chave: se a produtora abrir mais lugares, o aviso volta a valer.
-  // Lista cortada: a contagem é piso, o aviso continua certo ("pelo menos") e leva "+".
-  const chaveLote = (tipoId: string, cap: number) => `aviso-lote:${tipoId}:${cap}`
-  const lote = carregou ? publicados
-    .filter(noFuturo)
-    .flatMap(e => (e.ticket_types ?? []).filter(t => t.is_active !== false).map(t => ({
-      e, t, vend: porTipo[t.id] ?? 0, cap: capacidadeDoTipo(t),
-    })))
-    .filter(c => c.cap > 0 && c.vend / c.cap >= 0.9 && !registrados.has(chaveLote(c.t.id, c.cap)))
-    .sort((a, b) => b.vend / b.cap - a.vend / a.cap)[0] : undefined
-  const maisLote = vendidos.cortado ? '+' : ''
-
-  // Dica de check-in (PR #129): só de evento no ar com a data a até 7 dias; uma faixa por vez, o aviso de lote vem antes
-  const dica = carregou && !lote && passosDados && !passosDados.checkinFeito
-    ? publicados
-      .filter(e => noFuturo(e) && dataDoEvento(e).getTime() <= agora + 7 * DIA && (porEvento[e.id] ?? 0) >= 1)
-      .map(e => `dica:checkin:${e.id}`)
-      .find(id => !registrados.has(id))
-    : undefined
+  // "Evo sugere": uma sugestão por vez (lib/inicioProdutor). A dispensa vai para o registro do tour; só decide depois de lê-lo.
+  // Só depois de tudo chegar (registro, vendas e perfil): senão a faixa troca de sugestão enquanto carrega.
+  const sugestao = carregou && !vendasQ.isPending && !passosQ.isPending ? sugestaoDoEvo({
+    eventos, vendidos: v ? vendidos : undefined, porTipo, checkinFeito: passosDados?.checkinFeito, empresa: passosDados?.empresa,
+  }, registrados, agora) : null
 
   // Vendas recentes: os ingressos do mesmo pedido e tipo viram uma linha ("2 × Pista"); sem nome de comprador (LGPD)
   const tipos = new Map(eventos.flatMap(e => (e.ticket_types ?? []).map(t => [t.id, t.name] as const)))
@@ -305,11 +289,12 @@ export default function ProducerDashboard() {
     else if (recentes.size < 8) recentes.set(chave, { chave, qtd: 1, tipo: tipos.get(i.tipo) ?? 'Ingresso', evento: titulos.get(i.evento) ?? '', t: i.t })
   }
 
-  const copiarLink = async () => {
-    const alvo = (proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0])
+  const copiarLink = async (endereco?: string) => {
+    const e = proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0]
+    const alvo = endereco ?? (e && (e.slug || e.id))
     if (!alvo) return
     try {
-      await navigator.clipboard.writeText(siteUrl(`/event/${alvo.id}`))
+      await navigator.clipboard.writeText(siteUrl(`/event/${alvo}`))
       toast.success('Link do evento copiado.')
     } catch {
       toast.error('Não foi possível copiar o link.')
@@ -384,7 +369,7 @@ export default function ProducerDashboard() {
                 <>
                   <p>{textoSemDado} {TEXTO_PERIODO[periodo]}</p>
                   {publicados.length > 0 ? (
-                    <Button variant="outline" size="sm" onClick={copiarLink}><I.Copiar aria-hidden="true" />Copiar link do evento</Button>
+                    <Button variant="outline" size="sm" onClick={() => copiarLink()}><I.Copiar aria-hidden="true" />Copiar link do evento</Button>
                   ) : (
                     <p className="text-[13px]">As vendas aparecem aqui quando um evento estiver no ar.</p>
                   )}
@@ -410,24 +395,20 @@ export default function ProducerDashboard() {
           </div>
         )}
 
-        {lote && (
+        {sugestao && (
           <FaixaAviso
-            rotulo="Aviso de lote"
-            acao={{ to: editarEvento(lote.e), texto: 'Editar ingressos' }}
-            onDispensar={() => registrar(chaveLote(lote.t.id, lote.cap))}
+            acao={sugestao.acao.copiar ? { texto: sugestao.acao.texto, onClick: () => copiarLink(sugestao.acao.copiar) } : sugestao.acao}
+            onDispensar={() => registrar(sugestao.chave)}
           >
-            {lote.t.name} do {lote.e.title}: {inteiro(lote.vend)}{maisLote} de {inteiro(lote.cap)} vendidos
-            <span className="ml-3 inline-flex items-center gap-2 align-middle">
-              <span aria-hidden="true" className="inline-block h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
-                <span className="block h-full rounded-full bg-[var(--ev-warm)]" style={{ width: `${Math.min(100, (lote.vend / lote.cap) * 100)}%` }} />
+            {sugestao.texto}
+            {sugestao.barra && (
+              <span className="ml-3 inline-flex items-center gap-2 align-middle">
+                <span aria-hidden="true" className="inline-block h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
+                  <span className="block h-full rounded-full bg-[var(--ev-warm)]" style={{ width: `${Math.min(100, sugestao.barra.pct)}%` }} />
+                </span>
+                <span className="font-display text-[13px] font-semibold tabular-nums text-[var(--ev-warm-text)]">{Math.round(sugestao.barra.pct)}%{sugestao.barra.mais && '+'}</span>
               </span>
-              <span className="font-display text-[13px] font-semibold tabular-nums text-[var(--ev-warm-text)]">{Math.round((lote.vend / lote.cap) * 100)}%{maisLote}</span>
-            </span>
-          </FaixaAviso>
-        )}
-        {dica && (
-          <FaixaAviso rotulo="Dica" acao={{ to: '/producer/checkin?tour=checkin', texto: 'Abrir check-in' }} onDispensar={() => registrar(dica)}>
-            Teste o check-in antes do dia
+            )}
           </FaixaAviso>
         )}
 

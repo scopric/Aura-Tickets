@@ -50,6 +50,31 @@ export function dataPorVir(
   return datas.some(t => t > agora) // NaN > agora é falso: data ausente ou ilegível não conta
 }
 
+// Início e fim do evento (os mesmos do "ao vivo" do celular): fim = end_date ou início + 12 h; evento só com dia (sem hora) vale 24 h.
+// A hora do evento (date + time) é a de Brasília.
+const FUSO = 'America/Sao_Paulo'
+const HORA = 3_600_000
+const DURACAO_PADRAO = 12 * HORA
+const DIA = 24 * HORA
+
+// ms que o fuso está à frente do UTC no instante t (derivado do Intl: segue a regra do fuso, sem deslocamento fixo)
+function deslocamento(t: number): number {
+  const p: Record<string, string> = {}
+  for (const x of new Intl.DateTimeFormat('en-US', { timeZone: FUSO, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(new Date(t))) p[x.type] = x.value
+  return Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour, +p.minute, +p.second) - Math.floor(t / 1000) * 1000
+}
+
+/** Instante (ms UTC) de "AAAA-MM-DD" + "HH:MM[:SS]" na hora de Brasília */
+export function instanteLocal(data: string, hora = '00:00:00'): number {
+  const [a, m, d] = data.split('-').map(Number)
+  const [h = 0, mi = 0, s = 0] = hora.split(':').map(Number)
+  const parede = Date.UTC(a, m - 1, d, h, mi, s)
+  return parede - deslocamento(parede - deslocamento(parede))
+}
+
+export const diaInteiro = (e: DbEvent) => !!e.date && !e.time
+export const inicioDe = (e: DbEvent) => (e.date ? instanteLocal(e.date, e.time || '00:00:00') : new Date(e.start_date).getTime())
+export const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime() : inicioDe(e) + (diaInteiro(e) ? DIA : DURACAO_PADRAO))
 // Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
 export function confirmacaoArquivar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
   const base = `Arquivar "${titulo}"? A situação passa a ser Encerrado.`

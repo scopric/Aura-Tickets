@@ -110,18 +110,23 @@ export function ProximoEvento({ evento: e, agora }: { evento: DbEvent; agora: nu
   )
 }
 
-// Faixa sem caixa e sem fio, uma por vez: aviso de lote ou dica de check-in
-export function FaixaAviso({ rotulo, children, acao, onDispensar }: {
-  rotulo: string
+// Faixa "Evo sugere" (V9d), sem caixa e sem fio, uma sugestão por vez. A ação é link (`to`) ou botão (`onClick`).
+export function FaixaAviso({ children, acao, onDispensar }: {
   children: ReactNode
-  acao: { to: string; texto: string }
+  acao: { texto: string; to?: string; onClick?: () => void }
   onDispensar: () => void
 }) {
   return (
-    <div role="region" aria-label={rotulo} className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 xl:col-span-12">
-      <p className="min-w-0 flex-1 text-sm leading-5 text-foreground">{children}</p>
-      <Button asChild size="sm" variant="outline"><Link to={acao.to}>{acao.texto}</Link></Button>
-      <Button size="icon-sm" variant="ghost" aria-label="Dispensar aviso" onClick={onDispensar}><I.Fechar size={16} /></Button>
+    <div role="region" aria-labelledby="evo-sugere" className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 xl:col-span-12">
+      <img src="/evo/evo-avatar.webp" alt="" aria-hidden="true" width={32} height={32} className="size-8 shrink-0 rounded-full" />
+      <p className="min-w-0 flex-1 text-sm leading-5 text-foreground max-sm:basis-[calc(100%-2.75rem)]">
+        <span id="evo-sugere" className="mr-2 font-display text-xs font-semibold text-muted-foreground">Evo sugere</span>{' '}
+        {children}
+      </p>
+      {acao.to
+        ? <Button asChild size="sm" variant="outline"><Link to={acao.to}>{acao.texto}</Link></Button>
+        : <Button size="sm" variant="outline" onClick={acao.onClick}>{acao.texto}</Button>}
+      <Button size="icon-sm" variant="ghost" aria-label="Dispensar sugestão" onClick={onDispensar}><I.Fechar size={16} /></Button>
     </div>
   )
 }

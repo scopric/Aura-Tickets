@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Link, MemoryRouter } from 'react-router-dom'
 import BarraCelular from '../components/producer/BarraCelular'
-import { eventoEmAndamento, instanteLocal } from '../hooks/useAoVivo'
+import { eventoEmAndamento } from '../hooks/useAoVivo'
+import { instanteLocal } from '../lib/eventoProdutor'
 
 // relógio fixo (só o Date): sexta 03/10/2026, 23:30 em Brasília
 const AGORA = '2026-10-03T23:30:00-03:00'
