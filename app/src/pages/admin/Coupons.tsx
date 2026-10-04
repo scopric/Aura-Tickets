@@ -1,7 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { TicketPercent, Plus, Pencil, Trash2, Power, Loader2, X, Info, Check, Ban } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, selectNativo, chipAviso, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { PLANS, PAID_PLANS, type PlanId } from '../../lib/plans'
@@ -123,11 +130,11 @@ const nomeAfiliado = (a?: { referral_code: string; user?: { full_name: string | 
 
 function situacao(c: Coupon): { label: string; cls: string } {
   const agora = Date.now()
-  if (!c.is_active) return { label: 'Desativado', cls: 'bg-muted text-muted-foreground border-border' }
-  if (c.valid_until && new Date(c.valid_until).getTime() < agora) return { label: 'Expirado', cls: 'bg-muted text-muted-foreground border-border' }
-  if (c.max_uses != null && c.uses >= c.max_uses) return { label: 'Esgotado', cls: 'bg-amber-500/10 text-amber-700 border-amber-500/20' }
-  if (c.valid_from && new Date(c.valid_from).getTime() > agora) return { label: 'Agendado', cls: 'bg-blue-500/10 text-blue-700 border-blue-500/20' }
-  return { label: 'Ativo', cls: 'bg-green-500/10 text-green-700 border-green-500/20' }
+  if (!c.is_active) return { label: 'Desativado', cls: chipNeutro }
+  if (c.valid_until && new Date(c.valid_until).getTime() < agora) return { label: 'Expirado', cls: chipNeutro }
+  if (c.max_uses != null && c.uses >= c.max_uses) return { label: 'Esgotado', cls: chipAviso }
+  if (c.valid_from && new Date(c.valid_from).getTime() > agora) return { label: 'Agendado', cls: chipInfo }
+  return { label: 'Ativo', cls: chipOk }
 }
 
 function validar(f: Form): string | null {
@@ -366,40 +373,36 @@ export default function AdminCoupons() {
   const deAdmin = cupons.filter(c => !c.producer_id)
   const deProdutor = cupons.filter(c => !!c.producer_id)
   const lista = filtro === 'planos' ? deAdmin : deProdutor
-  const inputCls = 'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary'
+  // Rótulo de campo e título de seção do formulário
+  const rotulo = 'text-xs font-semibold text-muted-foreground'
+  const marca = 'size-4 accent-primary'
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground flex items-center gap-2"><TicketPercent className="w-7 h-7 text-primary" aria-hidden="true" /> Cupons</h1>
-          <p className="text-sm text-muted-foreground mt-1">Cupons dos planos que a Evokaa vende aos produtores: plano, upgrade e afiliado. Cupom de evento é criado e pago pelo próprio produtor.</p>
-        </div>
-        {filtro === 'planos' && (
-          <button
-            type="button"
-            onClick={() => setForm({ ...vazio })}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" aria-hidden="true" /> Novo cupom
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Cupons"
+        description="Cupons dos planos que a Evokaa vende aos produtores: plano, upgrade e afiliado. Cupom de evento é criado e pago pelo próprio produtor."
+        actions={filtro === 'planos' ? (
+          <Button onClick={() => setForm({ ...vazio })}>
+            <I.Criar aria-hidden="true" /> Novo cupom
+          </Button>
+        ) : undefined}
+      />
 
-      <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 flex gap-3">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+      <div className={cn(alertaAviso, 'mb-6 p-4 text-[13px]')}>
+        <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
         <div>
           <strong>Os cupons ainda não são aplicados em nenhuma cobrança.</strong> A cobrança dos planos ainda não existe (gateway de pagamento em definição); quando for ligada, estes cupons passam a valer, com a validação feita no servidor. Por enquanto esta área cadastra e organiza os cupons e os pedidos dos afiliados.
         </div>
       </div>
 
       {isError && (
-        <div role="alert" className="mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
           Não foi possível carregar os cupons: {erroDe(error)}. Se a mensagem citar uma coluna ou relação inexistente, falta aplicar <span className="font-mono">docs/sql/20260929_afiliados_v2.sql</span>.
         </div>
       )}
 
-      <div className="flex flex-wrap bg-card p-1 border border-border rounded-xl gap-1 w-fit mb-4" role="tablist" aria-label="Tipo de cupom">
+      <div className="mb-4 flex w-fit max-w-full flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5" role="tablist" aria-label="Tipo de cupom">
         {([
           ['planos', `Cupons da Evokaa (${deAdmin.length})`],
           ['pedidos', `Pedidos dos afiliados (${pendentes.length})`],
@@ -411,7 +414,10 @@ export default function AdminCoupons() {
             role="tab"
             aria-selected={filtro === v}
             onClick={() => setFiltro(v)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold ${filtro === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+            className={cn(
+              'flex h-8 items-center rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              filtro === v ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
+            )}
           >
             {l}
           </button>
@@ -424,46 +430,47 @@ export default function AdminCoupons() {
 
       {filtro === 'pedidos' ? (
         pedidos.length === 0 ? (
-          <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">Nenhum pedido de cupom dos afiliados.</div>
+          <EmptyState title="Nenhum pedido de cupom dos afiliados." />
         ) : (
-          <div className="overflow-x-auto border border-border rounded-2xl bg-card">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-border text-[11px] uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Afiliado</th>
-                  <th className="px-4 py-3">Pedido</th>
-                  <th className="px-4 py-3 hidden md:table-cell">Para quem / motivo</th>
-                  <th className="px-4 py-3">Situação</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
+          <div className={`${painel} overflow-hidden`}>
+            <Tabela label="Pedidos de cupom dos afiliados">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className={th}>Afiliado</th>
+                  <th className={th}>Pedido</th>
+                  <th className={cn(th, 'hidden md:table-cell')}>Para quem / motivo</th>
+                  <th className={th}>Situação</th>
+                  <th className={cn(th, 'text-right')}>Ações</th>
                 </tr>
               </thead>
               <tbody>
                 {pedidos.map(p => (
-                  <tr key={p.id} className="border-b border-border last:border-0 align-top">
-                    <td className="px-4 py-3 text-foreground">
+                  <tr key={p.id} className="border-b border-border last:border-0 align-top hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-4 py-3 text-sm text-foreground">
                       {nomeAfiliado(p.affiliate)}
                       <div className="text-[11px] text-muted-foreground">{dataBr(p.created_at)}</div>
                     </td>
-                    <td className="px-4 py-3 text-foreground">
+                    <td className="px-4 py-3 text-sm text-foreground">
                       {Number(p.discount_percent)}% por {p.valid_days} dia(s)
                       <div className="text-[11px] text-muted-foreground">{p.plans?.length ? p.plans.map(x => PLANOS.find(y => y.id === x)?.nome || x).join(', ') : 'todos os planos pagos'}</div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell max-w-xs">
+                    <td className="hidden max-w-xs px-4 py-3 text-xs text-muted-foreground md:table-cell">
                       {p.prospect && <div className="text-foreground">{p.prospect}</div>}
                       {p.reason}
                       {p.admin_notes && <div className="mt-1 italic">Evokaa: {p.admin_notes}</div>}
                     </td>
-                    <td className="px-4 py-3 text-xs">
-                      {p.status === 'pending' ? <span className="text-amber-700">Pendente</span> : p.status === 'approved' ? <span className="text-green-700">Aprovado</span> : <span className="text-muted-foreground">Recusado</span>}
+                    <td className="px-4 py-3">
+                      {p.status === 'pending' ? <Badge variant="secondary" className={chipAviso}>Pendente</Badge> : p.status === 'approved' ? <Badge variant="secondary" className={chipOk}>Aprovado</Badge> : <Badge variant="secondary" className={chipNeutro}>Recusado</Badge>}
                     </td>
                     <td className="px-4 py-3">
                       {p.status === 'pending' && (
                         <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => criarDoPedido(p)} className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1" aria-label={`Criar cupom para o pedido de ${nomeAfiliado(p.affiliate)}`}>
-                            <Check className="w-3.5 h-3.5" aria-hidden="true" /> Criar cupom
-                          </button>
-                          <button
-                            type="button"
+                          <Button size="sm" onClick={() => criarDoPedido(p)} aria-label={`Criar cupom para o pedido de ${nomeAfiliado(p.affiliate)}`}>
+                            <I.Check aria-hidden="true" /> Criar cupom
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             disabled={recusar.isPending}
                             onClick={() => {
                               const motivo = window.prompt('Motivo da recusa (o afiliado verá este texto):')
@@ -471,38 +478,35 @@ export default function AdminCoupons() {
                               if (!motivo.trim()) { toast.error('Informe o motivo da recusa.'); return }
                               recusar.mutate({ id: p.id, motivo: motivo.trim().slice(0, 500) })
                             }}
-                            className="px-2.5 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:text-red-600 flex items-center gap-1 disabled:opacity-40"
                             aria-label={`Recusar pedido de ${nomeAfiliado(p.affiliate)}`}
                           >
-                            <Ban className="w-3.5 h-3.5" aria-hidden="true" /> Recusar
-                          </button>
+                            <I.Proibido aria-hidden="true" /> Recusar
+                          </Button>
                         </div>
                       )}
                     </td>
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </Tabela>
           </div>
         )
       ) : isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+        <div className="flex justify-center py-20"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
       ) : lista.length === 0 ? (
-        <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">
-          {filtro === 'eventos' ? 'Nenhum produtor criou cupom ainda.' : 'Nenhum cupom cadastrado. Clique em "Novo cupom".'}
-        </div>
+        <EmptyState title={filtro === 'eventos' ? 'Nenhum produtor criou cupom ainda.' : 'Nenhum cupom cadastrado. Clique em "Novo cupom".'} />
       ) : (
-        <div className="overflow-x-auto border border-border rounded-2xl bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-[11px] uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Código</th>
-                <th className="px-4 py-3">Desconto</th>
-                <th className="px-4 py-3 hidden lg:table-cell">{filtro === 'planos' ? 'Planos / tipo' : 'Produtor / evento'}</th>
-                <th className="px-4 py-3 hidden md:table-cell">Validade</th>
-                <th className="px-4 py-3">Usos</th>
-                <th className="px-4 py-3">Situação</th>
-                {filtro === 'planos' && <th className="px-4 py-3 text-right">Ações</th>}
+        <div className={`${painel} overflow-hidden`}>
+          <Tabela label={filtro === 'planos' ? 'Cupons da Evokaa' : 'Cupons de evento dos produtores'}>
+            <thead>
+              <tr className="border-b border-border">
+                <th className={th}>Código</th>
+                <th className={th}>Desconto</th>
+                <th className={cn(th, 'hidden lg:table-cell')}>{filtro === 'planos' ? 'Planos / tipo' : 'Produtor / evento'}</th>
+                <th className={cn(th, 'hidden md:table-cell')}>Validade</th>
+                <th className={th}>Usos</th>
+                <th className={th}>Situação</th>
+                {filtro === 'planos' && <th className={cn(th, 'text-right')}>Ações</th>}
               </tr>
             </thead>
             <tbody>
@@ -510,27 +514,27 @@ export default function AdminCoupons() {
                 const s = situacao(c)
                 const tipo = tipoDe(c)
                 return (
-                  <tr key={c.id} className="border-b border-border last:border-0 align-top">
+                  <tr key={c.id} className="border-b border-border last:border-0 align-top hover:bg-[var(--ev-tint-hover)]">
                     <td className="px-4 py-3">
-                      <div className="font-mono font-bold text-foreground">{c.code}</div>
+                      <div className="font-mono text-sm font-bold text-foreground">{c.code}</div>
                       {c.description && <div className="text-xs text-muted-foreground">{c.description}</div>}
-                      {filtro === 'planos' && <div className="text-[11px] text-muted-foreground mt-0.5">{AUDIENCE_LABEL[c.audience as Audience] || c.audience}</div>}
+                      {filtro === 'planos' && <div className="mt-0.5 text-[11px] text-muted-foreground">{AUDIENCE_LABEL[c.audience as Audience] || c.audience}</div>}
                     </td>
-                    <td className="px-4 py-3 text-foreground">
+                    <td className="px-4 py-3 text-sm text-foreground">
                       {c.discount_type === 'percent' ? `${c.discount_value}%` : brl(Number(c.discount_value))}
                       {c.duration && <div className="text-[11px] text-muted-foreground">{duracaoTexto(c)}</div>}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden lg:table-cell">
+                    <td className="hidden px-4 py-3 text-xs text-muted-foreground lg:table-cell">
                       {filtro === 'planos' ? (
                         <>
-                          <span className="inline-block px-1.5 py-0.5 mb-1 rounded border border-border text-[10px] font-semibold text-foreground">{TIPO_LABEL[tipo]}</span>
+                          <Badge variant="secondary" className={cn(chipNeutro, 'mb-1')}>{TIPO_LABEL[tipo]}</Badge>
                           <div>{c.plans?.length ? c.plans.map(p => PLANOS.find(x => x.id === p)?.nome || p).join(', ') : 'Todos os planos pagos'}</div>
                           {tipo === 'upgrade' && <div>vindo de: {(c.upgrade_from || []).map(p => ORIGENS.find(x => x.id === p)?.nome || p).join(', ')}</div>}
                           {tipo === 'afiliado' && <div>{nomeAfiliado(c.affiliate)}</div>}
                         </>
                       ) : `${c.producer?.full_name || 'Produtor'}${c.event?.title ? ` — ${c.event.title}` : ' — todos os eventos dele'}`}
                     </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell">
+                    <td className="hidden px-4 py-3 text-xs text-muted-foreground md:table-cell">
                       {c.valid_from ? <>de {dataBr(c.valid_from)}<br /></> : null}
                       {c.valid_until ? <>até {dataBr(c.valid_until)}</> : 'sem fim'}
                     </td>
@@ -539,27 +543,28 @@ export default function AdminCoupons() {
                       {c.max_uses_per_user != null && filtro === 'planos' && <div className="text-[11px] text-muted-foreground">{c.max_uses_per_user} por produtor</div>}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${s.cls}`}>{s.label}</span>
+                      <Badge variant="secondary" className={s.cls}>{s.label}</Badge>
                     </td>
                     {filtro === 'planos' && (
                       <td className="px-4 py-3">
                         <div className="flex justify-end gap-1">
-                          <button type="button" onClick={() => abrirEdicao(c)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground" aria-label={`Editar cupom ${c.code}`}>
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button type="button" onClick={() => alternar.mutate(c)} disabled={alternar.isPending} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground disabled:opacity-40" aria-label={`${c.is_active ? 'Desativar' : 'Ativar'} cupom ${c.code}`}>
-                            <Power className="w-4 h-4" />
-                          </button>
+                          <Button type="button" variant="ghost" size="icon-sm" onClick={() => abrirEdicao(c)} aria-label={`Editar cupom ${c.code}`}>
+                            <I.Editar aria-hidden="true" />
+                          </Button>
+                          <Button type="button" variant="ghost" size="icon-sm" onClick={() => alternar.mutate(c)} disabled={alternar.isPending} aria-label={`${c.is_active ? 'Desativar' : 'Ativar'} cupom ${c.code}`}>
+                            <I.Ligar aria-hidden="true" />
+                          </Button>
                           {c.uses === 0 && (
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => { if (window.confirm(`Excluir o cupom ${c.code}? Isso não pode ser desfeito.`)) excluir.mutate(c) }}
                               disabled={excluir.isPending}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-40"
                               aria-label={`Excluir cupom ${c.code}`}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              <I.Lixeira aria-hidden="true" />
+                            </Button>
                           )}
                         </div>
                       </td>
@@ -568,18 +573,18 @@ export default function AdminCoupons() {
                 )
               })}
             </tbody>
-          </table>
+          </Tabela>
         </div>
       )}
 
       {form && (
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="cupom-titulo" onKeyDown={e => { if (e.key === 'Escape') setForm(null) }}>
-          <form onSubmit={enviar} className="glass-panel w-full max-w-2xl my-8 p-6 space-y-5">
+          <form onSubmit={enviar} className="glass-panel w-full max-w-2xl my-8 p-6 space-y-5 text-foreground">
             <div className="flex items-center justify-between">
-              <h2 id="cupom-titulo" className="font-serif text-xl text-foreground">
+              <h2 id="cupom-titulo" className="text-lg font-semibold leading-6 tracking-normal text-foreground">
                 {form.id ? `Editar ${form.code}` : form.request_id ? 'Criar cupom do pedido do afiliado' : 'Novo cupom'}
               </h2>
-              <button type="button" onClick={() => setForm(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Fechar"><X className="w-4 h-4" /></button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setForm(null)} aria-label="Fechar"><I.Fechar aria-hidden="true" /></Button>
             </div>
 
             <fieldset className="space-y-1.5">
@@ -588,6 +593,7 @@ export default function AdminCoupons() {
                 {(Object.keys(TIPO_LABEL) as Tipo[]).map(t => (
                   <label key={t} className={`flex items-center gap-2 text-sm ${form.id || form.request_id ? 'text-muted-foreground' : 'text-foreground cursor-pointer'}`}>
                     <input
+                      className={marca}
                       type="radio"
                       name="tipo-cupom"
                       checked={form.tipo === t}
@@ -598,7 +604,7 @@ export default function AdminCoupons() {
                   </label>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {form.tipo === 'plano' && 'Desconto nos planos para qualquer produtor que atenda às regras.'}
                 {form.tipo === 'upgrade' && 'Só vale para quem já está num plano de origem e sobe para um dos planos marcados.'}
                 {form.tipo === 'afiliado' && 'Criado a pedido do afiliado: só 5, 10, 15, 20 ou 25%; validade de até 30 dias; cada produtor usa uma vez.'}
@@ -607,19 +613,19 @@ export default function AdminCoupons() {
 
             <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground">Código *</span>
-                <input autoFocus className={`${inputCls} font-mono uppercase`} value={form.code} onChange={e => set('code', e.target.value.toUpperCase().replace(/\s/g, ''))} placeholder="EX: PRO3MESES" maxLength={30} required />
+                <span className={rotulo}>Código *</span>
+                <Input autoFocus className="font-mono uppercase" value={form.code} onChange={e => set('code', e.target.value.toUpperCase().replace(/\s/g, ''))} placeholder="EX: PRO3MESES" maxLength={30} required />
               </label>
               <label className="space-y-1">
-                <span className="text-xs font-semibold text-muted-foreground">Descrição interna</span>
-                <input className={inputCls} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: campanha de lançamento" maxLength={120} />
+                <span className={rotulo}>Descrição interna</span>
+                <Input value={form.description} onChange={e => set('description', e.target.value)} placeholder="Ex: campanha de lançamento" maxLength={120} />
               </label>
             </section>
 
             {form.tipo === 'afiliado' && (
               <label className="space-y-1 block">
-                <span className="text-xs font-semibold text-muted-foreground">Afiliado *</span>
-                <select className={inputCls} value={form.affiliate_id} onChange={e => set('affiliate_id', e.target.value)} disabled={!!form.request_id || !!form.id}>
+                <span className={rotulo}>Afiliado *</span>
+                <select className={selectNativo} value={form.affiliate_id} onChange={e => set('affiliate_id', e.target.value)} disabled={!!form.request_id || !!form.id}>
                   <option value="">Escolha o afiliado…</option>
                   {afiliados.map(a => <option key={a.id} value={a.id}>{a.user?.full_name || a.user?.email} ({a.referral_code})</option>)}
                   {form.affiliate_id && !afiliados.some(a => a.id === form.affiliate_id) && <option value={form.affiliate_id}>Afiliado não ativo</option>}
@@ -631,8 +637,8 @@ export default function AdminCoupons() {
               <h3 className="text-sm font-semibold text-foreground">Desconto</h3>
               {form.tipo === 'afiliado' ? (
                 <label className="space-y-1 block sm:w-1/2">
-                  <span className="text-xs font-semibold text-muted-foreground">Faixa *</span>
-                  <select className={inputCls} value={form.discount_value} onChange={e => set('discount_value', e.target.value)}>
+                  <span className={rotulo}>Faixa *</span>
+                  <select className={selectNativo} value={form.discount_value} onChange={e => set('discount_value', e.target.value)}>
                     <option value="">Escolha…</option>
                     {FAIXAS.map(v => <option key={v} value={String(v)}>{v}%</option>)}
                   </select>
@@ -640,15 +646,15 @@ export default function AdminCoupons() {
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Tipo *</span>
-                    <select className={inputCls} value={form.discount_type} onChange={e => set('discount_type', e.target.value as 'percent' | 'fixed')}>
+                    <span className={rotulo}>Tipo *</span>
+                    <select className={selectNativo} value={form.discount_type} onChange={e => set('discount_type', e.target.value as 'percent' | 'fixed')}>
                       <option value="percent">Percentual (%)</option>
                       <option value="fixed">Valor fixo (R$)</option>
                     </select>
                   </label>
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Valor *</span>
-                    <input className={inputCls} inputMode="decimal" value={form.discount_value} onChange={e => set('discount_value', e.target.value)} placeholder={form.discount_type === 'percent' ? '20' : '50,00'} required />
+                    <span className={rotulo}>Valor *</span>
+                    <Input inputMode="decimal" value={form.discount_value} onChange={e => set('discount_value', e.target.value)} placeholder={form.discount_type === 'percent' ? '20' : '50,00'} required />
                   </label>
                 </div>
               )}
@@ -658,15 +664,15 @@ export default function AdminCoupons() {
               <h3 className="text-sm font-semibold text-foreground">Duração do desconto na assinatura</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground">Por quanto tempo *</span>
-                  <select className={inputCls} value={form.duration} onChange={e => set('duration', e.target.value as Duracao)}>
+                  <span className={rotulo}>Por quanto tempo *</span>
+                  <select className={selectNativo} value={form.duration} onChange={e => set('duration', e.target.value as Duracao)}>
                     {(Object.keys(DURACAO_LABEL) as Duracao[]).map(d => <option key={d} value={d}>{DURACAO_LABEL[d]}</option>)}
                   </select>
                 </label>
                 {form.duration === 'repeating' && (
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Número de meses *</span>
-                    <input className={inputCls} inputMode="numeric" value={form.duration_months} onChange={e => set('duration_months', e.target.value.replace(/\D/g, ''))} placeholder="3" />
+                    <span className={rotulo}>Número de meses *</span>
+                    <Input inputMode="numeric" value={form.duration_months} onChange={e => set('duration_months', e.target.value.replace(/\D/g, ''))} placeholder="3" />
                   </label>
                 )}
               </div>
@@ -676,30 +682,30 @@ export default function AdminCoupons() {
               <h3 className="text-sm font-semibold text-foreground">Validade e limites</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground">Pode ser usado a partir de</span>
-                  <input type="datetime-local" className={inputCls} value={form.valid_from} onChange={e => set('valid_from', e.target.value)} />
+                  <span className={rotulo}>Pode ser usado a partir de</span>
+                  <Input type="datetime-local" value={form.valid_from} onChange={e => set('valid_from', e.target.value)} />
                 </label>
                 {form.tipo === 'afiliado' ? (
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Válido por (dias, até 30) *</span>
-                    <input className={inputCls} inputMode="numeric" value={form.valid_days} onChange={e => set('valid_days', e.target.value.replace(/\D/g, ''))} placeholder="30" />
+                    <span className={rotulo}>Válido por (dias, até 30) *</span>
+                    <Input inputMode="numeric" value={form.valid_days} onChange={e => set('valid_days', e.target.value.replace(/\D/g, ''))} placeholder="30" />
                   </label>
                 ) : (
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Pode ser usado até</span>
-                    <input type="datetime-local" className={inputCls} value={form.valid_until} onChange={e => set('valid_until', e.target.value)} />
+                    <span className={rotulo}>Pode ser usado até</span>
+                    <Input type="datetime-local" value={form.valid_until} onChange={e => set('valid_until', e.target.value)} />
                   </label>
                 )}
                 <label className="space-y-1">
-                  <span className="text-xs font-semibold text-muted-foreground">Limite total de usos</span>
-                  <input className={inputCls} inputMode="numeric" value={form.max_uses} onChange={e => set('max_uses', e.target.value.replace(/\D/g, ''))} placeholder="sem limite" />
+                  <span className={rotulo}>Limite total de usos</span>
+                  <Input inputMode="numeric" value={form.max_uses} onChange={e => set('max_uses', e.target.value.replace(/\D/g, ''))} placeholder="sem limite" />
                 </label>
                 {form.tipo === 'afiliado' ? (
                   <p className="text-xs text-muted-foreground self-end pb-2">Usos por produtor: <strong>1</strong> (regra do cupom de afiliado)</p>
                 ) : (
                   <label className="space-y-1">
-                    <span className="text-xs font-semibold text-muted-foreground">Usos por produtor</span>
-                    <input className={inputCls} inputMode="numeric" value={form.max_uses_per_user} onChange={e => set('max_uses_per_user', e.target.value.replace(/\D/g, ''))} placeholder="sem limite" />
+                    <span className={rotulo}>Usos por produtor</span>
+                    <Input inputMode="numeric" value={form.max_uses_per_user} onChange={e => set('max_uses_per_user', e.target.value.replace(/\D/g, ''))} placeholder="sem limite" />
                   </label>
                 )}
               </div>
@@ -711,6 +717,7 @@ export default function AdminCoupons() {
                 {PLANOS.map(p => (
                   <label key={p.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                     <input
+                      className={marca}
                       type="checkbox"
                       checked={form.plans.includes(p.id)}
                       onChange={e => set('plans', e.target.checked ? [...form.plans, p.id] : form.plans.filter(x => x !== p.id))}
@@ -725,6 +732,7 @@ export default function AdminCoupons() {
                   {ORIGENS.map(p => (
                     <label key={p.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
                       <input
+                        className={marca}
                         type="checkbox"
                         checked={form.upgrade_from.includes(p.id)}
                         onChange={e => set('upgrade_from', e.target.checked ? [...form.upgrade_from, p.id] : form.upgrade_from.filter(x => x !== p.id))}
@@ -736,7 +744,7 @@ export default function AdminCoupons() {
               ) : (
                 <label className="space-y-1">
                   <span className="text-sm font-semibold text-foreground">Público</span>
-                  <select className={inputCls} value={form.audience} onChange={e => set('audience', e.target.value as Audience)}>
+                  <select className={selectNativo} value={form.audience} onChange={e => set('audience', e.target.value as Audience)}>
                     {(Object.keys(AUDIENCE_LABEL) as Audience[]).map(a => <option key={a} value={a}>{AUDIENCE_LABEL[a]}</option>)}
                   </select>
                 </label>
@@ -744,16 +752,15 @@ export default function AdminCoupons() {
             </section>
 
             <label className="flex items-center gap-2 text-sm text-foreground">
-              <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} />
+              <input className={marca} type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} />
               Cupom ativo
             </label>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground">Cancelar</button>
-              <button type="submit" disabled={salvar.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-                {salvar.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              <Button type="button" variant="outline" onClick={() => setForm(null)}>Cancelar</Button>
+              <Button type="submit" loading={salvar.isPending}>
                 {form.id ? 'Salvar alterações' : form.request_id ? 'Criar cupom e aprovar pedido' : 'Criar cupom'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

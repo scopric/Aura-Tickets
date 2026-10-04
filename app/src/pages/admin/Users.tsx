@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Users as UsersIcon, Search, User, Mail, Phone, 
-  Shield, Edit3, X, CreditCard, 
-  Key, Clock, Activity, ArrowUpRight, Loader2
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Switch } from '@/components/ui/switch'
+import { EmptyState, PageHeader, Stat, selectNativo, chipAviso, chipErro, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
+import { iniciais } from '../../hooks/useConversas'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { toast } from 'sonner'
@@ -42,11 +47,11 @@ const roleLabels: Record<string, string> = {
 }
 
 const roleColors: Record<string, string> = {
-  user: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-400',
-  customer: 'bg-teal-100 text-teal-700 dark:bg-teal-500/10 dark:text-teal-400',
-  producer: 'bg-purple-100 text-purple-700 dark:bg-purple-500/10 dark:text-purple-400',
-  admin: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400',
-  editor: 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400'
+  user: chipNeutro,
+  customer: chipNeutro,
+  producer: chipInfo,
+  admin: chipErro,
+  editor: chipAviso
 }
 
 const PLAN_FEATURES: Record<string, string[]> = {
@@ -449,30 +454,33 @@ export default function AdminUsers() {
     activeSubscribers: profiles.filter(p => p.producer_subscriptions?.is_active).length
   }
 
+  // Sem foto: iniciais locais (nome e e-mail não vão a api.dicebear.com; LGPD)
+  const avatar = (p: Profile, tamanho: string) => p.avatar_url
+    ? <img src={p.avatar_url} alt="" className={cn(tamanho, 'shrink-0 rounded-full bg-muted object-cover')} />
+    : <span aria-hidden="true" className={cn(tamanho, 'grid shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground')}>{iniciais(p.full_name || p.email)}</span>
+
+  // Rótulo de campo do drawer
+  const rotulo = 'mb-1.5 block text-xs font-semibold text-muted-foreground'
+  // Título de seção do drawer
+  const secao = 'flex items-center gap-1.5 text-[13px] font-semibold text-foreground [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground'
+
   return (
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Gestão de Usuários</h1>
-          <p className="text-sm text-espresso/70 mt-1">Autorização de acessos, precificação e liberação de recursos do Supabase</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Gestão de Usuários"
+        description="Autorização de acessos, precificação e liberação de recursos do Supabase"
+      />
 
       {/* KPIs Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Usuários', value: kpis.total.toString(), icon: UsersIcon, color: 'text-blue-500' },
-          { label: 'Produtores', value: kpis.producers.toString(), icon: Shield, color: 'text-purple-500' },
-          { label: 'Administradores', value: kpis.admins.toString(), icon: Shield, color: 'text-red-500' },
-          { label: 'Planos Ativos', value: kpis.activeSubscribers.toString(), icon: CreditCard, color: 'text-green-500' },
+          { label: 'Total Usuários', value: kpis.total.toString() },
+          { label: 'Produtores', value: kpis.producers.toString() },
+          { label: 'Administradores', value: kpis.admins.toString() },
+          { label: 'Planos Ativos', value: kpis.activeSubscribers.toString() },
         ].map(k => (
-          <div key={k.label} className="user-card p-5 rounded-2xl surface">
-            <div className="flex items-center justify-between mb-3">
-              <k.icon className={`w-5 h-5 ${k.color}`} />
-            </div>
-            <div className={`font-serif text-2xl text-espresso`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
+          <div key={k.label} className="user-card">
+            <Stat label={k.label} value={k.value} />
           </div>
         ))}
       </div>
@@ -480,21 +488,22 @@ export default function AdminUsers() {
       {/* Search & Filters */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <div className="relative flex-1 max-w-md w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-          <input 
+          <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar por nome, e-mail ou telefone..." 
-            className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors" 
+            placeholder="Buscar por nome, e-mail ou telefone..."
+            aria-label="Buscar usuário"
+            className="pl-9"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
           {/* Role Filter */}
-          <select 
+          <select
             value={roleFilter}
             onChange={e => setRoleFilter(e.target.value)}
             aria-label="Filtrar por Papel"
-            className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30"
+            className={cn(selectNativo, 'md:w-auto')}
           >
             <option value="all">Todos os Papéis</option>
             <option value="user">Participante</option>
@@ -503,120 +512,105 @@ export default function AdminUsers() {
             <option value="editor">Editor</option>
             <option value="admin">Administrador</option>
           </select>
-
         </div>
       </div>
 
       {loadError && (
-        <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+        <div role="alert" className={cn(alertaErro, 'mb-4')}>
           Não foi possível carregar os usuários: {loadError}
         </div>
       )}
 
       {/* Users Table */}
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-3" role="status" aria-label="Carregando usuários">
           {[1, 2, 3].map(n => (
-            <div key={n} className="h-16 rounded-2xl bg-white/40 border border-white/60 animate-pulse" />
+            <div key={n} className="h-16 rounded-[10px] bg-muted animate-pulse" />
           ))}
         </div>
+      ) : filteredProfiles.length === 0 ? (
+        <EmptyState title="Nenhum usuário encontrado com as configurações de busca." />
       ) : (
-        <div className="surface overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full table-premium">
-              <thead>
-                <tr>
-                  <th>Usuário</th>
-                  <th className="hidden md:table-cell">Contato</th>
-                  <th className="hidden lg:table-cell">Assinatura / Preço</th>
-                  <th className="hidden lg:table-cell">Recursos Extras</th>
-                  <th>Cadastro</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredProfiles.map(p => {
-                  const sub = p.producer_subscriptions
-                  const customFeats = p.user_custom_features || []
-                  
-                  return (
-                    <tr key={p.id}>
-                      <td>
-                        <div className="flex items-center gap-3">
-                          <img 
-                            src={p.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${p.full_name || p.email}`} 
-                            alt="" 
-                            className="w-9 h-9 rounded-full object-cover ring-2 ring-canvas" 
-                          />
-                          <div>
-                            <div className="text-sm text-espresso font-medium">{p.full_name || 'Sem nome'}</div>
-                            <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded ${roleColors[p.role]}`}>
-                              {roleLabels[p.role] || p.role}
-                            </span>
+        <div className={`${painel} overflow-hidden`}>
+          <Tabela label="Usuários">
+            <thead>
+              <tr className="border-b border-border">
+                <th className={th}>Usuário</th>
+                <th className={cn(th, 'hidden md:table-cell')}>Contato</th>
+                <th className={cn(th, 'hidden lg:table-cell')}>Assinatura / Preço</th>
+                <th className={cn(th, 'hidden lg:table-cell')}>Recursos Extras</th>
+                <th className={th}>Cadastro</th>
+                <th className={th}><span className="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredProfiles.map(p => {
+                const sub = p.producer_subscriptions
+                const customFeats = p.user_custom_features || []
+
+                return (
+                  <tr key={p.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {avatar(p, 'size-9')}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground">{p.full_name || 'Sem nome'}</div>
+                          <Badge variant="secondary" className={roleColors[p.role] || chipNeutro}>
+                            {roleLabels[p.role] || p.role}
+                          </Badge>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      <div className="space-y-0.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5"><I.Email size={14} aria-hidden="true" />{p.email}</div>
+                        {p.phone && <div className="flex items-center gap-1.5"><I.Telefone size={14} aria-hidden="true" />{p.phone}</div>}
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      {sub ? (
+                        <div className="text-xs">
+                          <span className="font-semibold capitalize text-primary">{sub.plan}</span>
+                          <div className="mt-0.5 text-[11px] text-muted-foreground">
+                            <span>Preço do plano</span>
                           </div>
-                        </div>
-                      </td>
-                      <td className="hidden md:table-cell">
-                        <div className="space-y-0.5 text-xs text-espresso/70">
-                          <div className="flex items-center gap-1"><Mail className="w-3.5 h-3.5 opacity-55" />{p.email}</div>
-                          {p.phone && <div className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 opacity-55" />{p.phone}</div>}
-                        </div>
-                      </td>
-                      <td className="hidden lg:table-cell">
-                        {sub ? (
-                          <div className="text-xs">
-                            <span className="font-semibold text-plum capitalize">{sub.plan}</span>
-                            <div className="text-[10px] text-espresso/70 mt-0.5">
-                              <span>Preço do plano</span>
+                          {sub.expires_at && (
+                            <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
+                              <I.Horario size={12} aria-hidden="true" /> Expira: {new Date(sub.expires_at).toLocaleDateString('pt-BR')}
                             </div>
-                            {sub.expires_at && (
-                              <div className="text-[9px] text-espresso/70 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-3 h-3" /> Expira: {new Date(sub.expires_at).toLocaleDateString('pt-BR')}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-espresso/70">Nenhuma</span>
-                        )}
-                      </td>
-                      <td className="hidden lg:table-cell">
-                        {customFeats.length > 0 ? (
-                          <div className="flex flex-wrap gap-1 max-w-[200px]">
-                            {customFeats.map(f => (
-                              <span key={f.feature_key} className="text-[8px] bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-espresso/70 px-1.5 py-0.5 rounded" title={f.expires_at ? `Expira em ${new Date(f.expires_at).toLocaleDateString('pt-BR')}` : 'Tempo ilimitado'}>
-                                {f.feature_key}
-                              </span>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-espresso/70">—</span>
-                        )}
-                      </td>
-                      <td>
-                        <span className="text-xs text-espresso/70" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
-                      </td>
-                      <td>
-                        <button 
-                          onClick={() => handleOpenEdit(p)}
-                          className="flex items-center gap-1 px-3 py-1.5 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-espresso/70 hover:text-plum hover:border-plum/20 text-xs font-semibold rounded-lg transition-all"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          Gerenciar
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-                {filteredProfiles.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="py-12 text-center text-sm text-espresso/70 italic">
-                      Nenhum usuário encontrado com as configurações de busca.
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Nenhuma</span>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      {customFeats.length > 0 ? (
+                        <div className="flex max-w-[200px] flex-wrap gap-1">
+                          {customFeats.map(f => (
+                            <Badge key={f.feature_key} variant="secondary" className={cn(chipNeutro, 'text-[11px]')} title={f.expires_at ? `Expira em ${new Date(f.expires_at).toLocaleDateString('pt-BR')}` : 'Tempo ilimitado'}>
+                              {f.feature_key}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-muted-foreground" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Button variant="outline" size="sm" onClick={() => handleOpenEdit(p)}>
+                        <I.Editar aria-hidden="true" />
+                        Gerenciar
+                      </Button>
                     </td>
                   </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                )
+              })}
+            </tbody>
+          </Tabela>
         </div>
       )}
 
@@ -624,52 +618,38 @@ export default function AdminUsers() {
       {selectedProfile && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedProfile(null)} />
-          <div className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0">
+          <div role="dialog" aria-modal="true" aria-label={`Gerenciar ${selectedProfile.full_name || selectedProfile.email}`} className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0 text-foreground">
             {/* Top Header */}
-            <div className="p-6 border-b border-slate-200/60 dark:border-white/5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img 
-                  src={selectedProfile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${selectedProfile.full_name || selectedProfile.email}`} 
-                  alt="" 
-                  className="w-12 h-12 rounded-full object-cover ring-2 ring-plum/20" 
-                />
-                <div>
-                  <h3 className="font-serif text-lg text-espresso">{selectedProfile.full_name || 'Sem nome'}</h3>
-                  <div className="text-xs text-espresso/70">{selectedProfile.email}</div>
+            <div className="p-6 border-b border-border flex items-center justify-between gap-4">
+              <div className="flex min-w-0 items-center gap-3">
+                {avatar(selectedProfile, 'size-12')}
+                <div className="min-w-0">
+                  <h3 className="text-lg font-semibold leading-6 text-foreground">{selectedProfile.full_name || 'Sem nome'}</h3>
+                  <div className="break-all text-xs text-muted-foreground">{selectedProfile.email}</div>
                 </div>
               </div>
-              <button 
-                onClick={() => setSelectedProfile(null)}
-                className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-white/5 text-espresso/70 hover:text-espresso"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <Button autoFocus variant="ghost" size="icon" onClick={() => setSelectedProfile(null)} aria-label="Fechar gerenciamento">
+                <I.Fechar aria-hidden="true" />
+              </Button>
             </div>
 
             {/* Tabs Selector */}
-            <div className="px-6 border-b border-slate-200/60 dark:border-white/5 flex gap-4">
-              <button
-                type="button"
-                onClick={() => setDrawerTab('config')}
-                className={`py-3 text-xs font-semibold border-b-2 transition-all ${
-                  drawerTab === 'config' 
-                    ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/70 hover:text-espresso'
-                }`}
-              >
-                Configurações RLS
-              </button>
-              <button
-                type="button"
-                onClick={() => setDrawerTab('history')}
-                className={`py-3 text-xs font-semibold border-b-2 transition-all ${
-                  drawerTab === 'history' 
-                    ? 'border-plum text-plum' 
-                    : 'border-transparent text-espresso/70 hover:text-espresso'
-                }`}
-              >
-                Histórico & Comportamento
-              </button>
+            <div role="tablist" aria-label="Seções do usuário" className="px-6 border-b border-border flex gap-4">
+              {([['config', 'Configurações RLS'], ['history', 'Histórico & Comportamento']] as const).map(([id, rotuloAba]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={drawerTab === id}
+                  onClick={() => setDrawerTab(id)}
+                  className={cn(
+                    '-mb-px border-b-2 py-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    drawerTab === id ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {rotuloAba}
+                </button>
+              ))}
             </div>
 
             {/* Scrollable Body depends on Tab */}
@@ -677,18 +657,19 @@ export default function AdminUsers() {
               <div className="p-6 space-y-6 overflow-y-auto flex-1">
                 {/* Seção 1: Role & Autorização */}
                 <div className="space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5"><User className="w-4 h-4" /> Conta & Papel (Role)</h4>
-                  
+                  <h4 className={secao}><I.Conta aria-hidden="true" /> Conta & Papel (Role)</h4>
+
                   <div className="grid grid-cols-2 gap-4">
                     {/* Select Role */}
                     <div>
-                      <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Papel do Usuário</label>
-                      <select 
+                      <label htmlFor="usuario-papel" className={rotulo}>Papel do Usuário</label>
+                      <select
+                        id="usuario-papel"
                         value={editRole}
                         onChange={e => setEditRole(e.target.value as Profile['role'])}
                         disabled={selectedProfile.id === loggedInUser?.id || (selectedProfile.role === 'admin' && !souSuper)}
                         title={selectedProfile.id === loggedInUser?.id ? 'Você não pode alterar o próprio papel' : selectedProfile.role === 'admin' && !souSuper ? 'Papel de admin: só o Super Admin altera (em Equipe)' : undefined}
-                        className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700 disabled:opacity-50"
+                        className={cn(selectNativo, 'disabled:cursor-not-allowed disabled:opacity-50')}
                       >
                         <option value="user">Participante</option>
                         <option value="producer">Produtor</option>
@@ -696,22 +677,22 @@ export default function AdminUsers() {
                         {(souSuper || selectedProfile.role === 'admin') && <option value="admin">Administrador</option>}
                       </select>
                     </div>
-
                   </div>
                 </div>
 
                 {/* Seção 2: Plano & Gratuidade */}
-                <div className="space-y-4 pt-4 border-t border-slate-200/60 dark:border-white/5">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5"><CreditCard className="w-4 h-4" /> Plano & Assinatura</h4>
-                  
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <h4 className={secao}><I.Cartao aria-hidden="true" /> Plano & Assinatura</h4>
+
                   <div className="space-y-3">
                     {/* Select Plan */}
                     <div>
-                      <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Alterar Plano</label>
-                      <select 
+                      <label htmlFor="usuario-plano" className={rotulo}>Alterar Plano</label>
+                      <select
+                        id="usuario-plano"
                         value={editPlan}
                         onChange={e => setEditPlan(e.target.value as Subscription['plan'])}
-                        className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
+                        className={selectNativo}
                       >
                         {PLANS.map(p => (
                           <option key={p.id} value={p.id}>{p.name}{p.monthlyPrice ? ` (R$ ${p.monthlyPrice}/mês)` : ' (gratuito)'}</option>
@@ -723,14 +704,14 @@ export default function AdminUsers() {
                       <div className="grid grid-cols-2 gap-4">
                         {/* Tempo de Gratuidade / Expiração */}
                         <div>
-                          <label className="text-xs font-semibold text-espresso/70 mb-1.5 block">Vencimento / Expiração</label>
-                          <input
+                          <label htmlFor="usuario-vencimento" className={rotulo}>Vencimento / Expiração</label>
+                          <Input
+                            id="usuario-vencimento"
                             type="date"
                             value={editExpiresAt}
                             onChange={e => setEditExpiresAt(e.target.value)}
-                            className="w-full px-3 py-2 bg-white/60 border border-slate-200 rounded-xl text-xs text-espresso focus:outline-none focus:border-plum/30 dark:bg-zinc-800 dark:border-zinc-700"
                           />
-                          <span className="text-[9px] text-espresso/70 mt-1 block">Data limite da gratuidade ou assinatura.</span>
+                          <span className="mt-1 block text-[11px] text-muted-foreground">Data limite da gratuidade ou assinatura.</span>
                         </div>
                       </div>
                     )}
@@ -738,102 +719,95 @@ export default function AdminUsers() {
                 </div>
 
                 {/* Seção 3: Ferramentas Adicionais (Features) */}
-                <div className="space-y-4 pt-4 border-t border-slate-200/60 dark:border-white/5">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5">
-                      <Key className="w-4 h-4" /> Ferramentas do Produtor
+                <div className="space-y-4 pt-4 border-t border-border">
+                  <div className="flex items-center justify-between gap-2">
+                    <h4 className={secao}>
+                      <I.Chave aria-hidden="true" /> Ferramentas do Produtor
                     </h4>
-                    <span className="text-[10px] bg-plum/10 text-plum px-2.5 py-0.5 rounded-full font-bold uppercase">
+                    <Badge variant="secondary" className={cn(chipInfo, 'uppercase')}>
                       Plano: {editPlan}
-                    </span>
+                    </Badge>
                   </div>
-                  
+
                   {editRole === 'user' || editRole === 'customer' ? (
-                    <div className="p-4 rounded-xl bg-amber-500/5 border border-amber-500/10 text-center">
-                      <p className="text-[11px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed">
+                    <div className={cn(alertaAviso, 'p-4 text-[13px] leading-relaxed')}>
+                      <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
+                      <p>
                         Este usuário é um <strong>Participante</strong>. Ferramentas de produtor não se aplicam a contas de participante comuns, a menos que você altere o papel dele para Produtor ou Editor no painel acima.
                       </p>
                     </div>
                   ) : (
                     <>
-                      <p className="text-[10px] text-espresso/70 leading-relaxed">
+                      <p className="text-xs leading-relaxed text-muted-foreground">
                         Ferramentas nativas do plano <strong className="capitalize">{editPlan}</strong> são liberadas automaticamente. Ative individualmente (Bypass) os recursos adicionais desejados.
                       </p>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
                         {availableFeatures.map(feat => {
                           const inPlan = isFeatureInPlan(feat.key)
                           const tempFeat = tempFeatures[feat.key] || { active: false, expires_at: '' }
-                          
+
                           return (
-                            <div 
-                              key={feat.key} 
-                              className={`p-3 rounded-xl border transition-all flex flex-col justify-between min-h-[92px] ${
-                                inPlan 
-                                  ? 'bg-green-50/40 border-green-200/60 dark:bg-green-950/10 dark:border-green-900/30' 
-                                  : tempFeat.active
-                                  ? 'bg-plum/5 border-plum/20 dark:bg-plum/5 dark:border-plum/20 shadow-sm'
-                                  : 'bg-white/40 border-slate-200/60 hover:border-slate-300 dark:bg-white/5 dark:border-white/5'
-                              }`}
+                            <div
+                              key={feat.key}
+                              className={cn(
+                                'flex min-h-[92px] flex-col justify-between rounded-[10px] border p-3',
+                                inPlan ? chipOk : tempFeat.active ? 'border-primary/40 bg-[var(--ev-brand-soft)]' : 'border-border bg-card',
+                              )}
                             >
                               <div className="flex items-start justify-between gap-2">
                                 <div>
-                                  <div className="text-[11px] font-bold text-espresso">{feat.name}</div>
-                                  <div className="text-[9px] text-espresso/70 mt-0.5 leading-snug">{feat.desc}</div>
+                                  <div className="text-xs font-semibold text-foreground">{feat.name}</div>
+                                  <div className="mt-0.5 text-[11px] leading-snug text-muted-foreground">{feat.desc}</div>
                                 </div>
-                                
+
                                 {inPlan ? (
-                                  <span className="text-[8px] bg-green-500/10 text-green-600 border border-green-500/20 px-1.5 py-0.5 rounded-md font-bold uppercase shrink-0">
+                                  <Badge variant="secondary" className={cn(chipOk, 'shrink-0')}>
                                     No Plano
-                                  </span>
+                                  </Badge>
                                 ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setTempFeatures(prev => ({
+                                  <Switch
+                                    checked={tempFeat.active}
+                                    onCheckedChange={() => setTempFeatures(prev => ({
                                       ...prev,
                                       [feat.key]: { ...prev[feat.key], active: !tempFeat.active }
                                     }))}
-                                    className={`w-9 h-5 rounded-full p-0.5 transition-colors flex items-center shrink-0 ${
-                                      tempFeat.active ? 'bg-plum' : 'bg-slate-200 dark:bg-white/10'
-                                    }`}
-                                  >
-                                    <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform ${
-                                      tempFeat.active ? 'translate-x-4' : 'translate-x-0'
-                                    }`} />
-                                  </button>
+                                    aria-label={`Liberar ${feat.name}`}
+                                  />
                                 )}
                               </div>
-                              
+
                               {!inPlan && tempFeat.active && (
-                                <div className="flex flex-col gap-1.5 mt-2 pt-2 border-t border-plum/10">
-                                  <div className="flex items-center justify-between gap-1 text-[9px] text-espresso/70">
-                                    <span className="flex items-center gap-1 font-medium"><Clock className="w-3 h-3" /> Expira em:</span>
+                                <div className="mt-2 flex flex-col gap-1.5 border-t border-border pt-2">
+                                  <div className="flex items-center justify-between gap-1 text-[11px] text-muted-foreground">
+                                    <span className="flex items-center gap-1 font-medium"><I.Horario size={12} aria-hidden="true" /> Expira em:</span>
                                     <button
                                       type="button"
                                       onClick={() => setTempFeatures(prev => ({
                                         ...prev,
-                                        [feat.key]: { 
-                                          ...prev[feat.key], 
-                                          expires_at: tempFeat.expires_at ? '' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10) 
+                                        [feat.key]: {
+                                          ...prev[feat.key],
+                                          expires_at: tempFeat.expires_at ? '' : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().substring(0, 10)
                                         }
                                       }))}
-                                      className="text-plum hover:underline font-bold text-[8px]"
+                                      className="rounded-xs text-[11px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                                     >
                                       {tempFeat.expires_at ? 'Mudar p/ Vitalício' : 'Definir Prazo (30d)'}
                                     </button>
                                   </div>
                                   {tempFeat.expires_at ? (
-                                    <input
+                                    <Input
                                       type="date"
+                                      aria-label={`Expiração de ${feat.name}`}
                                       value={tempFeat.expires_at}
                                       onChange={e => setTempFeatures(prev => ({
                                         ...prev,
                                         [feat.key]: { ...prev[feat.key], expires_at: e.target.value }
                                       }))}
-                                      className="w-full px-2 py-1 bg-white/85 dark:bg-zinc-800 dark:border-zinc-700 border border-slate-200 rounded-md text-[9px] text-espresso focus:outline-none"
+                                      className="h-8 px-2 text-xs"
                                     />
                                   ) : (
-                                    <span className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">Acesso Vitalício</span>
+                                    <span className="text-[11px] font-semibold text-[var(--ev-success)]">Acesso Vitalício</span>
                                   )}
                                 </div>
                               )}
@@ -848,84 +822,75 @@ export default function AdminUsers() {
             ) : (
               <div className="p-6 space-y-6 overflow-y-auto flex-1">
                 {userHistoryLoading ? (
-                  <div className="py-20 text-center">
-                    <Loader2 className="w-8 h-8 text-plum animate-spin mx-auto mb-3" />
-                    <p className="text-xs text-espresso/70">Carregando histórico e métricas...</p>
+                  <div className="py-20 text-center" role="status">
+                    <Spinner className="mx-auto mb-3 size-8 text-primary" />
+                    <p className="text-xs text-muted-foreground">Carregando histórico e métricas...</p>
                   </div>
                 ) : (
                   <div className="space-y-6">
                     {historyError && (
-                      <div role="alert" className="p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                      <div role="alert" className={cn(alertaErro, 'p-3 text-xs')}>
                         Não foi possível carregar o histórico: {historyError}
                       </div>
                     )}
                     {/* Status da Conta */}
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-white/40 border border-white/60 dark:bg-white/5 dark:border-white/5">
+                    <div className="flex items-center justify-between gap-3 rounded-[10px] border border-border bg-secondary/50 p-4">
                       <div>
-                        <div className="text-xs text-espresso/70">Status do Usuário</div>
-                        <div className="text-sm font-bold text-espresso mt-0.5">Tempo de Atividade & Assinatura</div>
+                        <div className="text-xs text-muted-foreground">Status do Usuário</div>
+                        <div className="mt-0.5 text-sm font-semibold text-foreground">Tempo de Atividade & Assinatura</div>
                       </div>
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full border ${
-                        userHistoryMetrics?.accountStatus === 'Ativo' 
-                          ? 'bg-green-50 text-green-700 border-green-100 dark:bg-green-500/10 dark:text-green-400 dark:border-green-500/20' 
-                          : userHistoryMetrics?.accountStatus === 'Inativo'
-                          ? 'bg-slate-50 border-slate-200 text-slate-500 dark:bg-zinc-700/50 dark:text-zinc-400 dark:border-zinc-600'
-                          : 'bg-rose-50 text-rose-700 border-rose-100 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20'
-                      }`}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${
-                          userHistoryMetrics?.accountStatus === 'Ativo' 
-                            ? 'bg-green-500' 
-                            : userHistoryMetrics?.accountStatus === 'Inativo'
-                            ? 'bg-slate-400'
-                            : 'bg-rose-500'
-                        }`} />
+                      <Badge variant="secondary" className={cn(
+                        'px-3 py-1',
+                        userHistoryMetrics?.accountStatus === 'Ativo' ? chipOk
+                          : userHistoryMetrics?.accountStatus === 'Inativo' ? chipNeutro
+                          : chipErro,
+                      )}>
+                        <span aria-hidden="true" className="size-2 rounded-full bg-current" />
                         {userHistoryMetrics?.accountStatus || 'Sem registros'}
-                      </span>
+                      </Badge>
                     </div>
 
                     {/* Grid de Métricas */}
                     <div className="grid grid-cols-2 gap-4">
                       {[
-                        { label: 'Tempo sem Uso', value: !userHistoryMetrics ? '—' : userHistoryMetrics.inactivityDays === 0 ? 'Ativo Hoje' : `${userHistoryMetrics.inactivityDays} dias`, desc: 'Desde o último log', icon: Clock, color: 'text-amber-500' },
-                        { label: 'Total de Logins', value: `${userHistoryMetrics?.totalLogins || 0} logins`, desc: 'Acessos registrados', icon: Shield, color: 'text-plum' },
-                        { label: 'Média por Sessão', value: `${userHistoryMetrics?.avgSessionTimeMin || 0} min`, desc: 'Tempo médio de navegação', icon: Activity, color: 'text-blue-500' },
-                        { label: 'Frequência Mensal', value: `${userHistoryMetrics?.monthlyFrequency || 0} dias ativos`, desc: 'Acessos únicos nos últimos 30d', icon: UsersIcon, color: 'text-purple-500' },
+                        { label: 'Tempo sem Uso', value: !userHistoryMetrics ? '—' : userHistoryMetrics.inactivityDays === 0 ? 'Ativo Hoje' : `${userHistoryMetrics.inactivityDays} dias`, desc: 'Desde o último log', icon: I.Horario },
+                        { label: 'Total de Logins', value: `${userHistoryMetrics?.totalLogins || 0} logins`, desc: 'Acessos registrados', icon: I.Escudo },
+                        { label: 'Média por Sessão', value: `${userHistoryMetrics?.avgSessionTimeMin || 0} min`, desc: 'Tempo médio de navegação', icon: I.Atividade },
+                        { label: 'Frequência Mensal', value: `${userHistoryMetrics?.monthlyFrequency || 0} dias ativos`, desc: 'Acessos únicos nos últimos 30d', icon: I.Pessoas },
                       ].map(m => (
-                        <div key={m.label} className="p-4 rounded-2xl bg-white/40 border border-white/60 dark:bg-white/5 dark:border-white/5">
-                          <div className="flex items-center justify-between mb-2">
-                            <m.icon className={`w-4 h-4 ${m.color}`} />
-                          </div>
-                          <div className="text-sm font-bold text-espresso">{m.value}</div>
-                          <div className="text-[10px] text-espresso/70 font-medium mt-0.5">{m.label}</div>
-                          <div className="text-[9px] text-espresso/70 mt-1">{m.desc}</div>
+                        <div key={m.label} className="rounded-[10px] border border-border bg-card p-4">
+                          <m.icon size={16} className="mb-2 text-muted-foreground" aria-hidden="true" />
+                          <div className="text-sm font-semibold text-foreground">{m.value}</div>
+                          <div className="mt-0.5 text-xs font-medium text-muted-foreground">{m.label}</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">{m.desc}</div>
                         </div>
                       ))}
                     </div>
 
                     {/* Carrinho Abandonado */}
-                    <div className="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5">
-                        <ArrowUpRight className="w-4 h-4" /> Carrinho Abandonado (Visualizados sem Compra)
+                    <div className="space-y-3 pt-4 border-t border-border">
+                      <h4 className={secao}>
+                        <I.SetaDiagonalCima aria-hidden="true" /> Carrinho Abandonado (Visualizados sem Compra)
                       </h4>
-                      <p className="text-[10px] text-espresso/70">Eventos cujos detalhes foram visualizados, mas para os quais nenhum ingresso foi adquirido ainda.</p>
-                      
+                      <p className="text-xs text-muted-foreground">Eventos cujos detalhes foram visualizados, mas para os quais nenhum ingresso foi adquirido ainda.</p>
+
                       {abandonedEvents.length === 0 ? (
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/70 italic">
+                        <div className="rounded-[10px] border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                           Nenhum interesse abandonado registrado.
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {abandonedEvents.map(ev => (
-                            <div key={ev.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 flex items-start justify-between gap-3">
+                            <div key={ev.id} className="flex items-start justify-between gap-3 rounded-[10px] border border-border bg-card p-3.5">
                               <div>
-                                <div className="text-xs font-bold text-espresso">{ev.title}</div>
-                                <div className="text-[9.5px] text-espresso/70 mt-1">
+                                <div className="text-xs font-semibold text-foreground">{ev.title}</div>
+                                <div className="mt-1 text-[11px] text-muted-foreground">
                                   {new Date(ev.date).toLocaleDateString('pt-BR')} · {ev.time} · {ev.venue}
                                 </div>
                               </div>
-                              <span className="text-[8.5px] font-bold uppercase px-1.5 py-0.5 bg-amber-500/10 text-amber-600 border border-amber-500/20 rounded-md shrink-0">
+                              <Badge variant="secondary" className={chipAviso}>
                                 Sem ingresso
-                              </span>
+                              </Badge>
                             </div>
                           ))}
                         </div>
@@ -933,30 +898,30 @@ export default function AdminUsers() {
                     </div>
 
                     {/* Timeline de Navegação Recente */}
-                    <div className="space-y-3 pt-4 border-t border-slate-200/60 dark:border-white/5">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-plum flex items-center gap-1.5">
-                        <Activity className="w-4 h-4" /> Histórico de Navegação Recente
+                    <div className="space-y-3 pt-4 border-t border-border">
+                      <h4 className={secao}>
+                        <I.Atividade aria-hidden="true" /> Histórico de Navegação Recente
                       </h4>
-                      <p className="text-[10px] text-espresso/70">Últimas 15 ações registradas para esta conta de acordo com a telemetria do app.</p>
-                      
+                      <p className="text-xs text-muted-foreground">Últimas 15 ações registradas para esta conta de acordo com a telemetria do app.</p>
+
                       {recentNavigation.length === 0 ? (
-                        <div className="p-4 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/5 text-center text-xs text-espresso/70 italic">
+                        <div className="rounded-[10px] border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                           Nenhuma atividade recente registrada.
                         </div>
                       ) : (
-                        <div className="space-y-4 pl-2 relative border-l border-slate-200 dark:border-white/10 ml-2">
+                        <div className="relative ml-2 space-y-4 border-l border-border pl-2">
                           {recentNavigation.map(log => {
                             const date = new Date(log.created_at)
                             return (
                               <div key={log.id} className="relative pl-6">
-                                <div className={`absolute left-[-25px] top-1 w-3 h-3 rounded-full border-2 border-canvas ${
-                                  log.event_type === 'login' ? 'bg-green-500' :
-                                  log.event_type === 'add_to_cart' ? 'bg-amber-500' :
-                                  log.event_type === 'purchase' ? 'bg-emerald-500' :
-                                  'bg-plum'
-                                }`} />
-                                <div className="flex items-center justify-between text-[11px] font-medium text-espresso/70">
-                                  <span className="font-bold text-espresso capitalize">
+                                <div className={cn(
+                                  'absolute left-[-25px] top-1 size-3 rounded-full border-2 border-card',
+                                  log.event_type === 'login' || log.event_type === 'purchase' ? 'bg-[var(--ev-success)]'
+                                    : log.event_type === 'add_to_cart' ? 'bg-[var(--ev-warning)]'
+                                    : 'bg-primary',
+                                )} />
+                                <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
+                                  <span className="font-semibold capitalize text-foreground">
                                     {log.event_type === 'page_view' ? 'Visualizou Página' :
                                      log.event_type === 'login' ? 'Efetuou Login' :
                                      log.event_type === 'add_to_cart' ? 'Adicionou ao Carrinho' :
@@ -964,15 +929,15 @@ export default function AdminUsers() {
                                      log.event_type === 'session_start' ? 'Iniciou Sessão' :
                                      log.event_type}
                                   </span>
-                                  <span className="text-[9.5px] text-espresso/70 font-mono">
+                                  <span className="font-mono text-[11px]">
                                     {date.toLocaleDateString('pt-BR')} {date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                                   </span>
                                 </div>
-                                <div className="text-[9.5px] text-espresso/70 font-mono mt-0.5 break-all">
+                                <div className="mt-0.5 break-all font-mono text-[11px] text-muted-foreground">
                                   {log.path || '/'}
                                 </div>
                                 {log.metadata && (
-                                  <div className="text-[8px] text-espresso/70 mt-0.5 font-mono">
+                                  <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
                                     Device: {log.metadata.device || 'Desconhecido'}{log.metadata.userAgent ? ` · Agent: ${String(log.metadata.userAgent).slice(0, 40)}…` : ''}
                                   </div>
                                 )}
@@ -988,21 +953,15 @@ export default function AdminUsers() {
             )}
 
             {/* Bottom Actions */}
-            <div className="p-6 bg-slate-50 dark:bg-white/5 border-t border-slate-200/60 dark:border-white/5 flex items-center justify-between gap-3">
-              <button 
-                onClick={() => setSelectedProfile(null)}
-                className="px-6 py-2.5 bg-white dark:bg-white/5 border border-slate-200 hover:bg-slate-50 text-espresso text-xs font-semibold rounded-full transition-all dark:bg-zinc-800 dark:border-zinc-700 dark:hover:bg-zinc-700"
-              >
+            <div className="p-6 bg-secondary/50 border-t border-border flex items-center justify-between gap-3">
+              <Button variant="outline" onClick={() => setSelectedProfile(null)}>
                 Cancelar
-              </button>
+              </Button>
               {drawerTab === 'config' && (
-                <button 
-                  onClick={handleSaveUser}
-                  disabled={isSaving}
-                  className="px-8 py-2.5 bg-plum text-cream text-xs font-semibold rounded-full hover:shadow-glow transition-all flex items-center gap-1.5"
-                >
-                  {isSaving ? 'Gravando...' : 'Salvar Alterações'}
-                </button>
+                <Button onClick={handleSaveUser} loading={isSaving}>
+                  <I.Guardar aria-hidden="true" />
+                  Salvar Alterações
+                </Button>
               )}
             </div>
           </div>
