@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { trackPageView, hasAnalyticsConsent } from '../lib/tracking'
+import { trackPageView, hasAnalyticsConsent, COOKIE_CONSENT_KEY, COOKIE_CONSENT_VERSION } from '../lib/tracking'
 import { gaRevokeConsent } from '../lib/googleAnalytics'
-import { avisarCamada } from '../lib/camadas'
+import { avisarCamada, cookiesDecididosEmMemoria } from '../lib/camadas'
 
 // Só duas categorias: o site não usa cookie de marketing nem de preferências
 // (tema e id do chat de suporte são funcionais). Formato salvo continua o mesmo
@@ -11,8 +11,6 @@ export interface CookieConsent {
   analytics: boolean
 }
 
-const STORAGE_KEY = 'aura-cookie-consent'
-const VERSION = '1.0'
 
 const defaultConsent: CookieConsent = {
   necessary: true,
@@ -26,10 +24,10 @@ export function useCookieConsent() {
 
   useEffect(() => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
+      const stored = localStorage.getItem(COOKIE_CONSENT_KEY)
       if (stored) {
         const parsed = JSON.parse(stored)
-        if (parsed.version === VERSION) {
+        if (parsed.version === COOKIE_CONSENT_VERSION) {
           setConsentState({ necessary: true, analytics: !!parsed.consent?.analytics })
           setHasConsented(true)
         } else {
@@ -49,7 +47,11 @@ export function useCookieConsent() {
     setConsentState(merged)
     setHasConsented(true)
     setShowBanner(false)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ consent: merged, version: VERSION, date: new Date().toISOString() }))
+    try {
+      localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({ consent: merged, version: COOKIE_CONSENT_VERSION, date: new Date().toISOString() }))
+    } catch {
+      cookiesDecididosEmMemoria() // sem armazenamento: a decisão vale só nesta visita (o aviso reaparece na próxima)
+    }
     // Só quando o consentimento analítico muda de fato (regravar o mesmo não repete a página):
     // passou a consentir → registra a página atual (Supabase e GA4); retirou → GA4 desligado
     if (merged.analytics && !tinhaAnalytics) trackPageView(window.location.pathname)

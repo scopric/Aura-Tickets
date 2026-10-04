@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 
-vi.mock('../../lib/tracking', () => ({ trackPageView: vi.fn(), hasAnalyticsConsent: () => false }))
+vi.mock('../../lib/tracking', () => ({ trackPageView: vi.fn(), hasAnalyticsConsent: () => false, COOKIE_CONSENT_KEY: 'aura-cookie-consent', COOKIE_CONSENT_VERSION: '1.0' }))
 vi.mock('../../lib/googleAnalytics', () => ({ gaRevokeConsent: vi.fn() }))
 
 import { useCookieConsent } from '../../hooks/useCookieConsent'

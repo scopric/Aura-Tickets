@@ -9,10 +9,15 @@ export type Camada = 'cookies' | 'politica' | null
 
 export const CHAVE_AVISO_POLITICA = `aviso-politica-${PRIVACY_VERSION}`
 const EVENTO = 'evokaa:camada'
-// Início da versão vigente da Política no horário de Brasília (a data é só AAAA-MM-DD)
-const INICIO_VERSAO = new Date(`${PRIVACY_VERSION}T00:00:00-03:00`).getTime()
-// Sem armazenamento (modo privado, cota) a dispensa não fica gravada: vale só nesta visita
-let fechadaSemArmazenamento = false
+// Sem armazenamento (modo privado, cota) nada fica gravado: a decisão vale só nesta visita
+let cookiesEmMemoria = false
+let politicaEmMemoria = false
+
+/** Só para teste: o estado de módulo vaza entre casos */
+export function _resetCamadasParaTeste() {
+  cookiesEmMemoria = false
+  politicaEmMemoria = false
+}
 
 // undefined = armazenamento indisponível; null = chave ausente
 function ler(chave: string): string | null | undefined {
@@ -27,23 +32,30 @@ export function avisarCamada() {
   window.dispatchEvent(new Event(EVENTO))
 }
 
+export function cookiesDecididosEmMemoria() {
+  cookiesEmMemoria = true
+}
+
 export function fecharPolitica() {
   try {
     localStorage.setItem(CHAVE_AVISO_POLITICA, '1')
   } catch {
-    fechadaSemArmazenamento = true
+    politicaEmMemoria = true
   }
   avisarCamada()
 }
 
 /**
- * Qual camada está aberta agora. `criadoEm` = created_at da conta logada (se houver).
- * Decisão 157.3: quem criou a conta no dia da versão vigente da Política (PRIVACY_VERSION) ou depois
- * acabou de aceitá-la no cadastro; não vê o aviso e ele não segura o Evo. Sem login, a regra não vale.
+ * Qual camada está aberta agora. `versaoAceita` = a conta logada aceitou a PRIVACY_VERSION vigente.
+ * Decisão 157.3: quem aceitou a versão vigente no cadastro (user_metadata.privacy_version) acabou de ler
+ * a Política: não vê o aviso e ele não segura o Evo. Sem login ou sem esse metadado (ex.: entrada pelo
+ * Google), a regra não vale e a pessoa vê o aviso uma vez.
  */
-export function camadaAberta(criadoEm?: string | null): Camada {
+export function camadaAberta(versaoAceita = false): Camada {
   const salvo = ler(COOKIE_CONSENT_KEY)
-  if (salvo !== undefined) {
+  if (salvo === undefined) {
+    if (!cookiesEmMemoria) return 'cookies'
+  } else {
     // mesma regra do useCookieConsent: resposta válida só com a versão atual do formato
     let decidido = false
     try {
@@ -53,8 +65,7 @@ export function camadaAberta(criadoEm?: string | null): Camada {
     }
     if (!decidido) return 'cookies'
   }
-  if (fechadaSemArmazenamento || ler(CHAVE_AVISO_POLITICA) === '1') return null
-  if (criadoEm && Date.parse(criadoEm) >= INICIO_VERSAO) return null
+  if (politicaEmMemoria || ler(CHAVE_AVISO_POLITICA) === '1' || versaoAceita) return null
   return 'politica'
 }
 
@@ -68,6 +79,6 @@ function assinar(avisar: () => void) {
 }
 
 export function useCamada(): Camada {
-  const criadoEm = useAuthStore((s) => s.session?.user?.created_at as string | undefined)
-  return useSyncExternalStore(assinar, () => camadaAberta(criadoEm))
+  const versaoAceita = useAuthStore((s) => s.session?.user?.user_metadata?.privacy_version === PRIVACY_VERSION)
+  return useSyncExternalStore(assinar, () => camadaAberta(versaoAceita))
 }

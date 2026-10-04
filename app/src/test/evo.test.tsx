@@ -7,7 +7,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import EvoHub from '../components/EvoHub'
-import { fecharPolitica } from '../lib/camadas'
+import { _resetCamadasParaTeste, cookiesDecididosEmMemoria, fecharPolitica } from '../lib/camadas'
 import { PRIVACY_VERSION } from '../lib/legal'
 import userEvent from '@testing-library/user-event'
 
@@ -227,13 +227,15 @@ describe('EvoHub: painel, chat e rascunho', () => {
   it('convite: localStorage falhando não quebra (mostra e fecha)', async () => {
     const quebrado = { getItem: () => { throw new Error('bloqueado') }, setItem: () => { throw new Error('bloqueado') } }
     vi.stubGlobal('localStorage', quebrado)
-    fecharPolitica() // sem armazenamento a Política fecha só em memória
+    cookiesDecididosEmMemoria() // sem armazenamento, cookies e Política se resolvem só em memória
+    fecharPolitica()
     try {
       montar()
       expect(await screen.findByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.', {}, { timeout: 3000 })).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: 'Fechar aviso do Evo' }))
       expect(screen.queryByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.')).toBeNull()
     } finally {
+      _resetCamadasParaTeste()
       vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
     }
   })
