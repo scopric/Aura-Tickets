@@ -81,8 +81,8 @@ export default function ComecoRapido() {
         description="Em um minuto ele vira rascunho. O resto você completa no painel do evento, que salva sozinho. Nada vai ao ar antes de você enviar e a equipe aprovar."
       />
 
-      <div className="grid gap-10 min-[1100px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[1100px]:gap-12">
-        <form onSubmit={enviar} noValidate aria-labelledby="t-zero" className="grid content-start gap-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-10 min-[1100px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[1100px]:gap-12">
+        <form onSubmit={enviar} noValidate aria-labelledby="t-zero" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5">
           <SectionTitle id="t-zero">Do zero</SectionTitle>
 
           <div>
@@ -96,7 +96,7 @@ export default function ComecoRapido() {
 
           <div>
             <Label htmlFor="c-formato" className={rotulo}>Formato</Label>
-            <select id="c-formato" value={formato} onChange={e => setFormato(e.target.value)} className={selectNativo}>
+            <select id="c-formato" value={formato} onChange={e => setFormato(e.target.value)} className={`${selectNativo} w-full min-w-0`}>
               <option value="">Escolha o formato</option>
               {FORMATOS.map(f => <option key={f.valor} value={f.valor}>{f.rotulo}</option>)}
             </select>
@@ -133,7 +133,7 @@ export default function ComecoRapido() {
           </div>
         </form>
 
-        <div aria-label="Outros jeitos de começar" className="grid content-start border-t border-border">
+        <div aria-label="Outros jeitos de começar" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start border-t border-border">
           {podeEvo && (
             <section aria-labelledby="t-evo" className="grid grid-cols-[48px_minmax(0,1fr)] gap-4 border-b border-border py-5">
               <img src="/evo/evo-corpo-acenando.webp" alt="" width={48} height={64} className="h-16 w-12 object-contain" />
