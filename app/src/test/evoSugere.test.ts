@@ -67,6 +67,9 @@ describe('Evo sugere: uma regra por vez', () => {
     expect(chaveDe(d(7, { checkinFeito: undefined }))).toBeUndefined() // ainda não carregou
     expect(chaveDe(d(7, { vendidos: { porEvento: {}, cortado: false } }))).toBeUndefined() // nenhum vendido
     expect(sugestaoDoEvo(d(3), nada, agora)!.acao).toEqual({ texto: 'Abrir check-in', to: '/producer/checkin?tour=checkin' })
+    // já começou (hoje às 11h, agora é meio-dia): "antes do dia" não faz mais sentido
+    expect(chaveDe(dados([ev({ date: dia(0), time: '11:00:00' })], { checkinFeito: false }))).toBeUndefined()
+    expect(chaveDe(dados([ev({ date: dia(0), time: '20:00:00' })], { checkinFeito: false }))).toBe('dica:checkin:e1')
   })
 
   it('4. rascunho sem ingresso (com data passada não)', () => {

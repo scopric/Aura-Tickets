@@ -1,7 +1,7 @@
 import type { DbEvent } from '../hooks/useEvents'
 import { brl } from './taxa'
 import { temFoto } from './corEvento'
-import { fimDe, situacaoEvento, vendidosDe } from './eventoProdutor'
+import { fimDe, inicioDe, situacaoEvento, vendidosDe } from './eventoProdutor'
 import { hrefDaTela } from './navegacaoProdutor'
 
 // Contas do Início da produtora (V5): períodos, séries por dia ou hora, variação e textos de data. Sem dependência.
@@ -191,9 +191,9 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
         `${c.t.name} do ${c.e.title}: ${inteiro(c.vend)}${piso} de ${inteiro(c.cap)} vendidos.`,
         { texto: 'Editar ingressos', to: editarEvento(c.e) },
         { pct: (c.vend / c.cap) * 100, mais: !!piso })) : []),
-    // 3. testar o check-in: no ar, faltam até 7 dias, ao menos 1 ingresso vendido, nenhum check-in feito
+    // 3. testar o check-in: no ar, ainda não começou, faltam até 7 dias, ao menos 1 ingresso vendido, nenhum check-in feito
     ...(vendidos && d.checkinFeito === false ? noAr
-      .filter(e => dataDoEvento(e).getTime() <= agora + 7 * DIA_MS && (vendidos.porEvento[e.id] ?? 0) >= 1)
+      .filter(e => inicioDe(e) > agora && dataDoEvento(e).getTime() <= agora + 7 * DIA_MS && (vendidos.porEvento[e.id] ?? 0) >= 1)
       .map(e => sug(`dica:checkin:${e.id}`, `Teste o check-in do ${e.title} antes do dia.`, { texto: 'Abrir check-in', to: '/producer/checkin?tour=checkin' })) : []),
     // 4. rascunho sem ingresso
     ...abertos.filter(e => e.status === 'draft' && !(e.ticket_types ?? []).length).map(e => sug(`sugestao:sem-ingresso:${e.id}`,
