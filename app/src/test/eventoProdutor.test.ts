@@ -82,7 +82,7 @@ describe('dataPorVir e confirmacaoArquivar', () => {
     expect(dataPorVir({ start_date: '2026-10-05T20:00:00Z', end_date: null }, agora)).toBe(true)
     expect(dataPorVir({ start_date: '2026-09-30T20:00:00Z', end_date: null }, agora)).toBe(false)
   })
-  it('date/time contam, na hora de Brasília, mesmo com start_date no passado (como grava o NewEvent)', () => {
+  it('date/time contam, na hora de Brasília, mesmo com start_date no passado (como gravam o começo rápido e o Evo)', () => {
     const passado = { start_date: '2026-09-01T12:00:00Z', end_date: null }
     expect(dataPorVir({ ...passado, date: '2026-12-15', time: null }, agora)).toBe(true)
     expect(dataPorVir({ ...passado, date: '2026-09-20', time: '22:00' }, agora)).toBe(false)

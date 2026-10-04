@@ -338,7 +338,7 @@ export function useCreateEvent() {
   })
 }
 
-// Lista branca das colunas de events que as telas do produtor gravam (EditEvent, Events e o painel do evento).
+// Lista branca das colunas de events que as telas do produtor gravam (Events e o painel do evento).
 export function colunasDoEvento(event: Partial<DbEvent>): Record<string, unknown> {
   // Lista branca: só grava a coluna que a tela mandou. Chave ausente não é regravada:
   // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins

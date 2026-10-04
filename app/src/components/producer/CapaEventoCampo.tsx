@@ -7,12 +7,12 @@ import { temFoto } from '../../lib/corEvento'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 
-// Campo "capa e cor do evento" dos formulários do produtor (NewEvent, EditEvent, EventPlanner). A foto é preparada
+// Campo "capa e cor do evento" do painel do evento (PainelEvento). A foto é preparada
 // aqui (reduz e tira EXIF) mas só é enviada quando o pai salva: o banco não deixa apagar arquivo, então enviar a cada
 // escolha encheria o limite de 10 por evento.
 export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemover, cor, corManual, onCor, podeEnviar = true, avisoAnalise = false, ocupado: salvando = false }: {
   evento: EventoCapaDados // título, data e id (semente do cartaz e do sorteio de cor) da prévia
-  urlAtual?: string | null // capa já salva no evento (EditEvent); some quando a pessoa remove
+  urlAtual?: string | null // capa já salva no evento (painel); some quando a pessoa remove
   capa: CapaPronta | null
   onCapa: (c: CapaPronta | null) => void
   onRemover: () => void
@@ -20,7 +20,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
   corManual: boolean // a pessoa já escolheu a cor: uma foto nova não a troca pela sugestão
   onCor: (c: string, manual: boolean) => void
   podeEnviar?: boolean // só o dono do evento envia (a regra do Storage exige o dono no caminho)
-  avisoAnalise?: boolean // EditEvent: trocar a capa manda o evento para nova análise (Decisão 136)
+  avisoAnalise?: boolean // painel: trocar a capa manda o evento para nova análise (Decisão 136)
   ocupado?: boolean // o pai está salvando: trava as escolhas
 }) {
   const id = useId()

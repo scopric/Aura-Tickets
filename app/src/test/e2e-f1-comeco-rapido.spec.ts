@@ -92,6 +92,27 @@ test.describe('começo rápido', () => {
     }
   })
 
+  test('/producer/ingressos-avancados redireciona para /producer/events/new', async ({ page }) => {
+    await montarBanco(page)
+    await entrarProdutor(page)
+    await page.goto('/producer/ingressos-avancados')
+    await expect(page).toHaveURL(/\/producer\/events\/new$/)
+  })
+
+  test('?tour=criar-evento abre o tour de 3 passos no começo rápido e concluir tira o parâmetro', async ({ page }) => {
+    await montarBanco(page)
+    await entrarProdutor(page)
+    await page.goto('/producer/events/new?tour=criar-evento')
+    const dialogo = page.getByRole('dialog')
+    await expect(dialogo.getByText('Do zero')).toBeVisible()
+    await dialogo.getByRole('button', { name: 'Próximo' }).click()
+    await expect(dialogo.getByText('Montar com o Evo')).toBeVisible()
+    await dialogo.getByRole('button', { name: 'Próximo' }).click()
+    await expect(dialogo.getByText('Copiar de um evento anterior')).toBeVisible()
+    await dialogo.getByRole('button', { name: 'Concluir' }).click()
+    await expect(page).toHaveURL(/\/producer\/events\/new$/)
+  })
+
   test('do zero: o nome é obrigatório; cria rascunho sem ingressos e abre o painel', async ({ page }) => {
     const db = await montarBanco(page)
     await entrarProdutor(page)

@@ -85,8 +85,8 @@ async function gravarCapa(eventoId: string, url: string): Promise<void> {
   if (error) throw error
 }
 
-// Evento novo (NewEvent, EventPlanner): a foto sobe depois de o evento existir. Falhar não perde o evento: devolve false
-// e a tela avisa para enviar de novo em "Editar evento".
+// Evento novo (cópia do começo rápido): a foto sobe depois de o evento existir. Falhar não perde o evento: devolve false
+// e a tela avisa para enviar de novo no painel do evento.
 export async function enviarEGravarCapa(capa: CapaPronta, produtorId: string, eventoId: string): Promise<boolean> {
   try {
     await gravarCapa(eventoId, await enviarCapa(capa, produtorId, eventoId))
