@@ -26,13 +26,13 @@ interface AdminProfile {
 
 const PERMISSIONS = [
   { id: 'super_admin', label: 'Acesso total 👑', desc: 'Acesso total e irrestrito a todas as funcionalidades e configurações da plataforma.' },
-  { id: 'manage_users', label: 'Gerenciar Usuários & Produtores', desc: 'Permite visualizar, suspender e gerenciar contas de clientes e produtores.' },
+  { id: 'manage_users', label: 'Gerenciar Usuários & Produtores', desc: 'Ver e editar contas de clientes e produtores.' },
   { id: 'manage_affiliates', label: 'Afiliados Evokaa', desc: 'Cadastrar afiliados que revendem a plataforma, acordos de comissão e produtores indicados.' },
   { id: 'manage_events', label: 'Moderação de Eventos', desc: 'Permite aprovar ou rejeitar novos eventos criados por produtores.' },
   { id: 'manage_finance', label: 'Visualizar Financeiro', desc: 'Acesso a relatórios de vendas, faturamento geral e repasses.' },
   { id: 'view_analytics', label: 'Visualizar Analytics', desc: 'Acesso a gráficos de tráfego, vendas gerais e dados analíticos.' },
-  { id: 'manage_tickets', label: 'Suporte de Ingressos', desc: 'Permite consultar pedidos, realizar estornos e emitir cortesias.' },
-  { id: 'manage_settings', label: 'Configurações do Sistema', desc: 'Acesso às taxas de serviço da plataforma, regras de negócio e integrações.' },
+  { id: 'manage_tickets', label: 'Suporte de Ingressos', desc: 'Consultar pedidos e ingressos. Estorno e cortesia ainda não existem.' },
+  { id: 'manage_settings', label: 'Configurações do Sistema', desc: 'Configurações gerais e integrações.' },
   { id: 'manage_feedback', label: 'Moderar Feedbacks', desc: 'Visualização e moderação das mensagens de contato e melhorias.' },
   { id: 'manage_support', label: 'Atendimento (chat)', desc: 'Responder as conversas do chat, fazer notas internas, atribuir, mudar setor e resolver.' },
   { id: 'manage_newsletter', label: 'Campanhas de Newsletter', desc: 'Criar, editar e disparar informativos para a base de e-mails.' },
@@ -636,7 +636,7 @@ export default function AdminTeamManager() {
                 <div>
                   <div className="font-semibold">Aviso de Segurança</div>
                   <p className="mt-0.5 leading-normal text-muted-foreground">
-                    Cada função dá acesso a dados de clientes, produtores e pagamentos. Dê a cada colaborador(a) só as funções de que ele(a) precisa.
+                    As funções escolhem as telas que a pessoa vê. No banco, a maioria ainda equivale a acesso de administrador: convide só quem precisa.
                   </p>
                 </div>
               </div>

@@ -366,7 +366,7 @@ export default function AdminConhecimento() {
               <option value="todos">Todas as situações</option>
               <option value="published">Publicados</option>
               <option value="draft">Rascunhos</option>
-              <option value="ia">Sugestões da IA</option>
+              <option value="ia" disabled>Sugestões da IA: ainda não existem</option>
             </select>
             <select aria-label="Público" value={publico} onChange={e => setPublico(e.target.value as '' | Publico)} className={cn(selectNativo, 'w-auto')}>
               <option value="">Todos os públicos</option>

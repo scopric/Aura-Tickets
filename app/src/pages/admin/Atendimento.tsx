@@ -10,7 +10,7 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Spinner } from '../../components/ui/spinner'
-import { EmptyState, chipAviso, chipErro, chipInfo, chipNeutro, selectNativo } from '../../components/producer/ui'
+import { EmptyState, chipErro, chipInfo, chipNeutro, selectNativo } from '../../components/producer/ui'
 import { cn } from '../../lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
 
@@ -20,13 +20,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 
 // Abertas, Minhas, Sem dono e Urgentes são só as conversas com a equipe; "Com o assistente" são as
 // abertas que o assistente ainda atende (20261003_chat_bot.sql)
-type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'assistente' | 'resolvidas'
+type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'assistente' | 'resolvidas'
 const FILTROS: { id: Filtro; rotulo: string; icone: I.IconeEvokaa }[] = [
   { id: 'abertas', rotulo: 'Abertas', icone: I.CaixaDeEntrada },
   { id: 'minhas', rotulo: 'Minhas', icone: I.Conta },
   { id: 'sem_dono', rotulo: 'Sem dono', icone: I.PessoaRemover },
   { id: 'urgentes', rotulo: 'Urgentes', icone: I.Alerta },
-  { id: 'mediacao', rotulo: 'Mediação', icone: I.Balanca },
   { id: 'assistente', rotulo: 'Com o assistente', icone: I.Bot },
   { id: 'resolvidas', rotulo: 'Resolvidas', icone: I.Verificado },
 ]
@@ -358,7 +357,6 @@ export default function Atendimento() {
                         <span className="mt-1 flex flex-wrap items-center gap-1">
                           {l.nao_lida && <Badge className={selo}>Não lida</Badge>}
                           {l.priority === 'urgent' && <Badge variant="secondary" className={cn(selo, chipErro)}>Urgente</Badge>}
-                          {l.mediation && <Badge variant="secondary" className={cn(selo, chipAviso)}>Mediação</Badge>}
                           {l.bot_state === 'bot' && (
                             <Badge variant="secondary" className={cn(selo, chipInfo)}>
                               <I.Bot aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}
