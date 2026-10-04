@@ -3,23 +3,22 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 
 // ─── Tasks ───
+// Só as colunas reais de producer_tasks (conferido em produção em 04/10/2026); sem updated_at.
+export type StatusTarefa = 'todo' | 'in_progress' | 'done'
+export type PrioridadeTarefa = 'low' | 'medium' | 'high'
 export interface DbTask {
   id: string
   producer_id: string
+  event_id: string | null
+  assigned_to: string | null
   title: string
   description: string | null
-  category: string
-  priority: 'alta' | 'media' | 'baixa'
-  status: 'pendente' | 'em-andamento' | 'concluida'
   due_date: string | null
-  assignee: string | null
-  event_name: string | null
-  tags: string[]
-  subtasks: any[]
-  comments: any[]
+  status: StatusTarefa
+  priority: PrioridadeTarefa
   created_at: string
-  updated_at: string
 }
+type CamposTarefa = Omit<DbTask, 'id' | 'producer_id' | 'created_at'>
 
 export function useProducerTasks() {
   const { user } = useAuth()
@@ -46,8 +45,8 @@ export function useCreateTask() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (task: Omit<Partial<DbTask>, 'id' | 'producer_id' | 'created_at' | 'updated_at'>) => {
-      if (!user?.id) throw new Error('Nao autenticado')
+    mutationFn: async (task: Partial<CamposTarefa>) => {
+      if (!user?.id) throw new Error('Não autenticado')
       const { data, error } = await supabase
         .from('producer_tasks')
         .insert({ ...task, producer_id: user.id })
@@ -68,7 +67,7 @@ export function useUpdateTask() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<DbTask>) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<CamposTarefa>) => {
       const { data, error } = await supabase
         .from('producer_tasks')
         .update(updates)
