@@ -21,7 +21,8 @@ export const MAX_SAIDA_TOKENS = 16384 // teto de saída do Gemini (inclui racioc
 export const MAX_ROTULO = 24
 // ponytail: limite por produtor (user_id) por hora corrida, contando toda leitura reservada (ok, erro e pendente)
 // pelas linhas de ai_usage com tier 'imagem'. Para mudar, troque o número aqui e publique a função agent.
-// Sem trava entre pedidos simultâneos: dois pedidos no mesmo instante podem passar 1 além; trava no ai_reserve se importar.
+// O agent conta antes do ai_reserve e reconta depois (sem a própria linha): pedidos simultâneos não passam
+// do limite, mas podem ser barrados juntos, e cada um barrado conta para a hora (linha erro, sem crédito).
 export const LIMITE_PLANTA_HORA = 10
 
 // Portão do limite: contagem ilegível falha fechado (nada de Gemini) com o aviso de instabilidade.

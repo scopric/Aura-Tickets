@@ -574,8 +574,9 @@ async function atender(req: Request): Promise<Response> {
 
 // ---------- leitura de planta (modo planta) ----------
 
-// Sem ai_precheck nem roteador: antes do ai_reserve, o limite de leituras de planta por hora do produtor
-// (portaoPlanta); depois, os portões do ai_reserve (ligado, teto diário, limite por hora e crédito). p_mode 'planejar' + resumo "planta:" evita SQL novo: o CHECK de ai_usage.mode só aceita
+// Sem ai_precheck nem roteador: limite de leituras de planta por hora do produtor (portaoPlanta) antes do
+// ai_reserve e de novo depois dele (contra pedidos simultâneos); o ai_reserve traz os outros portões
+// (ligado, teto diário, limite por hora e crédito). p_mode 'planejar' + resumo "planta:" evita SQL novo: o CHECK de ai_usage.mode só aceita
 // chat, planejar e ping. Nada de imagem, base64 ou texto do Gemini vai para o log.
 async function lerPlanta(c: {
   admin: any; caller: { id: string }; cfg: any; key: string; prazo: number; arquivo: { mime: string; b64: string } | null
@@ -583,10 +584,14 @@ async function lerPlanta(c: {
   const { admin, caller, cfg, key, prazo, arquivo } = c
   const model = cfg.model_vision
   // conta toda leitura de planta (tier 'imagem' só existe aqui) da última hora, inclusive as que deram erro
-  const { count, error: contagemError } = await admin.from('ai_usage').select('id', { count: 'exact', head: true })
-    .eq('user_id', caller.id).eq('tier', 'imagem').gte('created_at', new Date(Date.now() - 3_600_000).toISOString())
-  if (contagemError) console.error('[agent] contagem de leituras de planta falhou:', contagemError.message)
-  const barrado = portaoPlanta(count, contagemError)
+  const contar = async () => {
+    const { count, error } = await admin.from('ai_usage').select('id', { count: 'exact', head: true })
+      .eq('user_id', caller.id).eq('tier', 'imagem').gte('created_at', new Date(Date.now() - 3_600_000).toISOString())
+    if (error) console.error('[agent] contagem de leituras de planta falhou:', error.message)
+    return { count, error }
+  }
+  const antes = await contar()
+  const barrado = portaoPlanta(antes.count, antes.error)
   if (barrado) return recusa(barrado)
   const { data: reserva, error } = await admin.rpc('ai_reserve', { p_user: caller.id, p_tier: 'imagem', p_mode: 'planejar', p_model: model })
   if (error || !reserva) {
@@ -608,6 +613,15 @@ async function lerPlanta(c: {
       p_id: reserva.id, p_tokens_in: uso.in, p_tokens_out: uso.out, p_steps: 0, p_tools: [], p_status: status, p_resumo: resumo, p_called: uso.called,
     })
     if (error) console.error('[agent] ai_finish (planta) falhou:', error.message)
+  }
+  // Recontagem depois da reserva: a linha pendente desta leitura já está em ai_usage (por isso o -1). Pedidos
+  // simultâneos que passaram juntos pela contagem de cima são barrados aqui, antes do Gemini, sem crédito
+  // (called false zera os créditos da linha); a linha fica como erro e conta para a hora.
+  const depois = await contar()
+  const barradoDepois = portaoPlanta(typeof depois.count === 'number' ? depois.count - 1 : null, depois.error)
+  if (barradoDepois) {
+    await finalizar('erro', 'planta: limite')
+    return recusa(barradoDepois)
   }
   try {
     const leitura = interpretarPlanta(await gemini(key, model, corpoPlanta(arquivo!), uso, prazo, 100_000))
