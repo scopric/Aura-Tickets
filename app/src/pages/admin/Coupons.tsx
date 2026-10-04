@@ -189,7 +189,7 @@ export default function AdminCoupons() {
   })
   const porId = (id: string | null) => afiliados.find(a => a.id === id) ?? null
 
-  const { data: pedidos = [] } = useQuery<Pedido[]>({
+  const { data: pedidos = [], isError: pedidosErro, error: erroPedidos } = useQuery<Pedido[]>({
     queryKey: ['admin-coupon-requests'],
     queryFn: async () => {
       const { data, error: e } = await supabase
@@ -400,7 +400,7 @@ export default function AdminCoupons() {
       <div className={cn(trilho, 'mb-4 w-fit max-w-full')} role="group" aria-label="Tipo de cupom">
         {([
           ['planos', `Cupons da Evokaa (${deAdmin.length})`],
-          ['pedidos', `Pedidos dos afiliados (${pendentes.length})`],
+          ['pedidos', `Pedidos dos afiliados (${pedidosErro ? '—' : pendentes.length})`],
           ['eventos', `Cupons de evento dos produtores (${deProdutor.length})`],
         ] as const).map(([v, l]) => (
           <button
@@ -420,7 +420,11 @@ export default function AdminCoupons() {
       )}
 
       {filtro === 'pedidos' ? (
-        pedidos.length === 0 ? (
+        pedidosErro ? (
+          <div role="alert" className={alertaErro}>
+            Não foi possível carregar os pedidos: {(erroPedidos as Error)?.message || 'erro desconhecido'}
+          </div>
+        ) : pedidos.length === 0 ? (
           <EmptyState title="Nenhum pedido de cupom dos afiliados." />
         ) : (
           <div className={`${painel} overflow-hidden`}>

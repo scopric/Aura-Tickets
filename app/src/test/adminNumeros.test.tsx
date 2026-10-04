@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 
 const from = vi.hoisted(() => vi.fn())
@@ -8,6 +9,7 @@ const usuario = { id: 'a1', admin_permissions: ['manage_events'] }
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: usuario }) }))
 
 import AdminDashboard from '../pages/admin/Dashboard'
+import AdminCoupons from '../pages/admin/Coupons'
 
 describe('Admin: Painel com permissão', () => {
   it('sem manage_newsletter mostra "—", não consulta a tabela e sem manage_finance não há link do financeiro', async () => {
@@ -24,5 +26,22 @@ describe('Admin: Painel com permissão', () => {
     expect(screen.getAllByText('Sem acesso a esta área').length).toBeGreaterThan(0)
     expect(screen.getByText('Inscritos na newsletter').parentElement?.textContent).toContain('—')
     expect(screen.queryByText(/Abrir financeiro/)).toBeNull()
+  })
+})
+
+describe('Admin: Cupons', () => {
+  it('falha ao ler os pedidos mostra alerta, não "Nenhum pedido", e o contador vira —', async () => {
+    from.mockImplementation((t: string) => {
+      const r = Promise.resolve(t === 'affiliate_coupon_requests'
+        ? { data: null, error: { message: 'permission denied' } }
+        : { data: [], error: null })
+      const q: any = { select: () => q, order: () => q, limit: () => r, eq: () => q, then: r.then.bind(r) }
+      return q
+    })
+    render(<QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}><AdminCoupons /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: /Pedidos dos afiliados/ }))
+    expect(await screen.findByText(/Não foi possível carregar os pedidos: permission denied/)).toBeInTheDocument()
+    expect(screen.queryByText('Nenhum pedido de cupom dos afiliados.')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Pedidos dos afiliados (—)' })).toBeInTheDocument()
   })
 })
