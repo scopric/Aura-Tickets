@@ -89,11 +89,32 @@ export const MAX_ESTILOS = 3
 export const rotuloFormato = (slug: string | null | undefined): string =>
   FORMATOS.find((f) => f.valor === slug)?.rotulo ?? slug ?? ''
 
-// Aceite do produtor (Decisão 148, item 6): a versão é a de aceite_evento_versao() no SQL e o servidor
-// calcula o hash do texto. Sem o texto do Ricardo o PR não é aberto.
-// TODO Ricardo: texto do aceite (Decisão 148, item 6)
-export const ACEITE_VERSAO = 'A-DEFINIR'
-export const ACEITE_TEXTO = ''
+// Aceite do produtor (Decisão 148, item 6; texto final = rascunho v1 aprovado pelo Ricardo em 04/10/2026, nota
+// "2026-10-04 Aceite do produtor da F1 — rascunho para o jurídico"). A versão é a de aceite_evento_versao() no SQL.
+// O servidor (aceite-evento) monta o texto com o nome do evento e as variantes e grava o hash DESTE texto montado;
+// a tela mostra o mesmo texto. Mudou uma vírgula? Versão nova aqui, no _shared e no SQL (Decisão 6).
+export const ACEITE_VERSAO = '2026-10-04'
+
+export function textoAceite(e: { titulo: string; formato: string | null; classificacao: string | null; temBebida: boolean }): string {
+  const c = CLASSIFICACOES.find((x) => x.valor === e.classificacao)
+  const classificacao = e.formato === 'esporte'
+    ? '2. O evento é esportivo e não é objeto de classificação indicativa.'
+    : `2. Autoclassifiquei o evento como ${c ? `${c.valor} (${c.rotulo})` : '[sem classificação]'} pelos critérios do Ministério da Justiça para apresentações ao vivo. Sou o responsável por exibir o símbolo e as demais informações obrigatórias no local e por controlar a entrada de crianças e adolescentes.`
+  const bebida = e.temBebida
+    ? '4. Sou eu, e não a Evokaa, quem vende e serve a bebida alcoólica, e não vou vendê-la, fornecê-la nem servi-la a menor de 18 anos.'
+    : '4. Nenhum ingresso deste evento inclui bebida alcoólica.'
+  return [
+    'Termo do produtor para publicar evento',
+    `Ao enviar o evento "${e.titulo.trim()}" para aprovação, declaro que:`,
+    '1. Sou o organizador do evento ou tenho poderes para representá-lo, e as informações publicadas são verdadeiras: data, local, ingressos e preços.',
+    classificacao,
+    '3. Na entrada, vou aplicar as regras de acesso de crianças e adolescentes: acompanhamento, autorização por escrito do responsável e a portaria ou o alvará do juiz da comarca, quando houver. Também vou conferir documento com foto e idade.',
+    bebida,
+    '5. Se eu mudar a classificação ou a bebida depois da aprovação, refaço este termo antes de enviar as alterações.',
+    '6. Sei que a Evokaa intermedeia a venda de ingressos e pode recusar ou tirar do ar um evento em desacordo com este termo ou com os Termos de Uso.',
+    `A Evokaa registra a data, a hora, o IP e o navegador deste aceite. Versão ${ACEITE_VERSAO}.`,
+  ].join('\n')
+}
 
 // Aviso de entrada por faixa: Portaria MJSP 1.048, art. 10, e ECA, art. 75, parágrafo único. Texto de rascunho
 // (prancha aprovada em 04/10/2026), a confirmar pelo jurídico. Classificação fora da lista: sem aviso.

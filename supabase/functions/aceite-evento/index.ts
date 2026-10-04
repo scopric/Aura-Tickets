@@ -1,6 +1,7 @@
 // Aceite do produtor ao enviar o evento para aprovação (desenho 5; Decisão 148, item 6), gravado pelo servidor:
-// versão e hash do texto em vigor, classificação lida do evento gravado, "tem bebida" calculado pelos ingressos
-// (ticket_types.inclui_bebida), IP e navegador, e aceito_em = hora do banco. Nada disso vem do navegador.
+// versão e hash do texto final montado aqui (textoAceite: nome do evento, variantes de classificação e de bebida),
+// classificação lida do evento gravado, "tem bebida" calculado pelos ingressos (ticket_types.inclui_bebida), IP e
+// navegador, e aceito_em = hora do banco. Nada disso vem do navegador.
 // Chamada: POST { event_id } com o JWT do dono do evento. Tabela evento_aceites e aceite_evento_versao() em
 // docs/sql/20261009_f1a_tipo_evento.sql: publicar esta função só DEPOIS de aplicar esse SQL.
 // Não reaproveita a record-access: ela pula o registro quando houve acesso no último minuto.
@@ -8,7 +9,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { corsHeaders } from '../_shared/cors.ts'
 import { clientIp } from '../_shared/ip.ts'
 import { mfaOk } from '../_shared/mfa.ts'
-import { ACEITE_TEXTO, ACEITE_VERSAO } from '../_shared/tipoEvento.ts'
+import { ACEITE_VERSAO, textoAceite } from '../_shared/tipoEvento.ts'
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -38,7 +39,7 @@ Deno.serve(async (req) => {
     if (typeof eventId !== 'string' || !UUID_RE.test(eventId)) return json(400, { error: 'event_id inválido' })
 
     const { data: evento, error: eventoError } = await admin.from('events')
-      .select('id, producer_id, category, classificacao').eq('id', eventId).maybeSingle()
+      .select('id, producer_id, title, category, classificacao').eq('id', eventId).maybeSingle()
     if (eventoError) return json(500, { error: 'Não foi possível ler o evento' })
     if (!evento || evento.producer_id !== user.id) return json(404, { error: 'Evento não encontrado' })
     if (!evento.classificacao && evento.category !== 'esporte') {
@@ -47,16 +48,18 @@ Deno.serve(async (req) => {
 
     const { data: versao, error: versaoError } = await admin.rpc('aceite_evento_versao')
     if (versaoError) return json(500, { error: 'Não foi possível ler a versão do aceite' })
-    if (versao !== ACEITE_VERSAO || !ACEITE_TEXTO) return json(409, { error: 'Texto do aceite desatualizado; recarregue a página' })
+    if (versao !== ACEITE_VERSAO) return json(409, { error: 'Texto do aceite desatualizado; recarregue a página' })
 
     const { data: bebida, error: bebidaError } = await admin.from('ticket_types')
       .select('id').eq('event_id', eventId).eq('inclui_bebida', true).limit(1)
     if (bebidaError) return json(500, { error: 'Não foi possível ler os ingressos' })
 
+    const temBebida = (bebida ?? []).length > 0
+    const texto = textoAceite({ titulo: evento.title, formato: evento.category, classificacao: evento.classificacao, temBebida })
     const { ip, forwarded_for } = clientIp(req.headers)
     const linha = {
-      event_id: eventId, producer_id: user.id, versao, texto_hash: await sha256(ACEITE_TEXTO),
-      classificacao: evento.classificacao, tem_bebida: (bebida ?? []).length > 0,
+      event_id: eventId, producer_id: user.id, versao, texto_hash: await sha256(texto),
+      classificacao: evento.classificacao, tem_bebida: temBebida,
       ip, forwarded_for, user_agent: (req.headers.get('user-agent') ?? '').slice(0, 300),
     }
     const { data: gravado, error: gravarError } = await admin.from('evento_aceites').insert(linha)

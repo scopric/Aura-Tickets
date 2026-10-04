@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import * as front from '../lib/tipoEvento'
 import * as shared from '../../../supabase/functions/_shared/tipoEvento'
-import { FORMATOS, TEMAS, ESTILOS, CLASSIFICACOES, LOCAL_MODOS, ACEITE_VERSAO, rotuloFormato, avisoEntrada, pendencias } from '../lib/tipoEvento'
+import { FORMATOS, TEMAS, ESTILOS, CLASSIFICACOES, LOCAL_MODOS, ACEITE_VERSAO, textoAceite, rotuloFormato, avisoEntrada, pendencias } from '../lib/tipoEvento'
 import { MESA_TAGS } from '../lib/mesaTags'
 
 const slugs = (l: readonly { valor: string }[]) => l.map(x => x.valor)
@@ -150,5 +150,27 @@ describe('pendencias (os 8 itens da barra "N de 8 prontos")', () => {
   it('descrição curta e aceite ausente acusam', () => {
     expect(faltas({ ...pronto, description: 'curta' })).toEqual(['descricao'])
     expect(faltas({ ...pronto, aceite: false })).toEqual(['aceite'])
+  })
+})
+
+describe('textoAceite', () => {
+  const base = { titulo: '  Noite de Forró ', formato: 'festa_encontro', classificacao: 'A16', temBebida: true }
+  it('leva o nome do evento, a classificação, a bebida e a versão', () => {
+    const t = textoAceite(base)
+    expect(t).toContain('Ao enviar o evento "Noite de Forró" para aprovação')
+    expect(t).toContain('Autoclassifiquei o evento como A16 (16 anos)')
+    expect(t).toContain('quem vende e serve a bebida alcoólica')
+    expect(t).toContain(`Versão ${ACEITE_VERSAO}.`)
+    expect(t.split('\n')).toHaveLength(9)
+  })
+  it('variantes: sem bebida e esporte', () => {
+    expect(textoAceite({ ...base, temBebida: false })).toContain('Nenhum ingresso deste evento inclui bebida alcoólica.')
+    const esporte = textoAceite({ ...base, formato: 'esporte', classificacao: null })
+    expect(esporte).toContain('não é objeto de classificação indicativa')
+    expect(esporte).not.toContain('Autoclassifiquei')
+  })
+  it('muda quando muda o que foi declarado (o hash muda junto)', () => {
+    expect(textoAceite(base)).not.toBe(textoAceite({ ...base, classificacao: 'A18' }))
+    expect(textoAceite(base)).toBe(textoAceite({ ...base }))
   })
 })

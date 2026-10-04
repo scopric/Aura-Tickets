@@ -52,7 +52,8 @@
 --    aceito_em = now() do banco. event_id on delete set null: o aceite é prova e sobrevive ao evento.
 --    tem_bebida é calculado pela função a partir de ticket_types.inclui_bebida, não vem do navegador.
 -- 7. aceite_evento_versao(): constante, no molde de mesa_termo_versao() (20261003_mesa_coletiva.sql). Texto novo
---    do aceite = SQL novo com a versão nova (Decisão 6). O texto fica em _shared/tipoEvento.ts (ACEITE_TEXTO).
+--    do aceite = SQL novo com a versão nova (Decisão 6). O texto fica em _shared/tipoEvento.ts (textoAceite), e a
+--    função aceite-evento grava o hash do texto final montado (nome do evento, variantes de classificação e bebida).
 -- 8. gf_protect_event_moderation: igual à de produção, mais temas, estilos, classificacao, local_modo e
 --    privado_alterado_em na lista de conteúdo, e local_modo na trava de data e local depois da venda.
 --    accent_color e mostrar_contagem continuam fora (V6a, Decisão 142).
@@ -217,13 +218,14 @@ revoke update, delete, truncate on public.evento_aceites from service_role;
 grant select, insert on public.evento_aceites to service_role;
 
 -- 6. Versão do aceite --------------------------------------------------------------------------------------------
--- TODO Ricardo: data da versão do texto do aceite (Decisão 148, item 6). O PR não sai com 'A-DEFINIR'.
+-- Texto do aceite: rascunho v1 aprovado pelo Ricardo em 04/10/2026 (Decisão 148, item 6), em _shared/tipoEvento.ts.
+-- 1ª versão em produção (antes era 'A-DEFINIR', sem nenhum aceite gravado). Texto novo = versão nova (Decisão 6).
 create or replace function public.aceite_evento_versao()
 returns text
 language sql
 immutable
 set search_path = ''
-as $$ select 'A-DEFINIR' $$;
+as $$ select '2026-10-04' $$;
 revoke all on function public.aceite_evento_versao() from public, anon, authenticated;
 grant execute on function public.aceite_evento_versao() to authenticated, service_role;
 
