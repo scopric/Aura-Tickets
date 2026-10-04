@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Segmented } from '@/components/ui/toggle-group'
 import { errosDeIngresso, precoDe, type Ing } from '../../../lib/painelEvento'
 import { brl, calcularTaxa } from '../../../lib/taxa'
-import { Faixa } from './campos'
+import { Faixa, SegmentadoComSetas } from './campos'
 
 const TIPO_FIXO: Record<string, string> = { individual: 'Individual', coletiva: 'Mesa coletiva', vip: 'VIP', mesa: 'Mesa' }
 
@@ -86,7 +85,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
 
             <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
               {g.novo ? (
-                <Segmented
+                <SegmentadoComSetas
                   label={`Tipo de ${g.nome || 'ingresso'}`} size="sm" className="w-64" value={g.tipo} onValueChange={v => muda(g.id, { tipo: v })}
                   items={[{ value: 'individual', label: 'Individual' }, { value: 'coletiva', label: 'Mesa coletiva' }]}
                 />

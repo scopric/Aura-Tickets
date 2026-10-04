@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   diffCampos, dominioDoLink, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
-  precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, snapDoForm, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
+  precoDe, quantidadeDe, semNomeVazio, erroDosIngressos, ERRO_NOME, rotuloDoModo, rotulosDoDiff, snapDoForm, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
 import { supabase } from '../lib/supabase'
@@ -118,12 +118,29 @@ describe('ingressos', () => {
   })
   it('quantidade: inteiro maior que zero', () => {
     expect(quantidadeDe('200')).toBe(200)
-    for (const t of ['', '0', '-1', '2,5', '1.5', 'x']) expect(quantidadeDe(t), t).toBeNull()
+    for (const t of ['', '0', '-1', '2,5', '1.5', 'x', '1000001', '10000000000']) expect(quantidadeDe(t), t).toBeNull()
+    expect(quantidadeDe('1000000')).toBe(1_000_000)
   })
   it('erros por campo, e quantidade abaixo dos vendidos', () => {
     expect(errosDeIngresso(ing())).toEqual({})
     expect(Object.keys(errosDeIngresso(ing({ nome: ' ', preco: 'x', qtd: '0' })))).toEqual(['nome', 'preco', 'qtd'])
     expect(errosDeIngresso(ing({ qtd: '5', vendidos: 8 })).qtd).toMatch(/8/)
+  })
+})
+
+describe('nome vazio e erro ao gravar ingressos', () => {
+  it('nome vazio ou só espaços não vai no diff (o salvamento espera); nome preenchido vai', () => {
+    expect(semNomeVazio({ title: '', subtitle: 'x' }, '')).toEqual({ subtitle: 'x' })
+    expect(semNomeVazio({ title: '   ' }, '   ')).toEqual({})
+    expect(semNomeVazio({ title: 'Show' }, 'Show')).toEqual({ title: 'Show' })
+    expect(semNomeVazio({ subtitle: 'x' }, '')).toEqual({ subtitle: 'x' })
+    expect(ERRO_NOME).toBe('Escreva o nome: ele aparece na página e no ingresso.')
+  })
+  it('erro de gravação dos ingressos por tipo: dado recusado pelo banco, remoção com pedidos e rede', () => {
+    for (const e of [{ code: '22003' }, { code: '23514' }, { status: 400 }, { status: 422 }, { code: 'PGRST102' }]) expect(erroDosIngressos(e)).toMatch(/O banco recusou um dos ingressos: confira nome, preço e quantidade/)
+    expect(erroDosIngressos({ code: '23503' })).toMatch(/Use Ocultar/)
+    expect(erroDosIngressos(new Error('Failed to fetch'))).toMatch(/Confira a internet/)
+    expect(erroDosIngressos(null)).toMatch(/Confira a internet/)
   })
 })
 

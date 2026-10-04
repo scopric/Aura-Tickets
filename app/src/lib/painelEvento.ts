@@ -96,6 +96,24 @@ export function diffCampos<T extends Record<string, unknown>>(base: T, atual: T)
 const FORA_DA_MODERACAO = ['accent_color']
 export const mudouConteudo = (d: object, capa = false) => capa || Object.keys(d).some(k => !FORA_DA_MODERACAO.includes(k))
 
+export const ERRO_NOME = 'Escreva o nome: ele aparece na página e no ingresso.'
+
+/** O diff sem o nome vazio (só espaços também): o salvamento espera, em vez de gravar {"title":""} */
+export function semNomeVazio<T extends Record<string, unknown>>(d: Partial<T>, nome: string): Partial<T> {
+  if (nome.trim() !== '' || !('title' in d)) return d
+  const c = { ...d }
+  delete c.title
+  return c
+}
+
+/** Mensagem do erro ao gravar os ingressos: dado recusado pelo banco (400/422, códigos 22 e 23) não é problema de internet */
+export function erroDosIngressos(err: unknown): string {
+  const e = err as { code?: string; status?: number } | null
+  if (e?.code === '23503') return 'Este ingresso já tem pedidos ligados e não pode ser removido. Use Ocultar.'
+  if (e?.status === 400 || e?.status === 422 || /^(22|23)/.test(e?.code ?? '') || /^PGRST1/.test(e?.code ?? '')) return 'O banco recusou um dos ingressos: confira nome, preço e quantidade.'
+  return 'Não foi possível salvar os ingressos. Confira a internet e tente de novo.'
+}
+
 /** O diff sem as datas que têm erro: o salvamento espera a pessoa corrigir (início, fim ou os dois) */
 export function semDatasInvalidas<T extends Record<string, unknown>>(d: Partial<T>, e: ErrosData): Partial<T> {
   const c: Record<string, unknown> = { ...d }
@@ -188,7 +206,8 @@ export function precoDe(tx: string): number | null {
   return /^\d+(\.\d{1,2})?$/.test(n) ? Math.round(parseFloat(n) * 100) / 100 : null
 }
 
-export const quantidadeDe = (tx: string): number | null => (/^\d+$/.test(tx.trim()) && Number(tx) > 0 ? Number(tx) : null)
+export const QUANTIDADE_MAX = 1_000_000
+export const quantidadeDe = (tx: string): number | null => (/^\d+$/.test(tx.trim()) && Number(tx) > 0 && Number(tx) <= QUANTIDADE_MAX ? Number(tx) : null)
 
 export type ErrosIng = { nome?: string; preco?: string; qtd?: string }
 
@@ -197,7 +216,7 @@ export function errosDeIngresso(i: Ing): ErrosIng {
   if (!i.nome.trim()) e.nome = 'Dê um nome ao ingresso.'
   if (precoDe(i.preco) === null) e.preco = 'Preço inválido: use só números, com vírgula nos centavos (ex.: 80,00).'
   const q = quantidadeDe(i.qtd)
-  if (q === null) e.qtd = 'Quantidade inválida: use um número inteiro maior que zero.'
+  if (q === null) e.qtd = 'Quantidade inválida: use um número inteiro entre 1 e 1.000.000.'
   else if (q < i.vendidos) e.qtd = `Já foram vendidos ${i.vendidos}: a quantidade não pode ser menor.`
   return e
 }

@@ -29,8 +29,8 @@ import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
 import { copiaDoEvento, erroAoExcluir } from '../../lib/eventoProdutor'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
-  mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
+  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
 import { brl, calcularTaxa } from '../../lib/taxa'
@@ -194,8 +194,9 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   // ---- gravação do evento (salvamento automático e envio usam a mesma, uma por vez) ----
   const erros = errosDeData(form, inicial.f)
-  const vivo = useRef({ snap, capa, removida, ingSujo, erros })
-  useEffect(() => { vivo.current = { snap, capa, removida, ingSujo, erros } })
+  const erroNome = form.title.trim() === '' ? ERRO_NOME : ''
+  const vivo = useRef({ snap, capa, removida, ingSujo, erros, nome: form.title })
+  useEffect(() => { vivo.current = { snap, capa, removida, ingSujo, erros, nome: form.title } })
   const fila = useRef<Promise<void>>(Promise.resolve())
   const excluindo = useRef(false)
 
@@ -203,7 +204,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
     if (excluindo.current) return
     const v = vivo.current
     // data com erro (início no passado, fim antes do início…) não é gravada: a tela mostra o erro e espera a correção
-    const campos = semDatasInvalidas(diffCampos(salvoRef.current, v.snap), v.erros)
+    const campos = semNomeVazio(semDatasInvalidas(diffCampos(salvoRef.current, v.snap), v.erros), v.nome)
     const { online_url: link, ...col } = campos
     let extra: Partial<DbEvent> = {}
     let url: string | undefined
@@ -238,7 +239,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const gatilho = useMemo(() => ({ snap, capa, removida }), [snap, capa, removida])
   const { estado, tentarDeNovo } = useAutoSave({
     ativo: autoAtivo, mudou: gatilho, gravar: gravarSerial,
-    temMudanca: () => !excluindo.current && (!!vivo.current.capa || vivo.current.removida || temErro(semDatasInvalidas(diffCampos(salvoRef.current, vivo.current.snap), vivo.current.erros))),
+    temMudanca: () => !excluindo.current && (!!vivo.current.capa || vivo.current.removida || temErro(semNomeVazio(semDatasInvalidas(diffCampos(salvoRef.current, vivo.current.snap), vivo.current.erros), vivo.current.nome))),
   })
 
   // ---- derivados da tela ----
@@ -256,6 +257,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const faltas: Falta[] = [
     ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]] })),
     ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos' }] : []),
+    ...(erroNome ? [{ rotulo: 'Escrever o nome do evento', secao: 'oque', nomeSecao: 'O que é' }] : []),
     ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
     ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
   ]
@@ -271,7 +273,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const aceiteDefasado = (modo === 'analise' || modo === 'publicado') && divergeDoAceite(classSalva)
   const precisaAceiteNovo = modo === 'publicado' && (ultimoAceite === undefined ? 'classificacao' in diff || temBebidaSalva !== inicial.tipos.some(i => i.bebida) : divergeDoAceite(classificacaoTela))
   const aceiteNoDialogo = soAceite || precisaAceiteNovo
-  const bloqueioDialogo = soAceite ? '' : ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erros.inicio || erros.fim || linkRuim ? 'Corrija as datas e o link da transmissão antes de enviar.' : ''
+  const bloqueioDialogo = soAceite ? '' : ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erroNome || erros.inicio || erros.fim || linkRuim ? 'Corrija o nome, as datas e o link da transmissão antes de enviar.' : ''
 
   const ingValidos = !ingSujo && ings.every(i => !temErro(errosDeIngresso(i)))
   const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub')
@@ -326,8 +328,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       void qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }) // o Match de Mesa aparece com o primeiro ingresso coletiva
       toast.success('Ingressos salvos.')
     } catch (err) {
-      const code = (err as { code?: string } | null)?.code
-      toast.error(code === '23503' ? 'Este ingresso já tem pedidos ligados e não pode ser removido. Use Ocultar.' : 'Não foi possível salvar os ingressos. Confira a internet e tente de novo.')
+      toast.error(erroDosIngressos(err))
     } finally {
       setSalvandoIng(false)
     }
@@ -399,6 +400,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
     setForm(formDoSnap(salvoRef.current))
     if (capa) URL.revokeObjectURL(capa.previewUrl)
     setCapa(null); setRemovida(false); setAceiteDe(null); setErroEnvio('')
+    // o botão Descartar some com a faixa: o foco vai para o título da página (senão cai no body)
+    setTimeout(() => { const h1 = document.querySelector<HTMLElement>('h1'); if (h1) { h1.tabIndex = -1; h1.focus({ preventScroll: true }) } })
   }
 
   // ---- sair com mudanças que se perdem: não enviadas (evento no ar), não salvas (erro, gravando, capa) ou ingressos sem salvar ----
@@ -452,7 +455,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   const corpo = (id: string) => {
     switch (id) {
-      case 'oque': return <SecaoOQueE f={form} set={set} />
+      case 'oque': return <SecaoOQueE f={form} set={set} erroNome={erroNome} />
       case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} erros={erros} />
       case 'img': return (
         <CapaEventoCampo

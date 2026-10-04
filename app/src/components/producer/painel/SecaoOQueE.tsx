@@ -11,7 +11,7 @@ const MAX_TAGS = 10
 const alterna = (lista: string[], v: string) => (lista.includes(v) ? lista.filter(x => x !== v) : [...lista, v])
 
 // Seção "O que é": nome, subtítulo, formato, temas, estilos (só com o tema Música), etiquetas e descrição.
-export default function SecaoOQueE({ f, set }: PropsSecao) {
+export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome: string }) {
   const [tag, setTag] = useState('')
   const formatoConhecido = FORMATOS.some(x => x.valor === f.category) // texto antigo de category não casa com a lista: mostra "Escolha"
 
@@ -23,8 +23,8 @@ export default function SecaoOQueE({ f, set }: PropsSecao) {
 
   return (
     <div className="grid gap-4">
-      <Campo id="f-nome" rotulo="Nome do evento">
-        <Input id="f-nome" value={f.title} onChange={e => set({ title: e.target.value })} maxLength={80} autoComplete="off" />
+      <Campo id="f-nome" rotulo="Nome do evento" erro={erroNome || undefined}>
+        <Input id="f-nome" aria-invalid={!!erroNome} aria-describedby={erroNome ? 'f-nome-erro' : undefined} value={f.title} onChange={e => set({ title: e.target.value })} maxLength={80} autoComplete="off" />
       </Campo>
       <Campo id="f-sub" rotulo="Subtítulo" opc="(opcional)">
         <Input id="f-sub" value={f.subtitle} onChange={e => set({ subtitle: e.target.value })} maxLength={120} placeholder="Uma linha que aparece abaixo do nome" />

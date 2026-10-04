@@ -2,12 +2,11 @@ import { useRef, useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Segmented } from '@/components/ui/toggle-group'
 import { searchAddressByPostalCode } from '../../../lib/cepService'
 import { siteUrl } from '../../../lib/appHost'
 import { dominioDoLink, enderecoDe, linkValido, type ErrosData } from '../../../lib/painelEvento'
 import { LOCAL_MODOS } from '../../../lib/tipoEvento'
-import { Campo, Faixa, type PropsSecao } from './campos'
+import { Campo, Faixa, SegmentadoComSetas, type PropsSecao } from './campos'
 
 const mascaraCep = (v: string) => { const d = v.replace(/\D/g, '').slice(0, 8); return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d }
 
@@ -65,7 +64,7 @@ export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao &
         <span id="r-modo" className="text-sm font-medium text-foreground">Local</span>
         {travado
           ? <p className="text-sm text-foreground">{modoNome}</p>
-          : <Segmented label="Modo do local" size="md" className="max-w-xl" value={f.local_modo} onValueChange={v => set({ local_modo: v })} items={LOCAL_MODOS.map(m => ({ value: m.valor, label: m.rotulo }))} />}
+          : <SegmentadoComSetas label="Modo do local" size="md" className="max-w-xl" value={f.local_modo} onValueChange={v => set({ local_modo: v })} items={LOCAL_MODOS.map(m => ({ value: m.valor, label: m.rotulo }))} />}
       </div>
 
       {presencial && (

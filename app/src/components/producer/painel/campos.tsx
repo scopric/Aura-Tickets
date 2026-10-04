@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { Label } from '@/components/ui/label'
+import { Segmented } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import type { Form } from '../../../lib/painelEvento'
 
@@ -63,4 +64,22 @@ export function Faixa({ tom, titulo, children, acoes, className }: {
       {acoes && <div className="flex flex-wrap items-center gap-2 sm:self-center">{acoes}</div>}
     </div>
   )
+}
+
+// Segmented do painel com o padrão radiogroup: ← e → trocam a seleção (o ToggleGroup do Radix só move o foco).
+// O componente global não muda: o ajuste fica aqui, onde o painel usa.
+export function SegmentadoComSetas({ items, value, onValueChange, ...resto }: {
+  items: { value: string; label: ReactNode }[]; value: string; onValueChange: (v: string) => void
+  label: string; size?: 'sm' | 'md'; className?: string
+}) {
+  const aoTeclar = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const dir = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 0
+    if (!dir || !(e.target as HTMLElement).closest('[role="radio"]')) return
+    e.preventDefault(); e.stopPropagation()
+    const raiz = e.currentTarget
+    const i = Math.max(0, items.findIndex(it => it.value === value))
+    onValueChange(items[(i + dir + items.length) % items.length].value)
+    requestAnimationFrame(() => raiz.querySelector<HTMLElement>('[role="radio"][data-state="on"]')?.focus())
+  }
+  return <div onKeyDownCapture={aoTeclar} className={resto.className}><Segmented items={items} value={value} onValueChange={onValueChange} label={resto.label} size={resto.size} /></div>
 }
