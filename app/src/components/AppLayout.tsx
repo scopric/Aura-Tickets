@@ -7,18 +7,20 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useUserNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
+import { useTourDaUrl } from '../hooks/useTourDaUrl'
 import { cn } from '../lib/utils'
 import ThemeToggle from './ThemeToggle'
 import { ErrorBoundary } from './error-boundary'
 import { uploadAvatar } from '../lib/avatarUpload'
 import EvoHub from './EvoHub'
+import Tour from './producer/Tour'
 import FeedbackTopButton from './FeedbackTopButton'
 import * as I from './icones/evokaa16'
 
 const navItems = [
   { to: '/app/hub', icon: LayoutDashboard, label: 'Início' },
-  { to: '/app/tickets', icon: Ticket, label: 'Meus Ingressos' },
-  { to: '/app/events', icon: Calendar, label: 'Eventos' },
+  { to: '/app/tickets', icon: Ticket, label: 'Meus Ingressos', tour: 'app-ingressos' },
+  { to: '/app/events', icon: Calendar, label: 'Eventos', tour: 'app-explorar' },
   { to: '/app/orders', icon: ShoppingCart, label: 'Compras' },
   { to: '/app/chat', icon: MessageCircle, label: 'Chat' },
   { to: '/app/notifications', icon: Bell, label: 'Notificações' },
@@ -29,10 +31,13 @@ const navItems = [
 // Barra inferior do celular (V10a, como a prancha): Explorar, Ingressos e Conta, mais o círculo de busca à parte.
 // Início, Chat, Compras, Notificações e Configurações seguem no menu do topo (e Notificações no sino); a V10b decide o resto.
 const abas = [
-  { to: '/app/events', Icone: I.Explorar, label: 'Explorar' },
-  { to: '/app/tickets', Icone: I.Ingressos, label: 'Ingressos' },
+  { to: '/app/events', Icone: I.Explorar, label: 'Explorar', tour: 'app-explorar' },
+  { to: '/app/tickets', Icone: I.Ingressos, label: 'Ingressos', tour: 'app-ingressos' },
   { to: '/app/profile', Icone: I.Conta, label: 'Conta' },
 ]
+
+// Mesma consulta do breakpoint lg: a lateral só aparece a partir dela; abaixo, vale a barra inferior
+const COMPUTADOR = '(min-width: 1024px)'
 
 function formatTimeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -51,6 +56,10 @@ export default function AppLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+  const paginaRef = useRef<HTMLElement>(null)
+  const { tour, tourId, fim } = useTourDaUrl(paginaRef)
+  // Os dois menus têm os mesmos alvos: a lateral só os expõe no computador (no celular ela fica fora da tela)
+  const [computador, setComputador] = useState(() => !!window.matchMedia?.(COMPUTADOR).matches)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,9 +90,12 @@ export default function AppLayout() {
   // Avisa o resto da página que a barra existe (--barra-cel no <body>, abaixo de lg, já com a área segura): o Evo e o
   // aviso de cookies sobem sobre ela. Limpa ao sair.
   useEffect(() => {
-    const mq = window.matchMedia?.('(max-width: 1023px)')
+    const mq = window.matchMedia?.(COMPUTADOR)
     if (!mq) return
-    const aplicar = () => document.body.style.setProperty('--barra-cel', mq.matches ? 'calc(68px + env(safe-area-inset-bottom, 0px))' : '0px')
+    const aplicar = () => {
+      document.body.style.setProperty('--barra-cel', mq.matches ? '0px' : 'calc(68px + env(safe-area-inset-bottom, 0px))')
+      setComputador(mq.matches)
+    }
     aplicar()
     mq.addEventListener('change', aplicar)
     return () => { mq.removeEventListener('change', aplicar); document.body.style.removeProperty('--barra-cel') }
@@ -147,6 +159,7 @@ export default function AppLayout() {
               <Link
                 key={item.to}
                 to={item.to}
+                data-tour={computador ? item.tour : undefined}
                 onClick={() => setMobileOpen(false)}
                 className={cn(
                   'flex items-center gap-3 rounded-lg transition-all duration-200',
@@ -375,7 +388,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page Content (pb-24: o fim da página rola acima do Evo flutuante) */}
-        <main className="flex-1 p-6 pb-[calc(6rem+var(--barra-cel,0px))] lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
+        <main ref={paginaRef} className="flex-1 p-6 pb-[calc(6rem+var(--barra-cel,0px))] lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
           <ErrorBoundary resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>
@@ -386,12 +399,13 @@ export default function AppLayout() {
           camada tint (.vidro, index.css). A busca leva ao Explorar com o campo de busca focado. */}
       <div className="fixed inset-x-3 bottom-[calc(12px+env(safe-area-inset-bottom,0px))] z-30 mx-auto flex max-w-[420px] items-center gap-3 lg:hidden">
         <nav aria-label="Navegação principal" className="vidro flex h-14 min-w-0 flex-1 items-center p-1">
-          {abas.map(({ to, Icone, label }) => {
+          {abas.map(({ to, Icone, label, tour: alvo }) => {
             const ativa = isActive(to)
             return (
               <Link
                 key={to}
                 to={to}
+                data-tour={alvo}
                 aria-current={ativa ? 'page' : undefined}
                 className="flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-full text-[11px] font-semibold leading-[14px] text-[var(--vidro-texto-2)] focus-visible:outline-none focus-visible:shadow-ev-foco"
               >
@@ -411,6 +425,10 @@ export default function AppLayout() {
       </div>
 
       <EvoHub />
+      {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
+      {tour && (
+        <Tour key={tourId} tour={tour} onFim={fim} />
+      )}
     </div>
   )
 }
