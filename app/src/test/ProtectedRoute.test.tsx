@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Link } from 'react-router-dom'
+import { fireEvent } from '@testing-library/react'
+import { AuthRetryableFetchError } from '@supabase/supabase-js'
 
 // Decisão 99: admin sem 2FA cadastrado vê a tela de cadastro, não o painel
 const auth = vi.hoisted(() => ({ role: 'admin' as string }))
 const mfa = vi.hoisted(() => ({ getAuthenticatorAssuranceLevel: vi.fn(), listFactors: vi.fn() }))
 vi.mock('../hooks/useAuth', () => ({
-  useAuth: () => ({ isAuthenticated: true, isLoading: false, role: auth.role, user: { admin_permissions: ['super_admin'] }, logout: vi.fn() }),
+  useAuth: () => ({ isAuthenticated: true, isLoading: false, role: auth.role, user: { id: 'u1', admin_permissions: ['super_admin'] }, logout: vi.fn() }),
 }))
 vi.mock('../lib/supabase', () => ({ supabase: { auth: { mfa } } }))
 
@@ -49,5 +51,21 @@ describe('ProtectedRoute e o 2FA do admin', () => {
     abrir()
     expect(await screen.findByText('painel')).toBeInTheDocument()
     expect(mfa.listFactors).not.toHaveBeenCalled()
+  })
+
+  it('falha de rede no 2FA: libera /app/tickets com cópia guardada e bloqueia as outras rotas', async () => {
+    auth.role = 'user'
+    localStorage.setItem('evk.ingressos.u1', JSON.stringify({ em: new Date().toISOString(), ingressos: [] }))
+    mfa.getAuthenticatorAssuranceLevel.mockResolvedValue({ data: null, error: new AuthRetryableFetchError('rede', 0) })
+    render(
+      <MemoryRouter initialEntries={['/app/tickets']}>
+        <Link to="/app/outra">ir</Link>
+        <ProtectedRoute allowedRoles={['user']}><p>painel</p></ProtectedRoute>
+      </MemoryRouter>)
+    expect(await screen.findByText('painel')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('ir'))
+    expect(await screen.findByText('Tentar de novo')).toBeInTheDocument()
+    expect(screen.queryByText('painel')).not.toBeInTheDocument()
+    localStorage.clear()
   })
 })

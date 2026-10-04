@@ -31,8 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Sincroniza sessão ativa inicial do Supabase
-    // sem resposta em 4 s com sessão guardada (renovação do token em espera, sem rede): segue com o usuário do store
-    comTempo(supabase.auth.getSession(), 4000, () => ({ data: { session: null }, error: null }))
+    // sem resposta em 4 s (só sem internet ou com cópia de ingressos guardada) e sessão guardada (renovação do token em espera, sem rede): segue com o usuário do store
+    const sessaoInicial = supabase.auth.getSession()
+    const guardada = navigator.onLine === false || Object.keys(localStorage).some(k => k.startsWith('evk.ingressos.'))
+    ;(guardada ? comTempo(sessaoInicial, 4000, () => ({ data: { session: null }, error: null })) : sessaoInicial)
       .then(({ data: { session } }) => {
         if (session) {
           setSession(session)
