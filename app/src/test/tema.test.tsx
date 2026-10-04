@@ -76,10 +76,20 @@ describe('ThemeContext: 3 estados', () => {
     expect(corDaBarra()).toBe('#0b0d12')
   })
 
-  it.each(['/admin/users', '/auth/login'])('%s sem nada salvo: escuro, mesmo com o aparelho claro', rota => {
+  it('/auth/login sem nada salvo: escuro, mesmo com o aparelho claro', () => {
     aparelho(false)
-    montar(rota)
+    montar('/auth/login')
     expect(screen.getByTestId('tema').textContent).toBe('dark')
+    expect(classeHtml()).toBe('dark')
+  })
+
+  // V12c (Decisão 144): o admin (alpha.*) também começa em Automático; a escolha salva continua valendo
+  it('/admin/users sem nada salvo: automático, segue o aparelho', () => {
+    const mudar = aparelho(false)
+    montar('/admin/users')
+    expect(screen.getByTestId('tema').textContent).toBe('auto')
+    expect(classeHtml()).toBe('light')
+    mudar(true)
     expect(classeHtml()).toBe('dark')
   })
 
@@ -111,7 +121,7 @@ describe('ThemeContext: 3 estados', () => {
 
   it('sem nada salvo, o padrão muda junto com a rota; com escolha salva, não', () => {
     aparelho(false)
-    montar('/admin/users')
+    montar('/auth/login')
     expect(screen.getByTestId('tema').textContent).toBe('dark')
     fireEvent.click(screen.getByText('ir ao produtor'))
     expect(screen.getByTestId('tema').textContent).toBe('auto')
