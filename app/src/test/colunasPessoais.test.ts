@@ -20,7 +20,7 @@ function leiturasProibidas(codigo: string): string[] {
   // from('orders'|'tickets') [as never] ou from(<variável>) [as never] ... o PRIMEIRO .select( depois dele, sem atravessar
   // outra consulta; select com variável não é conferido. from(<variável>) pode cair em orders/tickets: barra em qualquer tabela.
   const doFrom = new RegExp(
-    `supabase\\s*\\.from\\(\\s*(['"](?:orders|tickets)['"]|[A-Za-z_$][\\w$]*)(?:\\s+as\\s+\\w+)?\\s*\\)` +
+    `(?<!Array)\\.from\\(\\s*(['"](?:orders|tickets)['"]|[A-Za-z_$][\\w$]*)(?:\\s+as\\s+\\w+)?\\s*\\)` +
     `(?:(?!\\.from\\(|supabase|\\.select\\()[\\s\\S])*?\\.select\\((\\s*\\)|\\s*${LITERAL})?`, 'g')
   for (const m of codigo.matchAll(doFrom)) {
     const arg = m[2]?.trim()
@@ -57,6 +57,7 @@ describe('orders e tickets sem colunas pessoais (E4)', () => {
   it('pega os padrões proibidos', () => {
     const ruins = [
       "supabase.from('orders').select('*').eq('id', x)",
+      "supabaseAdmin.from('orders').select('*')",
       'supabase.from("tickets").select("*")',
       "supabase.from('orders').insert({ user_id: u, total: 1 }).select().single()",
       "supabase\n  .from('orders')\n  .select(`\n    *,\n    events (title)\n  `)",
