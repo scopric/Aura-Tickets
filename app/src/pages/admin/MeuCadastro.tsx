@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Info, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { PageHeader } from '@/components/producer/ui'
+import { alertaAviso, alertaErro, painel } from '@/components/admin/ui'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { formatCPF, formatPostalCode } from '../../lib/formatters'
@@ -58,12 +62,12 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
   }
 
   return (
-    <form onSubmit={salvar} noValidate className="space-y-9 mt-6">
-      <p className="text-sm text-espresso/75 leading-relaxed">
+    <form onSubmit={salvar} noValidate className="space-y-9">
+      <p className="text-sm leading-relaxed text-muted-foreground">
         Estes dados servem só ao seu vínculo de trabalho com a Evokaa. Ficam visíveis para você e para a
         administração da equipe; os demais colaboradores veem apenas o seu nome, cargo e e-mail.
       </p>
-      {erro && <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">{erro}</div>}
+      {erro && <div role="alert" className={alertaErro}>{erro}</div>}
 
       <div className="grid sm:grid-cols-2 gap-4">
         <div>
@@ -74,22 +78,21 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
           <label htmlFor="c-cargo" className={rotulo}>Cargo</label>
           <input id="c-cargo" value={linha.cargo} readOnly disabled className={campo} />
         </div>
-        <p className="sm:col-span-2 text-xs text-espresso/70">E-mail e cargo vêm do convite; para mudar, fale com a administração da equipe.</p>
+        <p className="text-xs text-muted-foreground sm:col-span-2">E-mail e cargo vêm do convite; para mudar, fale com a administração da equipe.</p>
       </div>
 
       <CamposFicha f={f} setF={setF} disabled={salvando} />
 
       {mudouPagamento && (
-        <div role="status" className="flex gap-2 p-3 rounded-xl bg-amber-50 border border-amber-100 text-sm text-amber-800">
-          <Info className="w-4 h-4 shrink-0 mt-0.5" aria-hidden />
+        <div role="status" className={alertaAviso}>
+          <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
           <span>A mudança de Pix ou de dados bancários fica registrada, com data e com quem alterou.</span>
         </div>
       )}
 
-      <button type="submit" disabled={salvando}
-        className="inline-flex items-center gap-2 px-6 py-3 bg-plum text-cream text-sm font-semibold rounded-full hover:shadow-glow transition-all disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum/50">
-        {salvando && <Loader2 className="w-4 h-4 animate-spin" />} Salvar alterações
-      </button>
+      <Button type="submit" loading={salvando}>
+        <I.Guardar /> Salvar alterações
+      </Button>
     </form>
   )
 }
@@ -111,18 +114,18 @@ export default function MeuCadastro() {
 
   return (
     <div className="p-6 lg:p-10 max-w-3xl">
-      <h1 className="font-serif text-3xl text-espresso">Meu cadastro</h1>
+      <PageHeader title="Meu cadastro" />
 
       {isLoading || (!uid && !isError) ? (
-        <div className="flex items-center gap-2 mt-8 text-sm text-espresso/75" role="status">
-          <Loader2 className="w-4 h-4 animate-spin" /> Carregando…
+        <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+          <Spinner role="presentation" aria-hidden="true" /> Carregando…
         </div>
       ) : isError ? (
-        <p role="alert" className="mt-6 p-3 rounded-xl bg-red-50 border border-red-100 text-sm text-red-700">
+        <p role="alert" className={alertaErro}>
           Não foi possível carregar o seu cadastro agora. Recarregue a página em instantes.
         </p>
       ) : !linha ? (
-        <p className="mt-6 p-4 rounded-xl bg-white/50 border border-white/60 text-sm text-espresso/80 leading-relaxed">
+        <p className={`${painel} p-4 text-sm leading-relaxed text-muted-foreground`}>
           Esta conta não tem cadastro de colaborador. O cadastro é feito ao aceitar o convite para a equipe.
         </p>
       ) : (

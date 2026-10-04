@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Camera, Flag, UserX, ShieldAlert, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, selectNativo } from '@/components/producer/ui'
+import { alertaAviso, alertaErro, chipAviso, chipInfo, painel } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { useAdminEvents } from '../../hooks/useEvents'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
 import {
@@ -15,17 +20,19 @@ import { MOTIVO_DENUNCIA } from '../../hooks/useMatchmaking'
 type Aba = 'fotos' | 'denuncias' | 'remocoes'
 
 const dataBr = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
-const cartao = 'p-4 rounded-xl bg-white/40 border border-white/60'
+const cartao = `${painel} p-4`
+// campo de texto das caixas de resolução (mesmo desenho do Input, 14 px)
+const campoTexto = 'w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
+const carregando = <div className="flex justify-center py-16"><Spinner className="size-6 text-primary" /></div>
 // só a foto que o app grava vira <img> e pode ser aprovada; outra coisa só pode ser recusada
 const jpeg = (foto: string) => foto.startsWith('data:image/jpeg;base64,')
-const botao = 'px-3 py-1.5 rounded-full text-xs font-medium transition-all disabled:opacity-50'
 
 type Mfa = ReturnType<typeof useTwoFactor>
 
 // Sessão sem 2FA: o banco recusa toda a moderação (42501 "Ative o 2FA para moderar")
 function Erro({ err, mfa, onRetry }: { err: unknown; mfa: Mfa; onRetry: () => void }) {
   return (
-    <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+    <div role="alert" className={cn(alertaErro, 'mb-4')}>
       {precisa2fa(err) ? (
         <>
           Ative o 2FA para moderar.{' '}
@@ -51,24 +58,24 @@ export default function AdminMatchDeMesa() {
   const { data: eventos = [] } = useAdminEvents()
   const comMesa = eventos.filter(e => e.ticket_types?.some(t => t.type === 'coletiva'))
 
-  const abas: { id: Aba; label: string; icon: typeof Camera }[] = [
-    { id: 'fotos', label: 'Fotos', icon: Camera },
-    { id: 'denuncias', label: 'Denúncias', icon: Flag },
-    { id: 'remocoes', label: 'Remoções', icon: UserX },
+  const abas: { id: Aba; label: string; icon: I.IconeEvokaa }[] = [
+    { id: 'fotos', label: 'Fotos', icon: I.Camera },
+    { id: 'denuncias', label: 'Denúncias', icon: I.Bandeira },
+    { id: 'remocoes', label: 'Remoções', icon: I.PessoaRemover },
   ]
 
   return (
     <div className="p-6 lg:p-10 max-w-5xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Match de Mesa</h1>
-        <p className="text-sm text-espresso/70 mt-1">Fotos de perfil, denúncias e remoções. Exige 2FA.</p>
-      </div>
+      <PageHeader title="Match de Mesa" description="Fotos de perfil, denúncias e remoções. Exige 2FA." />
 
-      <nav className="flex gap-1 mb-6 overflow-x-auto" role="tablist">
+      <nav className="mb-6 flex gap-1 overflow-x-auto" role="tablist">
         {abas.map(a => (
           <button key={a.id} role="tab" aria-selected={aba === a.id} onClick={() => setAba(a.id)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${aba === a.id ? 'bg-rose-500/10 text-rose-500 font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
-            <a.icon className="w-4 h-4" />{a.label}
+            className={cn(
+              'flex h-9 items-center gap-2 whitespace-nowrap rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              aba === a.id ? 'bg-[var(--ev-tint-ativo)] font-semibold text-foreground' : 'text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground',
+            )}>
+            <a.icon size={16} ativo={aba === a.id} className={aba === a.id ? 'text-primary' : undefined} aria-hidden="true" />{a.label}
           </button>
         ))}
       </nav>
@@ -76,10 +83,9 @@ export default function AdminMatchDeMesa() {
       {aba !== 'fotos' && (
         // ponytail: denúncia só por evento escolhido; falta no SQL uma fila geral das abertas (todos os
         // eventos) para o moderador não precisar procurar evento a evento. Pendência.
-        <label className="block mb-6 max-w-md">
-          <span className="text-xs font-medium text-espresso/70 mb-1.5 block">Evento</span>
-          <select value={eventId} onChange={e => setEventId(e.target.value)}
-            className="w-full px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none">
+        <label className="mb-6 block max-w-md">
+          <span className="mb-1.5 block text-[13px] font-medium text-muted-foreground">Evento</span>
+          <select value={eventId} onChange={e => setEventId(e.target.value)} className={selectNativo}>
             <option value="">Escolha um evento com Match de Mesa</option>
             {comMesa.map(e => <option key={e.id} value={e.id}>{e.title}{e.date ? ` · ${new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}</option>)}
           </select>
@@ -109,37 +115,37 @@ function Fotos({ mfa }: { mfa: Mfa }) {
     })
   }
 
-  if (fila.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
+  if (fila.isLoading) return carregando
   if (fila.isError) return <Erro err={fila.error} mfa={mfa} onRetry={() => fila.refetch()} />
   const itens = fila.data ?? []
 
   return (
     <div className="space-y-3">
       {aviso && (
-        <div role="alert" className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-700 flex items-center justify-between gap-3">
-          {aviso}
-          <button onClick={() => { setAviso(''); fila.refetch() }} className="flex items-center gap-1 underline"><RefreshCw className="w-3 h-3" /> Atualizar lista</button>
+        <div role="alert" className={cn(alertaAviso, 'items-center justify-between gap-3')}>
+          <span className="flex items-center gap-2"><I.Alerta size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />{aviso}</span>
+          <button onClick={() => { setAviso(''); fila.refetch() }} className="flex items-center gap-1 font-medium underline"><I.Atualizar size={12} aria-hidden="true" /> Atualizar lista</button>
         </div>
       )}
-      {itens.length === 0 && <p className="py-12 text-center text-xs text-espresso/70 italic">Nenhuma foto esperando revisão.</p>}
+      {itens.length === 0 && <EmptyState title="Nenhuma foto esperando revisão." />}
       {itens.map(f => (
-        <div key={f.id} className={`${cartao} flex items-center gap-4`}>
+        <div key={f.id} className={`${cartao} flex flex-wrap items-center gap-4`}>
           {/* só a foto que o app grava (base64 JPEG); qualquer outra coisa não vira <img> */}
           {jpeg(f.foto)
-            ? <img src={f.foto} alt={`Foto de ${f.nome ?? 'perfil'}`} className="w-20 h-20 rounded-xl object-cover" />
-            : <div className="w-20 h-20 rounded-xl bg-espresso/5 flex items-center justify-center text-[10px] text-espresso/70 text-center">formato não aceito</div>}
+            ? <img src={f.foto} alt={`Foto de ${f.nome ?? 'perfil'}`} className="size-20 rounded-xl object-cover" />
+            : <div className="flex size-20 items-center justify-center rounded-xl bg-secondary text-center text-[11px] text-muted-foreground">formato não aceito</div>}
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-bold text-espresso truncate">{f.nome || 'Sem nome'}</div>
-            <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-medium rounded-full border border-amber-100 bg-amber-50 text-amber-600">
+            <div className="truncate text-sm font-semibold text-foreground">{f.nome || 'Sem nome'}</div>
+            <span className={`${chipAviso} mt-1`}>
               {f.situacao === 'revisar' ? (f.contestada ? 'Revisar' : 'Revisar (dúvida da IA)') : 'Pendente'}
             </span>
             {f.contestada && (
-              <span className="inline-block mt-1 ml-1 px-2 py-0.5 text-[10px] font-medium rounded-full border border-plum/20 bg-plum/10 text-plum">
+              <span className={`${chipInfo} mt-1 ml-1`}>
                 Contestada pela pessoa
               </span>
             )}
             {f.ia && (
-              <div className="mt-1 text-xs text-espresso/70">
+              <div className="mt-1 text-xs text-muted-foreground">
                 {DECISAO_IA[f.ia.decisao] ?? f.ia.decisao}
                 {f.ia.motivos.length > 0 && `: ${f.ia.motivos.map(m => MOTIVO_IA[m] ?? m).join(', ')}`}
                 {' · '}{dataBr(f.ia.em)}
@@ -147,8 +153,8 @@ function Fotos({ mfa }: { mfa: Mfa }) {
             )}
           </div>
           <div className="flex gap-2">
-            <button onClick={() => decide(f.id, f.hash, true)} disabled={decidir.isPending || !jpeg(f.foto)} className={`${botao} bg-plum text-cream hover:shadow-glow`}>Aprovar</button>
-            <button onClick={() => decide(f.id, f.hash, false)} disabled={decidir.isPending} className={`${botao} border border-red-200 text-red-500 hover:bg-red-50`}>Recusar</button>
+            <Button size="sm" onClick={() => decide(f.id, f.hash, true)} disabled={decidir.isPending || !jpeg(f.foto)}>Aprovar</Button>
+            <Button size="sm" variant="outline" className="text-destructive" onClick={() => decide(f.id, f.hash, false)} disabled={decidir.isPending}>Recusar</Button>
           </div>
         </div>
       ))}
@@ -175,20 +181,20 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   useEffect(() => { if (resolvendo) primeiraOpcao.current?.focus() }, [resolvendo])
   const falta = !resultado ? 'Falta escolher o resultado.' : !explicacaoOk ? `Falta a explicação (de ${EXPLICACAO_MIN} a ${EXPLICACAO_MAX} caracteres, com letra ou número).` : ''
 
-  if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
+  if (lista.isLoading) return carregando
   if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
   const itens = lista.data ?? []
 
   return (
     <div className="space-y-3">
-      {itens.length === 0 && <p className="py-12 text-center text-xs text-espresso/70 italic">Nenhuma denúncia neste evento.</p>}
+      {itens.length === 0 && <EmptyState title="Nenhuma denúncia neste evento." />}
       {itens.map(d => (
         <div key={d.id} className={cartao}>
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="text-xs text-espresso space-y-0.5">
-              <div><span className="font-bold">{d.denunciado || 'Conta excluída'}</span> · {MOTIVO_DENUNCIA[d.motivo] ?? d.motivo}{d.mesa ? ` · ${d.mesa}` : ''}</div>
-              <div className="text-espresso/70">Denunciado por {d.denunciante || 'conta excluída'} em {dataBr(d.criado_em)}</div>
-              <div className="text-espresso/70">
+            <div className="space-y-0.5 text-xs text-foreground">
+              <div><span className="font-semibold">{d.denunciado || 'Conta excluída'}</span> · {MOTIVO_DENUNCIA[d.motivo] ?? d.motivo}{d.mesa ? ` · ${d.mesa}` : ''}</div>
+              <div className="text-muted-foreground">Denunciado por {d.denunciante || 'conta excluída'} em {dataBr(d.criado_em)}</div>
+              <div className="text-muted-foreground">
                 {d.mesma_mesa && d.sobreposicao_inicio && d.sobreposicao_fim
                   ? `Estiveram na mesma mesa de ${dataBr(d.sobreposicao_inicio)} a ${dataBr(d.sobreposicao_fim)}`
                   : 'Não estiveram na mesma mesa ao mesmo tempo'}
@@ -205,69 +211,70 @@ function Denuncias({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
                   onError: err => toast.error(erroMesaAdmin(err)),
                 })
               }}
-              className="px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none">
+              className={cn(selectNativo, 'sm:w-auto')}>
               {(Object.keys(STATUS_DENUNCIA) as StatusDenuncia[]).map(s => <option key={s} value={s}>{STATUS_DENUNCIA[s]}</option>)}
             </select>
           </div>
           {resolvendo === d.id && d.status !== 'resolvida' && (
-            <div className="mt-3 p-3 rounded-xl bg-white/60 border border-plum/20 space-y-2">
+            <div className="mt-3 space-y-2 rounded-[10px] bg-secondary p-3">
               <fieldset className="space-y-1">
-                <legend className="text-[11px] text-espresso/70">Resultado (obrigatório)</legend>
+                <legend className="text-xs text-muted-foreground">Resultado (obrigatório)</legend>
                 {(Object.keys(RESULTADO_DENUNCIA) as ResultadoDenuncia[]).map((r, i) => (
-                  <label key={r} className="flex items-center gap-2 text-xs text-espresso">
-                    <input ref={i === 0 ? primeiraOpcao : undefined} type="radio" name={`resultado-${d.id}`} checked={resultado === r} onChange={() => setResultado(r)} /> {RESULTADO_DENUNCIA[r]}
+                  <label key={r} className="flex items-center gap-2 text-[13px] text-foreground">
+                    <input ref={i === 0 ? primeiraOpcao : undefined} type="radio" className="accent-primary" name={`resultado-${d.id}`} checked={resultado === r} onChange={() => setResultado(r)} /> {RESULTADO_DENUNCIA[r]}
                   </label>
                 ))}
               </fieldset>
               <label className="block">
-                <span className="text-[11px] text-espresso/70">Explique por que está resolvida (obrigatório, de {EXPLICACAO_MIN} a {EXPLICACAO_MAX} caracteres)</span>
+                <span className="text-xs text-muted-foreground">Explique por que está resolvida (obrigatório, de {EXPLICACAO_MIN} a {EXPLICACAO_MAX} caracteres)</span>
                 <textarea value={explicacao} onChange={e => setExplicacao(e.target.value)} maxLength={EXPLICACAO_MAX} rows={3}
-                  className="mt-1 w-full px-3 py-1.5 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso focus:outline-none" />
+                  className={`${campoTexto} mt-1`} />
               </label>
-              <p id={`resolver-falta-${d.id}`} aria-live="polite" className="text-[11px] text-amber-700">{falta}</p>
+              <p id={`resolver-falta-${d.id}`} aria-live="polite" className="text-xs text-[var(--ev-warning)]">{falta}</p>
               <div className="flex gap-2">
-                <button disabled={!resultado || !explicacaoOk || mudarStatus.isPending} aria-describedby={`resolver-falta-${d.id}`} className={`${botao} bg-plum text-cream`}
+                <Button size="sm" disabled={!resultado || !explicacaoOk || mudarStatus.isPending} aria-describedby={`resolver-falta-${d.id}`}
                   onClick={() => resultado && mudarStatus.mutate({ id: d.id, status: 'resolvida', resultado, explicacao }, {
                     onSuccess: () => { setResolvendo(null); setImprocedente(resultado === 'improcedente' ? d.id : null); toast.success('Status atualizado.') },
                     onError: err => toast.error(erroMesaAdmin(err)),
-                  })}>Confirmar resolução</button>
-                <button onClick={() => setResolvendo(null)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
+                  })}>Confirmar resolução</Button>
+                <Button size="sm" variant="outline" onClick={() => setResolvendo(null)}>Cancelar</Button>
               </div>
             </div>
           )}
           {improcedente === d.id && (travas.data ?? []).filter(t => t.denuncia_id === d.id && !t.destravada_em).map(t => (
-            <div key={t.id} role="status" className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 flex flex-wrap items-center gap-2">
-              <span className="text-xs text-amber-800">Esta denúncia tirou alguém da mesa. Desfazer a remoção?</span>
-              <button disabled={destravar.isPending} aria-label={`Desfazer remoção de ${t.pessoa || 'conta excluída'}`} className={`${botao} bg-plum text-cream`}
+            <div key={t.id} role="status" className={cn(alertaAviso, 'mt-3 flex-wrap items-center')}>
+              <I.Alerta size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
+              <span>Esta denúncia tirou alguém da mesa. Desfazer a remoção?</span>
+              <Button size="sm" disabled={destravar.isPending} aria-label={`Desfazer remoção de ${t.pessoa || 'conta excluída'}`}
                 onClick={() => destravar.mutate(t.id, {
                   onSuccess: () => toast.success('Remoção desfeita.'),
                   onError: err => toast.error(erroMesaAdmin(err)),
-                })}>Desfazer remoção</button>
+                })}>Desfazer remoção</Button>
             </div>
           ))}
           {d.status === 'resolvida' && d.resultado && (
-            <p className="mt-2 text-xs text-espresso whitespace-pre-line break-words">
-              <span className="font-bold">{d.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}</span>
+            <p className="mt-2 whitespace-pre-line break-words text-xs text-foreground">
+              <span className="font-semibold">{d.resultado === 'procedente' ? 'Procedente' : 'Improcedente'}</span>
               {d.resultado_explicacao ? ` · ${d.resultado_explicacao}` : ''}
             </p>
           )}
           {/* texto livre de quem denunciou: sempre texto puro */}
-          {d.detalhe && <p className="mt-2 text-xs text-espresso/70 leading-relaxed whitespace-pre-line break-words">{d.detalhe}</p>}
+          {d.detalhe && <p className="mt-2 whitespace-pre-line break-words text-xs leading-relaxed text-muted-foreground">{d.detalhe}</p>}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {d.liberada_produtor_em ? (
-              <span className="text-[11px] text-green-600">Liberada para a organização em {dataBr(d.liberada_produtor_em)}</span>
+              <span className="text-xs text-[var(--ev-success)]">Liberada para a organização em {dataBr(d.liberada_produtor_em)}</span>
             ) : confirmar === d.id ? (
               <>
-                <span className="text-[11px] text-espresso/70">A organização verá o denunciado, o motivo e a mesa. Não dá para desfazer.</span>
-                <button disabled={liberar.isPending} className={`${botao} bg-plum text-cream`}
+                <span className="text-xs text-muted-foreground">A organização verá o denunciado, o motivo e a mesa. Não dá para desfazer.</span>
+                <Button size="sm" disabled={liberar.isPending}
                   onClick={() => liberar.mutate(d.id, {
                     onSuccess: () => { setConfirmar(null); toast.success('Denúncia liberada para a organização.') },
                     onError: err => toast.error(erroMesaAdmin(err)),
-                  })}>Confirmar liberação</button>
-                <button onClick={() => setConfirmar(null)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
+                  })}>Confirmar liberação</Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmar(null)}>Cancelar</Button>
               </>
             ) : (
-              <button onClick={() => setConfirmar(d.id)} className={`${botao} border border-plum/30 text-plum hover:bg-plum/5`}>Liberar para a organização</button>
+              <Button size="sm" variant="outline" onClick={() => setConfirmar(d.id)}>Liberar para a organização</Button>
             )}
           </div>
         </div>
@@ -281,42 +288,42 @@ function Remocoes({ eventId, mfa }: { eventId: string; mfa: Mfa }) {
   const destravar = useMesaDestravar(eventId)
   const [confirmar, setConfirmar] = useState<string | null>(null)
 
-  if (lista.isLoading) return <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
+  if (lista.isLoading) return carregando
   if (lista.isError) return <Erro err={lista.error} mfa={mfa} onRetry={() => lista.refetch()} />
   const itens = lista.data ?? []
 
   return (
     <div className="space-y-3">
-      {itens.length === 0 && <p className="py-12 text-center text-xs text-espresso/70 italic">Ninguém foi removido de mesa neste evento.</p>}
+      {itens.length === 0 && <EmptyState title="Ninguém foi removido de mesa neste evento." />}
       {itens.map(t => (
         <div key={t.id} className={cartao}>
-          <div className="text-xs text-espresso space-y-0.5">
-            <div><span className="font-bold">{t.pessoa || 'Conta excluída'}</span> · {MOTIVO_REMOCAO[t.motivo] ?? t.motivo}</div>
-            <div className="text-espresso/70">Removida por {t.por || 'conta excluída'} em {dataBr(t.em)}</div>
+          <div className="space-y-0.5 text-xs text-foreground">
+            <div><span className="font-semibold">{t.pessoa || 'Conta excluída'}</span> · {MOTIVO_REMOCAO[t.motivo] ?? t.motivo}</div>
+            <div className="text-muted-foreground">Removida por {t.por || 'conta excluída'} em {dataBr(t.em)}</div>
           </div>
-          {t.detalhe && <p className="mt-2 text-xs text-espresso/70 whitespace-pre-line break-words">{t.detalhe}</p>}
+          {t.detalhe && <p className="mt-2 whitespace-pre-line break-words text-xs text-muted-foreground">{t.detalhe}</p>}
           {t.denuncia_resultado && (
             t.denuncia_resultado === 'improcedente' && !t.destravada_em ? (
-              <div className="mt-1 text-xs font-medium text-amber-800">Denúncia improcedente — a remoção ainda vale</div>
+              <div className="mt-1 text-xs font-medium text-[var(--ev-warning)]">Denúncia improcedente — a remoção ainda vale</div>
             ) : (
-              <div className="mt-1 text-xs text-espresso/70">Denúncia {t.denuncia_resultado === 'procedente' ? 'procedente' : 'improcedente'}</div>
+              <div className="mt-1 text-xs text-muted-foreground">Denúncia {t.denuncia_resultado === 'procedente' ? 'procedente' : 'improcedente'}</div>
             )
           )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             {t.destravada_em ? (
-              <span className="text-[11px] text-green-600">Desfeita em {dataBr(t.destravada_em)}{t.destravada_por ? ` por ${t.destravada_por}` : ''}</span>
+              <span className="text-xs text-[var(--ev-success)]">Desfeita em {dataBr(t.destravada_em)}{t.destravada_por ? ` por ${t.destravada_por}` : ''}</span>
             ) : confirmar === t.id ? (
               <>
-                <span className="text-[11px] text-espresso/70 flex items-center gap-1"><ShieldAlert className="w-3.5 h-3.5" /> A pessoa volta a poder escolher mesa e a ser alocada.</span>
-                <button disabled={destravar.isPending} className={`${botao} bg-plum text-cream`}
+                <span className="flex items-center gap-1 text-xs text-muted-foreground"><I.EscudoAlerta size={14} aria-hidden="true" /> A pessoa volta a poder escolher mesa e a ser alocada.</span>
+                <Button size="sm" disabled={destravar.isPending}
                   onClick={() => destravar.mutate(t.id, {
                     onSuccess: () => { setConfirmar(null); toast.success('Remoção desfeita.') },
                     onError: err => toast.error(erroMesaAdmin(err)),
-                  })}>Confirmar</button>
-                <button onClick={() => setConfirmar(null)} className={`${botao} border border-espresso/15 text-espresso`}>Cancelar</button>
+                  })}>Confirmar</Button>
+                <Button size="sm" variant="outline" onClick={() => setConfirmar(null)}>Cancelar</Button>
               </>
             ) : (
-              <button onClick={() => setConfirmar(t.id)} className={`${botao} border border-plum/30 text-plum hover:bg-plum/5`}>Desfazer</button>
+              <Button size="sm" variant="outline" onClick={() => setConfirmar(t.id)}>Desfazer</Button>
             )}
           </div>
         </div>

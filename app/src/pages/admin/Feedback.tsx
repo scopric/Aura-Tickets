@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Star, Bug, Lightbulb, HelpCircle, ThumbsUp, Search,
-  CheckCircle2, Mail, Trash2, Eye, MessageSquare,
-  Clock, X, Loader2, Inbox
-} from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, SectionTitle, Stat, selectNativo } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, chipAviso, chipErro, chipInfo, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 
 type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
@@ -36,19 +38,20 @@ interface ContactMessage {
   createdAt: string
 }
 
-const typeConfig: Record<FeedbackType, { icon: typeof Star; label: string; color: string; bg: string }> = {
-  melhoria: { icon: Lightbulb, label: 'Melhoria', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-  bug: { icon: Bug, label: 'Bug', color: 'text-red-500', bg: 'bg-red-50 border-red-100' },
-  duvida: { icon: HelpCircle, label: 'Dúvida', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-100' },
-  sugestao: { icon: Star, label: 'Sugestão', color: 'text-violet-600', bg: 'bg-violet-50 border-violet-100' },
-  elogio: { icon: ThumbsUp, label: 'Elogio', color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
+// chip = cor do significado (bug é erro, melhoria é aviso...); o rótulo sempre vai escrito junto
+const typeConfig: Record<FeedbackType, { icon: I.IconeEvokaa; label: string; chip: string }> = {
+  melhoria: { icon: I.Ideia, label: 'Melhoria', chip: chipAviso },
+  bug: { icon: I.Bug, label: 'Bug', chip: chipErro },
+  duvida: { icon: I.Ajuda, label: 'Dúvida', chip: chipInfo },
+  sugestao: { icon: I.Estrela, label: 'Sugestão', chip: chipNeutro },
+  elogio: { icon: I.Curtir, label: 'Elogio', chip: chipOk },
 }
 
-const statusConfig: Record<FeedbackStatus, { label: string; color: string; bg: string }> = {
-  novo: { label: 'Novo', color: 'text-blue-600', bg: 'bg-blue-50 border-blue-100' },
-  lido: { label: 'Lido', color: 'text-amber-600', bg: 'bg-amber-50 border-amber-100' },
-  respondido: { label: 'Respondido', color: 'text-violet-600', bg: 'bg-violet-50 border-violet-100' },
-  resolvido: { label: 'Resolvido', color: 'text-green-600', bg: 'bg-green-50 border-green-100' },
+const statusConfig: Record<FeedbackStatus, { label: string; chip: string }> = {
+  novo: { label: 'Novo', chip: chipInfo },
+  lido: { label: 'Lido', chip: chipAviso },
+  respondido: { label: 'Respondido', chip: chipNeutro },
+  resolvido: { label: 'Resolvido', chip: chipOk },
 }
 
 const getStatusConfig = (status: string) =>
@@ -190,157 +193,133 @@ export default function AdminFeedback() {
     avgRating: notas.length > 0 ? (notas.reduce((s, i) => s + (i.rating || 0), 0) / notas.length).toFixed(1) : '—',
   }
 
+  // Barra de distribuição: uma cor só (azul), o número fica ao lado, em tabular
+  const barra = (key: string | number, rotulo: React.ReactNode, count: number, max: number) => (
+    <div key={key} className="flex items-center gap-3">
+      <span className="flex w-28 items-center gap-1.5 text-xs text-muted-foreground">{rotulo}</span>
+      <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+        <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${(count / max) * 100}%` }} />
+      </div>
+      <span className="w-6 text-right text-xs font-medium tabular-nums text-foreground">{count}</span>
+    </div>
+  )
+
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Feedback</h1>
-          <p className="text-sm text-espresso/70 mt-1">Sugestões, bugs e mensagens de contato recebidos pelo site</p>
-        </div>
-      </div>
+      <PageHeader title="Feedback" description="Sugestões, bugs e mensagens de contato recebidos pelo site" />
 
       {isError && (
-        <div role="alert" className="mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
           Não foi possível carregar o feedback: {(error as Error)?.message || 'erro desconhecido'}
         </div>
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {[
-          { label: 'Feedback', value: stats.total.toString(), icon: MessageSquare, color: 'text-plum' },
-          { label: 'Novos', value: stats.novo.toString(), icon: Clock, color: 'text-blue-600' },
-          { label: 'Bugs', value: stats.bug.toString(), icon: Bug, color: 'text-red-500' },
-          { label: 'Resolvidos', value: stats.resolvido.toString(), icon: CheckCircle2, color: 'text-green-600' },
-          { label: 'Nota Média', value: stats.avgRating, icon: Star, color: 'text-amber-600' },
-        ].map(k => (
-          <div key={k.label} className="p-4 rounded-2xl bg-white/60 border border-white/60 backdrop-blur-sm text-center">
-            <k.icon className={`w-4 h-4 ${k.color} mx-auto mb-2`} />
-            <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-0.5">{k.label}</div>
-          </div>
-        ))}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <Stat label="Feedback" value={stats.total.toString()} />
+        <Stat label="Novos" value={stats.novo.toString()} />
+        <Stat label="Bugs" value={stats.bug.toString()} />
+        <Stat label="Resolvidos" value={stats.resolvido.toString()} />
+        <Stat label="Nota Média" value={stats.avgRating} />
       </div>
 
       {/* Mensagens de contato */}
-      <div className="mb-8 p-6 rounded-2xl bg-white/60 border border-white/60">
-        <div className="flex items-start justify-between gap-4 mb-4">
+      <section aria-labelledby="contato-titulo" className={`${painel} mb-8 p-6`}>
+        <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h3 className="text-sm font-medium text-espresso flex items-center gap-2">
-              <Inbox className="w-4 h-4 text-plum" /> Mensagens de contato
-            </h3>
-            <p className="text-[10px] text-espresso/70 mt-0.5">
+            <SectionTitle id="contato-titulo">Mensagens de contato</SectionTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               Tabela <span className="font-mono">contact_messages</span> — o que chegou pelo formulário <span className="font-mono">/contato</span> e pelo rodapé.
             </p>
           </div>
-          <span className="shrink-0 px-2.5 py-0.5 rounded-full text-[10px] font-bold border border-espresso/10 text-espresso/70">{contatos.length}</span>
+          <span className={cn(chipNeutro, 'shrink-0 tabular-nums')}>{contatos.length}</span>
         </div>
 
         {data?.contatosErro && (
-          <div role="alert" className="mb-4 p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-700">
-            Não foi possível ler as mensagens de contato ({data.contatosErro}). Provavelmente falta aplicar <span className="font-mono">docs/sql/20260929_admin_ler_contato.sql</span> no Supabase.
+          <div role="alert" className={cn(alertaAviso, 'mb-4')}>
+            <I.Alerta size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
+            <span>Não foi possível ler as mensagens de contato ({data.contatosErro}). Provavelmente falta aplicar <span className="font-mono">docs/sql/20260929_admin_ler_contato.sql</span> no Supabase.</span>
           </div>
         )}
 
         {isLoading ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 text-plum animate-spin" /></div>
+          <div className="flex justify-center py-8"><Spinner className="size-6 text-primary" /></div>
         ) : contatos.length === 0 ? (
-          <p className="py-8 text-center text-xs text-espresso/70 italic">
-            Nenhuma mensagem de contato registrada.
-          </p>
+          <EmptyState title="Nenhuma mensagem de contato registrada." />
         ) : (
-          <div className="space-y-3">
+          <ul className="divide-y divide-border">
             {contatos.map(c => (
-              <div key={c.id} className="p-4 rounded-xl bg-white/40 border border-white/60">
-                <div className="flex flex-wrap items-start justify-between gap-2 mb-1.5">
-                  <div>
-                    <span className="text-xs font-bold text-espresso">{c.name}</span>
-                    <a href={`mailto:${c.email}`} className="text-[11px] text-plum hover:underline ml-2">{c.email}</a>
-                    {c.phone && <span className="text-[11px] text-espresso/70 ml-2">{c.phone}</span>}
+              <li key={c.id} className="py-4 first:pt-0 last:pb-0">
+                <div className="mb-1.5 flex flex-wrap items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-baseline gap-x-2">
+                    <span className="text-[13px] font-semibold text-foreground">{c.name}</span>
+                    <a href={`mailto:${c.email}`} className="text-xs text-primary hover:underline">{c.email}</a>
+                    {c.phone && <span className="text-xs text-muted-foreground">{c.phone}</span>}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-espresso/70">{dataBr(c.createdAt)}</span>
-                    <button
+                    <span className="text-xs tabular-nums text-muted-foreground">{dataBr(c.createdAt)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
                       onClick={() => {
                         if (!window.confirm(`Excluir a mensagem de ${c.name}? Esta ação não pode ser desfeita.`)) return
                         deleteContact.mutate(c.id)
                       }}
                       disabled={deleteContact.isPending}
                       aria-label={`Excluir mensagem de ${c.name}`}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-40"
+                      className="hover:text-destructive"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      <I.Lixeira />
+                    </Button>
                   </div>
                 </div>
-                {c.subject && <div className="text-[11px] font-semibold text-espresso/70 mb-1">{c.subject}</div>}
-                <p className="text-xs text-espresso/70 leading-relaxed whitespace-pre-line">{c.message}</p>
-                {c.page && <div className="text-[10px] text-espresso/70 mt-1.5 font-mono">{c.page}</div>}
-              </div>
+                {c.subject && <div className="mb-1 text-xs font-semibold text-foreground">{c.subject}</div>}
+                <p className="whitespace-pre-line text-[13px] leading-relaxed text-muted-foreground">{c.message}</p>
+                {c.page && <div className="mt-1.5 font-mono text-[11px] text-muted-foreground">{c.page}</div>}
+              </li>
             ))}
-          </div>
+          </ul>
         )}
-      </div>
+      </section>
 
       {/* By Type / By Rating */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="p-6 rounded-2xl bg-white/60 border border-white/60">
-          <h3 className="text-sm font-medium text-espresso mb-4">Por Tipo</h3>
+      <div className="mb-8 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section aria-labelledby="por-tipo-titulo" className={`${painel} p-6`}>
+          <div className="mb-4"><SectionTitle id="por-tipo-titulo">Por Tipo</SectionTitle></div>
           <div className="space-y-3">
             {(Object.entries(typeConfig) as [FeedbackType, typeof typeConfig['melhoria']][]).map(([key, cfg]) => {
               const count = items.filter(i => i.type === key).length
               const max = Math.max(...Object.keys(typeConfig).map(k => items.filter(i => i.type === k).length), 1)
-              return (
-                <div key={key} className="flex items-center gap-3">
-                  <span className="text-xs text-espresso/70 w-24 flex items-center gap-1.5"><cfg.icon className={`w-3.5 h-3.5 ${cfg.color}`} /> {cfg.label}</span>
-                  <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
-                    <div className={`h-full ${cfg.bg.split(' ')[0]} rounded-lg flex items-center px-2 transition-all`} style={{ width: `${(count / max) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-espresso/70">{count}</span>
-                    </div>
-                  </div>
-                </div>
-              )
+              return barra(key, <><cfg.icon size={14} aria-hidden="true" /> {cfg.label}</>, count, max)
             })}
           </div>
-        </div>
+        </section>
 
-        <div className="p-6 rounded-2xl bg-white/60 border border-white/60">
-          <h3 className="text-sm font-medium text-espresso mb-4">Por Nota</h3>
+        <section aria-labelledby="por-nota-titulo" className={`${painel} p-6`}>
+          <div className="mb-4"><SectionTitle id="por-nota-titulo">Por Nota</SectionTitle></div>
           <div className="space-y-3">
             {[5, 4, 3, 2, 1].map(n => {
               const count = notas.filter(i => i.rating === n).length
               const max = Math.max(...[5, 4, 3, 2, 1].map(k => notas.filter(i => i.rating === k).length), 1)
-              return (
-                <div key={n} className="flex items-center gap-3">
-                  <span className="text-xs text-espresso/70 w-24 flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> {n} {n === 1 ? 'estrela' : 'estrelas'}
-                  </span>
-                  <div className="flex-1 h-5 bg-canvas rounded-lg overflow-hidden">
-                    <div className="h-full bg-amber-400/70 rounded-lg flex items-center px-2 transition-all" style={{ width: `${(count / max) * 100}%` }}>
-                      <span className="text-[10px] font-medium text-espresso/70">{count}</span>
-                    </div>
-                  </div>
-                </div>
-              )
+              return barra(n, <><I.Estrela size={14} ativo aria-hidden="true" /> {n} {n === 1 ? 'estrela' : 'estrelas'}</>, count, max)
             })}
-            {notas.length === 0 && <p className="text-[10px] text-espresso/70 italic pt-1">Ninguém avaliou ainda.</p>}
+            {notas.length === 0 && <p className="pt-1 text-xs text-muted-foreground">Ninguém avaliou ainda.</p>}
           </div>
-        </div>
+        </section>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem ou e-mail..." aria-label="Buscar feedback" className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+      <div className="mb-6 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="relative max-w-sm flex-1">
+          <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem ou e-mail..." aria-label="Buscar feedback" className="pl-9" />
         </div>
         <div className="flex items-center gap-2">
-          <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/70 focus:outline-none">
+          <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value)} className={cn(selectNativo, 'sm:w-auto')}>
             <option value="all">Todos tipos</option>
             {Object.entries(typeConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          <select value={filterStatus} aria-label="Filtrar por status" onChange={e => setFilterStatus(e.target.value)} className="px-3 py-2 bg-white/60 border border-white/60 rounded-xl text-xs text-espresso/70 focus:outline-none">
+          <select value={filterStatus} aria-label="Filtrar por status" onChange={e => setFilterStatus(e.target.value)} className={cn(selectNativo, 'sm:w-auto')}>
             <option value="all">Todos status</option>
             {Object.entries(statusConfig).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
@@ -348,88 +327,81 @@ export default function AdminFeedback() {
       </div>
 
       {/* List */}
-      <div className="bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      {isLoading ? (
+        <div className="flex justify-center py-16"><Spinner className="size-6 text-primary" /></div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title={items.length === 0 ? 'Nenhum feedback recebido ainda.' : 'Nenhum feedback encontrado para os filtros selecionados.'}
+        />
+      ) : (
+        <div className={`${painel} overflow-hidden`}>
+          <Tabela label="Lista de feedback">
             <thead>
-              <tr className="border-b border-espresso/5">
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Tipo</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Mensagem</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Contato</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Página</th>
-                <th className="text-left px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Status</th>
-                <th className="text-right px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase"></th>
+              <tr className="border-b border-border">
+                <th className={th}>Tipo</th>
+                <th className={th}>Mensagem</th>
+                <th className={cn(th, 'hidden md:table-cell')}>Contato</th>
+                <th className={cn(th, 'hidden lg:table-cell')}>Página</th>
+                <th className={th}>Status</th>
+                <th className={th}><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center"><Loader2 className="w-6 h-6 text-plum animate-spin mx-auto" /></td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-16 text-center text-xs text-espresso/70 italic">
-                    {items.length === 0
-                      ? 'Nenhum feedback recebido ainda.'
-                      : 'Nenhum feedback encontrado para os filtros selecionados.'}
-                  </td>
-                </tr>
-              ) : (
-                filtered.map(item => {
-                  const tc = getTypeConfig(item.type)
-                  const sc = getStatusConfig(item.status)
-                  const TIcon = tc.icon
-                  return (
-                    <tr key={item.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${tc.bg} ${tc.color}`}>
-                          <TIcon className="w-3 h-3" /> {tc.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs text-espresso line-clamp-2 max-w-xs">{item.message}</div>
-                        {item.rating ? (
-                          <div className="flex items-center gap-0.5 mt-1">
-                            {Array.from({ length: 5 }).map((_, i) => (
-                              <Star key={i} className={`w-3 h-3 ${i < item.rating! ? 'text-amber-400 fill-amber-400' : 'text-espresso/50'}`} />
-                            ))}
-                          </div>
-                        ) : null}
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <div className="text-xs text-espresso font-medium">{item.email || 'Anônimo'}</div>
-                        <div className="text-[10px] text-espresso/70">{dataBr(item.createdAt)}</div>
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className="text-[10px] text-espresso/70 bg-canvas px-2 py-0.5 rounded-md font-mono">{item.page || '—'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-medium rounded-full border ${sc.bg} ${sc.color}`}>{sc.label}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 justify-end">
-                          <button onClick={() => setSelected(item)} aria-label="Visualizar feedback" className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><Eye className="w-3.5 h-3.5" /></button>
-                          <button
-                            onClick={() => {
-                              if (!window.confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return
-                              deleteItem.mutate(item.id)
-                            }}
-                            disabled={deleteItem.isPending}
-                            aria-label="Excluir feedback"
-                            className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors disabled:opacity-40"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+              {filtered.map(item => {
+                const tc = getTypeConfig(item.type)
+                const sc = getStatusConfig(item.status)
+                const TIcon = tc.icon
+                return (
+                  <tr key={item.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-4 py-3">
+                      <span className={tc.chip}><TIcon aria-hidden="true" /> {tc.label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="line-clamp-2 max-w-xs text-[13px] text-foreground">{item.message}</div>
+                      {item.rating ? (
+                        <div className="mt-1 flex items-center gap-0.5 text-foreground">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <I.Estrela key={i} size={12} ativo={i < item.rating!} aria-hidden="true" className={i < item.rating! ? undefined : 'text-muted-foreground'} />
+                          ))}
+                          <span className="sr-only">Nota {item.rating} de 5</span>
                         </div>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
+                      ) : null}
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      <div className="text-xs font-medium text-foreground">{item.email || 'Anônimo'}</div>
+                      <div className="text-xs tabular-nums text-muted-foreground">{dataBr(item.createdAt)}</div>
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      <span className="rounded-ev-xs bg-secondary px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">{item.page || '—'}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={sc.chip}>{sc.label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setSelected(item)} aria-label="Visualizar feedback"><I.Olho /></Button>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => {
+                            if (!window.confirm('Excluir este feedback? Esta ação não pode ser desfeita.')) return
+                            deleteItem.mutate(item.id)
+                          }}
+                          disabled={deleteItem.isPending}
+                          aria-label="Excluir feedback"
+                          className="hover:text-destructive"
+                        >
+                          <I.Lixeira />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
-          </table>
+          </Tabela>
         </div>
-      </div>
+      )}
 
       {/* Detail Modal */}
       {selected && (
@@ -437,82 +409,76 @@ export default function AdminFeedback() {
           <div className="absolute inset-0 glass-backdrop" onClick={() => setSelected(null)} />
           <div className="glass-panel relative w-full max-w-md h-full overflow-y-auto rounded-r-none border-y-0 border-r-0">
             <div className="p-6">
-              <div className="flex items-start justify-between mb-6">
+              <div className="mb-6 flex items-start justify-between">
                 {(() => {
                   const tc = getTypeConfig(selected.type)
-                  const I = tc.icon
                   return (
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${tc.bg}`}>
-                        <I className={`w-5 h-5 ${tc.color}`} />
-                      </div>
-                      <div>
-                        <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full border ${tc.bg} ${tc.color}`}>{tc.label}</span>
-                        <p className="text-[10px] text-espresso/70 mt-0.5">{dataBr(selected.createdAt)}</p>
-                      </div>
+                    <div className="flex flex-col items-start gap-1">
+                      <span className={tc.chip}><tc.icon aria-hidden="true" /> {tc.label}</span>
+                      <p className="text-xs tabular-nums text-muted-foreground">{dataBr(selected.createdAt)}</p>
                     </div>
                   )
                 })()}
-                <button onClick={() => setSelected(null)} aria-label="Fechar modal" className="p-2 rounded-full bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-5 h-5" /></button>
+                <Button variant="ghost" size="icon" onClick={() => setSelected(null)} aria-label="Fechar modal"><I.Fechar /></Button>
               </div>
 
               <div className="mb-6">
-                <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-2">Mensagem</h4>
-                <p className="text-sm text-espresso/70 leading-relaxed p-4 bg-white/60 border border-white/60 rounded-xl whitespace-pre-line">{selected.message}</p>
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Mensagem</h4>
+                <p className="whitespace-pre-line rounded-[10px] border border-border bg-secondary p-4 text-sm leading-relaxed text-foreground">{selected.message}</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="p-3 bg-white/60 border border-white/60 rounded-xl">
-                  <div className="text-[10px] text-espresso/70 mb-0.5">Contato</div>
-                  <div className="text-xs text-espresso font-medium break-all">{selected.email || 'Anônimo'}</div>
+              <div className="mb-6 grid grid-cols-2 gap-3">
+                <div className="rounded-[10px] border border-border bg-secondary p-3">
+                  <div className="mb-0.5 text-xs text-muted-foreground">Contato</div>
+                  <div className="break-all text-xs font-medium text-foreground">{selected.email || 'Anônimo'}</div>
                 </div>
-                <div className="p-3 bg-white/60 border border-white/60 rounded-xl">
-                  <div className="text-[10px] text-espresso/70 mb-0.5">Origem</div>
-                  <div className="text-xs text-espresso font-medium font-mono break-all">{selected.page || '—'}</div>
+                <div className="rounded-[10px] border border-border bg-secondary p-3">
+                  <div className="mb-0.5 text-xs text-muted-foreground">Origem</div>
+                  <div className="break-all font-mono text-xs font-medium text-foreground">{selected.page || '—'}</div>
                 </div>
               </div>
 
               {selected.rating ? (
-                <div className="mb-6 p-3 bg-amber-50/60 border border-amber-100 rounded-xl">
-                  <div className="text-[10px] text-amber-600/60 mb-1">Avaliação</div>
-                  <div className="flex items-center gap-0.5">
+                <div className="mb-6 rounded-[10px] border border-border bg-secondary p-3">
+                  <div className="mb-1 text-xs text-muted-foreground">Avaliação</div>
+                  <div className="flex items-center gap-0.5 text-foreground">
                     {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className={`w-4 h-4 ${i < selected.rating! ? 'text-amber-400 fill-amber-400' : 'text-amber-200'}`} />
+                      <I.Estrela key={i} size={16} ativo={i < selected.rating!} aria-hidden="true" className={i < selected.rating! ? undefined : 'text-muted-foreground'} />
                     ))}
-                    <span className="text-xs text-amber-600 ml-2">{selected.rating}/5</span>
+                    <span className="ml-2 text-xs tabular-nums text-foreground">{selected.rating}/5</span>
                   </div>
                 </div>
               ) : null}
 
               <div className="mb-6">
-                <h4 className="text-xs font-medium text-espresso/70 uppercase tracking-wider mb-2">Alterar Status</h4>
-                <div className="grid grid-cols-4 gap-2">
+                <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Alterar Status</h4>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {(Object.entries(statusConfig) as [FeedbackStatus, typeof statusConfig['novo']][]).map(([key, cfg]) => {
                     const busy = updateStatus.isPending && updateStatus.variables?.status === key
                     return (
-                      <button
+                      <Button
                         key={key}
+                        size="sm"
+                        variant={selected.status === key ? 'default' : 'outline'}
+                        aria-pressed={selected.status === key}
                         onClick={() => updateStatus.mutate({ id: selected.id, status: key })}
-                        disabled={updateStatus.isPending}
-                        className={`px-2 py-2 rounded-xl text-[10px] font-medium border transition-all disabled:opacity-40 ${selected.status === key ? cfg.bg + ' ' + cfg.color : 'bg-white/40 border-white/60 text-espresso/70 hover:text-espresso'}`}
+                        disabled={updateStatus.isPending && !busy}
+                        loading={busy}
                       >
-                        <span className="flex items-center justify-center gap-1">
-                          {busy && <Loader2 className="w-3 h-3 animate-spin" />}
-                          {cfg.label}
-                        </span>
-                      </button>
+                        {cfg.label}
+                      </Button>
                     )
                   })}
                 </div>
               </div>
 
-              <button
+              <Button
+                className="w-full"
                 disabled={!selected.email}
                 onClick={() => { navigator.clipboard.writeText(selected.email!); toast.success('E-mail copiado!') }}
-                className="w-full py-2.5 bg-plum text-cream text-xs font-medium rounded-full hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Mail className="w-3.5 h-3.5" /> Responder por E-mail
-              </button>
+                <I.Email /> Responder por E-mail
+              </Button>
             </div>
           </div>
         </div>

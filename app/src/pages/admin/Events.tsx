@@ -1,6 +1,10 @@
 import { useRef, useEffect, useState } from 'react'
-import { Calendar, DollarSign, Clock, CheckCircle, Loader2, Check, X, Star, Eye, Info, Undo2 } from 'lucide-react'
-import gsap from 'gsap'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, Stat } from '@/components/producer/ui'
+import { Tabela, alertaErro, chipAviso, chipErro, chipNeutro, chipOk, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
 import { rotuloFormato } from '../../lib/tipoEvento'
@@ -15,22 +19,26 @@ function publicEventUrl(idOrSlug: string, loc: Pick<Location, 'hostname' | 'prot
 }
 
 const statusCfg: Record<string, { label: string, cls: string }> = {
-  published: { label: 'Publicado', cls: 'bg-green-50 text-green-700 border-green-100' },
-  draft: { label: 'Rascunho', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
-  cancelled: { label: 'Cancelado', cls: 'bg-red-50 text-red-500 border-red-100' },
-  ended: { label: 'Finalizado', cls: 'bg-gray-50 text-gray-500 border-gray-100' },
+  published: { label: 'Publicado', cls: chipOk },
+  draft: { label: 'Rascunho', cls: chipAviso },
+  cancelled: { label: 'Cancelado', cls: chipErro },
+  ended: { label: 'Finalizado', cls: chipNeutro },
 }
 
 const approvalStatusCfg: Record<string, { label: string; cls: string }> = {
-  approved: { label: 'Aprovado', cls: 'bg-green-100 text-green-700 border-green-200' },
-  pending: { label: 'Pendente', cls: 'bg-amber-100 text-amber-700 border-amber-200' },
-  rejected: { label: 'Rejeitado', cls: 'bg-red-100 text-red-700 border-red-200' },
+  approved: { label: 'Aprovado', cls: chipOk },
+  pending: { label: 'Pendente', cls: chipAviso },
+  rejected: { label: 'Rejeitado', cls: chipErro },
 }
+
+// Botões de ícone da tabela: o ícone ganha a cor do significado (aprovar, revogar, rejeitar)
+const acaoOk = 'text-[var(--ev-success)] hover:text-[var(--ev-success)]'
+const acaoAviso = 'text-[var(--ev-warning)] hover:text-[var(--ev-warning)]'
+const acaoErro = 'text-destructive hover:text-destructive'
 
 const fmtDateTime = (s?: string | null) => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }
 
 export default function AdminEvents() {
-  const ref = useRef<HTMLDivElement>(null)
   const { data: allEvents = [], isLoading, isError, error } = useAdminEvents()
   const approveMutation = useApproveEvent()
   const toggleFeaturedMutation = useToggleFeaturedCarousel()
@@ -50,15 +58,6 @@ export default function AdminEvents() {
     window.addEventListener('keydown', onKey)
     return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; opener?.focus?.() }
   }, [detailId])
-
-  useEffect(() => {
-    if (!isLoading) {
-      const ctx = gsap.context(() => {
-        gsap.fromTo('.evt-card', { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.05, ease: 'power3.out' })
-      }, ref)
-      return () => ctx.revert()
-    }
-  }, [isLoading, activeTab]) // animar ao mudar de aba também
 
   const handleApprove = async (eventId: string) => {
     try {
@@ -119,42 +118,34 @@ export default function AdminEvents() {
     return appStatus === activeTab
   })
 
+  const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados'], ['rejected', 'Rejeitados']] as const
+
   return (
-    <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Eventos</h1>
-        <p className="text-sm text-espresso/70 mt-1">Gerencie e modere todos os eventos da plataforma</p>
-      </div>
+    <div className="p-6 lg:p-10 max-w-7xl">
+      <PageHeader title="Eventos" description="Gerencie e modere todos os eventos da plataforma" />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {[
-          { label: 'Total', value: allEvents.length.toString(), icon: Calendar },
-          { label: 'Aprovados', value: approved.length.toString(), icon: CheckCircle },
-          { label: 'Pendentes', value: pending.length.toString(), icon: Clock },
-          { label: 'Receita', value: `R$ ${(totalRevenue / 1000).toFixed(1)}K`, icon: DollarSign },
-        ].map(k => (
-          <div key={k.label} className="evt-card p-5 rounded-2xl bg-white/60 border border-white/60">
-            <k.icon className="w-4 h-4 text-plum mb-3" />
-            <div className="font-serif text-2xl text-espresso">{k.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider">{k.label}</div>
-          </div>
-        ))}
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Stat label="Total" value={allEvents.length.toString()} />
+        <Stat label="Aprovados" value={approved.length.toString()} />
+        <Stat label="Pendentes" value={pending.length.toString()} />
+        <Stat label="Receita" value={`R$ ${(totalRevenue / 1000).toFixed(1)}K`} />
       </div>
 
       {/* Abas de filtro */}
-      <div className="flex gap-1 sm:gap-2 mb-6 border-b border-espresso/10 pb-px overflow-x-auto">
-        {(['all', 'pending', 'approved', 'rejected'] as const).map(tab => (
+      <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border sm:gap-2">
+        {filtros.map(([tab, rotulo]) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setActiveTab(tab)}
-            className={`shrink-0 px-3 sm:px-4 py-2 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-plum font-semibold capitalize border-b-2 transition-all ${
-              activeTab === tab 
-                ? 'border-plum text-plum font-bold' 
-                : 'border-transparent text-espresso/70 hover:text-espresso'
-            }`}
+            aria-pressed={activeTab === tab}
+            className={cn(
+              '-mb-px shrink-0 border-b-2 px-3 py-2.5 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:px-4',
+              activeTab === tab ? 'border-primary font-semibold text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground',
+            )}
           >
-            {tab === 'all' ? 'Todos' : tab === 'pending' ? 'Pendentes' : tab === 'approved' ? 'Aprovados' : 'Rejeitados'}
+            {rotulo}
           </button>
         ))}
       </div>
@@ -162,179 +153,166 @@ export default function AdminEvents() {
       {/* Loading */}
       {isLoading && (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-plum animate-spin" />
+          <Spinner className="size-6 text-primary" />
         </div>
       )}
 
       {/* Erro real na tela, em vez de "0 eventos" silencioso */}
       {isError && (
-        <div role="alert" className="evt-card mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
           Não foi possível carregar os eventos: {(error as Error)?.message || 'erro desconhecido'}
         </div>
       )}
 
       {/* Table */}
-      {!isLoading && !isError && (
-        <div className="evt-card bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-espresso/5">
-                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Evento</th>
-                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden md:table-cell">Data</th>
-                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Produtor</th>
-                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden sm:table-cell">Publicação</th>
-                  <th className="text-left px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden sm:table-cell">Moderação</th>
-                  <th className="text-center px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase">Destaque</th>
-                  <th className="text-right px-2 sm:px-4 py-3 text-[10px] font-medium text-espresso/70 uppercase hidden lg:table-cell">Receita</th>
-                  <th className="px-2 sm:px-4 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEvents.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center text-sm text-espresso/70 italic">
-                      Nenhum evento nesta categoria.
+      {!isLoading && !isError && filteredEvents.length === 0 && <EmptyState title="Nenhum evento nesta categoria." />}
+      {!isLoading && !isError && filteredEvents.length > 0 && (
+        <div className={`${painel} overflow-hidden`}>
+          <Tabela label="Lista de eventos">
+            <thead>
+              <tr className="border-b border-border">
+                <th className={cn(th, 'px-2 sm:px-4')}>Evento</th>
+                <th className={cn(th, 'hidden px-2 sm:px-4 md:table-cell')}>Data</th>
+                <th className={cn(th, 'hidden px-2 sm:px-4 lg:table-cell')}>Produtor</th>
+                <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Publicação</th>
+                <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Moderação</th>
+                <th className={cn(th, 'px-2 text-center sm:px-4')}>Destaque</th>
+                <th className={cn(th, 'hidden px-2 text-right sm:px-4 lg:table-cell')}>Receita</th>
+                <th className="px-2 py-3 sm:px-4"><span className="sr-only">Ações</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEvents.map(e => {
+                const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
+                const pubStatus = statusCfg[e.status] || { label: e.status, cls: chipNeutro }
+                const appStatus = approvalStatusCfg[e.approval_status || 'pending']
+                const formattedDate = e.date
+                  ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
+                  : 'Data a definir'
+                const emAnalise = e.approval_status === 'pending' || !e.approval_status
+
+                return (
+                  <tr key={e.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-2 py-3 sm:px-4">
+                      <div className="flex items-center gap-3">
+                        <div className="size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
+                          <img src={e.cover_image || '/images/hero-bg.jpg'} alt="" className="size-full object-cover" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground">{e.title}</div>
+                          <div className="text-xs text-muted-foreground">{e.venue_city || e.venue_name || 'Local a definir'}</div>
+                          <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
+                            <span className={pubStatus.cls}>{pubStatus.label}</span>
+                            <span className={appStatus.cls}>{appStatus.label}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="hidden px-2 py-3 sm:px-4 md:table-cell">
+                      <div className="text-xs text-muted-foreground">{formattedDate}</div>
+                    </td>
+                    <td className="hidden px-2 py-3 sm:px-4 lg:table-cell">
+                      <div className="text-xs text-muted-foreground">{e.profiles?.full_name || '—'}</div>
+                    </td>
+                    <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
+                      <span className={pubStatus.cls}>{pubStatus.label}</span>
+                    </td>
+                    <td className="hidden px-2 py-3 sm:table-cell sm:px-4">
+                      <span className={appStatus.cls}>{appStatus.label}</span>
+                    </td>
+                    <td className="px-2 py-3 text-center sm:px-4">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleToggleFeatured(e.id, !!e.featured_carousel)}
+                        disabled={e.approval_status !== 'approved'}
+                        aria-pressed={!!e.featured_carousel}
+                        aria-label={e.featured_carousel ? 'Remover do carrossel' : 'Destacar no carrossel'}
+                        title={e.featured_carousel ? 'Remover do carrossel' : 'Destacar no carrossel'}
+                        className={e.featured_carousel ? 'text-primary hover:text-primary' : undefined}
+                      >
+                        <I.Estrela ativo={!!e.featured_carousel} />
+                      </Button>
+                    </td>
+                    <td className="hidden px-2 py-3 text-right sm:px-4 lg:table-cell">
+                      <div className="font-display text-sm tabular-nums text-foreground">
+                        {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
+                      </div>
+                    </td>
+                    <td className="px-2 py-3 text-right sm:px-4">
+                      <div className="flex flex-wrap items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={ev => { openerRef.current = ev.currentTarget; setDetailId(e.id) }}
+                          title="Ver detalhes do evento"
+                          aria-label="Ver detalhes do evento"
+                        >
+                          <I.Info />
+                        </Button>
+                        {emAnalise && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleApprove(e.id)}
+                            disabled={approveMutation.isPending}
+                            className={acaoOk}
+                            title="Aprovar"
+                            aria-label="Aprovar evento"
+                          >
+                            <I.Check />
+                          </Button>
+                        )}
+                        {e.approval_status === 'approved' && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleSuspend(e.id, e.title)}
+                            disabled={approveMutation.isPending}
+                            className={acaoAviso}
+                            title="Revogar aprovação (suspender)"
+                            aria-label="Revogar aprovação do evento"
+                          >
+                            <I.Desfazer />
+                          </Button>
+                        )}
+                        {(emAnalise || e.approval_status === 'approved') && (
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={() => handleReject(e.id)}
+                            disabled={approveMutation.isPending}
+                            className={acaoErro}
+                            title="Rejeitar"
+                            aria-label="Rejeitar evento"
+                          >
+                            <I.Fechar />
+                          </Button>
+                        )}
+                        {e.status === 'published' && e.approval_status === 'approved' ? (
+                          <Button asChild variant="ghost" size="icon-sm">
+                            <a
+                              href={publicEventUrl(e.slug || e.id)}
+                              target="_blank"
+                              rel="noreferrer"
+                              title="Ver página pública"
+                              aria-label="Ver página pública"
+                            >
+                              <I.Olho />
+                            </a>
+                          </Button>
+                        ) : (
+                          <span role="img" className="inline-flex size-8 cursor-not-allowed items-center justify-center text-[var(--ev-disabled-fg)]" title="Só eventos publicados e aprovados têm página pública" aria-label="Sem página pública">
+                            <I.Olho size={16} aria-hidden="true" />
+                          </span>
+                        )}
+                      </div>
                     </td>
                   </tr>
-                ) : (
-                  filteredEvents.map(e => {
-                    const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
-                    const pubStatus = statusCfg[e.status] || { label: e.status, cls: 'bg-slate-50 text-slate-500 border-slate-100' }
-                    const appStatus = approvalStatusCfg[e.approval_status || 'pending']
-                    const formattedDate = e.date
-                      ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
-                      : 'Data a definir'
-
-                    return (
-                      <tr key={e.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
-                        <td className="px-2 sm:px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                              <img src={e.cover_image || '/images/hero-bg.jpg'} alt="" className="w-full h-full object-cover" />
-                            </div>
-                            <div>
-                              <div className="text-sm text-espresso font-medium">{e.title}</div>
-                              <div className="text-[10px] text-espresso/70">{e.venue_city || e.venue_name || 'Local a definir'}</div>
-                              <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
-                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
-                                <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${appStatus.cls}`}>{appStatus.label}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 hidden md:table-cell">
-                          <div className="text-xs text-espresso/70">{formattedDate}</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 hidden lg:table-cell">
-                          <div className="text-xs text-espresso/70">{e.profiles?.full_name || '—'}</div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
-                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${pubStatus.cls}`}>{pubStatus.label}</span>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 hidden sm:table-cell">
-                          <span className={`px-2 py-0.5 text-[10px] font-medium rounded-full border ${appStatus.cls}`}>{appStatus.label}</span>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-center">
-                          <button
-                            onClick={() => handleToggleFeatured(e.id, !!e.featured_carousel)}
-                            disabled={e.approval_status !== 'approved'}
-                            className={`p-1.5 rounded-lg transition-colors ${
-                              e.approval_status !== 'approved'
-                                ? 'opacity-30 cursor-not-allowed'
-                                : e.featured_carousel
-                                ? 'text-amber-500 hover:bg-amber-500/10'
-                                : 'text-espresso/70 hover:text-amber-500 hover:bg-amber-500/10'
-                            }`}
-                            title={e.featured_carousel ? "Remover do carrossel" : "Destacar no carrossel"}
-                          >
-                            <Star className="w-4 h-4 fill-current" />
-                          </button>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-right hidden lg:table-cell">
-                          <div className="text-sm font-serif text-espresso">
-                            {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
-                          </div>
-                        </td>
-                        <td className="px-2 sm:px-4 py-3 text-right">
-                          <div className="flex flex-wrap items-center justify-end gap-1.5">
-                            <button
-                              onClick={ev => { openerRef.current = ev.currentTarget; setDetailId(e.id) }}
-                              className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                              title="Ver detalhes do evento"
-                              aria-label="Ver detalhes do evento"
-                            >
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                            {(e.approval_status === 'pending' || !e.approval_status) && (
-                              <>
-                                <button
-                                  onClick={() => handleApprove(e.id)}
-                                  disabled={approveMutation.isPending}
-                                  className="p-1.5 rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-600 transition-colors disabled:opacity-40"
-                                  title="Aprovar"
-                                  aria-label="Aprovar evento"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleReject(e.id)}
-                                  disabled={approveMutation.isPending}
-                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors disabled:opacity-40"
-                                  title="Rejeitar"
-                                  aria-label="Rejeitar evento"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                            {e.approval_status === 'approved' && (
-                              <>
-                                <button
-                                  onClick={() => handleSuspend(e.id, e.title)}
-                                  disabled={approveMutation.isPending}
-                                  className="p-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 transition-colors disabled:opacity-40"
-                                  title="Revogar aprovação (suspender)"
-                                  aria-label="Revogar aprovação do evento"
-                                >
-                                  <Undo2 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleReject(e.id)}
-                                  disabled={approveMutation.isPending}
-                                  className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-600 transition-colors disabled:opacity-40"
-                                  title="Rejeitar"
-                                  aria-label="Rejeitar evento"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </>
-                            )}
-                            {e.status === 'published' && e.approval_status === 'approved' ? (
-                              <a
-                                href={publicEventUrl(e.slug || e.id)}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="p-1.5 rounded-lg hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"
-                                title="Ver página pública"
-                                aria-label="Ver página pública"
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                              </a>
-                            ) : (
-                              <span className="p-1.5 text-espresso/15 cursor-not-allowed" title="Só eventos publicados e aprovados têm página pública" aria-label="Sem página pública">
-                                <Eye className="w-3.5 h-3.5" />
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                )
+              })}
+            </tbody>
+          </Tabela>
         </div>
       )}
 
@@ -344,26 +322,26 @@ export default function AdminEvents() {
           <div className="absolute inset-0 glass-backdrop" onClick={() => setDetailId(null)} />
           <div role="dialog" aria-modal="true" aria-label={`Detalhes do evento ${detail.title}`} className="glass-panel relative w-full max-w-lg h-full text-foreground overflow-y-auto rounded-r-none border-y-0 border-r-0">
             <div className="p-6 border-b border-border flex items-start justify-between gap-4">
-              <div>
-                <h3 className="font-serif text-lg text-foreground">{detail.title}</h3>
-                {detail.subtitle && <p className="text-xs text-muted-foreground mt-0.5">{detail.subtitle}</p>}
+              <div className="min-w-0">
+                <h3 className="text-lg font-semibold leading-6 text-foreground">{detail.title}</h3>
+                {detail.subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{detail.subtitle}</p>}
               </div>
-              <button autoFocus onClick={() => setDetailId(null)} aria-label="Fechar detalhes" className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+              <Button autoFocus variant="ghost" size="icon" onClick={() => setDetailId(null)} aria-label="Fechar detalhes">
+                <I.Fechar />
+              </Button>
             </div>
 
             <div className="p-6 space-y-6 text-sm">
               {detail.cover_image && <img src={detail.cover_image} alt="" className="w-full aspect-video object-cover rounded-xl bg-muted" />}
 
               <div className="flex flex-wrap gap-2">
-                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${(statusCfg[detail.status] || { cls: 'bg-slate-50 text-slate-500 border-slate-100' }).cls}`}>
+                <span className={(statusCfg[detail.status] || { cls: chipNeutro }).cls}>
                   Publicação: {statusCfg[detail.status]?.label || detail.status}
                 </span>
-                <span className={`px-2 py-0.5 text-[11px] font-medium rounded-full border ${approvalStatusCfg[detail.approval_status || 'pending'].cls}`}>
+                <span className={approvalStatusCfg[detail.approval_status || 'pending'].cls}>
                   Moderação: {approvalStatusCfg[detail.approval_status || 'pending'].label}
                 </span>
-                {detail.featured_carousel && <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-100">Em destaque</span>}
+                {detail.featured_carousel && <span className={chipAviso}>Em destaque</span>}
               </div>
 
               {detail.description && <p className="text-muted-foreground whitespace-pre-line">{detail.description}</p>}
@@ -385,72 +363,70 @@ export default function AdminEvents() {
                   ['Criado em', fmtDateTime(detail.created_at)],
                 ] as [string, string | number | null | undefined][]).map(([l, v]) => (
                   <div key={l}>
-                    <dt className="text-[11px] uppercase tracking-wider text-muted-foreground">{l}</dt>
+                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{l}</dt>
                     <dd className="text-foreground mt-0.5 break-words">{v ?? '—'}</dd>
                   </div>
                 ))}
               </dl>
 
               <div>
-                <h4 className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">Ingressos</h4>
+                <h4 className="mb-2 text-[15px] font-semibold leading-5 text-foreground">Ingressos</h4>
                 {!detail.ticket_types?.length ? (
-                  <p className="text-xs text-muted-foreground italic">Nenhum tipo de ingresso cadastrado.</p>
+                  <p className="text-xs text-muted-foreground">Nenhum tipo de ingresso cadastrado.</p>
                 ) : (
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="text-left text-muted-foreground">
-                        <th className="py-1 pr-2 font-medium">Nome</th>
-                        <th className="py-1 pr-2 font-medium">Preço</th>
-                        <th className="py-1 pr-2 font-medium">Qtd.</th>
-                        <th className="py-1 pr-2 font-medium">Vendidos</th>
-                        <th className="py-1 font-medium">Ativo</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {detail.ticket_types.map(t => (
-                        <tr key={t.id} className="border-t border-border">
-                          <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
-                          <td className="py-1.5 pr-2 text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
-                          <td className="py-1.5 pr-2 text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
-                          <td className="py-1.5 pr-2 text-foreground">{t.sold ?? 0}</td>
-                          <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="text-left text-muted-foreground">
+                          <th className="py-1 pr-2 font-medium">Nome</th>
+                          <th className="py-1 pr-2 font-medium">Preço</th>
+                          <th className="py-1 pr-2 font-medium">Qtd.</th>
+                          <th className="py-1 pr-2 font-medium">Vendidos</th>
+                          <th className="py-1 font-medium">Ativo</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {detail.ticket_types.map(t => (
+                          <tr key={t.id} className="border-t border-border">
+                            <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
+                            <td className="py-1.5 pr-2 tabular-nums text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
+                            <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
+                            <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.sold ?? 0}</td>
+                            <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 
               <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
                 {(detail.approval_status === 'pending' || !detail.approval_status) && (
-                  <>
-                    <button onClick={() => handleApprove(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-green-500/10 hover:bg-green-500/20 text-green-700 dark:text-green-300 transition-colors disabled:opacity-40">
-                      <Check className="w-3.5 h-3.5" /> Aprovar
-                    </button>
-                    <button onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors disabled:opacity-40">
-                      <X className="w-3.5 h-3.5" /> Rejeitar
-                    </button>
-                  </>
+                  <Button size="sm" onClick={() => handleApprove(detail.id)} disabled={approveMutation.isPending}>
+                    <I.Check /> Aprovar
+                  </Button>
                 )}
                 {detail.approval_status === 'approved' && (
-                  <>
-                    <button onClick={() => handleSuspend(detail.id, detail.title)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition-colors disabled:opacity-40">
-                      <Undo2 className="w-3.5 h-3.5" /> Revogar aprovação
-                    </button>
-                    <button onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending} className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-700 dark:text-red-300 transition-colors disabled:opacity-40">
-                      <X className="w-3.5 h-3.5" /> Rejeitar
-                    </button>
-                  </>
+                  <Button size="sm" variant="outline" onClick={() => handleSuspend(detail.id, detail.title)} disabled={approveMutation.isPending}>
+                    <I.Desfazer /> Revogar aprovação
+                  </Button>
                 )}
-                <button
+                {(detail.approval_status === 'pending' || !detail.approval_status || detail.approval_status === 'approved') && (
+                  <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleReject(detail.id)} disabled={approveMutation.isPending}>
+                    <I.Fechar /> Rejeitar
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => handleToggleFeatured(detail.id, !!detail.featured_carousel)}
                   disabled={detail.approval_status !== 'approved'}
                   title={detail.approval_status !== 'approved' ? 'Só eventos aprovados podem ser destacados' : undefined}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-amber-400 hover:text-amber-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <Star className={`w-3.5 h-3.5 ${detail.featured_carousel ? 'fill-current text-amber-500' : ''}`} />
+                  <I.Estrela ativo={!!detail.featured_carousel} className={detail.featured_carousel ? 'text-primary' : undefined} />
                   {detail.featured_carousel ? 'Remover destaque' : 'Destacar no carrossel'}
-                </button>
+                </Button>
               </div>
             </div>
           </div>

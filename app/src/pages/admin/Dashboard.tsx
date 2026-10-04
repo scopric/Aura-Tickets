@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Users, Calendar, Clock, CheckCircle, Mail, MessageCircle, Inbox, RefreshCw, DollarSign, ArrowUpRight } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { PageHeader, SectionTitle, Stat } from '@/components/producer/ui'
+import { painel } from '@/components/admin/ui'
 import { supabase } from '../../lib/supabase'
 
 type Res<T> = { data: T | null; error: string | null }
@@ -71,112 +74,104 @@ export default function AdminDashboard() {
     admins: roles.filter(r => r === 'admin').length,
   } : null
   const ev = dados?.eventos.data
-  const kpis: { label: string; value: number | null | undefined; sub?: string | null; error?: string | null; icon: typeof Users }[] = [
-    { label: 'Contas', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error, icon: Users },
-    { label: 'Eventos pendentes', value: ev ? ev.filter(s => !s || s === 'pending').length : null, error: dados?.eventos.error, icon: Clock },
-    { label: 'Eventos aprovados', value: ev ? ev.filter(s => s === 'approved').length : null, error: dados?.eventos.error, icon: CheckCircle },
-    { label: 'Inscritos na newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error, icon: Mail },
-    { label: 'Conversas de suporte abertas', value: dados?.suporte.data, error: dados?.suporte.error, icon: MessageCircle },
-    { label: 'Mensagens de contato', value: dados?.contato.data, error: dados?.contato.error, icon: Inbox },
+  const kpis: { label: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
+    { label: 'Contas', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
+    { label: 'Eventos pendentes', value: ev ? ev.filter(s => !s || s === 'pending').length : null, error: dados?.eventos.error },
+    { label: 'Eventos aprovados', value: ev ? ev.filter(s => s === 'approved').length : null, error: dados?.eventos.error },
+    { label: 'Inscritos na newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
+    { label: 'Conversas de suporte abertas', value: dados?.suporte.data, error: dados?.suporte.error },
+    { label: 'Mensagens de contato', value: dados?.contato.data, error: dados?.contato.error },
   ]
 
   const atividade = [
-    ...(dados?.eventosRecentes.data || []).map(e => ({ key: 'e' + e.id, tipo: 'Evento criado', texto: e.title, quando: e.created_at, to: '/admin/events', icon: Calendar })),
-    ...(dados?.contasRecentes.data || []).map(c => ({ key: 'c' + c.id, tipo: `Conta criada · ${roleLabels[c.role] || c.role}`, texto: c.full_name || c.email, quando: c.created_at, to: '/admin/users', icon: Users })),
+    ...(dados?.eventosRecentes.data || []).map(e => ({ key: 'e' + e.id, tipo: 'Evento criado', texto: e.title, quando: e.created_at, to: '/admin/events', icon: I.Eventos })),
+    ...(dados?.contasRecentes.data || []).map(c => ({ key: 'c' + c.id, tipo: `Conta criada · ${roleLabels[c.role] || c.role}`, texto: c.full_name || c.email, quando: c.created_at, to: '/admin/users', icon: I.Pessoas })),
   ].sort((a, b) => b.quando.localeCompare(a.quando))
   const erroAtividade = dados?.eventosRecentes.error || dados?.contasRecentes.error
 
   const alerta = (msg: string) => (
-    <p role="alert" className="text-xs text-red-700 dark:text-red-300">Não foi possível carregar: {msg}</p>
+    <p role="alert" className="text-xs text-destructive">Não foi possível carregar: {msg}</p>
   )
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground">Painel</h1>
-          <p className="text-sm text-muted-foreground mt-1">Visão geral da plataforma com os dados do banco</p>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span>{atualizadoEm ? `Atualizado em ${fmt(atualizadoEm.toISOString())}` : 'Carregando…'}</span>
-          <button
-            onClick={carregar}
-            disabled={loading}
-            aria-label="Atualizar dados do painel"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-foreground hover:border-primary/40 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Atualizar
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Painel"
+        description="Visão geral da plataforma com os dados do banco"
+        actions={
+          <>
+            <span className="text-xs text-muted-foreground">{atualizadoEm ? `Atualizado em ${fmt(atualizadoEm.toISOString())}` : 'Carregando…'}</span>
+            <Button variant="outline" size="sm" onClick={carregar} loading={loading} aria-label="Atualizar dados do painel">
+              <I.Atualizar /> Atualizar
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-3">
         {kpis.map(k => (
-          <div key={k.label} className="p-5 rounded-2xl bg-card border border-border">
-            <k.icon className="w-4 h-4 text-primary mb-3" />
-            <div className="font-serif text-2xl text-foreground" title={k.error || undefined}>
-              {loading && !dados ? '…' : k.value ?? '—'}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider">{k.label}</div>
-            {k.sub && <div className="text-[11px] text-muted-foreground mt-1">{k.sub}</div>}
-            {k.error && <div className="text-[11px] text-red-700 dark:text-red-300 mt-1">{k.error}</div>}
-          </div>
+          <Stat
+            key={k.label}
+            label={k.label}
+            value={<span title={k.error || undefined}>{loading && !dados ? '…' : k.value ?? '—'}</span>}
+            hint={k.error ? <span className="text-destructive">{k.error}</span> : k.sub}
+          />
         ))}
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4 mb-8">
-        <div className="lg:col-span-2 p-6 rounded-2xl bg-card border border-border">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-medium text-foreground flex items-center gap-2"><Clock className="w-4 h-4 text-primary" /> Fila de moderação</h2>
-            <Link to="/admin/events" className="text-xs text-primary hover:underline flex items-center gap-1">Ver todos <ArrowUpRight className="w-3 h-3" /></Link>
+      <div className="mb-8 grid gap-4 lg:grid-cols-3">
+        <section aria-labelledby="fila-titulo" className={`${painel} p-5 lg:col-span-2`}>
+          <div className="mb-4 flex items-center justify-between">
+            <SectionTitle id="fila-titulo">Fila de moderação</SectionTitle>
+            <Link to="/admin/events" className="flex items-center gap-1 text-xs font-medium text-primary hover:underline">Ver todos <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>
           </div>
           {dados?.fila.error ? alerta(dados.fila.error) : !dados?.fila.data?.length ? (
-            <p className="text-xs text-muted-foreground italic">{dados ? 'Nenhum evento aguardando moderação.' : 'Carregando…'}</p>
+            <p className="text-sm text-muted-foreground">{dados ? 'Nenhum evento aguardando moderação.' : 'Carregando…'}</p>
           ) : (
             <ul className="divide-y divide-border">
               {dados.fila.data.map(e => (
-                <li key={e.id} className="py-3 flex items-center justify-between gap-4">
-                  <div>
-                    <div className="text-sm text-foreground">{e.title}</div>
-                    <div className="text-[11px] text-muted-foreground">{e.profiles?.full_name || 'Produtor sem nome'}</div>
+                <li key={e.id} className="flex items-center justify-between gap-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm text-foreground">{e.title}</div>
+                    <div className="text-xs text-muted-foreground">{e.profiles?.full_name || 'Produtor sem nome'}</div>
                   </div>
-                  <div className="text-xs text-muted-foreground whitespace-nowrap">
+                  <div className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">
                     {e.date ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data a definir'}
                   </div>
                 </li>
               ))}
             </ul>
           )}
-        </div>
+        </section>
 
-        <div className="p-6 rounded-2xl bg-card border border-border">
-          <h2 className="text-sm font-medium text-foreground flex items-center gap-2 mb-4"><DollarSign className="w-4 h-4 text-primary" /> Receita e planos</h2>
-          <p className="text-xs text-muted-foreground">Pagamentos em modo de teste: ainda não há receita nem assinaturas reais.</p>
-          <Link to="/admin/finance" className="inline-flex items-center gap-1 mt-4 text-xs text-primary hover:underline">Abrir financeiro <ArrowUpRight className="w-3 h-3" /></Link>
-        </div>
+        <section aria-labelledby="receita-titulo" className={`${painel} p-5`}>
+          <SectionTitle id="receita-titulo">Receita e planos</SectionTitle>
+          <p className="mt-3 text-sm text-muted-foreground">Pagamentos em modo de teste: ainda não há receita nem assinaturas reais.</p>
+          <Link to="/admin/finance" className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">Abrir financeiro <I.SetaDiagonalCima size={12} aria-hidden="true" /></Link>
+        </section>
       </div>
 
-      <div className="p-6 rounded-2xl bg-card border border-border">
-        <h2 className="text-sm font-medium text-foreground mb-4">Atividade recente</h2>
+      <section aria-labelledby="atividade-titulo" className={`${painel} p-5`}>
+        <div className="mb-4"><SectionTitle id="atividade-titulo">Atividade recente</SectionTitle></div>
         {erroAtividade && alerta(erroAtividade)}
         {!erroAtividade && atividade.length === 0 && (
-          <p className="text-xs text-muted-foreground italic">{dados ? 'Nenhuma atividade registrada.' : 'Carregando…'}</p>
+          <p className="text-sm text-muted-foreground">{dados ? 'Nenhuma atividade registrada.' : 'Carregando…'}</p>
         )}
         {atividade.length > 0 && (
           <ul className="divide-y divide-border">
             {atividade.map(a => (
-              <li key={a.key} className="py-3 flex items-center gap-3">
-                <a.icon className="w-4 h-4 text-muted-foreground shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <Link to={a.to} className="text-sm text-foreground hover:text-primary truncate block">{a.texto}</Link>
-                  <div className="text-[11px] text-muted-foreground">{a.tipo}</div>
+              <li key={a.key} className="flex items-center gap-3 py-3">
+                <a.icon size={16} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <Link to={a.to} className="block truncate text-sm text-foreground hover:text-primary">{a.texto}</Link>
+                  <div className="text-xs text-muted-foreground">{a.tipo}</div>
                 </div>
-                <div className="text-xs text-muted-foreground whitespace-nowrap">{fmt(a.quando)}</div>
+                <div className="whitespace-nowrap text-xs tabular-nums text-muted-foreground">{fmt(a.quando)}</div>
               </li>
             ))}
           </ul>
         )}
-      </div>
+      </section>
     </div>
   )
 }
