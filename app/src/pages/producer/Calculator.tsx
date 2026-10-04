@@ -1,7 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
-import { RotateCcw } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { brl } from '../../lib/taxa'
-import { PageHeader } from '@/components/producer/ui'
+import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,7 +11,7 @@ const pct = (n: number | string) => `${String(n).replace('.', ',')}%`
 function Cartao({ titulo, descricao, children }: { titulo: string; descricao: string; children: ReactNode }) {
   return (
     <section className="rounded-[10px] border border-border bg-card p-4 sm:p-5">
-      <h2 className="text-sm font-medium text-foreground">{titulo}</h2>
+      <SectionTitle>{titulo}</SectionTitle>
       <p className="text-xs text-muted-foreground">{descricao}</p>
       <div className="mt-4 space-y-4">{children}</div>
     </section>
@@ -95,7 +95,7 @@ function MarkupCalc() {
       )}
 
       <Button variant="ghost" size="sm" onClick={reset} className="text-muted-foreground hover:text-foreground">
-        <RotateCcw aria-hidden="true" />Limpar
+        <I.Restaurar aria-hidden="true" />Limpar
       </Button>
     </Cartao>
   )

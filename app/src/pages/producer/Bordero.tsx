@@ -1,4 +1,5 @@
-import { Download, Printer } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import { cn } from '@/lib/utils'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
@@ -7,7 +8,7 @@ import { brl } from '../../lib/taxa'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
 import { diaBR } from '../../lib/visaoEvento'
 import { forma, dataBR, resumoBordero, type PedidoPago, type IngressoDoTipo } from '../../lib/bordero'
-import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -59,10 +60,10 @@ export default function ProducerBordero() {
       actions={
         <>
           <Button variant="outline" className="print:hidden" onClick={exportar} disabled={!dados.data?.pedidos.length}>
-            <Download aria-hidden="true" />Exportar CSV
+            <I.Baixar aria-hidden="true" />Exportar CSV
           </Button>
           <Button variant="outline" className="print:hidden" onClick={() => window.print()} disabled={!r}>
-            <Printer aria-hidden="true" />Salvar em PDF
+            <I.Imprimir aria-hidden="true" />Salvar em PDF
           </Button>
         </>
       }
@@ -72,7 +73,7 @@ export default function ProducerBordero() {
   const erro = (texto: string, tentar: () => void, buscando: boolean) => (
     <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-foreground">{texto}</p>
-      <Button variant="outline" size="sm" className="print:hidden" onClick={tentar} disabled={buscando}>{buscando ? 'Carregando…' : 'Tentar de novo'}</Button>
+      <Button variant="outline" size="sm" className="print:hidden" onClick={tentar} loading={buscando}>Tentar de novo</Button>
     </div>
   )
 
@@ -83,7 +84,7 @@ export default function ProducerBordero() {
         id="bordero-evento"
         value={eventId ?? ''}
         onChange={e => trocar(e.target.value)}
-        className="h-9 min-w-48 max-w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
+        className={cn(selectNativo, 'w-auto min-w-48 max-w-full')}
       >
         {!eventId && <option value="" disabled>Escolha um evento</option>}
         {lista.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}

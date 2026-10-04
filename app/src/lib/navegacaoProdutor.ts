@@ -1,4 +1,4 @@
-// Mapa das 28 telas do produtor na lateral por escopo (fase V4a; porte de refs/navegacao/codigo/evokaa-mapa-navegacao.mjs).
+// Mapa das 29 telas do produtor na lateral por escopo (fase V4a; porte de refs/navegacao/codigo/evokaa-mapa-navegacao.mjs).
 // Escopo "produtora": todas as telas, cada uma na sua seção. Escopo "evento": só as que têm `noEvento`, já com o
 // evento na URL. Rotas reais do App.tsx (o teste confere). Tela que não existe fica fora (Decisão 22).
 import { matchPath } from 'react-router' // mesma implementação do react-router-dom; o dom não exporta o tipo neste ambiente (TS2305)
@@ -18,7 +18,7 @@ export interface Tela {
   noEvento?: string
 }
 
-// 27 telas na lista + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO) = as 28 do mapa do estudo.
+// 28 telas na lista + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153).
 // Decisão 143 (desvio do contrato §6.4): Banners, Lista de interesse, Galeria, Tarefas e CRM ficam só no escopo da
 // produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento
 // e filtram pelo ?eventId= (V4a2, useFiltroEvento).
@@ -43,6 +43,7 @@ export const NAV: Tela[] = [
   { tela: 'Equipe', secao: 'Operação', rota: '/producer/team' },
   { tela: 'Parceiros', secao: 'Operação', rota: '/producer/parceiros' },
   { tela: 'Financeiro', secao: 'Financeiro', rota: '/producer/finance', rotulo: 'Resumo', noEvento: 'Resumo' },
+  { tela: 'Borderô', secao: 'Financeiro', rota: '/producer/bordero', noEvento: 'Borderô' },
   { tela: 'Carteira', secao: 'Financeiro', rota: '/producer/wallet' },
   { tela: 'Orçamento do evento', secao: 'Financeiro', rota: '/producer/caixinha', rotulo: 'Orçamento', noEvento: 'Orçamento' },
   { tela: 'Calculadora de preço', secao: 'Financeiro', rota: '/producer/calculator' },
