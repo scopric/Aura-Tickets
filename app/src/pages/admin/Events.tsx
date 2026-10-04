@@ -106,7 +106,7 @@ export default function AdminEvents() {
     }
   }
 
-  const approved = allEvents.filter(noAr)
+  const approved = allEvents.filter(e => noAr(e))
   const aprovadosNoTotal = allEvents.filter(e => e.approval_status === 'approved').length
   const pending = allEvents.filter(naFilaDeModeracao)
   
@@ -116,7 +116,7 @@ export default function AdminEvents() {
     return (e.approval_status || 'pending') === activeTab
   })
 
-  const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados'], ['rejected', 'Rejeitados']] as const
+  const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados (todos)'], ['rejected', 'Rejeitados']] as const
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
@@ -373,7 +373,6 @@ export default function AdminEvents() {
                           <th className="py-1 pr-2 font-medium">Nome</th>
                           <th className="py-1 pr-2 font-medium">Preço</th>
                           <th className="py-1 pr-2 font-medium">Qtd.</th>
-                          <th className="py-1 pr-2 font-medium">Vendidos</th>
                           <th className="py-1 font-medium">Ativo</th>
                         </tr>
                       </thead>
@@ -383,7 +382,6 @@ export default function AdminEvents() {
                             <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
-                            <td className="py-1.5 pr-2 tabular-nums text-foreground">—</td>
                             <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
                           </tr>
                         ))}
