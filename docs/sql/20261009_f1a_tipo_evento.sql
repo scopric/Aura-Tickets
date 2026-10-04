@@ -9,14 +9,17 @@
 --   5. evento_aceites: o aceite do produtor, gravado só pela função aceite-evento (chave de serviço).
 --   6. aceite_evento_versao(): versão do texto do aceite em vigor.
 --   7. gf_protect_event_moderation recriada a partir da definição de PRODUÇÃO.
+--   8. start_date alinhado com date + time (horário de Brasília) nos eventos em que diverge.
 --
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA pelo TextEdit: erro 17).
 -- APLICAR FORA DO HORÁRIO DE PICO: os ALTER TABLE em events e ticket_types pedem bloqueio exclusivo até o fim da
 -- transação; o lock_timeout de 5 s faz o arquivo desistir sem gravar nada se algo estiver segurando a tabela.
 -- Uma transação só; idempotente (pode rodar de novo). NÃO mover para supabase/migrations/.
 -- Testes: 20261009_f1a_tipo_evento_testes.sql (só em banco descartável).
--- ORDEM: (a) PASSO 0; (b) este SQL; (c) o front do PR (lista branca do useEvents com as colunas novas);
--- (d) a função aceite-evento só junto do PR3 (antes dele ninguém a chama).
+-- ORDEM: (a) PASSO 0; (b) este SQL; (c) o merge do front do PR e, no mesmo momento, publicar a função `agent`
+-- (o Evo novo manda `formato` em vez de `genero`: front e função fora de sincronia recusam o "Planejar");
+-- (d) RODAR ESTE SQL DE NOVO depois do merge: o bloco 1b realinha o start_date de evento criado pelas telas antigas
+-- entre (b) e (c); (e) a função aceite-evento só junto do PR3 (antes dele ninguém a chama).
 --
 -- PASSO 0 (só leitura; rodar SOZINHO antes, em produção):
 --   select max(cardinality(tags)) as max_tags, count(*) filter (where cardinality(tags) > 10) as acima_de_10
@@ -55,6 +58,15 @@
 --    accent_color e mostrar_contagem continuam fora (V6a, Decisão 142).
 -- 9. ticket_types.inclui_bebida: mudar em evento aprovado NÃO volta para análise (limite já aceito para preço e
 --    ingresso no plano-mãe; F2). O mesa_tipo_guard só olha type, então a coluna nova não o afeta.
+-- 10. evento_privado: o link não muda de evento (UPDATE de event_id dá 42501). Sem isso, um link posto num rascunho
+--     era levado a um evento aprovado trocando só o event_id, sem passar por análise (revisor e seguranca, 04/10).
+-- 11. evento_aceites é prova: nem a service_role altera ou apaga (o padrão do Supabase dá tudo a ela). O dono do
+--     banco (postgres, SQL Editor) continua podendo; o on delete set null roda como dono e segue funcionando.
+-- 12. start_date (bloco 1b): o front novo grava date, time e start_date juntos; as telas antigas não gravavam
+--     start_date (ficava a hora da criação). Sem alinhar, o 1º salvamento pelo front novo mudaria start_date: evento
+--     aprovado voltaria para análise e evento com venda daria 42501 na trava de data (O que não pode quebrar, 17).
+--     Roda como postgres, que o gatilho da F0a deixa passar: não muda aprovação. Em 04/10: 4 eventos divergentes,
+--     nenhum com venda. A data exibida e as listas usam date/time; start_date passa a ser o mesmo instante.
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -113,6 +125,12 @@ alter table public.events add constraint events_local_modo_check check (
 alter table public.events drop constraint if exists events_tags_max_check;
 alter table public.events add constraint events_tags_max_check check (cardinality(tags) <= 10);
 
+-- 1b. start_date = date + time em Brasília (idempotente: só onde diverge) ------------------------------------------
+update public.events
+set start_date = (date + coalesce(time, time '00:00')) at time zone 'America/Sao_Paulo'
+where date is not null
+  and start_date is distinct from (date + coalesce(time, time '00:00')) at time zone 'America/Sao_Paulo';
+
 -- 2. Bebida por ingresso -------------------------------------------------------------------------------------
 alter table public.ticket_types add column if not exists inclui_bebida boolean not null default false;
 
@@ -151,6 +169,9 @@ security invoker
 set search_path = ''
 as $$
 begin
+  if tg_op = 'UPDATE' and new.event_id is distinct from old.event_id then
+    raise exception 'O link do evento não muda de evento' using errcode = '42501';
+  end if;
   if tg_op = 'UPDATE' and new.online_url is not distinct from old.online_url then
     return null;
   end if;
@@ -192,6 +213,7 @@ create policy gf_mfa_aal2 on public.evento_aceites as restrictive for all to aut
 
 revoke all on public.evento_aceites from public, anon, authenticated;
 grant select on public.evento_aceites to authenticated;
+revoke update, delete, truncate on public.evento_aceites from service_role;
 grant select, insert on public.evento_aceites to service_role;
 
 -- 6. Versão do aceite --------------------------------------------------------------------------------------------
@@ -280,6 +302,10 @@ begin
                              'events_local_modo_check', 'events_tags_max_check')) then
     raise exception 'CHECK de events não validado';
   end if;
+  if exists (select 1 from public.events where date is not null
+             and start_date is distinct from (date + coalesce(time, time '00:00')) at time zone 'America/Sao_Paulo') then
+    raise exception 'start_date ainda diverge de date + time';
+  end if;
   if position('new.privado_alterado_em' in def) = 0 or position('new.temas' in def) = 0
      or position('new.local_modo)' in def) = 0 then
     raise exception 'gf_protect_event_moderation sem as colunas novas';
@@ -297,6 +323,8 @@ begin
      or has_table_privilege('authenticated', 'public.evento_aceites', 'update')
      or has_table_privilege('authenticated', 'public.evento_aceites', 'delete')
      or has_table_privilege('anon', 'public.evento_aceites', 'select')
+     or has_table_privilege('service_role', 'public.evento_aceites', 'update')
+     or has_table_privilege('service_role', 'public.evento_aceites', 'delete')
      or has_table_privilege('anon', 'public.evento_privado', 'select')
      or exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'evento_aceites'
                 and cmd <> 'SELECT' and policyname <> 'gf_mfa_aal2') then

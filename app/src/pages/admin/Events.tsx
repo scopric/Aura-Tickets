@@ -370,7 +370,7 @@ export default function AdminEvents() {
 
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
                 {([
-                  ['Categoria', rotuloFormato(detail.category)],
+                  ['Categoria', rotuloFormato(detail.category) || null],
                   ['Data', detail.date ? new Date(detail.date + 'T00:00:00').toLocaleDateString('pt-BR') : null],
                   ['Horário', detail.time?.slice(0, 5)],
                   ['Início', fmtDateTime(detail.start_date)],

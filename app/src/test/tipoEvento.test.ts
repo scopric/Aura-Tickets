@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import * as front from '../lib/tipoEvento'
 import * as shared from '../../../supabase/functions/_shared/tipoEvento'
@@ -36,12 +36,11 @@ describe('cópia em supabase/functions/_shared', () => {
   })
 })
 
-// O SQL da F1 (docs/sql/20261009_f1a_tipo_evento.sql) fica no mesmo PR. SQL_F1 aponta para outra cópia.
-const SQL_PATH = process.env.SQL_F1 ?? resolve(__dirname, '../../../docs/sql/20261009_f1a_tipo_evento.sql')
-const temSql = existsSync(SQL_PATH)
+// O SQL da F1 fica no mesmo PR; renomeado, o teste falha (não some calado)
+const SQL_PATH = resolve(__dirname, '../../../docs/sql/20261009_f1a_tipo_evento.sql')
 
-describe.skipIf(!temSql)('listas iguais às do SQL', () => {
-  const sql = temSql ? readFileSync(SQL_PATH, 'utf8') : ''
+describe('listas iguais às do SQL', () => {
+  const sql = readFileSync(SQL_PATH, 'utf8')
   // a primeira array[...] do CHECK `nome`
   const listaDoCheck = (nome: string) => {
     const ini = sql.indexOf(`add constraint ${nome} `)

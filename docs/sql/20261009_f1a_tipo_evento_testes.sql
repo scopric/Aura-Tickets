@@ -37,9 +37,9 @@ insert into public.profiles (id, email, role) select pg_temp.u(n), 'f1-' || n ||
 on conflict (id) do nothing;
 update public.profiles set role = 'admin', admin_permissions = array['manage_events'] where id = pg_temp.u(9);
 insert into auth.mfa_factors (user_id, status) values (pg_temp.u(9), 'verified');
--- Eventos do produtor: 10 (sem venda), 11 (com venda: ingressos de 3 e 4), 12 (para apagar)
+-- Eventos do produtor: 10 (sem venda), 11 (com venda: ingressos de 3 e 4), 12 (para apagar), 13 (sem link)
 insert into public.events (id, producer_id, title, slug, status, approval_status)
-select pg_temp.u(n), pg_temp.u(1), 'Evento ' || n, 'f1-evento-' || n, 'published', 'pending' from unnest(array[10, 11, 12]) n;
+select pg_temp.u(n), pg_temp.u(1), 'Evento ' || n, 'f1-evento-' || n, 'published', 'pending' from unnest(array[10, 11, 12, 13]) n;
 insert into public.ticket_types (id, event_id, name, price, quantity_total) values (pg_temp.u(20), pg_temp.u(11), 'Pista', 50, 100);
 insert into public.orders (id, user_id, event_id, status, total) values
   (pg_temp.u(30), pg_temp.u(3), pg_temp.u(11), 'paid', 50), (pg_temp.u(31), pg_temp.u(4), pg_temp.u(11), 'paid', 50);
@@ -219,6 +219,34 @@ begin
   if r <> '42501' then raise exception 'T10b anon: %', r; end if;
   perform pg_temp.como(null);
   raise notice 'T10 OK';
+
+  -- T11: o link não muda de evento (levaria o link de um rascunho a um evento aprovado sem análise)
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$update public.evento_privado set event_id = 'f1000000-0000-4000-8000-000000000013'
+                       where event_id = 'f1000000-0000-4000-8000-000000000011'$q$);
+  if r <> '42501' then raise exception 'T11a troca de evento: %', r; end if;
+  -- upsert do PostgREST (on conflict … set event_id = excluded.event_id) continua funcionando
+  r := pg_temp.erro($q$insert into public.evento_privado (event_id, online_url) values ('f1000000-0000-4000-8000-000000000011', 'https://upsert.invalid')
+                       on conflict (event_id) do update set event_id = excluded.event_id, online_url = excluded.online_url$q$);
+  if r <> 'ok' then raise exception 'T11b upsert: %', r; end if;
+  perform pg_temp.como(null);
+  raise notice 'T11 OK';
+
+  -- T12: nem a service_role altera ou apaga aceite
+  perform set_config('role', 'service_role', true);
+  r := pg_temp.erro('update public.evento_aceites set tem_bebida = false');
+  if r <> '42501' then raise exception 'T12a service_role altera: %', r; end if;
+  r := pg_temp.erro('delete from public.evento_aceites');
+  if r <> '42501' then raise exception 'T12b service_role apaga: %', r; end if;
+  perform set_config('role', 'postgres', true);
+  raise notice 'T12 OK';
+
+  -- T13: start_date alinhado com date + time (bloco 1b); salvar o mesmo date/time não muda nada
+  if exists (select 1 from public.events where date is not null
+             and start_date is distinct from (date + coalesce(time, time '00:00')) at time zone 'America/Sao_Paulo') then
+    raise exception 'T13a start_date divergente depois do SQL';
+  end if;
+  raise notice 'T13 OK';
 end $$;
 
 rollback;

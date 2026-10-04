@@ -454,7 +454,7 @@ async function atender(req: Request): Promise<Response> {
             // data passada volta como erro para o modelo corrigir a resposta (não some em silêncio)
             if (dataPassada(args?.date, hoje)) return { erro: `A data ${args.date} já passou (hoje é ${hoje}). Proponha com data futura ou sem data.` }
             const p = validarProposta(args)
-            if (!p) return { erro: 'Proposta inválida: confira título, cidade, UF (2 letras), capacidade e ingressos (1 a 10, com nome, preço e quantidade).' }
+            if (!p) return { erro: 'Proposta inválida: confira título, formato da lista, até 3 temas, estilos só com o tema musica (até 3), cidade, UF (2 letras), capacidade e ingressos (1 a 10, com nome, preço e quantidade).' }
             proposal = p
             return { ok: true, observacao: 'A proposta aparece para o produtor revisar e confirmar. Nada foi gravado.' }
           }
