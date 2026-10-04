@@ -34,7 +34,7 @@ const ALPHA = 'https://alpha.evokaa.com.br'
 // Mesma lista do banco (convite_permissoes_ok) e da tela Equipe (PERMISSIONS, sem super_admin): mudar as três juntas
 const PERMISSOES = ['manage_users', 'manage_affiliates', 'manage_events', 'manage_finance', 'view_analytics',
   'manage_tickets', 'manage_settings', 'manage_feedback', 'manage_support', 'manage_newsletter', 'manage_coupons',
-  'moderate_mesa', 'manage_team']
+  'moderate_mesa', 'manage_team', 'view_audit']
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOKEN_RE = /^[A-Za-z0-9_-]{43}$/ // 32 bytes em base64url, sem "="
 const CONTROLE = /[\u0000-\u001F\u007F]/g

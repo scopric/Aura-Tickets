@@ -39,6 +39,7 @@ const PERMISSIONS = [
   { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
   { id: 'moderate_mesa', label: 'Moderar Match de Mesa', desc: 'Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.' },
   { id: 'manage_team', label: 'Ver a Equipe Evokaa', desc: 'Permite ver os colaboradores da Evokaa. Convidar, remover e alterar funções é só de quem tem Acesso total.' },
+  { id: 'view_audit', label: 'Ver auditoria', desc: 'Consultar o registro de ações e acessos da equipe.' },
 ]
 // No convite, nunca super_admin (só pela edição de permissões); o banco e a Edge Function admin-invite conferem de novo
 const PERMISSOES_CONVITE = PERMISSIONS.filter(p => p.id !== 'super_admin')
