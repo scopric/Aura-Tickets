@@ -121,8 +121,8 @@ function validar(f: Form): string | null {
   for (const p of PLANS) if (!inteiroEntre(f.quotas[p.id], 0, 100000)) return `Cota do plano ${p.name}: número inteiro de 0 a 100000.`
   for (const [n, rotulo] of NIVEIS) if (!inteiroEntre(f.credit_cost[n], 0, 1000)) return `Custo em créditos (${rotulo}): inteiro de 0 a 1000.`
   if (!inteiroEntre(f.hourly_limit, 1, 10000)) return 'Limite por hora: inteiro de 1 a 10000.'
-  if (!(f.daily_cap_brl >= 0 && f.daily_cap_brl < 100000000)) return 'Teto diário: valor em R$ maior ou igual a zero.'
-  if (!(f.usd_brl > 0 && f.usd_brl < 10000)) return 'Cotação do dólar: maior que zero.'
+  if (!(f.daily_cap_brl >= 0 && f.daily_cap_brl <= 100000)) return 'Teto diário: valor em R$ de 0 a 100000.'
+  if (!(f.usd_brl >= 1 && f.usd_brl <= 20)) return 'Cotação do dólar: entre 1 e 20 R$.'
   if (!inteiroEntre(f.max_steps, 1, 8)) return 'Passos máximos: inteiro de 1 a 8.'
   if (!inteiroEntre(f.max_output_tokens, 256, 8192)) return 'Tokens de saída máx.: inteiro de 256 a 8192.'
   return null
@@ -133,6 +133,10 @@ export default function AdminAiSettings() {
   const chaveRef = useRef<HTMLInputElement>(null) // a chave fica só no campo, nunca em estado do React
   const [salvandoChave, setSalvandoChave] = useState(false)
   const [form, setForm] = useState<Form | null>(null)
+  // texto cru de cada campo numérico: converter a cada tecla apagaria "5," e "5,0"
+  const [texto, setTexto] = useState<Record<string, string>>({})
+  const campo = (c: string, v: number) => texto[c] ?? numInput(v)
+  const digita = (c: string, s: string) => { setTexto(t => ({ ...t, [c]: s })); return lerNum(s) }
   const [periodo, setPeriodo] = useState<Periodo>('7d')
   const [busca, setBusca] = useState('')
   const [achados, setAchados] = useState<Produtor[] | null>(null)
@@ -250,6 +254,7 @@ export default function AdminAiSettings() {
     onSuccess: () => {
       toast.success('Configurações salvas.')
       setForm(null)
+      setTexto({})
       queryClient.invalidateQueries({ queryKey: ['ai-settings'] })
     },
     onError: e => toast.error('Não foi possível salvar: ' + msgErro(e)),
@@ -412,8 +417,8 @@ export default function AdminAiSettings() {
                             className="max-w-[8rem]"
                             inputMode="decimal"
                             aria-label={`${m}: preço de ${lado === 'in' ? 'entrada' : 'saída'} em US$ por 1M de tokens`}
-                            value={numInput(p[lado])}
-                            onChange={e => set('prices', { ...f.prices, [m]: { ...p, [lado]: lerNum(e.target.value) } })}
+                            value={campo(`p.${m}.${lado}`, p[lado])}
+                            onChange={e => set('prices', { ...f.prices, [m]: { ...p, [lado]: digita(`p.${m}.${lado}`, e.target.value) } })}
                           />
                         </td>
                       ))}
@@ -435,7 +440,7 @@ export default function AdminAiSettings() {
                 {PLANS.map(p => (
                   <label key={p.id} className="space-y-1">
                     <span className="text-xs font-semibold text-muted-foreground">{p.name} (mês)</span>
-                    <Input inputMode="numeric" value={numInput(f.quotas[p.id])} onChange={e => set('quotas', { ...f.quotas, [p.id]: lerNum(e.target.value) })} />
+                    <Input inputMode="numeric" value={campo(`q.${p.id}`, f.quotas[p.id])} onChange={e => set('quotas', { ...f.quotas, [p.id]: digita(`q.${p.id}`, e.target.value) })} />
                   </label>
                 ))}
               </div>
@@ -446,7 +451,7 @@ export default function AdminAiSettings() {
                 {NIVEIS.map(([n, rotulo]) => (
                   <label key={n} className="space-y-1">
                     <span className="text-xs font-semibold text-muted-foreground">{rotulo}</span>
-                    <Input inputMode="numeric" value={numInput(f.credit_cost[n])} onChange={e => set('credit_cost', { ...f.credit_cost, [n]: lerNum(e.target.value) })} />
+                    <Input inputMode="numeric" value={campo(`c.${n}`, f.credit_cost[n])} onChange={e => set('credit_cost', { ...f.credit_cost, [n]: digita(`c.${n}`, e.target.value) })} />
                   </label>
                 ))}
               </div>
@@ -461,14 +466,14 @@ export default function AdminAiSettings() {
               ] as const).map(([k, rotulo, modo]) => (
                 <label key={k} className="space-y-1">
                   <span className="text-xs font-semibold text-muted-foreground">{rotulo}</span>
-                  <Input inputMode={modo} value={numInput(f[k])} onChange={e => set(k, lerNum(e.target.value))} />
+                  <Input inputMode={modo} value={campo(k, f[k])} onChange={e => set(k, digita(k, e.target.value))} />
                 </label>
               ))}
             </div>
           </section>
 
           <div className="flex justify-end gap-2">
-            {form && <Button type="button" variant="outline" onClick={() => setForm(null)}>Descartar alterações</Button>}
+            {form && <Button type="button" variant="outline" onClick={() => { setForm(null); setTexto({}) }}>Descartar alterações</Button>}
             <Button type="submit" disabled={!form} loading={salvar.isPending}>
               <I.Guardar aria-hidden="true" /> Salvar configurações
             </Button>

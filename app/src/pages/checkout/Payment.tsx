@@ -53,7 +53,6 @@ export default function CheckoutPayment() {
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
-  const [currency, setCurrency] = useState('BRL')
   const [qrAberto, setQrAberto] = useState(false)
   const [pixCopiado, setPixCopiado] = useState(false)
 
@@ -63,26 +62,6 @@ export default function CheckoutPayment() {
       navigate('/')
     }
   }, [eventId, totalAmount, navigate])
-
-  useEffect(() => {
-    async function loadSystemCurrency() {
-      try {
-        const { data, error } = await supabase
-          .from('platform_settings')
-          .select('value')
-          .eq('key', 'general')
-          .maybeSingle()
-
-        if (error) throw error
-        if (data?.value?.currency) {
-          setCurrency(data.value.currency)
-        }
-      } catch (err) {
-        console.error('Erro ao carregar moeda do sistema:', err)
-      }
-    }
-    loadSystemCurrency()
-  }, [])
 
   const handlePay = async () => {
     if (!eventId || !cart || !resumo.total || !itemsSummary) {
@@ -306,15 +285,15 @@ export default function CheckoutPayment() {
           <div className="rounded-ev-xl bg-card p-6 shadow-ev-secondary">
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
               <span>Ingressos</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal, currency)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal)}</span>
             </div>
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5 text-muted-foreground">
               <span>Taxa de serviço</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa, currency)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa)}</span>
             </div>
             <div className="flex items-baseline justify-between gap-3 pt-3 text-base font-semibold">
               <span>Total a pagar</span>
-              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total, currency)}</span>
+              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total)}</span>
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs leading-4 text-muted-foreground">
               <I.Info size={14} />

@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 
 interface Company {
   company_name: string
-  cnpj: string
+  cnpj: string | null
   is_verified: boolean
   commission_rate: number | null
 }
@@ -79,33 +79,6 @@ export default function AdminProducers() {
       await loadData()
     } catch (err: any) {
       toast.error('Não foi possível gravar: ' + (err?.message || 'erro desconhecido'))
-    } finally {
-      setSavingId(null)
-    }
-  }
-
-  // 8 de 9 produtores não têm linha em producer_profiles (o cadastro pelo site não cria).
-  // A regra de INSERT do admin (docs/sql/20260928_admin_policies.sql) permite criar a linha
-  // faltante; o produtor preenche CNPJ e dados bancários depois, em Configurações.
-  const createProfile = async (p: Producer) => {
-    const company = window.prompt(
-      `Criar o cadastro de empresa de ${p.full_name || p.email}?\n\nInforme o nome da empresa (deixe em branco para usar o nome do cadastro).`,
-      p.full_name || ''
-    )
-    if (company === null) return
-    setSavingId(p.id)
-    try {
-      // cnpj é NOT NULL UNIQUE no banco: string vazia colide a partir do 2º cadastro
-      // (já existe 1 linha com cnpj='' em produção). Placeholder único até o produtor preencher.
-      const { error } = await supabase
-        .from('producer_profiles')
-        .insert({ id: p.id, company_name: company.trim() || p.full_name || 'Minha Empresa', cnpj: `PENDENTE-${p.id}` })
-        .select('id')
-      if (error) throw error
-      toast.success('Cadastro criado. O produtor pode completar CNPJ e dados em Configurações.')
-      await loadData()
-    } catch (err: any) {
-      toast.error('Não foi possível criar o cadastro: ' + (err?.message || 'erro desconhecido'))
     } finally {
       setSavingId(null)
     }
@@ -189,7 +162,7 @@ export default function AdminProducers() {
                       {c ? (
                         <div>
                           <div className="text-sm text-foreground">{c.company_name}</div>
-                          <div className="text-xs text-muted-foreground">CNPJ {c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
+                          <div className="text-xs text-muted-foreground">CNPJ {!c.cnpj || c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">cadastro incompleto</span>
@@ -208,11 +181,7 @@ export default function AdminProducers() {
                     <td className="hidden px-4 py-3 text-xs tabular-nums text-muted-foreground lg:table-cell">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        {!c && (
-                          <Button variant="outline" size="sm" onClick={() => createProfile(p)} loading={saving}>
-                            Completar cadastro
-                          </Button>
-                        )}
+                        {!c && <span className="whitespace-nowrap text-xs text-muted-foreground">aguardando cadastro do produtor</span>}
                         <Button
                           variant="outline"
                           size="sm"

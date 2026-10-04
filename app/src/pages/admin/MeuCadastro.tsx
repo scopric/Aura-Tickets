@@ -126,7 +126,7 @@ export default function MeuCadastro() {
         </p>
       ) : !linha ? (
         <p className={`${painel} p-4 text-sm leading-relaxed text-muted-foreground`}>
-          Esta conta não tem cadastro de colaborador. O cadastro é feito ao aceitar o convite para a equipe.
+          Sua conta foi criada como administradora antes do convite, por isso ainda não tem ficha. Peça a quem tem Acesso total: em Equipe Evokaa, remover a sua conta da equipe (não dá para remover a própria conta nem a última com Acesso total, então tem de ser outra pessoa) e enviar um novo convite para o mesmo e-mail. Ao aceitar, a ficha aparece. O convite nunca dá Acesso total: depois, essa pessoa precisa devolvê-lo em Equipe Evokaa, editando as suas permissões. Entre a remoção e o aceite, você fica sem acesso ao painel.
         </p>
       ) : (
         <Formulario key={linha.updated_at} linha={linha} onSalvo={(l) => queryClient.setQueryData(chave, l)} />

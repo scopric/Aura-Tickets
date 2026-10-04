@@ -143,7 +143,7 @@ export default function AdminSettingsPage() {
 
       if (section === 'geral') {
         key = 'general'
-        payload = general
+        payload = { ...general, currency: 'BRL' }
       } else if (section === 'moderacao') {
         key = 'moderation'
         payload = moderation
@@ -153,11 +153,13 @@ export default function AdminSettingsPage() {
         return
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('platform_settings')
         .upsert({ key, value: payload, updated_at: new Date().toISOString() }, { onConflict: 'key' }) // a chave única é `key`, não o id
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi gravado: sua conta não tem permissão para esta configuração.')
 
       toast.success('Configurações salvas com sucesso!', { id: toastId })
     } catch (err: any) {
@@ -288,9 +290,7 @@ export default function AdminSettingsPage() {
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="currency">Moeda</Label>
-                    <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className={selectNativo}>
-                      <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
-                    </select>
+                    <p id="currency" className="text-sm text-muted-foreground">Real (R$) — única moeda aceita por enquanto</p>
                   </div>
                 </div>
 
