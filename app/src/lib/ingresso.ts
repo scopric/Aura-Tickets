@@ -71,6 +71,16 @@ export function ehProximo(t: DbTicket, agora = Date.now()): boolean {
   return Number.isNaN(fim) || agora < fim
 }
 
+// Por que o QR deste ingresso não vale (null = vale): ingresso que não está ativo, evento cancelado ou já encerrado
+const MOTIVO_STATUS: Record<string, string> = {
+  used: 'Ingresso já usado', cancelled: 'Ingresso cancelado', transferred: 'Ingresso transferido', refunded: 'Ingresso reembolsado',
+}
+export function motivoSemQr(t: DbTicket, agora = Date.now()): string | null {
+  if (t.status !== 'active') return MOTIVO_STATUS[t.status] ?? 'Ingresso indisponível'
+  if (t.events?.status === 'cancelled') return 'Evento cancelado'
+  return ehProximo(t, agora) ? null : 'Evento encerrado'
+}
+
 export interface GrupoIngressos { id: string; evento: Evento | undefined; ingressos: DbTicket[] }
 
 // Um grupo por evento, em ordem cronológica (ou do mais recente ao mais antigo, para os anteriores)

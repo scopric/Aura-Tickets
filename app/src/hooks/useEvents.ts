@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import { useAuthStore } from '../stores/authStore'
 import { isDemoAccount } from '../lib/demo'
+import { diaBR } from '../lib/visaoEvento'
 
 // dados de exemplo só para conta de demonstração em desenvolvimento (lib/demo.ts)
 const demoAtual = () => isDemoAccount(useAuthStore.getState().user?.id)
@@ -527,7 +528,7 @@ export function usePublicEvents() {
   return useQuery<DbEvent[]>({
     queryKey: ['public-events'],
     queryFn: async () => {
-      const todayStr = new Date().toISOString().split('T')[0]
+      const todayStr = diaBR(Date.now()) // dia de Brasília: em UTC, depois das 21h o evento de hoje sumia
       const { data, error } = await supabase
         .from('events')
         .select(`*, ticket_types (*)`)

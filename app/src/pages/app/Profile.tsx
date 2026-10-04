@@ -103,18 +103,25 @@ export default function ParticipantProfile() {
   }
 
   // Sincronizar com o usuário carregado do Supabase
+  const doUsuario = (u: NonNullable<typeof user>) => ({
+    name: u.full_name || u.name || '',
+    email: u.email || '',
+    phone: u.phone || '',
+    city: u.city || '',
+    bio: u.bio || '',
+    birthDate: u.birth_date || '',
+  })
   useEffect(() => {
-    if (user) {
-      setProfile({
-        name: user.full_name || user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        city: user.city || '',
-        bio: user.bio || '',
-        birthDate: user.birth_date || '',
-      })
-    }
+    if (user) setProfile(doUsuario(user))
   }, [user])
+
+  // Cancelar: volta ao que está salvo e fecha a edição
+  const cancelarEdicao = () => {
+    if (user) setProfile(doUsuario(user))
+    setCep('')
+    setShowCitiesDropdown(false)
+    setEditing(false)
+  }
 
   const { data: tickets = [], isLoading: isLoadingTickets } = useUserTickets()
   const { data: orders = [], isLoading: isLoadingOrders } = useUserOrders()
@@ -132,7 +139,7 @@ export default function ParticipantProfile() {
     setIsSaving(true)
     const toastId = toast.loading('Salvando alterações no perfil...')
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .update({
           full_name: profile.name,
@@ -142,8 +149,11 @@ export default function ParticipantProfile() {
           birth_date: profile.birthDate || null, // coluna date: '' daria erro no banco
         })
         .eq('id', user.id)
+        .select('id')
 
       if (error) throw error
+      // o RLS que filtra a escrita devolve zero linha sem erro: sem esta conferência, o toast de sucesso seria falso
+      if (!data?.length) throw new Error('Não foi possível salvar o perfil. Tente de novo.')
 
       // atualiza o store com o que foi gravado (sem reler pela rede: uma falha na releitura zeraria o formulário e o papel)
       const atual = useAuthStore.getState().user
@@ -203,6 +213,7 @@ export default function ParticipantProfile() {
             <h2 className="truncate text-xl font-semibold leading-7 tracking-[-0.015em]">{profile.name || 'Usuário'}</h2>
             <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{profile.email}</p>
           </div>
+          {editing && <Button variant="ghost" disabled={isSaving} onClick={cancelarEdicao}>Cancelar</Button>}
           <Button
             variant="outline"
             loading={isSaving}

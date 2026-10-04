@@ -9,7 +9,7 @@ import { Button } from './ui/button'
 import { useTheme } from '../contexts/ThemeContext'
 import { siteUrl } from '../lib/appHost'
 import { temFoto, varsDoEvento } from '../lib/corEvento'
-import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, quandoFalta } from '../lib/ingresso'
+import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta } from '../lib/ingresso'
 import { useFalta } from '../hooks/useFalta'
 import { useTelaAcesa } from '../hooks/useTelaAcesa'
 import type { DbTicket } from '../hooks/useCheckout'
@@ -100,7 +100,7 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
 }
 
 // ---- O cartão (prancha): frente = arte + dados + "Mostrar QR"; verso = QR em placa branca. Opaco, na cor do evento. ----
-function Cartao({ t, evento, verso, aoVirar, aoAmpliar }: { t: DbTicket; evento: Evento; verso: boolean; aoVirar: () => void; aoAmpliar: () => void }) {
+function Cartao({ t, evento, verso, motivo, aoVirar, aoAmpliar }: { t: DbTicket; evento: Evento; verso: boolean; motivo: string | null; aoVirar: () => void; aoAmpliar: () => void }) {
   // depois de virar, o foco vai para o botão da face que ficou visível (a outra está inert)
   const botaoFrente = useRef<HTMLButtonElement>(null)
   const botaoVerso = useRef<HTMLButtonElement>(null)
@@ -154,9 +154,13 @@ function Cartao({ t, evento, verso, aoVirar, aoAmpliar }: { t: DbTicket; evento:
             {cabeca}
             {comFoto && <h2 className="mt-2.5 break-words font-display text-[26px] font-extrabold uppercase leading-[1.08] tracking-[-0.01em] wide">{evento.title}</h2>}
             {campos}
-            <Button ref={botaoFrente} size="lg" onClick={aoVirar} className="mt-4 w-full bg-white text-[#0b0d12] shadow-[0_1px_2px_rgb(0_0_0/0.25)] hover:bg-[#eceef1] active:bg-[#eceef1] focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]">
-              <Qr aria-hidden="true" className="size-5" /> Mostrar QR
-            </Button>
+            {motivo ? (
+              <p role="status" className="mt-4 rounded-xl bg-[rgb(255_255_255/0.14)] px-4 py-3 text-center text-[15px] font-semibold">{motivo}: o QR não vale para a entrada.</p>
+            ) : (
+              <Button ref={botaoFrente} size="lg" onClick={aoVirar} className="mt-4 w-full bg-white text-[#0b0d12] shadow-[0_1px_2px_rgb(0_0_0/0.25)] hover:bg-[#eceef1] active:bg-[#eceef1] focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]">
+                <Qr aria-hidden="true" className="size-5" /> Mostrar QR
+              </Button>
+            )}
           </div>
         </div>
 
@@ -167,16 +171,18 @@ function Cartao({ t, evento, verso, aoVirar, aoAmpliar }: { t: DbTicket; evento:
             <h2 className="mt-3 break-words font-display text-2xl font-extrabold uppercase leading-[1.08] tracking-[-0.01em] wide">{evento.title}</h2>
             {campos}
             {evento.venue_name && <div className="mt-3"><div className={rotulo}>Local</div><div className="truncate text-[15px] font-semibold leading-5">{evento.venue_name}</div></div>}
-            <button
-              type="button"
-              onClick={aoAmpliar}
-              aria-label={`Ampliar o QR Code do ingresso ${t.code}`}
-              className="mt-4 block w-full rounded-xl border-0 bg-white p-3 text-center text-[#0b0d12] transition-transform duration-micro active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]"
-            >
-              <TicketQRCode code={t.code} size={240} className="mx-auto block h-auto w-full max-w-[240px]" />
-              <span className="mt-1.5 block font-mono text-[15px] leading-5 tracking-[0.08em]">{t.code}</span>
-              <span className="block text-xs font-medium leading-4 text-[#5b6472]">Toque para ampliar</span>
-            </button>
+            {!motivo && (
+              <button
+                type="button"
+                onClick={aoAmpliar}
+                aria-label={`Ampliar o QR Code do ingresso ${t.code}`}
+                className="mt-4 block w-full rounded-xl border-0 bg-white p-3 text-center text-[#0b0d12] transition-transform duration-micro active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]"
+              >
+                <TicketQRCode code={t.code} size={240} className="mx-auto block h-auto w-full max-w-[240px]" />
+                <span className="mt-1.5 block font-mono text-[15px] leading-5 tracking-[0.08em]">{t.code}</span>
+                <span className="block text-xs font-medium leading-4 text-[#5b6472]">Toque para ampliar</span>
+              </button>
+            )}
             <div className="mt-3.5 flex items-end gap-3">
               <div className="min-w-0 flex-1"><div className={rotulo}>Comprador</div><div className="truncate text-[15px] font-semibold leading-5">{t.buyer_name ?? '-'}</div></div>
               <Button ref={botaoVerso} variant="ghost" size="icon-lg" onClick={aoVirar} aria-label="Voltar para a arte do ingresso" className="rounded-full bg-[rgb(255_255_255/0.14)] text-[#fff] hover:bg-[rgb(255_255_255/0.22)] hover:text-[#fff] active:bg-[rgb(255_255_255/0.22)] active:text-[#fff] focus-visible:shadow-[0_0_0_2px_#fff]">
@@ -206,6 +212,7 @@ export default function IngressosDoEvento({ ingressos, evento, abrirNoQr = false
   const t = ingressos[Math.min(i, ingressos.length - 1)]
   const n = ingressos.length
   const endereco = enderecoDoEvento(evento)
+  const motivo = motivoSemQr(t)
 
   const ir = (d: number) => { setI(a => Math.max(0, Math.min(n - 1, a + d))); setVerso(false) }
 
@@ -233,7 +240,7 @@ export default function IngressosDoEvento({ ingressos, evento, abrirNoQr = false
         key={t.id}
         className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-150"
       >
-        <Cartao t={t} evento={evento} verso={verso} aoVirar={() => setVerso(v => !v)} aoAmpliar={() => setAmpliado(true)} />
+        <Cartao t={t} evento={evento} verso={verso && !motivo} motivo={motivo} aoVirar={() => setVerso(v => !v)} aoAmpliar={() => setAmpliado(true)} />
       </div>
 
       <div className="mx-auto mt-3 flex max-w-[360px] justify-center gap-1">

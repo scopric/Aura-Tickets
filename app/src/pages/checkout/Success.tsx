@@ -10,7 +10,8 @@ import { useOrderTickets } from '../../hooks/useCheckout'
 import { usePublicEvent } from '../../hooks/useEvents'
 import TicketQRCode from '../../components/TicketQRCode'
 import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
-import { brl } from '../../lib/taxa'
+import { horaCurta } from '../../lib/ingresso'
+import { brl, calcularTaxa } from '../../lib/taxa'
 import { soltarConfete } from '../../lib/confete'
 
 function Confete({ cor }: { cor: string }) {
@@ -111,10 +112,10 @@ export default function CheckoutSuccess() {
                   <div className="text-[11px] font-semibold uppercase leading-[14px] tracking-[0.06em]">Data</div>
                   <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{dataEvento ? dataEvento.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : 'A definir'}</div>
                 </div>
-                {event.time && (
+                {horaCurta(event.time) && (
                   <div>
                     <div className="text-[11px] font-semibold uppercase leading-[14px] tracking-[0.06em]">Horário</div>
-                    <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{event.time}</div>
+                    <div className="font-display text-lg font-semibold tabular-nums leading-[22px]">{horaCurta(event.time)}</div>
                   </div>
                 )}
                 <div className="ml-auto text-right">
@@ -154,14 +155,14 @@ export default function CheckoutSuccess() {
                   <div className="min-w-0">
                     <div className="text-[11px] leading-4 text-muted-foreground">Código do Ingresso</div>
                     <div className="truncate font-display text-xs font-semibold tabular-nums">{t.qr_code || t.code}</div>
-                    <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''} · {t.events?.time || ''}</div>
+                    <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''}{horaCurta(t.events?.time) && ` · ${horaCurta(t.events?.time)}`}</div>
                   </div>
                 </div>
 
-                {totalAmount && (
+                {!!totalAmount && (
                   <div className="mt-3 flex justify-between gap-3 text-sm leading-5">
-                    <span className="text-muted-foreground">Valor</span>
-                    <span className="font-display font-semibold tabular-nums">{brl(t.ticket_types?.price || 0)}</span>
+                    <span className="text-muted-foreground">Valor com taxa</span>
+                    <span className="font-display font-semibold tabular-nums">{brl(calcularTaxa(t.ticket_types?.price || 0).total)}</span>
                   </div>
                 )}
               </div>
@@ -177,7 +178,7 @@ export default function CheckoutSuccess() {
                   <span className="text-muted-foreground">Código do Pedido</span>
                   <span className="font-display font-semibold tabular-nums">#{orderId?.substring(0, 8).toUpperCase()}</span>
                 </div>
-                {totalAmount && (
+                {!!totalAmount && (
                   <div className="flex justify-between gap-3 py-2.5 text-sm leading-5">
                     <span className="text-muted-foreground">Total Pago</span>
                     <span className="font-display font-semibold tabular-nums">{brl(totalAmount)}</span>
