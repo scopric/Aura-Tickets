@@ -1,24 +1,23 @@
 import { Link } from 'react-router-dom'
-import { Plus } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { useEventSurveys, useEventZones } from '../../hooks/useProducerTools'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const pct = (n: number, total: number) => (total > 0 ? Math.round((n / total) * 100) : 0)
 
 function Alerta({ texto, onRetry, carregando }: { texto: string; onRetry: () => void; carregando: boolean }) {
   return (
     <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
       <p className="text-sm text-foreground">{texto}</p>
-      <Button variant="outline" size="sm" onClick={onRetry} disabled={carregando}>{carregando ? 'Carregando…' : 'Tentar de novo'}</Button>
+      <Button variant="outline" size="sm" onClick={onRetry} loading={carregando}>Tentar de novo</Button>
     </div>
   )
 }
@@ -85,7 +84,7 @@ export default function PostEventReport() {
         <EmptyState
           title="Você ainda não tem eventos"
           description="O relatório aparece aqui depois do evento."
-          action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )
@@ -109,7 +108,7 @@ export default function PostEventReport() {
 
       <div className="grid gap-1.5 sm:max-w-sm">
         <Label htmlFor="pos-evento">Evento</Label>
-        <select id="pos-evento" value={selectedEventId ?? ''} onChange={e => setPicked(e.target.value || null)} className={select}>
+        <select id="pos-evento" value={selectedEventId ?? ''} onChange={e => setPicked(e.target.value || null)} className={selectNativo}>
           {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
       </div>
@@ -135,7 +134,7 @@ export default function PostEventReport() {
             </div>
 
             <section aria-labelledby="nps" className="mt-6 rounded-[10px] border border-border bg-card p-4">
-              <h2 id="nps" className="text-base font-semibold text-foreground">NPS</h2>
+              <SectionTitle id="nps">NPS</SectionTitle>
               {total === 0 ? (
                 <p className="mt-2 text-sm text-muted-foreground">Nenhuma resposta de pesquisa ainda. O envio da pesquisa pela Evokaa ainda não existe.</p>
               ) : (
@@ -162,7 +161,7 @@ export default function PostEventReport() {
             </section>
 
             <section aria-labelledby="zonas" className="mt-6 rounded-[10px] border border-border bg-card p-4">
-              <h2 id="zonas" className="text-base font-semibold text-foreground">Zonas do evento</h2>
+              <SectionTitle id="zonas">Zonas do evento</SectionTitle>
               <p className="mt-1 text-sm text-muted-foreground">A ocupação por horário (check-in) ainda não é medida.</p>
               {zones.length > 0 ? (
                 <ul className="mt-3 divide-y divide-border">
@@ -183,7 +182,7 @@ export default function PostEventReport() {
 
             <section aria-labelledby="comentarios" className="mt-6 rounded-[10px] border border-border bg-card p-4">
               <div className="flex items-baseline justify-between gap-3">
-                <h2 id="comentarios" className="text-base font-semibold text-foreground">Comentários dos participantes</h2>
+                <SectionTitle id="comentarios">Comentários dos participantes</SectionTitle>
                 <span className="text-sm tabular-nums text-muted-foreground">{total} resposta(s)</span>
               </div>
               {total === 0 ? (
