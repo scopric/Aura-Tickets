@@ -19,7 +19,7 @@ export interface ProducerSettingsData {
   producer_profile: {
     id: string
     company_name: string
-    cnpj: string | null // opcional desde o B3: vazio é null (a UNIQUE não deixa dois '')
+    cnpj: string | null
     bank_account: {
       bankName?: string
       accountType?: string
@@ -75,7 +75,7 @@ export function useProducerSettings() {
           .insert({
             id: user.id,
             company_name: profile.full_name || 'Minha Empresa',
-            cnpj: null,
+            cnpj: `PENDENTE-${user.id}`, // coluna NOT NULL; mesmo marcador do cadastro pelo admin
             bank_account: {},
             pix_key: '',
             notification_settings: {},
@@ -125,11 +125,13 @@ export function useProducerSettings() {
   const saveProducerProfileMutation = useMutation({
     mutationFn: async (payload: Partial<ProducerSettingsData['producer_profile']>) => {
       if (!user?.id) throw new Error('Usuário não autenticado')
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('producer_profiles')
         .update(payload) // a linha já existe (criada na leitura); upsert faria INSERT sem company_name e falharia (23502)
         .eq('id', user.id)
+        .select('id')
       if (error) throw error
+      if (!data?.length) throw new Error('Nenhuma linha atualizada') // RLS ou linha ausente: não reportar sucesso sem gravar
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-settings', user?.id] })

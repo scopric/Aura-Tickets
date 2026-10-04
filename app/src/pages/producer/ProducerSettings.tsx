@@ -148,7 +148,8 @@ export default function ProducerSettings() {
     try {
       await saveProducerProfile({
         company_name: profile.company.trim(),
-        cnpj: profile.cnpj.replace(/\D/g, '') || null, // vazio é null: a UNIQUE não aceita dois ''
+        // cnpj é NOT NULL no banco: vazio não vai no payload (mantém o valor atual, ex. PENDENTE-<id>)
+        ...(profile.cnpj ? { cnpj: profile.cnpj.replace(/\D/g, '') } : {}),
       })
       toast.success('Dados da empresa atualizados com sucesso!')
     } catch (e) {

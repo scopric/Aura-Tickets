@@ -135,11 +135,11 @@ export default function ProducerDashboard() {
       ])
       // sem permissão (42501) = perfil não preenchido; outro erro (rede, tempo) não pode virar "não preenchido"
       if (perfil.error && perfil.error.code !== '42501') throw perfil.error
-      if (pessoa.error) throw pessoa.error
       if (checkin.error) throw checkin.error
       // a linha nasce com company_name = nome da pessoa (ou "Minha Empresa"): só conta como preenchido se o produtor mudou
       const empresa = (perfil.data as { company_name: string | null } | null)?.company_name?.trim().toLowerCase()
-      const nome = (pessoa.data as { full_name: string | null } | null)?.full_name?.trim().toLowerCase()
+      // erro em profiles = nome desconhecido (não derruba o checklist). ponytail: autônomo cuja razão social é o próprio nome nunca marca o passo; checar CNPJ preenchido se reclamarem
+      const nome = (pessoa.error ? null : pessoa.data as { full_name: string | null } | null)?.full_name?.trim().toLowerCase()
       return {
         empresa: !!empresa && empresa !== 'minha empresa' && empresa !== nome,
         checkinFeito: (checkin.data ?? []).length > 0,
