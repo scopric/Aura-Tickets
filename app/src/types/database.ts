@@ -9,35 +9,6 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
-      audit_logs: {
-        Row: {
-          id: string
-          producer_id: string | null
-          action: string
-          amount: number | null
-          description: string | null
-          metadata: Json
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          producer_id?: string | null
-          action: string
-          amount?: number | null
-          description?: string | null
-          metadata?: Json
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          producer_id?: string | null
-          action?: string
-          amount?: number | null
-          description?: string | null
-          metadata?: Json
-          created_at?: string
-        }
-      }
       communications: {
         Row: {
           id: string
@@ -106,87 +77,6 @@ export interface Database {
           is_active?: boolean
           created_at?: string
           updated_at?: string
-        }
-      }
-      seating_reservations: {
-        Row: {
-          id: string
-          seating_map_id: string
-          ticket_type_id: string | null
-          seat_label: string
-          status: string
-          expires_at: string
-          user_id: string | null
-          order_id: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          seating_map_id: string
-          ticket_type_id?: string | null
-          seat_label: string
-          status?: string
-          expires_at: string
-          user_id?: string | null
-          order_id?: string | null
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          seating_map_id?: string
-          ticket_type_id?: string | null
-          seat_label?: string
-          status?: string
-          expires_at?: string
-          user_id?: string | null
-          order_id?: string | null
-          created_at?: string
-        }
-      }
-      ticket_transfers: {
-        Row: {
-          id: string
-          ticket_id: string
-          from_user_id: string
-          to_user_id: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          ticket_id: string
-          from_user_id: string
-          to_user_id: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          ticket_id?: string
-          from_user_id?: string
-          to_user_id?: string
-          created_at?: string
-        }
-      }
-      webhook_events: {
-        Row: {
-          id: string
-          gateway: string
-          event_id: string
-          status: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          gateway: string
-          event_id: string
-          status?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          gateway?: string
-          event_id?: string
-          status?: string
-          created_at?: string
         }
       }
       affiliates: {
@@ -903,7 +793,7 @@ export interface Database {
       }
       partners: {
         Row: {
-          id: string | null
+          id: string
           producer_id: string
           name: string
           type: string | null
@@ -913,7 +803,7 @@ export interface Database {
           created_at: string
         }
         Insert: {
-          id?: string | null
+          id?: string
           producer_id: string
           name: string
           type?: string | null
@@ -923,7 +813,7 @@ export interface Database {
           created_at?: string
         }
         Update: {
-          id?: string | null
+          id?: string
           producer_id?: string
           name?: string
           type?: string | null

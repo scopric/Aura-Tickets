@@ -1,5 +1,7 @@
 # 🔍 Auditoria Completa — Evokaa Tickets
 
+> **Banco de referência:** `supabase/migrations/20260930134600_baseline.sql`. Quando este arquivo e o banco divergirem, vale o banco. `types/database.ts` não declara mais `ticket_transfers`, `seating_reservations`, `webhook_events` e `audit_logs` (não existem em produção); `communications` ainda consta nos tipos e é usada por `pages/producer/Communications.tsx`, mas também não está no baseline.
+
 **Data:** 2026-05-24  
 **Escopo:** `app/src/` (~80 arquivos de página, ~20 hooks)  
 **Objetivo:** Identificar rotas quebradas, botões não-funcionais, mock data e features faltantes.
@@ -121,7 +123,6 @@ Em produção, estas páginas mostram estado vazio. Em desenvolvimento, mantêm 
 | `pages/admin/Dashboard.tsx` | `mockUsers`, `plans`, `featureGates` |
 | `pages/admin/Feedback.tsx` | `feedbackMock` |
 | `pages/producer/PiggyBank.tsx` | `mockBoxes` |
-| `pages/producer/Partners.tsx` | `mockPartners` |
 | `pages/producer/Coupons.tsx` | `mockCoupons` |
 | `pages/producer/Tasks.tsx` | `mockTasks` |
 | `pages/producer/EventBanners.tsx` | `mockBanners` |
@@ -168,7 +169,7 @@ Em produção, estas páginas mostram estado vazio. Em desenvolvimento, mantêm 
 | **Newsletter** | ✅ **Implementado** | Footer agora insere em `newsletter_subscribers` via Supabase |
 | **Chat real** | ✅ **Implementado** | AppHub usa `useChat` hook com tabela `messages` + realtime |
 | **Notificações push** | ✅ **Corrigido** | `AppLayout` e `AppNotifications` agora usam tabela `notifications` |
-| **Transferência de ingressos** | ❌ Sem UI | Tabela `ticket_transfers` existe no schema mas não há interface |
+| **Transferência de ingressos** | ❌ Não existe | A tabela `ticket_transfers` **não existe** no banco de produção (está só em migração arquivada); falta criar tabela, RLS e interface (ver ficha 43 e M5) |
 | **Mesa Coletiva / Matchmaking** | ⚠️ Parcial | Tabelas existem. `YourTable.tsx` ainda usa mock fallback em dev |
 | **PIX via Woovi** | ⚠️ Requer config | Edge function implementada mas requer `WOOVI_API_KEY` |
 | **Stripe** | ⚠️ Requer config | Edge function implementada mas requer `STRIPE_SECRET_KEY` |
@@ -226,9 +227,9 @@ Isso alinha o frontend com o webhook `stripe-webhook`.
 
 ### 🟡 ALTO (fazer em seguida)
 
-4. **Transferência de ingressos** — criar UI usando `ticket_transfers`
+4. **Transferência de ingressos** — criar antes a tabela `ticket_transfers` (SQL revisado; hoje ela não existe no banco) e depois a interface
 5. **Conectar `ProducerTasks`** ao Supabase (criar tabela `producer_tasks`)
-6. **Conectar `ProducerPartners`** ao Supabase (tabela `partners`)
+6. ~~**Conectar `ProducerPartners`** ao Supabase (tabela `partners`)~~ ✅ Conectada (L22): lê as 8 colunas reais de `partners` (`id`, `producer_id`, `name`, `type`, `contact`, `logo_url`, `notes`, `created_at`) e grava `name`, `type`, `contact` e `notes`; valor, status, categoria, e-mail, telefone, evento e entregáveis voltam com o módulo M2 (Decisão 20)
 7. **Conectar `ProducerCoupons`** ao Supabase (tabela `coupons`)
 
 ### 🟢 MÉDIO (planejar)
