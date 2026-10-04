@@ -21,12 +21,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { gravarEvento, useCreateEvent, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTicketType } from '../../hooks/useEvents'
+import { gravarEvento, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTicketType } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
 import { siteUrl } from '../../lib/appHost'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
 import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
-import { copiaDoEvento, erroAoExcluir } from '../../lib/eventoProdutor'
+import { confirmacaoDuplicar, erroAoExcluir } from '../../lib/eventoProdutor'
+import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
   ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
@@ -144,7 +145,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const qc = useQueryClient()
   const navigate = useNavigate()
   const atualizarIngressos = useUpdateEvent()
-  const criar = useCreateEvent()
+  const { duplicar: duplicarEv, duplicando } = useDuplicarEvento()
   const excluir = useDeleteEvent()
   const modo = modoPainel(evento)
   const autosalva = ATIVO.includes(modo)
@@ -430,9 +431,9 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const motivosSaida = [ingSujo && 'ingressos com mudanças não salvas', moderado && `alterações não enviadas (${alteracoes.join(', ')})`, pendenteSalvar && 'mudanças que ainda não foram salvas'].filter(Boolean).join('; ')
 
   // ---- menu "Mais ações" (as mesmas regras de Meus eventos) ----
-  async function duplicar() {
-    if (!window.confirm(`Duplicar "${evento.title}"? A cópia nasce como rascunho, com os mesmos ingressos.`)) return
-    try { await criar.mutateAsync(copiaDoEvento(evento)); toast.success('Evento duplicado como rascunho.') } catch { toast.error('Não foi possível duplicar o evento.') }
+  // a cópia sai do que está salvo: com alteração não enviada ou ingresso não salvo, o botão fica desligado
+  function duplicar() {
+    if (window.confirm(confirmacaoDuplicar(evento.title))) void duplicarEv(evento)
   }
   async function excluirRascunho() {
     if (!window.confirm(`Excluir o evento "${evento.title}"? Esta ação não pode ser desfeita.`)) return
@@ -507,7 +508,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Mais ações: duplicar, orçamento, excluir rascunho"><I.Mais aria-hidden="true" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => void duplicar()} disabled={criar.isPending}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => duplicar()} disabled={duplicando || alteracoes.length > 0 || ingSujo}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
                 <DropdownMenuItem asChild><Link to={hrefDaTela('/producer/caixinha', evento.id)}><I.Financeiro size={16} aria-hidden="true" />Montar o orçamento</Link></DropdownMenuItem>
                 {(modo === 'rascunho' || modo === 'recusado') && (
                   <>
