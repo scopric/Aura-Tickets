@@ -12,6 +12,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { normas, estimarConsumo, sugerirLotes, checklistOrcamento, dataPassada, AVISO_NORMAS } from '../_shared/planejar.ts'
 import { resumir } from '../_shared/mascara.ts'
+import { FORMATOS, TEMAS, ESTILOS, MAX_TEMAS, MAX_ESTILOS } from '../_shared/tipoEvento.ts'
 import { adminCan, mfaOk } from '../_shared/mfa.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
@@ -51,19 +52,25 @@ async function getCaller(req: Request) {
 
 type Turno = { role: 'user' | 'model'; text: string }
 type Form = {
-  genero: string; publico: number; cidade: string; uf: string; data?: string; duracao_h: number
+  formato: string; estilos?: string[]; publico: number; cidade: string; uf: string; data?: string; duracao_h: number
   preco_alvo?: number; orcamento?: number; layout?: 'em_pe' | 'mesas' | 'plateia'
 }
 
 const texto = (v: unknown, min: number, max: number) => typeof v === 'string' && v.trim().length >= min && v.length <= max
 const num = (v: unknown, min: number, max: number) => typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max
 const opcional = (v: unknown, ok: (v: unknown) => boolean) => v === undefined || v === null || ok(v)
-const GENERO_RE = /^[a-z_]{2,30}$/
+const FORMATO_SLUGS = FORMATOS.map(f => f.valor) as string[]
+const TEMA_SLUGS = TEMAS.map(t => t.valor) as string[]
+const ESTILO_SLUGS = ESTILOS.map(e => e.valor) as string[]
+// lista de slugs da lista fechada, sem repetição e com no máximo `max`
+const slugs = (v: unknown, lista: string[], max: number) =>
+  Array.isArray(v) && v.length <= max && new Set(v).size === v.length && v.every(x => lista.includes(x))
 const DATA_RE = /^\d{4}-\d{2}-\d{2}$/
 
 function validarForm(f: any): Form | null {
   if (!f || typeof f !== 'object') return null
-  if (!(typeof f.genero === 'string' && GENERO_RE.test(f.genero))) return null
+  if (!FORMATO_SLUGS.includes(f.formato)) return null
+  if (!opcional(f.estilos, v => slugs(v, ESTILO_SLUGS, MAX_ESTILOS))) return null
   if (!(num(f.publico, 1, 200000) && Number.isInteger(f.publico))) return null
   if (!texto(f.cidade, 1, 80)) return null
   if (!(typeof f.uf === 'string' && /^[A-Za-z]{2}$/.test(f.uf))) return null
@@ -73,7 +80,7 @@ function validarForm(f: any): Form | null {
   if (!opcional(f.orcamento, v => num(v, 0, 1e9))) return null
   if (!opcional(f.layout, v => v === 'em_pe' || v === 'mesas' || v === 'plateia')) return null
   return {
-    genero: f.genero, publico: f.publico, cidade: f.cidade.trim(), uf: f.uf.toUpperCase(), data: f.data ?? undefined,
+    formato: f.formato, estilos: f.estilos?.length ? f.estilos : undefined, publico: f.publico, cidade: f.cidade.trim(), uf: f.uf.toUpperCase(), data: f.data ?? undefined,
     duracao_h: f.duracao_h, preco_alvo: f.preco_alvo ?? undefined, orcamento: f.orcamento ?? undefined, layout: f.layout ?? undefined,
   }
 }
@@ -199,7 +206,7 @@ const DECLARACOES = [
     name: 'estimar_consumo',
     description: 'Estima faixas de cerveja, água, gelo e copos pelo público e pela duração.',
     parametersJsonSchema: obj({
-      genero: { type: 'string' }, publico: { type: 'integer' }, duracao_h: { type: 'number', description: 'Duração em horas' },
+      formato: { type: 'string', enum: FORMATO_SLUGS }, publico: { type: 'integer' }, duracao_h: { type: 'number', description: 'Duração em horas' },
     }, ['publico', 'duracao_h']),
   },
   {
@@ -221,8 +228,10 @@ const DECLARACOES = [
     name: 'propor_rascunho_evento',
     description: 'Monta uma proposta de evento para o produtor revisar e confirmar na tela de criação. Não grava nada.',
     parametersJsonSchema: obj({
-      title: { type: 'string' }, description: { type: 'string' }, category: { type: 'string' },
-      genero: { type: 'string', description: 'forro, sertanejo, funk, eletronica, pagode_samba, rock, gospel, corporativo, formatura, casamento, infantil ou outro' },
+      title: { type: 'string' }, description: { type: 'string' },
+      formato: { type: 'string', enum: FORMATO_SLUGS, description: 'Formato do evento (um só)' },
+      temas: { type: 'array', maxItems: MAX_TEMAS, items: { type: 'string', enum: TEMA_SLUGS }, description: 'Até 3 temas' },
+      estilos: { type: 'array', maxItems: MAX_ESTILOS, items: { type: 'string', enum: ESTILO_SLUGS }, description: 'Estilos musicais, só se temas incluir musica' },
       date: { type: 'string', description: 'AAAA-MM-DD' }, time: { type: 'string', description: 'HH:MM' },
       venue_name: { type: 'string' }, venue_city: { type: 'string' }, venue_state: { type: 'string', description: 'UF com 2 letras' },
       capacity: { type: 'integer' },
@@ -230,7 +239,7 @@ const DECLARACOES = [
         type: 'array',
         items: obj({ name: { type: 'string' }, price: { type: 'number' }, quantity: { type: 'integer' } }, ['name', 'price', 'quantity']),
       },
-    }, ['title', 'description', 'category', 'genero', 'venue_city', 'venue_state', 'capacity', 'tickets']),
+    }, ['title', 'description', 'formato', 'temas', 'venue_city', 'venue_state', 'capacity', 'tickets']),
   },
 ]
 const ALLOWLIST = new Set(DECLARACOES.map(d => d.name))
@@ -241,8 +250,9 @@ const hojeBR = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_P
 
 function validarProposta(a: any) {
   const ok =
-    a && texto(a.title, 3, 120) && texto(a.description, 0, 2000) && texto(a.category, 1, 60) &&
-    typeof a.genero === 'string' && GENERO_RE.test(a.genero) &&
+    a && texto(a.title, 3, 120) && texto(a.description, 0, 2000) && FORMATO_SLUGS.includes(a.formato) &&
+    slugs(a.temas, TEMA_SLUGS, MAX_TEMAS) && opcional(a.estilos, v => slugs(v, ESTILO_SLUGS, MAX_ESTILOS)) &&
+    (!a.estilos?.length || a.temas.includes('musica')) && // o CHECK de events.estilos exige o tema musica
     opcional(a.date, v => typeof v === 'string' && DATA_RE.test(v)) &&
     opcional(a.time, v => typeof v === 'string' && /^\d{2}:\d{2}$/.test(v)) &&
     opcional(a.venue_name, v => texto(v, 1, 120)) && texto(a.venue_city, 1, 80) &&
@@ -252,7 +262,7 @@ function validarProposta(a: any) {
     a.tickets.every((t: any) => t && texto(t.name, 1, 60) && num(t.price, 0, 100000) && num(t.quantity, 1, 200000) && Number.isInteger(t.quantity))
   if (!ok) return null
   return {
-    title: a.title.trim(), description: a.description, category: a.category, genero: a.genero,
+    title: a.title.trim(), description: a.description, category: a.formato, temas: a.temas, estilos: a.estilos ?? [],
     ...(a.date ? { date: a.date } : {}), ...(a.time ? { time: a.time } : {}), ...(a.venue_name ? { venue_name: a.venue_name } : {}),
     venue_city: a.venue_city, venue_state: a.venue_state.toUpperCase(), capacity: a.capacity,
     tickets: a.tickets.map((t: any) => ({ name: t.name, price: t.price, quantity: t.quantity })),
@@ -347,7 +357,7 @@ async function atender(req: Request): Promise<Response> {
   const pedido = mode === 'planejar'
     ? `${message ? message + '\n\n' : ''}Quero planejar um evento. Formulário (dados informados pelo produtor):\n${JSON.stringify(form)}\nUse as ferramentas para os números. Ao terminar, chame propor_rascunho_evento: com preço-alvo, os lotes vêm de sugerir_lotes; sem preço-alvo, proponha um lote único "Ingresso" com a capacidade toda e preço 0 e diga ao produtor que o preço é ele quem define antes de criar.`
     : message
-  const resumo = resumir(mode === 'planejar' ? `planejar: ${form!.genero}, ${form!.publico} pessoas, ${form!.cidade}/${form!.uf}. ${message}` : message)
+  const resumo = resumir(mode === 'planejar' ? `planejar: ${form!.formato}, ${form!.publico} pessoas, ${form!.cidade}/${form!.uf}. ${message}` : message)
 
   // Portões (ligado, teto diário, limite por hora, crédito) ANTES de qualquer chamada paga ao Gemini:
   // sem isso, quem está sem crédito ainda faria o classificador rodar a cada envio, sem registro.
@@ -444,7 +454,7 @@ async function atender(req: Request): Promise<Response> {
             // data passada volta como erro para o modelo corrigir a resposta (não some em silêncio)
             if (dataPassada(args?.date, hoje)) return { erro: `A data ${args.date} já passou (hoje é ${hoje}). Proponha com data futura ou sem data.` }
             const p = validarProposta(args)
-            if (!p) return { erro: 'Proposta inválida: confira título, cidade, UF (2 letras), capacidade e ingressos (1 a 10, com nome, preço e quantidade).' }
+            if (!p) return { erro: 'Proposta inválida: confira título, formato da lista, até 3 temas, estilos só com o tema musica (até 3), cidade, UF (2 letras), capacidade e ingressos (1 a 10, com nome, preço e quantidade).' }
             proposal = p
             return { ok: true, observacao: 'A proposta aparece para o produtor revisar e confirmar. Nada foi gravado.' }
           }

@@ -18,6 +18,7 @@ export interface DbTicketType {
   type: 'individual' | 'vip' | 'coletiva' | 'mesa'
   perks: string[] | null
   is_active: boolean
+  inclui_bebida?: boolean // F1: ingresso com bebida alcoólica
   quantity_total?: number | null // coluna real no banco (capacity é legado)
   lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null
@@ -37,7 +38,11 @@ export interface DbEvent {
   cover_image: string | null
   image_url: string | null
   gallery: any
-  category: string | null
+  category: string | null // slug do formato (lib/tipoEvento.ts); eventos antigos têm texto livre
+  temas?: string[]
+  estilos?: string[]
+  classificacao?: string | null
+  local_modo?: 'presencial' | 'online' | 'hibrido' | 'a_definir'
   tags: string[]
   venue_name: string | null
   venue_address: string | null
@@ -239,6 +244,10 @@ export function useProducerEvents() {
   })
 }
 
+// date, time e start_date andam juntos: início em Brasília (sem horário de verão desde 2019). A hora "20:00:00",
+// como o banco devolve, vira "20:00".
+const inicioEm = (date: string, time?: string | null) => `${date}T${(time || '00:00').slice(0, 5)}:00-03:00`
+
 export function useCreateEvent() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -268,15 +277,22 @@ export function useCreateEvent() {
           image_url: event.image_url || '/images/hero-bg.jpg',
           accent_color: event.accent_color || null,
           gallery: event.gallery || [],
-          category: event.category || 'Outros',
+          category: event.category || null,
+          // colunas da F1: só vão preenchidas (o banco tem o padrão), assim criar não depende de elas existirem
+          temas: event.temas?.length ? event.temas : undefined,
+          estilos: event.estilos?.length ? event.estilos : undefined,
+          classificacao: event.classificacao || undefined,
+          local_modo: event.local_modo || undefined,
           tags: event.tags || [],
           venue_name: event.venue_name || event.location || null,
           venue_address: event.venue_address || null,
           venue_city: event.venue_city || null,
           venue_state: event.venue_state || null,
+          venue_zip: event.venue_zip || undefined,
           date: event.date || null,
-          time: event.time || null,
-          start_date: event.start_date || new Date().toISOString(),
+          time: event.date ? event.time || null : null, // hora sem data não existe
+          // sem data, sem start_date: o banco grava a hora da criação (start_date é not null default now())
+          start_date: event.date ? inicioEm(event.date, event.time) : undefined,
           end_date: event.end_date || null,
           status: event.status || 'draft',
           visibility: event.visibility || 'public',
@@ -302,6 +318,7 @@ export function useCreateEvent() {
           type: t.type || 'individual',
           perks: t.perks || [],
           is_active: t.is_active ?? true,
+          inclui_bebida: t.inclui_bebida || undefined,
           // sem lot_number: a coluna não existe em ticket_types (Decisão 20: o código se adapta ao banco)
         }))
 
@@ -340,6 +357,7 @@ export function useUpdateEvent() {
       // "Arquivar" manda só status e não apaga o resto; location, approval_status e afins
       // ficam de fora (moderação é do banco, F0a).
       const enviados = new Set(Object.keys(event))
+      if (enviados.has('date')) ['time', 'start_date'].forEach(k => enviados.add(k)) // gravados sempre juntos
       const colunas = {
         title: event.title,
         subtitle: event.subtitle || null,
@@ -348,13 +366,21 @@ export function useUpdateEvent() {
         cover_image: event.cover_image || '/images/hero-bg.jpg',
         image_url: event.image_url || '/images/hero-bg.jpg',
         accent_color: event.accent_color || null,
-        category: event.category || 'Outros',
+        category: event.category || null,
+        temas: event.temas || [],
+        estilos: event.estilos || [],
+        classificacao: event.classificacao || null,
+        local_modo: event.local_modo || 'presencial',
         tags: event.tags || [],
         venue_name: event.venue_name || null,
         venue_address: event.venue_address || null,
+        venue_city: event.venue_city || null,
+        venue_state: event.venue_state || null,
+        venue_zip: event.venue_zip || null,
         date: event.date || null,
-        time: event.time || null,
-        start_date: event.start_date || new Date().toISOString(),
+        time: event.date ? event.time || null : null, // hora sem data não existe
+        // sem data o start_date não é enviado: o início anterior fica (não vira "agora")
+        ...(event.date ? { start_date: inicioEm(event.date, event.time) } : {}),
         end_date: event.end_date || null,
         status: event.status || 'draft',
         visibility: event.visibility || 'public',
@@ -391,6 +417,7 @@ export function useUpdateEvent() {
           capacity: t.capacity ? Number(t.capacity) : null,
           quantity_total: t.capacity ? Number(t.capacity) : 0,
           ...(t.perks ? { perks: t.perks } : {}),
+          ...(t.inclui_bebida !== undefined ? { inclui_bebida: t.inclui_bebida } : {}),
         }
         if (t.id && existingIds.has(t.id)) {
           const { data, error } = await supabase

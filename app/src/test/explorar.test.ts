@@ -65,7 +65,7 @@ describe('lista por dia', () => {
 describe('cidades e categorias reais', () => {
   const todos = [
     ev('1', { venue_city: 'Curitiba', category: 'Show' }),
-    ev('2', { venue_city: ' curitiba ', category: 'show' }),
+    ev('2', { venue_city: ' curitiba ', category: 'SHOW' }), // texto antigo: caixa diferente conta como o mesmo
     ev('3', { venue_city: 'São Paulo', category: 'Festa' }),
     ev('4', { venue_city: null, category: 'Trilha na serra' }),
     ev('5', { venue_city: 'Florianópolis', category: 'Corporativo' }),
@@ -77,6 +77,14 @@ describe('cidades e categorias reais', () => {
 
   it('categorias: mais eventos primeiro; empate em ordem alfabética', () => {
     expect(categoriasDoCatalogo(todos).map(c => c.nome)).toEqual(['Show', 'Corporativo', 'Festa', 'Trilha na serra'])
+  })
+
+  it('categoria em slug do formato aparece pelo rótulo, e o filtro acha o evento por ele', () => {
+    const novo = ev('6', { category: 'festa_encontro', date: '2026-10-04' })
+    const [chip] = categoriasDoCatalogo([novo])
+    expect(chip.nome).toBe('Festa ou encontro')
+    expect(passa(novo, { ...F, categoria: chip.chave }, '2026-10-03')).toBe(true)
+    expect(passa(novo, { ...F, busca: 'encontro' }, '2026-10-03')).toBe(true)
   })
 
   it('sem evento, sem cidade e sem categoria (nada inventado)', () => {

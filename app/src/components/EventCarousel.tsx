@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Ticket, Sparkles } from 'lucide-react'
 import { useFeaturedEvents } from '../hooks/useEvents'
 import { temFoto } from '../lib/corEvento'
+import { rotuloFormato } from '../lib/tipoEvento'
 
 export default function EventCarousel() {
   const { data: featuredEvents = [], isLoading } = useFeaturedEvents()
@@ -165,7 +166,7 @@ export default function EventCarousel() {
                       <ChevronRight className="w-4 h-4" />
                     </Link>
                     <span className="text-[10px] text-white/40 uppercase tracking-widest font-semibold bg-white/5 border border-white/10 px-3 py-1.5 rounded-lg backdrop-blur-sm">
-                      {event.category || 'Outros'}
+                      {rotuloFormato(event.category) || 'Outros'}
                     </span>
                   </div>
                 </div>

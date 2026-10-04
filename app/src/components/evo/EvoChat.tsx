@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Download, Send } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { GENEROS } from '../../lib/generos'
+import { rotuloFormato } from '../../lib/tipoEvento'
 import { conversaParaMarkdown, nomeArquivoConversa } from '../../lib/evoConversa'
 import { FORM_PLANEJAR_VAZIO, FormPlanejar, PropostaCard, type CamposPlanejar, type EdicaoProposta, type EventProposal, type MudancaProposta, type PlanejarForm } from './EvoPlanejar'
 
@@ -207,10 +207,10 @@ export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pens
   }
 
   const planejar = (form: PlanejarForm) => {
-    const genero = GENEROS.find((g) => g.valor === form.genero)?.rotulo ?? form.genero
+    const formato = rotuloFormato(form.formato)
     const data = form.data ? `, em ${form.data.split('-').reverse().join('/')}` : ''
     const id = crypto.randomUUID()
-    setMensagens((m) => [...m, { id, role: 'user', text: `Planejar evento: ${genero}, ${form.publico} pessoas em ${form.cidade}/${form.uf}${data}.` }])
+    setMensagens((m) => [...m, { id, role: 'user', text: `Planejar evento: ${formato}, ${form.publico} pessoas em ${form.cidade}/${form.uf}${data}.` }])
     voltarAoChat()
     pedir({ mode: 'planejar', form }, id)
   }

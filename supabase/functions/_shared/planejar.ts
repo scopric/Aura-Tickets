@@ -76,13 +76,13 @@ export function normas({ publico, layout, lugares_sentados }: { publico: number;
   }
 }
 
-export function estimarConsumo({ genero, publico, duracao_h }: { genero?: string; publico: number; duracao_h: number }) {
+export function estimarConsumo({ formato, publico, duracao_h }: { formato?: string; publico: number; duracao_h: number }) {
   publicoValido(publico)
   duracaoValida(duracao_h)
   const f = duracao_h / 4.5
   const copos = publico * 2 + publico * Math.floor(duracao_h / 2)
   return {
-    genero: genero ?? null,
+    formato: formato ?? null,
     itens: [
       { item: 'cerveja', unidade: 'L', min: acima(publico * 1 * f), max: acima(publico * 2 * f) },
       { item: 'agua', unidade: 'L', min: acima(publico * 0.5 * f), max: acima(publico * 1 * f) },
@@ -90,7 +90,7 @@ export function estimarConsumo({ genero, publico, duracao_h }: { genero?: string
       { item: 'copos', unidade: 'un', min: copos, max: copos },
     ],
     fonte: 'Heurística pública de varejo (iFood 2025; Divvino 2025) — sem método publicado; ajuste com seus dados',
-    observacao: 'Ainda não há dado de consumo por gênero musical; a estimativa é a mesma para todos. A Evokaa vai aprender com os eventos reais.',
+    observacao: 'Ainda não há dado de consumo por formato de evento; a estimativa é a mesma para todos. A Evokaa vai aprender com os eventos reais.',
   }
 }
 

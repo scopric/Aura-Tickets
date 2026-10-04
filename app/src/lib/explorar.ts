@@ -1,7 +1,8 @@
 // Explorar (V11b): as contas do catálogo. Dia no fuso de São Paulo, grupos por dia, cidades e categorias que existem
-// de verdade nos eventos publicados, filtros e o preço "a partir de". Sem dependência.
+// de verdade nos eventos publicados, filtros e o preço "a partir de". Sem dependência (além do rótulo do formato).
 import { calcularTaxa } from './taxa'
 import { dataCurta, diaMais } from './visaoEvento'
+import { rotuloFormato } from './tipoEvento'
 
 export interface TipoIngresso { price: number | string; is_active?: boolean | null; sale_end?: string | null }
 
@@ -94,18 +95,17 @@ function contar(valores: (string | null | undefined)[]): Opcao[] {
 
 export const cidadesDoCatalogo = (eventos: EventoCatalogo[]) => contar(eventos.map(e => e.venue_city))
 
-// ponytail: a categoria é o texto livre de events.category (e.category). Quando a F1 criar lib/tipoEvento.ts (formatos e
-// temas), troque só esta função e o uso de e.category em `passa`.
-export const categoriasDoCatalogo = (eventos: EventoCatalogo[]) => contar(eventos.map(e => e.category))
+// A categoria é o formato (slug em events.category; texto antigo passa como está): o chip mostra o rótulo.
+export const categoriasDoCatalogo = (eventos: EventoCatalogo[]) => contar(eventos.map(e => rotuloFormato(e.category)))
 
 // ---- Filtro ---------------------------------------------------------------------------------------------------------
 const texto = (e: EventoCatalogo) =>
-  semAcento([e.title, e.venue_name, e.venue_city, e.category, e.short_description, e.description].filter(Boolean).join(' '))
+  semAcento([e.title, e.venue_name, e.venue_city, rotuloFormato(e.category), e.short_description, e.description].filter(Boolean).join(' '))
 
 // `ignorar` tira um filtro da conta (para dizer, no vazio, qual deles esvaziou a lista)
 export function passa(e: EventoCatalogo, f: Filtros, hoje: string, ignorar?: keyof Filtros): boolean {
   if (ignorar !== 'cidade' && f.cidade && chaveDe(e.venue_city ?? '') !== f.cidade) return false
-  if (ignorar !== 'categoria' && f.categoria && chaveDe(e.category ?? '') !== f.categoria) return false
+  if (ignorar !== 'categoria' && f.categoria && chaveDe(rotuloFormato(e.category)) !== f.categoria) return false
   if (ignorar !== 'quando' && f.quando) {
     if (!e.date) return false
     if (f.quando === 'hoje' ? e.date !== hoje : !fimDeSemana(hoje).includes(e.date)) return false

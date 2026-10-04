@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useUpdateEvent } from '../../hooks/useEvents'
+import { useCreateEvent, useUpdateEvent } from '../../hooks/useEvents'
 import { supabase } from '../../lib/supabase'
 
 vi.mock('../../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
@@ -38,10 +38,48 @@ describe('useUpdateEvent grava só o que a tela mandou', () => {
       cover_image: '/c.jpg', image_url: '/c.jpg', capacity: 100,
     })
     expect(payload).toEqual({
-      title: 'Show', description: null, date: '2026-10-10', time: '20:00',
+      title: 'Show', description: null, date: '2026-10-10', time: '20:00', start_date: '2026-10-10T20:00:00-03:00',
       venue_name: 'Arena', category: 'Música', status: 'published',
       cover_image: '/c.jpg', image_url: '/c.jpg', capacity: 100,
     })
+  })
+
+  it('lista branca da F1: temas, estilos, classificação, modo do local e endereço vão; ausentes não', async () => {
+    expect(await gravado({
+      category: 'show', temas: ['musica'], estilos: ['forro'], classificacao: 'A16', local_modo: 'hibrido',
+      venue_city: 'Recife', venue_state: 'PE', venue_zip: '50000-000',
+    })).toEqual({
+      category: 'show', temas: ['musica'], estilos: ['forro'], classificacao: 'A16', local_modo: 'hibrido',
+      venue_city: 'Recife', venue_state: 'PE', venue_zip: '50000-000',
+    })
+    expect(await gravado({ temas: [], classificacao: '', local_modo: '', venue_zip: '' }))
+      .toEqual({ temas: [], classificacao: null, local_modo: 'presencial', venue_zip: null })
+  })
+
+  it('category vazia grava null (sem "Outros")', async () => {
+    expect(await gravado({ category: '' })).toEqual({ category: null })
+  })
+})
+
+describe('useUpdateEvent: date, time e start_date andam juntos', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('start_date sai de date + time com -03:00', async () => {
+    expect(await gravado({ date: '2026-12-31', time: '23:30' })).toEqual({ date: '2026-12-31', time: '23:30', start_date: '2026-12-31T23:30:00-03:00' })
+  })
+  it('hora do banco com segundos ("20:00:00") não quebra o start_date', async () => {
+    expect(await gravado({ date: '2026-10-10', time: '20:00:00' })).toMatchObject({ start_date: '2026-10-10T20:00:00-03:00' })
+  })
+  it('data sem hora: time null e start_date à meia-noite de Brasília', async () => {
+    expect(await gravado({ date: '2026-10-10' })).toEqual({ date: '2026-10-10', time: null, start_date: '2026-10-10T00:00:00-03:00' })
+  })
+  it('sem data: grava date e time vazios e NÃO envia start_date (não vira "agora")', async () => {
+    const p = await gravado({ date: '', time: '20:00' })
+    expect(p).toEqual({ date: null, time: null })
+    expect(p).not.toHaveProperty('start_date')
+  })
+  it('evento sem a chave date (ex.: só título): nada de data é regravado, nem se vier start_date', async () => {
+    expect(await gravado({ title: 'Novo nome', start_date: '2030-01-01T00:00:00Z' })).toEqual({ title: 'Novo nome' })
   })
 })
 
@@ -97,8 +135,53 @@ describe('useUpdateEvent preserva tipo e situação dos ingressos', () => {
     expect(update.mock.calls[0][0]).not.toHaveProperty('description')
   })
 
+  it('inclui_bebida: existente e novo levam o campo; sem o campo, o update não o manda', async () => {
+    const { update, insert } = await salvaIngressos([
+      { id: 'a', name: 'Open bar', price: 100, inclui_bebida: true },
+      { name: 'Novo', price: 10, capacity: 5, inclui_bebida: true },
+    ])
+    expect(update.mock.calls[0][0]).toMatchObject({ inclui_bebida: true })
+    expect(insert.mock.calls[0][0]).toEqual([expect.objectContaining({ inclui_bebida: true })])
+    const { update: u2 } = await salvaIngressos([{ id: 'a', name: 'X', price: 1 }])
+    expect(u2.mock.calls[0][0]).not.toHaveProperty('inclui_bebida')
+    const { update: u3 } = await salvaIngressos([{ id: 'a', name: 'X', price: 1, inclui_bebida: false }])
+    expect(u3.mock.calls[0][0]).toMatchObject({ inclui_bebida: false }) // desmarcar a bebida precisa gravar false
+  })
+
   it('preço 0 grava price 0', async () => {
     const { update } = await salvaIngressos([{ id: 'a', name: 'X', price: 0 }])
     expect(update.mock.calls[0][0]).toMatchObject({ price: 0 })
+  })
+})
+
+// Criar: o que vai ao insert de events e ao de ticket_types.
+async function criado(event: Record<string, unknown>, tickets: Record<string, unknown>[] = []) {
+  const insertEvento = vi.fn((...args: unknown[]) => (args, { select: () => ({ single: () => Promise.resolve({ data: { id: 'e1' }, error: null }) }) }))
+  const insertIngressos = vi.fn((...args: unknown[]) => (args, Promise.resolve({ error: null })))
+  vi.mocked(supabase.from).mockImplementation(((tabela: string) => ({ insert: tabela === 'events' ? insertEvento : insertIngressos })) as never)
+  const { result } = renderHook(() => useCreateEvent(), { wrapper })
+  await result.current.mutateAsync({ event: event as never, tickets: tickets as never })
+  return { evento: insertEvento.mock.calls[0][0] as Record<string, unknown>, ingressos: insertIngressos.mock.calls[0]?.[0] as Record<string, unknown>[] }
+}
+
+describe('useCreateEvent: formato, datas e colunas da F1', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('com data: start_date = date + time com -03:00; formato vira category', async () => {
+    const { evento } = await criado({ title: 'Show', category: 'show', date: '2099-11-20', time: '22:00', temas: ['musica'], estilos: ['forro'], classificacao: 'A16', local_modo: 'presencial', venue_zip: '50000-000' })
+    expect(evento).toMatchObject({ category: 'show', date: '2099-11-20', time: '22:00', start_date: '2099-11-20T22:00:00-03:00', temas: ['musica'], estilos: ['forro'], classificacao: 'A16', local_modo: 'presencial', venue_zip: '50000-000' })
+  })
+  it('sem data: não envia start_date (o banco usa o padrão) e sem formato grava category null', async () => {
+    const { evento } = await criado({ title: 'Rascunho', time: '22:00' })
+    expect(evento).toMatchObject({ category: null, date: null, time: null })
+    expect(evento.start_date).toBeUndefined()
+  })
+  it('colunas da F1 vazias não vão no insert (criar não depende do SQL da F1)', async () => {
+    const { evento } = await criado({ title: 'X', temas: [], estilos: [] })
+    for (const k of ['temas', 'estilos', 'classificacao', 'local_modo', 'venue_zip']) expect(evento[k]).toBeUndefined()
+  })
+  it('ingresso leva inclui_bebida só quando marcado', async () => {
+    const { ingressos } = await criado({ title: 'X' }, [{ name: 'Open bar', price: 100, capacity: 10, inclui_bebida: true }, { name: 'Pista', price: 50, capacity: 10 }])
+    expect(ingressos.map(t => t.inclui_bebida)).toEqual([true, undefined])
   })
 })

@@ -15,6 +15,7 @@ import { useAuth } from '../../hooks/useAuth'
 import TicketQRCode from '../../components/TicketQRCode'
 import { useEventMenuItems } from '../../hooks/useMenuItems'
 import { useChat } from '../../hooks/useChat'
+import { rotuloFormato } from '../../lib/tipoEvento'
 import OnboardingTour from '../../components/OnboardingTour'
 
 export default function AppHub() {
@@ -225,7 +226,7 @@ export default function AppHub() {
             const formattedDate = event.date 
               ? new Date(event.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
               : 'Data a definir'
-            const tags = event.tags && event.tags.length > 0 ? event.tags : (event.category ? [event.category] : [])
+            const tags = event.tags && event.tags.length > 0 ? event.tags : (event.category ? [rotuloFormato(event.category)] : [])
             
             return (
               <div key={event.id} className="rounded-2xl overflow-hidden bg-white/[0.03] border border-white/[0.06]">

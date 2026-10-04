@@ -92,7 +92,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
     fireEvent.keyDown(caixa, { key: 'Enter' })
     expect(await screen.findByText('Sua conta não tem acesso ao Evo.')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Planejar meu primeiro evento' }))
-    expect(screen.getByLabelText('Gênero')).toBeInTheDocument()
+    expect(screen.getByLabelText('Formato do evento')).toBeInTheDocument()
     expect(screen.getAllByRole('option').length).toBeGreaterThan(27)
   })
   it('fechar e reabrir o painel mantém o texto e não permite envio duplo', async () => {
@@ -141,21 +141,22 @@ describe('EvoHub: painel, chat e rascunho', () => {
     role = 'producer'
     vi.mocked(supabase.functions.invoke).mockReset()
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
-      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', date: '2099-11-20', time: '22:00', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      title: 'Forró da Vila', description: 'd', category: 'show', temas: ['musica'], estilos: ['forro'], date: '2099-11-20', time: '22:00', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
       tickets: [{ name: '1º lote', price: 40, quantity: 150 }] } }, error: null } as never)
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
     fireEvent.click(await screen.findByRole('button', { name: 'Planejar meu primeiro evento' }))
-    fireEvent.change(screen.getByLabelText('Gênero'), { target: { value: 'forro' } })
+    fireEvent.change(screen.getByLabelText('Formato do evento'), { target: { value: 'show' } })
+    fireEvent.click(screen.getByLabelText('Forró'))
     fireEvent.change(screen.getByLabelText('Público esperado'), { target: { value: '300' } })
     fireEvent.change(screen.getByLabelText('Duração (horas)'), { target: { value: '6' } })
     fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: ' Recife ' } })
     fireEvent.change(screen.getByLabelText('UF'), { target: { value: 'PE' } })
-    fireEvent.submit(screen.getByLabelText('Gênero').closest('form')!)
+    fireEvent.submit(screen.getByLabelText('Formato do evento').closest('form')!)
     await screen.findByText('Plano')
-    expect(supabase.functions.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'planejar', form: { genero: 'forro', publico: 300, cidade: 'Recife', uf: 'PE', duracao_h: 6, layout: 'em_pe' } } })
+    expect(supabase.functions.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'planejar', form: { formato: 'show', estilos: ['forro'], publico: 300, cidade: 'Recife', uf: 'PE', duracao_h: 6, layout: 'em_pe' } } })
     expect(criar).not.toHaveBeenCalled()
-    expect(screen.getByText('Show')).toBeInTheDocument() // categoria
+    expect(screen.getByText('Show ou apresentação')).toBeInTheDocument() // formato, pelo rótulo
     fireEvent.change(screen.getByLabelText('Descrição'), { target: { value: 'Forró pé de serra' } })
     fireEvent.change(screen.getByLabelText('Preço do lote 1 em reais'), { target: { value: '35' } })
     const insert = vi.fn(() => Promise.resolve({ error: null }))
@@ -163,8 +164,8 @@ describe('EvoHub: painel, chat e rascunho', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Criar rascunho do evento' }))
     expect(await screen.findByRole('link', { name: 'Abrir rascunho' })).toHaveAttribute('href', '/producer/events/ev1/edit')
     expect(criar).toHaveBeenCalledWith({
-      event: { title: 'Forró da Vila', description: 'Forró pé de serra', category: 'Show', date: '2099-11-20', time: '22:00', start_date: new Date('2099-11-20T22:00').toISOString(), venue_name: null, venue_city: 'Recife', venue_state: 'PE', capacity: 300, status: 'draft',
-        settings: { genero: 'forro', uf: 'PE', origem: 'evo', ai_usage_id: 'u-9' } },
+      event: { title: 'Forró da Vila', description: 'Forró pé de serra', category: 'show', temas: ['musica'], estilos: ['forro'], date: '2099-11-20', time: '22:00', venue_name: null, venue_city: 'Recife', venue_state: 'PE', capacity: 300, status: 'draft',
+        settings: { uf: 'PE', origem: 'evo', ai_usage_id: 'u-9' } },
       tickets: [],
     })
     expect(supabase.from).toHaveBeenCalledWith('ticket_types')
@@ -174,7 +175,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
     criar.mockClear()
     vi.mocked(supabase.functions.invoke).mockReset()
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
-      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      title: 'Forró da Vila', description: 'd', category: 'show', temas: ['musica'], estilos: ['forro'], venue_city: 'Recife', venue_state: 'PE', capacity: 300,
       tickets: [{ name: 'Ingresso', price: 0, quantity: 300 }] } }, error: null } as never)
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
@@ -190,7 +191,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
     criar.mockClear()
     vi.mocked(supabase.functions.invoke).mockReset()
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
-      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300,
+      title: 'Forró da Vila', description: 'd', category: 'show', temas: ['musica'], estilos: ['forro'], venue_city: 'Recife', venue_state: 'PE', capacity: 300,
       tickets: [{ name: '1º lote', price: 40, quantity: 150 }] } }, error: null } as never)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     montar()
@@ -271,7 +272,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
     criar.mockImplementationOnce(() => new Promise<{ id: string }>((r) => { terminar = r }))
     vi.mocked(supabase.functions.invoke).mockReset()
     vi.mocked(supabase.functions.invoke).mockResolvedValueOnce({ data: { ok: true, reply_md: 'Plano', usage_id: 'u-9', restante: 1, proposal: {
-      title: 'Forró da Vila', description: 'd', category: 'Show', genero: 'forro', venue_city: 'Recife', venue_state: 'PE', capacity: 300, tickets: [] } }, error: null } as never)
+      title: 'Forró da Vila', description: 'd', category: 'show', temas: ['musica'], estilos: ['forro'], venue_city: 'Recife', venue_state: 'PE', capacity: 300, tickets: [] } }, error: null } as never)
     montar()
     const reabrir = async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Fechar central do Evo' }))

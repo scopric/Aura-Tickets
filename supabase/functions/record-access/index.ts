@@ -9,25 +9,10 @@
 // Chamada: POST { terms_version, privacy_version } com o JWT do usuário. Só age sobre o dono do token.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
 import { corsHeaders } from "../_shared/cors.ts"
+import { clientIp } from "../_shared/ip.ts"
 
-const IP_RE = /^(\d{1,3}(\.\d{1,3}){3}|[0-9a-fA-F:]{2,39})$/
 const VERSION_RE = /^\d{4}-\d{2}-\d{2}$/
 
-/**
- * IP provável do cliente + fim da cadeia de proxies. O cliente pode inventar o COMEÇO do
- * x-forwarded-for, mas não apagar o que os proxies acrescentam no FIM: por isso o candidato
- * é o último elemento (ou cf-connecting-ip, que o Cloudflare sobrescreve) e forwarded_for
- * guarda os últimos 200 caracteres da cadeia. Qual header o gateway do Supabase preenche de
- * fato: conferir após o deploy com um login real (ver PR #27).
- */
-export function clientIp(headers: Headers): { ip: string | null; forwarded_for: string | null } {
-  const chain = headers.get('x-forwarded-for')
-  const candidate = (headers.get('cf-connecting-ip') ?? chain?.split(',').at(-1) ?? headers.get('x-real-ip') ?? '').trim()
-  return {
-    ip: IP_RE.test(candidate) ? candidate : null,
-    forwarded_for: chain ? chain.slice(-200) : null,
-  }
-}
 const FIRST_VERSION = '2026-09-27'  // primeira versão publicada dos textos (app/src/lib/legal.ts); nada anterior é aceito
 
 Deno.serve(async (req) => {
