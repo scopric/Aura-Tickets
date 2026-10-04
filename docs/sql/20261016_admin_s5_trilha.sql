@@ -6,10 +6,18 @@
 --      ip). IMUTÁVEL em três camadas: sem GRANT a ninguém (nem service_role) e RLS ligada sem regra permissiva; gatilho que
 --      recusa UPDATE, DELETE e TRUNCATE (só a limpeza agendada apaga, e só o vencido); só gatilho e funções SECURITY
 --      DEFINER (search_path '') inserem. Limite: o dono do banco pode desligar o gatilho (não se fecha dentro do Supabase).
---   2. audit_registra(): gatilho genérico AFTER por linha. Argumentos do gatilho: (coluna do id, colunas ocultas, colunas
---      ignoradas). UPDATE grava só o que mudou (nunca updated_at); colunas ocultas aparecem como
---      "«oculto»" em antes e depois; INSERT e DELETE gravam a linha com as ocultas mascaradas. Motivo: cabeçalho
---      x-evokaa-motivo (base64 UTF-8; sem ele, nulo). IP: cf-connecting-ip, senão o ÚLTIMO x-forwarded-for.
+--   2. audit_registra(): gatilho genérico AFTER por linha. Argumentos do gatilho: (coluna do id, colunas VIGIADAS, colunas
+--      ocultas). LISTA DE PERMITIDAS: num UPDATE grava só as colunas vigiadas que mudaram (nunca updated_at; lista vazia
+--      não grava nada); coluna que não está na lista nunca entra, mesmo mudando junto (o delete-account anonimiza
+--      profiles e muda role, admin_permissions e is_verified no mesmo UPDATE: só essas três entram). Colunas ocultas
+--      aparecem como "«oculto»" em antes e depois; INSERT e DELETE gravam a linha inteira com as ocultas mascaradas.
+--      Motivo: cabeçalho x-evokaa-motivo (base64 UTF-8; sem ele, nulo).
+--      IP: NÃO é gravado por enquanto (fica nulo): não está provado que o gateway impede forjar cf-connecting-ip e
+--      x-forwarded-for, e IP é dado pessoal. audit_ip_cabecalho() fica pronta e desligada; liga na S6, depois de testar no
+--      navegador (trocar o null por public.audit_ip_cabecalho() em audit_registra e nas duas RPCs).
+--      OCULTOS A MAIS (o Jurídico pode liberar depois): dados pessoais de profiles e producer_profiles, pix e conta de
+--      withdrawals, e-mail de admin_invites, nome e notas de platform_affiliates, nota de ai_credit_grants, assunto,
+--      nome, e-mail e mensagem de contact_messages, user_agent e mensagem de feedback.
 --      O motivo NÃO é obrigatório no banco: grava quando vem, nulo quando não vem. NÃO VERIFICADO em produção se o gateway
 --      da Supabase deixa o cabeçalho x-evokaa-motivo e o IP chegarem a request.headers; por isso a obrigatoriedade
 --      (comissão do produtor e taxa em platform_settings 'fees', Decisão 163) entra na S6, via RPC ou depois de testar
@@ -17,7 +25,7 @@
 --   3. Gatilhos (AFTER, nome próprio audit_<tabela>_<ins|upd|del>, WHEN só nas colunas que interessam; nenhuma função
 --      alheia é recriada): profiles (role, admin_permissions, is_verified), admin_invites (token_hash oculto),
 --      producer_profiles (comissão, is_verified; pix_key, bank_account, cnpj, stripe_account_id e
---      woovi_account_id ocultos), withdrawals (status), revenue_advances (status e DELETE), platform_settings (tudo), events (só as 5 colunas de moderação), coupons (só da plataforma, sem contar
+--      woovi_account_id ocultos; webhook_url, notification_settings e company_name nunca entram), withdrawals (status), revenue_advances (status e DELETE), platform_settings (tudo), events (só as 5 colunas de moderação), coupons (só da plataforma ou que deixou de ser, sem contar
 --      `uses`), affiliate_coupon_requests, platform_affiliates (dados pessoais ocultos), platform_affiliate_producers,
 --      affiliate_links (sem contar `clicks`), feedback e contact_messages (só UPDATE e DELETE; conteúdo oculto),
 --      ai_settings, ai_credit_grants (só INSERT), chat_settings, kb_articles (body e busca ocultos), kb_termos, newsletters
@@ -26,11 +34,12 @@
 --      FORA (como no plano): notifications, support_*, conversas do chat, access_logs, user_activities, tabelas do produtor
 --      sem tela de admin. LIMITES CONHECIDOS: (a) convite_aceitar tira as claims do JWT durante o UPDATE de profiles
 --      (20261002), então a linha de profiles do aceite sai com autor nulo; o autor está na linha de admin_invites
---      (status 'usado', used_by); (b) platform_settings.value é gravado inteiro: nenhum segredo pode morar nele
+--      (status 'usado', used_by); (b) platform_settings.value é gravado inteiro (só key e value; updated_by/updated_at sozinhos não gravam): nenhum segredo pode morar nele
 --      (AdminSettings já tirou a chave de CEP); (c) mudança feita por service_role/SQL Editor também entra, com autor nulo.
 --   4. platform_settings.updated_by preenchido pelo gatilho BEFORE platform_settings_updated_by (autor = auth.uid()).
 --      withdrawals.processed_by (coluna NOVA, FK para profiles, on delete set null) preenchida pelo BEFORE
---      withdrawals_quem_processou quando o status muda. ORDEM: gatilhos BEFORE rodam em ordem alfabética do nome;
+--      withdrawals_quem_processou quando o status muda (sem sessão, como service_role ou webhook, zera: nunca
+--      deixa o admin anterior). ORDEM: gatilhos BEFORE rodam em ordem alfabética do nome;
 --      'withdrawals_quem_processou' vem DEPOIS de 'gf_protect_withdrawals' (S3, que trava toda coluna menos status e
 --      processed_at para quem chega pelo site): a proteção vê a linha como o site mandou (processed_by igual ao antigo,
 --      passa), e só depois o nosso gatilho preenche. Quem tenta gravar processed_by pelo site leva 42501 da S3.
@@ -40,7 +49,8 @@
 --      182) e registra a leitura; admin_registrar_exportacao(p_tabela, p_linhas, p_motivo) (permissão da área: users e
 --      profiles manage_users, events manage_events, orders, transactions e withdrawals manage_finance, user_activities
 --      view_analytics; sem a permissão, 42501; tabela fora da lista, 22023); audit_registrar_servico(p_autor, ...) só para
---      service_role (Edge send-email, disparo de campanha). Motivo das RPCs: o argumento, ou o cabeçalho; opcional.
+--      service_role (Edge send-email, disparo de campanha). A Edge DEVE passar o autor vindo de getUser do JWT de quem
+--      chamou, NUNCA do corpo da requisição (a função confia no argumento). Motivo das RPCs: o argumento, ou o cabeçalho; opcional.
 --   6. view_audit entra em convite_permissoes_ok (a lista do convite; Edge admin-invite e TeamManager mudam no mesmo PR).
 --      Recriada a partir da definição de 20261002_convite_colaborador.sql com UMA linha a mais.
 --   7. Limpeza: audit_limpar() (2 anos para 'acao', 6 meses para 'leitura'; prazos provisórios, o Jurídico confirma),
@@ -244,7 +254,7 @@ end;
 $$;
 
 -- 3. Gatilho genérico -------------------------------------------------------------------------------------------------
--- Argumentos: (coluna do id, colunas ocultas, colunas ignoradas), listas separadas por vírgula.
+-- Argumentos: (coluna do id, colunas vigiadas no UPDATE, colunas ocultas), listas separadas por vírgula.
 create or replace function public.audit_registra()
 returns trigger
 language plpgsql
@@ -253,8 +263,8 @@ set search_path = ''
 as $$
 declare
   v_id text := coalesce(nullif(tg_argv[0], ''), 'id');
-  v_ocultar text[] := string_to_array(coalesce(tg_argv[1], ''), ',');
-  v_ignorar text[] := array['updated_at'] || string_to_array(coalesce(tg_argv[2], ''), ',');
+  v_vigiadas text[] := string_to_array(coalesce(tg_argv[1], ''), ',');
+  v_ocultar text[] := string_to_array(coalesce(tg_argv[2], ''), ',');
   v_old jsonb;
   v_new jsonb;
   v_antes jsonb;
@@ -265,17 +275,17 @@ begin
   if tg_op <> 'DELETE' then v_new := to_jsonb(new); end if;
 
   if tg_op = 'UPDATE' then
-    -- só o que mudou (e nunca updated_at)
+    -- só o que mudou E está na lista de vigiadas
     select coalesce(jsonb_object_agg(n.key, n.value), '{}'::jsonb) into v_depois
       from jsonb_each(v_new) n
-      where n.key <> all (v_ignorar) and n.value is distinct from (v_old -> n.key);
+      where n.key = any (v_vigiadas) and n.value is distinct from (v_old -> n.key);
     if v_depois = '{}'::jsonb then return null; end if;
     select coalesce(jsonb_object_agg(o.key, o.value), '{}'::jsonb) into v_antes
       from jsonb_each(v_old) o where v_depois ? o.key;
   elsif tg_op = 'INSERT' then
-    v_depois := v_new - v_ignorar;
+    v_depois := v_new - 'updated_at';
   else
-    v_antes := v_old - v_ignorar;
+    v_antes := v_old - 'updated_at';
   end if;
 
   -- colunas ocultas: o valor nunca entra na trilha, só o fato de existir ou mudar
@@ -288,7 +298,7 @@ begin
 
   insert into public.admin_audit_log (autor, tipo, acao, tabela, objeto_id, antes, depois, motivo, ip)
   values ((select auth.uid()), 'acao', case tg_op when 'INSERT' then 'criar' when 'UPDATE' then 'alterar' else 'excluir' end,
-          tg_table_name, coalesce(v_new, v_old) ->> v_id, v_antes, v_depois, v_motivo, public.audit_ip_cabecalho());
+          tg_table_name, coalesce(v_new, v_old) ->> v_id, v_antes, v_depois, v_motivo, null /* IP desligado: public.audit_ip_cabecalho() na S6 */);
   return null;
 end;
 $$;
@@ -321,7 +331,8 @@ as $$
 begin
   if tg_op = 'INSERT' then
     new.processed_by := null; -- saque novo ainda não foi processado por ninguém
-  elsif new.status is distinct from old.status and (select auth.uid()) is not null then
+  elsif new.status is distinct from old.status then
+    -- sem sessão (service_role, webhook) fica nulo: nunca mantém o admin do status anterior
     new.processed_by := (select auth.uid());
   end if;
   return new;
@@ -333,32 +344,32 @@ create trigger withdrawals_quem_processou before insert or update on public.with
 
 -- 5. Gatilhos de auditoria (tabela por tabela; WHEN nas colunas que interessam) -----------------------------------------
 -- Cada item: t = tabela; ins/upd/del = condição WHEN do gatilho (ausente = sem gatilho nesse evento); o = colunas
--- ocultas; i = colunas ignoradas.
+-- ocultas; v = colunas vigiadas no UPDATE.
 do $$
 declare
   spec jsonb := $j$[
-    {"t":"profiles","upd":"old.role is distinct from new.role or old.admin_permissions is distinct from new.admin_permissions or old.is_verified is distinct from new.is_verified"},
-    {"t":"admin_invites","ins":"true","upd":"old.status is distinct from new.status or old.permissions is distinct from new.permissions or old.token_hash is distinct from new.token_hash or old.expires_at is distinct from new.expires_at","o":"token_hash"},
-    {"t":"producer_profiles","upd":"old.commission_rate is distinct from new.commission_rate or old.is_verified is distinct from new.is_verified or old.pix_key is distinct from new.pix_key or old.bank_account is distinct from new.bank_account or old.cnpj is distinct from new.cnpj or old.stripe_account_id is distinct from new.stripe_account_id or old.woovi_account_id is distinct from new.woovi_account_id","o":"pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id"},
-    {"t":"withdrawals","upd":"old.status is distinct from new.status"},
-    {"t":"revenue_advances","upd":"old.status is distinct from new.status","del":"true"},
-    {"t":"platform_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
-    {"t":"events","upd":"old.approval_status is distinct from new.approval_status or old.approved_at is distinct from new.approved_at or old.approved_by is distinct from new.approved_by or old.rejection_reason is distinct from new.rejection_reason or old.featured_carousel is distinct from new.featured_carousel"},
-    {"t":"coupons","ins":"new.producer_id is null","upd":"old.producer_id is null and (to_jsonb(new) - 'uses' - 'updated_at') is distinct from (to_jsonb(old) - 'uses' - 'updated_at')","del":"old.producer_id is null","i":"uses"},
-    {"t":"affiliate_coupon_requests","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes or old.coupon_id is distinct from new.coupon_id","del":"true"},
-    {"t":"platform_affiliates","ins":"true","upd":"old.* is distinct from new.*","del":"true","o":"cpf,birth_date,email,phone,whatsapp,cep,street,street_number,complement,neighborhood,city,state,payout_account_id"},
-    {"t":"platform_affiliate_producers","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
-    {"t":"affiliate_links","ins":"true","upd":"(to_jsonb(new) - 'clicks') is distinct from (to_jsonb(old) - 'clicks')","del":"true","i":"clicks"},
-    {"t":"feedback","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes","del":"true","o":"message"},
-    {"t":"contact_messages","upd":"old.* is distinct from new.*","del":"true","o":"name,email,phone,message"},
-    {"t":"ai_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
-    {"t":"ai_credit_grants","ins":"true"},
-    {"t":"chat_settings","ins":"true","upd":"old.* is distinct from new.*"},
-    {"t":"kb_articles","ins":"true","upd":"old.* is distinct from new.*","del":"true","o":"body,busca"},
-    {"t":"kb_termos","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
-    {"t":"newsletters","ins":"true","upd":"old.* is distinct from new.*","del":"true","o":"content"},
-    {"t":"producer_subscriptions","ins":"true","upd":"old.* is distinct from new.*","del":"true"},
-    {"t":"user_custom_features","ins":"true","upd":"old.* is distinct from new.*","del":"true"}
+    {"t":"profiles","upd":"old.role is distinct from new.role or old.admin_permissions is distinct from new.admin_permissions or old.is_verified is distinct from new.is_verified","v":"role,admin_permissions,is_verified","o":"email,full_name,phone,cpf,avatar_url,bio,city,birth_date,instagram,tiktok,linkedin,website,stripe_customer_id,avatar_moderacao_hash"},
+    {"t":"admin_invites","ins":"true","upd":"old.status is distinct from new.status or old.permissions is distinct from new.permissions or old.token_hash is distinct from new.token_hash or old.expires_at is distinct from new.expires_at","v":"status,permissions,token_hash,expires_at","o":"token_hash,email"},
+    {"t":"producer_profiles","upd":"old.commission_rate is distinct from new.commission_rate or old.is_verified is distinct from new.is_verified or old.pix_key is distinct from new.pix_key or old.bank_account is distinct from new.bank_account or old.cnpj is distinct from new.cnpj or old.stripe_account_id is distinct from new.stripe_account_id or old.woovi_account_id is distinct from new.woovi_account_id","v":"commission_rate,is_verified,pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id","o":"pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id,webhook_url,notification_settings,company_name,api_key"},
+    {"t":"withdrawals","upd":"old.status is distinct from new.status","v":"status,processed_at,processed_by","o":"pix_key,bank_account"},
+    {"t":"revenue_advances","upd":"old.status is distinct from new.status","del":"true","v":"status,transferred_at"},
+    {"t":"platform_settings","ins":"true","upd":"old.key is distinct from new.key or old.value is distinct from new.value","del":"true","v":"key,value"},
+    {"t":"events","upd":"old.approval_status is distinct from new.approval_status or old.approved_at is distinct from new.approved_at or old.approved_by is distinct from new.approved_by or old.rejection_reason is distinct from new.rejection_reason or old.featured_carousel is distinct from new.featured_carousel","v":"approval_status,approved_at,approved_by,rejection_reason,featured_carousel"},
+    {"t":"coupons","ins":"new.producer_id is null","upd":"(old.producer_id is null or new.producer_id is null) and (to_jsonb(new) - 'uses' - 'updated_at') is distinct from (to_jsonb(old) - 'uses' - 'updated_at')","del":"old.producer_id is null","v":"producer_id,event_id,code,discount_type,discount_value,max_uses,valid_until,valid_from,is_active,description,max_uses_per_user,min_order_value,max_discount,audience,plans,duration,duration_months,affiliate_id,upgrade_from"},
+    {"t":"affiliate_coupon_requests","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes or old.coupon_id is distinct from new.coupon_id","del":"true","v":"status,admin_notes,coupon_id,decided_at,decided_by,discount_percent,valid_days,plans"},
+    {"t":"platform_affiliates","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"user_id,referral_code,recurring_percent,status,agreement_date,full_name,notes,cpf,payout_account_id","o":"full_name,notes,cpf,birth_date,email,phone,whatsapp,cep,street,street_number,complement,neighborhood,city,state,payout_account_id"},
+    {"t":"platform_affiliate_producers","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"producer_id,affiliate_id,source,ended_at,ended_by,end_reason,affiliate_link_id"},
+    {"t":"affiliate_links","ins":"true","upd":"(to_jsonb(new) - 'clicks') is distinct from (to_jsonb(old) - 'clicks')","del":"true","v":"affiliate_id,slug,label,is_active"},
+    {"t":"feedback","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes","del":"true","v":"status,admin_notes","o":"message,user_agent"},
+    {"t":"contact_messages","upd":"old.* is distinct from new.*","del":"true","v":"subject,message","o":"name,email,phone,subject,message"},
+    {"t":"ai_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"enabled,model_router,model_simple,model_complex,model_vision,prices,usd_brl,daily_cap_brl,hourly_limit,quotas,credit_cost,max_steps,max_output_tokens,key_updated_at,key_updated_by"},
+    {"t":"ai_credit_grants","ins":"true","o":"note"},
+    {"t":"chat_settings","ins":"true","upd":"old.* is distinct from new.*","v":"hours,response_time,team_email,bot_enabled"},
+    {"t":"kb_articles","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"slug,title,body,keywords,audience,department_id,status,review_note","o":"body,busca"},
+    {"t":"kb_termos","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"forma,normal"},
+    {"t":"newsletters","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"title,content,status,sent_at,recipient_count","o":"content"},
+    {"t":"producer_subscriptions","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"producer_id,plan,started_at,expires_at,is_active"},
+    {"t":"user_custom_features","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"user_id,feature_key,expires_at"}
   ]$j$::jsonb;
   s jsonb;
   ev record;
@@ -370,7 +381,7 @@ begin
       nome := 'audit_' || (s ->> 't') || '_' || ev.k;
       execute format('drop trigger if exists %I on public.%I', nome, s ->> 't');
       execute format('create trigger %I after %s on public.%I for each row when (%s) execute function public.audit_registra(%L, %L, %L)',
-        nome, ev.op, s ->> 't', s ->> ev.k, 'id', coalesce(s ->> 'o', ''), coalesce(s ->> 'i', ''));
+        nome, ev.op, s ->> 't', s ->> ev.k, 'id', coalesce(s ->> 'v', ''), coalesce(s ->> 'o', ''));
     end loop;
   end loop;
 end $$;
@@ -402,7 +413,7 @@ begin
   end if;
   insert into public.admin_audit_log (autor, tipo, acao, tabela, objeto_id, motivo, ip)
   values ((select auth.uid()), 'leitura', 'ver_ficha', 'profiles', p_user::text,
-          coalesce(nullif(left(btrim(p_motivo), 500), ''), public.audit_motivo_cabecalho()), public.audit_ip_cabecalho());
+          coalesce(nullif(left(btrim(p_motivo), 500), ''), public.audit_motivo_cabecalho()), null /* IP desligado */);
   return jsonb_build_object('perfil', v_perfil,
     'atividades', coalesce((select jsonb_agg(to_jsonb(a) order by a.created_at desc)
       from (select * from public.user_activities where user_id = p_user order by created_at desc limit 1000) a), '[]'::jsonb),
@@ -437,13 +448,14 @@ begin
   end if;
   insert into public.admin_audit_log (autor, tipo, acao, tabela, depois, motivo, ip)
   values ((select auth.uid()), 'leitura', 'exportar', p_tabela, jsonb_build_object('linhas', p_linhas),
-          coalesce(nullif(left(btrim(p_motivo), 500), ''), public.audit_motivo_cabecalho()), public.audit_ip_cabecalho());
+          coalesce(nullif(left(btrim(p_motivo), 500), ''), public.audit_motivo_cabecalho()), null /* IP desligado */);
 end;
 $$;
 
 -- Registro feito por Edge Function com a chave de serviço (ex.: send-email, disparo de campanha). Só service_role executa.
+-- p_autor: a Edge passa o id vindo de getUser do JWT de quem chamou, NUNCA do corpo da requisição.
 create or replace function public.audit_registrar_servico(p_autor uuid, p_acao text, p_tabela text,
-  p_objeto_id text default null, p_depois jsonb default null, p_motivo text default null, p_ip inet default null)
+  p_objeto_id text default null, p_depois jsonb default null, p_motivo text default null)
 returns void
 language plpgsql
 volatile
@@ -452,7 +464,7 @@ set search_path = ''
 as $$
 begin
   insert into public.admin_audit_log (autor, tipo, acao, tabela, objeto_id, depois, motivo, ip)
-  values (p_autor, 'acao', p_acao, p_tabela, p_objeto_id, p_depois, nullif(left(btrim(p_motivo), 500), ''), p_ip);
+  values (p_autor, 'acao', p_acao, p_tabela, p_objeto_id, p_depois, nullif(left(btrim(p_motivo), 500), ''), null /* IP desligado */);
 end;
 $$;
 
@@ -480,14 +492,14 @@ begin
     'public.audit_motivo_cabecalho()', 'public.audit_ip_cabecalho()', 'public.audit_registra()',
     'public.platform_settings_updated_by()', 'public.withdrawals_quem_processou()',
     'public.admin_usuario_ficha(uuid, text)', 'public.admin_registrar_exportacao(text, int, text)',
-    'public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet)']::regprocedure[] loop
+    'public.audit_registrar_servico(uuid, text, text, text, jsonb, text)']::regprocedure[] loop
     execute format('alter function %s owner to postgres', f);
     execute format('revoke all on function %s from public, anon, authenticated, service_role', f);
   end loop;
 end;
 $$;
 grant execute on function public.admin_usuario_ficha(uuid, text), public.admin_registrar_exportacao(text, int, text) to authenticated;
-grant execute on function public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet) to service_role;
+grant execute on function public.audit_registrar_servico(uuid, text, text, text, jsonb, text) to service_role;
 -- (gatilhos e auxiliares: só o banco chama, de dentro de funções do dono)
 
 -- 9. Limpeza diária (pg_cron já conferido no bloco 0; NÃO usar `create extension`, erro 2BP01) --------------------------
@@ -558,7 +570,7 @@ begin
   end if;
   -- funções: dono, SECURITY DEFINER onde precisa, search_path vazio, EXECUTE mínimo
   for t in select unnest(array['public.audit_limpar()', 'public.audit_registra()', 'public.admin_usuario_ficha(uuid, text)',
-      'public.admin_registrar_exportacao(text, int, text)', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet)']) loop
+      'public.admin_registrar_exportacao(text, int, text)', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text)']) loop
     if not (select prosecdef and proconfig @> array['search_path=""'] from pg_proc where oid = t::regprocedure) then
       raise exception '% sem SECURITY DEFINER ou search_path', t;
     end if;
@@ -569,9 +581,9 @@ begin
      or not has_function_privilege('authenticated', 'public.admin_registrar_exportacao(text, int, text)', 'execute') then
     raise exception 'RPCs de admin: anon executa ou authenticated não executa';
   end if;
-  if has_function_privilege('anon', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet)', 'execute')
-     or has_function_privilege('authenticated', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet)', 'execute')
-     or not has_function_privilege('service_role', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet)', 'execute') then
+  if has_function_privilege('anon', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text)', 'execute')
+     or has_function_privilege('authenticated', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text)', 'execute')
+     or not has_function_privilege('service_role', 'public.audit_registrar_servico(uuid, text, text, text, jsonb, text)', 'execute') then
     raise exception 'audit_registrar_servico: só service_role executa';
   end if;
   foreach t in array array['public.audit_limpar()', 'public.audit_registra()', 'public.audit_vencido(text, timestamptz)',
@@ -618,15 +630,28 @@ group by 1 order by 1;
 -- drop function if exists public.platform_settings_updated_by(), public.withdrawals_quem_processou();
 -- alter table public.withdrawals drop column if exists processed_by;
 -- drop function if exists public.admin_usuario_ficha(uuid, text), public.admin_registrar_exportacao(text, int, text),
---   public.audit_registrar_servico(uuid, text, text, text, jsonb, text, inet), public.audit_registra(),
+--   public.audit_registrar_servico(uuid, text, text, text, jsonb, text), public.audit_registra(),
 --   public.audit_limpar(), public.audit_motivo_cabecalho(), public.audit_ip_cabecalho();
 -- drop table if exists public.admin_audit_log;
 -- drop function if exists public.audit_log_imutavel(), public.audit_vencido(text, timestamptz);
--- create or replace function public.convite_permissoes_ok(p text[]) returns boolean language sql immutable set search_path = '' as $f$
---   select p is not null and array_position(p, null) is null
+-- create or replace function public.convite_permissoes_ok(p text[])
+-- returns boolean
+-- language sql
+-- immutable
+-- set search_path = ''
+-- as $$
+--   select p is not null
+--      and array_position(p, null) is null
 --      and p <@ array['manage_users', 'manage_affiliates', 'manage_events', 'manage_finance', 'view_analytics',
 --                     'manage_tickets', 'manage_settings', 'manage_feedback', 'manage_support', 'manage_newsletter',
---                     'manage_coupons', 'moderate_mesa', 'manage_team']::text[]; $f$;
+--                     'manage_coupons', 'moderate_mesa', 'manage_team']::text[];
+-- $$;
+-- -- corpo EXATO de 20261002_convite_colaborador.sql: confere o md5 da produção
+-- do $f$ begin
+--   if md5(pg_get_functiondef('public.convite_permissoes_ok(text[])'::regprocedure)) <> 'a20b93ef210bdfd6e1f788d2451b28c7' then
+--     raise exception 'convite_permissoes_ok não voltou à versão de 20261002 (md5 diferente)';
+--   end if;
+-- end $f$;
 -- commit;
 -- (a tabela cai sem passar pelo gatilho de imutabilidade: DROP TABLE não é UPDATE, DELETE nem TRUNCATE)
 -- =============================================================================

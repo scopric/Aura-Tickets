@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(114);
+select plan(121);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -156,6 +156,9 @@ select is((select updated_by from public.platform_settings where key = 'general'
 select is(pg_temp.nlog($$tabela = 'platform_settings' and objeto_id = (select id::text from public.platform_settings where key = 'general')$$), 1::bigint,
   'platform_settings (general) grava 1 linha');
 select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'motivo', null, 'sem cabeçalho, motivo nulo');
+select pg_temp.marca();
+update public.platform_settings set updated_by = 'd7000000-0000-4000-8000-000000000001', updated_at = now() where key = 'general';
+select is(pg_temp.nlog($$tabela = 'platform_settings'$$), 0::bigint, 'platform_settings: só updated_by e updated_at mudando não grava');
 select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000003', 'aal2');
 select lives_ok($$update public.platform_settings set value = '{"taxa":11}' where key = 'fees'$$, 'taxa sem motivo passa (motivo ainda não é obrigatório)');
 select pg_temp.hdr('{"x-evokaa-motivo":"' || encode(convert_to('Revisão da taxa, às 10h: ação áçã', 'UTF8'), 'base64')
@@ -163,13 +166,13 @@ select pg_temp.hdr('{"x-evokaa-motivo":"' || encode(convert_to('Revisão da taxa
 select lives_ok($$update public.platform_settings set value = '{"taxa":12}' where key = 'fees'$$, 'taxa com motivo no cabeçalho passa');
 select pg_temp.como('postgres');
 select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'motivo', 'Revisão da taxa, às 10h: ação áçã', 'motivo lido do cabeçalho em UTF-8');
-select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', '203.0.113.7', 'IP: cf-connecting-ip tem prioridade');
+select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', null, 'IP desligado: mesmo com cf-connecting-ip, nada é gravado');
 select pg_temp.hdr('{"x-forwarded-for":"10.0.0.1, 198.51.100.9"}');
 update public.platform_settings set value = '{"a":3}' where key = 'general';
-select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', '198.51.100.9', 'IP: sem cf-connecting-ip, o último x-forwarded-for');
+select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', null, 'IP desligado: x-forwarded-for também não é gravado');
 select pg_temp.hdr('isto não é json');
 update public.platform_settings set value = '{"a":4}' where key = 'general';
-select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', null, 'cabeçalhos inválidos: IP nulo, sem erro');
+select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'ip', null, 'cabeçalhos inválidos: sem erro');
 select pg_temp.hdr('{"x-evokaa-motivo":"@@@não-base64"}');
 update public.platform_settings set value = '{"a":5}' where key = 'general';
 select is(pg_temp.ult($$tabela = 'platform_settings'$$) ->> 'motivo', null, 'motivo inválido no cabeçalho: nulo, sem erro');
@@ -255,6 +258,11 @@ insert into public.withdrawals (id, producer_id, amount, processed_by) values
   ('d7000000-0000-4000-8000-0000000000d2', 'd7000000-0000-4000-8000-000000000008', 10, 'd7000000-0000-4000-8000-000000000001');
 select is((select processed_by from public.withdrawals where id = 'd7000000-0000-4000-8000-0000000000d2'), null::uuid,
   'saque novo nasce sem processed_by');
+select pg_temp.como('service_role');
+update public.withdrawals set status = 'completed' where id = 'd7000000-0000-4000-8000-0000000000d1';
+select pg_temp.como('postgres');
+select is((select processed_by from public.withdrawals where id = 'd7000000-0000-4000-8000-0000000000d1'), null::uuid,
+  'status mudado sem sessão (service_role): processed_by zera, não fica o admin anterior');
 
 -- I. Exportação -----------------------------------------------------------------------------------------------------------------
 select pg_temp.marca();
@@ -302,7 +310,7 @@ select is(pg_temp.ult($$acao = 'ver_ficha'$$) ->> 'autor', 'd7000000-0000-4000-8
 -- K. Registro por serviço e funções internas fechadas ----------------------------------------------------------------------
 select pg_temp.marca();
 select pg_temp.como('service_role');
-select lives_ok($$select public.audit_registrar_servico('d7000000-0000-4000-8000-000000000001', 'disparar_campanha', 'newsletters', 'n1', '{"destinatarios":120}', 'promo', '198.51.100.1')$$,
+select lives_ok($$select public.audit_registrar_servico('d7000000-0000-4000-8000-000000000001', 'disparar_campanha', 'newsletters', 'n1', '{"destinatarios":120}', 'promo')$$,
   'service_role registra pela RPC de serviço');
 select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000006', 'aal2');
 select throws_ok($$select public.audit_registrar_servico(null, 'x', 'x')$$, '42501', null, 'authenticated não executa a RPC de serviço');
@@ -310,7 +318,7 @@ select throws_ok($$select public.audit_limpar()$$, '42501', null, 'authenticated
 select pg_temp.como('anon');
 select throws_ok($$select public.audit_registrar_servico(null, 'x', 'x')$$, '42501', null, 'anon não executa a RPC de serviço');
 select pg_temp.como('postgres');
-select is(pg_temp.ult($$acao = 'disparar_campanha'$$) ->> 'ip', '198.51.100.1', 'registro de serviço guarda o IP');
+select is(pg_temp.ult($$acao = 'disparar_campanha'$$) ->> 'motivo', 'promo', 'registro de serviço guarda o motivo');
 select is(pg_temp.nlog($$acao = 'disparar_campanha'$$), 1::bigint, 'só o registro permitido entrou');
 
 -- L. Limpeza: só apaga o vencido -------------------------------------------------------------------------------------------------
@@ -334,6 +342,40 @@ select ok(public.convite_permissoes_ok(array['view_audit']), 'convite aceita vie
 select ok(public.convite_permissoes_ok(array['manage_team', 'manage_users', 'view_audit']), 'convite: view_audit junto com as outras');
 select ok(not public.convite_permissoes_ok(array['super_admin']), 'convite continua recusando super_admin');
 select ok(not public.convite_permissoes_ok(array['view_auditoria']), 'convite recusa permissão inventada');
+
+-- N. UPDATE do delete-account: dado pessoal nunca entra (lista de colunas vigiadas) ------------------------------------------
+select pg_temp.como('postgres');
+insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
+  ('d7000000-0000-4000-8000-000000000010', 'saida-secreta@teste-s5.local', now(), '{"full_name":"Nome Secreto Saida"}');
+update public.profiles set full_name = 'Nome Secreto Saida', phone = '11988887777', cpf = '39053344705', bio = 'bio-secreta',
+  city = 'Cidade-Secreta', birth_date = '1990-01-01', instagram = '@insta-secreto', tiktok = '@tik-secreto', linkedin = 'in/lk-secreto',
+  website = 'https://site-secreto.example', stripe_customer_id = 'cus_secreto', avatar_url = 'https://img-secreto.example',
+  role = 'admin', admin_permissions = array['manage_users']::text[], is_verified = true
+  where id = 'd7000000-0000-4000-8000-000000000010';
+insert into public.producer_profiles (id, company_name, pix_key, bank_account, cnpj, webhook_url, notification_settings, is_verified) values
+  ('d7000000-0000-4000-8000-000000000010', 'Empresa-Secreta', 'pix-secreto-saida', '{"banco":"conta-secreta"}', '12345678000195',
+   'https://hook-secreto.example', '{"k":"notif-secreta"}', true);
+insert into public.withdrawals (id, producer_id, amount, pix_key, bank_account) values
+  ('d7000000-0000-4000-8000-0000000000d3', 'd7000000-0000-4000-8000-000000000010', 5, 'pix-saque-secreto', '{"x":"conta-saque-secreta"}');
+select pg_temp.marca();
+select pg_temp.como('service_role');
+-- os mesmos UPDATE de supabase/functions/delete-account/index.ts (passos profiles, producer_profiles e withdrawals)
+update public.profiles set email = 'removido-x@teste-s5.local', full_name = 'Usuário removido', phone = null, cpf = null, avatar_url = null,
+  bio = null, city = null, birth_date = null, instagram = null, tiktok = null, linkedin = null, website = null,
+  stripe_customer_id = null, role = 'user', admin_permissions = '{}', is_verified = false where id = 'd7000000-0000-4000-8000-000000000010';
+update public.producer_profiles set company_name = 'Removido', cnpj = 'REMOVIDO-x', stripe_account_id = null, woovi_account_id = null,
+  bank_account = '{}', pix_key = null, webhook_url = null, notification_settings = '{}', is_verified = false
+  where id = 'd7000000-0000-4000-8000-000000000010';
+update public.withdrawals set pix_key = null, bank_account = '{}' where producer_id = 'd7000000-0000-4000-8000-000000000010';
+select pg_temp.como('postgres');
+select is(pg_temp.nlog($$tabela = 'profiles'$$), 1::bigint, 'delete-account: profiles grava 1 linha (papel e permissão mudaram)');
+select is((select array_agg(k order by k) from jsonb_object_keys(pg_temp.ult($$tabela = 'profiles'$$) -> 'depois') k),
+  array['admin_permissions', 'is_verified', 'role'], 'delete-account: só role, admin_permissions e is_verified entram');
+select is(pg_temp.nlog($$tabela = 'producer_profiles'$$), 1::bigint, 'delete-account: producer_profiles grava 1 linha');
+select is(pg_temp.nlog($$tabela = 'withdrawals'$$), 0::bigint, 'delete-account: limpar Pix do saque (status igual) não grava');
+select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
+  and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~* 'secret|removido|39053344705|11988887777|1990-01-01|12345678000195|saida'),
+  0::bigint, 'delete-account: nenhum e-mail, nome, telefone, CPF, Pix, conta, CNPJ ou webhook em antes/depois');
 
 select * from finish();
 rollback;
