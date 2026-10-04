@@ -136,11 +136,11 @@ export default function PainelEvento() {
       </div>
     )
   }
-  return <Painel evento={ev.data} dono={dono} linkInicial={lk.data ?? ''} vendidosPorId={vd.data ?? {}} ultimoAceite={ac.data === undefined ? undefined : ac.data} />
+  return <Painel evento={ev.data} linkInicial={lk.data ?? ''} vendidosPorId={vd.data ?? {}} ultimoAceite={ac.data === undefined ? undefined : ac.data} />
 }
 
 // ---- painel ----------------------------------------------------------------------------------------------------------
-function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { evento: DbEvent; dono: boolean; linkInicial: string; vendidosPorId: Record<string, number>; ultimoAceite?: UltimoAceite | null }) {
+function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: DbEvent; linkInicial: string; vendidosPorId: Record<string, number>; ultimoAceite?: UltimoAceite | null }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const atualizarIngressos = useUpdateEvent()
@@ -152,11 +152,12 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
 
   // estado inicial: lido uma vez
   const [inicial] = useState(() => {
-    const f = formDoEvento(evento, dono ? linkInicial : '')
+    const f = formDoEvento(evento, linkInicial)
     const tipos = porCriacao(evento.ticket_types ?? []).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
-    // o snapshot guarda o link LIDO: evento aberto em modo sem link (presencial, a definir) que ainda tem link salvo o apaga
-    // na primeira gravação (no evento no ar, no envio)
-    return { f, s: { ...snapDoForm(f, dono), ...(dono ? { online_url: linkInicial } : {}) }, tipos }
+    // Fora do ar o snapshot guarda o link LIDO: evento aberto em modo sem link (presencial, a definir) que ainda tem link
+    // salvo o apaga na primeira gravação. No ar o link antigo fica inofensivo: não vira "alteração" que só o envio resolve.
+    const s = snapDoForm(f)
+    return { f, s: modoPainel(evento) === 'publicado' ? s : { ...s, online_url: linkInicial }, tipos }
   })
   const [form, setForm] = useState<Form>(inicial.f)
   const [salvo, setSalvo] = useState<Snap>(inicial.s) // o que está gravado (no evento no ar, o que está no ar)
@@ -183,7 +184,7 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const [abertas, setAbertas] = useState<string[]>(['oque'])
 
   const set = useCallback((p: Partial<Form>) => setForm(f => ({ ...f, ...p })), [])
-  const snap = useMemo(() => snapDoForm(form, dono), [form, dono])
+  const snap = useMemo(() => snapDoForm(form), [form])
   const diff = useMemo(() => diffCampos(salvo, snap), [salvo, snap])
   const capaPendente = !!capa || removida
   const esporte = form.category === 'esporte'
@@ -220,7 +221,8 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
       const { error } = link === ''
         ? await supabase.from('evento_privado' as never).delete().eq('event_id', evento.id)
         : await supabase.from('evento_privado' as never).upsert({ event_id: evento.id, online_url: link } as never, { onConflict: 'event_id' }).select('event_id').single()
-      if (error) throw error
+      // falha parcial: o evento já gravou (e pode já estar em análise); o envio explica isso
+      if (error) throw Object.assign(new Error(error.message || 'link não gravado'), { parcial: true })
       guardaBase({ ...salvoRef.current, online_url: link })
     }
     if (v.capa && vivo.current.capa === v.capa) { URL.revokeObjectURL(v.capa.previewUrl); setCapa(null); setUrlAtual(url ?? null) }
@@ -261,13 +263,13 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const moderado = modo === 'publicado' && mudouConteudo(diff, capaPendente)
   const alteracoes = moderado ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
   // Um critério só para o aceite: o ÚLTIMO aceite registrado (lido de evento_aceites). Vale quando não há nenhum, quando a
-  // versão do texto é outra e quando a classificação ou a bebida não são as dele. Leitura que falhou (undefined): só a
-  // classificação mudada na tela exige aceite novo no evento no ar.
+  // versão do texto é outra e quando a classificação ou a bebida não são as dele. Leitura que falhou (undefined): a
+  // classificação mudada na tela ou a bebida diferente da lida na abertura exigem aceite novo no evento no ar.
   const divergeDoAceite = (cls: string | null) => ultimoAceite === null || (ultimoAceite !== undefined
     && (ultimoAceite.versao !== ACEITE_VERSAO || ultimoAceite.classificacao !== cls || ultimoAceite.tem_bebida !== temBebidaSalva))
   const semAceite = ultimoAceite === null
-  const aceiteDefasado = dono && (modo === 'analise' || modo === 'publicado') && divergeDoAceite(classSalva)
-  const precisaAceiteNovo = modo === 'publicado' && (ultimoAceite === undefined ? 'classificacao' in diff : divergeDoAceite(classificacaoTela))
+  const aceiteDefasado = (modo === 'analise' || modo === 'publicado') && divergeDoAceite(classSalva)
+  const precisaAceiteNovo = modo === 'publicado' && (ultimoAceite === undefined ? 'classificacao' in diff || temBebidaSalva !== inicial.tipos.some(i => i.bebida) : divergeDoAceite(classificacaoTela))
   const aceiteNoDialogo = soAceite || precisaAceiteNovo
   const bloqueioDialogo = soAceite ? '' : ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erros.inicio || erros.fim || linkRuim ? 'Corrija as datas e o link da transmissão antes de enviar.' : ''
 
@@ -348,6 +350,16 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
 
   // ---- enviar ----
   const emEnvio = useRef(false) // o botão já fica travado (loading), mas o estado só muda no próximo render: duplo clique rápido
+  // Divergência de hash: o texto do servidor não é o que a tela lia. Relê o evento e passa a tratar o do banco como o salvo,
+  // para o próximo refazer funcionar sem recarregar a página.
+  async function adotarDoBanco() {
+    await recarregar()
+    const fresco = qc.getQueryData<DbEvent | null>(['painel-evento', evento.id])
+    if (!fresco) return
+    const link = salvoRef.current.online_url
+    guardaBase({ ...snapDoForm(formDoEvento(fresco, link ?? '')), online_url: link })
+    setIngsSalvos(atual => porCriacao(fresco.ticket_types ?? []).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? atual.find(i => i.id === t.id)?.vendidos ?? 0)))
+  }
   const recarregar = () => Promise.all([qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }), qc.invalidateQueries({ queryKey: ['painel-aceite', evento.id] })])
   async function enviar() {
     if (emEnvio.current) return
@@ -367,7 +379,9 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
         setErroEnvio(r.erro)
         // Evento no ar: qualquer falha depois de começar a gravar pode ter deixado o banco em análise (até falha parcial:
         // o evento gravou e o link não). Relê para a tela dizer a verdade; o erro vai na faixa e no aviso.
-        if (modo === 'publicado' && !soAceite) { setDialogo(false); toast.error(r.erro, { duration: 12000 }); await recarregar() }
+        if (modo === 'publicado' && !soAceite) { setDialogo(false); toast.error(r.erro, { duration: 12000 }) }
+        if (r.divergiu) await adotarDoBanco()
+        else if (modo === 'publicado' && !soAceite) await recarregar()
         return
       }
       await recarregar() // relê evento e último aceite ANTES de fechar: a faixa "Aceite pendente" não pode piscar depois do sucesso
@@ -439,14 +453,14 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const corpo = (id: string) => {
     switch (id) {
       case 'oque': return <SecaoOQueE f={form} set={set} />
-      case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} dono={dono} erros={erros} />
+      case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} erros={erros} />
       case 'img': return (
         <CapaEventoCampo
           evento={{ id: evento.id, title: form.title, date: form.inicioD }}
           urlAtual={removida ? null : urlAtual} capa={capa} onCapa={setCapa}
           onRemover={() => setRemovida(temFoto(urlAtual))}
           cor={cor} corManual={corManual} onCor={(valor, manual) => { set({ accent_color: valor }); if (manual) setCorManual(true) }}
-          ocupado={enviando} podeEnviar={dono} avisoAnalise={modo === 'publicado'}
+          ocupado={enviando} avisoAnalise={modo === 'publicado'}
         />
       )
       case 'ing': return (
@@ -574,8 +588,8 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
         })}
       </Accordion>
 
-      {/* Match de Mesa: só o dono do evento (editor da equipe e outro produtor não) e só com ingresso coletiva */}
-      {dono && evento.ticket_types?.some(t => t.type === 'coletiva') && <MatchDeMesaPanel eventId={evento.id} />}
+      {/* Match de Mesa: só com ingresso coletiva (o painel só abre para o dono) */}
+      {evento.ticket_types?.some(t => t.type === 'coletiva') && <MatchDeMesaPanel eventId={evento.id} />}
 
       <Dialog open={dialogo} onOpenChange={o => { if (!enviando) setDialogo(o) }}>
         <DialogContent>

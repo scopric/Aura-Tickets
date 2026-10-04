@@ -69,8 +69,7 @@ export function formDoSnap(s: Snap): Form {
   }
 }
 
-/** comLink = false: quem não é dono do evento não grava o link (a regra de evento_privado só deixa o dono e o admin) */
-export function snapDoForm(f: Form, comLink = true): Snap {
+export function snapDoForm(f: Form): Snap {
   const link = f.link.trim()
   const fimCompleto = !!f.fimD && !!f.fimH
   return {
@@ -80,7 +79,7 @@ export function snapDoForm(f: Form, comLink = true): Snap {
     local_modo: f.local_modo, venue_name: f.venue_name, venue_zip: f.cep, venue_address: enderecoDe(f.rua, f.numero, f.bairro),
     venue_city: f.venue_city, venue_state: f.venue_state, classificacao: f.classificacao, accent_color: f.accent_color,
     // modo sem link (presencial, a definir): o link salvo some de evento_privado
-    ...(comLink && !USA_LINK.includes(f.local_modo) ? { online_url: '' } : comLink && (link === '' || linkValido(link)) ? { online_url: link } : {}),
+    ...(!USA_LINK.includes(f.local_modo) ? { online_url: '' } : link === '' || linkValido(link) ? { online_url: link } : {}),
   }
 }
 
@@ -222,8 +221,8 @@ export function pendenciasDoPainel(f: Form, ingressosSalvos: Ing[], aceite: bool
 }
 
 // ---- enviar para aprovação ---------------------------------------------------------------------------------------
-// aposGravar: o passo 1 já passou, ou seja, o evento foi gravado. Em evento já no ar isso significa que ele JÁ está em análise.
-export type ResultadoEnvio = { ok: true } | { ok: false; erro: string; aposGravar: boolean }
+// divergiu: o servidor gravou um aceite que não é o texto lido; a tela relê o evento do banco para o próximo refazer.
+export type ResultadoEnvio = { ok: true } | { ok: false; erro: string; divergiu?: boolean }
 
 export const ERRO_ACEITE_NO_AR = 'As alterações já foram para análise, mas o aceite não foi registrado.'
 
@@ -267,12 +266,16 @@ export async function enviarEvento(p: {
 }): Promise<ResultadoEnvio> {
   try {
     await p.gravarPendentes()
-  } catch {
-    return { ok: false, erro: 'Não foi possível salvar o evento. Confira a internet e tente de novo.', aposGravar: false }
+  } catch (e) {
+    // falha parcial: o evento gravou e o link não (o banco já pode estar em análise)
+    const parcial = (e as { parcial?: boolean } | null)?.parcial
+    return { ok: false, erro: parcial
+      ? (p.publicar ? 'O evento foi salvo, mas o link não foi gravado. Nada foi publicado: envie de novo.' : 'O evento foi salvo e enviado para análise, mas o link não foi gravado: ele será salvo de novo.')
+      : 'Não foi possível salvar o evento. Confira a internet e tente de novo.' }
   }
   // Evento no ar que enviou alterações: o passo 1 já o mandou para análise, então a falha do aceite precisa dizer isso
   const aposAlteracoes = !p.publicar && !p.soAceite
-  const falha = (erro: string) => ({ ok: false as const, erro, aposGravar: true })
+  const falha = (erro: string, divergiu = false) => ({ ok: false as const, erro, divergiu })
   if (p.ingressosNaoSalvos()) return falha('Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.')
   if (p.aceitar) {
     const { data, error } = await supabase.functions.invoke('aceite-evento', { body: { event_id: p.eventId } })
@@ -280,12 +283,12 @@ export async function enviarEvento(p: {
     const hashLido = await sha256Hex(p.textoAceito)
     if ((data?.classificacao ?? null) !== p.tela.classificacao || !!data?.tem_bebida !== p.tela.temBebida || data?.texto_hash !== hashLido) {
       // o aceite FOI gravado, mas não é o texto que a pessoa leu
-      return falha(`O aceite gravado não confere com o texto que você leu (classificação, bebida ou texto). Refaça o aceite.${p.publicar ? ' Nada foi publicado.' : aposAlteracoes ? ' As alterações já foram para análise.' : ''}`)
+      return falha(`O aceite gravado não confere com o texto que você leu (classificação, bebida ou texto). Recarregue a página e refaça o aceite.${p.publicar ? ' Nada foi publicado.' : aposAlteracoes ? ' As alterações já foram para análise.' : ''}`, true)
     }
   }
   if (p.publicar) {
     const { error } = await supabase.from('events').update({ status: 'published' } as never).eq('id', p.eventId).select('id').single()
-    if (error) return { ok: false, erro: 'Não foi possível enviar o evento. Tente de novo.', aposGravar: true }
+    if (error) return { ok: false, erro: 'Não foi possível enviar o evento. Tente de novo.' }
   }
   return { ok: true }
 }

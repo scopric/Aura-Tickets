@@ -568,8 +568,63 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await page.waitForTimeout(400)
     await page.getByRole('dialog').getByRole('button', { name: 'Enviar para análise' }).click()
     await expect(page.getByText('Em análise pela equipe')).toBeVisible() // o banco já estava em análise
+    await expect(page.getByText('O evento foi salvo e enviado para análise, mas o link não foi gravado: ele será salvo de novo.').first()).toBeVisible()
     expect(db.evento).toMatchObject({ approval_status: 'pending', subtitle: 'Mudou o subtítulo' })
     expect(db.link).toBe('https://meet.google.com/abc') // o link não gravou
+  })
+
+  test('evento NO AR presencial com link antigo: nada aparece como alteração; a cor salva na hora e sair não pergunta', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ local_modo: 'presencial' }), ingressos: [ingresso()], link: 'https://meet.google.com/velho' })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await page.waitForTimeout(1500)
+    await expect(page.getByText(/Alterações não enviadas/)).toHaveCount(0)
+    expect(db.chamadas).toEqual([]) // nada gravado nem apagado sozinho
+    await abre(page, /^Imagem/)
+    await salva(page, db, () => page.getByLabel('Cor do evento').evaluate((el: HTMLInputElement) => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      set.call(el, '#336699'); el.dispatchEvent(new Event('input', { bubbles: true }))
+    }))
+    expect(db.patches.at(-1)).toEqual({ accent_color: '#336699' })
+    await page.getByRole('link', { name: 'Todos os eventos' }).first().click()
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/producer\/events$/)
+    expect(db.link).toBe('https://meet.google.com/velho') // o link antigo segue lá, inofensivo
+  })
+
+  test('divergência de hash: relê o evento e o próximo refazer funciona sem recarregar', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ classificacao: 'A18' }), ingressos: [ingresso()], aceites: [{ classificacao: 'A16', tem_bebida: false, versao: ACEITE_VERSAO, texto_hash: 'x' }] })
+    const ok = db.aceite
+    db.aceite = () => ({ status: 200, json: { ok: true, classificacao: 'A18', tem_bebida: false, texto_hash: 'e'.repeat(64) } })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await page.getByRole('button', { name: 'Refazer o aceite' }).click()
+    const dlg = page.getByRole('dialog', { name: 'Refazer o aceite?' })
+    await page.waitForTimeout(400)
+    await dlg.getByLabel(/Li e aceito o termo do produtor/).check()
+    await dlg.getByRole('button', { name: 'Registrar o aceite' }).click()
+    await expect(dlg.getByRole('alert')).toContainText('Recarregue a página e refaça o aceite')
+    db.aceite = ok
+    await expect(dlg.getByRole('button', { name: 'Registrar o aceite' })).toBeEnabled()
+    if (!(await dlg.getByLabel(/Li e aceito o termo do produtor/).isChecked())) await dlg.getByLabel(/Li e aceito o termo do produtor/).check()
+    await dlg.getByRole('button', { name: 'Registrar o aceite' }).click()
+    await expect(page.getByText('Aceite registrado.')).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
+  })
+
+  test('leitura do aceite falhou: a bebida mudada nos ingressos exige aceite no envio das alterações', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await page.route(/\/rest\/v1\/evento_aceites(\?|$)/, route => route.fulfill({ status: 500, json: { message: 'falhou' } }))
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.getByLabel('Inclui bebida alcoólica').check()
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos.')).toBeVisible()
+    await abre(page, /^O que é/)
+    await page.getByLabel('Subtítulo').fill('Mudou')
+    await page.getByRole('button', { name: 'Enviar alterações para análise' }).click()
+    await expect(page.getByRole('dialog').getByLabel(/Li e aceito o termo do produtor/)).toBeVisible()
   })
 
   test('link antigo: evento aberto em modo presencial com link salvo o apaga na primeira gravação', async ({ page }) => {

@@ -38,7 +38,6 @@ describe('formulário ↔ banco', () => {
     expect(snapDoForm(form({ ...on, link: 'http://x.com' }))).not.toHaveProperty('online_url')
     expect(snapDoForm(form({ ...on, link: '' }))).toHaveProperty('online_url', '')
     expect(snapDoForm(form({ ...on, link: ' https://x.com ' }))).toHaveProperty('online_url', 'https://x.com')
-    expect(snapDoForm(form({ ...on, link: 'https://x.com' }), false)).not.toHaveProperty('online_url') // quem não é dono não grava o link
   })
 
   it('modo sem link (presencial, a definir): o link salvo é apagado (online_url vazio); híbrido mantém', () => {
@@ -243,7 +242,7 @@ describe('Enviar para aprovação', () => {
   it('classificação que o servidor registrou diverge da tela: para e NÃO publica', async () => {
     invoke.mockResolvedValue(resposta({ classificacao: 'A18' }) as never)
     const r = await enviarEvento(base())
-    expect(r).toMatchObject({ ok: false, aposGravar: true })
+    expect(r).toMatchObject({ ok: false, divergiu: true })
     expect(update).not.toHaveBeenCalled()
   })
 
@@ -272,14 +271,14 @@ describe('Enviar para aprovação', () => {
 
   it('ingresso não salvo: bloqueia antes do aceite, depois de gravar o evento', async () => {
     const r = await enviarEvento({ ...base(), ingressosNaoSalvos: () => { chamadas.push('ingressos'); return true } })
-    expect(r).toMatchObject({ ok: false, aposGravar: true })
+    expect(r).toMatchObject({ ok: false })
     expect(chamadas).toEqual(['gravar', 'ingressos'])
     expect(invoke).not.toHaveBeenCalled()
   })
 
   it('falha ao gravar: nada de aceite nem publicação (e não houve gravação)', async () => {
     const r = await enviarEvento({ ...base(), gravarPendentes: async () => { throw new Error('rede') } })
-    expect(r).toMatchObject({ ok: false, aposGravar: false })
+    expect(r).toMatchObject({ ok: false })
     expect(invoke).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
   })
@@ -313,8 +312,7 @@ describe('Enviar para aprovação', () => {
   it('evento no ar: aceite que falha DEPOIS de gravar diz que as alterações já foram para análise e por que o aceite falhou', async () => {
     const http = (status: number) => ({ data: null, error: { context: { status } } })
     invoke.mockResolvedValueOnce(http(403) as never)
-    const r403 = (await enviarEvento({ ...base(), publicar: false })) as { ok: false; erro: string; aposGravar: boolean }
-    expect(r403.aposGravar).toBe(true)
+    const r403 = (await enviarEvento({ ...base(), publicar: false })) as { ok: false; erro: string }
     expect(r403.erro).toBe(`${ERRO_ACEITE_NO_AR} O servidor recusou o aceite. Confirme a verificação em duas etapas no seu perfil e envie de novo.`)
     invoke.mockResolvedValueOnce(http(429) as never)
     expect(((await enviarEvento({ ...base(), publicar: false })) as { erro: string }).erro).toBe(`${ERRO_ACEITE_NO_AR} Muitas tentativas de envio em pouco tempo. Aguarde um pouco e tente de novo.`)
@@ -340,6 +338,25 @@ describe('Enviar para aprovação', () => {
     expect(noAr.erro).not.toMatch(/Nada foi publicado|não foi registrado/)
     const so = (await enviarEvento({ ...base(), publicar: false, soAceite: true })) as { erro: string }
     expect(so.erro).not.toMatch(/análise|publicado/)
+  })
+
+  it('falha parcial (o evento gravou e o link não): mensagem própria, não "não foi possível salvar o evento"', async () => {
+    const parcial = () => Promise.reject(Object.assign(new Error('link'), { parcial: true }))
+    const noAr = (await enviarEvento({ ...base(), publicar: false, aceitar: false, gravarPendentes: parcial })) as { erro: string }
+    expect(noAr.erro).toBe('O evento foi salvo e enviado para análise, mas o link não foi gravado: ele será salvo de novo.')
+    const rascunho = (await enviarEvento({ ...base(), gravarPendentes: parcial })) as { erro: string }
+    expect(rascunho.erro).toMatch(/link não foi gravado/)
+    expect(rascunho.erro).not.toMatch(/enviado para análise/)
+    expect(invoke).not.toHaveBeenCalled()
+  })
+
+  it('divergência pede para recarregar e marca divergiu (a tela relê o evento)', async () => {
+    invoke.mockResolvedValue(resposta({ texto_hash: 'a'.repeat(64) }) as never)
+    const r = (await enviarEvento(base())) as { erro: string; divergiu?: boolean }
+    expect(r.divergiu).toBe(true)
+    expect(r.erro).toMatch(/Recarregue a página e refaça o aceite/)
+    invoke.mockResolvedValue({ data: null, error: { context: { status: 500 } } } as never)
+    expect(((await enviarEvento(base())) as { divergiu?: boolean }).divergiu).toBe(false)
   })
 
   it('o banco recusa publicar: erro, sem dizer que enviou', async () => {

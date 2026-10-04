@@ -13,7 +13,7 @@ const mascaraCep = (v: string) => { const d = v.replace(/\D/g, '').slice(0, 8); 
 
 // Seção "Quando e onde": início e fim, modo do local, local com CEP, link da transmissão e "a definir".
 // Depois da primeira venda (travado) data, hora, modo e local ficam desabilitados.
-export default function SecaoQuandoOnde({ f, set, travado, dono, erros }: PropsSecao & { dono: boolean; erros: ErrosData }) {
+export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao & { erros: ErrosData }) {
   const [cepErro, setCepErro] = useState('')
   const [manual, setManual] = useState(false)
   const ultimoCep = useRef(f.cep)
@@ -99,9 +99,8 @@ export default function SecaoQuandoOnde({ f, set, travado, dono, erros }: PropsS
           erro={linkRuim ? 'Use um link que comece com https:// e não tenha usuário@ antes do endereço. Enquanto estiver assim, ele não é salvo.' : undefined}
           ajuda="Só quem tem ingresso vê o link. Pôr ou trocar o link depois da aprovação manda o evento para nova análise."
         >
-          <Input id="f-link" type="url" placeholder="https://" maxLength={500} value={f.link} disabled={!dono} aria-invalid={linkRuim} aria-describedby={linkRuim ? 'f-link-erro' : 'f-link-ajuda'} onChange={e => set({ link: e.target.value })} />
+          <Input id="f-link" type="url" placeholder="https://" maxLength={500} value={f.link} aria-invalid={linkRuim} aria-describedby={linkRuim ? 'f-link-erro' : 'f-link-ajuda'} onChange={e => set({ link: e.target.value })} />
           {link !== '' && !linkRuim && <p className="flex items-center gap-1.5 text-xs text-foreground"><I.AbrirExterno size={14} aria-hidden="true" />O link abre em <strong className="font-semibold">{dominioDoLink(link)}</strong></p>}
-          {!dono && <p className="text-xs text-muted-foreground">Só o dono do evento muda o link.</p>}
         </Campo>
       )}
 
