@@ -5,25 +5,35 @@
 --   1. Função nova gf_admin_can_any(text[]): mesmo corpo de gf_admin_can (aal2 + fator verificado), aceita QUALQUER
 --      uma das permissões da lista (ou super_admin). Evita uma regra com vários OR.
 --   2. Regras trocadas (mesmos nomes, drop + create, padrão `(select fn())`, mesmos papéis de hoje):
---      producer_profiles   SELECT dono ou [manage_users, manage_finance]; INSERT [manage_users]; UPDATE [manage_users,
---                          manage_finance] (as COLUNAS ficam por conta do gatilho, item 3)
---      withdrawals         SELECT e UPDATE manage_finance
+--      producer_profiles   SELECT dono ou [manage_users, manage_finance]; INSERT e UPDATE só manage_users (manage_finance
+--                          lê e não grava; as COLUNAS ficam por conta do gatilho, item 3)
+--      withdrawals         SELECT e UPDATE manage_finance; gatilho novo: o site só muda status e processed_at (item 5)
 --      revenue_advances    SELECT dono ou manage_finance; UPDATE e DELETE manage_finance
 --      platform_settings   ALL manage_settings (a leitura pública de general e fees fica)
---      producer_subscriptions  ALL manage_users (o dono continua lendo a dele)
+--      producer_subscriptions  ALL manage_users (o dono continua lendo a dele); regra NOVA só de leitura para
+--                          manage_support (gf_producer_subscriptions_support_select; a S4 troca por RPC e a remove)
 --      user_custom_features    ALL manage_users; SELECT dono ou manage_users
 --      orders              SELECT [manage_finance, view_analytics, manage_support] (ver DECISÕES 2)
 --      order_items, transactions  SELECT manage_finance
---      coupons             ALL da plataforma (producer_id is null) manage_coupons; SELECT [manage_coupons]
+--      coupons             ALL da plataforma (producer_id is null) manage_coupons; SELECT manage_coupons
 --      affiliate_coupon_requests  ALL manage_coupons
---      platform_affiliates ALL manage_affiliates; regra NOVA de SELECT [manage_affiliates, manage_coupons]
+--      platform_affiliates ALL manage_affiliates (manage_coupons NÃO lê a tabela: usa o RPC afiliados_para_cupons)
 --      platform_affiliate_producers e affiliate_links  ALL manage_affiliates
 --   3. gf_protect_producer_profile_privileges recriada: regra por COLUNA para quem chega pelo site (anon/authenticated).
+--      id e created_at nunca mudam pelo site (a troca de id em duas etapas punha o Pix de um admin na linha da vítima).
 --      pix_key, bank_account, cnpj, company_name: só o dono (nem super_admin; Decisão 163, item 8).
 --      is_verified: só manage_users (o dono não). commission_rate, webhook_url, stripe_account_id, woovi_account_id: só
 --      super_admin. service_role e SQL Editor seguem livres (não passam por aqui).
 --   4. gf_protect_coupon_uses passa a pedir manage_coupons (era gf_is_admin); gf_protect_affiliate_link pede
 --      manage_affiliates (era gf_is_admin).
+--   5. gf_protect_withdrawals (gatilho novo): pelo site, saque só muda status e processed_at; producer_id, amount,
+--      pix_key, bank_account, created_at (e coluna futura) ficam travados. service_role e SQL Editor passam.
+--   6. gf_protect_platform_affiliate_payout (gatilho novo): payout_account_id (única coluna de conta de recebimento de
+--      platform_affiliates; cpf é dado pessoal, não conta) só se preenche quando está nulo; trocar valor já preenchido dá
+--      42501 para qualquer um do site, inclusive super_admin (Decisão 163, item 10). PENDÊNCIA: tela do afiliado para
+--      trocar a própria conta (hoje ele não grava a própria linha; até lá a troca é só por service_role/SQL Editor).
+--   7. RPC afiliados_para_cupons(): Cupons vê do afiliado só id, nome, código e se está ativo (manage_coupons ou
+--      manage_affiliates; senão 42501). Coupons.tsx passa a usar o RPC e casa por affiliate_id no front.
 -- FICA DE FORA (outras fases): events, tickets, profiles, feedback etc. (S4); trilha de auditoria (S5); máscara de
 -- Pix/CNPJ na leitura (S7b: quem lê a linha de producer_profiles ainda lê o pix_key); RPC de agregado para Analytics e
 -- Atendimento (matriz, "orders melhor por RPC"); a RESTRICTIVE gf_mfa_aal2 de cada tabela não muda.
@@ -46,7 +56,7 @@
 --     gf_mfa_ok 947db8951761c72a522732b008891fac | gf_protect_producer_profile_privileges 4c54ac1c4b549d478a71ec021a6b111a
 --     gf_protect_coupon_uses 73c7e315fce49fa3d503625fa108185c | gf_protect_affiliate_link 9981d9aacfdfac0e94e5858a5b270f07
 --   Se for outro, alguém mudou a função: NÃO aplicar; refazer o bloco a partir da definição nova. As três funções de
---   gatilho são recriadas aqui a partir dessas definições; na 2ª aplicação já são as deste arquivo (citam "Decisão 163").
+--   gatilho são recriadas aqui a partir dessas definições; na 2ª aplicação só passa a versão exata deste arquivo (md5 gravado no bloco 0).
 --
 -- DECISÕES
 -- 1. gf_admin_can_any é cópia de gf_admin_can com uma só linha trocada (`admin_permissions && p`). SECURITY DEFINER,
@@ -57,9 +67,10 @@
 --    o painel "pedidos" do Atendimento ficaria vazio sem erro; manage_tickets e manage_users não entram (nenhuma tela
 --    deles lê orders). A exportação "Transações" de Configurações lê orders: passa a exigir manage_finance (resposta
 --    do Ricardo, 04/10: cada exportação exige a permissão da área).
--- 3. TELA QUE PODE FICAR VAZIA (fora do escopo da S3; a matriz resolve por RPC): Atendimento (manage_support) lê
---    producer_subscriptions do cliente (Atendimento.tsx:131): sem manage_users o "plano" volta vazio sem erro.
---    Analytics lê orders em linha (nome e e-mail ficam abertos a view_analytics até o RPC de agregado).
+-- 3. Atendimento (manage_support) lê producer_subscriptions do cliente (Atendimento.tsx:131): regra só de leitura
+--    gf_producer_subscriptions_support_select, para o "plano" não voltar vazio sem erro. A S4 troca por RPC e a remove.
+--    TELA QUE PODE FICAR VAZIA/ABERTA (fora da S3): Analytics lê orders em linha (nome e e-mail ficam abertos a
+--    view_analytics até o RPC de agregado).
 -- 4. Papéis das regras: iguais aos de hoje, menos user_custom_features (hoje `public`, com gf_is_admin sem wrapper):
 --    vira `authenticated`, porque anon não executa gf_admin_can_any (seg6) e uma regra `public` faria a consulta
 --    anônima dar "permission denied for function". Anônimo nunca leu essa tabela.
@@ -75,6 +86,8 @@
 --    em Pix e conta da PRÓPRIA linha como dono, nunca na dos outros.
 -- 8. gf_protect_coupon_uses: cupom de produtor passa a ter `uses` alterável por admin só com manage_coupons (antes
 --    qualquer admin). O incremento do checkout segue pela chave de serviço.
+-- 9. Bloco 0, reaplicação: só vale o md5 de produção OU o md5 exato da versão desta S3 (gravado abaixo, calculado no
+--    ensaio); nunca uma frase. Mudou depois da S3 = aborta e refaz a partir da definição atual.
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -94,6 +107,11 @@ declare
     'gf_protect_producer_profile_privileges()', '4c54ac1c4b549d478a71ec021a6b111a',
     'gf_protect_coupon_uses()', '73c7e315fce49fa3d503625fa108185c',
     'gf_protect_affiliate_link()', '9981d9aacfdfac0e94e5858a5b270f07');
+  -- md5 exato das versões desta S3 (2ª aplicação)
+  versao_s3 jsonb := jsonb_build_object(
+    'gf_protect_producer_profile_privileges()', '5c97dec667d533f5e761742ce43fa698',
+    'gf_protect_coupon_uses()', '4065ca8d3ee0ae40bb3fca910a21cddb',
+    'gf_protect_affiliate_link()', '050ec47b9044b8dadbbc104080e8a121');
 begin
   foreach t in array array['affiliate_coupon_requests', 'affiliate_links', 'coupons', 'order_items', 'orders',
       'platform_affiliate_producers', 'platform_affiliates', 'platform_settings', 'producer_profiles',
@@ -111,6 +129,10 @@ begin
       raise exception 'falta producer_profiles.%', c;
     end if;
   end loop;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public'
+      and table_name = 'platform_affiliates' and column_name = 'payout_account_id') then
+    raise exception 'falta platform_affiliates.payout_account_id';
+  end if;
   if not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'profiles'
       and column_name = 'admin_permissions') then
     raise exception 'falta profiles.admin_permissions';
@@ -122,11 +144,11 @@ begin
       raise exception 'public.% mudou desde 04/10 (md5 diferente): refazer este arquivo a partir da definição atual', f;
     end if;
   end loop;
-  -- funções recriadas aqui: ou a de produção ou já a deste arquivo (2ª aplicação)
+  -- funções recriadas aqui: ou a de produção ou exatamente a deste arquivo (2ª aplicação)
   for f in select jsonb_object_keys(gatilhos) loop
     if to_regprocedure('public.' || f) is null then raise exception 'falta public.%', f; end if;
     def := pg_get_functiondef(('public.' || f)::regprocedure);
-    if md5(def) <> gatilhos ->> f and position('Decisão 163' in def) = 0 then
+    if md5(def) <> gatilhos ->> f and md5(def) <> versao_s3 ->> f then
       raise exception 'public.% mudou desde 04/10 (md5 diferente): refazer o bloco a partir da definição atual', f;
     end if;
   end loop;
@@ -171,8 +193,8 @@ create policy gf_producer_profiles_admin_insert on public.producer_profiles as p
   with check ((select public.gf_admin_can('manage_users')));
 drop policy if exists gf_producer_profiles_admin_update on public.producer_profiles;
 create policy gf_producer_profiles_admin_update on public.producer_profiles as permissive for update to authenticated
-  using ((select public.gf_admin_can_any(array['manage_users', 'manage_finance'])))
-  with check ((select public.gf_admin_can_any(array['manage_users', 'manage_finance'])));
+  using ((select public.gf_admin_can('manage_users')))
+  with check ((select public.gf_admin_can('manage_users')));
 
 -- withdrawals
 drop policy if exists gf_withdrawals_admin_select on public.withdrawals;
@@ -207,6 +229,10 @@ create policy gf_producer_subscriptions_admin_all on public.producer_subscriptio
   using ((select public.gf_admin_can('manage_users')))
   with check ((select public.gf_admin_can('manage_users')));
 
+drop policy if exists gf_producer_subscriptions_support_select on public.producer_subscriptions;
+create policy gf_producer_subscriptions_support_select on public.producer_subscriptions as permissive for select to authenticated
+  using ((select public.gf_admin_can('manage_support')));
+
 -- user_custom_features (hoje `public`; vira authenticated: DECISÕES 4)
 drop policy if exists gf_custom_features_admin_write on public.user_custom_features;
 create policy gf_custom_features_admin_write on public.user_custom_features as permissive for all to authenticated
@@ -234,7 +260,7 @@ create policy "Admin gerencia coupons da plataforma" on public.coupons as permis
   with check (producer_id is null and (select public.gf_admin_can('manage_coupons')));
 drop policy if exists "Admin le coupons" on public.coupons;
 create policy "Admin le coupons" on public.coupons as permissive for select to authenticated
-  using ((select public.gf_admin_can_any(array['manage_coupons'])));
+  using ((select public.gf_admin_can('manage_coupons')));
 
 -- affiliate_coupon_requests, platform_affiliates, platform_affiliate_producers, affiliate_links
 drop policy if exists "Admin gerencia pedidos de cupom" on public.affiliate_coupon_requests;
@@ -246,8 +272,6 @@ create policy "Admin gerencia afiliados evokaa" on public.platform_affiliates as
   using ((select public.gf_admin_can('manage_affiliates')))
   with check ((select public.gf_admin_can('manage_affiliates')));
 drop policy if exists gf_platform_affiliates_admin_select on public.platform_affiliates;
-create policy gf_platform_affiliates_admin_select on public.platform_affiliates as permissive for select to authenticated
-  using ((select public.gf_admin_can_any(array['manage_affiliates', 'manage_coupons'])));
 drop policy if exists "Admin gerencia indicados de afiliados" on public.platform_affiliate_producers;
 create policy "Admin gerencia indicados de afiliados" on public.platform_affiliate_producers as permissive for all to authenticated
   using ((select public.gf_admin_can('manage_affiliates')))
@@ -290,6 +314,10 @@ begin
       raise exception 'Campo protegido não permitido' using errcode = '42501';
     end if;
   else
+    -- a linha não "muda de dono": id e created_at nunca mudam pelo site
+    if new.id is distinct from old.id or new.created_at is distinct from old.created_at then
+      raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
+    end if;
     if not v_dono and (new.pix_key is distinct from old.pix_key
                        or new.bank_account is distinct from old.bank_account
                        or new.cnpj is distinct from old.cnpj
@@ -361,7 +389,72 @@ end;
 $$;
 -- o gatilho de affiliate_links já existe em produção e continua apontando para a função pelo nome
 
--- 5. Conferência (aborta e desfaz tudo se algo estiver fora do esperado) ---------------------------------------------
+-- 5. withdrawals: o site só muda status e processed_at --------------------------------------------------------------
+create or replace function public.gf_protect_withdrawals()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- S3 (Decisão 163): travado por lista de exceção, então coluna futura já nasce travada
+  if (current_user in ('anon', 'authenticated')
+      or coalesce(auth.jwt()->>'role', '') in ('anon', 'authenticated'))
+     and (to_jsonb(new) - 'status' - 'processed_at') is distinct from (to_jsonb(old) - 'status' - 'processed_at') then
+    raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists gf_protect_withdrawals on public.withdrawals;
+create trigger gf_protect_withdrawals
+  before update on public.withdrawals
+  for each row execute function public.gf_protect_withdrawals();
+
+-- 6. platform_affiliates: conta de recebimento só se preenche quando está nula ------------------------------------------
+create or replace function public.gf_protect_platform_affiliate_payout()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  -- S3 (Decisão 163, item 10): nem super_admin troca a conta já preenchida
+  if (current_user in ('anon', 'authenticated')
+      or coalesce(auth.jwt()->>'role', '') in ('anon', 'authenticated'))
+     and old.payout_account_id is not null
+     and new.payout_account_id is distinct from old.payout_account_id then
+    raise exception 'Alteração de campo protegido não permitida' using errcode = '42501';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists gf_protect_platform_affiliate_payout on public.platform_affiliates;
+create trigger gf_protect_platform_affiliate_payout
+  before update on public.platform_affiliates
+  for each row execute function public.gf_protect_platform_affiliate_payout();
+
+-- 7. RPC para a tela de Cupons: do afiliado, só id, nome, código e se está ativo ------------------------------------
+create or replace function public.afiliados_para_cupons()
+returns table (id uuid, nome text, codigo text, ativo boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.gf_admin_can_any(array['manage_coupons', 'manage_affiliates']) then
+    raise exception 'Sem permissão' using errcode = '42501';
+  end if;
+  return query
+    select pa.id, coalesce(pr.full_name, pa.full_name), pa.referral_code, pa.status = 'active'
+    from public.platform_affiliates pa
+    left join public.profiles pr on pr.id = pa.user_id
+    order by pa.referral_code;
+end;
+$$;
+revoke execute on function public.afiliados_para_cupons() from public, anon;
+grant execute on function public.afiliados_para_cupons() to authenticated, service_role;
+
+-- 8. Conferência (aborta e desfaz tudo se algo estiver fora do esperado) ---------------------------------------------
 do $$
 declare
   t text;
@@ -392,6 +485,10 @@ begin
      or not has_function_privilege('authenticated', 'public.gf_admin_can_any(text[])', 'execute') then
     raise exception 'gf_admin_can_any: anon executa ou authenticated não executa';
   end if;
+  if has_function_privilege('anon', 'public.afiliados_para_cupons()', 'execute')
+     or not has_function_privilege('authenticated', 'public.afiliados_para_cupons()', 'execute') then
+    raise exception 'afiliados_para_cupons: anon executa ou authenticated não executa';
+  end if;
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'platform_settings'
       and policyname = 'gf_platform_settings_public_read' and cmd = 'SELECT') then
     raise exception 'gf_platform_settings_public_read sumiu';
@@ -403,7 +500,11 @@ begin
       raise exception '% não é a versão da S3', t;
     end if;
   end loop;
-  if not exists (select 1 from pg_trigger where tgrelid = 'public.producer_profiles'::regclass
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.withdrawals'::regclass
+      and tgname = 'gf_protect_withdrawals' and tgenabled = 'O')
+     or not exists (select 1 from pg_trigger where tgrelid = 'public.platform_affiliates'::regclass
+      and tgname = 'gf_protect_platform_affiliate_payout' and tgenabled = 'O')
+     or not exists (select 1 from pg_trigger where tgrelid = 'public.producer_profiles'::regclass
       and tgname = 'gf_protect_producer_profile_privileges' and tgenabled = 'O')
      or not exists (select 1 from pg_trigger where tgrelid = 'public.coupons'::regclass
       and tgname = 'gf_protect_coupon_uses' and tgenabled = 'O')
@@ -433,7 +534,13 @@ order by 1, 2;
 --
 -- Desfazer (volta ao estado de produção de 04/10/2026; as regras e funções abaixo são as lidas na época):
 -- begin;
+-- drop trigger if exists gf_protect_withdrawals on public.withdrawals;
+-- drop function if exists public.gf_protect_withdrawals();
+-- drop trigger if exists gf_protect_platform_affiliate_payout on public.platform_affiliates;
+-- drop function if exists public.gf_protect_platform_affiliate_payout();
+-- drop function if exists public.afiliados_para_cupons();
 -- drop policy if exists gf_platform_affiliates_admin_select on public.platform_affiliates;
+-- drop policy if exists gf_producer_subscriptions_support_select on public.producer_subscriptions;
 -- drop policy if exists gf_producer_profiles_select_own_or_admin on public.producer_profiles;
 -- create policy gf_producer_profiles_select_own_or_admin on public.producer_profiles for select to authenticated
 --   using (id = (select auth.uid()) or (select public.gf_is_admin()));
