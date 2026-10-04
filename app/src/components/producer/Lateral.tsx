@@ -12,7 +12,7 @@ import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, atalhoBusca, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerSecoes,
+  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, atalhoBusca, eventoDaUrl, filtra, gravarNav, hrefDaTela,
   rotaAtiva, rotuloSecao, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
@@ -62,7 +62,8 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
   const { user, logout } = useAuth()
   const { data: eventos = [], isLoading } = useProducerEvents()
   const [fixados, alternaFixo] = useFixados()
-  const [abertas, setAbertas] = useState(lerSecoes) // abertas ou fechadas à mão, por `escopo:Seção`
+  // Uma seção aberta por vez (pedido do Ricardo, 04/10): a escolha à mão vale até trocar de tela; depois, só a da tela atual
+  const [escolha, setEscolha] = useState<{ onde: string; secao: Secao | null } | null>(null)
 
   const eventId = eventoDaUrl(pathname, search)
   const evento: DbEvent | undefined = eventos.find(e => e.id === eventId)
@@ -131,10 +132,12 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
 
   const secaoAtiva = (s: Secao) => filtra(escopo, s).some(t => ativa(t.rota))
 
+  const onde = `${escopo}|${pathname}${search}`
+  const padrao = secoes.find(secaoAtiva) ?? 'Eventos' // a da tela atual; sem ela, Eventos
+  const secaoAberta = escolha?.onde === onde ? escolha.secao : padrao
+
   const area = (s: Secao) => {
-    const chave = `${escopo}:${s}`
-    // a da tela atual sempre aberta (§5.3); no escopo do evento todas (cabem, §5.1); na produtora, também a de Eventos
-    const aberta = secaoAtiva(s) || (abertas[chave] ?? (escopo === 'evento' || s === 'Eventos'))
+    const aberta = secaoAberta === s
     const id = `lateral-${s}`
     const Icone = ICONE[s]
     return (
@@ -143,11 +146,7 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
           type="button"
           aria-expanded={aberta}
           aria-controls={id}
-          onClick={() => {
-            const novas = { ...abertas, [chave]: !aberta }
-            setAbertas(novas)
-            gravarNav('secoes', JSON.stringify(novas))
-          }}
+          onClick={() => setEscolha({ onde, secao: aberta ? null : s })}
           className={cn(itemBase, secaoAtiva(s) ? 'text-foreground' : 'text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground')}
         >
           <Icone size={16} />

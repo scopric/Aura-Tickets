@@ -59,11 +59,19 @@ describe('lateral do produtor (V4a)', () => {
     await waitFor(() => expect(screen.getAllByText('Criar evento').length).toBeGreaterThan(1)) // dica (role=tooltip + cópia acessível do Radix)
   })
 
-  it('lembra seção aberta à mão em evk.nav.secoes', () => {
-    montar('/producer/dashboard')
-    fireEvent.click(screen.getByRole('button', { name: 'Vendas' }))
-    expect(screen.getByRole('button', { name: 'Vendas' })).toHaveAttribute('aria-expanded', 'true')
-    expect(JSON.parse(localStorage.getItem('evk.nav.secoes')!)).toEqual({ 'produtora:Vendas': true })
+  it('uma seção aberta por vez: abrir Vendas fecha Eventos; clicar de novo fecha', () => {
+    montar('/producer/events')
+    const nav = screen.getByRole('navigation', { name: 'Menu do produtor' })
+    const botao = (nome: string) => within(nav).getByRole('button', { name: nome })
+    expect(botao('Eventos')).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(botao('Vendas'))
+    expect(botao('Vendas')).toHaveAttribute('aria-expanded', 'true')
+    expect(botao('Eventos')).toHaveAttribute('aria-expanded', 'false') // mesmo sendo a seção da tela atual
+    fireEvent.click(botao('Público'))
+    expect(botao('Público')).toHaveAttribute('aria-expanded', 'true')
+    expect(botao('Vendas')).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(botao('Público'))
+    expect(within(nav).queryAllByRole('button', { expanded: true })).toHaveLength(0)
   })
 
   it('abre sozinha a seção da tela atual', () => {
@@ -90,8 +98,9 @@ describe('lateral do produtor (V4a)', () => {
     expect(within(nav).getByRole('link', { name: 'Check-in' })).toHaveAttribute('href', '/producer/checkin?eventId=e1')
     expect(within(nav).getByRole('button', { name: 'Evento' })).toBeInTheDocument()
     expect(within(nav).queryByRole('button', { name: 'Conta' })).toBeNull()
-    expect(within(nav).getByRole('button', { name: 'Vendas' })).toHaveAttribute('aria-expanded', 'true') // evento: tudo aberto
-    expect(within(nav).getByRole('button', { name: 'Financeiro' })).toHaveAttribute('aria-expanded', 'true')
+    expect(within(nav).getByRole('button', { name: 'Público' })).toHaveAttribute('aria-expanded', 'true') // só a da tela atual
+    expect(within(nav).getByRole('button', { name: 'Vendas' })).toHaveAttribute('aria-expanded', 'false')
+    expect(within(nav).getByRole('button', { name: 'Financeiro' })).toHaveAttribute('aria-expanded', 'false')
     expect(within(nav).queryByText('Banners')).toBeNull() // Decisão 143
     expect(within(nav).queryByText('CRM')).toBeNull()
   })

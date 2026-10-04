@@ -137,9 +137,3 @@ export function lerFixados(): string[] {
 }
 export const ULTIMO_EVENTO = 'ultimoEvento'
 /** Seções abertas ou fechadas à mão (chave `escopo:Seção`); o que não está aqui segue a regra automática */
-export function lerSecoes(): Record<string, boolean> {
-  try {
-    const v: unknown = JSON.parse(lerNav('secoes') ?? '{}')
-    return v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, boolean>) : {}
-  } catch { return {} }
-}
