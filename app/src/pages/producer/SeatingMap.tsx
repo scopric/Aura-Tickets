@@ -2385,7 +2385,7 @@ export default function SeatingMap() {
         <p className="text-sm text-muted-foreground">
           {carregandoEventos ? 'Carregando seus eventos…' : erroEventos ? 'Não consegui carregar seus eventos.' : eventos.length ? 'Escolha o evento cujo mapa você quer editar.' : 'Crie um evento antes de montar o mapa.'}
         </p>
-        {erroEventos && <button onClick={() => recarregarEventos()} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">Tentar de novo</button>}
+        {erroEventos && <Button size="sm" onClick={() => recarregarEventos()}>Tentar de novo</Button>}
         {eventos.length > 0 && seletorEvento}
         <Link to={voltarPara} className="text-sm text-primary underline">Voltar ao painel</Link>
       </div>
@@ -3688,7 +3688,7 @@ export default function SeatingMap() {
                 <div className="text-xs text-muted-foreground leading-relaxed space-y-1">
                   <h4 className="font-bold text-foreground">Navegação e Customização:</h4>
                   <p><strong>Navegar:</strong> Rolar rodinha para <strong>Zoom</strong> · Segurar <strong>Espaço + mouse drag</strong> para movimentar (Pan) ou clicar com a rodinha do mouse.</p>
-                  <p><strong>Redimensionar:</strong> Selecione o elemento e arraste o quadradinho roxo no canto inferior dele.</p>
+                  <p><strong>Redimensionar:</strong> Selecione o elemento e arraste o quadradinho azul no canto inferior dele.</p>
                   <p><strong>Muros:</strong> Clique consecutivos. ESC para finalizar. Shift alinha muros em linha reta.</p>
                 </div>
                 <button onClick={() => setShowHelp(false)} aria-label="Fechar" className="p-1 rounded hover:bg-foreground/5 text-muted-foreground hover:text-foreground"><I.Fechar className="w-3.5 h-3.5" aria-hidden="true" /></button>
