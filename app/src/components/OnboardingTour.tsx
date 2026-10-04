@@ -78,8 +78,11 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
   useEffect(() => {
     if (!show) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { skip(); return }
       const el = dialogRef.current
+      // tecla já tratada por outra camada, ou foco dentro de outro diálogo (ex.: o Evo aberto por cima): não é do tour
+      const outroDialogo = (document.activeElement as HTMLElement | null)?.closest('[role="dialog"]')
+      if (e.defaultPrevented || (outroDialogo && outroDialogo !== el)) return
+      if (e.key === 'Escape') { skip(); return }
       if (e.key !== 'Tab' || !el) return
       const focaveis = el.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')
       if (!focaveis.length) return
