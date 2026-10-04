@@ -25,6 +25,6 @@ test('telas com FeatureGuard ficam ociosas (sem consulta de planos em laço)', a
   await entrar(page, 'Produtor', 'produtor@aura.teste', /Entrar como Produtor/)
   for (const rota of ['/producer/crm', '/producer/banners']) {
     await page.goto(rota, { waitUntil: 'networkidle', timeout: 15000 })
-    await expect(page.getByText(/Funcionalidade Exclusiva|Fazer Upgrade/).first()).toBeVisible()
+    await expect(page.getByText(/Recurso fora do seu plano/).first()).toBeVisible()
   }
 })

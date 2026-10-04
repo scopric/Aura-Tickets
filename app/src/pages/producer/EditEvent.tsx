@@ -78,6 +78,13 @@ export default function ProducerEditEvent() {
     }
   }, [existingEvent])
 
+  // Rascunho (duplicado, do Evo ou recusado/tirado do ar): salvar mantém status draft e nada nesta tela publica.
+  const ehRascunho = existingEvent?.status === 'draft'
+  // Só evento aprovado ou recusado volta para análise, e só se mudar conteúdo (gatilho gf_protect_event_moderation).
+  const voltaParaAnalise = existingEvent?.approval_status === 'approved' || existingEvent?.approval_status === 'rejected'
+  // ponytail: ingresso já salvo não tem remoção aqui (o salvar não apaga); a remoção vem no PR3 da F1 e esta tela some no PR4.
+  const jaSalvo = (id: string) => !!existingEvent?.ticket_types?.some(t => t.id === id)
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
@@ -146,7 +153,11 @@ export default function ProducerEditEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success('Alterações salvas. Mudanças no conteúdo do evento voltam para a análise da equipe.')
+      toast.success(ehRascunho
+        ? 'Alterações salvas. O evento continua como rascunho.'
+        : voltaParaAnalise
+          ? 'Alterações salvas. Se você mudou título, descrição, imagem, tipo, data, horário ou local, o evento voltou para a análise da equipe.'
+          : 'Alterações salvas.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       setSalvando(false)
@@ -298,12 +309,15 @@ export default function ProducerEditEvent() {
         <div className="space-y-6">
           <section className={cartao}>
             <h2 className="mb-4 text-base font-semibold text-foreground">Ingressos</h2>
+            {tickets.some(t => jaSalvo(t.id)) && (
+              <p className="mb-3 text-xs text-muted-foreground">Ingressos já salvos podem ser editados, mas não removidos por aqui.</p>
+            )}
             <div className="space-y-3">
               {tickets.map((ticket, i) => (
                 <div key={ticket.id} className="rounded-lg border border-border p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h3 className="text-sm font-medium text-foreground">Ingresso {i + 1}</h3>
-                    {tickets.length > 1 && (
+                    {tickets.length > 1 && !jaSalvo(ticket.id) && (
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeTicket(ticket.id)} aria-label={`Remover o ingresso ${i + 1}`}>
                         <X aria-hidden="true" />
                       </Button>
@@ -389,7 +403,11 @@ export default function ProducerEditEvent() {
               </div>
             </dl>
             <p className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
-              Ao salvar as alterações, o evento volta para a análise da equipe e fica visível ao público depois da aprovação.
+              {ehRascunho
+                ? 'Este evento é um rascunho e não vai ao ar: salvar mantém como rascunho e nesta tela não há como publicá-lo.'
+                : voltaParaAnalise
+                ? 'Se você mudar título, descrição, imagem, tipo, data, horário ou local, o evento volta para a análise da equipe e só fica visível ao público depois da aprovação. Em geral, mudar só os ingressos não volta para análise.'
+                : 'Este evento ainda está em análise pela equipe; salvar não muda isso.'}
             </p>
           </section>
           <div className="flex items-center gap-3">

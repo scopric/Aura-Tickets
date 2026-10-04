@@ -143,6 +143,10 @@ export default function ProducerEventGallery() {
     <div>
       {header}
 
+      <p className="mb-4 rounded-lg border border-border bg-muted p-3 text-xs text-foreground">
+        As fotos ficam só aqui no painel. Elas ainda não aparecem na página pública do evento.
+      </p>
+
       {photos.length > 0 && (
         <div role="group" aria-label="Filtrar por evento" className="mb-4 flex gap-1 overflow-x-auto pb-1">
           {['Todos', ...events].map(e => (
