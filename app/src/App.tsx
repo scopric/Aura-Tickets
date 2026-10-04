@@ -17,7 +17,7 @@ import { Loader2 } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 
 import FeatureGuard from './components/FeatureGuard'
-import ComingSoon, { ComingSoonRoute } from './components/ComingSoon'
+import { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent, semHash } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
@@ -58,6 +58,7 @@ const EventOverview = lazy(() => import('./pages/producer/EventOverview'))
 const EventPlanner = lazy(() => import('./pages/producer/EventPlanner'))
 const ProducerCRM = lazy(() => import('./pages/producer/CRM'))
 const ProducerFinance = lazy(() => import('./pages/producer/Finance'))
+const ProducerBordero = lazy(() => import('./pages/producer/Bordero'))
 const ProducerWallet = lazy(() => import('./pages/producer/Wallet'))
 const ProducerMenu = lazy(() => import('./pages/producer/Menu'))
 const TableCalculator = lazy(() => import('./pages/producer/TableCalculator'))
@@ -408,7 +409,7 @@ function Layout() {
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
-              <Route path="/producer/bordero" element={<ComingSoon title="O Borderô" />} />
+              <Route path="/producer/bordero" element={<ProducerBordero />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
