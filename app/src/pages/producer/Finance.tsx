@@ -1,4 +1,4 @@
-import { Download } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -7,7 +7,7 @@ import FiltroEvento from '@/components/producer/FiltroEvento'
 import { brl } from '../../lib/taxa'
 import { forma } from '../../lib/bordero'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -68,7 +68,7 @@ export default function ProducerFinance() {
       description="Vendas pagas dos seus eventos, em valor bruto"
       actions={
         <Button variant="outline" onClick={exportar} disabled={pedidos.length === 0}>
-          <Download aria-hidden="true" />Exportar CSV
+          <I.Baixar aria-hidden="true" />Exportar CSV
         </Button>
       }
     />
@@ -102,9 +102,7 @@ export default function ProducerFinance() {
         {header}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar as vendas.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>Tentar de novo</Button>
         </div>
       </div>
     )
@@ -129,7 +127,7 @@ export default function ProducerFinance() {
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section aria-labelledby="fin-por-evento" className="rounded-[10px] border border-border bg-card">
-            <h2 id="fin-por-evento" className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">Por evento</h2>
+            <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-por-evento">Por evento</SectionTitle></div>
             <ul className="divide-y divide-border">
               {porEvento.map(e => (
                 <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
@@ -144,9 +142,7 @@ export default function ProducerFinance() {
           </section>
 
           <section aria-labelledby="fin-pedidos" className="rounded-[10px] border border-border bg-card">
-            <h2 id="fin-pedidos" className="border-b border-border px-4 py-3 text-sm font-medium text-foreground">
-              Últimos pedidos pagos
-            </h2>
+            <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-pedidos">Últimos pedidos pagos</SectionTitle></div>
             <ul className="divide-y divide-border">
               {pedidos.slice(0, 20).map(p => (
                 <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">

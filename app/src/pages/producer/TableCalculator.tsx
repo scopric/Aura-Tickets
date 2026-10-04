@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, X, Save, Copy } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { brl } from '../../lib/taxa'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -55,8 +55,8 @@ export default function TableCalculator() {
         description="Simule mesas, lugares e receita (os valores ficam só nesta tela)"
         actions={
           <>
-            <Button onClick={addTable}><Plus aria-hidden="true" />Nova mesa</Button>
-            <Button variant="outline" disabled><Save aria-hidden="true" />Salvar (em breve)</Button>
+            <Button onClick={addTable}><I.Criar aria-hidden="true" />Nova mesa</Button>
+            <Button variant="outline" disabled><I.Guardar aria-hidden="true" />Salvar (em breve)</Button>
           </>
         }
       />
@@ -73,7 +73,7 @@ export default function TableCalculator() {
           <EmptyState
             title="Nenhuma mesa ainda"
             description="Clique em Nova mesa para simular capacidade e preço por lugar."
-            action={<Button onClick={addTable}><Plus aria-hidden="true" />Nova mesa</Button>}
+            action={<Button onClick={addTable}><I.Criar aria-hidden="true" />Nova mesa</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -93,10 +93,10 @@ export default function TableCalculator() {
                     />
                     <div className="flex shrink-0 items-center gap-1">
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => duplicateTable(table)} aria-label={`Duplicar ${table.name}`}>
-                        <Copy aria-hidden="true" />
+                        <I.Copiar aria-hidden="true" />
                       </Button>
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeTable(table.id)} aria-label={`Remover ${table.name}`}>
-                        <X aria-hidden="true" />
+                        <I.Fechar aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -154,7 +154,7 @@ export default function TableCalculator() {
 
       {tables.length > 0 && (
         <Button variant="outline" className="mt-4 w-full border border-dashed border-input shadow-none" onClick={addTable}>
-          <Plus aria-hidden="true" />Adicionar mesa
+          <I.Criar aria-hidden="true" />Adicionar mesa
         </Button>
       )}
     </div>

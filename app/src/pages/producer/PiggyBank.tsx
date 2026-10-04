@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Plus, Trash2, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import {
   useBudgetBoxes,
   useCreateBudgetBox,
@@ -13,7 +13,7 @@ import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { mensagemMovimento } from '../../lib/orcamento'
 import { brl } from '../../lib/taxa'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -36,7 +36,6 @@ const categories = [
   { id: 'lucro', label: 'Lucro' },
 ]
 
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const emptyForm = { eventId: '', name: '', target: '', category: 'marketing', notes: '' }
 
@@ -115,7 +114,7 @@ export default function ProducerPiggyBank() {
     <PageHeader
       title="Orçamento do evento"
       description="Previsto x realizado, por evento e categoria"
-      actions={<Button onClick={abrir}><Plus aria-hidden="true" />Novo item</Button>}
+      actions={<Button onClick={abrir}><I.Criar aria-hidden="true" />Novo item</Button>}
     />
   )
 
@@ -137,9 +136,7 @@ export default function ProducerPiggyBank() {
         {header}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar o orçamento.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>Tentar de novo</Button>
         </div>
       </div>
     )
@@ -161,7 +158,7 @@ export default function ProducerPiggyBank() {
           <EmptyState
             title={filtroEvento ? 'Nenhum item neste evento' : 'Nenhum item no orçamento ainda'}
             description={filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Crie um item para cada gasto previsto (som, decoração, divulgação) e acompanhe quanto já foi separado.'}
-            action={<Button onClick={abrir}><Plus aria-hidden="true" />Novo item</Button>}
+            action={<Button onClick={abrir}><I.Criar aria-hidden="true" />Novo item</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -181,7 +178,7 @@ export default function ProducerPiggyBank() {
                     <div className="flex shrink-0 items-center gap-1">
                       {completo && <Badge variant="secondary">Completo</Badge>}
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setApagar(box)} aria-label={`Remover ${box.name}`}>
-                        <Trash2 aria-hidden="true" />
+                        <I.Lixeira aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -221,7 +218,7 @@ export default function ProducerPiggyBank() {
           <form id="form-orcamento" onSubmit={addBox} className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="orc-evento">Evento</Label>
-              <select id="orc-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+              <select id="orc-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={selectNativo}>
                 <option value="">Sem evento</option>
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
@@ -237,7 +234,7 @@ export default function ProducerPiggyBank() {
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="orc-categoria">Categoria</Label>
-                <select id="orc-categoria" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={select}>
+                <select id="orc-categoria" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={selectNativo}>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
                 </select>
               </div>
@@ -249,9 +246,7 @@ export default function ProducerPiggyBank() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-orcamento" disabled={createBox.isPending}>
-              {createBox.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar item'}
-            </Button>
+            <Button type="submit" form="form-orcamento" loading={createBox.isPending}>Criar item</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -280,8 +275,8 @@ export default function ProducerPiggyBank() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMovBox(null)}>Cancelar</Button>
-            <Button type="submit" form="form-movimento" disabled={createTransaction.isPending}>
-              {createTransaction.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Salvando…</> : movTipo === 'deposit' ? 'Lançar' : 'Estornar'}
+            <Button type="submit" form="form-movimento" loading={createTransaction.isPending}>
+              {movTipo === 'deposit' ? 'Lançar' : 'Estornar'}
             </Button>
           </DialogFooter>
         </DialogContent>
