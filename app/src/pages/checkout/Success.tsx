@@ -11,21 +11,12 @@ import { usePublicEvent } from '../../hooks/useEvents'
 import TicketQRCode from '../../components/TicketQRCode'
 import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
 import { brl } from '../../lib/taxa'
+import { soltarConfete } from '../../lib/confete'
 
-// O único confete do produto (contrato M14): ~1,5 s, cores do evento + acento quente. A biblioteca só é baixada aqui
-// (fora do pacote de entrada) e com "reduzir movimento" ligado ela não desenha nada.
 function Confete({ cor }: { cor: string }) {
   useEffect(() => {
-    let cancelado = false
     const d = derivarCor(cor)
-    import('canvas-confetti').then(({ default: confetti }) => {
-      if (cancelado) return
-      confetti({
-        particleCount: 70, spread: 75, startVelocity: 38, ticks: 110, origin: { y: 0.28 },
-        colors: [d.cor, d.duoLuz, '#f2994a'], disableForReducedMotion: true,
-      })
-    }).catch(() => {})
-    return () => { cancelado = true }
+    return soltarConfete([d.cor, d.duoLuz, '#f2994a']) // cores do evento + acento quente
   }, [cor])
   return null
 }

@@ -4,6 +4,9 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import ProducerDashboard from '../pages/producer/Dashboard'
 
+const confetti = vi.hoisted(() => vi.fn())
+vi.mock('canvas-confetti', () => ({ default: confetti }))
+
 // Supabase falso: guarda a cadeia de chamadas (.select().eq().in()...) e responde por tabela
 type Chamada = [string, unknown[]]
 type Resposta = { data?: unknown; error: unknown; count?: number | null }
@@ -48,7 +51,7 @@ const e1 = {
   venue_name: 'Espaço Torres', venue_city: 'Curitiba',
   ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 100, capacity: null, is_active: true }],
 }
-const noAr = { ...e1, approval_status: 'approved' }
+const noAr = { ...e1, approval_status: 'approved', approved_at: ha(1) }
 const lote10 = { ...noAr, ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 10, capacity: null, is_active: true }] }
 const passado = { ...e1, id: 'e2', title: 'Rascunho velho', status: 'draft', date: '2020-01-01', start_date: '2020-01-01T00:00:00Z', capacity: 50, ticket_types: [] }
 
@@ -73,7 +76,7 @@ const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empr
   }
 }
 
-beforeEach(() => { localStorage.clear(); reduzir = true })
+beforeEach(() => { localStorage.clear(); reduzir = true; confetti.mockClear() })
 afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('matchMedia', () => ({ matches: reduzir })) })
 
 describe('Início do produtor', () => {
@@ -158,7 +161,7 @@ describe('Início do produtor', () => {
     expect(within(aviso).getByRole('link', { name: 'Editar ingressos' }).getAttribute('href')).toBe('/producer/events/e1/edit')
     fireEvent.click(within(aviso).getByRole('button', { name: 'Dispensar sugestão' }))
     await waitFor(() => expect(screen.queryByText(/de 10 vendidos/)).toBeNull()) // vem a próxima sugestão (sem foto)
-    expect(gravados).toEqual(['aviso-lote:tt1:10']) // a capacidade vai na chave: abrir mais lugares faz o aviso voltar
+    expect(gravados).toEqual(['celebracao:primeiro-evento', 'aviso-lote:tt1:10']) // a capacidade vai na chave: abrir mais lugares faz o aviso voltar
   })
 
   it('sem venda há 5 dias de aprovado: "Copiar link" copia o link daquele evento', async () => {
@@ -171,7 +174,7 @@ describe('Início do produtor', () => {
     fireEvent.click(within(faixa).getByRole('button', { name: 'Copiar link' }))
     await waitFor(() => expect(escrever).toHaveBeenCalledWith(expect.stringMatching(/\/event\/show-x$/)))
     fireEvent.click(within(faixa).getByRole('button', { name: 'Dispensar sugestão' }))
-    await waitFor(() => expect(gravados).toEqual(['sugestao:sem-venda:e1']))
+    await waitFor(() => expect(gravados).toEqual(['celebracao:primeiro-evento', 'sugestao:sem-venda:e1']))
   })
 
   it('vendas ainda carregando: nenhuma sugestão aparece (nem a que depende só dos eventos)', async () => {
@@ -277,5 +280,74 @@ describe('Início do produtor', () => {
     await screen.findByText('[TESTE] Show', { selector: 'h3' })
     await new Promise(r => setTimeout(r, 1500)) // a consulta tenta 1 vez de novo antes de falhar
     expect(screen.queryByText(/^\d de [56]$/)).toBeNull()
+  })
+
+  describe('celebração do 1º evento aprovado (Decisão 157.1)', () => {
+    it('aprovado e sem registro: solta o confete e grava uma vez só', async () => {
+      reduzir = false
+      preparar([noAr], [], [], { empresa: true })
+      montar()
+      await waitFor(() => expect(confetti).toHaveBeenCalledTimes(1))
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300)) // sobra tempo para um segundo disparo, se houvesse
+      expect(confetti).toHaveBeenCalledTimes(1)
+      expect(gravados.filter(g => g === 'celebracao:primeiro-evento')).toHaveLength(1)
+    })
+
+    it('com reduzir movimento: não desenha, mas grava (não volta a celebrar depois)', async () => {
+      preparar([noAr], [], [], { empresa: true })
+      montar()
+      await waitFor(() => expect(gravados).toContain('celebracao:primeiro-evento'))
+      expect(confetti).not.toHaveBeenCalled()
+    })
+
+    it('já registrado: não solta nem grava de novo', async () => {
+      reduzir = false
+      preparar([noAr], [], [], { empresa: true })
+      gravados.push('celebracao:primeiro-evento')
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).toEqual(['celebracao:primeiro-evento'])
+    })
+
+    it('sem evento aprovado: não solta nem grava', async () => {
+      reduzir = false
+      preparar([e1], [], [], { empresa: true })
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).not.toContain('celebracao:primeiro-evento')
+    })
+
+    const semConfete = async (eventos: unknown[]) => {
+      reduzir = false
+      preparar(eventos, [], [], { empresa: true })
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).not.toContain('celebracao:primeiro-evento')
+    }
+
+    it('aprovado há 30 dias (conta antiga sem registro): sem confete e sem gravar', () => semConfete([{ ...noAr, approved_at: ha(30) }]))
+
+    it('um aprovado recente e outro antigo: não é o primeiro, sem confete', () =>
+      semConfete([noAr, { ...noAr, id: 'e3', title: 'Outro', approved_at: ha(30) }]))
+
+    it('aprovado sem approved_at: sem confete', () => semConfete([{ ...noAr, approved_at: null }]))
+
+    it('leitura do registro com erro: sem confete e sem gravar (não repete a festa)', async () => {
+      reduzir = false
+      preparar([noAr], [], [], { empresa: true })
+      tabelas.onboarding_logs = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).toEqual([])
+    })
   })
 })

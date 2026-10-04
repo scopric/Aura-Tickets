@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -9,6 +9,8 @@ import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
 import { siteUrl } from '../../lib/appHost'
 import { situacaoEvento } from '../../lib/eventoProdutor'
+import { soltarConfete } from '../../lib/confete'
+import { corDoEvento, derivarCor } from '../../lib/corEvento'
 import {
   PERIODOS, VENDIDO, ehPeriodo, janelas, resumoDe, serie, rotuloDoBalde, dataPorExtenso, dataDoEvento,
   inteiro, inteiroMais, brlMais, sugestaoDoEvo, type Linha, type Periodo,
@@ -58,7 +60,7 @@ function Variacao({ v }: { v: number | null }) {
 
 export default function ProducerDashboard() {
   const { user } = useAuth()
-  const { feitos: registrados, registrar, carregou } = useTourLog()
+  const { feitos: registrados, registrar, carregou, erro: erroRegistro } = useTourLog()
   const [montagem] = useState(() => Date.now())
   const [busca, setBusca] = useSearchParams()
   const [metrica, setMetrica] = useState<Metrica>('receita')
@@ -68,6 +70,21 @@ export default function ProducerDashboard() {
   const mudaPeriodo = (v: string) => setBusca((prev: URLSearchParams) => { const n = new URLSearchParams(prev); n.set('periodo', v); return n }, { replace: true })
 
   const eventosQ = useProducerEvents()
+
+  // Decisão 157.1: confete no 1º evento aprovado, uma vez por conta (registro no banco; o ref cobre StrictMode e re-render
+  // enquanto o registro otimista não chega). Com "reduzir movimento" não desenha, mas o registro é gravado igual.
+  // Só é o "1º" se todos os aprovados são recentes (7 dias): conta antiga sem registro não ganha festa fora de hora.
+  // E só com o registro lido sem erro (leitura falha viria como "nada registrado" e repetiria a festa).
+  const celebrou = useRef(false)
+  const aprovados = eventosQ.data?.filter(e => e.approval_status === 'approved') ?? []
+  const aprovado = aprovados.length && aprovados.every(e => montagem - Date.parse(e.approved_at ?? '') < 7 * 86400000) ? aprovados[0] : undefined
+  useEffect(() => {
+    if (!aprovado || !carregou || erroRegistro || celebrou.current || registrados.has('celebracao:primeiro-evento')) return
+    celebrou.current = true
+    const d = derivarCor(corDoEvento(aprovado))
+    soltarConfete([d.cor, d.duoLuz, '#f2994a'])
+    registrar('celebracao:primeiro-evento', { silencioso: true })
+  }, [aprovado, carregou, erroRegistro, registrados, registrar])
 
   const vendasQ = useQuery({
     queryKey: ['producer-inicio-vendas', user?.id],
