@@ -33,6 +33,9 @@ export const selectNativo = 'h-10 w-full rounded-md border border-input bg-trans
 export const chipOk = 'border-[color-mix(in_srgb,var(--ev-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--ev-success)_10%,hsl(var(--card)))] text-[var(--ev-success)]'
 export const chipAviso = 'border-[color-mix(in_srgb,var(--ev-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--ev-warning)_10%,hsl(var(--card)))] text-[var(--ev-warning)]'
 export const chipErro = 'border-[color-mix(in_srgb,hsl(var(--destructive))_40%,transparent)] bg-[color-mix(in_srgb,hsl(var(--destructive))_10%,hsl(var(--card)))] text-destructive'
+// info (azul da marca; text-primary muda no escuro) e neutro (cinza, sem significado de estado)
+export const chipInfo = 'border-[color-mix(in_srgb,hsl(var(--primary))_40%,transparent)] bg-[color-mix(in_srgb,hsl(var(--primary))_10%,hsl(var(--card)))] text-primary'
+export const chipNeutro = 'border-border bg-secondary text-muted-foreground'
 
 // Título de seção do painel: Jakarta 15/20 600 (o h2 global é grande demais para dentro de painel)
 export function SectionTitle({ id, children }: { id?: string; children: ReactNode }) {

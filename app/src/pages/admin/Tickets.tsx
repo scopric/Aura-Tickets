@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef } from 'react'
-import { 
-  Ticket, QrCode, Users, 
-  Loader2, Search, AlertTriangle, AlertCircle
-} from 'lucide-react'
-import gsap from 'gsap'
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import * as I from '@/components/icones/evokaa16'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, Stat, selectNativo, chipErro, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAdminTickets } from '../../hooks/useEvents'
 
@@ -36,7 +38,6 @@ interface RealCheckIn {
 }
 
 export default function AdminTickets() {
-  const containerRef = useRef<HTMLDivElement>(null)
   const { data: allTicketTypes = [], isLoading: isLoadingTypes } = useAdminTickets()
   
   // Navigation sub-tabs
@@ -88,18 +89,6 @@ export default function AdminTickets() {
   const isErrorReal = isErrorTickets || isErrorCheckIns
   const errorReal = errorTickets || errorCheckIns
 
-  useEffect(() => {
-    if (!isLoading) {
-      const ctx = gsap.context(() => {
-        gsap.fromTo('.tk-anim', 
-          { y: 15, opacity: 0 }, 
-          { y: 0, opacity: 1, duration: 0.4, stagger: 0.04, ease: 'power2.out' }
-        )
-      }, containerRef)
-      return () => ctx.revert()
-    }
-  }, [isLoading, activeSubTab])
-
   // Calculations com dados reais
   const totalSold = allTicketTypes.reduce((s, t) => s + (Number(t.sold) || 0), 0)
   const totalCapacity = allTicketTypes.reduce((s, t) => s + (Number(t.capacity) || 0), 0)
@@ -129,339 +118,248 @@ export default function AdminTickets() {
     })
     .filter(t => salesFilterStatus === 'all' || t.status === salesFilterStatus)
 
-  return (
-    <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground">Ingressos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Gestão de bilheteria geral, controle de check-in nos eventos e moderação de ingressos.</p>
-        </div>
+  const abas = [
+    { id: 'overview', icon: I.Ingressos, label: 'Bilheteria Geral' },
+    { id: 'sales', icon: I.Pessoas, label: `Ingressos Emitidos (${realTickets.length})` },
+    { id: 'checkin', icon: I.Qr, label: `Portaria / Check-in (${realCheckIns.length})` },
+    { id: 'refunds', icon: I.Alerta, label: `Cancelados (${refundedTickets.length})` },
+  ] as const
 
-        {/* Tab Selector */}
-        <div className="flex flex-wrap bg-card p-1 border border-border rounded-xl gap-1">
-          <button 
-            onClick={() => setActiveSubTab('overview')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeSubTab === 'overview' 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Ticket className="w-3.5 h-3.5" /> Bilheteria Geral
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('sales')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeSubTab === 'sales' 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" /> Ingressos Emitidos ({realTickets.length})
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('checkin')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeSubTab === 'checkin' 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <QrCode className="w-3.5 h-3.5" /> Portaria / Check-in ({realCheckIns.length})
-          </button>
-          <button 
-            onClick={() => setActiveSubTab('refunds')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeSubTab === 'refunds' 
-                ? 'bg-primary text-primary-foreground shadow-sm' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <AlertTriangle className="w-3.5 h-3.5" /> Cancelados ({refundedTickets.length})
-          </button>
-        </div>
-      </div>
+  // Cartão com cabeçalho (título e explicação) e a tabela ou o estado vazio por baixo
+  const cabecalho = (titulo: string, descricao: string) => (
+    <div className="border-b border-border bg-secondary/50 p-4">
+      <h3 className="text-[15px] font-semibold leading-5 text-foreground">{titulo}</h3>
+      <p className="mt-0.5 text-xs text-muted-foreground">{descricao}</p>
+    </div>
+  )
+  const vazio = (titulo: string) => <div className="p-4"><EmptyState title={titulo} /></div>
+
+  return (
+    <div className="p-6 lg:p-10 max-w-7xl">
+      <PageHeader
+        title="Ingressos"
+        description="Gestão de bilheteria geral, controle de check-in nos eventos e moderação de ingressos."
+        actions={
+          <div className="flex flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
+            {abas.map(a => (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setActiveSubTab(a.id)}
+                aria-pressed={activeSubTab === a.id}
+                className={cn(
+                  'flex h-8 items-center gap-1.5 rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4',
+                  activeSubTab === a.id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <a.icon aria-hidden="true" /> {a.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* Aviso de modo de teste */}
-      <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-3">
-        <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      <div className={cn(alertaAviso, 'mb-6 p-4 text-[13px]')}>
+        <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
         <div>
           <span className="font-semibold">Bilheteria e Ingressos:</span> Ingressos reais são emitidos automaticamente pelos webhooks de confirmação de pagamento. Emissões manuais e reembolsos bancários automatizados estão desabilitados até a ativação dos gateways na Fase 4.
         </div>
       </div>
 
       {isErrorReal && (
-        <div role="alert" className="mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
           Não foi possível carregar ingressos/check-ins: {(errorReal as Error)?.message || 'erro desconhecido'}
         </div>
       )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Spinner className="size-6 text-primary" />
         </div>
       ) : (
         <>
           {/* Main Ticket KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {[
-              { label: 'Tipos de Ingressos', value: allTicketTypes.length.toString(), icon: Ticket, detail: `Ocupação: ${occupancy}%`, color: 'text-primary' },
-              { label: 'Ingressos Emitidos', value: realTickets.length.toString(), icon: Users, detail: `${realTickets.filter(t => t.status === 'active').length} ativos`, color: 'text-emerald-600' },
-              { label: 'Check-ins Realizados', value: checkedInCount.toString(), icon: QrCode, detail: `${realCheckIns.length} na portaria`, color: 'text-blue-600' },
-              { label: 'Ingressos Cancelados', value: refundedTickets.length.toString(), icon: AlertTriangle, detail: `${refundedTickets.length} cancelados`, color: 'text-amber-600' },
-            ].map(k => (
-              <div key={k.label} className="tk-anim p-5 rounded-2xl bg-card border border-border shadow-sm flex flex-col justify-between">
-                <div className="flex items-center justify-between mb-3">
-                  <k.icon className={`w-4 h-4 ${k.color}`} />
-                  <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">{k.detail}</span>
-                </div>
-                <div>
-                  <div className="font-serif text-2xl text-foreground">{k.value}</div>
-                  <div className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider leading-none">{k.label}</div>
-                </div>
-              </div>
-            ))}
+          <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <Stat label="Tipos de Ingressos" value={allTicketTypes.length.toString()} hint={`Ocupação: ${occupancy}%`} />
+            <Stat label="Ingressos Emitidos" value={realTickets.length.toString()} hint={`${realTickets.filter(t => t.status === 'active').length} ativos`} />
+            <Stat label="Check-ins Realizados" value={checkedInCount.toString()} hint={`${realCheckIns.length} na portaria`} />
+            <Stat label="Ingressos Cancelados" value={refundedTickets.length.toString()} hint={`${refundedTickets.length} cancelados`} />
           </div>
 
           {activeSubTab === 'overview' && (
-            <div className="space-y-6">
-              <div className="tk-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-                <div className="p-4 border-b border-border bg-muted/20">
-                  <h3 className="text-sm font-semibold text-foreground">Tipos de Ingressos Cadastrados</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">Configuração de lotes, valores e capacidades por evento.</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left">
-                    <thead>
-                      <tr className="border-b border-border bg-muted/40">
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Ingresso</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase hidden sm:table-cell">Evento</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase text-right">Preço</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase text-right">Vendidos</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase text-right hidden lg:table-cell">Capacidade</th>
-                        <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase text-center">Status</th>
+            <div className={`${painel} overflow-hidden`}>
+              {cabecalho('Tipos de Ingressos Cadastrados', 'Configuração de lotes, valores e capacidades por evento.')}
+              {allTicketTypes.length === 0 ? vazio('Nenhum tipo de ingresso cadastrado em eventos da plataforma.') : (
+                <Tabela label="Tipos de ingressos cadastrados">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className={th}>Ingresso</th>
+                      <th className={cn(th, 'hidden sm:table-cell')}>Evento</th>
+                      <th className={cn(th, 'text-right')}>Preço</th>
+                      <th className={cn(th, 'text-right')}>Vendidos</th>
+                      <th className={cn(th, 'hidden text-right lg:table-cell')}>Capacidade</th>
+                      <th className={cn(th, 'text-center')}>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {allTicketTypes.map(t => (
+                      <tr key={t.id} className="hover:bg-[var(--ev-tint-hover)]">
+                        <td className="px-4 py-3">
+                          <div className="text-[13px] font-semibold text-foreground">{t.name}</div>
+                          <div className="text-xs text-muted-foreground sm:hidden">{t.event_title}</div>
+                        </td>
+                        <td className="hidden px-4 py-3 text-xs text-muted-foreground sm:table-cell">{t.event_title}</td>
+                        <td className="px-4 py-3 text-right text-[13px] font-semibold tabular-nums text-foreground">
+                          {Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </td>
+                        <td className="px-4 py-3 text-right text-[13px] font-semibold tabular-nums text-primary">{t.sold || 0}</td>
+                        <td className="hidden px-4 py-3 text-right text-xs tabular-nums text-muted-foreground lg:table-cell">{t.capacity || '—'}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant="secondary" className={t.is_active ? chipOk : chipNeutro}>{t.is_active ? 'Ativo' : 'Inativo'}</Badge>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {allTicketTypes.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="px-4 py-16 text-center text-xs text-muted-foreground italic">
-                            Nenhum tipo de ingresso cadastrado em eventos da plataforma.
-                          </td>
-                        </tr>
-                      ) : (
-                        allTicketTypes.map(t => (
-                          <tr key={t.id} className="hover:bg-muted/40 transition-colors">
-                            <td className="px-4 py-3">
-                              <div className="text-xs font-semibold text-foreground">{t.name}</div>
-                              <div className="text-[11px] text-muted-foreground sm:hidden">{t.event_title}</div>
-                            </td>
-                            <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{t.event_title}</td>
-                            <td className="px-4 py-3 text-right text-xs font-semibold text-foreground">
-                              {Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                            </td>
-                            <td className="px-4 py-3 text-right text-xs font-semibold text-primary">{t.sold || 0}</td>
-                            <td className="px-4 py-3 text-right text-xs text-muted-foreground hidden lg:table-cell">{t.capacity || '—'}</td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
-                                t.is_active
-                                  ? 'bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20'
-                                  : 'bg-muted text-muted-foreground border-border'
-                              }`}>
-                                {t.is_active ? 'Ativo' : 'Inativo'}
-                              </span>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                    ))}
+                  </tbody>
+                </Tabela>
+              )}
             </div>
           )}
 
           {activeSubTab === 'sales' && (
-            <div className="tk-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-border flex flex-col md:flex-row items-center justify-between gap-4 bg-muted/20">
+            <div className={`${painel} overflow-hidden`}>
+              <div className="flex flex-col items-stretch justify-between gap-3 border-b border-border bg-secondary/50 p-4 md:flex-row md:items-center">
                 <div className="relative w-full md:max-w-xs">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                  <input 
+                  <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
                     type="text"
                     placeholder="Buscar por comprador, evento ou código..."
+                    aria-label="Buscar ingresso"
                     value={salesSearch}
                     onChange={e => setSalesSearch(e.target.value)}
-                    className="w-full pl-9 pr-4 py-2 bg-background border border-border rounded-xl text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40"
+                    className="pl-9"
                   />
                 </div>
-                
-                <div className="flex gap-2 w-full md:w-auto justify-end">
-                  <select 
-                    value={salesFilterStatus}
-                    onChange={e => setSalesFilterStatus(e.target.value)}
-                    className="px-3 py-1.5 bg-background border border-border rounded-xl text-xs text-foreground focus:outline-none"
-                  >
-                    <option value="all">Todos os Status</option>
-                    <option value="active">Ativos</option>
-                    <option value="used">Utilizados (Check-in)</option>
-                    <option value="cancelled">Cancelados</option>
-                  </select>
-                </div>
+
+                <select
+                  value={salesFilterStatus}
+                  onChange={e => setSalesFilterStatus(e.target.value)}
+                  aria-label="Filtrar por status"
+                  className={cn(selectNativo, 'md:w-auto')}
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="active">Ativos</option>
+                  <option value="used">Utilizados (Check-in)</option>
+                  <option value="cancelled">Cancelados</option>
+                </select>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+              {filteredTickets.length === 0 ? vazio(realTickets.length === 0 ? 'Nenhum ingresso emitido na plataforma até o momento.' : 'Nenhum ingresso encontrado para os filtros selecionados.') : (
+                <Tabela label="Ingressos emitidos">
                   <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">ID / Código</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Comprador</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase hidden sm:table-cell">Evento / Lote</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Status</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Data</th>
-                      <th className="px-4 py-3 text-right text-[10px] font-bold text-muted-foreground uppercase">Ação</th>
+                    <tr className="border-b border-border">
+                      <th className={th}>ID / Código</th>
+                      <th className={th}>Comprador</th>
+                      <th className={cn(th, 'hidden sm:table-cell')}>Evento / Lote</th>
+                      <th className={th}>Status</th>
+                      <th className={th}>Data</th>
+                      <th className={cn(th, 'text-right')}>Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredTickets.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-4 py-16 text-center text-xs text-muted-foreground italic">
-                          {realTickets.length === 0 ? 'Nenhum ingresso emitido na plataforma até o momento.' : 'Nenhum ingresso encontrado para os filtros selecionados.'}
+                    {filteredTickets.map(tk => (
+                      <tr key={tk.id} className="hover:bg-[var(--ev-tint-hover)]">
+                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{tk.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-[13px] font-semibold text-foreground">{tk.buyer_name || 'Participante'}</div>
+                          <div className="text-xs text-muted-foreground">{tk.buyer_email || '—'}</div>
+                        </td>
+                        <td className="hidden px-4 py-3 sm:table-cell">
+                          <div className="text-xs text-foreground">{tk.events?.title || 'Evento'}</div>
+                          <div className="text-xs text-muted-foreground">{tk.ticket_types?.name || 'Ingresso'}</div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Badge variant="secondary" className={tk.status === 'active' ? chipOk : tk.status === 'used' ? chipInfo : chipErro}>
+                            {tk.status === 'active' ? 'Ativo' : tk.status === 'used' ? 'Utilizado' : 'Cancelado'}
+                          </Badge>
+                        </td>
+                        <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{new Date(tk.created_at).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-4 py-3 text-right">
+                          <Badge variant="secondary" className={chipNeutro} title="Reenvio de ingressos e reembolsos manuais desabilitados em modo de teste até a Fase 4">Modo Teste</Badge>
                         </td>
                       </tr>
-                    ) : (
-                      filteredTickets.map(tk => (
-                        <tr key={tk.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{tk.id.slice(0, 8)}</td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs font-semibold text-foreground">{tk.buyer_name || 'Participante'}</div>
-                            <div className="text-[11px] text-muted-foreground">{tk.buyer_email || '—'}</div>
-                          </td>
-                          <td className="px-4 py-3 hidden sm:table-cell">
-                            <div className="text-xs text-foreground">{tk.events?.title || 'Evento'}</div>
-                            <div className="text-[11px] text-muted-foreground">{tk.ticket_types?.name || 'Ingresso'}</div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-medium border ${
-                              tk.status === 'active'
-                                ? 'bg-green-500/10 text-green-700 dark:text-green-300 border-green-500/20'
-                                : tk.status === 'used'
-                                ? 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/20'
-                                : 'bg-red-500/10 text-red-700 dark:text-red-300 border-red-500/20'
-                            }`}>
-                              {tk.status === 'active' ? 'Ativo' : tk.status === 'used' ? 'Utilizado' : 'Cancelado'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(tk.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              disabled
-                              className="px-2.5 py-1 text-[11px] font-medium bg-muted text-muted-foreground rounded-lg opacity-60 cursor-not-allowed border border-border"
-                              title="Reenvio de ingressos e reembolsos manuais desabilitados em modo de teste até a Fase 4"
-                            >
-                              Modo Teste
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
-                </table>
-              </div>
+                </Tabela>
+              )}
             </div>
           )}
 
           {activeSubTab === 'checkin' && (
-            <div className="tk-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-border bg-muted/20">
-                <h3 className="text-sm font-semibold text-foreground">Registro de Check-in em Portaria</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Leituras de QR code validadas pelos scanners na entrada dos eventos.</p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+            <div className={`${painel} overflow-hidden`}>
+              {cabecalho('Registro de Check-in em Portaria', 'Leituras de QR code validadas pelos scanners na entrada dos eventos.')}
+              {realCheckIns.length === 0 ? vazio('Nenhum check-in registrado na portaria até o momento.') : (
+                <Tabela label="Check-ins na portaria">
                   <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Ingresso ID</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Participante</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Evento</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Horário do Check-in</th>
+                    <tr className="border-b border-border">
+                      <th className={th}>Ingresso ID</th>
+                      <th className={th}>Participante</th>
+                      <th className={th}>Evento</th>
+                      <th className={th}>Horário do Check-in</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {realCheckIns.length === 0 ? (
-                      <tr>
-                        <td colSpan={4} className="px-4 py-16 text-center text-xs text-muted-foreground italic">
-                          Nenhum check-in registrado na portaria até o momento.
+                    {realCheckIns.map(ci => (
+                      <tr key={ci.id} className="hover:bg-[var(--ev-tint-hover)]">
+                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{ci.ticket_id.slice(0, 8)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-[13px] font-semibold text-foreground">{ci.tickets?.buyer_name || 'Participante'}</div>
+                          <div className="text-xs text-muted-foreground">{ci.tickets?.buyer_email || '—'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-foreground">{ci.events?.title || 'Evento'}</td>
+                        <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">
+                          {new Date(ci.checked_in_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
                         </td>
                       </tr>
-                    ) : (
-                      realCheckIns.map(ci => (
-                        <tr key={ci.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{ci.ticket_id.slice(0, 8)}</td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs font-semibold text-foreground">{ci.tickets?.buyer_name || 'Participante'}</div>
-                            <div className="text-[11px] text-muted-foreground">{ci.tickets?.buyer_email || '—'}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-foreground">{ci.events?.title || 'Evento'}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">
-                            {new Date(ci.checked_in_at).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
-                </table>
-              </div>
+                </Tabela>
+              )}
             </div>
           )}
 
           {activeSubTab === 'refunds' && (
-            <div className="tk-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-border bg-muted/20">
-                <h3 className="text-sm font-semibold text-foreground">Ingressos Cancelados ou Reembolsados</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">Auditoria de ingressos que foram cancelados ou invalidados.</p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left">
+            <div className={`${painel} overflow-hidden`}>
+              {cabecalho('Ingressos Cancelados ou Reembolsados', 'Auditoria de ingressos que foram cancelados ou invalidados.')}
+              {refundedTickets.length === 0 ? vazio('Nenhum ingresso cancelado ou reembolsado registrado.') : (
+                <Tabela label="Ingressos cancelados ou reembolsados">
                   <thead>
-                    <tr className="border-b border-border bg-muted/40">
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Código</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Comprador</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Evento</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase">Data</th>
-                      <th className="px-4 py-3 text-[10px] font-bold text-muted-foreground uppercase text-center">Status</th>
+                    <tr className="border-b border-border">
+                      <th className={th}>Código</th>
+                      <th className={th}>Comprador</th>
+                      <th className={th}>Evento</th>
+                      <th className={th}>Data</th>
+                      <th className={cn(th, 'text-center')}>Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {refundedTickets.length === 0 ? (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-16 text-center text-xs text-muted-foreground italic">
-                          Nenhum ingresso cancelado ou reembolsado registrado.
+                    {refundedTickets.map(rf => (
+                      <tr key={rf.id} className="hover:bg-[var(--ev-tint-hover)]">
+                        <td className="px-4 py-3 font-mono text-[11px] text-muted-foreground">{rf.id.slice(0, 8)}</td>
+                        <td className="px-4 py-3">
+                          <div className="text-[13px] font-semibold text-foreground">{rf.buyer_name || 'Participante'}</div>
+                          <div className="text-xs text-muted-foreground">{rf.buyer_email || '—'}</div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-foreground">{rf.events?.title || 'Evento'}</td>
+                        <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{new Date(rf.created_at).toLocaleDateString('pt-BR')}</td>
+                        <td className="px-4 py-3 text-center">
+                          <Badge variant="secondary" className={chipErro}>{rf.status === 'refunded' ? 'Reembolsado' : 'Cancelado'}</Badge>
                         </td>
                       </tr>
-                    ) : (
-                      refundedTickets.map(rf => (
-                        <tr key={rf.id} className="hover:bg-muted/40 transition-colors">
-                          <td className="px-4 py-3 font-mono text-[10px] text-muted-foreground">{rf.id.slice(0, 8)}</td>
-                          <td className="px-4 py-3">
-                            <div className="text-xs font-semibold text-foreground">{rf.buyer_name || 'Participante'}</div>
-                            <div className="text-[11px] text-muted-foreground">{rf.buyer_email || '—'}</div>
-                          </td>
-                          <td className="px-4 py-3 text-xs text-foreground">{rf.events?.title || 'Evento'}</td>
-                          <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(rf.created_at).toLocaleDateString('pt-BR')}</td>
-                          <td className="px-4 py-3 text-center">
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-red-500/10 text-red-700 dark:text-red-300 border border-red-500/20">
-                              {rf.status === 'refunded' ? 'Reembolsado' : 'Cancelado'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    ))}
                   </tbody>
-                </table>
-              </div>
+                </Tabela>
+              )}
             </div>
           )}
         </>

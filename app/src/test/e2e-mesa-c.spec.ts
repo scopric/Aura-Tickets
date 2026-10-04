@@ -122,7 +122,7 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
     await expect(page.getByRole('img', { name: 'Foto de Carla Dias' })).toHaveCount(0)
     await expect(page.locator('img[src^="https://exemplo.invalido"]')).toHaveCount(0)
 
-    const linha = (nome: string) => page.locator('div.rounded-xl', { hasText: nome }).filter({ has: page.getByRole('button', { name: 'Aprovar' }) })
+    const linha = (nome: string) => page.locator('[data-foto]', { hasText: nome }).filter({ has: page.getByRole('button', { name: 'Aprovar' }) })
     await linha('Ana Souza').getByRole('button', { name: 'Aprovar' }).click()
     await expect(page.getByText('Foto aprovada.')).toBeVisible()
     await expect(page.getByText('Ana Souza')).toHaveCount(0)
@@ -153,7 +153,7 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
       ],
     })
     await page.goto(`${ALPHA}/admin/match-de-mesa`)
-    const linha = (nome: string) => page.locator('div.rounded-xl', { hasText: nome }).filter({ has: page.getByRole('button', { name: 'Aprovar' }) })
+    const linha = (nome: string) => page.locator('[data-foto]', { hasText: nome }).filter({ has: page.getByRole('button', { name: 'Aprovar' }) })
 
     await expect(linha('Ana Souza').getByText('Contestada pela pessoa')).toBeVisible()
     await expect(linha('Ana Souza').getByText(/IA recusou: nudez, contato escrito, parece pessoa pública, bloqueada pelo filtro do Google/)).toBeVisible()

@@ -1,5 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Shield, Building2, BadgeCheck, Calendar, Search, Loader2 } from 'lucide-react'
+import { iniciais } from '../../hooks/useConversas'
+import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, Stat, chipAviso, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { toast } from 'sonner'
 
@@ -109,134 +117,119 @@ export default function AdminProducers() {
     : producers
 
   const kpis = [
-    { label: 'Produtores', value: producers.length, icon: Shield },
-    { label: 'Cadastro de empresa completo', value: producers.filter(p => p.company).length, icon: Building2 },
-    { label: 'Verificados', value: producers.filter(p => p.company?.is_verified).length, icon: BadgeCheck },
-    { label: 'Eventos no total', value: producers.reduce((s, p) => s + p.events, 0), icon: Calendar },
+    { label: 'Produtores', value: producers.length },
+    { label: 'Cadastro de empresa completo', value: producers.filter(p => p.company).length },
+    { label: 'Verificados', value: producers.filter(p => p.company?.is_verified).length },
+    { label: 'Eventos no total', value: producers.reduce((s, p) => s + p.events, 0) },
   ]
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-foreground">Produtores</h1>
-        <p className="text-sm text-muted-foreground mt-1">Contas com papel de produtor e a verificação do cadastro de empresa</p>
+      <PageHeader title="Produtores" description="Contas com papel de produtor e a verificação do cadastro de empresa" />
+
+      <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {kpis.map(k => <Stat key={k.label} label={k.label} value={isLoading ? '…' : k.value} />)}
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {kpis.map(k => (
-          <div key={k.label} className="p-5 rounded-2xl bg-card border border-border">
-            <k.icon className="w-4 h-4 text-primary mb-3" />
-            <div className="font-serif text-2xl text-foreground">{isLoading ? '…' : k.value}</div>
-            <div className="text-[11px] text-muted-foreground mt-1 uppercase tracking-wider">{k.label}</div>
-          </div>
-        ))}
-      </div>
-
-      <div className="relative max-w-md mb-6">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <input
+      <div className="relative mb-6 max-w-md">
+        <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+        <Input
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Buscar por nome, e-mail ou empresa..."
           aria-label="Buscar produtor"
-          className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
+          className="pl-9"
         />
       </div>
 
       {loadError && (
-        <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+        <div role="alert" className={cn(alertaErro, 'mb-4')}>
           Não foi possível carregar os produtores: {loadError}
         </div>
       )}
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Spinner className="size-6 text-primary" />
         </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          title={producers.length === 0 ? 'Nenhum produtor cadastrado.' : 'Nenhum produtor encontrado com essa busca.'}
+          description={producers.length === 0 ? undefined : 'Tente outro nome, e-mail ou empresa.'}
+        />
       ) : (
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border">
-                  {['Produtor', 'Empresa / CNPJ', 'Eventos', 'Verificação', 'Cadastro', ''].map((h, i) => (
-                    <th key={i} className={`text-left px-4 py-3 text-[11px] font-medium text-muted-foreground uppercase ${i === 1 ? 'hidden md:table-cell' : i === 2 || i === 4 ? 'hidden lg:table-cell' : ''}`}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-12 text-center text-sm text-muted-foreground italic">
-                      {producers.length === 0 ? 'Nenhum produtor cadastrado.' : 'Nenhum produtor encontrado com essa busca.'}
+        <div className={`${painel} overflow-hidden`}>
+          <Tabela label="Lista de produtores">
+            <thead>
+              <tr className="border-b border-border">
+                {['Produtor', 'Empresa / CNPJ', 'Eventos', 'Verificação', 'Cadastro', ''].map((h, i) => (
+                  <th key={i} className={cn(th, i === 1 ? 'hidden md:table-cell' : i === 2 || i === 4 ? 'hidden lg:table-cell' : '')}>{h || <span className="sr-only">Ações</span>}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(p => {
+                const c = p.company
+                const saving = savingId === p.id
+                return (
+                  <tr key={p.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {/* sem foto: iniciais locais (o nome não vai mais a api.dicebear.com; LGPD) */}
+                        {p.avatar_url
+                          ? <img src={p.avatar_url} alt="" className="size-9 rounded-full bg-muted object-cover" />
+                          : <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{iniciais(p.full_name || 'Produtor')}</span>}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground">{p.full_name || 'Sem nome'}</div>
+                          <div className="text-xs text-muted-foreground">{p.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      {c ? (
+                        <div>
+                          <div className="text-sm text-foreground">{c.company_name}</div>
+                          <div className="text-xs text-muted-foreground">CNPJ {c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">cadastro incompleto</span>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 text-sm tabular-nums text-foreground lg:table-cell">{p.events}</td>
+                    <td className="px-4 py-3">
+                      {!c ? (
+                        <Badge variant="secondary" className={chipNeutro}>Sem cadastro</Badge>
+                      ) : c.is_verified ? (
+                        <Badge variant="secondary" className={chipOk}><I.Verificado />Verificado</Badge>
+                      ) : (
+                        <Badge variant="secondary" className={chipAviso}>Não verificado</Badge>
+                      )}
+                    </td>
+                    <td className="hidden px-4 py-3 text-xs tabular-nums text-muted-foreground lg:table-cell">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {!c && (
+                          <Button variant="outline" size="sm" onClick={() => createProfile(p)} loading={saving}>
+                            Completar cadastro
+                          </Button>
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setVerified(p, !c?.is_verified)}
+                          disabled={!c}
+                          loading={saving}
+                          title={!c ? 'Crie o cadastro de empresa primeiro' : undefined}
+                        >
+                          {c?.is_verified ? 'Remover verificação' : 'Verificar'}
+                        </Button>
+                      </div>
                     </td>
                   </tr>
-                ) : filtered.map(p => {
-                  const c = p.company
-                  const saving = savingId === p.id
-                  return (
-                    <tr key={p.id} className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <img
-                            src={p.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.full_name || 'Produtor')}`}
-                            alt=""
-                            className="w-9 h-9 rounded-full object-cover bg-muted"
-                          />
-                          <div>
-                            <div className="text-sm text-foreground font-medium">{p.full_name || 'Sem nome'}</div>
-                            <div className="text-[11px] text-muted-foreground">{p.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        {c ? (
-                          <div>
-                            <div className="text-sm text-foreground">{c.company_name}</div>
-                            <div className="text-[11px] text-muted-foreground">CNPJ {c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">cadastro incompleto</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-sm text-foreground">{p.events}</td>
-                      <td className="px-4 py-3">
-                        {!c ? (
-                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-muted text-muted-foreground border-border">Sem cadastro</span>
-                        ) : c.is_verified ? (
-                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-green-50 text-green-700 border-green-100 dark:bg-green-500/10 dark:text-green-300 dark:border-green-500/20">Verificado</span>
-                        ) : (
-                          <span className="px-2 py-0.5 text-[11px] font-medium rounded-full border bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">Não verificado</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell text-xs text-muted-foreground">{new Date(p.created_at).toLocaleDateString('pt-BR')}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {!c && (
-                            <button
-                              onClick={() => createProfile(p)}
-                              disabled={saving}
-                              className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              {saving ? 'Gravando…' : 'Completar cadastro'}
-                            </button>
-                          )}
-                          <button
-                            onClick={() => setVerified(p, !c?.is_verified)}
-                            disabled={!c || saving}
-                            title={!c ? 'Crie o cadastro de empresa primeiro' : undefined}
-                            className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-border bg-card text-foreground hover:border-primary/40 hover:text-primary transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-foreground disabled:hover:border-border"
-                          >
-                            {saving ? 'Gravando…' : c?.is_verified ? 'Remover verificação' : 'Verificar'}
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+                )
+              })}
+            </tbody>
+          </Tabela>
         </div>
       )}
     </div>
