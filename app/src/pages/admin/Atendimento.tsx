@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import {
-  AlertTriangle, ArrowLeft, Bot, CheckCircle2, ChevronDown, Inbox, Info, Loader2, MessageSquare, RotateCcw, Scale, Search, User, UserCheck, UserX, X,
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { atualizarConversa, depois, iniciais, marcarLida, mensagemDeErro, quando } from '../../hooks/useConversas'
 import ChatThread, { BotaoSom } from '../../components/chat/ChatThread'
+import { Badge } from '../../components/ui/badge'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Spinner } from '../../components/ui/spinner'
+import { EmptyState, chipAviso, chipErro, chipInfo, chipNeutro, selectNativo } from '../../components/producer/ui'
+import { cn } from '../../lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
 
 // Caixa de entrada do atendimento (etapa 1a do chat estilo Intercom), em 3 colunas:
@@ -17,14 +21,14 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 // Abertas, Minhas, Sem dono e Urgentes são só as conversas com a equipe; "Com o assistente" são as
 // abertas que o assistente ainda atende (20261003_chat_bot.sql)
 type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'assistente' | 'resolvidas'
-const FILTROS: { id: Filtro; rotulo: string; icone: typeof Inbox }[] = [
-  { id: 'abertas', rotulo: 'Abertas', icone: Inbox },
-  { id: 'minhas', rotulo: 'Minhas', icone: User },
-  { id: 'sem_dono', rotulo: 'Sem dono', icone: UserX },
-  { id: 'urgentes', rotulo: 'Urgentes', icone: AlertTriangle },
-  { id: 'mediacao', rotulo: 'Mediação', icone: Scale },
-  { id: 'assistente', rotulo: 'Com o assistente', icone: Bot },
-  { id: 'resolvidas', rotulo: 'Resolvidas', icone: CheckCircle2 },
+const FILTROS: { id: Filtro; rotulo: string; icone: I.IconeEvokaa }[] = [
+  { id: 'abertas', rotulo: 'Abertas', icone: I.CaixaDeEntrada },
+  { id: 'minhas', rotulo: 'Minhas', icone: I.Conta },
+  { id: 'sem_dono', rotulo: 'Sem dono', icone: I.PessoaRemover },
+  { id: 'urgentes', rotulo: 'Urgentes', icone: I.Alerta },
+  { id: 'mediacao', rotulo: 'Mediação', icone: I.Balanca },
+  { id: 'assistente', rotulo: 'Com o assistente', icone: I.Bot },
+  { id: 'resolvidas', rotulo: 'Resolvidas', icone: I.Verificado },
 ]
 
 interface LinhaInbox {
@@ -73,8 +77,10 @@ interface Extra {
   plano: { plan: string; is_active: boolean; expires_at: string | null } | null
 }
 
-const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-const selectCls = `w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-sm text-foreground disabled:opacity-50 ${foco}`
+const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+// selo pequeno da lista de conversas (11 px); a cor vem do chip*
+const selo = 'gap-0.5 px-1.5 py-px text-[11px]'
+const selectCls = cn(selectNativo, 'disabled:cursor-not-allowed disabled:opacity-50')
 const ORIGEM: Record<string, string> = { site: 'Site', app: 'App', migracao: 'Chat antigo' }
 const ROTULO_NOTA = ['', '😞 Ruim', '😐 Regular', '😊 Ótimo']
 const brl = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -168,7 +174,7 @@ function useOpcoes() {
 function Secao({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
-      <h3 className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{titulo}</h3>
+      <h3 className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{titulo}</h3>
       {children}
     </section>
   )
@@ -278,20 +284,20 @@ export default function Atendimento() {
         <div className="space-y-2 border-b border-border p-3">
           <div className="flex items-center gap-1 px-1">
             <h1 className="flex items-center gap-2 text-base font-semibold">
-              <MessageSquare className="h-4 w-4 text-primary" aria-hidden="true" /> Atendimento
+              <I.Conversa size={16} className="text-primary" aria-hidden="true" /> Atendimento
             </h1>
             <BotaoSom className="ml-auto text-muted-foreground hover:bg-muted hover:text-foreground" />
           </div>
           <DropdownMenu>
-            <DropdownMenuTrigger className={`flex w-full items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-2 text-sm font-medium ${foco}`} aria-label={`Filtro: ${atual.rotulo}`}>
-              <atual.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {atual.rotulo}
-              <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <DropdownMenuTrigger className={`flex h-10 w-full items-center gap-2 rounded-md border border-input bg-card px-3 text-sm font-medium ${foco}`} aria-label={`Filtro: ${atual.rotulo}`}>
+              <atual.icone size={16} className="shrink-0" aria-hidden="true" /> {atual.rotulo}
+              <I.ChevronBaixo size={16} className="ml-auto shrink-0 text-muted-foreground" aria-hidden="true" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
               <DropdownMenuRadioGroup value={filtro} onValueChange={(v) => setFiltro(v as Filtro)}>
                 {FILTROS.map((f) => (
                   <DropdownMenuRadioItem key={f.id} value={f.id}>
-                    <f.icone className="h-4 w-4 shrink-0" aria-hidden="true" /> {f.rotulo}
+                    <f.icone size={16} className="shrink-0" aria-hidden="true" /> {f.rotulo}
                   </DropdownMenuRadioItem>
                 ))}
               </DropdownMenuRadioGroup>
@@ -299,21 +305,21 @@ export default function Atendimento() {
           </DropdownMenu>
           <label htmlFor="atendimento-busca" className="sr-only">Buscar por nome, e-mail, telefone ou texto</label>
           <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <input
+            <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <Input
               id="atendimento-busca"
               type="search"
               value={textoBusca}
               onChange={(e) => setTextoBusca(e.target.value)}
               placeholder="Nome, e-mail, telefone ou texto"
-              className={`w-full rounded-lg border border-border bg-background py-2 pl-8 pr-3 text-sm ${foco}`}
+              className="pl-9"
             />
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto" aria-busy={inbox.isFetching}>
           {inbox.isLoading ? (
             <div className="space-y-2 p-3" aria-label="Carregando conversas">
-              {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-muted" />)}
+              {[0, 1, 2, 3].map((i) => <div key={i} className="h-16 animate-pulse rounded-[10px] bg-secondary" />)}
             </div>
           ) : inbox.isError ? (
             <div role="alert" className="p-4 text-sm text-muted-foreground">
@@ -321,9 +327,8 @@ export default function Atendimento() {
               <button type="button" onClick={() => inbox.refetch()} className={`font-semibold text-foreground underline ${foco}`}>Tentar de novo</button>
             </div>
           ) : !inbox.data?.length ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-sm text-muted-foreground">
-              <Inbox className="h-8 w-8 opacity-50" aria-hidden="true" />
-              {busca ? 'Nenhuma conversa encontrada para essa busca.' : 'Nenhuma conversa neste filtro.'}
+            <div className="p-3">
+              <EmptyState title={busca ? 'Nenhuma conversa encontrada para essa busca.' : 'Nenhuma conversa neste filtro.'} />
             </div>
           ) : (
             <>
@@ -339,32 +344,32 @@ export default function Atendimento() {
                       type="button"
                       onClick={() => abrir(l.id)}
                       aria-current={sel === l.id ? 'true' : undefined}
-                      className={`flex w-full gap-3 px-3 py-3 text-left ${foco} ${sel === l.id ? 'bg-primary/10' : 'hover:bg-muted/60'}`}
+                      className={`flex w-full gap-3 px-3 py-3 text-left ${foco} ${sel === l.id ? 'bg-[var(--ev-brand-soft)]' : 'hover:bg-secondary'}`}
                     >
-                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-muted text-xs font-bold">{iniciais(l.contact_name ?? '?')}</span>
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-secondary text-xs font-semibold text-foreground">{iniciais(l.contact_name ?? '?')}</span>
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
                           <span className={`truncate text-sm ${l.nao_lida ? 'font-bold' : 'font-medium'}`}>{l.contact_name ?? 'Sem nome'}</span>
-                          <span className="ml-auto shrink-0 text-[11px] text-muted-foreground">
+                          <span className="ml-auto shrink-0 text-[11px] tabular-nums text-muted-foreground">
                             {aguardando && l.last_customer_message_at ? `aguarda ${quando(l.last_customer_message_at)}` : quando(l.last_message_at)}
                           </span>
                         </span>
                         <span className={`block truncate text-xs ${l.nao_lida ? 'text-foreground' : 'text-muted-foreground'}`}>{l.last_message_preview ?? ''}</span>
                         <span className="mt-1 flex flex-wrap items-center gap-1">
-                          {l.nao_lida && <span className="rounded-full bg-primary px-1.5 py-px text-[10px] font-semibold text-primary-foreground">Não lida</span>}
-                          {l.priority === 'urgent' && <span className="rounded-full bg-red-600/10 px-1.5 py-px text-[10px] font-semibold text-red-700 dark:text-red-300">Urgente</span>}
-                          {l.mediation && <span className="rounded-full bg-amber-500/15 px-1.5 py-px text-[10px] font-semibold text-amber-800 dark:text-amber-200">Mediação</span>}
+                          {l.nao_lida && <Badge className={selo}>Não lida</Badge>}
+                          {l.priority === 'urgent' && <Badge variant="secondary" className={cn(selo, chipErro)}>Urgente</Badge>}
+                          {l.mediation && <Badge variant="secondary" className={cn(selo, chipAviso)}>Mediação</Badge>}
                           {l.bot_state === 'bot' && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-sky-500/15 px-1.5 py-px text-[10px] font-semibold text-sky-800 dark:text-sky-200">
-                              <Bot className="h-3 w-3" aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}
-                            </span>
+                            <Badge variant="secondary" className={cn(selo, chipInfo)}>
+                              <I.Bot aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}
+                            </Badge>
                           )}
-                          {l.department_name && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] text-muted-foreground">{l.department_name}</span>}
-                          {!l.assignee_id && l.status === 'open' && l.bot_state === 'humano' && <span className="rounded-full border border-border px-1.5 py-px text-[10px] text-muted-foreground">Sem dono</span>}
+                          {l.department_name && <Badge variant="secondary" className={cn(selo, chipNeutro)}>{l.department_name}</Badge>}
+                          {!l.assignee_id && l.status === 'open' && l.bot_state === 'humano' && <Badge variant="outline" className={cn(selo, 'text-muted-foreground')}>Sem dono</Badge>}
                           {l.assignee_id && (
-                            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-1.5 py-px text-[10px] text-foreground">
-                              <UserCheck className="h-3 w-3" aria-hidden="true" />{l.assignee_id === user?.id ? 'Você' : primeiroNome(atendentes.find((a) => a.id === l.assignee_id)) ?? 'Com dono'}
-                            </span>
+                            <Badge variant="outline" className={selo}>
+                              <I.PessoaCheck aria-hidden="true" />{l.assignee_id === user?.id ? 'Você' : primeiroNome(atendentes.find((a) => a.id === l.assignee_id)) ?? 'Com dono'}
+                            </Badge>
                           )}
                         </span>
                       </span>
@@ -382,14 +387,14 @@ export default function Atendimento() {
       <div className={`${sel ? 'flex' : 'hidden lg:flex'} relative min-w-0 flex-1 flex-col`}>
         {!sel ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
-            <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/10 text-primary">
-              <MessageSquare className="h-7 w-7" aria-hidden="true" />
+            <span className="grid h-14 w-14 place-items-center rounded-full bg-[var(--ev-brand-soft)] text-primary">
+              <I.Conversa size={28} aria-hidden="true" />
             </span>
             <p className="text-base font-semibold">Escolha uma conversa</p>
             <p className="max-w-xs text-sm text-muted-foreground">As novas chegam em tempo real. Notas internas ficam em amarelo e o cliente não vê.</p>
           </div>
         ) : conversa.isLoading ? (
-          <div className="flex h-full items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" aria-label="Carregando conversa" /></div>
+          <div className="flex h-full items-center justify-center"><Spinner className="size-6 text-primary" aria-label="Carregando conversa" /></div>
         ) : !c ? (
           <div role="alert" className="p-6 text-sm text-muted-foreground">
             {conversa.isError ? `Não foi possível abrir a conversa: ${mensagemDeErro(conversa.error)}` : 'Conversa não encontrada ou sem acesso.'}
@@ -397,9 +402,9 @@ export default function Atendimento() {
         ) : (
           <>
             <header className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <button type="button" onClick={() => setSel(null)} aria-label="Voltar para a lista" className={`rounded-lg p-1.5 hover:bg-muted lg:hidden ${foco}`}>
-                <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setSel(null)} aria-label="Voltar para a lista" className="lg:hidden">
+                <I.SetaEsquerda aria-hidden="true" />
+              </Button>
               <div className="min-w-0 flex-1">
                 <h2 className="truncate text-sm font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</h2>
                 <p className="truncate text-xs text-muted-foreground">
@@ -410,22 +415,22 @@ export default function Atendimento() {
                 </p>
               </div>
               {c.assignee_id !== user?.id && c.status === 'open' && (
-                <button type="button" disabled={salvando} onClick={() => mudar({ assignee_id: user!.id }, 'Você assumiu a conversa')} className={`hidden shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 sm:flex ${foco}`}>
-                  <UserCheck className="h-3.5 w-3.5" aria-hidden="true" /> Assumir
-                </button>
+                <Button type="button" variant="outline" size="sm" disabled={salvando} onClick={() => mudar({ assignee_id: user!.id }, 'Você assumiu a conversa')} className="hidden sm:inline-flex">
+                  <I.PessoaCheck aria-hidden="true" /> Assumir
+                </Button>
               )}
               {c.status === 'open' ? (
-                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'resolved' }, 'Conversa resolvida')} className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50 ${foco}`}>
-                  <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Resolver
-                </button>
+                <Button type="button" size="sm" disabled={salvando} onClick={() => mudar({ status: 'resolved' }, 'Conversa resolvida')}>
+                  <I.Verificado aria-hidden="true" /> Resolver
+                </Button>
               ) : (
-                <button type="button" disabled={salvando} onClick={() => mudar({ status: 'open' }, 'Conversa reaberta')} className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-border px-3 py-1.5 text-xs font-semibold hover:bg-muted disabled:opacity-50 ${foco}`}>
-                  <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reabrir
-                </button>
+                <Button type="button" variant="outline" size="sm" disabled={salvando} onClick={() => mudar({ status: 'open' }, 'Conversa reaberta')}>
+                  <I.Restaurar aria-hidden="true" /> Reabrir
+                </Button>
               )}
-              <button ref={botaoDetalhes} type="button" onClick={() => setDetalhes((d) => !d)} aria-expanded={detalhes} aria-controls="atendimento-contato" aria-label="Detalhes do contato" className={`shrink-0 rounded-lg p-1.5 hover:bg-muted xl:hidden ${foco}`}>
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </button>
+              <Button ref={botaoDetalhes} type="button" variant="ghost" size="icon-sm" onClick={() => setDetalhes((d) => !d)} aria-expanded={detalhes} aria-controls="atendimento-contato" aria-label="Detalhes do contato" className="xl:hidden">
+                <I.Info aria-hidden="true" />
+              </Button>
             </header>
             <ChatThread
               key={c.id}
@@ -453,14 +458,14 @@ export default function Atendimento() {
           className={`${detalhes ? 'absolute inset-y-0 right-0 z-20 flex shadow-xl' : 'hidden'} w-72 max-w-full shrink-0 flex-col gap-5 overflow-y-auto border-l border-border bg-background p-4 xl:static xl:flex xl:bg-card xl:shadow-none`}
         >
           <div className="flex items-start gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-primary/10 text-sm font-bold text-primary">{iniciais(c.chat_contacts?.name ?? '?')}</span>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--ev-brand-soft)] text-sm font-semibold text-primary">{iniciais(c.chat_contacts?.name ?? '?')}</span>
             <div className="min-w-0 flex-1">
               <p className="truncate font-semibold">{c.chat_contacts?.name ?? 'Sem nome'}</p>
               <p className="text-xs text-muted-foreground">Desde {data(c.created_at)}</p>
             </div>
-            <button ref={botaoFechar} type="button" onClick={fecharDetalhes} aria-label="Fechar detalhes" className={`rounded-lg p-1 hover:bg-muted xl:hidden ${foco}`}>
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
+            <Button ref={botaoFechar} type="button" variant="ghost" size="icon-sm" onClick={fecharDetalhes} aria-label="Fechar detalhes" className="xl:hidden">
+              <I.Fechar aria-hidden="true" />
+            </Button>
           </div>
 
           <Secao titulo="Contato">
@@ -485,7 +490,7 @@ export default function Atendimento() {
                   )}
                   {atendentes.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.id === user?.id ? ' (você)' : ''}</option>)}
                 </select>
-                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-red-700 dark:text-red-300">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes)}</p>}
+                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes)}</p>}
               </div>
               <div>
                 <label htmlFor="atendimento-setor" className="text-xs text-muted-foreground">Setor</label>
@@ -507,7 +512,7 @@ export default function Atendimento() {
           {!c.user_id ? (
             <p className="text-xs text-muted-foreground">Conversa sem conta vinculada (migrada do chat antigo): sem histórico.</p>
           ) : extra.isLoading ? (
-            <div className="space-y-2" aria-label="Carregando histórico">{[0, 1].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-muted" />)}</div>
+            <div className="space-y-2" aria-label="Carregando histórico">{[0, 1].map((i) => <div key={i} className="h-12 animate-pulse rounded-lg bg-secondary" />)}</div>
           ) : extra.isError ? (
             <p role="alert" className="text-xs text-muted-foreground">Não foi possível carregar o histórico da conta: {mensagemDeErro(extra.error)}</p>
           ) : extra.data && (
@@ -517,7 +522,7 @@ export default function Atendimento() {
                   <ul className="space-y-1">
                     {extra.data.anteriores.map((a) => (
                       <li key={a.id}>
-                        <button type="button" onClick={() => abrir(a.id)} className={`w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted ${foco}`}>
+                        <button type="button" onClick={() => abrir(a.id)} className={`w-full rounded-lg px-2 py-1.5 text-left text-xs hover:bg-secondary ${foco}`}>
                           <span className="block truncate font-medium">{a.chat_topics?.label ?? 'Conversa'}</span>
                           <span className="block truncate text-muted-foreground">{data(a.created_at)} · {a.status === 'open' ? 'aberta' : 'resolvida'}</span>
                         </button>

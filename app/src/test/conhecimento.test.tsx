@@ -56,7 +56,7 @@ describe('conhecimento: artigos', () => {
   it('lista com situação, busca e filtro; rascunho mostra o motivo no editor', async () => {
     montar()
     expect(await screen.findByText('Esqueci minha senha. Como recupero?')).toBeInTheDocument()
-    expect(screen.getByRole('tab', { name: 'Artigos (1 publicados)' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Artigos (1 publicados)' })).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Situação'), { target: { value: 'draft' } })
     expect(screen.queryByText('Esqueci minha senha. Como recupero?')).toBeNull()
     expect(screen.getByText('Como cancelo meu ingresso ou peço reembolso?')).toBeInTheDocument()
@@ -143,7 +143,7 @@ describe('conhecimento: artigos', () => {
 describe('conhecimento: dicionário e perguntas sem resposta', () => {
   it('forma é gravada minúscula e sem acento', async () => {
     montar()
-    fireEvent.click(screen.getByRole('tab', { name: 'Dicionário' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Dicionário' }))
     expect(await screen.findByText('vc')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Nova forma' }))
     fireEvent.change(screen.getByLabelText(/Forma/), { target: { value: 'Ñ!' } })
@@ -155,7 +155,7 @@ describe('conhecimento: dicionário e perguntas sem resposta', () => {
 
   it('pergunta sem resposta: "Criar artigo" preenche e, ao salvar, tira a pergunta da lista', async () => {
     montar()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Perguntas sem resposta (1)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Perguntas sem resposta (1)' }))
     expect(screen.getByText('qdo abre o portao')).toBeInTheDocument()
     expect(screen.getByText(/3 vezes/)).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Criar artigo para: qdo abre o portao' }))
@@ -169,7 +169,7 @@ describe('conhecimento: dicionário e perguntas sem resposta', () => {
 
   it('"Acrescentar ao dicionário" abre a forma com a 1ª palavra', async () => {
     montar()
-    fireEvent.click(await screen.findByRole('tab', { name: 'Perguntas sem resposta (1)' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Perguntas sem resposta (1)' }))
     fireEvent.click(screen.getByRole('button', { name: 'Acrescentar ao dicionário: qdo abre o portao' }))
     expect(screen.getByLabelText(/Forma/)).toHaveValue('qdo')
   })

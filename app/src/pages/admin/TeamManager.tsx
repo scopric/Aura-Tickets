@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Shield, UserPlus, Search, Trash2, X, Loader2, 
-  User, Mail, ShieldAlert, Award, ChevronRight, Save, RefreshCw, Send
-} from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, chipAviso, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { alertaAviso, alertaErro, painel } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { chamarConvite, mensagemDe } from '../../lib/convite'
@@ -298,145 +303,146 @@ export default function AdminTeamManager() {
 
   return (
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
-      {/* Title */}
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Equipe Evokaa</h1>
-        <p className="text-sm text-espresso/70 mt-1">Convide colaboradores e ajuste as áreas do painel que cada um acessa.</p>
-      </div>
+      <PageHeader title="Equipe Evokaa" description="Convide colaboradores e ajuste as áreas do painel que cada um acessa." />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Admins List (Left/Center Col) */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-            <h2 className="font-serif text-xl text-espresso mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5 text-plum" /> Colaboradores da Evokaa
+          <section className={cn('anim-team', painel, 'p-4 sm:p-6')}>
+            <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold leading-5 tracking-normal text-foreground">
+              <I.Escudo size={16} className="text-primary" aria-hidden="true" /> Colaboradores da Evokaa
             </h2>
 
             {loadError && (
-              <div role="alert" className="mb-4 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+              <div role="alert" className={cn(alertaErro, 'mb-4')}>
                 Não foi possível carregar a equipe: {loadError}
               </div>
             )}
             {isLoading ? (
               <div className="flex justify-center py-20">
-                <Loader2 className="w-8 h-8 text-plum animate-spin" />
+                <Spinner className="size-8 text-primary" />
               </div>
             ) : admins.length === 0 ? (
-              <div className="text-center py-20 text-espresso/70 italic text-sm">
-                Nenhum colaborador cadastrado.
-              </div>
+              <EmptyState title="Nenhum colaborador cadastrado." />
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {admins.map(admin => {
                   const isSuper = admin.admin_permissions?.includes('super_admin')
                   const permsCount = admin.admin_permissions?.length || 0
 
                   return (
-                    <div 
+                    <button
+                      type="button"
                       key={admin.id}
                       onClick={() => handleEditPermissions(admin)}
-                      className={`p-4 rounded-xl border transition-all ${canEdit && admin.id !== user?.id ? 'cursor-pointer' : 'cursor-default'} flex items-center justify-between gap-4 ${
+                      aria-pressed={selectedAdmin?.id === admin.id}
+                      className={cn(
+                        'flex w-full items-center justify-between gap-4 rounded-[10px] border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                        canEdit && admin.id !== user?.id ? 'cursor-pointer' : 'cursor-default',
                         selectedAdmin?.id === admin.id
-                          ? 'border-plum bg-plum/5 shadow-md'
-                          : 'border-white bg-white/40 hover:bg-white/70 dark:hover:bg-white/10 shadow-sm'
-                      }`}
+                          ? 'border-primary bg-[var(--ev-brand-soft)]'
+                          : 'border-border bg-card hover:bg-secondary',
+                      )}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-plum/10 flex items-center justify-center text-plum font-semibold">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary font-semibold text-foreground">
                           {admin.avatar_url ? (
                             <img src={admin.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                           ) : (
-                            admin.full_name?.charAt(0).toUpperCase() || <User className="w-4 h-4" />
+                            admin.full_name?.charAt(0).toUpperCase() || <I.Conta size={16} aria-hidden="true" />
                           )}
                         </div>
-                        <div>
-                          <div className="text-sm font-bold text-espresso flex items-center gap-1.5">
-                            {admin.full_name || 'Colaborador Evokaa'}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                            <span className="truncate">{admin.full_name || 'Colaborador Evokaa'}</span>
                             {isSuper && (
-                              <Award className="w-3.5 h-3.5 text-amber-500 fill-amber-500" aria-label="Acesso total" />
+                              <I.Coroa size={14} className="shrink-0 text-[var(--ev-warning)]" aria-label="Acesso total" />
                             )}
                           </div>
-                          <div className="text-[10px] text-espresso/70 flex items-center gap-1 mt-0.5">
-                            {cargos[admin.id] && <span className="font-semibold text-espresso/80">{cargos[admin.id]} ·</span>}
+                          <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                            {cargos[admin.id] && <span className="font-medium text-foreground">{cargos[admin.id]} ·</span>}
                             <span>
-                              {isSuper 
-                                ? 'Acesso Total' 
-                                : permsCount === 0 
-                                ? 'Sem permissões ativas' 
+                              {isSuper
+                                ? 'Acesso Total'
+                                : permsCount === 0
+                                ? 'Sem permissões ativas'
                                 : `${permsCount} permissões atribuídas`}
                             </span>
                           </div>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-3">
+
+                      <div className="flex shrink-0 items-center gap-3">
                         {/* Perm chips preview */}
                         <div className="hidden md:flex flex-wrap gap-1 max-w-[250px] justify-end">
                           {isSuper ? (
-                            <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-semibold">Acesso total</span>
+                            <Badge variant="secondary" className={chipAviso}>Acesso total</Badge>
                           ) : (
                             admin.admin_permissions?.slice(0, 3).map(p => (
-                              <span key={p} className="px-2 py-0.5 rounded bg-espresso/5 text-espresso/70 text-[9px] font-semibold border border-espresso/10">
+                              <Badge key={p} variant="secondary" className={chipNeutro}>
                                 {p.replace('manage_', '').replace('view_', '')}
-                              </span>
+                              </Badge>
                             ))
                           )}
                           {!isSuper && permsCount > 3 && (
-                            <span className="px-2 py-0.5 rounded bg-plum/5 text-plum text-[9px] font-semibold border border-plum/10">
+                            <Badge variant="secondary" className={chipInfo}>
                               +{permsCount - 3}
-                            </span>
+                            </Badge>
                           )}
                         </div>
-                        <ChevronRight className={`w-4 h-4 text-espresso/20 transition-transform ${selectedAdmin?.id === admin.id ? 'translate-x-1 text-plum' : ''}`} />
+                        <I.ChevronDireita size={16} className={cn('text-muted-foreground transition-transform', selectedAdmin?.id === admin.id && 'translate-x-1 text-primary')} aria-hidden="true" />
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>
             )}
-          </div>
+          </section>
 
           {canEdit && (
-            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-              <h2 className="font-serif text-xl text-espresso mb-4 flex items-center gap-2">
-                <Mail className="w-5 h-5 text-plum" /> Convites
+            <section className={cn('anim-team', painel, 'p-4 sm:p-6')}>
+              <h2 className="mb-4 flex items-center gap-2 text-[15px] font-semibold leading-5 tracking-normal text-foreground">
+                <I.Email size={16} className="text-primary" aria-hidden="true" /> Convites
               </h2>
               {convitesErro && (
-                <div role="alert" className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                <div role="alert" className={cn(alertaErro, 'mb-4 p-3 text-xs')}>
                   Não foi possível carregar os convites: {convitesErro}
                 </div>
               )}
               {convites.filter(c => c.status === 'pendente' || c.status === 'expirado').length === 0 ? (
-                !convitesErro && <p className="text-xs text-espresso/70 italic">Nenhum convite pendente.</p>
+                !convitesErro && <p className="text-xs text-muted-foreground italic">Nenhum convite pendente.</p>
               ) : (
                 <ul className="space-y-3">
                   {convites.filter(c => c.status === 'pendente' || c.status === 'expirado').map(c => (
-                    <li key={c.id} className="p-4 rounded-xl border border-white bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <li key={c.id} className="flex flex-col justify-between gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center">
                       <div className="min-w-0">
-                        <div className="text-sm font-bold text-espresso truncate">{c.email}</div>
-                        <div className="text-[11px] text-espresso/70 mt-0.5">
+                        <div className="truncate text-sm font-semibold text-foreground">{c.email}</div>
+                        <div className="mt-0.5 text-xs text-muted-foreground">
                           {c.cargo} · {c.status === 'expirado'
-                            ? <span className="text-amber-600 font-semibold">expirado</span>
+                            ? <span className="font-semibold text-[var(--ev-warning)]">expirado</span>
                             : <>vale até {dataBr(c.expires_at)}</>}
                         </div>
                       </div>
                       <div className="flex gap-2 shrink-0">
-                        <button
+                        <Button
                           type="button"
+                          variant="secondary"
+                          size="sm"
                           onClick={() => handleConviteAcao(c, 'reenviar')}
                           disabled={conviteEmAndamento === c.id}
-                          className="px-3 py-1.5 rounded-full text-[11px] font-bold bg-plum/10 text-plum hover:bg-plum/20 transition-all flex items-center gap-1.5 disabled:opacity-50"
                         >
-                          <RefreshCw className="w-3 h-3" /> Reenviar
-                        </button>
-                        <button
+                          <I.Atualizar aria-hidden="true" /> Reenviar
+                        </Button>
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleConviteAcao(c, 'cancelar')}
                           disabled={conviteEmAndamento === c.id}
-                          className="px-3 py-1.5 rounded-full text-[11px] font-medium text-red-500 hover:bg-red-50 transition-all flex items-center gap-1.5 disabled:opacity-50"
+                          className="text-destructive hover:text-destructive"
                         >
-                          <X className="w-3 h-3" /> Cancelar
-                        </button>
+                          <I.Fechar aria-hidden="true" /> Cancelar
+                        </Button>
                       </div>
                     </li>
                   ))}
@@ -445,23 +451,23 @@ export default function AdminTeamManager() {
 
               {convites.some(c => c.status === 'usado') && (
                 <>
-                  <h3 className="font-serif text-lg text-espresso mt-8 mb-3">Aceitos recentemente</h3>
+                  <h3 className="mb-3 mt-8 text-[15px] font-semibold leading-5 text-foreground">Aceitos recentemente</h3>
                   <ul className="space-y-2">
                     {convites.filter(c => c.status === 'usado').map(c => (
-                      <li key={c.id} className="p-3 rounded-xl border border-white bg-white/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <li key={c.id} className="flex flex-col justify-between gap-2 rounded-[10px] border border-border bg-card p-3 sm:flex-row sm:items-center">
                         <div className="min-w-0">
-                          <div className="text-sm font-bold text-espresso truncate">{c.nome || c.email}</div>
-                          <div className="text-[11px] text-espresso/70 mt-0.5">{c.email} · {c.cargo} · aceito em {dataBr(c.used_at)}</div>
+                          <div className="truncate text-sm font-semibold text-foreground">{c.nome || c.email}</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{c.email} · {c.cargo} · aceito em {dataBr(c.used_at)}</div>
                         </div>
                         {c.aviso_em
-                          ? <span className="shrink-0 text-[10px] font-semibold text-emerald-600">aviso enviado</span>
-                          : <span className="shrink-0 text-[10px] font-semibold text-amber-600">sem aviso por e-mail</span>}
+                          ? <Badge variant="secondary" className={chipOk}>aviso enviado</Badge>
+                          : <Badge variant="secondary" className={chipAviso}>sem aviso por e-mail</Badge>}
                       </li>
                     ))}
                   </ul>
                 </>
               )}
-            </div>
+            </section>
           )}
         </div>
 
@@ -469,34 +475,38 @@ export default function AdminTeamManager() {
         <div className="space-y-6">
           {/* Edit Permissions Sidebar/Box */}
           {selectedAdmin ? (
-            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm relative">
-              <button 
+            <section className={cn('anim-team', painel, 'relative p-4 sm:p-6')}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setSelectedAdmin(null)}
-                className="absolute top-4 right-4 p-1.5 text-espresso/70 hover:text-espresso rounded-lg hover:bg-espresso/5 transition-all"
+                className="absolute right-3 top-3"
+                aria-label="Fechar"
                 title="Fechar"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <I.Fechar aria-hidden="true" />
+              </Button>
 
-              <div className="mb-6">
-                <div className="text-[10px] text-plum font-semibold uppercase tracking-wider">Ajustar Acesso</div>
-                <h3 className="font-serif text-lg text-espresso mt-0.5 leading-snug">{selectedAdmin.full_name || 'Colaborador(a)'}</h3>
-                <p className="text-[10px] text-espresso/70 mt-1">Selecione quais áreas do painel este colaborador(a) pode acessar.</p>
+              <div className="mb-6 pr-8">
+                <div className="text-[11px] font-medium uppercase tracking-wide text-primary">Ajustar Acesso</div>
+                <h3 className="mt-0.5 text-[15px] font-semibold leading-snug text-foreground">{selectedAdmin.full_name || 'Colaborador(a)'}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Selecione quais áreas do painel este colaborador(a) pode acessar.</p>
               </div>
 
               {/* Cadastro do colaborador (só o super_admin chega a este painel) */}
-              <div className="mb-6 p-4 rounded-xl bg-white/40 border border-white">
-                <div className="text-xs font-bold text-espresso mb-2">Dados do cadastro</div>
+              <div className="mb-6 rounded-[10px] border border-border bg-secondary p-4">
+                <div className="mb-2 text-xs font-semibold text-foreground">Dados do cadastro</div>
                 {fichaAtual === 'carregando' ? (
-                  <Loader2 className="w-4 h-4 text-plum animate-spin" />
+                  <Spinner className="text-primary" />
                 ) : !fichaAtual ? (
-                  <p className="text-[11px] text-espresso/70">Sem cadastro de colaborador (conta que entrou na equipe antes do convite).</p>
+                  <p className="text-xs text-muted-foreground">Sem cadastro de colaborador (conta que entrou na equipe antes do convite).</p>
                 ) : (
-                  <dl className="space-y-1.5 text-[11px]">
+                  <dl className="space-y-1.5 text-xs">
                     {linhasFicha(fichaAtual).map(([rotulo, valor]) => (
                       <div key={rotulo} className="grid grid-cols-[7.5rem_1fr] gap-2">
-                        <dt className="text-espresso/70">{rotulo}</dt>
-                        <dd className="text-espresso [overflow-wrap:anywhere]">{valor}</dd>
+                        <dt className="text-muted-foreground">{rotulo}</dt>
+                        <dd className="text-foreground [overflow-wrap:anywhere]">{valor}</dd>
                       </div>
                     ))}
                   </dl>
@@ -504,27 +514,26 @@ export default function AdminTeamManager() {
               </div>
 
               {/* Permissions list */}
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 mb-6 border-b border-espresso/5 pb-4">
+              <div className="mb-6 max-h-[360px] space-y-2 overflow-y-auto border-b border-border pb-4 pr-1">
                 {PERMISSIONS.map(perm => {
                   const isChecked = selectedPermissions.includes(perm.id)
                   return (
-                    <label 
+                    <label
                       key={perm.id}
-                      className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
-                        isChecked 
-                          ? 'bg-plum/5 border-plum/20' 
-                          : 'bg-white/40 border-transparent hover:bg-white/70 dark:hover:bg-white/10'
-                      }`}
+                      className={cn(
+                        'flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors',
+                        isChecked ? 'border-primary/30 bg-[var(--ev-brand-soft)]' : 'border-transparent hover:bg-secondary',
+                      )}
                     >
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={isChecked}
                         onChange={() => handleTogglePermission(perm.id)}
-                        className="mt-1 accent-plum rounded"
+                        className="mt-1 size-4 accent-primary"
                       />
                       <div>
-                        <div className="text-xs font-bold text-espresso">{perm.label}</div>
-                        <div className="text-[10px] text-espresso/70 mt-0.5 leading-snug">{perm.desc}</div>
+                        <div className="text-xs font-semibold text-foreground">{perm.label}</div>
+                        <div className="mt-0.5 text-xs leading-snug text-muted-foreground">{perm.desc}</div>
                       </div>
                     </label>
                   )
@@ -532,114 +541,106 @@ export default function AdminTeamManager() {
               </div>
 
               <div className="space-y-2">
-                <button 
+                <Button
+                  type="button"
                   onClick={handleSavePermissions}
-                  disabled={isSavingPermissions}
-                  className="w-full py-2.5 bg-plum text-cream rounded-full text-xs font-bold hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  loading={isSavingPermissions}
+                  className="w-full"
                 >
-                  {isSavingPermissions ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <>
-                      <Save className="w-3.5 h-3.5" /> Salvar Permissões
-                    </>
-                  )}
-                </button>
-                
-                <button 
+                  <I.Guardar aria-hidden="true" /> Salvar Permissões
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
                   onClick={() => handleRemoveAdmin(selectedAdmin.id, selectedAdmin.full_name || 'Colaborador(a)')}
-                  className="w-full py-2 bg-transparent text-red-500 hover:bg-red-50 rounded-full text-xs font-medium transition-all flex items-center justify-center gap-1.5"
+                  className="w-full text-destructive hover:text-destructive"
                 >
-                  <Trash2 className="w-3.5 h-3.5" /> Remover da Equipe
-                </button>
+                  <I.Lixeira aria-hidden="true" /> Remover da Equipe
+                </Button>
               </div>
-            </div>
+            </section>
           ) : !canEdit ? (
-            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm text-xs text-espresso/70 leading-relaxed">
+            <div className={cn('anim-team', painel, 'p-4 text-xs leading-relaxed text-muted-foreground sm:p-6')}>
               Só quem tem Acesso total convida colaboradores, remove da Equipe Evokaa e altera funções.
             </div>
           ) : (
             /* Convidar colaborador */
-            <div className="anim-team bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-              <h3 className="font-serif text-xl text-espresso mb-1.5 flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-plum" /> Convidar colaborador
-              </h3>
-              <p className="text-[11px] text-espresso/70 mb-5 leading-normal">
+            <section className={cn('anim-team', painel, 'p-4 sm:p-6')}>
+              <h2 className="mb-1.5 flex items-center gap-2 text-[15px] font-semibold leading-5 tracking-normal text-foreground">
+                <I.PessoaMais size={16} className="text-primary" aria-hidden="true" /> Convidar colaborador
+              </h2>
+              <p className="mb-5 text-xs leading-normal text-muted-foreground">
                 A pessoa recebe um link por e-mail (vale 7 dias), cria a senha ou entra com a conta que já tem, ativa a verificação em duas etapas e preenche o cadastro. O acesso libera assim que ela termina, com as funções marcadas aqui; você recebe um e-mail quando isso acontecer.
               </p>
 
               <form onSubmit={handleConvidar} className="space-y-4">
-                <div>
-                  <label htmlFor="convite-email-input" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail</label>
-                  <input
+                <div className="grid gap-1.5">
+                  <Label htmlFor="convite-email-input">E-mail</Label>
+                  <Input
                     id="convite-email-input"
                     type="email"
                     value={conviteEmail}
                     onChange={e => setConviteEmail(e.target.value)}
                     placeholder="pessoa@email.com"
-                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                     required
                   />
                 </div>
-                <div>
-                  <label htmlFor="convite-cargo-input" className="text-xs font-semibold text-espresso/70 block mb-1">Cargo</label>
-                  <input
+                <div className="grid gap-1.5">
+                  <Label htmlFor="convite-cargo-input">Cargo</Label>
+                  <Input
                     id="convite-cargo-input"
                     value={conviteCargo}
                     maxLength={80}
                     onChange={e => setConviteCargo(e.target.value)}
                     placeholder="Atendimento, Financeiro…"
-                    className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                     required
                   />
                 </div>
                 <fieldset>
-                  <legend className="text-xs font-semibold text-espresso/70 mb-1">Funções</legend>
-                  <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
+                  <legend className="mb-1 text-sm font-medium text-foreground">Funções</legend>
+                  <div className="max-h-[280px] space-y-2 overflow-y-auto pr-1">
                     {PERMISSOES_CONVITE.map(perm => {
                       const marcada = convitePerms.includes(perm.id)
                       return (
                         <label
                           key={perm.id}
-                          className={`flex items-start gap-3 p-2.5 rounded-lg border transition-all cursor-pointer ${
-                            marcada ? 'bg-plum/5 border-plum/20' : 'bg-white/40 border-transparent hover:bg-white/70 dark:hover:bg-white/10'
-                          }`}
+                          className={cn(
+                            'flex cursor-pointer items-start gap-3 rounded-lg border p-2.5 transition-colors',
+                            marcada ? 'border-primary/30 bg-[var(--ev-brand-soft)]' : 'border-transparent hover:bg-secondary',
+                          )}
                         >
                           <input
                             type="checkbox"
                             checked={marcada}
                             onChange={() => setConvitePerms(marcada ? convitePerms.filter(p => p !== perm.id) : [...convitePerms, perm.id])}
-                            className="mt-1 accent-plum rounded"
+                            className="mt-1 size-4 accent-primary"
                           />
                           <div>
-                            <div className="text-xs font-bold text-espresso">{perm.label}</div>
-                            <div className="text-[10px] text-espresso/70 mt-0.5 leading-snug">{perm.desc}</div>
+                            <div className="text-xs font-semibold text-foreground">{perm.label}</div>
+                            <div className="mt-0.5 text-xs leading-snug text-muted-foreground">{perm.desc}</div>
                           </div>
                         </label>
                       )
                     })}
                   </div>
                 </fieldset>
-                <button
-                  type="submit"
-                  disabled={enviandoConvite}
-                  className="w-full py-2.5 bg-plum text-cream rounded-full text-xs font-bold hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {enviandoConvite ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Enviar convite</>}
-                </button>
+                <Button type="submit" loading={enviandoConvite} className="w-full">
+                  <I.Enviar aria-hidden="true" /> Enviar convite
+                </Button>
               </form>
 
               {/* Security Advisory */}
-              <div className="mt-8 p-3 rounded-lg bg-amber-50/50 border border-amber-100 flex gap-2.5 items-start">
-                <ShieldAlert className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className={cn(alertaAviso, 'mt-8 gap-2.5')}>
+                <I.EscudoAlerta size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
                 <div>
-                  <div className="text-[10px] font-bold text-amber-700">Aviso de Segurança</div>
-                  <p className="text-[9px] text-amber-600 leading-normal mt-0.5">
+                  <div className="font-semibold">Aviso de Segurança</div>
+                  <p className="mt-0.5 leading-normal text-muted-foreground">
                     Cada função dá acesso a dados de clientes, produtores e pagamentos. Dê a cada colaborador(a) só as funções de que ele(a) precisa.
                   </p>
                 </div>
               </div>
-            </div>
+            </section>
           )}
         </div>
       </div>

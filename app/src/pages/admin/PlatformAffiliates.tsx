@@ -1,7 +1,15 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Handshake, Plus, Pencil, Loader2, X, Info, UserPlus, Unlink, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
+import { EmptyState, PageHeader, Stat, chipAviso, chipNeutro, chipOk, selectNativo } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { searchAddressByPostalCode } from '../../lib/cepService'
@@ -55,9 +63,9 @@ interface Vinculo {
 interface Pessoa { id: string; full_name: string | null; email: string; role: string }
 
 const STATUS: Record<Status, { label: string; cls: string }> = {
-  active: { label: 'Ativo', cls: 'bg-green-500/10 text-green-700 border-green-500/20' },
-  paused: { label: 'Pausado', cls: 'bg-amber-500/10 text-amber-700 border-amber-500/20' },
-  ended: { label: 'Encerrado', cls: 'bg-muted text-muted-foreground border-border' },
+  active: { label: 'Ativo', cls: chipOk },
+  paused: { label: 'Pausado', cls: chipAviso },
+  ended: { label: 'Encerrado', cls: chipNeutro },
 }
 
 const ORIGEM: Record<Vinculo['source'], string> = {
@@ -328,23 +336,22 @@ export default function AdminPlatformAffiliates() {
   const ativos = vinculos.filter(v => !v.ended_at)
   const comAfiliadoAtivo = new Set(ativos.map(v => v.producer_id))
   const semAfiliado = produtores.filter(p => !comAfiliadoAtivo.has(p.id))
-  const inputCls = 'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary'
   const rotulo = 'text-xs font-semibold text-muted-foreground'
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground flex items-center gap-2"><Handshake className="w-7 h-7 text-primary" aria-hidden="true" /> Afiliados Evokaa</h1>
-          <p className="text-sm text-muted-foreground mt-1">Quem revende a plataforma aos produtores. (Os afiliados de evento são cadastrados pelos próprios produtores.)</p>
-        </div>
-        <button type="button" onClick={() => setForm({ ...vazio, agreement_date: hojeLocal() })} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2">
-          <Plus className="w-4 h-4" aria-hidden="true" /> Novo afiliado
-        </button>
-      </div>
+      <PageHeader
+        title="Afiliados Evokaa"
+        description="Quem revende a plataforma aos produtores. (Os afiliados de evento são cadastrados pelos próprios produtores.)"
+        actions={
+          <Button type="button" onClick={() => setForm({ ...vazio, agreement_date: hojeLocal() })}>
+            <I.Criar aria-hidden="true" /> Novo afiliado
+          </Button>
+        }
+      />
 
-      <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300 flex gap-3">
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" aria-hidden="true" />
+      <div className={cn(alertaAviso, 'mb-6 gap-3 p-4')}>
+        <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
         <div>
           <strong>Comissão:</strong> 50% do valor fechado do plano na primeira venda e recorrência de 15% a 25% conforme o acordo, paga direto na conta de recebimento do afiliado pelo split do gateway (gateway ainda não definido).
           {' '}<strong>Nenhuma comissão é calculada ainda:</strong> a cobrança dos planos não está ligada.
@@ -353,29 +360,22 @@ export default function AdminPlatformAffiliates() {
       </div>
 
       {isError && (
-        <div role="alert" className="mb-6 p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+        <div role="alert" className={cn(alertaErro, 'mb-6')}>
           Não foi possível carregar: {erroDe(error)}. Se a mensagem citar uma coluna inexistente, falta aplicar <span className="font-mono">docs/sql/20260929_afiliados_v2.sql</span>.
         </div>
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Afiliados ativos', value: afiliados.filter(a => a.status === 'active').length },
-          { label: 'Indicados ativos', value: ativos.length },
-          { label: 'Vínculos encerrados', value: vinculos.length - ativos.length },
-          { label: 'Produtores sem afiliado', value: semAfiliado.length },
-        ].map(k => (
-          <div key={k.label} className="p-4 rounded-2xl bg-card border border-border">
-            <div className="text-[11px] uppercase text-muted-foreground font-semibold">{k.label}</div>
-            <div className="font-serif text-2xl text-foreground mt-1">{k.value}</div>
-          </div>
-        ))}
+        <Stat label="Afiliados ativos" value={afiliados.filter(a => a.status === 'active').length} />
+        <Stat label="Indicados ativos" value={ativos.length} />
+        <Stat label="Vínculos encerrados" value={vinculos.length - ativos.length} />
+        <Stat label="Produtores sem afiliado" value={semAfiliado.length} />
       </div>
 
       {isLoading ? (
-        <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+        <div className="flex justify-center py-20"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
       ) : afiliados.length === 0 ? (
-        <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">Nenhum afiliado cadastrado. Clique em "Novo afiliado".</div>
+        <EmptyState title={'Nenhum afiliado cadastrado. Clique em "Novo afiliado".'} />
       ) : (
         <div className="space-y-3">
           {afiliados.map(a => {
@@ -383,7 +383,7 @@ export default function AdminPlatformAffiliates() {
             const ativosDele = historico.filter(v => !v.ended_at)
             const expandido = aberto === a.id
             return (
-              <div key={a.id} className="border border-border rounded-2xl bg-card">
+              <div key={a.id} className={painel}>
                 <div className="p-4 flex flex-col md:flex-row md:items-center gap-3 justify-between">
                   <div>
                     <div className="font-semibold text-foreground">{a.full_name || a.user?.full_name || a.user?.email || 'Conta removida'}</div>
@@ -391,100 +391,101 @@ export default function AdminPlatformAffiliates() {
                       CPF {mascararCpf(a.cpf)} · {a.city && a.state ? `${a.city}/${a.state}` : 'sem endereço'} · WhatsApp {fmtTel(a.whatsapp)}
                     </div>
                     <div className="text-xs text-muted-foreground">{a.email || a.user?.email} · código <span className="font-mono font-bold">{a.referral_code}</span> · acordo de {dataBr(a.agreement_date)}</div>
-                    {!a.cpf && <div className="text-[11px] mt-1 text-amber-700">Cadastro incompleto: faltam os dados pessoais.</div>}
-                    <div className={`text-[11px] mt-1 ${a.payout_account_id ? 'text-muted-foreground' : 'text-amber-700'}`}>{a.payout_account_id ? 'Conta de recebimento informada' : 'Sem conta de recebimento: informar quando o gateway for definido'}</div>
+                    {!a.cpf && <div className="mt-1 text-xs text-[var(--ev-warning)]">Cadastro incompleto: faltam os dados pessoais.</div>}
+                    <div className={`mt-1 text-xs ${a.payout_account_id ? 'text-muted-foreground' : 'text-[var(--ev-warning)]'}`}>{a.payout_account_id ? 'Conta de recebimento informada' : 'Sem conta de recebimento: informar quando o gateway for definido'}</div>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap">
                     <span className="text-xs text-foreground">1ª venda <strong>50%</strong> · recorrência <strong>{Number(a.recurring_percent)}%</strong></span>
-                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold border ${STATUS[a.status].cls}`}>{STATUS[a.status].label}</span>
-                    <button
+                    <Badge variant="secondary" className={STATUS[a.status].cls}>{STATUS[a.status].label}</Badge>
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => { setAberto(expandido ? null : a.id); setProdutorNovo('') }}
                       aria-expanded={expandido}
-                      className="px-3 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted"
                     >
                       Indicados ({ativosDele.length} ativos · {historico.length} no total)
-                    </button>
-                    <button type="button" onClick={() => abrirEdicao(a)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground" aria-label={`Editar afiliado ${a.referral_code}`}>
-                      <Pencil className="w-4 h-4" />
-                    </button>
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => abrirEdicao(a)} aria-label={`Editar afiliado ${a.referral_code}`}>
+                      <I.Editar aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
 
                 {expandido && (
                   <div className="border-t border-border p-4 space-y-3">
                     {a.status !== 'active' && (
-                      <p className="text-xs text-amber-700">Afiliado {STATUS[a.status].label.toLowerCase()}: não recebe produtores novos. Reative o acordo para adicionar.</p>
+                      <p className="text-xs text-[var(--ev-warning)]">Afiliado {STATUS[a.status].label.toLowerCase()}: não recebe produtores novos. Reative o acordo para adicionar.</p>
                     )}
                     <div className="flex flex-col sm:flex-row gap-2">
                       <label className="sr-only" htmlFor={`add-${a.id}`}>Adicionar produtor indicado</label>
-                      <select id={`add-${a.id}`} className={inputCls} value={produtorNovo} onChange={e => setProdutorNovo(e.target.value)}>
+                      <select id={`add-${a.id}`} className={selectNativo} value={produtorNovo} onChange={e => setProdutorNovo(e.target.value)}>
                         <option value="">Adicionar produtor sem afiliado…</option>
                         {semAfiliado.filter(p => p.id !== a.user_id).map(p => <option key={p.id} value={p.id}>{p.full_name || p.email} ({p.email})</option>)}
                       </select>
-                      <button
+                      <Button
                         type="button"
-                        disabled={a.status !== 'active' || !produtorNovo || vincular.isPending}
+                        disabled={a.status !== 'active' || !produtorNovo}
+                        loading={vincular.isPending}
                         onClick={() => vincular.mutate({ affiliateId: a.id, producerId: produtorNovo })}
-                        className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
                       >
-                        <UserPlus className="w-4 h-4" aria-hidden="true" /> Adicionar
-                      </button>
+                        <I.PessoaMais aria-hidden="true" /> Adicionar
+                      </Button>
                     </div>
                     {historico.length === 0 ? (
                       <p className="text-xs text-muted-foreground italic">Nenhum produtor indicado.</p>
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                          <caption className="sr-only">Histórico de produtores indicados</caption>
-                          <thead className="text-[11px] uppercase text-muted-foreground border-b border-border">
-                            <tr>
-                              <th className="py-2 pr-3">Produtor</th>
-                              <th className="py-2 pr-3">Origem</th>
-                              <th className="py-2 pr-3">Indicado em</th>
-                              <th className="py-2 pr-3">Na plataforma</th>
-                              <th className="py-2 pr-3">Situação</th>
-                              <th className="py-2 text-right"><span className="sr-only">Ações</span></th>
+                      <Tabela label="Histórico de produtores indicados">
+                        <caption className="sr-only">Histórico de produtores indicados</caption>
+                        <thead className="border-b border-border">
+                          <tr>
+                            <th className={th}>Produtor</th>
+                            <th className={th}>Origem</th>
+                            <th className={th}>Indicado em</th>
+                            <th className={th}>Na plataforma</th>
+                            <th className={th}>Situação</th>
+                            <th className={cn(th, 'text-right')}><span className="sr-only">Ações</span></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {historico.map(v => (
+                            <tr key={v.id} className="border-b border-border last:border-0 align-top">
+                              <td className="px-4 py-3 text-sm text-foreground">{v.producer?.full_name || '—'}<div className="text-xs text-muted-foreground">{v.producer?.email}</div></td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">
+                                {ORIGEM[v.source] || v.source}
+                                {v.ref_first_seen_at && <div>link aberto em {dataBr(v.ref_first_seen_at)}</div>}
+                              </td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">{dataBr(v.linked_at)}</td>
+                              <td className="px-4 py-3 text-xs text-muted-foreground">{v.producer?.created_at ? <>desde {dataBr(v.producer.created_at)}<div>{tempoDesde(v.producer.created_at)}</div></> : '—'}</td>
+                              <td className="px-4 py-3 text-xs">
+                                {v.ended_at
+                                  ? <span className="text-muted-foreground">Encerrado em {dataBr(v.ended_at)}{v.end_reason ? ` — ${v.end_reason}` : ''}</span>
+                                  : <span className="text-[var(--ev-success)]">Ativo {tempoDesde(v.linked_at)}</span>}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {!v.ended_at && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    onClick={() => {
+                                      const motivo = window.prompt('Motivo do encerramento do vínculo (fica no histórico). A recorrência futura deixa de ir para este afiliado.')
+                                      if (motivo === null) return
+                                      if (!motivo.trim()) { toast.error('Informe o motivo.'); return }
+                                      encerrar.mutate({ id: v.id, motivo: motivo.trim().slice(0, 500) })
+                                    }}
+                                    disabled={encerrar.isPending}
+                                    className="hover:text-destructive"
+                                    aria-label={`Encerrar vínculo de ${v.producer?.email}`}
+                                  >
+                                    <I.LinkQuebrado aria-hidden="true" />
+                                  </Button>
+                                )}
+                              </td>
                             </tr>
-                          </thead>
-                          <tbody>
-                            {historico.map(v => (
-                              <tr key={v.id} className="border-b border-border last:border-0 align-top">
-                                <td className="py-2 pr-3 text-foreground">{v.producer?.full_name || '—'}<div className="text-[11px] text-muted-foreground">{v.producer?.email}</div></td>
-                                <td className="py-2 pr-3 text-xs text-muted-foreground">
-                                  {ORIGEM[v.source] || v.source}
-                                  {v.ref_first_seen_at && <div className="text-[11px]">link aberto em {dataBr(v.ref_first_seen_at)}</div>}
-                                </td>
-                                <td className="py-2 pr-3 text-xs text-muted-foreground">{dataBr(v.linked_at)}</td>
-                                <td className="py-2 pr-3 text-xs text-muted-foreground">{v.producer?.created_at ? <>desde {dataBr(v.producer.created_at)}<div className="text-[11px]">{tempoDesde(v.producer.created_at)}</div></> : '—'}</td>
-                                <td className="py-2 pr-3 text-xs">
-                                  {v.ended_at
-                                    ? <span className="text-muted-foreground">Encerrado em {dataBr(v.ended_at)}{v.end_reason ? ` — ${v.end_reason}` : ''}</span>
-                                    : <span className="text-green-700">Ativo {tempoDesde(v.linked_at)}</span>}
-                                </td>
-                                <td className="py-2 text-right">
-                                  {!v.ended_at && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const motivo = window.prompt('Motivo do encerramento do vínculo (fica no histórico). A recorrência futura deixa de ir para este afiliado.')
-                                        if (motivo === null) return
-                                        if (!motivo.trim()) { toast.error('Informe o motivo.'); return }
-                                        encerrar.mutate({ id: v.id, motivo: motivo.trim().slice(0, 500) })
-                                      }}
-                                      disabled={encerrar.isPending}
-                                      className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600 disabled:opacity-40"
-                                      aria-label={`Encerrar vínculo de ${v.producer?.email}`}
-                                    >
-                                      <Unlink className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                          ))}
+                        </tbody>
+                      </Tabela>
                     )}
                   </div>
                 )}
@@ -498,8 +499,8 @@ export default function AdminPlatformAffiliates() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="afiliado-titulo" onKeyDown={e => { if (e.key === 'Escape') setForm(null) }}>
           <form onSubmit={enviar} className="glass-panel w-full max-w-2xl my-8 p-6 space-y-5">
             <div className="flex items-center justify-between">
-              <h2 id="afiliado-titulo" className="font-serif text-xl text-foreground">{form.id ? 'Editar afiliado' : 'Novo afiliado'}</h2>
-              <button type="button" onClick={() => setForm(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Fechar"><X className="w-4 h-4" /></button>
+              <h2 id="afiliado-titulo" className="text-lg font-semibold leading-6 tracking-normal text-foreground">{form.id ? 'Editar afiliado' : 'Novo afiliado'}</h2>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setForm(null)} aria-label="Fechar"><I.Fechar aria-hidden="true" /></Button>
             </div>
 
             {form.id ? (
@@ -508,12 +509,12 @@ export default function AdminPlatformAffiliates() {
               <div className="space-y-1">
                 <label htmlFor="af-email" className={rotulo}>E-mail da conta do afiliado na Evokaa *</label>
                 <div className="flex gap-2">
-                  <input id="af-email" autoFocus type="email" className={inputCls} value={form.email} onChange={e => setForm(f => (f ? { ...f, email: e.target.value, pessoa: null } : f))} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarConta() } }} placeholder="afiliado@email.com" />
-                  <button type="button" onClick={buscarConta} disabled={buscando} className="px-3 rounded-lg border border-border text-sm flex items-center gap-1.5 disabled:opacity-50">
-                    {buscando ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Search className="w-4 h-4" aria-hidden="true" />} Buscar
-                  </button>
+                  <Input id="af-email" autoFocus type="email" value={form.email} onChange={e => setForm(f => (f ? { ...f, email: e.target.value, pessoa: null } : f))} onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); buscarConta() } }} placeholder="afiliado@email.com" />
+                  <Button type="button" variant="outline" onClick={buscarConta} loading={buscando}>
+                    <I.Buscar aria-hidden="true" /> Buscar
+                  </Button>
                 </div>
-                {form.pessoa && <p className="text-xs text-green-700">Conta encontrada: {form.pessoa.full_name || form.pessoa.email}</p>}
+                {form.pessoa && <p className="text-xs text-[var(--ev-success)]">Conta encontrada: {form.pessoa.full_name || form.pessoa.email}</p>}
                 <p className="text-[11px] text-muted-foreground">O afiliado precisa ter conta na Evokaa (é por ela que ele entra na Área do Afiliado). Ele continua podendo ser participante ou produtor.</p>
               </div>
             )}
@@ -523,15 +524,15 @@ export default function AdminPlatformAffiliates() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="space-y-1 sm:col-span-2">
                   <span className={rotulo}>Nome completo *</span>
-                  <input autoFocus={!!form.id} className={inputCls} value={form.full_name} onChange={e => set('full_name', e.target.value)} maxLength={150} autoComplete="off" />
+                  <Input autoFocus={!!form.id} value={form.full_name} onChange={e => set('full_name', e.target.value)} maxLength={150} autoComplete="off" />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>CPF *</span>
-                  <input className={`${inputCls} font-mono`} inputMode="numeric" value={form.cpf} onChange={e => set('cpf', fmtCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} autoComplete="off" />
+                  <Input className="font-mono" inputMode="numeric" value={form.cpf} onChange={e => set('cpf', fmtCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} autoComplete="off" />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Data de nascimento *</span>
-                  <input type="date" className={inputCls} value={form.birth_date} onChange={e => set('birth_date', e.target.value)} max={hojeLocal()} />
+                  <Input type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} max={hojeLocal()} />
                 </label>
               </div>
             </fieldset>
@@ -541,18 +542,18 @@ export default function AdminPlatformAffiliates() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <label className="space-y-1 sm:col-span-3">
                   <span className={rotulo}>E-mail de contato *</span>
-                  <input type="email" className={inputCls} value={form.contact_email} onChange={e => set('contact_email', e.target.value)} autoComplete="off" />
+                  <Input type="email" value={form.contact_email} onChange={e => set('contact_email', e.target.value)} autoComplete="off" />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Telefone *</span>
-                  <input className={inputCls} inputMode="tel" value={form.phone} onChange={e => set('phone', digitos(e.target.value).slice(0, 11))} placeholder="DDD + número" />
+                  <Input inputMode="tel" value={form.phone} onChange={e => set('phone', digitos(e.target.value).slice(0, 11))} placeholder="DDD + número" />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>WhatsApp *</span>
-                  <input className={inputCls} inputMode="tel" value={form.whatsapp} onChange={e => set('whatsapp', digitos(e.target.value).slice(0, 11))} placeholder="DDD + número" />
+                  <Input inputMode="tel" value={form.whatsapp} onChange={e => set('whatsapp', digitos(e.target.value).slice(0, 11))} placeholder="DDD + número" />
                 </label>
                 <div className="flex items-end pb-2">
-                  <button type="button" onClick={() => set('whatsapp', form.phone)} className="text-xs text-primary underline">WhatsApp igual ao telefone</button>
+                  <Button type="button" variant="link" size="xs" onClick={() => set('whatsapp', form.phone)} className="px-0">WhatsApp igual ao telefone</Button>
                 </div>
               </div>
             </fieldset>
@@ -562,32 +563,32 @@ export default function AdminPlatformAffiliates() {
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                 <label className="space-y-1">
                   <span className={rotulo}>CEP *</span>
-                  <input className={inputCls} inputMode="numeric" value={form.cep} onChange={e => set('cep', fmtCep(e.target.value))} onBlur={buscarCep} placeholder="00000-000" maxLength={9} />
+                  <Input inputMode="numeric" value={form.cep} onChange={e => set('cep', fmtCep(e.target.value))} onBlur={buscarCep} placeholder="00000-000" maxLength={9} />
                   {buscandoCep && <span className="text-[11px] text-muted-foreground">buscando…</span>}
                 </label>
                 <label className="space-y-1 sm:col-span-3">
                   <span className={rotulo}>Rua *</span>
-                  <input className={inputCls} value={form.street} onChange={e => set('street', e.target.value)} maxLength={150} />
+                  <Input value={form.street} onChange={e => set('street', e.target.value)} maxLength={150} />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Número *</span>
-                  <input className={inputCls} value={form.street_number} onChange={e => set('street_number', e.target.value)} maxLength={20} />
+                  <Input value={form.street_number} onChange={e => set('street_number', e.target.value)} maxLength={20} />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Complemento</span>
-                  <input className={inputCls} value={form.complement} onChange={e => set('complement', e.target.value)} maxLength={80} />
+                  <Input value={form.complement} onChange={e => set('complement', e.target.value)} maxLength={80} />
                 </label>
                 <label className="space-y-1 sm:col-span-2">
                   <span className={rotulo}>Bairro *</span>
-                  <input className={inputCls} value={form.neighborhood} onChange={e => set('neighborhood', e.target.value)} maxLength={100} />
+                  <Input value={form.neighborhood} onChange={e => set('neighborhood', e.target.value)} maxLength={100} />
                 </label>
                 <label className="space-y-1 sm:col-span-3">
                   <span className={rotulo}>Cidade *</span>
-                  <input className={inputCls} value={form.city} onChange={e => set('city', e.target.value)} maxLength={100} />
+                  <Input value={form.city} onChange={e => set('city', e.target.value)} maxLength={100} />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>UF *</span>
-                  <select className={inputCls} value={form.state} onChange={e => set('state', e.target.value)}>
+                  <select className={selectNativo} value={form.state} onChange={e => set('state', e.target.value)}>
                     <option value="">—</option>
                     {UFS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
@@ -600,22 +601,22 @@ export default function AdminPlatformAffiliates() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <label className="space-y-1">
                   <span className={rotulo}>Código de indicação *</span>
-                  <input className={`${inputCls} font-mono uppercase`} value={form.referral_code} onChange={e => set('referral_code', e.target.value.toUpperCase().replace(/\s/g, ''))} maxLength={30} placeholder="EX: JOAO" />
+                  <Input className="font-mono uppercase" value={form.referral_code} onChange={e => set('referral_code', e.target.value.toUpperCase().replace(/\s/g, ''))} maxLength={30} placeholder="EX: JOAO" />
                   <span className="text-[11px] text-muted-foreground block">Link: app.evokaa.com.br/auth/register?ref={form.referral_code || 'CODIGO'}</span>
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Recorrência (acordo) *</span>
-                  <select className={inputCls} value={form.recurring_percent} onChange={e => set('recurring_percent', Number(e.target.value))}>
+                  <select className={selectNativo} value={form.recurring_percent} onChange={e => set('recurring_percent', Number(e.target.value))}>
                     {RECORRENCIAS.map(p => <option key={p} value={p}>{p}%</option>)}
                   </select>
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Data do acordo *</span>
-                  <input type="date" className={inputCls} value={form.agreement_date} onChange={e => set('agreement_date', e.target.value)} required />
+                  <Input type="date" value={form.agreement_date} onChange={e => set('agreement_date', e.target.value)} required />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Situação</span>
-                  <select className={inputCls} value={form.status} onChange={e => set('status', e.target.value as Status)}>
+                  <select className={selectNativo} value={form.status} onChange={e => set('status', e.target.value as Status)}>
                     {(Object.keys(STATUS) as Status[]).map(s => <option key={s} value={s}>{STATUS[s].label}</option>)}
                   </select>
                 </label>
@@ -623,21 +624,20 @@ export default function AdminPlatformAffiliates() {
               <p className="text-[11px] text-muted-foreground">Primeira venda: 50% do valor fechado do plano (regra geral da Evokaa).</p>
               <label className="space-y-1 block">
                 <span className={rotulo}>Conta de recebimento do afiliado no gateway (para o split)</span>
-                <input className={`${inputCls} font-mono`} value={form.payout_account_id} onChange={e => set('payout_account_id', e.target.value.trim())} maxLength={80} placeholder="deixe em branco até definir o gateway" />
+                <Input className="font-mono" value={form.payout_account_id} onChange={e => set('payout_account_id', e.target.value.trim())} maxLength={80} placeholder="deixe em branco até definir o gateway" />
                 <span className="text-[11px] text-muted-foreground block">O gateway de pagamento ainda não foi escolhido. Quando for, é o identificador da conta do afiliado nele (ex.: walletId no Asaas); a comissão cai direto nela pelo split, sem passar pela Evokaa.</span>
               </label>
               <label className="space-y-1 block">
                 <span className={rotulo}>Observações do acordo</span>
-                <textarea className={inputCls} rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} maxLength={500} placeholder="Ex: região, metas, contrato assinado em..." />
+                <Textarea rows={3} value={form.notes} onChange={e => set('notes', e.target.value)} maxLength={500} placeholder="Ex: região, metas, contrato assinado em..." />
               </label>
             </fieldset>
 
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground">Cancelar</button>
-              <button type="submit" disabled={salvar.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-                {salvar.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              <Button type="button" variant="outline" onClick={() => setForm(null)}>Cancelar</Button>
+              <Button type="submit" loading={salvar.isPending}>
                 {form.id ? 'Salvar alterações' : 'Cadastrar afiliado'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

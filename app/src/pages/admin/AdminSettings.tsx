@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
-import {
-  Settings, Globe, Mail, Shield, Save,
-  AlertTriangle, Database, FileText, Lock,
-  Loader2
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { useAuth } from '../../hooks/useAuth'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import { supabase } from '../../lib/supabase'
-import { Button } from '../../components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Spinner } from '@/components/ui/spinner'
+import { Segmented } from '@/components/ui/toggle-group'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { EmptyState, PageHeader, SectionTitle, selectNativo, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
 
 type LogFilter = 'all' | 'login' | 'page_view' | 'session_start'
@@ -213,33 +219,36 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const sidebarItems: { id: Section; label: string; icon: typeof Settings }[] = [
-    { id: 'geral', label: 'Geral', icon: Globe },
-    { id: 'email', label: 'E-mail', icon: Mail },
-    { id: 'moderacao', label: 'Moderação', icon: Shield },
-    { id: 'backup', label: 'Backup', icon: Database },
-    { id: 'logs', label: 'Logs', icon: FileText },
-    { id: 'seguranca', label: 'Segurança', icon: Lock },
+  const sidebarItems: { id: Section; label: string; icon: I.IconeEvokaa }[] = [
+    { id: 'geral', label: 'Geral', icon: I.Globo },
+    { id: 'email', label: 'E-mail', icon: I.Email },
+    { id: 'moderacao', label: 'Moderação', icon: I.Escudo },
+    { id: 'backup', label: 'Backup', icon: I.BancoDeDados },
+    { id: 'logs', label: 'Logs', icon: I.Documento },
+    { id: 'seguranca', label: 'Segurança', icon: I.Cadeado },
   ]
 
   return (
     <div className="p-6 lg:p-10 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="font-serif text-3xl text-espresso">Configurações</h1>
-        <p className="text-sm text-espresso/70 mt-1">Administração da plataforma</p>
-      </div>
+      <PageHeader title="Configurações" description="Administração da plataforma" />
 
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Sidebar */}
-        <div className="lg:w-56 flex-shrink-0">
-          <nav className="flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible">
+        <nav aria-label="Seções das configurações" className="lg:w-56 flex-shrink-0">
+          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:flex-col lg:overflow-visible">
             {sidebarItems.map(item => (
-              <button key={item.id} onClick={() => setSection(item.id)} className={`flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm transition-all whitespace-nowrap ${section === item.id ? 'bg-rose-500/10 text-rose-500 font-medium' : 'text-espresso/70 hover:text-espresso hover:bg-white/40'}`}>
-                <item.icon className="w-4 h-4" />{item.label}
-              </button>
+              <Button
+                key={item.id}
+                variant={section === item.id ? 'secondary' : 'ghost'}
+                aria-pressed={section === item.id}
+                onClick={() => setSection(item.id)}
+                className={cn('shrink-0 justify-start', section !== item.id && 'text-muted-foreground hover:text-foreground')}
+              >
+                <item.icon aria-hidden="true" />{item.label}
+              </Button>
             ))}
-          </nav>
-        </div>
+          </div>
+        </nav>
 
         {/* Content */}
         <div className="flex-1 min-w-0">
@@ -247,96 +256,91 @@ export default function AdminSettingsPage() {
           {section === 'geral' && (
             <div className="space-y-6">
               {/* Perfil do Administrador */}
-              <div className="p-5 rounded-2xl bg-white/60 border border-white/60 space-y-4">
-                <h3 className="text-sm font-semibold text-espresso">Perfil do Administrador</h3>
+              <section className={cn(painel, 'space-y-4 p-4 sm:p-6')}>
+                <SectionTitle>Perfil do Administrador</SectionTitle>
                 <div className="flex items-center gap-4">
-                  <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
-                  <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar Admin" className="w-20 h-20 rounded-2xl object-cover ring-2 ring-rose-500/10" />
+                  <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} aria-label="Escolher foto" />
+                  <img src={user?.avatar_url || user?.avatar || '/images/logo-evokaa-sm.png'} alt="Avatar Admin" className="size-20 rounded-[10px] border border-border object-cover" />
                   <div>
-                    <button onClick={triggerAvatarUpload} className="px-4 py-2 bg-rose-500 text-white text-xs rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all">Alterar foto</button>
-                    <p className="text-[10px] text-espresso/70 mt-1">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>
+                    <Button variant="outline" size="sm" onClick={triggerAvatarUpload}>Alterar foto</Button>
+                    <p className="mt-1 text-xs text-muted-foreground">Sua foto é exibida no menu lateral. JPG, PNG. Máx 2MB</p>
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <h2 className="text-lg font-medium text-espresso">Configurações Gerais</h2>
+              <section className={cn(painel, 'space-y-6 p-4 sm:p-6')}>
+                <SectionTitle>Configurações Gerais</SectionTitle>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="platformName" className="text-xs text-espresso/70 mb-1 block">Nome da Plataforma</label>
-                  <input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="platformName">Nome da Plataforma</Label>
+                    <Input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="tagline">Tagline</Label>
+                    <Input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="timezone">Timezone</Label>
+                    <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className={selectNativo}>
+                      <option>America/Sao_Paulo</option><option>America/Recife</option><option>America/Manaus</option>
+                    </select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="currency">Moeda</Label>
+                    <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className={selectNativo}>
+                      <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="tagline" className="text-xs text-espresso/70 mb-1 block">Tagline</label>
-                  <input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label htmlFor="timezone" className="text-xs text-espresso/70 mb-1 block">Timezone</label>
-                  <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                    <option>America/Sao_Paulo</option><option>America/Recife</option><option>America/Manaus</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="currency" className="text-xs text-espresso/70 mb-1 block">Moeda</label>
-                  <select id="currency" aria-label="Moeda" value={general.currency} onChange={e => setGeneral({ ...general, currency: e.target.value })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                    <option value="BRL">Real (R$)</option><option value="USD">Dolar ($)</option><option value="EUR">Euro (EUR)</option>
-                  </select>
-                </div>
-              </div>
 
-              <div className="border-t border-espresso/5 pt-4 space-y-3">
-                <h3 className="text-sm font-medium text-espresso">Controle da Plataforma</h3>
-                {[
-                  { key: 'maintenance', label: 'Modo manutenção', desc: 'Mostra página de manutenção para todos' },
-                  { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuários se cadastrarem' },
-                  { key: 'producerApproval', label: 'Aprovação de produtores', desc: 'Produtores precisam ser aprovados manualmente' },
-                ].map(item => {
-                  const isChecked = getGeneralValue(item.key);
-                  return (
-                    <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                      <div>
-                        <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
+                <div className="space-y-3 border-t border-border pt-4">
+                  <h3 className="text-sm font-medium text-foreground">Controle da Plataforma</h3>
+                  {[
+                    { key: 'maintenance', label: 'Modo manutenção', desc: 'Mostra página de manutenção para todos' },
+                    { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuários se cadastrarem' },
+                    { key: 'producerApproval', label: 'Aprovação de produtores', desc: 'Produtores precisam ser aprovados manualmente' },
+                  ].map(item => (
+                    <div key={item.key} className="flex items-center justify-between gap-4 rounded-[10px] border border-border bg-secondary p-4">
+                      <div className="min-w-0">
+                        <Label htmlFor={`general-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
+                        <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                       </div>
-                      <label htmlFor={`general-${item.key}`} className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id={`general-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateGeneralValue(item.key, e.target.checked)} className="sr-only peer" />
-                        <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
-                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                      </label>
+                      <Switch id={`general-${item.key}`} aria-label={item.label} checked={getGeneralValue(item.key)} onCheckedChange={v => updateGeneralValue(item.key, v)} />
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
 
-              <div className="flex justify-end">
-                <button onClick={handleSave} disabled={isSavingSettings} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50">
-                  <Save className="w-4 h-4" />Salvar
-                </button>
-              </div>
+                <div className="flex justify-end">
+                  <Button onClick={handleSave} loading={isSavingSettings}>
+                    <I.Guardar aria-hidden="true" />Salvar
+                  </Button>
+                </div>
+              </section>
             </div>
           )}
 
           {/* EMAIL: somente leitura; nada aqui é editável nem gravado no banco */}
           {section === 'email' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Configuração de E-mail</h2>
+              <SectionTitle>Configuração de E-mail</SectionTitle>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
-                  <h3 className="text-sm font-medium text-foreground flex items-center gap-2"><Mail className="w-4 h-4 text-rose-400" />Provedor</h3>
+                <section className={cn(painel, 'space-y-3 p-4 sm:p-6')}>
+                  <h3 className="flex items-center gap-2 text-sm font-medium text-foreground"><I.Email size={16} className="text-primary" aria-hidden="true" />Provedor</h3>
                   <dl className="text-xs space-y-2">
                     <div><dt className="text-muted-foreground">Serviço</dt><dd className="text-foreground">Resend</dd></div>
                     <div><dt className="text-muted-foreground">Função de envio</dt><dd className="text-foreground"><code>send-email</code> (Supabase Edge Function, publicada, versão 13, exige JWT)</dd></div>
                     <div><dt className="text-muted-foreground">Remetente</dt><dd className="text-foreground">Evokaa Tickets &lt;ingressos@evokaa.com.br&gt;</dd></div>
                   </dl>
-                  <p className="text-[11px] text-muted-foreground flex items-start gap-1.5"><Lock className="w-3 h-3 mt-0.5 shrink-0" />A chave <code>RESEND_API_KEY</code> fica só nos segredos da Edge Function: nunca no navegador nem nesta tela.</p>
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground"><I.Cadeado size={14} className="mt-px shrink-0" aria-hidden="true" />A chave <code>RESEND_API_KEY</code> fica só nos segredos da Edge Function: nunca no navegador nem nesta tela.</p>
                   <div className="flex flex-wrap gap-3 pt-1 text-xs">
-                    <a href="https://resend.com/emails" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">Painel do Resend</a>
-                    <a href="https://supabase.com/dashboard/project/rwaezeqyuhxrssntcxdv/functions" target="_blank" rel="noopener noreferrer" className="text-rose-500 hover:underline">Funções no Supabase</a>
+                    <a href="https://resend.com/emails" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Painel do Resend</a>
+                    <a href="https://supabase.com/dashboard/project/rwaezeqyuhxrssntcxdv/functions" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Funções no Supabase</a>
                   </div>
-                </div>
+                </section>
 
-                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
+                <section className={cn(painel, 'space-y-3 p-4 sm:p-6')}>
                   <h3 className="text-sm font-medium text-foreground">O que dispara e-mail hoje</h3>
                   <ul className="text-xs text-foreground space-y-1.5 list-disc pl-4">
                     <li>Formulário de contato do site (<code>useContact.ts</code> → contato@evokaa.com.br)</li>
@@ -347,88 +351,81 @@ export default function AdminSettingsPage() {
                     <li>Ingressos</li>
                     <li>Newsletter</li>
                   </ul>
-                  <p className="text-[11px] text-muted-foreground">Em construção na fase A2c.</p>
-                </div>
+                  <p className="text-xs text-muted-foreground">Em construção na fase A2c.</p>
+                </section>
               </div>
             </div>
           )}
 
           {/* MODERACAO */}
           {section === 'moderacao' && (
-            <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Moderação</h2>
+            <section className={cn(painel, 'space-y-6 p-4 sm:p-6')}>
+              <SectionTitle>Moderação</SectionTitle>
 
-              <div>
-                <label htmlFor="bannedWords" className="text-xs text-espresso/70 mb-1 block">Palavras Proibidas</label>
-                <textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-                <p className="text-[10px] text-espresso/70 mt-1">Separadas por virgula</p>
+              <div className="grid gap-1.5">
+                <Label htmlFor="bannedWords">Palavras Proibidas</Label>
+                <Textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="resize-none" />
+                <p className="text-xs text-muted-foreground">Separadas por virgula</p>
               </div>
 
               <div className="space-y-3">
                 {[
                   { key: 'autoFlag', label: 'Flag automático', desc: 'Marcar conteúdo com palavras proibidas automaticamente' },
                   { key: 'requireApproval', label: 'Aprovação manual', desc: 'Reviews e comentários precisam de aprovação' },
-                ].map(item => {
-                  const isChecked = getModerationValue(item.key);
-                  return (
-                    <div key={item.key} className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                      <div>
-                        <div className="text-sm text-espresso">{item.label}</div>
-                        <div className="text-[10px] text-espresso/70">{item.desc}</div>
-                      </div>
-                      <label htmlFor={`moderation-${item.key}`} className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" id={`moderation-${item.key}`} aria-label={item.label} checked={isChecked} onChange={e => updateModerationValue(item.key, e.target.checked)} className="sr-only peer" />
-                        <div className="w-10 h-5 bg-espresso/10 rounded-full peer peer-checked:bg-rose-500 transition-colors" />
-                        <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5" />
-                      </label>
+                ].map(item => (
+                  <div key={item.key} className="flex items-center justify-between gap-4 rounded-[10px] border border-border bg-secondary p-4">
+                    <div className="min-w-0">
+                      <Label htmlFor={`moderation-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
+                      <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                     </div>
-                  );
-                })}
-
-                <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 border border-white/60">
-                  <div>
-                    <label htmlFor="reportThreshold" className="text-sm text-espresso">Limite de denúncias</label>
-                    <div className="text-[10px] text-espresso/70">Bloquear automaticamente após X denúncias</div>
+                    <Switch id={`moderation-${item.key}`} aria-label={item.label} checked={getModerationValue(item.key)} onCheckedChange={v => updateModerationValue(item.key, v)} />
                   </div>
-                  <input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-16 px-2 py-1 bg-white/60 border border-white/60 rounded-lg text-sm text-espresso text-center focus:outline-none focus:border-plum/30" />
+                ))}
+
+                <div className="flex items-center justify-between gap-4 rounded-[10px] border border-border bg-secondary p-4">
+                  <div className="min-w-0">
+                    <Label htmlFor="reportThreshold" className="text-sm text-foreground">Limite de denúncias</Label>
+                    <p className="mt-1 text-xs text-muted-foreground">Bloquear automaticamente após X denúncias</p>
+                  </div>
+                  <Input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-20 text-center" />
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <button onClick={handleSave} disabled={isSavingSettings} className="px-6 py-2.5 bg-rose-500 text-white text-sm rounded-full hover:shadow-lg hover:shadow-rose-500/20 transition-all flex items-center gap-2 disabled:opacity-50">
-                  <Save className="w-4 h-4" />Salvar
-                </button>
+                <Button onClick={handleSave} loading={isSavingSettings}>
+                  <I.Guardar aria-hidden="true" />Salvar
+                </Button>
               </div>
-            </div>
+            </section>
           )}
 
           {/* BACKUP */}
           {section === 'backup' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Backup & Exportação</h2>
+              <SectionTitle>Backup & Exportação</SectionTitle>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-5 rounded-2xl bg-card border border-border">
-                  <Database className="w-6 h-6 text-rose-400 mb-3" />
-                  <h3 className="text-sm font-medium text-foreground mb-1">Exportar Dados</h3>
-                  <p className="text-xs text-muted-foreground mb-4">Extrato parcial em CSV: só o que a regra de acesso deixa o admin ler</p>
+                <section className={cn(painel, 'p-4 sm:p-6')}>
+                  <I.BancoDeDados size={24} className="mb-3 text-primary" aria-hidden="true" />
+                  <h3 className="mb-1 text-sm font-medium text-foreground">Exportar Dados</h3>
+                  <p className="mb-4 text-xs text-muted-foreground">Extrato parcial em CSV: só o que a regra de acesso deixa o admin ler</p>
                   <div className="space-y-2">
                     {Object.keys(EXPORTS).map(item => (
-                      <button key={item} onClick={() => handleExport(item)} className="w-full flex items-center justify-between p-3 rounded-lg bg-white/40 hover:bg-white/60 transition-all text-left">
-                        <span className="text-xs text-espresso">{item}</span>
-                        <span className="text-[10px] text-rose-400">CSV</span>
-                      </button>
+                      <Button key={item} variant="outline" onClick={() => handleExport(item)} className="w-full justify-between">
+                        <span>{item}</span>
+                        <span className="text-xs font-medium text-primary">CSV</span>
+                      </Button>
                     ))}
                   </div>
-                </div>
+                </section>
 
-                <div className="p-5 rounded-2xl bg-card border border-border space-y-3">
-                  <AlertTriangle className="w-6 h-6 text-amber-500 mb-1" />
+                <section className={cn(painel, 'space-y-3 p-4 sm:p-6')}>
+                  <I.Alerta size={24} className="mb-1 text-[var(--ev-warning)]" aria-hidden="true" />
                   <h3 className="text-sm font-medium text-foreground">Backup completo</h3>
                   <p className="text-xs text-muted-foreground">O plano gratuito do Supabase não faz backup ("Not included").</p>
                   <p className="text-xs text-muted-foreground">O backup semanal completo é feito por uma GitHub Action (<code>.github/workflows/backup.yml</code>, <code>supabase db dump</code>) e guardado <strong>cifrado (AES-256)</strong> como artefato do repositório, que é público: sem a frase-senha o arquivo não abre. Se o workflow ainda não existir no repositório, o backup automático ainda não está ativo.</p>
                   <p className="text-xs text-muted-foreground">As exportações ao lado são um extrato parcial, não substituem o backup.</p>
-                </div>
+                </section>
               </div>
             </div>
           )}
@@ -436,56 +433,50 @@ export default function AdminSettingsPage() {
           {/* LOGS: user_activities (session_start, page_view, login) */}
           {section === 'logs' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Logs do Sistema</h2>
+              <SectionTitle>Logs do Sistema</SectionTitle>
 
-              <div className="flex items-center gap-2 mb-4" role="group" aria-label="Filtrar por tipo">
-                {LOG_FILTERS.map(f => (
-                  <Button key={f.id} type="button" size="sm" variant={logFilter === f.id ? 'default' : 'outline'} aria-pressed={logFilter === f.id} onClick={() => setLogFilter(f.id)} className="rounded-full">
-                    {f.label}
-                  </Button>
-                ))}
-              </div>
+              <Segmented label="Filtrar por tipo" items={LOG_FILTERS.map(f => ({ value: f.id, label: f.label }))} value={logFilter} onValueChange={v => setLogFilter(v as LogFilter)} className="w-full sm:w-80" />
 
               {logsError && (
-                <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700 dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-300">
+                <div role="alert" className={alertaErro}>
                   Não foi possível carregar os logs: {logsError}
                 </div>
               )}
 
-              <div className="bg-card border border-border rounded-2xl overflow-x-auto">
+              <div className={cn(painel, 'overflow-hidden')}>
                 {isLoadingLogs ? (
-                  <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-rose-400" /></div>
+                  <div className="flex justify-center py-12"><Spinner className="size-6 text-primary" /></div>
                 ) : activities.length === 0 && !logsError ? (
-                  <div className="py-12 text-center text-sm text-muted-foreground">Nenhum registro encontrado.</div>
+                  <div className="p-4"><EmptyState title="Nenhum registro encontrado." /></div>
                 ) : (
-                  <table className="w-full">
+                  <Tabela label="Logs do sistema">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Tipo</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Usuário</th>
-                        <th className="text-left px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase">Caminho</th>
-                        <th className="text-right px-4 py-3 text-[10px] font-medium text-muted-foreground uppercase hidden md:table-cell">Data</th>
+                        <th className={th}>Tipo</th>
+                        <th className={cn(th, 'hidden md:table-cell')}>Usuário</th>
+                        <th className={th}>Caminho</th>
+                        <th className={cn(th, 'hidden md:table-cell text-right')}>Data</th>
                       </tr>
                     </thead>
                     <tbody>
                       {activities.map(log => (
-                        <tr key={log.id} className="border-b border-border last:border-0 hover:bg-white/40 transition-colors">
+                        <tr key={log.id} className="border-b border-border last:border-0 transition-colors hover:bg-secondary/60">
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 text-[10px] rounded-full border ${log.event_type === 'login' ? 'bg-blue-50 text-blue-700 border-blue-100' : log.event_type === 'session_start' ? 'bg-green-50 text-green-700 border-green-100' : 'bg-espresso/5 text-espresso/70 border-espresso/10'}`}>
+                            <Badge variant="secondary" className={log.event_type === 'login' ? chipInfo : log.event_type === 'session_start' ? chipOk : chipNeutro}>
                               {LOG_LABEL[log.event_type] || log.event_type}
-                            </span>
+                            </Badge>
                           </td>
                           <td className="px-4 py-3 text-xs text-foreground hidden md:table-cell font-mono">{log.profiles?.email || log.user_id || 'Visitante'}</td>
                           <td className="px-4 py-3 text-xs text-foreground break-all">{log.path || '—'}</td>
-                          <td className="px-4 py-3 text-right text-xs text-muted-foreground hidden md:table-cell whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
+                          <td className="px-4 py-3 text-right text-xs tabular-nums text-muted-foreground hidden md:table-cell whitespace-nowrap">{new Date(log.created_at).toLocaleString('pt-BR')}</td>
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+                  </Tabela>
                 )}
               </div>
               {!isLoadingLogs && activities.length === 200 && (
-                <p className="text-[11px] text-muted-foreground">Mostrando os 200 registros mais recentes. Para o histórico completo, exporte na aba Backup.</p>
+                <p className="text-xs text-muted-foreground">Mostrando os 200 registros mais recentes. Para o histórico completo, exporte na aba Backup.</p>
               )}
             </div>
           )}
@@ -493,25 +484,17 @@ export default function AdminSettingsPage() {
           {/* SEGURANCA */}
           {section === 'seguranca' && (
             <div className="space-y-6">
-              <h2 className="text-lg font-medium text-espresso">Segurança</h2>
+              <SectionTitle>Segurança</SectionTitle>
 
               {/* 2FA Pessoal do Admin */}
-              <div className="p-4 rounded-xl bg-white/60 border border-white/60 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium text-espresso">Minha Autenticação de Dois Fatores (2FA)</div>
-                  <div className="text-[10px] text-espresso/70">
+              <div className={cn(painel, 'flex items-center justify-between gap-4 p-4')}>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">Minha Autenticação de Dois Fatores (2FA)</div>
+                  <div className="mt-1 text-xs text-muted-foreground">
                     {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
                   </div>
                 </div>
-                <button 
-                  disabled={mfa.loading}
-                  aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
-                  aria-pressed={mfa.enabled}
-                  onClick={mfa.toggle} 
-                  className={`relative w-11 h-6 rounded-full transition-colors ${mfa.enabled ? 'bg-rose-500' : 'bg-espresso/10'} disabled:opacity-55`}
-                >
-                  <div className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${mfa.enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
-                </button>
+                <Switch checked={mfa.enabled} onCheckedChange={() => mfa.toggle()} disabled={mfa.loading} aria-label="Autenticação de dois fatores" />
               </div>
             </div>
           )}

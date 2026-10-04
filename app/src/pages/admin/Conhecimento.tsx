@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, BookOpen, Bot, BookPlus, Languages, Loader2, Pencil, Plus, Search, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Spinner } from '@/components/ui/spinner'
+import { Textarea } from '@/components/ui/textarea'
+import { EmptyState, PageHeader, chipAviso, chipNeutro, chipOk, selectNativo } from '@/components/producer/ui'
+import { alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, trilho } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -36,7 +44,6 @@ const PUBLICO: Record<Publico, string> = { all: 'Todos', participant: 'Participa
 const ORIGEM: Record<Artigo['origin'], string> = { seed: 'Levantamento', manual: 'Admin', atendente: 'Resposta de atendente', ia: 'Sugestão da IA' }
 const PUBLICO_PERGUNTA: Record<string, string> = { participant: 'Participante', producer: 'Produtor', site: 'Site' }
 
-const inputCls = 'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary'
 const erroDe = (e: unknown) => (e as { message?: string } | null)?.message || 'erro desconhecido'
 const dataBr = (s: string) => new Date(s).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 /** forma do dicionário como o banco guarda: minúscula, sem acento, só letras e números */
@@ -77,15 +84,13 @@ function ConfirmarExclusao({ alvo, ocupado, aoConfirmar, aoFechar }: { alvo: Exc
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="excluir-titulo" onKeyDown={e => { if (e.key === 'Escape') aoFechar() }}>
       <div className="absolute inset-0 glass-backdrop" onClick={aoFechar} />
       <div className="glass-panel relative w-full max-w-sm p-6">
-        <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-4"><AlertTriangle className="w-6 h-6 text-red-500" aria-hidden="true" /></div>
-        <h2 id="excluir-titulo" className="font-serif text-xl text-foreground text-center mb-2">Excluir</h2>
-        <p className="text-sm text-foreground text-center mb-1 break-words">“{alvo.nome}”</p>
-        <p className="text-xs text-muted-foreground text-center mb-4">{texto} Não dá para desfazer.</p>
+        <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-destructive/10"><I.Alerta size={24} className="text-destructive" aria-hidden="true" /></div>
+        <h2 id="excluir-titulo" className="mb-2 text-center text-lg font-semibold leading-6 tracking-normal text-foreground">Excluir</h2>
+        <p className="mb-1 break-words text-center text-sm text-foreground">“{alvo.nome}”</p>
+        <p className="mb-4 text-center text-xs text-muted-foreground">{texto} Não dá para desfazer.</p>
         <div className="space-y-2">
-          <button type="button" autoFocus disabled={ocupado} onClick={aoConfirmar} className="w-full py-2.5 bg-red-600 text-white text-sm font-medium rounded-full hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2">
-            {ocupado && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Confirmar exclusão
-          </button>
-          <button type="button" onClick={aoFechar} className="w-full py-2.5 text-sm text-muted-foreground hover:text-foreground">Voltar</button>
+          <Button type="button" variant="destructive" autoFocus loading={ocupado} onClick={aoConfirmar} className="w-full">Confirmar exclusão</Button>
+          <Button type="button" variant="ghost" onClick={aoFechar} className="w-full">Voltar</Button>
         </div>
       </div>
     </div>
@@ -302,25 +307,29 @@ export default function AdminConhecimento() {
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground flex items-center gap-2"><BookOpen className="w-7 h-7 text-primary" aria-hidden="true" /> Conhecimento</h1>
-          <p className="text-sm text-muted-foreground mt-1">O assistente do chat responde com os artigos publicados, no público de quem pergunta. Rascunho não aparece para ninguém.</p>
-        </div>
-        {aba === 'artigos' && (
-          <button type="button" onClick={() => setForm({ ...artigoVazio })} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2">
-            <Plus className="w-4 h-4" aria-hidden="true" /> Novo artigo
-          </button>
-        )}
-        {aba === 'dicionario' && (
-          <button type="button" onClick={() => setTermo({ id: null, forma: '', normal: '', pergunta_id: null })} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2">
-            <Plus className="w-4 h-4" aria-hidden="true" /> Nova forma
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Conhecimento"
+        description="O assistente do chat responde com os artigos publicados, no público de quem pergunta. Rascunho não aparece para ninguém."
+        actions={
+          aba === 'perguntas' ? undefined : (
+          <>
+            {aba === 'artigos' && (
+              <Button type="button" onClick={() => setForm({ ...artigoVazio })}>
+                <I.Criar aria-hidden="true" /> Novo artigo
+              </Button>
+            )}
+            {aba === 'dicionario' && (
+              <Button type="button" onClick={() => setTermo({ id: null, forma: '', normal: '', pergunta_id: null })}>
+                <I.Criar aria-hidden="true" /> Nova forma
+              </Button>
+            )}
+          </>
+          )
+        }
+      />
 
-      <div className="mb-6 p-4 rounded-2xl border border-border bg-card flex flex-wrap items-center gap-3">
-        <Bot className="w-5 h-5 text-primary" aria-hidden="true" />
+      <div className={cn(painel, 'mb-6 flex flex-wrap items-center gap-3 p-4')}>
+        <I.Bot size={20} className="text-primary" aria-hidden="true" />
         <div className="flex-1 min-w-[12rem]">
           <p className="text-sm font-semibold text-foreground">
             Assistente no atendimento: {ligado.data == null ? '…' : ligado.data ? 'ligado' : 'desligado'}
@@ -328,20 +337,19 @@ export default function AdminConhecimento() {
           <p className="text-xs text-muted-foreground">Ligado, ele responde primeiro nas conversas novas e passa para a equipe quando não souber. Desligado, tudo vai direto para a equipe.</p>
         </div>
         {ligado.data != null && (
-          <button type="button" disabled={alternar.isPending} onClick={() => alternar.mutate(!ligado.data)} className="px-3 py-1.5 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted disabled:opacity-50">
+          <Button type="button" variant="outline" size="sm" disabled={alternar.isPending} onClick={() => alternar.mutate(!ligado.data)}>
             {ligado.data ? 'Desligar' : 'Ligar'}
-          </button>
+          </Button>
         )}
       </div>
 
-      <div className="flex flex-wrap bg-card p-1 border border-border rounded-xl gap-1 w-fit mb-4" role="tablist" aria-label="Seções da base">
+      <div className={cn(trilho, 'mb-4 w-fit')} role="group" aria-label="Seções da base">
         {([
           ['artigos', `Artigos (${publicados} publicados)`],
           ['dicionario', 'Dicionário'],
           ['perguntas', `Perguntas sem resposta (${perguntas.data?.length ?? 0})`],
         ] as const).map(([v, l]) => (
-          <button key={v} type="button" role="tab" aria-selected={aba === v} onClick={() => setAba(v)}
-            className={`px-4 py-1.5 rounded-lg text-xs font-semibold ${aba === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+          <button key={v} type="button" aria-pressed={aba === v} onClick={() => setAba(v)} className={aba === v ? segmentoOn : segmentoOff}>
             {l}
           </button>
         ))}
@@ -351,59 +359,59 @@ export default function AdminConhecimento() {
         <>
           <div className="flex flex-wrap items-center gap-2 mb-4">
             <div className="relative flex-1 min-w-[14rem]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" aria-hidden="true" />
-              <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar no título, texto ou palavras-chave" aria-label="Buscar artigos" className={`${inputCls} pl-9`} />
+              <I.Buscar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+              <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar no título, texto ou palavras-chave" aria-label="Buscar artigos" className="pl-9" />
             </div>
-            <select aria-label="Situação" value={situacao} onChange={e => setSituacao(e.target.value as Situacao)} className={`${inputCls} w-auto`}>
+            <select aria-label="Situação" value={situacao} onChange={e => setSituacao(e.target.value as Situacao)} className={cn(selectNativo, 'w-auto')}>
               <option value="todos">Todas as situações</option>
               <option value="published">Publicados</option>
               <option value="draft">Rascunhos</option>
               <option value="ia">Sugestões da IA</option>
             </select>
-            <select aria-label="Público" value={publico} onChange={e => setPublico(e.target.value as '' | Publico)} className={`${inputCls} w-auto`}>
+            <select aria-label="Público" value={publico} onChange={e => setPublico(e.target.value as '' | Publico)} className={cn(selectNativo, 'w-auto')}>
               <option value="">Todos os públicos</option>
               {(Object.keys(PUBLICO) as Publico[]).map(p => <option key={p} value={p}>{PUBLICO[p]}</option>)}
             </select>
-            <select aria-label="Setor" value={setor} onChange={e => setSetor(e.target.value)} className={`${inputCls} w-auto`}>
+            <select aria-label="Setor" value={setor} onChange={e => setSetor(e.target.value)} className={cn(selectNativo, 'w-auto')}>
               <option value="">Todos os setores</option>
               {(setores.data ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
 
           {artigos.isError ? (
-            <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+            <div role="alert" className={alertaErro}>
               Não foi possível carregar os artigos: {erroDe(artigos.error)}. Se citar uma tabela inexistente, falta aplicar <span className="font-mono">docs/sql/20261003_chat_bot.sql</span>.
             </div>
           ) : artigos.isLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+            <div className="flex justify-center py-20"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
           ) : lista.length === 0 ? (
-            <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">Nenhum artigo neste filtro.</div>
+            <EmptyState title="Nenhum artigo neste filtro." />
           ) : (
-            <ul className="divide-y divide-border border border-border rounded-2xl bg-card">
+            <ul className={cn(painel, 'divide-y divide-border')}>
               {lista.map(a => (
                 <li key={a.id} className="flex items-start gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-foreground">{a.title}</p>
                     <p className="text-xs text-muted-foreground line-clamp-2">{a.body}</p>
-                    <div className="mt-1 flex flex-wrap gap-1 text-[10px]">
-                      <span className={`px-1.5 py-px rounded-full font-semibold ${a.status === 'published' ? 'bg-green-500/10 text-green-700 dark:text-green-300' : 'bg-amber-500/15 text-amber-800 dark:text-amber-200'}`}>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      <Badge variant="secondary" className={a.status === 'published' ? chipOk : chipAviso}>
                         {a.status === 'published' ? 'Publicado' : a.origin === 'ia' ? 'Sugestão' : 'Rascunho'}
-                      </span>
-                      <span className="px-1.5 py-px rounded-full bg-muted text-muted-foreground">{PUBLICO[a.audience]}</span>
-                      {nomeSetor(a.department_id) && <span className="px-1.5 py-px rounded-full bg-muted text-muted-foreground">{nomeSetor(a.department_id)}</span>}
-                      <span className="px-1.5 py-px rounded-full border border-border text-muted-foreground">{ORIGEM[a.origin]}</span>
+                      </Badge>
+                      <Badge variant="secondary" className={chipNeutro}>{PUBLICO[a.audience]}</Badge>
+                      {nomeSetor(a.department_id) && <Badge variant="secondary" className={chipNeutro}>{nomeSetor(a.department_id)}</Badge>}
+                      <Badge variant="outline" className="text-muted-foreground">{ORIGEM[a.origin]}</Badge>
                     </div>
                   </div>
                   <div className="flex shrink-0 gap-1">
-                    <button type="button" aria-label={`Editar artigo ${a.title}`} onClick={() => setForm({
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Editar artigo ${a.title}`} onClick={() => setForm({
                       ...artigoVazio, id: a.id, title: a.title, body: a.body, keywords: a.keywords, audience: a.audience,
                       department_id: a.department_id ?? '', publicado: a.status === 'published', review_note: a.review_note,
-                    })} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground">
-                      <Pencil className="w-4 h-4" aria-hidden="true" />
-                    </button>
-                    <button type="button" aria-label={`Excluir artigo ${a.title}`} onClick={() => setExclusao({ tipo: 'artigo', id: a.id, nome: a.title })} className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600">
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    </button>
+                    })}>
+                      <I.Editar aria-hidden="true" />
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" aria-label={`Excluir artigo ${a.title}`} onClick={() => setExclusao({ tipo: 'artigo', id: a.id, nome: a.title })} className="hover:text-destructive">
+                      <I.Lixeira aria-hidden="true" />
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -416,21 +424,21 @@ export default function AdminConhecimento() {
         <>
           <p className="mb-4 text-xs text-muted-foreground">Antes de buscar, o assistente troca cada palavra da pergunta pela forma normal (sem diferenciar maiúscula nem acento). Ex.: “vc” → “você”, “ingr” → “ingresso”.</p>
           {termos.isError ? (
-            <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">Não foi possível carregar o dicionário: {erroDe(termos.error)}</div>
+            <div role="alert" className={alertaErro}>Não foi possível carregar o dicionário: {erroDe(termos.error)}</div>
           ) : termos.isLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+            <div className="flex justify-center py-20"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
           ) : !termos.data?.length ? (
-            <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">Dicionário vazio.</div>
+            <EmptyState title="Dicionário vazio." />
           ) : (
             <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {termos.data.map(t => (
-                <li key={t.id} className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm">
+                <li key={t.id} className={cn(painel, 'flex items-center gap-2 px-3 py-2 text-sm')}>
                   <span className="font-mono font-semibold text-foreground">{t.forma}</span>
                   <span aria-hidden="true" className="text-muted-foreground">→</span>
                   <span className="sr-only">quer dizer</span>
                   <span className="min-w-0 flex-1 truncate text-foreground">{t.normal}</span>
-                  <button type="button" aria-label={`Editar ${t.forma}`} onClick={() => setTermo({ ...t, pergunta_id: null })} className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" aria-hidden="true" /></button>
-                  <button type="button" aria-label={`Excluir ${t.forma}`} onClick={() => setExclusao({ tipo: 'termo', id: t.id, nome: `${t.forma} → ${t.normal}` })} className="p-1 rounded hover:bg-red-50 text-muted-foreground hover:text-red-600"><Trash2 className="w-3.5 h-3.5" aria-hidden="true" /></button>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={`Editar ${t.forma}`} onClick={() => setTermo({ ...t, pergunta_id: null })}><I.Editar aria-hidden="true" /></Button>
+                  <Button type="button" variant="ghost" size="icon-sm" aria-label={`Excluir ${t.forma}`} onClick={() => setExclusao({ tipo: 'termo', id: t.id, nome: `${t.forma} → ${t.normal}` })} className="hover:text-destructive"><I.Lixeira aria-hidden="true" /></Button>
                 </li>
               ))}
             </ul>
@@ -442,32 +450,32 @@ export default function AdminConhecimento() {
         <>
           <p className="mb-4 text-xs text-muted-foreground">O que o assistente não soube responder e passou para a equipe, as mais repetidas primeiro. O texto é guardado sem acento, com siglas já trocadas e sem números de documento, telefone ou e-mail.</p>
           {perguntas.isError ? (
-            <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">Não foi possível carregar as perguntas: {erroDe(perguntas.error)}</div>
+            <div role="alert" className={alertaErro}>Não foi possível carregar as perguntas: {erroDe(perguntas.error)}</div>
           ) : perguntas.isLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+            <div className="flex justify-center py-20"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
           ) : !perguntas.data?.length ? (
-            <div className="text-center py-16 text-sm text-muted-foreground border border-dashed border-border rounded-2xl">Nenhuma pergunta sem resposta.</div>
+            <EmptyState title="Nenhuma pergunta sem resposta." />
           ) : (
-            <ul className="divide-y divide-border border border-border rounded-2xl bg-card">
+            <ul className={cn(painel, 'divide-y divide-border')}>
               {perguntas.data.map(p => (
                 <li key={p.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                   <div className="min-w-0 flex-1">
                     <p className="text-sm text-foreground break-words">{p.texto}</p>
-                    <p className="text-[11px] text-muted-foreground">{PUBLICO_PERGUNTA[p.audience] ?? p.audience} · {p.vezes} {p.vezes === 1 ? 'vez' : 'vezes'} · última em {dataBr(p.ultima_em)}</p>
+                    <p className="text-xs text-muted-foreground">{PUBLICO_PERGUNTA[p.audience] ?? p.audience} · {p.vezes} {p.vezes === 1 ? 'vez' : 'vezes'} · última em {dataBr(p.ultima_em)}</p>
                   </div>
-                  <div className="flex shrink-0 flex-wrap gap-1">
-                    <button type="button" onClick={() => setForm({ ...artigoVazio, keywords: p.texto.slice(0, 500), audience: p.audience === 'participant' || p.audience === 'producer' ? p.audience : 'all', pergunta_id: p.id })}
-                      className="px-2.5 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold flex items-center gap-1" aria-label={`Criar artigo para: ${p.texto}`}>
-                      <BookPlus className="w-3.5 h-3.5" aria-hidden="true" /> Criar artigo
-                    </button>
-                    <button type="button" onClick={() => setTermo({ id: null, forma: p.texto.split(' ')[0] ?? '', normal: '', pergunta_id: p.id })}
-                      className="px-2.5 py-1.5 rounded-lg border border-border text-xs text-foreground hover:bg-muted flex items-center gap-1" aria-label={`Acrescentar ao dicionário: ${p.texto}`}>
-                      <Languages className="w-3.5 h-3.5" aria-hidden="true" /> Acrescentar ao dicionário
-                    </button>
-                    <button type="button" onClick={() => setExclusao({ tipo: 'pergunta', id: p.id, nome: p.texto })}
-                      className="p-1.5 rounded-lg hover:bg-red-50 text-muted-foreground hover:text-red-600" aria-label={`Descartar pergunta: ${p.texto}`}>
-                      <Trash2 className="w-4 h-4" aria-hidden="true" />
-                    </button>
+                  <div className="flex max-w-full shrink-0 flex-wrap gap-1">
+                    <Button type="button" size="sm" onClick={() => setForm({ ...artigoVazio, keywords: p.texto.slice(0, 500), audience: p.audience === 'participant' || p.audience === 'producer' ? p.audience : 'all', pergunta_id: p.id })}
+                      aria-label={`Criar artigo para: ${p.texto}`}>
+                      <I.LivroMais aria-hidden="true" /> Criar artigo
+                    </Button>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setTermo({ id: null, forma: p.texto.split(' ')[0] ?? '', normal: '', pergunta_id: p.id })}
+                      aria-label={`Acrescentar ao dicionário: ${p.texto}`}>
+                      <I.Idioma aria-hidden="true" /> Acrescentar ao dicionário
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => setExclusao({ tipo: 'pergunta', id: p.id, nome: p.texto })}
+                      aria-label={`Descartar pergunta: ${p.texto}`} className="hover:text-destructive">
+                      <I.Lixeira aria-hidden="true" />
+                    </Button>
                   </div>
                 </li>
               ))}
@@ -480,59 +488,60 @@ export default function AdminConhecimento() {
         <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="artigo-titulo" onKeyDown={e => { if (e.key === 'Escape') setForm(null) }}>
           <form onSubmit={enviarArtigo} className="glass-panel w-full max-w-2xl my-8 p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 id="artigo-titulo" className="font-serif text-xl text-foreground">
+              <h2 id="artigo-titulo" className="text-lg font-semibold leading-6 tracking-normal text-foreground">
                 {form.id ? 'Editar artigo' : form.origin === 'atendente' ? 'Artigo a partir da resposta do atendente' : 'Novo artigo'}
               </h2>
-              <button type="button" onClick={() => setForm(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Fechar"><X className="w-4 h-4" aria-hidden="true" /></button>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setForm(null)} aria-label="Fechar"><I.Fechar aria-hidden="true" /></Button>
             </div>
             {!form.id && form.origin === 'atendente' && (
-              <div role="note" className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
+              <div role="note" className={alertaAviso}>
+                <I.Alerta size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
                 Antes de salvar, tire nome, telefone, e-mail, documento e qualquer dado do cliente.
               </div>
             )}
             {form.review_note && (
-              <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-800 dark:text-amber-300">
-                <strong>Motivo do rascunho:</strong> {form.review_note}
+              <div className={alertaAviso}>
+                <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
+                <span><strong>Motivo do rascunho:</strong> {form.review_note}</span>
               </div>
             )}
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-muted-foreground">Título (a pergunta, como a pessoa faria) *</span>
-              <input autoFocus className={inputCls} value={form.title} onChange={e => set('title', e.target.value)} maxLength={160} required />
+              <Input autoFocus value={form.title} onChange={e => set('title', e.target.value)} maxLength={160} required />
             </label>
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-muted-foreground">Resposta *</span>
-              <textarea className={`${inputCls} min-h-[10rem]`} value={form.body} onChange={e => set('body', e.target.value)} maxLength={3500} required aria-describedby="artigo-contador" />
-              <span id="artigo-contador" className="block text-right text-[11px] text-muted-foreground">{form.body.length} / 3.500</span>
+              <Textarea className="min-h-[10rem]" value={form.body} onChange={e => set('body', e.target.value)} maxLength={3500} required aria-describedby="artigo-contador" />
+              <span id="artigo-contador" className="block text-right text-xs tabular-nums text-muted-foreground">{form.body.length} / 3.500</span>
             </label>
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-muted-foreground">Palavras-chave (separadas por vírgula; jeitos diferentes de perguntar)</span>
-              <input className={inputCls} value={form.keywords} onChange={e => set('keywords', e.target.value)} maxLength={500} />
+              <Input value={form.keywords} onChange={e => set('keywords', e.target.value)} maxLength={500} />
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <label className="space-y-1">
                 <span className="text-xs font-semibold text-muted-foreground">Público</span>
-                <select className={inputCls} value={form.audience} onChange={e => set('audience', e.target.value as Publico)}>
+                <select className={selectNativo} value={form.audience} onChange={e => set('audience', e.target.value as Publico)}>
                   {(Object.keys(PUBLICO) as Publico[]).map(p => <option key={p} value={p}>{PUBLICO[p]}</option>)}
                 </select>
               </label>
               <label className="space-y-1">
                 <span className="text-xs font-semibold text-muted-foreground">Setor</span>
-                <select className={inputCls} value={form.department_id} onChange={e => set('department_id', e.target.value)}>
+                <select className={selectNativo} value={form.department_id} onChange={e => set('department_id', e.target.value)}>
                   <option value="">Sem setor</option>
                   {(setores.data ?? []).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </label>
             </div>
             <label className="flex items-center gap-2 text-sm text-foreground">
-              <input type="checkbox" checked={form.publicado} onChange={e => set('publicado', e.target.checked)} />
+              <input type="checkbox" className="size-4 accent-primary" checked={form.publicado} onChange={e => set('publicado', e.target.checked)} />
               Publicado (o assistente passa a usar)
             </label>
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground">Cancelar</button>
-              <button type="submit" disabled={salvar.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-                {salvar.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />}
+              <Button type="button" variant="outline" onClick={() => setForm(null)}>Cancelar</Button>
+              <Button type="submit" loading={salvar.isPending}>
                 {form.id ? 'Salvar alterações' : 'Criar artigo'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -542,23 +551,21 @@ export default function AdminConhecimento() {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" role="dialog" aria-modal="true" aria-labelledby="termo-titulo" onKeyDown={e => { if (e.key === 'Escape') setTermo(null) }}>
           <form onSubmit={enviarTermo} className="glass-panel w-full max-w-md p-6 space-y-4">
             <div className="flex items-center justify-between">
-              <h2 id="termo-titulo" className="font-serif text-xl text-foreground">{termo.id ? 'Editar forma' : 'Nova forma no dicionário'}</h2>
-              <button type="button" onClick={() => setTermo(null)} className="p-1.5 rounded-lg hover:bg-muted" aria-label="Fechar"><X className="w-4 h-4" aria-hidden="true" /></button>
+              <h2 id="termo-titulo" className="text-lg font-semibold leading-6 tracking-normal text-foreground">{termo.id ? 'Editar forma' : 'Nova forma no dicionário'}</h2>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => setTermo(null)} aria-label="Fechar"><I.Fechar aria-hidden="true" /></Button>
             </div>
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-muted-foreground">Forma (sigla, abreviação ou gíria; uma palavra) *</span>
-              <input autoFocus className={`${inputCls} font-mono`} value={termo.forma} onChange={e => setTermo({ ...termo, forma: e.target.value })} maxLength={40} required aria-describedby="termo-forma-dica" />
-              <span id="termo-forma-dica" className="block text-[11px] text-muted-foreground">Guardada como “{normalizarForma(termo.forma)}”: minúscula, sem acento e sem espaço.</span>
+              <Input autoFocus className="font-mono" value={termo.forma} onChange={e => setTermo({ ...termo, forma: e.target.value })} maxLength={40} required aria-describedby="termo-forma-dica" />
+              <span id="termo-forma-dica" className="block text-xs text-muted-foreground">Guardada como “{normalizarForma(termo.forma)}”: minúscula, sem acento e sem espaço.</span>
             </label>
             <label className="space-y-1 block">
               <span className="text-xs font-semibold text-muted-foreground">Quer dizer *</span>
-              <input className={inputCls} value={termo.normal} onChange={e => setTermo({ ...termo, normal: e.target.value })} maxLength={60} required />
+              <Input value={termo.normal} onChange={e => setTermo({ ...termo, normal: e.target.value })} maxLength={60} required />
             </label>
             <div className="flex justify-end gap-2 pt-2 border-t border-border">
-              <button type="button" onClick={() => setTermo(null)} className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground">Cancelar</button>
-              <button type="submit" disabled={salvarTermo.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-                {salvarTermo.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Salvar
-              </button>
+              <Button type="button" variant="outline" onClick={() => setTermo(null)}>Cancelar</Button>
+              <Button type="submit" loading={salvarTermo.isPending}>Salvar</Button>
             </div>
           </form>
         </div>
