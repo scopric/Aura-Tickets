@@ -8,7 +8,6 @@ import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { mensagemVinculo } from '../../lib/afiliados'
-import { brl } from '../../lib/taxa'
 import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -72,8 +71,6 @@ export default function ProducerAffiliates() {
 
   const stats = {
     active: affiliates.filter(a => a.status === 'active').length,
-    sales: affiliates.reduce((s, a) => s + a.sales, 0),
-    earned: affiliates.reduce((s, a) => s + a.total_earned, 0),
   }
 
   // Vincular só pela vincular_afiliado: trava de 18 anos, limite de tentativas e 2FA ficam no banco (B3)
@@ -163,8 +160,6 @@ export default function ProducerAffiliates() {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Stat label="Afiliados ativos" value={stats.active} />
-            <Stat label="Vendas" value={stats.sales} />
-            <Stat label="Comissão acumulada" value={brl(stats.earned)} />
           </div>
 
           {affiliates.length === 0 ? (
@@ -204,9 +199,7 @@ export default function ProducerAffiliates() {
                       </div>
                       <dl className="flex gap-4 text-xs tabular-nums text-muted-foreground">
                         <div><dt className="sr-only">Comissão</dt><dd>{a.commission_percent.toLocaleString('pt-BR')}%</dd></div>
-                        <div><dt className="sr-only">Vendas</dt><dd>{a.sales} vendas</dd></div>
-                        <div><dt className="sr-only">Comissão acumulada</dt><dd>{brl(a.total_earned)}</dd></div>
-                      </dl>
+                                      </dl>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon-sm" className={icone} onClick={() => { setEditando(a); setComissaoNova(String(a.commission_percent)) }} aria-label={`Editar comissão de ${a.email_mascarado}`}>
                           <I.Editar aria-hidden="true" />

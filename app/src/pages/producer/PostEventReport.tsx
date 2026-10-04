@@ -5,7 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
-import { useEventSurveys, useEventZones } from '../../hooks/useProducerTools'
+import { useEventSurveys } from '../../hooks/useProducerTools'
 import { PageHeader, Stat, EmptyState, SectionTitle, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -31,7 +31,6 @@ export default function PostEventReport() {
   const selectedEvent = events.find(e => e.id === selectedEventId)
 
   const surveysQ = useEventSurveys(selectedEventId)
-  const zonesQ = useEventZones(selectedEventId)
 
   const statsQ = useQuery({
     queryKey: ['pos-evento-numeros', selectedEventId],
@@ -91,7 +90,6 @@ export default function PostEventReport() {
   }
 
   const surveys = surveysQ.data ?? []
-  const zones = zonesQ.data ?? []
   const total = surveys.length
   const promoters = surveys.filter(r => r.score >= 9).length
   const passives = surveys.filter(r => r.score >= 7 && r.score <= 8).length
@@ -99,8 +97,8 @@ export default function PostEventReport() {
   const nps = total > 0 ? Math.round(((promoters - detractors) / total) * 100) : 0
   const avgRating = total > 0 ? (surveys.reduce((s, r) => s + r.score, 0) / total).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : '—'
 
-  const carregando = surveysQ.isLoading || zonesQ.isLoading || statsQ.isLoading
-  const erro = surveysQ.isError || zonesQ.isError || statsQ.isError
+  const carregando = surveysQ.isLoading || statsQ.isLoading
+  const erro = surveysQ.isError || statsQ.isError
 
   return (
     <div>
@@ -121,8 +119,8 @@ export default function PostEventReport() {
         ) : erro ? (
           <Alerta
             texto="Não foi possível carregar o relatório deste evento."
-            onRetry={() => { surveysQ.refetch(); zonesQ.refetch(); statsQ.refetch() }}
-            carregando={surveysQ.isFetching || zonesQ.isFetching || statsQ.isFetching}
+            onRetry={() => { surveysQ.refetch(); statsQ.refetch() }}
+            carregando={surveysQ.isFetching || statsQ.isFetching}
           />
         ) : (
           <>
@@ -157,26 +155,6 @@ export default function PostEventReport() {
                     <div className="h-full bg-destructive" style={{ width: `${pct(detractors, total)}%` }} />
                   </div>
                 </>
-              )}
-            </section>
-
-            <section aria-labelledby="zonas" className="mt-6 rounded-[10px] border border-border bg-card p-4">
-              <SectionTitle id="zonas">Zonas do evento</SectionTitle>
-              <p className="mt-1 text-sm text-muted-foreground">A ocupação por horário (check-in) ainda não é medida.</p>
-              {zones.length > 0 ? (
-                <ul className="mt-3 divide-y divide-border">
-                  {zones.map(z => (
-                    <li key={z.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-foreground">{z.name}</p>
-                        <p className="text-xs text-muted-foreground">{z.expected_visitors} visitantes · tempo médio de {z.avg_time_minutes} min</p>
-                      </div>
-                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">Satisfação {z.satisfaction_score}</span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-sm text-muted-foreground">Nenhuma zona cadastrada para este evento.</p>
               )}
             </section>
 

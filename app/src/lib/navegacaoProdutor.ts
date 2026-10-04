@@ -50,7 +50,6 @@ export const NAV: Tela[] = [
   { tela: 'Calculadora de mesas', secao: 'Financeiro', rota: '/producer/tables' },
   { tela: 'Configurações', secao: 'Conta', rota: '/producer/settings' },
   { tela: 'Ajuda', secao: 'Conta', rota: '/producer/faq' },
-  { tela: 'Academy', secao: 'Conta', rota: '/producer/academy' },
   { tela: 'App do organizador', secao: 'Conta', rota: '/producer/app' },
 ]
 

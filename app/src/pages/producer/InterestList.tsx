@@ -33,7 +33,6 @@ export default function ProducerInterestList() {
   const total = leads.length
   const notifiedCount = leads.filter(i => i.notified).length
   const pendingCount = leads.filter(i => !i.notified).length
-  const cities = [...new Set(leads.map(i => i.city).filter(Boolean))].length
   const emails = [...new Set(filtered.map(i => i.email?.trim()).filter(Boolean))] as string[]
 
   // "Avisado" só marca na lista: o e-mail em massa chega com o módulo de Comunicação (M6). Até lá, o produtor copia
@@ -98,8 +97,8 @@ export default function ProducerInterestList() {
     return (
       <div aria-busy="true">
         {header}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
       </div>
@@ -129,11 +128,10 @@ export default function ProducerInterestList() {
         {emails.length > 0 && ' Até lá, copie os e-mails e avise por conta própria.'}
       </p>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat label="Interessados" value={total} />
         <Stat label="Avisados" value={notifiedCount} />
         <Stat label="Pendentes" value={pendingCount} />
-        <Stat label="Cidades" value={cities} />
       </div>
 
       <div role="group" aria-label="Filtrar" className="mt-6 flex flex-wrap gap-1">

@@ -53,7 +53,6 @@ export default function ProducerMenu() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('all')
-  const [menuEnabled, setMenuEnabled] = useState(true)
   const [form, setForm] = useState<MenuForm>(emptyForm)
 
   const filtered = activeCategory === 'all'
@@ -133,16 +132,10 @@ export default function ProducerMenu() {
     <div>
       {/* Header */}
       <PageHeader
-        title="Cardápio & Comandas"
+        title="Cardápio"
         description="Cadastre bebidas, comidas, combos e serviços para seu evento"
         actions={
           <>
-            <Button variant="outline" onClick={() => setMenuEnabled(!menuEnabled)}>
-              {menuEnabled
-                ? <I.InterruptorLigado aria-hidden="true" className="text-[var(--ev-success)]" />
-                : <I.InterruptorDesligado aria-hidden="true" className="text-destructive" />}
-              Comandas {menuEnabled ? 'Ativas' : 'Desativadas'}
-            </Button>
             <Button
               onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
               disabled={isMutating || (!!filtroEvento && carregandoEventos)}
