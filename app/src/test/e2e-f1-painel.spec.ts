@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto'
 import { test, expect, type Page } from '@playwright/test'
+import { ACEITE_VERSAO, textoAceite } from '../lib/tipoEvento'
 
 // F1 PR3b: painel do evento em /producer/events/:id/edit. O Supabase é simulado por page.route, com estado: o banco
 // de mentira guarda o evento e os ingressos, aplica o que o painel grava e registra a ORDEM das chamadas (o "Enviar"
@@ -14,7 +16,7 @@ test.skip(({ isMobile }) => isMobile, 'a lateral do produtor cobre a tela no cel
 
 type Linha = Record<string, unknown>
 type Banco = {
-  evento: Linha; ingressos: Linha[]; link: string | null; vendidos: Record<string, number>
+  evento: Linha; ingressos: Linha[]; link: string | null; vendidos: Record<string, number>; aceites: Linha[]
   chamadas: string[]; patches: Linha[]; aceite: () => { status: number; json: unknown }
 }
 
@@ -34,12 +36,25 @@ const aprovado = (o: Linha = {}) => evento({
   classificacao: 'A16', status: 'published', approval_status: 'approved', ...o,
 })
 
+function umAceite(ev: Linha, temBebida: boolean): Linha {
+  const texto = textoAceite({ titulo: ev.title as string, formato: (ev.category as string | null) ?? null, classificacao: (ev.classificacao as string | null) ?? null, temBebida })
+  return { classificacao: ev.category === 'esporte' ? null : (ev.classificacao ?? null), tem_bebida: temBebida, versao: ACEITE_VERSAO, texto_hash: createHash('sha256').update(texto).digest('hex') }
+}
+// O que a função aceite-evento responde: lê o evento e os ingressos GRAVADOS, grava o aceite e devolve o hash do texto
+function aceiteOk(db: Banco) {
+  const a = umAceite(db.evento, db.ingressos.some(t => t.inclui_bebida))
+  db.aceites.push(a)
+  return { status: 200, json: { ok: true, id: 'a1', aceito_em: '2026-10-05T00:00:00Z', ...a } }
+}
+
 async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }): Promise<Banco> {
   const db: Banco = {
     ingressos: [], link: null, vendidos: {}, chamadas: [], patches: [],
-    aceite: () => ({ status: 200, json: { ok: true, id: 'a1', aceito_em: '2026-10-05T00:00:00Z', versao: '2026-10-04', classificacao: db.evento.classificacao ?? null, tem_bebida: db.ingressos.some(t => t.inclui_bebida) } }),
+    aceites: [], aceite: () => aceiteOk(db),
     ...ini,
   }
+  // evento que já foi aprovado tem um aceite coerente com ele, salvo se o teste disser outra coisa
+  if (!ini.aceites && db.evento.status === 'published') db.aceites.push(umAceite(db.evento, db.ingressos.some(t => t.inclui_bebida)))
   const idDe = (url: string, campo: string) => new URL(url).searchParams.get(campo)?.replace(/^eq\./, '') ?? ''
 
   await page.route(/\/rest\/v1\/events(\?|$)/, async route => {
@@ -49,7 +64,9 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
       const body = r.postDataJSON() as Linha
       db.patches.push(body)
       db.chamadas.push(`PATCH events ${Object.keys(body).join(',')}`)
-      if (body.status === 'published' && db.evento.status !== 'published') db.evento.approval_status = 'pending' // o gatilho do banco (PR3a)
+      // o gatilho do banco: rascunho que vira published fica pending (PR3a); mudar conteúdo de evento aprovado também (F0a)
+      if (body.status === 'published' && db.evento.status !== 'published') db.evento.approval_status = 'pending'
+      else if (db.evento.status === 'published' && db.evento.approval_status === 'approved' && Object.keys(body).some(k => k !== 'accent_color')) db.evento.approval_status = 'pending'
       Object.assign(db.evento, body)
       return route.fulfill({ json: { id: EVENTO, updated_at: new Date().toISOString() } })
     }
@@ -88,6 +105,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
   await page.route(/\/rest\/v1\/evento_privado(\?|$)/, async route => {
     const r = route.request()
     if (r.method() === 'GET') return route.fulfill({ json: db.link ? [{ online_url: db.link }] : [] })
+    if (r.method() === 'DELETE') { db.link = null; db.chamadas.push('DELETE evento_privado'); return route.fulfill({ status: 204, body: '' }) }
     if (r.method() === 'POST') {
       const body = r.postDataJSON() as Linha
       db.link = (body.online_url as string | null) ?? null
@@ -96,6 +114,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
     }
     return route.fallback()
   })
+  await page.route(/\/rest\/v1\/evento_aceites(\?|$)/, route => route.fulfill({ json: db.aceites.slice(-1) }))
   await page.route('**/functions/v1/aceite-evento', route => {
     db.chamadas.push('INVOKE aceite-evento')
     const a = db.aceite()
@@ -246,7 +265,7 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     await abre(page, /^Publicar/)
     await page.getByLabel('Li e aceito o termo do produtor').check()
     await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'não é a que está na tela' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
     expect(db.chamadas).toContain('INVOKE aceite-evento')
     expect(db.chamadas.some(c => c === 'PATCH events status')).toBe(false)
     expect(db.evento.status).toBe('draft')
@@ -449,5 +468,193 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     await expect(page.getByText('Evento esportivo não leva selo de classificação.')).toBeVisible()
     await expect(page.getByText('A venda de evento esportivo fica bloqueada por enquanto')).toBeVisible()
     await expect(page.getByRole('radio', { name: /16 anos/ })).toHaveCount(0)
+  })
+})
+
+test.describe('painel do evento: aceite pendente, saída com mudanças e link por modo', () => {
+  test('evento no ar: aceite que falha depois de gravar vira "Em análise" com "Aceite pendente", e dá para refazer', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Regras e idade/)
+    await page.getByRole('radio', { name: /18 anos/ }).click()
+    await page.getByRole('button', { name: 'Enviar alterações para análise' }).click()
+    const dlg = page.getByRole('dialog', { name: 'Enviar alterações para análise?' })
+    await page.waitForTimeout(400)
+    await dlg.getByLabel(/Li e aceito o termo do produtor com a classificação A18/).check()
+    const ok = db.aceite
+    db.aceite = () => ({ status: 500, json: { error: 'DETALHE INTERNO' } })
+    await dlg.getByRole('button', { name: 'Enviar para análise' }).click()
+
+    // o conteúdo já foi gravado (e o gatilho mandou o evento para análise): a tela diz a verdade
+    await expect(page.getByText('As alterações já foram para análise, mas o aceite não foi registrado: refaça o aceite.').first()).toBeVisible()
+    await expect(page.getByText('DETALHE INTERNO')).toHaveCount(0)
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible()
+    await expect(page.getByText('Em análise', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toBeVisible()
+    expect(db.evento).toMatchObject({ classificacao: 'A18', approval_status: 'pending' })
+    expect(db.chamadas).toEqual(['PATCH events classificacao', 'INVOKE aceite-evento'])
+
+    // refazer o aceite: só o aceite, sem gravar nem publicar
+    db.aceite = ok
+    await page.getByRole('button', { name: 'Refazer o aceite' }).click()
+    const dlg2 = page.getByRole('dialog', { name: 'Refazer o aceite?' })
+    await page.waitForTimeout(400)
+    await dlg2.getByRole('button', { name: 'Registrar o aceite' }).click({ force: true })
+    expect(db.chamadas).toHaveLength(2) // sem o aceite marcado não envia
+    await dlg2.getByLabel(/Li e aceito o termo do produtor/).check()
+    await dlg2.getByRole('button', { name: 'Registrar o aceite' }).click()
+    await expect(page.getByText('Aceite registrado.')).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
+    expect(db.chamadas).toEqual(['PATCH events classificacao', 'INVOKE aceite-evento', 'INVOKE aceite-evento'])
+    expect(db.evento.status).toBe('published')
+  })
+
+  test('em análise: mudar a classificação sem aceite novo mostra "Aceite pendente"', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ approval_status: 'pending' }), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
+    await abre(page, /^Regras e idade/)
+    await salva(page, db, () => page.getByRole('radio', { name: /18 anos/ }).click())
+    await expect(page.getByText('Aceite pendente', { exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Refazer o aceite' }).click()
+    await page.waitForTimeout(400)
+    await page.getByRole('dialog').getByLabel(/Li e aceito o termo do produtor/).check()
+    await page.getByRole('dialog').getByRole('button', { name: 'Registrar o aceite' }).click()
+    await expect(page.getByText('Aceite registrado.')).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
+    expect(db.chamadas.at(-1)).toBe('INVOKE aceite-evento')
+  })
+
+  test('em análise: a bebida marcada num ingresso salvo também pede aceite novo', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ approval_status: 'pending' }), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.getByLabel('Inclui bebida alcoólica').check()
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos.')).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toBeVisible()
+  })
+
+  test('hash do texto registrado diverge do que a pessoa leu: para e NÃO publica', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()] })
+    db.aceite = () => ({ status: 200, json: { ok: true, classificacao: 'A16', tem_bebida: false, texto_hash: 'f'.repeat(64) } })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Publicar/)
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
+    expect(db.evento.status).toBe('draft')
+    expect(db.chamadas.some(c => c === 'PATCH events status')).toBe(false)
+  })
+
+  test('resposta do aceite sem texto_hash também não publica', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()] })
+    db.aceite = () => ({ status: 200, json: { ok: true, classificacao: 'A16', tem_bebida: false } })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Publicar/)
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
+    expect(db.evento.status).toBe('draft')
+  })
+
+  for (const [nome, evt] of [['rascunho', () => aprovado({ status: 'draft', approval_status: 'pending' })], ['evento no ar', () => aprovado()]] as const) {
+    test(`ingresso não salvo: sair pela lateral pede confirmação (${nome})`, async ({ page }) => {
+      await montarBanco(page, { evento: evt(), ingressos: [ingresso()] })
+      await entrarProdutor(page)
+      await abrirPainel(page)
+      await abre(page, /^Ingressos/)
+      await page.getByLabel('Preço (R$)').fill('99,00')
+      await page.getByRole('link', { name: 'Todos os eventos' }).first().click()
+      const dlg = page.getByRole('dialog', { name: 'Sair sem salvar?' })
+      await expect(dlg).toContainText('ingressos com mudanças não salvas')
+      await dlg.getByRole('button', { name: 'Continuar editando' }).click()
+      await expect(page.getByLabel('Preço (R$)')).toHaveValue('99,00')
+    })
+  }
+
+  test('autosave com erro: sair pela lateral avisa', async ({ page }) => {
+    await montarBanco(page, { evento: evento() })
+    await entrarProdutor(page)
+    await page.route(/\/rest\/v1\/events(\?|$)/, route => (route.request().method() === 'PATCH' ? route.fulfill({ status: 500, json: { message: 'falhou' } }) : route.fallback()))
+    await abrirPainel(page)
+    await abre(page, /^O que é/)
+    await page.getByLabel('Nome do evento').fill('Nome que não salvou')
+    await expect(page.getByRole('status').filter({ hasText: /Não salvou/ })).toBeVisible()
+    await page.getByRole('link', { name: 'Todos os eventos' }).first().click()
+    const dlg = page.getByRole('dialog', { name: 'Sair sem salvar?' })
+    await expect(dlg).toContainText('mudanças que ainda não foram salvas')
+    await dlg.getByRole('button', { name: 'Continuar editando' }).click()
+  })
+
+  test('modo presencial apaga o link salvo; só a cor no evento no ar salva na hora, sem análise', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending', local_modo: 'online' }), ingressos: [ingresso()], link: 'https://meet.google.com/abc' })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Quando e onde/)
+    await expect(page.getByLabel('Link da transmissão')).toHaveValue('https://meet.google.com/abc')
+    await page.getByRole('radio', { name: 'Presencial' }).click()
+    await expect.poll(() => db.chamadas.includes('DELETE evento_privado'), { timeout: 8000 }).toBe(true)
+    expect(db.link).toBeNull()
+    expect(db.patches.at(-1)).toEqual({ local_modo: 'presencial' })
+  })
+
+  test('evento no ar: só a cor salva na hora ("vale na hora"), sem faixa nem análise', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Imagem/)
+    await salva(page, db, () => page.getByLabel('Cor do evento').evaluate((el: HTMLInputElement) => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!
+      set.call(el, '#336699'); el.dispatchEvent(new Event('input', { bubbles: true }))
+    }))
+    expect(db.patches.at(-1)).toEqual({ accent_color: '#336699' })
+    await expect(page.getByText('Salvo: vale na hora')).toBeVisible()
+    await expect(page.getByText(/Alterações não enviadas/)).toHaveCount(0)
+    expect(db.evento.approval_status).toBe('approved')
+    expect(db.chamadas).toEqual(['PATCH events accent_color'])
+  })
+
+  test('data com erro não é gravada: mostra o erro e espera', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Quando e onde/)
+    await page.getByLabel('Data de início').fill('2020-01-01')
+    await expect(page.getByRole('alert').filter({ hasText: 'O início já passou' })).toBeVisible()
+    await page.waitForTimeout(1600)
+    expect(db.patches).toHaveLength(0)
+    await page.getByLabel('Data de início').fill('2099-12-31')
+    await expect.poll(() => db.patches.length, { timeout: 8000 }).toBe(1)
+    expect(db.patches[0]).toMatchObject({ date: '2099-12-31', time: '22:00' })
+  })
+
+  test('quem não é dono nem colaborador de um evento no ar vê "Evento não encontrado"', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ producer_id: 'f0000000-0000-4000-8000-00000000000f' }), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await page.goto(`/producer/events/${EVENTO}/edit`)
+    await expect(page.getByText('Evento não encontrado')).toBeVisible()
+    await expect(page.getByRole('button', { name: /^O que é/ })).toHaveCount(0)
+  })
+
+  test('releitura que falha não desmonta o painel aberto', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.route(/\/rest\/v1\/events(\?|$)/, route => (route.request().method() === 'GET' ? route.abort() : route.fallback()))
+    await page.getByLabel('Inclui bebida alcoólica').check()
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos.')).toBeVisible()
+    await page.waitForTimeout(1500) // a releitura (com retry) falha: o painel continua
+    await expect(page.getByRole('heading', { level: 1, name: 'Noite de teste' })).toBeVisible()
+    await expect(page.getByText('Não foi possível carregar o evento')).toHaveCount(0)
+    expect(db.ingressos[0]).toMatchObject({ inclui_bebida: true })
   })
 })

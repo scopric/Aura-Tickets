@@ -5,6 +5,10 @@ import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
   it('status do produtor manda primeiro', () => {
     expect(situacaoEvento({ status: 'draft', approval_status: 'approved' })).toBe('Rascunho')
+    // recusado pela equipe volta a rascunho mas guarda o motivo: a lateral e as listas dizem Recusado
+    expect(situacaoEvento({ status: 'draft', approval_status: 'rejected' })).toBe('Recusado')
+    expect(situacaoEvento({ status: 'draft', approval_status: 'pending', rejection_reason: 'Falta o endereço' })).toBe('Recusado')
+    expect(situacaoEvento({ status: 'published', approval_status: 'pending', rejection_reason: 'Falta o endereço' })).toBe('Em análise')
     expect(situacaoEvento({ status: 'ended', approval_status: 'approved' })).toBe('Encerrado')
     expect(situacaoEvento({ status: 'cancelled', approval_status: 'rejected' })).toBe('Cancelado')
   })

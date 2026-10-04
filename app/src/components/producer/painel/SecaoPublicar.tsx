@@ -8,7 +8,7 @@ export type Falta = { rotulo: string; secao: string; nomeSecao: string }
 
 // Seção "Publicar": o que falta (com "Ir para…"), o aceite do produtor (o texto de textoAceite, montado do que está na
 // tela) e o botão de enviar. Evento no ar ou em análise só mostra o estado: o envio das alterações é na faixa do topo.
-export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, enviando, erroEnvio }: {
+export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, enviando, erroEnvio, noArDesde }: {
   modo: ModoPainel
   faltas: Falta[]
   onIr: (secao: string) => void
@@ -19,8 +19,9 @@ export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteM
   onEnviar: () => void
   enviando: boolean
   erroEnvio: string
+  noArDesde?: string // data curta da aprovação (approved_at)
 }) {
-  if (modo === 'publicado') return <p className="flex items-center gap-2 text-sm text-foreground"><I.Check size={16} aria-hidden="true" />No ar. Mudanças de conteúdo passam por nova análise.</p>
+  if (modo === 'publicado') return <p className="flex items-center gap-2 text-sm text-foreground"><I.Check size={16} aria-hidden="true" />{noArDesde ? `No ar desde ${noArDesde}.` : 'No ar.'} Mudanças de conteúdo passam por nova análise.</p>
   if (modo === 'analise') return <p className="flex items-center gap-2 text-sm text-foreground"><I.Horario size={16} aria-hidden="true" />Enviado para aprovação. A equipe avisa por e-mail quando aprovar ou recusar.</p>
   if (modo === 'fechado') return <p className="text-sm text-muted-foreground">Este evento não está mais à venda e não é enviado para aprovação.</p>
 

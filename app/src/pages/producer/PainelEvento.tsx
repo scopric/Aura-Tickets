@@ -29,12 +29,12 @@ import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
 import { copiaDoEvento, erroAoExcluir } from '../../lib/eventoProdutor'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  SECAO_DA_PENDENCIA, diffCampos, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
-  pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
+  SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
 import { brl, calcularTaxa } from '../../lib/taxa'
-import { CLASSIFICACOES, TEMAS, rotuloFormato, textoAceite } from '../../lib/tipoEvento'
+import { ACEITE_VERSAO, CLASSIFICACOES, TEMAS, rotuloFormato, textoAceite } from '../../lib/tipoEvento'
 import { dataComSemana, horaCurta } from '../../lib/visaoEvento'
 
 // Painel do evento (F1 PR3b; prancha Painel.dc.html e Estados.dc.html): a rota de edição. Seis seções em sanfona, a barra
@@ -46,6 +46,7 @@ const SECOES = [
   { id: 'ing', nome: 'Ingressos' }, { id: 'regras', nome: 'Regras e idade' }, { id: 'pub', nome: 'Publicar' },
 ] as const
 const NOME_SECAO = Object.fromEntries(SECOES.map(s => [s.id, s.nome])) as Record<string, string>
+type UltimoAceite = { classificacao: string | null; tem_bebida: boolean; versao: string; texto_hash: string }
 const PONTO: Record<ModoPainel, string> = { rascunho: 'bg-muted-foreground', recusado: 'bg-destructive', analise: 'bg-[var(--ev-warning)]', publicado: 'bg-[var(--ev-success)]', fechado: 'bg-muted-foreground' }
 const ATIVO = ['rascunho', 'recusado', 'analise']
 
@@ -59,7 +60,7 @@ const frescas = { gcTime: 0, staleTime: 0, refetchOnMount: 'always', retry: 1 } 
 
 export default function PainelEvento() {
   const { eventId } = useParams()
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const ev = useQuery({
     queryKey: ['painel-evento', eventId], enabled: !!eventId, ...frescas,
     queryFn: async () => {
@@ -75,6 +76,16 @@ export default function PainelEvento() {
       const { data, error } = await supabase.from('evento_privado' as never).select('online_url').eq('event_id', eventId!).maybeSingle()
       if (error) throw error
       return (data as { online_url: string | null } | null)?.online_url ?? ''
+    },
+  })
+  // Último aceite do evento (o dono lê evento_aceites): sem ele não dá para saber se classificação e bebida mudaram depois.
+  // Falhar aqui não bloqueia o painel: sem a leitura não aparece a faixa "aceite pendente".
+  const ac = useQuery({
+    queryKey: ['painel-aceite', eventId], enabled: dono, ...frescas,
+    queryFn: async (): Promise<UltimoAceite | null> => {
+      const { data, error } = await supabase.from('evento_aceites' as never).select('classificacao, tem_bebida, versao, texto_hash').eq('event_id', eventId!).order('aceito_em', { ascending: false }).limit(1)
+      if (error) throw error
+      return ((data as UltimoAceite[] | null) ?? [])[0] ?? null
     },
   })
   // Vendidos por tipo: ticket_types.sold não é atualizado por nada no banco; vale a contagem de ingressos válidos
@@ -94,7 +105,7 @@ export default function PainelEvento() {
   })
 
   const cabecalho = <PageHeader title="Evento" description="Carregando o painel…" />
-  if (ev.isPending || (dono && lk.isPending) || (ev.data && vd.isPending)) {
+  if (ev.isPending || (dono && (lk.isPending || ac.isPending)) || (ev.data && vd.isPending)) {
     return (
       <div aria-busy="true" className="mx-auto max-w-3xl">
         {cabecalho}
@@ -103,7 +114,8 @@ export default function PainelEvento() {
       </div>
     )
   }
-  if (ev.isError || lk.isError) {
+  // Releitura que falha (internet) não desmonta o painel já aberto: só erro SEM dados mostra "Tentar de novo"
+  if ((ev.isError && !ev.data) || (lk.isError && lk.data === undefined)) {
     return (
       <div className="mx-auto max-w-3xl">
         <PageHeader title="Evento" />
@@ -114,7 +126,8 @@ export default function PainelEvento() {
       </div>
     )
   }
-  if (!ev.data) {
+  // Quem lê o evento pela regra pública (evento no ar de outro produtor) não é dono nem colaborador: não vê o painel
+  if (!ev.data || !(dono || role === 'editor')) {
     return (
       <div className="mx-auto max-w-3xl">
         <PageHeader title="Evento" />
@@ -122,11 +135,11 @@ export default function PainelEvento() {
       </div>
     )
   }
-  return <Painel evento={ev.data} dono={dono} linkInicial={lk.data ?? ''} vendidosPorId={vd.data ?? {}} />
+  return <Painel evento={ev.data} dono={dono} linkInicial={lk.data ?? ''} vendidosPorId={vd.data ?? {}} ultimoAceite={ac.data === undefined ? undefined : ac.data} />
 }
 
 // ---- painel ----------------------------------------------------------------------------------------------------------
-function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent; dono: boolean; linkInicial: string; vendidosPorId: Record<string, number> }) {
+function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { evento: DbEvent; dono: boolean; linkInicial: string; vendidosPorId: Record<string, number>; ultimoAceite?: UltimoAceite | null }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const atualizarIngressos = useUpdateEvent()
@@ -162,6 +175,7 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
   const [enviando, setEnviando] = useState(false)
   const [erroEnvio, setErroEnvio] = useState('')
   const [dialogo, setDialogo] = useState(false)
+  const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
   const [abertas, setAbertas] = useState<string[]>(['oque'])
   const [aprovada] = useState(() => ({ classificacao: inicial.f.category === 'esporte' ? null : inicial.f.classificacao || null, bebida: inicial.tipos.some(i => i.bebida) })) // o que está no ar
@@ -176,15 +190,17 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
   const travado = vendidosTotal > 0
 
   // ---- gravação do evento (salvamento automático e envio usam a mesma, uma por vez) ----
-  const vivo = useRef({ snap, capa, removida, ingSujo })
-  useEffect(() => { vivo.current = { snap, capa, removida, ingSujo } })
+  const erros = errosDeData(form, inicial.f)
+  const vivo = useRef({ snap, capa, removida, ingSujo, erros })
+  useEffect(() => { vivo.current = { snap, capa, removida, ingSujo, erros } })
   const fila = useRef<Promise<void>>(Promise.resolve())
   const excluindo = useRef(false)
 
   async function gravarAgora() {
     if (excluindo.current) return
     const v = vivo.current
-    const campos = diffCampos(salvoRef.current, v.snap)
+    // data com erro (início no passado, fim antes do início…) não é gravada: a tela mostra o erro e espera a correção
+    const campos = semDatasInvalidas(diffCampos(salvoRef.current, v.snap), v.erros)
     const { online_url: link, ...col } = campos
     let extra: Partial<DbEvent> = {}
     let url: string | undefined
@@ -198,7 +214,10 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
     await gravarEvento(evento.id, { ...col, ...extra } as Partial<DbEvent>)
     guardaBase({ ...salvoRef.current, ...col })
     if (link !== undefined) {
-      const { error } = await supabase.from('evento_privado' as never).upsert({ event_id: evento.id, online_url: link || null } as never, { onConflict: 'event_id' }).select('event_id').single()
+      // link vazio (ou modo sem link) apaga a linha de evento_privado; link novo entra por upsert
+      const { error } = link === ''
+        ? await supabase.from('evento_privado' as never).delete().eq('event_id', evento.id)
+        : await supabase.from('evento_privado' as never).upsert({ event_id: evento.id, online_url: link } as never, { onConflict: 'event_id' }).select('event_id').single()
       if (error) throw error
       guardaBase({ ...salvoRef.current, online_url: link })
     }
@@ -209,16 +228,18 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
   }
   const gravarSerial = () => { const p = fila.current.catch(() => undefined).then(gravarAgora); fila.current = p; return p }
 
+  // Evento no ar: nada salva sozinho, EXCETO o que não é conteúdo moderado (a cor): vale na hora, sem análise
+  const capaPendenteAgora = !!capa || removida
+  const autoAtivo = autosalva || (modo === 'publicado' && !mudouConteudo(diff, capaPendenteAgora))
   const gatilho = useMemo(() => ({ snap, capa, removida }), [snap, capa, removida])
   const { estado, tentarDeNovo } = useAutoSave({
-    ativo: autosalva, mudou: gatilho, gravar: gravarSerial,
-    temMudanca: () => !excluindo.current && (!!vivo.current.capa || vivo.current.removida || temErro(diffCampos(salvoRef.current, vivo.current.snap))),
+    ativo: autoAtivo, mudou: gatilho, gravar: gravarSerial,
+    temMudanca: () => !excluindo.current && (!!vivo.current.capa || vivo.current.removida || temErro(semDatasInvalidas(diffCampos(salvoRef.current, vivo.current.snap), vivo.current.erros))),
   })
 
   // ---- derivados da tela ----
-  const erros = errosDeData(form, inicial.f)
   const link = form.link.trim()
-  const linkRuim = link !== '' && !linkValido(link)
+  const linkRuim = USA_LINK.includes(form.local_modo) && link !== '' && !linkValido(link)
   const temBebidaSalva = ingsSalvos.some(i => i.bebida)
   const textoDoAceite = textoAceite({ titulo: form.title, formato: form.category || null, classificacao: esporte ? null : form.classificacao || null, temBebida: temBebidaSalva })
   const aceiteMarcado = aceiteDe === textoDoAceite
@@ -230,13 +251,24 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
     ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
     ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
   ]
-  const alteracoes = modo === 'publicado' ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
+  // evento no ar: só o conteúdo moderado vai para a faixa "Alterações não enviadas" (a cor salva sozinha)
+  const moderado = modo === 'publicado' && mudouConteudo(diff, capaPendente)
+  const alteracoes = moderado ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
   const classificacaoTela = esporte ? null : form.classificacao || null
   const mudouCls = classificacaoTela !== aprovada.classificacao
   const mudouBebida = temBebidaSalva !== aprovada.bebida
   const precisaAceiteNovo = modo === 'publicado' && (mudouCls || mudouBebida)
+  // Aceite pendente: o que está SALVO (classificação, bebida dos ingressos, versão do texto) já não é o do último aceite
+  // registrado. Acontece quando o aceite falha depois de gravar, e quando a classificação ou a bebida mudam em análise.
+  const classSalva = salvo.category === 'esporte' ? null : salvo.classificacao || null
+  const aceiteDefasado = dono && ultimoAceite !== undefined && (modo === 'analise' || modo === 'publicado')
+    && (ultimoAceite === null ? modo === 'analise' : ultimoAceite.versao !== ACEITE_VERSAO || ultimoAceite.classificacao !== classSalva || ultimoAceite.tem_bebida !== temBebidaSalva)
+  const aceiteNoDialogo = soAceite || precisaAceiteNovo
+  const bloqueioDialogo = ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erros.inicio || erros.fim || linkRuim ? 'Corrija as datas e o link da transmissão antes de enviar.' : ''
 
-  const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub') || lista.filter(p => SECAO_DA_PENDENCIA[p.id] === id).every(p => p.pronto)
+  const ingValidos = !ingSujo && ings.every(i => !temErro(errosDeIngresso(i)))
+  const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub')
+    || (lista.filter(p => SECAO_DA_PENDENCIA[p.id] === id).every(p => p.pronto) && (id !== 'ing' || ingValidos))
   const ativos = ingsSalvos.filter(i => i.ativo)
   const precos = ativos.map(i => precoDe(i.preco) ?? 0).filter(p => p > 0).map(p => calcularTaxa(p).total)
   const resumos: Record<string, string> = {
@@ -311,20 +343,28 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
 
   // ---- enviar ----
   const emEnvio = useRef(false) // o botão já fica travado (loading), mas o estado só muda no próximo render: duplo clique rápido
+  const recarregar = () => Promise.all([qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }), qc.invalidateQueries({ queryKey: ['painel-aceite', evento.id] })])
   async function enviar() {
     if (emEnvio.current) return
+    if (modo === 'publicado' && bloqueioDialogo) { setErroEnvio(bloqueioDialogo); return }
     emEnvio.current = true
     setEnviando(true); setErroEnvio('')
     try {
       const r = await enviarEvento({
         eventId: evento.id, gravarPendentes: gravarSerial, ingressosNaoSalvos: () => vivo.current.ingSujo,
-        tela: { classificacao: classificacaoTela, temBebida: temBebidaSalva },
-        aceitar: modo !== 'publicado' || precisaAceiteNovo, publicar: modo !== 'publicado',
+        tela: { classificacao: classificacaoTela, temBebida: temBebidaSalva }, textoAceito: textoDoAceite,
+        aceitar: soAceite || modo === 'rascunho' || modo === 'recusado' || precisaAceiteNovo,
+        publicar: modo === 'rascunho' || modo === 'recusado',
       })
-      if (!r.ok) { setErroEnvio(r.erro); return }
-      setDialogo(false)
-      toast.success(modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
-      await qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] })
+      if (!r.ok) {
+        setErroEnvio(r.erro)
+        // Evento já aprovado: o conteúdo gravado o devolveu para análise mesmo com o aceite falho. Relê para a tela dizer a verdade.
+        if (r.aposGravar && modo === 'publicado') { setDialogo(false); toast.error(r.erro, { duration: 12000 }); await recarregar() }
+        return
+      }
+      setDialogo(false); setSoAceite(false)
+      toast.success(soAceite ? 'Aceite registrado.' : modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
+      await recarregar()
       void qc.invalidateQueries({ queryKey: ['producer-events'] })
       void qc.invalidateQueries({ queryKey: ['public-event', evento.id] })
     } finally {
@@ -339,17 +379,17 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
     setCapa(null); setRemovida(false); setAceiteDe(null); setErroEnvio('')
   }
 
-  // ---- sair com alterações não enviadas (evento no ar) ----
-  const avisaSair = alteracoes.length > 0 || (autosalva && (estado === 'erro' || estado === 'salvando'))
+  // ---- sair com mudanças que se perdem: não enviadas (evento no ar), não salvas (erro, gravando, capa) ou ingressos sem salvar ----
+  const pendenteSalvar = autoAtivo && (temErro(diff) || capaPendente || estado === 'erro')
+  const avisaSair = pendenteSalvar || moderado || ingSujo
   useEffect(() => {
     if (!avisaSair) return
     const antes = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
     window.addEventListener('beforeunload', antes)
     return () => window.removeEventListener('beforeunload', antes)
   }, [avisaSair])
-  const guardaLinks = alteracoes.length > 0
   useEffect(() => {
-    if (!guardaLinks) return
+    if (!avisaSair) return
     // O projeto usa BrowserRouter: useBlocker não existe aqui. Captura o clique em link do app antes do roteador.
     const clique = (e: MouseEvent) => {
       const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
@@ -361,7 +401,8 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
     }
     document.addEventListener('click', clique, true)
     return () => document.removeEventListener('click', clique, true)
-  }, [guardaLinks])
+  }, [avisaSair])
+  const motivosSaida = [ingSujo && 'ingressos com mudanças não salvas', moderado && `alterações não enviadas (${alteracoes.join(', ')})`, pendenteSalvar && 'mudanças que ainda não foram salvas'].filter(Boolean).join('; ')
 
   // ---- menu "Mais ações" (as mesmas regras de Meus eventos) ----
   async function duplicar() {
@@ -412,6 +453,7 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
           onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
+          noArDesde={evento.approved_at ? new Date(evento.approved_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', timeZone: 'America/Sao_Paulo' }) : undefined}
         />
       )
     }
@@ -430,9 +472,9 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
         actions={
           <>
             <span role="status" aria-live="polite" className={cn('inline-flex h-8 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground', estado === 'erro' && 'text-destructive')}>
-              {autosalva && estado === 'salvando' && <><span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent motion-reduce:animate-none" />Salvando…</>}
-              {autosalva && estado === 'salvo' && <><I.Check size={14} aria-hidden="true" />Salvo</>}
-              {autosalva && estado === 'erro' && <><I.Erro size={14} aria-hidden="true" />Não salvou. <button type="button" className="underline" onClick={() => void tentarDeNovo()}>Tentar de novo</button></>}
+              {autoAtivo && estado === 'salvando' && <><span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent motion-reduce:animate-none" />Salvando…</>}
+              {autoAtivo && estado === 'salvo' && <><I.Check size={14} aria-hidden="true" />{modo === 'publicado' ? 'Salvo: vale na hora' : 'Salvo'}</>}
+              {autoAtivo && estado === 'erro' && <><I.Erro size={14} aria-hidden="true" />Não salvou. <button type="button" className="underline" onClick={() => void tentarDeNovo()}>Tentar de novo</button></>}
             </span>
             <Button asChild variant="outline">
               <a href={siteUrl(`/event/${evento.id}`)} target="_blank" rel="noopener noreferrer"><I.AbrirExterno aria-hidden="true" />Ver página<span className="sr-only"> (abre em nova aba)</span></a>
@@ -466,10 +508,19 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
           </Faixa>
         )}
         {modo === 'fechado' && <Faixa tom="info" titulo={`Este evento está ${rotuloDoModo(evento).toLowerCase()}`}>Ele não pode mais ser editado por aqui.</Faixa>}
+        {aceiteDefasado && (
+          <Faixa
+            tom="atencao" titulo="Aceite pendente"
+            acoes={<Button size="sm" onClick={() => { setErroEnvio(''); setAceiteDe(null); setSoAceite(true); setDialogo(true) }}>Refazer o aceite</Button>}
+          >
+            A classificação ou a bebida dos ingressos não é a do último aceite registrado (ou o texto do aceite mudou). Refaça o aceite; isso não muda o evento.
+            {erroEnvio && <span role="alert" className="mt-1 block text-destructive">{erroEnvio}</span>}
+          </Faixa>
+        )}
         {alteracoes.length > 0 && (
           <Faixa
             tom="atencao" titulo={`Alterações não enviadas: ${alteracoes.join(', ')}`}
-            acoes={<><Button variant="ghost" size="sm" onClick={descartar}>Descartar</Button><Button size="sm" onClick={() => { setErroEnvio(''); setDialogo(true) }}>Enviar alterações para análise</Button></>}
+            acoes={<><Button variant="ghost" size="sm" onClick={descartar}>Descartar</Button><Button size="sm" onClick={() => { setErroEnvio(''); setAceiteDe(null); setSoAceite(false); setDialogo(true) }}>Enviar alterações para análise</Button></>}
           >
             Nada muda na página até você enviar. Ao enviar, o evento sai da vitrine e da busca até a equipe aprovar. Ingressos salvos valem na hora.
           </Faixa>
@@ -505,7 +556,7 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
                 {s.id === 'quando' && travado && <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-normal text-muted-foreground"><I.Cadeado size={14} aria-hidden="true" />Travado: há ingressos vendidos</span>}
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-6 pt-1">
-                <fieldset disabled={somenteLeitura} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
+                <fieldset disabled={somenteLeitura || enviando} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
               </AccordionContent>
             </AccordionItem>
           )
@@ -518,14 +569,20 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
       <Dialog open={dialogo} onOpenChange={o => { if (!enviando) setDialogo(o) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enviar alterações para análise?</DialogTitle>
-            <DialogDescription>Enquanto a equipe analisa, {nome} sai da vitrine e da busca. Quem já comprou continua vendo a página e o ingresso.</DialogDescription>
+            <DialogTitle>{soAceite ? 'Refazer o aceite?' : 'Enviar alterações para análise?'}</DialogTitle>
+            <DialogDescription>
+              {soAceite
+                ? 'O aceite registra a classificação e a bebida que estão salvas no evento. O evento não muda.'
+                : `Enquanto a equipe analisa, ${nome} sai da vitrine e da busca. Quem já comprou continua vendo a página e o ingresso.`}
+            </DialogDescription>
           </DialogHeader>
-          <p className="text-sm text-foreground">Vai para análise: {alteracoes.join(', ')}.</p>
-          {precisaAceiteNovo && (
+          {!soAceite && <p className="text-sm text-foreground">Vai para análise: {alteracoes.join(', ')}.</p>}
+          {aceiteNoDialogo && (
             <div className="grid gap-2 rounded-[10px] bg-secondary p-4">
               <p id="dlg-ac" className="text-sm font-medium text-foreground">
-                {mudouCls
+                {soAceite
+                  ? `A classificação ou a bebida mudou depois do último aceite: refaça o aceite com a classificação ${classificacaoNova?.valor ?? 'sem classificação'}`
+                  : mudouCls
                   ? `A classificação mudou de ${aprovada.classificacao ?? 'sem classificação'} para ${classificacaoNova?.valor ?? 'sem classificação'}: refaça o aceite`
                   : 'A bebida alcoólica dos ingressos mudou: refaça o aceite'}
               </p>
@@ -539,11 +596,11 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
               </div>
             </div>
           )}
-          {erroEnvio && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><I.Erro size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{erroEnvio}</p>}
+          {(erroEnvio || bloqueioDialogo) && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><I.Erro size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{erroEnvio || bloqueioDialogo}</p>}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogo(false)} disabled={enviando}>Cancelar</Button>
-            <Button loading={enviando} aria-disabled={(precisaAceiteNovo && !aceiteMarcado) || undefined} aria-describedby={precisaAceiteNovo && !aceiteMarcado ? 'dlg-ac' : undefined}
-              onClick={() => { if (!precisaAceiteNovo || aceiteMarcado) void enviar() }}>Enviar para análise</Button>
+            <Button loading={enviando} aria-disabled={(aceiteNoDialogo && !aceiteMarcado) || !!bloqueioDialogo || undefined} aria-describedby={aceiteNoDialogo && !aceiteMarcado ? 'dlg-ac' : undefined}
+              onClick={() => { if ((!aceiteNoDialogo || aceiteMarcado) && !bloqueioDialogo) void enviar() }}>{soAceite ? 'Registrar o aceite' : 'Enviar para análise'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -551,16 +608,17 @@ function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent;
       <Dialog open={saida !== null} onOpenChange={o => { if (!o) setSaida(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Sair sem enviar?</DialogTitle>
-            <DialogDescription>As alterações de {nome} ainda não foram enviadas. Se sair agora, elas se perdem.</DialogDescription>
+            <DialogTitle>{moderado ? 'Sair sem enviar?' : 'Sair sem salvar?'}</DialogTitle>
+            <DialogDescription>
+              Há {motivosSaida} em {nome}. Se sair agora, o que não foi salvo ou enviado se perde.{pendenteSalvar ? ' O painel tenta salvar de novo ao sair; se falhar, a mudança se perde.' : ''}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => { const destino = saida; setSaida(null); if (destino) navigate(destino) }}>Sair e perder</Button>
+            <Button variant="ghost" onClick={() => { const destino = saida; setSaida(null); if (destino) navigate(destino) }}>{moderado || ingSujo ? 'Sair e perder' : 'Sair mesmo assim'}</Button>
             <Button variant="outline" onClick={() => setSaida(null)}>Continuar editando</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   )
-
 }

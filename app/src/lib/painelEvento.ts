@@ -25,6 +25,7 @@ export type Snap = {
   classificacao: string; accent_color: string | null; online_url?: string
 }
 
+export const USA_LINK = ['online', 'hibrido']
 const FUSO = 'America/Sao_Paulo'
 const formataBR = new Intl.DateTimeFormat('sv-SE', { timeZone: FUSO, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
@@ -78,7 +79,8 @@ export function snapDoForm(f: Form, comLink = true): Snap {
     ...(fimCompleto ? { end_date: `${f.fimD}T${f.fimH}:00-03:00` } : !f.fimD && !f.fimH ? { end_date: null } : {}),
     local_modo: f.local_modo, venue_name: f.venue_name, venue_zip: f.cep, venue_address: enderecoDe(f.rua, f.numero, f.bairro),
     venue_city: f.venue_city, venue_state: f.venue_state, classificacao: f.classificacao, accent_color: f.accent_color,
-    ...(comLink && (link === '' || linkValido(link)) ? { online_url: link } : {}),
+    // modo sem link (presencial, a definir): o link salvo some de evento_privado
+    ...(comLink && !USA_LINK.includes(f.local_modo) ? { online_url: '' } : comLink && (link === '' || linkValido(link)) ? { online_url: link } : {}),
   }
 }
 
@@ -90,6 +92,19 @@ export function diffCampos<T extends Record<string, unknown>>(base: T, atual: T)
   return d as Partial<T>
 }
 
+// O que o gatilho do banco (gf_protect_event_moderation) trata como conteúdo: mudar isto num evento aprovado o devolve
+// para análise. A cor (accent_color) fica de fora: vale na hora. A capa (cover_image) é conteúdo (Decisão 136).
+const FORA_DA_MODERACAO = ['accent_color']
+export const mudouConteudo = (d: object, capa = false) => capa || Object.keys(d).some(k => !FORA_DA_MODERACAO.includes(k))
+
+/** O diff sem as datas que têm erro: o salvamento espera a pessoa corrigir (início, fim ou os dois) */
+export function semDatasInvalidas<T extends Record<string, unknown>>(d: Partial<T>, e: ErrosData): Partial<T> {
+  const c: Record<string, unknown> = { ...d }
+  if (e.inicio) { delete c.date; delete c.time }
+  if (e.fim) delete c.end_date
+  return c as Partial<T>
+}
+
 const ROTULO_CAMPO: Record<string, string> = {
   title: 'nome', subtitle: 'subtítulo', category: 'formato', temas: 'temas', estilos: 'estilo musical', tags: 'etiquetas', description: 'descrição',
   date: 'data', time: 'hora', end_date: 'fim', local_modo: 'local', venue_name: 'local', venue_zip: 'local', venue_address: 'local',
@@ -99,12 +114,19 @@ const ROTULO_CAMPO: Record<string, string> = {
 export const rotulosDoDiff = (d: object) => [...new Set(Object.keys(d).map(k => ROTULO_CAMPO[k]).filter(Boolean))]
 
 // ---- link da transmissão ---------------------------------------------------------------------------------------
-// O mesmo que o CHECK de evento_privado (^https://[^\s]+$, 500) e mais: sem "usuário@" no endereço (https://site.com@outro.com
-// abre outro.com). O que a pessoa vê é o domínio real.
+// O mesmo que o CHECK de evento_privado (^https://[^\s]+$, 500) e mais: o endereço tem de ser um endereço de verdade
+// (new URL aceita, protocolo https, domínio não vazio) e sem "usuário@" (https://site.com@outro.com abre outro.com; a forma
+// codificada https://a%40b.com também cai: o username/password vira parte da URL). O que a pessoa vê é o domínio real.
 export function linkValido(url: string): boolean {
   if (!/^https:\/\/[^\s]+$/.test(url) || url.length > 500) return false
   const autoridade = url.slice(8).split(/[/?#]/)[0]
-  return autoridade !== '' && !autoridade.includes('@')
+  if (autoridade === '' || autoridade.includes('@')) return false
+  try {
+    const u = new URL(url)
+    return u.protocol === 'https:' && u.hostname !== '' && u.hostname !== '.' && !u.hostname.startsWith('.') && u.username === '' && u.password === '' && !autoridade.includes('%40')
+  } catch {
+    return false
+  }
 }
 
 export function dominioDoLink(url: string): string {
@@ -141,8 +163,7 @@ export function modoPainel(e: EventoEstado): ModoPainel {
 }
 
 export function rotuloDoModo(e: EventoEstado): string {
-  const m = modoPainel(e)
-  return m === 'recusado' ? 'Recusado' : m === 'publicado' ? 'À venda' : situacaoEvento(e)
+  return modoPainel(e) === 'publicado' ? 'À venda' : situacaoEvento(e)
 }
 
 // ---- ingressos ---------------------------------------------------------------------------------------------------
@@ -201,48 +222,67 @@ export function pendenciasDoPainel(f: Form, ingressosSalvos: Ing[], aceite: bool
 }
 
 // ---- enviar para aprovação ---------------------------------------------------------------------------------------
-export type ResultadoEnvio = { ok: true } | { ok: false; erro: string }
+// aposGravar: o passo 1 já passou, ou seja, o evento foi gravado. Em evento já no ar isso significa que ele JÁ está em análise.
+export type ResultadoEnvio = { ok: true } | { ok: false; erro: string; aposGravar: boolean }
 
-async function erroDoAceite(err: unknown): Promise<string> {
-  const resp = (err as { context?: { status?: number; json?: () => Promise<{ error?: string }> } } | null)?.context
-  if (resp?.status === 409) return 'O texto do aceite mudou. Recarregue a página e envie de novo.'
-  if (resp?.status === 422) return 'Escolha a classificação indicativa antes de enviar.'
-  if (resp?.status === 429) return 'Muitas tentativas de envio em pouco tempo. Aguarde um pouco e tente de novo.'
-  let servidor = ''
-  try { servidor = (await resp?.json?.())?.error ?? '' } catch { /* resposta sem JSON */ }
-  return servidor || 'Não foi possível registrar o aceite. Confira a internet e tente de novo.'
+export const ERRO_ACEITE_NO_AR = 'As alterações já foram para análise, mas o aceite não foi registrado: refaça o aceite.'
+
+// Texto do próprio front por status: a mensagem do servidor não é mostrada (a função pode mudar o texto e não deve vazar detalhe)
+function erroDoAceite(err: unknown): string {
+  const status = (err as { context?: { status?: number } } | null)?.context?.status
+  const porStatus: Record<number, string> = {
+    400: 'O pedido de aceite saiu incompleto. Recarregue a página e envie de novo.',
+    401: 'Sua sessão expirou. Entre de novo e envie outra vez.',
+    403: 'O servidor recusou o aceite. Confirme a verificação em duas etapas no seu perfil e envie de novo.',
+    404: 'Não encontramos este evento para registrar o aceite. Recarregue a página.',
+    409: 'O texto do aceite mudou. Recarregue a página e envie de novo.',
+    422: 'Escolha a classificação indicativa antes de enviar.',
+    429: 'Muitas tentativas de envio em pouco tempo. Aguarde um pouco e tente de novo.',
+    500: 'O servidor não conseguiu registrar o aceite. Tente de novo em instantes.',
+  }
+  return (status && porStatus[status]) || 'Não foi possível registrar o aceite. Confira a internet e tente de novo.'
+}
+
+export async function sha256Hex(texto: string): Promise<string> {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto)))
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
 }
 
 /**
  * Ordem que não muda (plano PR3b): (1) grava o que falta e espera; (2) para se houver ingresso não salvo; (3) aceite no
  * servidor (a classificação e a bebida valem as GRAVADAS, por isso o passo 1 vem antes); (4) compara o que o servidor
- * registrou com a tela e para se divergir; (5) rascunho e recusado publicam (o gatilho do banco põe approval pending);
- * evento já aprovado só grava (o conteúdo mudado já o devolve para análise) e refaz o aceite se classificação ou bebida mudaram.
+ * registrou com a tela (classificação, bebida e o hash do texto que a pessoa leu) e para se divergir; (5) rascunho e
+ * recusado publicam (o gatilho do banco põe approval pending); evento já aprovado só grava (o conteúdo mudado já o devolve
+ * para análise) e refaz o aceite se classificação ou bebida mudaram. Resposta sem texto_hash conta como divergência.
  */
 export async function enviarEvento(p: {
   eventId: string
   gravarPendentes: () => Promise<void>
   ingressosNaoSalvos: () => boolean
   tela: { classificacao: string | null; temBebida: boolean }
+  textoAceito: string // o texto que a pessoa leu (textoAceite montado da tela)
   aceitar: boolean
   publicar: boolean
 }): Promise<ResultadoEnvio> {
   try {
     await p.gravarPendentes()
   } catch {
-    return { ok: false, erro: 'Não foi possível salvar o evento. Confira a internet e tente de novo.' }
+    return { ok: false, erro: 'Não foi possível salvar o evento. Confira a internet e tente de novo.', aposGravar: false }
   }
-  if (p.ingressosNaoSalvos()) return { ok: false, erro: 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' }
+  const jaNoAr = !p.publicar
+  const falha = (erro: string) => ({ ok: false as const, erro: jaNoAr && p.aceitar ? ERRO_ACEITE_NO_AR : erro, aposGravar: true })
+  if (p.ingressosNaoSalvos()) return { ok: false, erro: 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.', aposGravar: true }
   if (p.aceitar) {
     const { data, error } = await supabase.functions.invoke('aceite-evento', { body: { event_id: p.eventId } })
-    if (error) return { ok: false, erro: await erroDoAceite(error) }
-    if ((data?.classificacao ?? null) !== p.tela.classificacao || !!data?.tem_bebida !== p.tela.temBebida) {
-      return { ok: false, erro: 'A classificação ou a bebida dos ingressos não é a que está na tela. Confira as duas e envie de novo; nada foi publicado.' }
+    if (error) return falha(erroDoAceite(error))
+    const hashLido = await sha256Hex(p.textoAceito)
+    if ((data?.classificacao ?? null) !== p.tela.classificacao || !!data?.tem_bebida !== p.tela.temBebida || data?.texto_hash !== hashLido) {
+      return falha('O aceite registrado não é o texto que está na tela (classificação, bebida ou texto). Confira e envie de novo; nada foi publicado.')
     }
   }
   if (p.publicar) {
     const { error } = await supabase.from('events').update({ status: 'published' } as never).eq('id', p.eventId).select('id').single()
-    if (error) return { ok: false, erro: 'Não foi possível enviar o evento. Tente de novo.' }
+    if (error) return { ok: false, erro: 'Não foi possível enviar o evento. Tente de novo.', aposGravar: true }
   }
   return { ok: true }
 }

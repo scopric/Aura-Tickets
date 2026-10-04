@@ -44,7 +44,7 @@ export default function SecaoQuandoOnde({ f, set, travado, dono, erros }: PropsS
     <Campo id={id} rotulo={rotulo} opc={opc} erro={erro}>
       <div className="grid grid-cols-[minmax(0,1fr)_7rem] gap-2">
         <Input id={id} type="date" aria-label={`Data de ${rotulo.toLowerCase()}`} aria-invalid={!!erro} aria-describedby={erro ? `${id}-erro` : undefined} value={f[d] as string} disabled={travado} onChange={e => set({ [d]: e.target.value })} />
-        <Input type="time" aria-label={`Hora de ${rotulo.toLowerCase()}`} aria-invalid={!!erro} value={f[h] as string} disabled={travado} onChange={e => set({ [h]: e.target.value })} />
+        <Input type="time" aria-label={`Hora de ${rotulo.toLowerCase()}`} aria-invalid={!!erro} aria-describedby={erro ? `${id}-erro` : undefined} value={f[h] as string} disabled={travado} onChange={e => set({ [h]: e.target.value })} />
       </div>
     </Campo>
   )
@@ -73,7 +73,7 @@ export default function SecaoQuandoOnde({ f, set, travado, dono, erros }: PropsS
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
             <Campo id="f-lnome" rotulo="Nome do local"><Input id="f-lnome" value={f.venue_name} disabled={travado} onChange={e => set({ venue_name: e.target.value })} /></Campo>
             <Campo id="f-cep" rotulo="CEP" erro={cepErro || undefined}>
-              <Input id="f-cep" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={f.cep} disabled={travado} onChange={e => void mudaCep(e.target.value)} aria-describedby={cepErro ? 'f-cep-erro' : 'f-end-ajuda'} />
+              <Input id="f-cep" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={f.cep} disabled={travado} onChange={e => void mudaCep(e.target.value)} aria-describedby={cepErro ? 'f-cep-erro' : manual ? undefined : 'f-end-ajuda'} />
             </Campo>
             <Campo id="f-num" rotulo="Número"><Input id="f-num" value={f.numero} disabled={travado} onChange={e => set({ numero: e.target.value })} /></Campo>
           </div>

@@ -7,8 +7,9 @@ export type Situacao = 'Rascunho' | 'Em análise' | 'Publicado' | 'Encerrado' | 
 
 // Selo de situação, o mesmo do Início (B2): status do produtor + moderação do admin (F0a).
 // "Publicado" = no ar para o público: publicado E aprovado.
-export function situacaoEvento(e: { status: string; approval_status?: string | null }): Situacao {
-  if (e.status === 'draft') return 'Rascunho'
+export function situacaoEvento(e: { status: string; approval_status?: string | null; rejection_reason?: string | null }): Situacao {
+  // recusado pela equipe volta a rascunho (useApproveEvent) mas guarda o motivo e approval_status 'rejected'
+  if (e.status === 'draft') return e.approval_status === 'rejected' || e.rejection_reason ? 'Recusado' : 'Rascunho'
   if (e.status === 'ended') return 'Encerrado'
   if (e.status === 'cancelled') return 'Cancelado'
   if (e.approval_status === 'approved') return 'Publicado'

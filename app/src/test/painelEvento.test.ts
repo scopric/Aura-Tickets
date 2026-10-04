@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   diffCampos, dominioDoLink, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
-  precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, snapDoForm, type Form, type Ing,
+  precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, snapDoForm, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
 import { supabase } from '../lib/supabase'
@@ -34,10 +34,18 @@ describe('formulário ↔ banco', () => {
     expect(snapDoForm(form({ fimD: '2026-12-13', fimH: '' }))).not.toHaveProperty('end_date')
     expect(snapDoForm(form({ fimD: '', fimH: '' }))).toHaveProperty('end_date', null)
     expect(snapDoForm(form({ fimD: '2026-12-13', fimH: '05:00' }))).toHaveProperty('end_date', '2026-12-13T05:00:00-03:00')
-    expect(snapDoForm(form({ link: 'http://x.com' }))).not.toHaveProperty('online_url')
-    expect(snapDoForm(form({ link: '' }))).toHaveProperty('online_url', '')
-    expect(snapDoForm(form({ link: ' https://x.com ' }))).toHaveProperty('online_url', 'https://x.com')
-    expect(snapDoForm(form({ link: 'https://x.com' }), false)).not.toHaveProperty('online_url') // quem não é dono não grava o link
+    const on = { local_modo: 'online' }
+    expect(snapDoForm(form({ ...on, link: 'http://x.com' }))).not.toHaveProperty('online_url')
+    expect(snapDoForm(form({ ...on, link: '' }))).toHaveProperty('online_url', '')
+    expect(snapDoForm(form({ ...on, link: ' https://x.com ' }))).toHaveProperty('online_url', 'https://x.com')
+    expect(snapDoForm(form({ ...on, link: 'https://x.com' }), false)).not.toHaveProperty('online_url') // quem não é dono não grava o link
+  })
+
+  it('modo sem link (presencial, a definir): o link salvo é apagado (online_url vazio); híbrido mantém', () => {
+    for (const modo of ['presencial', 'a_definir']) expect(snapDoForm(form({ local_modo: modo, link: 'https://x.com/live' }))).toHaveProperty('online_url', '')
+    expect(snapDoForm(form({ local_modo: 'hibrido', link: 'https://x.com/live' }))).toHaveProperty('online_url', 'https://x.com/live')
+    const base = snapDoForm(form({ local_modo: 'online', link: 'https://x.com/live' }))
+    expect(diffCampos(base, snapDoForm(form({ local_modo: 'presencial', link: 'https://x.com/live' })))).toEqual({ local_modo: 'presencial', online_url: '' })
   })
 
   it('endereço montado vai em venue_address', () => {
@@ -62,7 +70,20 @@ describe('diff do salvamento automático', () => {
   })
   it('limpar o fim grava null; link novo entra', () => {
     expect(diffCampos(base, snapDoForm(form({ fimD: '', fimH: '' })))).toEqual({ end_date: null })
-    expect(diffCampos(base, snapDoForm(form({ link: 'https://live.com/x' })))).toEqual({ online_url: 'https://live.com/x' })
+    expect(diffCampos(base, snapDoForm(form({ local_modo: 'hibrido', link: 'https://live.com/x' })))).toEqual({ local_modo: 'hibrido', online_url: 'https://live.com/x' })
+  })
+  it('só a cor não é conteúdo moderado (vale na hora); o resto e a capa são', () => {
+    expect(mudouConteudo({ accent_color: '#112233' })).toBe(false)
+    expect(mudouConteudo({})).toBe(false)
+    expect(mudouConteudo({ accent_color: '#112233', description: 'x' })).toBe(true)
+    expect(mudouConteudo({ online_url: 'https://x.com' })).toBe(true)
+    expect(mudouConteudo({}, true)).toBe(true)
+  })
+  it('data com erro fica fora do que se grava (espera a correção)', () => {
+    const d = { title: 'x', date: '2020-01-01', time: '10:00', end_date: '2020-01-02T10:00:00-03:00' }
+    expect(semDatasInvalidas(d, { inicio: 'x' })).toEqual({ title: 'x', end_date: d.end_date })
+    expect(semDatasInvalidas(d, { fim: 'x' })).toEqual({ title: 'x', date: d.date, time: d.time })
+    expect(semDatasInvalidas(d, {})).toEqual(d)
   })
   it('rótulos da faixa "Alterações não enviadas", sem repetir', () => {
     expect(rotulosDoDiff({ description: 'x', classificacao: 'A18', venue_name: 'x', venue_city: 'y', online_url: 'z' })).toEqual(['descrição', 'classificação', 'local', 'link'])
@@ -74,7 +95,7 @@ describe('link da transmissão', () => {
     for (const u of ['https://youtube.com/live/abc', 'https://meet.google.com/xyz-abc?x=1#y', 'https://x.com:8080/a']) expect(linkValido(u)).toBe(true)
   })
   it('recusa http, espaço, vazio, usuário@ no endereço e mais de 500 caracteres', () => {
-    for (const u of ['http://x.com', 'https://x.com/a b', 'https://', 'https://google.com@evil.com/x', 'https://user:pw@x.com', 'https://google.com@evil.com', `https://x.com/${'a'.repeat(500)}`]) {
+    for (const u of ['http://x.com', 'https://x.com/a b', 'https://', 'https://google.com@evil.com/x', 'https://user:pw@x.com', 'https://google.com@evil.com', 'https://a%40b.com', 'https://a%40b.com/x', 'https://.', 'https://./x', 'https://.com', `https://x.com/${'a'.repeat(500)}`]) {
       expect(linkValido(u), u).toBe(false)
     }
   })
@@ -191,18 +212,25 @@ describe('Enviar para aprovação', () => {
   const chamadas: string[] = []
   const update = vi.fn()
   const invoke = vi.mocked(supabase.functions.invoke)
-  const resposta = (o: Record<string, unknown> = {}) => ({ data: { ok: true, classificacao: 'A16', tem_bebida: false, ...o }, error: null })
+  const TEXTO = 'Termo do produtor para publicar evento\nAo enviar o evento "X", declaro que:'
+  let hash = ''
+  const resposta = (o: Record<string, unknown> = {}) => ({ data: { ok: true, classificacao: 'A16', tem_bebida: false, texto_hash: hash, ...o }, error: null })
   const base = () => ({
-    eventId: 'e1', tela: { classificacao: 'A16' as string | null, temBebida: false }, aceitar: true, publicar: true,
+    eventId: 'e1', tela: { classificacao: 'A16' as string | null, temBebida: false }, textoAceito: TEXTO, aceitar: true, publicar: true,
     gravarPendentes: vi.fn(async () => { chamadas.push('gravar') }), ingressosNaoSalvos: vi.fn(() => { chamadas.push('ingressos'); return false }),
   })
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    hash = await sha256Hex(TEXTO)
     chamadas.length = 0
     vi.clearAllMocks()
     update.mockImplementation(() => ({ eq: () => ({ select: () => ({ single: () => { chamadas.push('publicar'); return Promise.resolve({ data: { id: 'e1' }, error: null }) } }) }) }))
     vi.mocked(supabase.from).mockReturnValue({ update } as never)
     invoke.mockImplementation((async () => { chamadas.push('aceite'); return resposta() }) as never)
+  })
+
+  it('sha256Hex confere com o valor conhecido', async () => {
+    expect(await sha256Hex('abc')).toBe('ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad')
   })
 
   it('ordem: grava, confere ingressos, aceite, publica', async () => {
@@ -215,13 +243,24 @@ describe('Enviar para aprovação', () => {
   it('classificação que o servidor registrou diverge da tela: para e NÃO publica', async () => {
     invoke.mockResolvedValue(resposta({ classificacao: 'A18' }) as never)
     const r = await enviarEvento(base())
-    expect(r.ok).toBe(false)
-    expect(chamadas).not.toContain('publicar')
+    expect(r).toMatchObject({ ok: false, aposGravar: true })
     expect(update).not.toHaveBeenCalled()
   })
 
   it('bebida diverge: para e NÃO publica', async () => {
     invoke.mockResolvedValue(resposta({ tem_bebida: true }) as never)
+    expect((await enviarEvento(base())).ok).toBe(false)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('hash do texto que a pessoa leu diverge do registrado: para e NÃO publica', async () => {
+    invoke.mockResolvedValue(resposta({ texto_hash: 'a'.repeat(64) }) as never)
+    expect((await enviarEvento(base())).ok).toBe(false)
+    expect(update).not.toHaveBeenCalled()
+  })
+
+  it('resposta sem texto_hash conta como divergência', async () => {
+    invoke.mockResolvedValue({ data: { ok: true, classificacao: 'A16', tem_bebida: false }, error: null } as never)
     expect((await enviarEvento(base())).ok).toBe(false)
     expect(update).not.toHaveBeenCalled()
   })
@@ -233,30 +272,32 @@ describe('Enviar para aprovação', () => {
 
   it('ingresso não salvo: bloqueia antes do aceite, depois de gravar o evento', async () => {
     const r = await enviarEvento({ ...base(), ingressosNaoSalvos: () => { chamadas.push('ingressos'); return true } })
-    expect(r).toMatchObject({ ok: false })
+    expect(r).toMatchObject({ ok: false, aposGravar: true })
     expect(chamadas).toEqual(['gravar', 'ingressos'])
     expect(invoke).not.toHaveBeenCalled()
   })
 
-  it('falha ao gravar: nada de aceite nem publicação', async () => {
+  it('falha ao gravar: nada de aceite nem publicação (e não houve gravação)', async () => {
     const r = await enviarEvento({ ...base(), gravarPendentes: async () => { throw new Error('rede') } })
-    expect(r.ok).toBe(false)
+    expect(r).toMatchObject({ ok: false, aposGravar: false })
     expect(invoke).not.toHaveBeenCalled()
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('409 e 422 viram texto amigável; outro erro usa a mensagem do servidor', async () => {
-    const http = (status: number, error = '') => ({ data: null, error: { context: { status, json: async () => ({ error }) } } })
-    invoke.mockResolvedValueOnce(http(409, 'Texto do aceite desatualizado; recarregue a página') as never)
-    expect(await enviarEvento(base())).toEqual({ ok: false, erro: 'O texto do aceite mudou. Recarregue a página e envie de novo.' })
-    invoke.mockResolvedValueOnce(http(422) as never)
-    expect(await enviarEvento(base())).toEqual({ ok: false, erro: 'Escolha a classificação indicativa antes de enviar.' })
-    invoke.mockResolvedValueOnce(http(429, 'Muitas tentativas. Tente novamente mais tarde.') as never)
-    expect(await enviarEvento(base())).toEqual({ ok: false, erro: 'Muitas tentativas de envio em pouco tempo. Aguarde um pouco e tente de novo.' })
-    invoke.mockResolvedValueOnce(http(403, 'Confirme o código de verificação em duas etapas') as never)
-    expect(await enviarEvento(base())).toEqual({ ok: false, erro: 'Confirme o código de verificação em duas etapas' })
-    invoke.mockResolvedValueOnce({ data: null, error: new Error('Failed to fetch') } as never)
-    expect((await enviarEvento(base())) as { erro: string }).toMatchObject({ ok: false, erro: expect.stringMatching(/aceite/) })
+  it('cada status vira texto do próprio front; a mensagem do servidor nunca aparece', async () => {
+    const http = (status: number) => ({ data: null, error: { context: { status, json: async () => ({ error: 'DETALHE INTERNO DO SERVIDOR' }) } } })
+    const esperados: Record<number, RegExp> = {
+      400: /incompleto/, 401: /sessão expirou/, 403: /duas etapas/, 404: /Não encontramos este evento/, 409: /texto do aceite mudou/,
+      422: /classificação indicativa/, 429: /Muitas tentativas/, 500: /servidor não conseguiu/,
+    }
+    for (const [status, re] of Object.entries(esperados)) {
+      invoke.mockResolvedValueOnce(http(Number(status)) as never)
+      const r = (await enviarEvento(base())) as { erro: string }
+      expect(r.erro, status).toMatch(re)
+      expect(r.erro).not.toMatch(/DETALHE/)
+    }
+    invoke.mockResolvedValueOnce({ data: null, error: new Error('Failed to fetch') } as never) // rede
+    expect(((await enviarEvento(base())) as { erro: string }).erro).toMatch(/internet/)
     expect(update).not.toHaveBeenCalled()
   })
 
@@ -267,6 +308,15 @@ describe('Enviar para aprovação', () => {
     expect(await enviarEvento({ ...base(), aceitar: true, publicar: false })).toEqual({ ok: true })
     expect(chamadas).toEqual(['gravar', 'ingressos', 'aceite'])
     expect(update).not.toHaveBeenCalled()
+  })
+
+  it('evento no ar: aceite que falha DEPOIS de gravar diz que as alterações já foram para análise (nunca "nada foi publicado")', async () => {
+    invoke.mockResolvedValueOnce({ data: null, error: { context: { status: 500 } } } as never)
+    expect(await enviarEvento({ ...base(), publicar: false })).toEqual({ ok: false, erro: ERRO_ACEITE_NO_AR, aposGravar: true })
+    invoke.mockResolvedValueOnce(resposta({ classificacao: 'A18' }) as never)
+    const r = (await enviarEvento({ ...base(), publicar: false })) as { erro: string }
+    expect(r.erro).toBe(ERRO_ACEITE_NO_AR)
+    expect(r.erro).not.toMatch(/nada foi publicado/)
   })
 
   it('o banco recusa publicar: erro, sem dizer que enviou', async () => {

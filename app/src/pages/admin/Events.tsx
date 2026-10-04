@@ -191,7 +191,7 @@ export default function AdminEvents() {
                 const formattedDate = e.date
                   ? new Date(e.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
                   : 'Data a definir'
-                const emAnalise = e.approval_status === 'pending' || !e.approval_status
+                const emAnalise = naFilaDeModeracao(e) // rascunho não enviado não tem Aprovar nem Rejeitar
 
                 return (
                   <tr key={e.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
@@ -404,7 +404,7 @@ export default function AdminEvents() {
               </div>
 
               <div className="flex flex-wrap gap-2 pt-4 border-t border-border">
-                {(detail.approval_status === 'pending' || !detail.approval_status) && (
+                {naFilaDeModeracao(detail) && (
                   <Button size="sm" onClick={() => handleApprove(detail.id, detail.updated_at)} disabled={approveMutation.isPending}>
                     <I.Check /> Aprovar
                   </Button>
@@ -414,7 +414,7 @@ export default function AdminEvents() {
                     <I.Desfazer /> Revogar aprovação
                   </Button>
                 )}
-                {(detail.approval_status === 'pending' || !detail.approval_status || detail.approval_status === 'approved') && (
+                {(naFilaDeModeracao(detail) || detail.approval_status === 'approved') && (
                   <Button size="sm" variant="outline" className="text-destructive" onClick={() => handleReject(detail.id, detail.updated_at)} disabled={approveMutation.isPending}>
                     <I.Fechar /> Rejeitar
                   </Button>
