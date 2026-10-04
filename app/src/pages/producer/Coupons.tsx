@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Trash2, Copy, Check, Power, Loader2 } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
 import {
   useProducerCoupons,
@@ -11,7 +11,7 @@ import {
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,6 @@ const couponStatus = (c: DbCoupon) =>
   : 'ativo'
 
 const rotulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
@@ -134,7 +133,7 @@ export default function ProducerCoupons() {
     <PageHeader
       title="Cupons"
       description="Descontos e promoções dos seus eventos"
-      actions={<Button onClick={abrir}><Plus aria-hidden="true" />Novo cupom</Button>}
+      actions={<Button onClick={abrir}><I.Criar aria-hidden="true" />Novo cupom</Button>}
     />
   )
 
@@ -193,7 +192,7 @@ export default function ProducerCoupons() {
           <EmptyState
             title={total === 0 ? (filtroEvento ? 'Nenhum cupom neste evento' : 'Nenhum cupom ainda') : 'Nenhum cupom com esse filtro'}
             description={total === 0 ? (filtroEvento ? 'Crie um cupom para este evento ou para todos os eventos.' : 'Crie o primeiro cupom de desconto.') : undefined}
-            action={total === 0 ? <Button onClick={abrir}><Plus aria-hidden="true" />Novo cupom</Button> : undefined}
+            action={total === 0 ? <Button onClick={abrir}><I.Criar aria-hidden="true" />Novo cupom</Button> : undefined}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -205,13 +204,13 @@ export default function ProducerCoupons() {
                     <Badge variant={status === 'ativo' ? 'default' : 'secondary'}>{rotulo(status)}</Badge>
                     <div className="flex items-center gap-1">
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => copyCode(coupon.code)} aria-label={`Copiar código ${coupon.code}`}>
-                        {copied === coupon.code ? <Check aria-hidden="true" /> : <Copy aria-hidden="true" />}
+                        {copied === coupon.code ? <I.Check aria-hidden="true" /> : <I.Copiar aria-hidden="true" />}
                       </Button>
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => toggleStatus(coupon)} aria-label={coupon.is_active ? `Desativar ${coupon.code}` : `Ativar ${coupon.code}`}>
-                        <Power aria-hidden="true" />
+                        <I.Ligar aria-hidden="true" />
                       </Button>
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon)} aria-label={`Remover ${coupon.code}`}>
-                        <Trash2 aria-hidden="true" />
+                        <I.Lixeira aria-hidden="true" />
                       </Button>
                     </div>
                   </div>
@@ -260,7 +259,7 @@ export default function ProducerCoupons() {
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="cupom-tipo">Tipo</Label>
-                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={select}>
+                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={selectNativo}>
                   <option value="percent">Percentual (%)</option>
                   <option value="fixed">Valor fixo (R$)</option>
                 </select>
@@ -282,7 +281,7 @@ export default function ProducerCoupons() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="cupom-evento">Evento</Label>
-              <select id="cupom-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+              <select id="cupom-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={selectNativo}>
                 <option value="">Todos os eventos</option>
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
@@ -304,8 +303,8 @@ export default function ProducerCoupons() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-cupom" disabled={createCoupon.isPending}>
-              {createCoupon.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar cupom'}
+            <Button type="submit" form="form-cupom" loading={createCoupon.isPending}>
+              Criar cupom
             </Button>
           </DialogFooter>
         </DialogContent>

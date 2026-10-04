@@ -1107,9 +1107,9 @@
 /* Scrollbar - dark sidebar */
 .sidebar-dark-scroll::-webkit-scrollbar { width: 4px; }
 .sidebar-dark-scroll::-webkit-scrollbar-track { background: transparent; }
-.sidebar-dark-scroll::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.15); border-radius: 10px; }
-.sidebar-dark-scroll::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.3); }
-.sidebar-dark-scroll { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, 0.15) transparent; }
+.sidebar-dark-scroll::-webkit-scrollbar-thumb { background: hsl(var(--primary) / 0.15); border-radius: 10px; }
+.sidebar-dark-scroll::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary) / 0.3); }
+.sidebar-dark-scroll { scrollbar-width: thin; scrollbar-color: hsl(var(--primary) / 0.15) transparent; }
 
 /* Scrollbar - Firefox global */
 * { scrollbar-width: thin; scrollbar-color: rgba(59, 130, 246, 0.15) transparent; }

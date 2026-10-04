@@ -4,17 +4,9 @@ import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { reduzirPlanta } from '../../lib/plantaFundo'
-import {
-  ArrowLeft, Save, ZoomIn, ZoomOut, RotateCcw, Grid3X3,
-  Square, Circle as CircleIcon, Type, Trash2, Copy,
-  Armchair, Monitor, Wine, DoorOpen, Plus, X, Layers, Check,
-  Info, Search, MapPin, Download, Upload, Undo, Redo,
-  Lock, Unlock, MousePointer, AlignLeft, AlignCenter,
-  ImagePlus, Trash, ArrowUpDown, CircleHelp, ConciergeBell,
-  SquareMenu, Globe, Building2, ChevronDown, Eye, EyeOff, Sparkles, Scale, LayoutGrid, HelpCircle,
-  ChevronLeft, ChevronRight, Hand
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 
 // Tipos de ferramentas do editor
 type ToolType = 
@@ -116,23 +108,23 @@ const snapVal = (v: number, g: number) => Math.round(v / g) * g
 
 function toolIcon(t: ToolType) {
   switch (t) {
-    case 'select': return MousePointer
-    case 'pan': return Hand
-    case 'seat': return Armchair
-    case 'table': return Square
-    case 'stage': return Monitor
-    case 'bar': return Wine
-    case 'door': return DoorOpen
-    case 'text': return Type
-    case 'dancefloor': return CircleIcon
-    case 'area': return Layers
-    case 'stairs': return ArrowUpDown
-    case 'restroom': return SquareMenu
-    case 'info': return CircleHelp
-    case 'service': return ConciergeBell
-    case 'wall': return LayoutGrid
-    case 'ledscreen': return Monitor
-    case 'truss': return Grid3X3
+    case 'select': return I.Cursor
+    case 'pan': return I.Mao
+    case 'seat': return I.Lugar
+    case 'table': return I.Quadrado
+    case 'stage': return I.Tela
+    case 'bar': return I.Cardapio
+    case 'door': return I.Porta
+    case 'text': return I.Texto
+    case 'dancefloor': return I.Circulo
+    case 'area': return I.Camadas
+    case 'stairs': return I.Ordenar
+    case 'restroom': return I.Sanitario
+    case 'info': return I.Ajuda
+    case 'service': return I.SinoRecepcao
+    case 'wall': return I.Grade
+    case 'ledscreen': return I.Tela
+    case 'truss': return I.Grade
     case 'generator': return ZapIcon
     case 'soundhouse': return AudioIcon
     case 'barricade': return BarricadeIcon
@@ -2393,25 +2385,24 @@ export default function SeatingMap() {
         <p className="text-sm text-muted-foreground">
           {carregandoEventos ? 'Carregando seus eventos…' : erroEventos ? 'Não consegui carregar seus eventos.' : eventos.length ? 'Escolha o evento cujo mapa você quer editar.' : 'Crie um evento antes de montar o mapa.'}
         </p>
-        {erroEventos && <button onClick={() => recarregarEventos()} className="h-8 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground">Tentar de novo</button>}
+        {erroEventos && <Button size="sm" onClick={() => recarregarEventos()}>Tentar de novo</Button>}
         {eventos.length > 0 && seletorEvento}
         <Link to={voltarPara} className="text-sm text-primary underline">Voltar ao painel</Link>
       </div>
     )
   }
 
-  // Moldura no estilo do painel (Decisão 112): tokens de .painel-produtor só no cabeçalho e na barra de pavimentos.
-  // O miolo do editor (barras laterais, planta e janelas) fica como está; text-espresso na raiz é a cor que ele herda.
+  // Editor em tela cheia (Decisão 112; V8b): tokens nas barras, no cabeçalho e nas janelas; a planta é uma ilha clara (.mapa-claro) nos dois temas.
   const btnIcone = 'inline-flex items-center justify-center rounded-md border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 disabled:hover:bg-card flex-shrink-0'
   const btnLigado = (on: boolean) => `inline-flex items-center justify-center rounded-md border p-2 transition-colors flex-shrink-0 ${on ? 'border-primary/40 bg-primary/10 text-primary' : 'border-border bg-card text-muted-foreground hover:bg-foreground/5 hover:text-foreground'}`
   return (
-    <div className="painel-produtor w-full max-w-full h-screen max-h-screen relative flex flex-col overflow-hidden glass-canvas font-sans text-espresso select-none min-w-0">
+    <div className="painel-produtor w-full max-w-full h-screen max-h-screen relative flex flex-col overflow-hidden glass-canvas font-sans text-foreground select-none min-w-0">
 
       {/* CABEÇALHO */}
       <header className="w-full max-w-full flex items-center justify-between px-3 py-2 md:px-6 md:py-3 border-b border-border bg-card text-foreground z-30 flex-nowrap gap-2 md:gap-4 overflow-hidden min-w-0 flex-shrink-0">
         <div className="flex items-center gap-3 flex-shrink-0">
           <Link to={voltarPara} onClick={(e: ReactMouseEvent) => { if (!confirmarSaida()) e.preventDefault() }} className={btnIcone} aria-label="Voltar ao painel">
-            <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+            <I.SetaEsquerda className="w-4 h-4" aria-hidden="true" />
           </Link>
           <div className="flex flex-col min-w-0">
             <h1 className="text-base lg:text-lg font-semibold text-foreground tracking-tight flex items-center gap-2 whitespace-nowrap">
@@ -2421,13 +2412,9 @@ export default function SeatingMap() {
             <p className="hidden xl:block text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Segure Espaço e arraste para navegar · role o mouse para dar zoom</p>
           </div>
           {seletorEvento}
-          <button
-            onClick={handleSaveMap}
-            disabled={!pronto}
-            className="ml-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 flex-shrink-0 whitespace-nowrap"
-          >
-            <Save className="w-3.5 h-3.5" aria-hidden="true" /> Salvar
-          </button>
+          <Button size="sm" onClick={handleSaveMap} disabled={!pronto} className="ml-2">
+            <I.Guardar aria-hidden="true" /> Salvar
+          </Button>
         </div>
 
         {/* CONTROLES SUPERIORES */}
@@ -2435,7 +2422,7 @@ export default function SeatingMap() {
 
           {/* Barra de pesquisa (oculta em telas muito pequenas) */}
           <div className="relative flex-shrink-0 hidden sm:block">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+            <I.Buscar className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
@@ -2454,7 +2441,7 @@ export default function SeatingMap() {
               aria-pressed={tool === 'select' && !isPan}
               className={`p-1.5 rounded transition-colors ${tool === 'select' && !isPan ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <MousePointer className="w-3.5 h-3.5" aria-hidden="true" />
+              <I.Cursor className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
             <button
               onClick={() => { setTool('pan'); setIsPan(true); }}
@@ -2463,54 +2450,54 @@ export default function SeatingMap() {
               aria-pressed={tool === 'pan' || isPan}
               className={`p-1.5 rounded transition-colors ${(tool === 'pan' || isPan) ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Hand className="w-3.5 h-3.5" aria-hidden="true" />
+              <I.Mao className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
           </div>
 
           {/* Grade e nomes (ocultos abaixo de lg para economizar espaço horizontal) */}
           <button onClick={() => setShowGrid(!showGrid)} title="Grade métrica" aria-label="Grade métrica" aria-pressed={showGrid} className={`${btnLigado(showGrid)} hidden lg:inline-flex`}>
-            <Grid3X3 className="w-4 h-4" aria-hidden="true" />
+            <I.Grade className="w-4 h-4" aria-hidden="true" />
           </button>
           <button onClick={() => setShowLabels(!showLabels)} title="Mostrar nomes" aria-label="Mostrar nomes" aria-pressed={showLabels} className={`${btnLigado(showLabels)} hidden lg:inline-flex`}>
-            <Type className="w-4 h-4" aria-hidden="true" />
+            <I.Texto className="w-4 h-4" aria-hidden="true" />
           </button>
 
           {/* Minimapa (oculto abaixo de xl) */}
           <button onClick={() => setShowMinimap(!showMinimap)} title="Minimapa" aria-label="Minimapa" aria-pressed={showMinimap} className={`${btnLigado(showMinimap)} hidden xl:inline-flex`}>
-            <MapPin className="w-4 h-4" aria-hidden="true" />
+            <I.Local className="w-4 h-4" aria-hidden="true" />
           </button>
 
           {/* Desfazer e refazer (ocultos abaixo de xl) */}
           <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden xl:block" />
 
           <button onClick={undo} disabled={(histIdx[activeEnv] || 0) <= 0} title="Desfazer (Ctrl+Z)" aria-label="Desfazer (Ctrl+Z)" className={`${btnIcone} hidden xl:inline-flex`}>
-            <Undo className="w-4 h-4" aria-hidden="true" />
+            <I.Desfazer className="w-4 h-4" aria-hidden="true" />
           </button>
           <button onClick={redo} disabled={(histIdx[activeEnv] || 0) >= ((history[activeEnv] || []).length - 1)} title="Refazer (Ctrl+Y)" aria-label="Refazer (Ctrl+Y)" className={`${btnIcone} hidden xl:inline-flex`}>
-            <Redo className="w-4 h-4" aria-hidden="true" />
+            <I.Refazer className="w-4 h-4" aria-hidden="true" />
           </button>
 
           {/* Bloco de zoom completo (visível só acima de 2xl) */}
           <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden 2xl:block" />
 
           <div className="items-center gap-0.5 rounded-md border border-border bg-card px-1 py-0.5 flex-shrink-0 hidden 2xl:flex">
-            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} title="Afastar" aria-label="Afastar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><ZoomOut className="w-3.5 h-3.5" aria-hidden="true" /></button>
+            <button onClick={() => setZoom(z => Math.max(0.2, z - 0.1))} title="Afastar" aria-label="Afastar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><I.Reduzir className="w-3.5 h-3.5" aria-hidden="true" /></button>
             <span className="text-[11px] font-medium tabular-nums text-foreground w-10 text-center">{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} title="Aproximar" aria-label="Aproximar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><ZoomIn className="w-3.5 h-3.5" aria-hidden="true" /></button>
-            <button onClick={centerPavilion} title="Centralizar o pavilhão na tela" aria-label="Centralizar o pavilhão na tela" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><RotateCcw className="w-3.5 h-3.5" aria-hidden="true" /></button>
+            <button onClick={() => setZoom(z => Math.min(3.0, z + 0.1))} title="Aproximar" aria-label="Aproximar" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><I.Ampliar className="w-3.5 h-3.5" aria-hidden="true" /></button>
+            <button onClick={centerPavilion} title="Centralizar o pavilhão na tela" aria-label="Centralizar o pavilhão na tela" className="p-1.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground"><I.Restaurar className="w-3.5 h-3.5" aria-hidden="true" /></button>
           </div>
 
           {/* Centralizar avulso (útil e compacto em telas menores) */}
           <button onClick={centerPavilion} title="Centralizar o pavilhão" aria-label="Centralizar o pavilhão" className={`${btnIcone} 2xl:hidden`}>
-            <RotateCcw className="w-3.5 h-3.5" aria-hidden="true" />
+            <I.Restaurar className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
 
           {/* Exportar e importar JSON (ocultos abaixo de 2xl) */}
           <div className="w-px h-6 bg-border mx-1 flex-shrink-0 hidden 2xl:block" />
 
-          <button onClick={exportMap} className={`${btnIcone} hidden 2xl:inline-flex`} title="Exportar JSON" aria-label="Exportar JSON"><Download className="w-4 h-4" aria-hidden="true" /></button>
+          <button onClick={exportMap} className={`${btnIcone} hidden 2xl:inline-flex`} title="Exportar JSON" aria-label="Exportar JSON"><I.Baixar className="w-4 h-4" aria-hidden="true" /></button>
           <label className={`${btnIcone} cursor-pointer hidden 2xl:inline-flex`} title="Importar JSON">
-            <Upload className="w-4 h-4" aria-hidden="true" />
+            <I.Carregar className="w-4 h-4" aria-hidden="true" />
             <span className="sr-only">Importar JSON</span>
             <input type="file" accept=".json" className="hidden" onChange={e => e.target.files?.[0] && importMap(e.target.files[0])} />
           </label>
@@ -2525,14 +2512,14 @@ export default function SeatingMap() {
 
       {/* PAVIMENTOS / AMBIENTES */}
       <div className="w-full max-w-full flex items-center gap-2 px-3 md:px-6 py-2 border-b border-border bg-background text-foreground overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
-        <Building2 className="w-4 h-4 text-muted-foreground mr-1 flex-shrink-0" aria-hidden="true" />
+        <I.Empresa className="w-4 h-4 text-muted-foreground mr-1 flex-shrink-0" aria-hidden="true" />
         {environments.map((e, i) => (
           <div
             key={e.id}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs transition-colors border ${i === activeEnv ? 'border-primary/40 bg-primary/10 text-foreground font-medium' : 'border-border bg-card text-muted-foreground hover:bg-foreground/5 hover:text-foreground'}`}
           >
             <button onClick={() => { setActiveEnv(i); setSelected([]); setSelectedWallId(null); }} aria-pressed={i === activeEnv} className="flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+              <I.Globo className="w-3.5 h-3.5" aria-hidden="true" />
               <span>{e.name}</span>
               <span className="text-[11px] tabular-nums text-muted-foreground">({e.seats?.length || 0})</span>
             </button>
@@ -2543,7 +2530,7 @@ export default function SeatingMap() {
                 aria-label={`Remover o pavimento ${e.name}`}
                 className="ml-1 p-0.5 rounded text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors"
               >
-                <X className="w-3 h-3" aria-hidden="true" />
+                <I.Fechar className="w-3 h-3" aria-hidden="true" />
               </button>
             )}
           </div>
@@ -2552,7 +2539,7 @@ export default function SeatingMap() {
           onClick={addEnvironment}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors flex-shrink-0"
         >
-          <Plus className="w-3.5 h-3.5" aria-hidden="true" /> Novo pavimento
+          <I.Criar className="w-3.5 h-3.5" aria-hidden="true" /> Novo pavimento
         </button>
 
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
@@ -2561,7 +2548,7 @@ export default function SeatingMap() {
             aria-label="Gerador de layout"
             className="flex items-center gap-2 h-8 px-3 md:px-4 rounded-md border border-border bg-card text-xs font-medium text-foreground hover:bg-foreground/5 transition-colors"
           >
-            <LayoutGrid className="w-3.5 h-3.5" aria-hidden="true" />
+            <I.Grade className="w-3.5 h-3.5" aria-hidden="true" />
             <span className="hidden md:inline">Gerador de layout</span>
           </button>
 
@@ -2575,7 +2562,7 @@ export default function SeatingMap() {
             aria-label="Leitor de mapa com IA"
             className="flex items-center gap-2 h-8 px-3 md:px-4 rounded-md border border-border bg-card text-xs font-medium text-foreground hover:bg-foreground/5 transition-colors"
           >
-            <Sparkles className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+            <I.Destaque className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
             <span className="hidden md:inline">Leitor de mapa com IA</span>
           </button>
         </div>
@@ -2585,24 +2572,24 @@ export default function SeatingMap() {
       <div className="flex-1 flex overflow-hidden min-w-0 w-full max-w-full">
         
         {/* BARRA LATERAL ESQUERDA - FERRAMENTAS */}
-        <aside className={`bg-white dark:bg-white/5 border-r border-stone-200/60 flex flex-col overflow-y-auto sidebar-dark-scroll flex-shrink-0 z-20 transition-all duration-300 ${sidebarLeftOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
+        <aside className={`bg-card border-r border-border flex flex-col overflow-y-auto sidebar-dark-scroll flex-shrink-0 z-20 transition-all duration-300 ${sidebarLeftOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
           
-          <div className="p-4 border-b border-stone-200/60 bg-[#faf8f5]/50 dark:bg-white/5">
-            <h3 className="text-[9px] font-bold text-espresso/70 uppercase tracking-wider mb-2.5">Templates Rápidos</h3>
+          <div className="p-4 border-b border-border bg-secondary">
+            <h3 className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-2.5">Templates Rápidos</h3>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { name: 'Teatro', icon: Armchair, desc: 'auditório' },
-                { name: 'VIP Jantar', icon: Square, desc: 'banquete' },
-                { name: 'Vazio', icon: X, desc: 'Limpar tudo' },
+                { name: 'Teatro', icon: I.Lugar, desc: 'auditório' },
+                { name: 'VIP Jantar', icon: I.Quadrado, desc: 'banquete' },
+                { name: 'Vazio', icon: I.Fechar, desc: 'Limpar tudo' },
               ].map(t => (
                 <button 
                   key={t.name} 
                   onClick={() => applyTemplate(t.name === 'VIP Jantar' ? 'Jantar VIP' : t.name)}
-                  className="p-2 bg-white dark:bg-white/5 rounded-xl border border-stone-200/80 hover:border-plum/30 hover:bg-plum/5 text-center transition-all group shadow-xs"
+                  className="p-2 bg-card rounded-xl border border-border hover:border-primary/30 hover:bg-primary/5 text-center transition-all group shadow-xs"
                 >
-                  <t.icon className="w-4 h-4 text-espresso/40 group-hover:text-plum mx-auto mb-1 transition-colors" />
-                  <span className="text-[9px] font-bold text-espresso/80 block truncate">{t.name}</span>
-                  <span className="text-[7px] text-espresso/70 block mt-0.5">{t.desc}</span>
+                  <t.icon className="w-4 h-4 text-muted-foreground group-hover:text-primary mx-auto mb-1 transition-colors" />
+                  <span className="text-[9px] font-bold text-foreground block truncate">{t.name}</span>
+                  <span className="text-[7px] text-muted-foreground block mt-0.5">{t.desc}</span>
                 </button>
               ))}
             </div>
@@ -2611,8 +2598,8 @@ export default function SeatingMap() {
           <div className="p-4 flex-1 space-y-4">
             {TOOL_CATEGORIES.map(category => (
               <div key={category.id} className="space-y-1.5">
-                <div className="text-[9px] font-bold text-espresso/70 uppercase tracking-widest mb-1 flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-plum/40" />
+                <div className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary/40" />
                   {category.name}
                 </div>
                 <div className="grid grid-cols-2 gap-1.5">
@@ -2634,13 +2621,13 @@ export default function SeatingMap() {
                             addElementDirectly(t)
                           }
                         }}
-                        className={`p-2 rounded-xl border transition-all flex flex-col items-center justify-center gap-1 text-center shadow-xs ${isSelected ? 'bg-plum/10 border-plum/35 text-plum font-bold' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:text-espresso hover:border-stone-300 hover:bg-stone-50'}`}
+                        className={`p-2 rounded-xl border transition-all flex flex-col items-center justify-center gap-1 text-center shadow-xs ${isSelected ? 'bg-primary/10 border-primary/35 text-primary font-bold' : 'bg-card border-border text-muted-foreground hover:text-foreground hover:border-border hover:bg-foreground/5'}`}
                         title={`${typeLabels[t]} (${defaults.wMeter}m x ${defaults.hMeter}m)`}
                       >
                         <Icon className="w-4 h-4" />
                         <span className="text-[9px] font-bold leading-tight truncate w-full">{typeLabels[t]}</span>
                         {defaults.wMeter > 0 && (
-                          <span className="text-[8px] text-espresso/70 font-mono font-semibold">{defaults.wMeter}x{defaults.hMeter}m</span>
+                          <span className="text-[8px] text-muted-foreground font-mono font-semibold">{defaults.wMeter}x{defaults.hMeter}m</span>
                         )}
                       </button>
                     )
@@ -2650,27 +2637,27 @@ export default function SeatingMap() {
             ))}
           </div>
 
-          <div className="p-4 border-t border-stone-200/60 bg-[#faf8f5]/60 dark:bg-white/5 space-y-2.5">
+          <div className="p-4 border-t border-border bg-secondary space-y-2.5">
             <div className="flex items-center justify-between">
-              <h3 className="text-[9px] font-bold text-espresso/70 uppercase tracking-wider">Snap ao Grid</h3>
+              <h3 className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Snap ao Grid</h3>
               <button 
                 onClick={() => setSnap(!snap)} 
-                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${snap ? 'bg-green-100 border-green-300 text-green-700' : 'bg-stone-100 border-stone-300 text-espresso/70'}`}
+                className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-all ${snap ? 'bg-secondary border-border text-[var(--ev-success)]' : 'bg-secondary border-border text-muted-foreground'}`}
               >
                 {snap ? 'Ligado' : 'Desligado'}
               </button>
             </div>
             <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-[10px] text-espresso/70">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <span>Distância do Snap:</span>
-                <span className="font-mono font-bold text-espresso bg-white dark:bg-white/5 border border-stone-200/60 px-1.5 py-0.5 rounded">{gridSize} m</span>
+                <span className="font-mono font-bold text-foreground bg-card border border-border px-1.5 py-0.5 rounded">{gridSize} m</span>
               </div>
               <div className="flex gap-1">
                 {[0.1, 0.25, 0.5, 1.0].map(val => (
                   <button
                     key={val}
                     onClick={() => setGridSize(val)}
-                    className={`flex-1 py-1 rounded-lg border text-[9px] font-mono font-bold transition-all shadow-xs ${gridSize === val ? 'bg-plum text-white border-plum' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}
+                    className={`flex-1 py-1 rounded-lg border text-[9px] font-mono font-bold transition-all shadow-xs ${gridSize === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}
                   >
                     {val}m
                   </button>
@@ -2683,7 +2670,7 @@ export default function SeatingMap() {
 
         {/* CANVAS DE DESENHO CENTRAL */}
         <main 
-          className="light mapa-claro flex-1 relative overflow-hidden bg-stone-100" /* planta desenhada em branco: fica clara nos dois temas */
+          className="light mapa-claro flex-1 relative overflow-hidden bg-secondary" /* planta desenhada em branco: fica clara nos dois temas */
           ref={canvasRef}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -2694,11 +2681,11 @@ export default function SeatingMap() {
         >
           {/* Botões flutuantes removidos para manter sidebars fixas e sempre visíveis */}
 
-          <div className="absolute top-4 left-4 z-20 pointer-events-none bg-white/90 backdrop-blur-sm border border-stone-200/80 px-3 py-1.5 rounded-xl text-[10px] font-mono text-espresso/70 flex items-center gap-3 shadow-md">
+          <div className="absolute top-4 left-4 z-20 pointer-events-none bg-card/90 backdrop-blur-sm border border-border px-3 py-1.5 rounded-xl text-[10px] font-mono text-muted-foreground flex items-center gap-3 shadow-md">
             <span>X: <strong>{mouseCanvasPos.x.toFixed(2)} m</strong></span>
             <span>Y: <strong>{mouseCanvasPos.y.toFixed(2)} m</strong></span>
             {wallStartPoint && (
-              <span className="text-plum animate-pulse font-bold">
+              <span className="text-primary animate-pulse font-bold">
                 Muro atual: {Math.hypot(mouseCanvasPos.x - wallStartPoint.x, mouseCanvasPos.y - wallStartPoint.y).toFixed(2)} m
               </span>
             )}
@@ -2730,7 +2717,7 @@ export default function SeatingMap() {
             {/* Limite Físico do Pavilhão / Salão (AutoCAD-Style) */}
             {roomShape === 'rectangle' && (
               <div 
-                className="absolute border-stone-600 bg-white shadow-md pointer-events-none transition-all duration-300"
+                className="absolute border-muted-foreground bg-card shadow-md pointer-events-none transition-all duration-300"
                 style={{
                   left: 10 * pixelsPerMeter,
                   top: 10 * pixelsPerMeter,
@@ -2743,7 +2730,7 @@ export default function SeatingMap() {
                 }}
               >
                 {/* Indicador sutil de Área Útil */}
-                <div className="absolute inset-2 border border-dashed border-stone-200 flex items-center justify-center text-stone-300 select-none">
+                <div className="absolute inset-2 border border-dashed border-border flex items-center justify-center text-muted-foreground select-none">
                   <span className="text-xs font-mono font-bold uppercase tracking-widest">{roomWidth} x {roomHeight}m</span>
                 </div>
               </div>
@@ -2771,15 +2758,15 @@ export default function SeatingMap() {
                     ${(roomWidth - roomLWidth) * pixelsPerMeter},${roomHeight * pixelsPerMeter} 
                     0,${roomHeight * pixelsPerMeter}
                   `}
-                  fill="#ffffff"
-                  stroke="#44403c" // stone-600
+                  fill="hsl(var(--card))"
+                  stroke="hsl(var(--muted-foreground))"
                   strokeWidth={Math.max(4, 0.25 * pixelsPerMeter)}
                   strokeLinejoin="miter"
                 />
                 <text 
                   x={(roomWidth / 3) * pixelsPerMeter} 
                   y={(roomHeight / 3) * pixelsPerMeter} 
-                  fill="#d6d3d1" 
+                  fill="hsl(var(--muted-foreground))" 
                   fontSize="12" 
                   fontWeight="bold" 
                   fontFamily="monospace"
@@ -2803,12 +2790,12 @@ export default function SeatingMap() {
                   transformOrigin: 'top left',
                 }}
               >
-                {/* Linha pontilhada roxa ao redor do pavilhão indicando que ele está ativo para edição */}
-                <div className="absolute inset-0 border-2 border-dashed rounded pointer-events-none" style={{ borderColor: 'rgba(143, 51, 245, 0.35)' }} />
+                {/* Linha pontilhada azul ao redor do pavilhão indicando que ele está ativo para edição */}
+                <div className="absolute inset-0 border-2 border-dashed rounded pointer-events-none" style={{ borderColor: 'hsl(var(--primary) / 0.35)' }} />
 
                 {/* ALÇA DE REDIMENSIONAMENTO DO PAVILHÃO (Canto Inferior Direito) */}
                 <div
-                  className="absolute bottom-0 right-0 w-5 h-5 bg-plum border-2 border-white rounded shadow-md cursor-se-resize z-30 pointer-events-auto flex items-center justify-center scale-100 hover:scale-110 active:scale-95 transition-all"
+                  className="absolute bottom-0 right-0 w-5 h-5 bg-primary border-2 border-card rounded shadow-md cursor-se-resize z-30 pointer-events-auto flex items-center justify-center scale-100 hover:scale-110 active:scale-95 transition-all"
                   style={{ transform: 'translate(50%, 50%)' }}
                   onMouseDown={(e) => {
                     e.stopPropagation()
@@ -2890,10 +2877,10 @@ export default function SeatingMap() {
                   title="Arrastar para girar o salão"
                 >
                   {/* Linha conectora */}
-                  <div className="w-0.5 h-4 bg-plum" />
+                  <div className="w-0.5 h-4 bg-primary" />
                   {/* Bolinha de arraste */}
-                  <div className="w-5 h-5 bg-plum hover:bg-plum-light border border-white rounded-full flex items-center justify-center shadow-glow transition-all scale-100 hover:scale-110 active:scale-95">
-                    <RotateCcw className="w-2.5 h-2.5 text-white" />
+                  <div className="w-5 h-5 bg-primary hover:bg-primary/90 border border-card rounded-full flex items-center justify-center shadow-glow transition-all scale-100 hover:scale-110 active:scale-95">
+                    <I.Restaurar className="w-2.5 h-2.5 text-background" />
                   </div>
                 </div>
               </div>
@@ -2934,7 +2921,7 @@ export default function SeatingMap() {
                 {calibrationPoints.map((p, idx) => (
                   <div 
                     key={idx} 
-                    className="absolute w-5 h-5 bg-blue-600 rounded-full border-2 border-white -translate-x-2.5 -translate-y-2.5 flex items-center justify-center font-mono text-[9px] text-white font-bold shadow-md"
+                    className="absolute w-5 h-5 bg-primary rounded-full border-2 border-card -translate-x-2.5 -translate-y-2.5 flex items-center justify-center font-mono text-[9px] text-primary-foreground font-bold shadow-md"
                     style={{ left: p.x * pixelsPerMeter, top: p.y * pixelsPerMeter }}
                   >
                     {idx + 1}
@@ -2947,7 +2934,7 @@ export default function SeatingMap() {
                       y1={calibrationPoints[0].y * pixelsPerMeter} 
                       x2={calibrationPoints[1].x * pixelsPerMeter} 
                       y2={calibrationPoints[1].y * pixelsPerMeter} 
-                      stroke="#2563eb" 
+                      stroke="hsl(var(--primary))" 
                       strokeWidth="2.5" 
                       strokeDasharray="4,4" 
                     />
@@ -2959,7 +2946,7 @@ export default function SeatingMap() {
             {/* Caixa de seleção */}
             {boxSel?.active && (
               <div 
-                className="absolute border-2 border-plum/40 bg-plum/5 pointer-events-none z-50 rounded" 
+                className="absolute border-2 border-primary/40 bg-primary/5 pointer-events-none z-50 rounded" 
                 style={{
                   left: Math.min(boxSel.x1, boxSel.x2) * pixelsPerMeter, 
                   top: Math.min(boxSel.y1, boxSel.y2) * pixelsPerMeter,
@@ -3007,7 +2994,7 @@ export default function SeatingMap() {
                       y1={p1y} 
                       x2={p2x} 
                       y2={p2y} 
-                      stroke={isSelected ? '#7a3b69' : '#1f2937'} 
+                      stroke={isSelected ? 'hsl(var(--primary))' : 'hsl(var(--foreground))'} 
                       strokeWidth={thickPx + 2} 
                       strokeLinecap="round"
                       opacity="0.12"
@@ -3017,7 +3004,7 @@ export default function SeatingMap() {
                       <text
                         x={(p1x + p2x) / 2}
                         y={(p1y + p2y) / 2 - (thickPx / 2 + 5)}
-                        fill="#7a3b69"
+                        fill="hsl(var(--primary))"
                         fontSize="9"
                         fontWeight="bold"
                         textAnchor="middle"
@@ -3037,7 +3024,7 @@ export default function SeatingMap() {
                     y1={wallStartPoint.y * pixelsPerMeter} 
                     x2={mouseCanvasPos.x * pixelsPerMeter} 
                     y2={mouseCanvasPos.y * pixelsPerMeter} 
-                    stroke="#7a3b69" 
+                    stroke="hsl(var(--primary))" 
                     strokeWidth={wallThickness * pixelsPerMeter} 
                     strokeLinecap="round" 
                     opacity="0.5" 
@@ -3046,7 +3033,7 @@ export default function SeatingMap() {
                     cx={mouseCanvasPos.x * pixelsPerMeter}
                     cy={mouseCanvasPos.y * pixelsPerMeter}
                     r="5"
-                    fill="#7a3b69"
+                    fill="hsl(var(--primary))"
                     className="animate-ping"
                   />
                 </g>
@@ -3060,7 +3047,7 @@ export default function SeatingMap() {
               return (
                 <div className="absolute inset-0 pointer-events-none z-30">
                   <div 
-                    className="absolute w-4 h-4 bg-plum border-2 border-white rounded-full -translate-x-2 -translate-y-2 pointer-events-auto cursor-move shadow-md"
+                    className="absolute w-4 h-4 bg-primary border-2 border-card rounded-full -translate-x-2 -translate-y-2 pointer-events-auto cursor-move shadow-md"
                     style={{ left: wall.x1 * pixelsPerMeter, top: wall.y1 * pixelsPerMeter }}
                     onMouseDown={(e) => {
                       e.stopPropagation()
@@ -3068,7 +3055,7 @@ export default function SeatingMap() {
                     }}
                   />
                   <div 
-                    className="absolute w-4 h-4 bg-plum border-2 border-white rounded-full -translate-x-2 -translate-y-2 pointer-events-auto cursor-move shadow-md"
+                    className="absolute w-4 h-4 bg-primary border-2 border-card rounded-full -translate-x-2 -translate-y-2 pointer-events-auto cursor-move shadow-md"
                     style={{ left: wall.x2 * pixelsPerMeter, top: wall.y2 * pixelsPerMeter }}
                     onMouseDown={(e) => {
                       e.stopPropagation()
@@ -3094,7 +3081,7 @@ export default function SeatingMap() {
                     height: dimY
                   }}
                 >
-                  <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
+                  <I.Destaque className="w-3.5 h-3.5 text-yellow-500" />
                 </div>
               )
             })}
@@ -3102,7 +3089,7 @@ export default function SeatingMap() {
             {/* Scanner de IA */}
             {aiScanning && (
               <div 
-                className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-plum to-transparent pointer-events-none shadow-[0_0_15px_rgba(122,59,105,0.6)] z-50 animate-pulse"
+                className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent pointer-events-none shadow-[0_0_15px_hsl(var(--primary)/0.6)] z-50 animate-pulse"
                 style={{ 
                   animation: 'scannerAnimation 3.5s ease-in-out infinite',
                   top: 0
@@ -3149,15 +3136,15 @@ export default function SeatingMap() {
                     transform: `rotate(${s.rotation}deg)`,
                   }}
                 >
-                  <div className={`w-full h-full relative ${isSelected ? 'ring-2 ring-plum rounded-xl shadow-[0_0_12px_rgba(122,59,105,0.4)]' : ''}`}>
+                  <div className={`w-full h-full relative ${isSelected ? 'ring-2 ring-foreground ring-offset-2 ring-offset-background rounded-xl shadow-[0_0_12px_hsl(var(--foreground)/0.4)]' : ''}`}>
                     
                     {/* 1. CADEIRA RÚSTICA / ASSENTO */}
                     {s.type === 'seat' && (
                       <div 
-                        className="w-full h-full rounded-lg border flex items-center justify-center shadow-xs bg-white"
+                        className="w-full h-full rounded-lg border flex items-center justify-center shadow-xs bg-card"
                         style={{ borderColor: statusColor, background: isSelected ? `${statusColor}25` : `${statusColor}12` }}
                       >
-                        <Armchair className="w-3.5 h-3.5" style={{ color: statusColor }} />
+                        <I.Lugar className="w-3.5 h-3.5" style={{ color: statusColor }} />
                       </div>
                     )}
 
@@ -3167,16 +3154,16 @@ export default function SeatingMap() {
                         
                         {/* Tampo da Mesa */}
                         <div 
-                          className={`border-2 flex flex-col items-center justify-center shadow bg-white z-10 ${s.tableShape === 'circle' ? 'rounded-full' : s.tableShape === 'square' ? 'rounded-lg' : 'rounded-xl'}`}
+                          className={`border-2 flex flex-col items-center justify-center shadow bg-card z-10 ${s.tableShape === 'circle' ? 'rounded-full' : s.tableShape === 'square' ? 'rounded-lg' : 'rounded-xl'}`}
                           style={{ 
                             borderColor: statusColor, 
                             width: '72%', 
                             height: '72%',
-                            background: isSelected ? `${statusColor}15` : '#ffffff'
+                            background: isSelected ? `${statusColor}15` : 'hsl(var(--card))'
                           }}
                         >
-                          <span className="text-[7.5px] font-bold tracking-tight text-espresso/90 truncate max-w-[90%]">{s.label}</span>
-                          <span className="text-[6.5px] text-espresso/70 font-mono mt-0.5">{s.seatsCount || s.capacity}L</span>
+                          <span className="text-[7.5px] font-bold tracking-tight text-foreground truncate max-w-[90%]">{s.label}</span>
+                          <span className="text-[6.5px] text-muted-foreground font-mono mt-0.5">{s.seatsCount || s.capacity}L</span>
                         </div>
 
                         {/* Cadeiras Dispostas ao Redor da Mesa (Layout Vector Inteligente) */}
@@ -3201,7 +3188,7 @@ export default function SeatingMap() {
                                     cx={cx} 
                                     cy={cy} 
                                     r={chairSize / 2}
-                                    fill="#ffffff" 
+                                    fill="hsl(var(--card))" 
                                     stroke={statusColor} 
                                     strokeWidth="1.2"
                                   />
@@ -3240,7 +3227,7 @@ export default function SeatingMap() {
                                     cx={cx} 
                                     cy={cy} 
                                     r={chairSize / 2}
-                                    fill="#ffffff" 
+                                    fill="hsl(var(--card))" 
                                     stroke={statusColor} 
                                     strokeWidth="1.2"
                                   />
@@ -3256,45 +3243,45 @@ export default function SeatingMap() {
                     {/* 3. PALCO */}
                     {s.type === 'stage' && (
                       <div 
-                        className="w-full h-full rounded-xl border-2 border-stone-500 bg-stone-100 flex flex-col items-center justify-center shadow-sm"
+                        className="w-full h-full rounded-xl border-2 border-muted-foreground bg-secondary flex flex-col items-center justify-center shadow-sm"
                       >
-                        <div className="flex items-center gap-1 text-espresso">
-                          <Monitor className="w-3.5 h-3.5 text-plum" />
-                          <span className="text-[10px] font-bold font-serif">{s.label}</span>
+                        <div className="flex items-center gap-1 text-foreground">
+                          <I.Tela className="w-3.5 h-3.5 text-primary" />
+                          <span className="text-[10px] font-bold ">{s.label}</span>
                         </div>
-                        <span className="text-[8px] text-espresso/70 font-mono font-bold mt-0.5">{s.widthMeter}x{s.heightMeter}m</span>
-                        <div className="absolute -left-1 bottom-1.5 w-1 h-3 bg-stone-400 rounded-l border border-stone-500" />
-                        <div className="absolute -right-1 bottom-1.5 w-1 h-3 bg-stone-400 rounded-r border border-stone-500" />
+                        <span className="text-[8px] text-muted-foreground font-mono font-bold mt-0.5">{s.widthMeter}x{s.heightMeter}m</span>
+                        <div className="absolute -left-1 bottom-1.5 w-1 h-3 bg-muted-foreground/50 rounded-l border border-muted-foreground" />
+                        <div className="absolute -right-1 bottom-1.5 w-1 h-3 bg-muted-foreground/50 rounded-r border border-muted-foreground" />
                       </div>
                     )}
 
                     {/* 4. BAR / BALCÃO */}
                     {s.type === 'bar' && (
                       <div 
-                        className="w-full h-full rounded-xl border-2 flex items-center justify-center bg-purple-50 shadow-sm"
+                        className="w-full h-full rounded-xl border-2 flex items-center justify-center bg-primary/10 shadow-sm"
                         style={{ borderColor: s.color }}
                       >
-                        <Wine className="w-3.5 h-3.5 text-purple-600 mr-1 flex-shrink-0" />
-                        <span className="text-[9px] font-bold text-purple-900 truncate">{s.label}</span>
+                        <I.Cardapio className="w-3.5 h-3.5 text-primary mr-1 flex-shrink-0" />
+                        <span className="text-[9px] font-bold text-foreground truncate">{s.label}</span>
                       </div>
                     )}
 
                     {/* 5. PORTAS / SAÍDAS */}
                     {(s.type === 'door' || s.type === 'emergency_exit') && (
                       <div 
-                        className="w-full h-full rounded border flex items-center justify-center shadow-xs bg-white"
+                        className="w-full h-full rounded border flex items-center justify-center shadow-xs bg-card"
                         style={{ 
                           borderColor: s.type === 'emergency_exit' ? '#ef4444' : '#10b981',
                           background: s.type === 'emergency_exit' ? '#ef444408' : '#10b98108'
                         }}
                       >
-                        <DoorOpen className={`w-3.5 h-3.5 ${s.type === 'emergency_exit' ? 'text-red-500' : 'text-emerald-500'}`} />
+                        <I.Porta className={`w-3.5 h-3.5 ${s.type === 'emergency_exit' ? 'text-red-500' : 'text-emerald-500'}`} />
                       </div>
                     )}
 
                     {/* 6. PAINEL DE LED */}
                     {s.type === 'ledscreen' && (
-                      <div className="w-full h-full bg-[#18181b] border border-[#3f3f46] rounded flex items-center justify-center">
+                      <div className="w-full h-full bg-foreground border border-muted-foreground rounded flex items-center justify-center">
                         <span className="text-[6.5px] text-emerald-400 font-bold uppercase tracking-wider font-mono">LED · {s.widthMeter}m</span>
                       </div>
                     )}
@@ -3302,10 +3289,10 @@ export default function SeatingMap() {
                     {/* 7. TRELIÇA TRUSS */}
                     {s.type === 'truss' && (
                       <div 
-                        className="w-full h-full bg-stone-200 border-y border-stone-400 flex items-center justify-center opacity-90"
+                        className="w-full h-full bg-muted border-y border-muted-foreground/60 flex items-center justify-center opacity-90"
                         style={{ backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 6px)' }}
                       >
-                        <span className="text-[6.5px] text-stone-600 font-mono font-bold">TRUSS</span>
+                        <span className="text-[6.5px] text-muted-foreground font-mono font-bold">TRUSS</span>
                       </div>
                     )}
 
@@ -3319,23 +3306,23 @@ export default function SeatingMap() {
 
                     {/* 9. HOUSE MIX */}
                     {s.type === 'soundhouse' && (
-                      <div className="w-full h-full bg-indigo-50 border-2 border-indigo-500 rounded-xl flex flex-col items-center justify-center p-0.5 text-center shadow-xs">
-                        <AudioIcon className="w-3.5 h-3.5 text-indigo-600 mb-0.5" />
-                        <span className="text-[7.5px] text-indigo-900 font-bold truncate w-full">{s.label}</span>
+                      <div className="w-full h-full bg-primary/10 border-2 border-primary rounded-xl flex flex-col items-center justify-center p-0.5 text-center shadow-xs">
+                        <AudioIcon className="w-3.5 h-3.5 text-primary mb-0.5" />
+                        <span className="text-[7.5px] text-foreground font-bold truncate w-full">{s.label}</span>
                       </div>
                     )}
 
                     {/* 10. BARRICADA */}
                     {s.type === 'barricade' && (
-                      <div className="w-full h-full bg-stone-300 border border-stone-400 flex items-center justify-center">
-                        <BarricadeIcon className="w-3 h-3 text-stone-600" />
+                      <div className="w-full h-full bg-muted border border-muted-foreground/60 flex items-center justify-center">
+                        <BarricadeIcon className="w-3 h-3 text-muted-foreground" />
                       </div>
                     )}
 
                     {/* 11. BISTRÔ */}
                     {s.type === 'bistro' && (
-                      <div className="w-full h-full bg-purple-50 border border-purple-400 rounded-full flex items-center justify-center shadow-xs">
-                        <BistroIcon className="w-3.5 h-3.5 text-purple-600" />
+                      <div className="w-full h-full bg-primary/10 border border-primary/40 rounded-full flex items-center justify-center shadow-xs">
+                        <BistroIcon className="w-3.5 h-3.5 text-primary" />
                       </div>
                     )}
 
@@ -3374,7 +3361,7 @@ export default function SeatingMap() {
                       <div className="w-full h-full rounded-xl border-2 border-pink-500 bg-pink-50/35 flex flex-col items-center justify-center shadow-xs border-dashed">
                         <div className="flex items-center gap-1.5 text-pink-900 font-bold">
                           <DressingRoomIcon className="w-4 h-4 text-pink-600 animate-pulse" />
-                          <span className="text-[10px] tracking-wide font-serif">{s.label}</span>
+                          <span className="text-[10px] tracking-wide ">{s.label}</span>
                         </div>
                         <span className="text-[7.5px] text-pink-700/60 font-mono mt-0.5">{s.widthMeter}x{s.heightMeter}m</span>
                       </div>
@@ -3392,33 +3379,33 @@ export default function SeatingMap() {
 
                     {/* Praticável / Cabine DJ */}
                     {s.type === 'dj_deck' && (
-                      <div className="w-full h-full rounded-xl border-2 border-indigo-600 bg-indigo-50 flex flex-col items-center justify-center shadow-xs">
-                        <div className="flex items-center gap-1.5 text-indigo-950 font-bold">
-                          <DjDeckIcon className="w-4 h-4 text-indigo-600" />
-                          <span className="text-[9px] font-serif">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border-2 border-primary bg-primary/10 flex flex-col items-center justify-center shadow-xs">
+                        <div className="flex items-center gap-1.5 text-foreground font-bold">
+                          <DjDeckIcon className="w-4 h-4 text-primary" />
+                          <span className="text-[9px] ">{s.label}</span>
                         </div>
-                        <span className="text-[7.5px] text-indigo-700 font-mono mt-0.5">{s.widthMeter}x{s.heightMeter}m</span>
+                        <span className="text-[7.5px] text-primary font-mono mt-0.5">{s.widthMeter}x{s.heightMeter}m</span>
                       </div>
                     )}
 
                     {/* Grade Unifila */}
                     {s.type === 'unifila_barrier' && (
                       <div 
-                        className="w-full h-full bg-stone-300 border-x-2 border-stone-500 flex items-center justify-center"
-                        style={{ backgroundImage: 'linear-gradient(90deg, transparent 45%, #78716c 45%, #78716c 55%, transparent 55%)', backgroundSize: '15px 100%' }}
+                        className="w-full h-full bg-muted border-x-2 border-muted-foreground flex items-center justify-center"
+                        style={{ backgroundImage: 'linear-gradient(90deg, transparent 45%, hsl(var(--muted-foreground)) 45%, hsl(var(--muted-foreground)) 55%, transparent 55%)', backgroundSize: '15px 100%' }}
                       >
-                        <span className="text-[6.5px] text-stone-700 font-mono font-bold">FILA</span>
+                        <span className="text-[6.5px] text-muted-foreground font-mono font-bold">FILA</span>
                       </div>
                     )}
 
                     {/* 13. TENDA */}
                     {s.type === 'tent' && (
                       <div 
-                        className="w-full h-full border border-purple-300 bg-purple-500/5 flex items-center justify-center rounded-lg shadow-xs"
-                        style={{ backgroundImage: 'linear-gradient(135deg, transparent 49%, rgba(168,85,247,0.15) 49%, rgba(168,85,247,0.15) 51%, transparent 51%), linear-gradient(45deg, transparent 49%, rgba(168,85,247,0.15) 49%, rgba(168,85,247,0.15) 51%, transparent 51%)' }}
+                        className="w-full h-full border border-primary/40 bg-primary/5 flex items-center justify-center rounded-lg shadow-xs"
+                        style={{ backgroundImage: 'linear-gradient(135deg, transparent 49%, hsl(var(--primary) / 0.15) 49%, hsl(var(--primary) / 0.15) 51%, transparent 51%), linear-gradient(45deg, transparent 49%, hsl(var(--primary) / 0.15) 49%, hsl(var(--primary) / 0.15) 51%, transparent 51%)' }}
                       >
-                        <TentIcon className="w-4 h-4 text-purple-500" />
-                        <span className="absolute bottom-1 right-1.5 text-[7px] text-purple-600 font-mono font-bold">{s.widthMeter}x{s.heightMeter}m</span>
+                        <TentIcon className="w-4 h-4 text-primary" />
+                        <span className="absolute bottom-1 right-1.5 text-[7px] text-primary font-mono font-bold">{s.widthMeter}x{s.heightMeter}m</span>
                       </div>
                     )}
 
@@ -3444,8 +3431,8 @@ export default function SeatingMap() {
 
                     {/* 16. TEXTO */}
                     {s.type === 'text' && (
-                      <div className="w-full h-full px-2 bg-white border border-stone-200/80 rounded-xl shadow-xs flex items-center justify-center">
-                        <span className="text-[9px] font-bold text-espresso truncate">{s.label}</span>
+                      <div className="w-full h-full px-2 bg-card border border-border rounded-xl shadow-xs flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-foreground truncate">{s.label}</span>
                       </div>
                     )}
 
@@ -3459,27 +3446,27 @@ export default function SeatingMap() {
 
                     {/* 18. ÁREAS LIVRES */}
                     {s.type === 'area' && (
-                      <div className="w-full h-full rounded-xl border border-dashed border-stone-400 bg-stone-100/30 flex items-center justify-center">
-                        <span className="text-[9px] font-bold text-stone-500 uppercase tracking-widest">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border border-dashed border-muted-foreground/60 bg-secondary/30 flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{s.label}</span>
                       </div>
                     )}
 
                     {s.type === 'stairs' && (
                       <div className="w-full h-full bg-orange-50 border border-orange-500 rounded-xl flex flex-col items-center justify-center shadow-xs">
-                        <ArrowUpDown className="w-3.5 h-3.5 text-orange-500" />
+                        <I.Ordenar className="w-3.5 h-3.5 text-orange-500" />
                         <span className="text-[7.5px] text-orange-700 font-bold uppercase">Escada</span>
                       </div>
                     )}
 
                     {s.type === 'info' && (
                       <div className="w-full h-full rounded-xl border border-blue-400 bg-blue-50 flex items-center justify-center shadow-xs">
-                        <CircleHelp className="w-4 h-4 text-blue-600" />
+                        <I.Ajuda className="w-4 h-4 text-blue-600" />
                       </div>
                     )}
 
                     {s.type === 'service' && (
                       <div className="w-full h-full rounded-xl border border-teal-400 bg-teal-50 flex items-center justify-center shadow-xs">
-                        <ConciergeBell className="w-4 h-4 text-teal-600" />
+                        <I.SinoRecepcao className="w-4 h-4 text-teal-600" />
                       </div>
                     )}
 
@@ -3500,9 +3487,9 @@ export default function SeatingMap() {
                     )}
 
                     {s.type === 'runway_stage' && (
-                      <div className="w-full h-full rounded-lg border-2 border-stone-600 bg-stone-100 flex flex-col items-center justify-center p-1 shadow-xs">
-                        <RunwayStageIcon className="w-4 h-4 text-stone-600 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8.5px] text-stone-900 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded-lg border-2 border-muted-foreground bg-secondary flex flex-col items-center justify-center p-1 shadow-xs">
+                        <RunwayStageIcon className="w-4 h-4 text-muted-foreground mb-0.5 flex-shrink-0" />
+                        <span className="text-[8.5px] text-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
@@ -3514,30 +3501,30 @@ export default function SeatingMap() {
                     )}
 
                     {s.type === 'foh_desk' && (
-                      <div className="w-full h-full rounded-xl border border-indigo-600 bg-indigo-50/60 flex flex-col items-center justify-center p-1 shadow-xs">
-                        <FohDeskIcon className="w-4 h-4 text-indigo-600 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8.5px] text-indigo-900 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border border-primary bg-primary/10 flex flex-col items-center justify-center p-1 shadow-xs">
+                        <FohDeskIcon className="w-4 h-4 text-primary mb-0.5 flex-shrink-0" />
+                        <span className="text-[8.5px] text-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
                     {s.type === 'parking_spot' && (
-                      <div className="w-full h-full rounded border-2 border-dashed border-stone-400 bg-stone-100 flex flex-col items-center justify-center p-1 shadow-xs">
-                        <ParkingSpotIcon className="w-5 h-5 text-stone-500 opacity-60 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8px] text-stone-600 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded border-2 border-dashed border-muted-foreground/60 bg-secondary flex flex-col items-center justify-center p-1 shadow-xs">
+                        <ParkingSpotIcon className="w-5 h-5 text-muted-foreground opacity-60 mb-0.5 flex-shrink-0" />
+                        <span className="text-[8px] text-muted-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
                     {s.type === 'l_bar' && (
-                      <div className="w-full h-full rounded-xl border-2 border-purple-500 bg-purple-50 flex flex-col items-center justify-center p-1 shadow-sm">
-                        <LBarIcon className="w-4 h-4 text-purple-600 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8.5px] text-purple-900 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border-2 border-primary bg-primary/10 flex flex-col items-center justify-center p-1 shadow-sm">
+                        <LBarIcon className="w-4 h-4 text-primary mb-0.5 flex-shrink-0" />
+                        <span className="text-[8.5px] text-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
                     {s.type === 'u_bar' && (
-                      <div className="w-full h-full rounded-xl border-2 border-purple-500 bg-purple-50 flex flex-col items-center justify-center p-1 shadow-sm">
-                        <UBarIcon className="w-4 h-4 text-purple-600 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8.5px] text-purple-900 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border-2 border-primary bg-primary/10 flex flex-col items-center justify-center p-1 shadow-sm">
+                        <UBarIcon className="w-4 h-4 text-primary mb-0.5 flex-shrink-0" />
+                        <span className="text-[8.5px] text-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
@@ -3550,19 +3537,19 @@ export default function SeatingMap() {
                     )}
 
                     {s.type === 'cloakroom' && (
-                      <div className="w-full h-full rounded-xl border border-stone-500 bg-stone-100 flex flex-col items-center justify-center p-1 shadow-xs">
-                        <CloakroomIcon className="w-4 h-4 text-stone-600 mb-0.5 flex-shrink-0" />
-                        <span className="text-[8.5px] text-stone-900 font-bold truncate max-w-full leading-none">{s.label}</span>
+                      <div className="w-full h-full rounded-xl border border-muted-foreground bg-secondary flex flex-col items-center justify-center p-1 shadow-xs">
+                        <CloakroomIcon className="w-4 h-4 text-muted-foreground mb-0.5 flex-shrink-0" />
+                        <span className="text-[8.5px] text-foreground font-bold truncate max-w-full leading-none">{s.label}</span>
                       </div>
                     )}
 
                     {s.type === 'large_tent' && (
                       <div 
-                        className="w-full h-full border border-purple-400 bg-purple-500/10 flex items-center justify-center rounded-xl shadow-xs"
-                        style={{ backgroundImage: 'linear-gradient(135deg, transparent 49%, rgba(168,85,247,0.2) 49%, rgba(168,85,247,0.2) 51%, transparent 51%), linear-gradient(45deg, transparent 49%, rgba(168,85,247,0.2) 49%, rgba(168,85,247,0.2) 51%, transparent 51%)' }}
+                        className="w-full h-full border border-primary/40 bg-primary/10 flex items-center justify-center rounded-xl shadow-xs"
+                        style={{ backgroundImage: 'linear-gradient(135deg, transparent 49%, hsl(var(--primary) / 0.2) 49%, hsl(var(--primary) / 0.2) 51%, transparent 51%), linear-gradient(45deg, transparent 49%, hsl(var(--primary) / 0.2) 49%, hsl(var(--primary) / 0.2) 51%, transparent 51%)' }}
                       >
-                        <LargeTentIcon className="w-5 h-5 text-purple-600 flex-shrink-0" />
-                        <span className="absolute bottom-1 right-2 text-[7.5px] text-purple-700 font-mono font-bold">{s.widthMeter}x{s.heightMeter}m</span>
+                        <LargeTentIcon className="w-5 h-5 text-primary flex-shrink-0" />
+                        <span className="absolute bottom-1 right-2 text-[7.5px] text-primary font-mono font-bold">{s.widthMeter}x{s.heightMeter}m</span>
                       </div>
                     )}
 
@@ -3589,8 +3576,7 @@ export default function SeatingMap() {
                     {/* Label suspensa com estilo inline de contraste garantido */}
                     {showLabels && !showLabelInline && (
                       <div 
-                        className="absolute -top-5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[8px] rounded-md whitespace-nowrap pointer-events-none font-bold shadow-xs"
-                        style={{ backgroundColor: '#1e1b18', color: '#faf9f6' }}
+                        className="absolute -top-5 left-1/2 -translate-x-1/2 px-2 py-0.5 text-[8px] rounded-md whitespace-nowrap pointer-events-none font-bold shadow-xs bg-foreground text-background"
                       >
                         {s.label}
                       </div>
@@ -3598,22 +3584,22 @@ export default function SeatingMap() {
 
                     {/* Preço (badge) se selecionado */}
                     {isSelected && s.price > 0 && (
-                      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-plum text-cream text-[8px] rounded-full whitespace-nowrap pointer-events-none shadow-md border border-plum/30 font-bold">
+                      <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-primary text-primary-foreground text-[8px] rounded-full whitespace-nowrap pointer-events-none shadow-md border border-primary/30 font-bold">
                         R$ {s.price}
                       </div>
                     )}
 
                     {/* Lock */}
                     {s.locked && (
-                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center shadow border border-white z-10">
-                        <Lock className="w-2.5 h-2.5 text-white" />
+                      <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[var(--ev-warning)] rounded-full flex items-center justify-center shadow border border-card z-10">
+                        <I.Cadeado className="w-2.5 h-2.5 text-background" />
                       </div>
                     )}
 
                     {/* ALÇA DE REDIMENSIONAMENTO INTERATIVA NO CANTO INFERIOR DIREITO (NWSE RESIZE) */}
                     {isSelected && !s.locked && (
                       <div 
-                        className="absolute bottom-0 right-0 w-3 h-3 bg-plum border border-white rounded shadow cursor-se-resize z-30"
+                        className="absolute bottom-0 right-0 w-3 h-3 bg-primary border border-card rounded shadow cursor-se-resize z-30"
                         style={{ transform: 'translate(30%, 30%)' }}
                         onMouseDown={(e) => {
                           e.stopPropagation()
@@ -3680,10 +3666,10 @@ export default function SeatingMap() {
                         }}
                       >
                         {/* Linha conectora */}
-                        <div className="w-0.5 h-4 bg-plum" />
+                        <div className="w-0.5 h-4 bg-primary" />
                         {/* Bolinha de arraste */}
-                        <div className="w-4 h-4 bg-plum hover:bg-plum-light border border-white rounded-full flex items-center justify-center shadow-glow transition-all scale-100 hover:scale-110 active:scale-95 pointer-events-auto">
-                          <RotateCcw className="w-2 h-2 text-white" />
+                        <div className="w-4 h-4 bg-primary hover:bg-primary/90 border border-card rounded-full flex items-center justify-center shadow-glow transition-all scale-100 hover:scale-110 active:scale-95 pointer-events-auto">
+                          <I.Restaurar className="w-2 h-2 text-background" />
                         </div>
                       </div>
                     )}
@@ -3696,31 +3682,31 @@ export default function SeatingMap() {
 
           {/* AJUDA DE NAVEGAÇÃO E DE ATALHOS */}
           {showHelp && (
-            <div className="absolute bottom-4 left-4 bg-white/95 backdrop-blur-md border border-stone-200/80 rounded-2xl p-4 shadow-xl z-20 max-w-sm">
+            <div className="absolute bottom-4 left-4 bg-card/95 backdrop-blur-md border border-border rounded-2xl p-4 shadow-xl z-20 max-w-sm">
               <div className="flex items-start gap-2.5">
-                <Info className="w-5 h-5 text-plum flex-shrink-0 mt-0.5" />
-                <div className="text-xs text-espresso/70 leading-relaxed space-y-1">
-                  <h4 className="font-bold text-espresso">Navegação e Customização:</h4>
+                <I.Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-muted-foreground leading-relaxed space-y-1">
+                  <h4 className="font-bold text-foreground">Navegação e Customização:</h4>
                   <p><strong>Navegar:</strong> Rolar rodinha para <strong>Zoom</strong> · Segurar <strong>Espaço + mouse drag</strong> para movimentar (Pan) ou clicar com a rodinha do mouse.</p>
-                  <p><strong>Redimensionar:</strong> Selecione o elemento e arraste o quadradinho roxo no canto inferior dele.</p>
+                  <p><strong>Redimensionar:</strong> Selecione o elemento e arraste o quadradinho azul no canto inferior dele.</p>
                   <p><strong>Muros:</strong> Clique consecutivos. ESC para finalizar. Shift alinha muros em linha reta.</p>
                 </div>
-                <button onClick={() => setShowHelp(false)} className="p-1 rounded hover:bg-stone-100 text-espresso/70 hover:text-espresso"><X className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setShowHelp(false)} aria-label="Fechar" className="p-1 rounded hover:bg-foreground/5 text-muted-foreground hover:text-foreground"><I.Fechar className="w-3.5 h-3.5" aria-hidden="true" /></button>
               </div>
             </div>
           )}
 
           {/* INDICADOR DE FERRAMENTA ATIVA NO MOMENTO */}
-          <div className="absolute top-4 right-4 px-3 py-2 bg-white/90 backdrop-blur-sm border border-stone-200/85 rounded-xl text-xs text-espresso flex items-center gap-2 z-20 shadow-md">
+          <div className="absolute top-4 right-4 px-3 py-2 bg-card/90 backdrop-blur-sm border border-border rounded-xl text-xs text-foreground flex items-center gap-2 z-20 shadow-md">
             {(() => { 
               const Icon = toolIcon(tool)
-              return <Icon className="w-4 h-4 text-plum" /> 
+              return <Icon className="w-4 h-4 text-primary" /> 
             })()}
             <span className="font-bold">{typeLabels[tool]}</span>
             {tool !== 'select' && (
               <button 
                 onClick={() => setTool('select')} 
-                className="ml-2 text-[9px] uppercase font-bold bg-stone-100 text-espresso/70 hover:bg-stone-200 hover:text-espresso px-1.5 py-0.5 rounded-lg"
+                className="ml-2 text-[9px] uppercase font-bold bg-secondary text-muted-foreground hover:bg-foreground/5 hover:text-foreground px-1.5 py-0.5 rounded-lg"
               >
                 Sair
               </button>
@@ -3730,14 +3716,14 @@ export default function SeatingMap() {
           {/* MINIMAPA CLARO GLASSMORPHIC */}
           {showMinimap && (
             <div 
-              className="absolute bottom-4 right-4 w-52 h-36 bg-white/90 backdrop-blur-md border border-stone-200/80 rounded-2xl shadow-xl z-20 overflow-hidden flex flex-col"
+              className="absolute bottom-4 right-4 w-52 h-36 bg-card/90 backdrop-blur-md border border-border rounded-2xl shadow-xl z-20 overflow-hidden flex flex-col"
             >
-              <div className="px-3 py-1.5 bg-stone-50 border-b border-stone-200/60 text-[9px] text-espresso/70 flex justify-between items-center font-bold">
+              <div className="px-3 py-1.5 bg-secondary border-b border-border text-[9px] text-muted-foreground flex justify-between items-center font-bold">
                 <span>Navegação Rápida</span>
                 <span className="font-mono">60x60m</span>
               </div>
               <div 
-                className="flex-1 relative cursor-pointer bg-stone-50/20 overflow-hidden"
+                className="flex-1 relative cursor-pointer bg-secondary overflow-hidden"
                 onClick={minimapNavigate}
               >
                 <svg className="absolute inset-0 w-full h-full pointer-events-none">
@@ -3748,7 +3734,7 @@ export default function SeatingMap() {
                       y1={`${(w.y1 / 60) * 100}%`}
                       x2={`${(w.x2 / 60) * 100}%`}
                       y2={`${(w.y2 / 60) * 100}%`}
-                      stroke="#4b5563"
+                      stroke="hsl(var(--muted-foreground))"
                       strokeWidth="1.5"
                     />
                   ))}
@@ -3769,7 +3755,7 @@ export default function SeatingMap() {
                 ))}
                 
                 <div 
-                  className="absolute border border-plum bg-plum/5 rounded pointer-events-none"
+                  className="absolute border border-primary bg-primary/5 rounded pointer-events-none"
                   style={{
                     left: `${((-pan.x) / (canvasW * zoom)) * 100}%`,
                     top: `${((-pan.y) / (canvasH * zoom)) * 100}%`,
@@ -3784,45 +3770,45 @@ export default function SeatingMap() {
           {/* Botão flutuante para recolher/expandir barra lateral esquerda (Ferramentas) */}
           <button
             onClick={() => setSidebarLeftOpen(!sidebarLeftOpen)}
-            className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-white border border-stone-200 shadow-lg text-espresso/70 hover:text-plum hover:bg-stone-50 hover:scale-110 active:scale-95 transition-all pointer-events-auto flex items-center justify-center`}
+            className={`absolute left-2.5 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-card border border-border shadow-lg text-muted-foreground hover:text-primary hover:bg-foreground/5 hover:scale-110 active:scale-95 transition-all pointer-events-auto flex items-center justify-center`}
             style={{ width: '30px', height: '30px' }}
             title={sidebarLeftOpen ? "Recolher ferramentas" : "Mostrar ferramentas"}
           >
-            {sidebarLeftOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            {sidebarLeftOpen ? <I.ChevronEsquerda className="w-4 h-4" /> : <I.ChevronDireita className="w-4 h-4" />}
           </button>
 
           {/* Botão flutuante para recolher/expandir barra lateral direita (Propriedades) */}
           <button
             onClick={() => setSidebarRightOpen(!sidebarRightOpen)}
-            className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-white border border-stone-200 shadow-lg text-espresso/70 hover:text-plum hover:bg-stone-50 hover:scale-110 active:scale-95 transition-all pointer-events-auto flex items-center justify-center`}
+            className={`absolute right-2.5 top-1/2 -translate-y-1/2 z-30 p-1.5 rounded-full bg-card border border-border shadow-lg text-muted-foreground hover:text-primary hover:bg-foreground/5 hover:scale-110 active:scale-95 transition-all pointer-events-auto flex items-center justify-center`}
             style={{ width: '30px', height: '30px' }}
             title={sidebarRightOpen ? "Recolher propriedades" : "Mostrar propriedades"}
           >
-            {sidebarRightOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            {sidebarRightOpen ? <I.ChevronDireita className="w-4 h-4" /> : <I.ChevronEsquerda className="w-4 h-4" />}
           </button>
         </main>
 
-        <aside className={`bg-white dark:bg-white/5 border-l border-stone-200/60 flex flex-col overflow-y-auto sidebar-dark-scroll flex-shrink-0 z-20 transition-all duration-300 min-w-0 ${sidebarRightOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
+        <aside className={`bg-card border-l border-border flex flex-col overflow-y-auto sidebar-dark-scroll flex-shrink-0 z-20 transition-all duration-300 min-w-0 ${sidebarRightOpen ? 'w-64 opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
           
           {/* Se houver algum elemento selecionado, exibe apenas as propriedades do elemento */}
           {(selected.length > 0 || selectedWallId) ? (
             <>
               {/* Botão de voltar fixo no topo do painel de propriedades */}
-              <div className="p-3 border-b border-stone-200/60 bg-stone-50/50 flex items-center justify-between">
+              <div className="p-3 border-b border-border bg-secondary flex items-center justify-between">
                 <button 
                   onClick={() => { setSelected([]); setSelectedWallId(null); }}
-                  className="flex items-center gap-1 text-[10px] font-bold text-plum hover:text-plum/80"
+                  className="flex items-center gap-1 text-[10px] font-bold text-primary hover:text-primary/80"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <I.SetaEsquerda className="w-3.5 h-3.5" />
                   <span>Voltar ao Salão</span>
                 </button>
-                <span className="text-[9px] uppercase tracking-wider bg-stone-200/70 text-espresso/70 px-2 py-0.5 rounded font-bold">
+                <span className="text-[9px] uppercase tracking-wider bg-secondary text-muted-foreground px-2 py-0.5 rounded font-bold">
                   Propriedades
                 </span>
               </div>
 
               <div className="p-4 flex-1 space-y-4">
-                <h3 className="text-[9px] font-bold text-espresso/70 uppercase tracking-wider mb-1">
+                <h3 className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider mb-1">
                   {selected.length > 1 ? `${selected.length} Selecionados` : selected.length === 1 ? 'Propriedades da Estrutura' : 'Propriedades do Muro'}
                 </h3>
 
@@ -3831,32 +3817,32 @@ export default function SeatingMap() {
                   const node = seats.find(s => s.id === selected[0])
                   if (!node) return null
                   return (
-                    <div className="space-y-3 text-xs text-espresso/70">
+                    <div className="space-y-3 text-xs text-muted-foreground">
                       
                       {/* CONFIGURAÇÃO DINÂMICA DE MESA INTELIGENTE */}
                       {node.type === 'table' && (
-                        <div className="p-3 bg-plum/5 rounded-xl border border-plum/15 space-y-3 shadow-sm">
-                          <span className="block text-[9px] text-plum font-bold uppercase tracking-wider">Layout de Mesa</span>
+                        <div className="p-3 bg-primary/5 rounded-xl border border-primary/15 space-y-3 shadow-sm">
+                          <span className="block text-[9px] text-primary font-bold uppercase tracking-wider">Layout de Mesa</span>
                           
                           {/* Formato da Mesa */}
                           <div>
-                            <span className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Formato da Mesa</span>
+                            <span className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Formato da Mesa</span>
                             <div className="flex gap-1">
                               <button 
                                 onClick={() => updateNode(node.id, { tableShape: 'circle' })}
-                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'circle' ? 'bg-plum text-white border-plum' : 'bg-white dark:bg-white/5 border-stone-300 text-espresso/70'}`}
+                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'circle' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}
                               >
                                 Redonda
                               </button>
                               <button 
                                 onClick={() => updateNode(node.id, { tableShape: 'square' })}
-                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'square' ? 'bg-plum text-white border-plum' : 'bg-white dark:bg-white/5 border-stone-300 text-espresso/70'}`}
+                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'square' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}
                               >
                                 Quadrada
                               </button>
                               <button 
                                 onClick={() => updateNode(node.id, { tableShape: 'rectangle' })}
-                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'rectangle' ? 'bg-plum text-white border-plum' : 'bg-white dark:bg-white/5 border-stone-300 text-espresso/70'}`}
+                                className={`flex-1 py-1 rounded border text-[9px] font-bold ${node.tableShape === 'rectangle' ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border text-muted-foreground'}`}
                               >
                                 Retangular
                               </button>
@@ -3865,9 +3851,9 @@ export default function SeatingMap() {
 
                           {/* Quantidade de Lugares */}
                           <div>
-                            <div className="flex justify-between text-[8.5px] text-espresso/70 mb-1">
+                            <div className="flex justify-between text-[8.5px] text-muted-foreground mb-1">
                               <span>Ajuste de Assentos:</span>
-                              <span className="font-mono font-bold text-plum">{node.seatsCount || node.capacity} Lugares</span>
+                              <span className="font-mono font-bold text-primary">{node.seatsCount || node.capacity} Lugares</span>
                             </div>
                             <input 
                               type="range"
@@ -3891,13 +3877,13 @@ export default function SeatingMap() {
                                   heightMeter: node.tableShape === 'rectangle' ? idealDim * 0.75 : idealDim
                                 })
                               }}
-                              className="w-full accent-plum"
+                              className="w-full accent-primary"
                             />
                           </div>
 
                           {/* Presets Rápidos */}
                           <div className="space-y-1">
-                            <span className="block text-[8px] text-espresso/70 uppercase font-bold">Presets Rápidos (Escala Automática)</span>
+                            <span className="block text-[8px] text-muted-foreground uppercase font-bold">Presets Rápidos (Escala Automática)</span>
                             <div className="grid grid-cols-3 gap-1">
                               {[2, 4, 6, 8, 10, 12].map(num => {
                                 let w = 1.2, h = 1.2
@@ -3918,7 +3904,7 @@ export default function SeatingMap() {
                                       widthMeter: w,
                                       heightMeter: node.tableShape === 'rectangle' ? h : w
                                     })}
-                                    className={`py-1 rounded border text-[9px] font-bold transition-all ${isCurrent ? 'bg-plum text-white border-plum shadow-xs' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70 hover:bg-stone-50'}`}
+                                    className={`py-1 rounded border text-[9px] font-bold transition-all ${isCurrent ? 'bg-primary text-primary-foreground border-primary shadow-xs' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}
                                   >
                                     {num} Lugares
                                   </button>
@@ -3931,13 +3917,13 @@ export default function SeatingMap() {
 
                       {/* CONFIGURAÇÃO DINÂMICA DE SOFÁ LOUNGE */}
                       {node.type === 'couch' && (
-                        <div className="p-3 bg-pink-50 rounded-xl border border-pink-200 space-y-3 shadow-sm">
-                          <span className="block text-[9px] text-pink-700 font-bold uppercase tracking-wider">Sofá Lounge</span>
+                        <div className="p-3 bg-primary/10 rounded-xl border border-primary/30 space-y-3 shadow-sm">
+                          <span className="block text-[9px] text-primary font-bold uppercase tracking-wider">Sofá Lounge</span>
                           
                           <div>
-                            <div className="flex justify-between text-[8.5px] text-pink-900 mb-1">
+                            <div className="flex justify-between text-[8.5px] text-foreground mb-1">
                               <span>Ajuste de Assentos:</span>
-                              <span className="font-mono font-bold text-pink-700">{node.seatsCount || 3} Lugares</span>
+                              <span className="font-mono font-bold text-primary">{node.seatsCount || 3} Lugares</span>
                             </div>
                             <input 
                               type="range"
@@ -3954,12 +3940,12 @@ export default function SeatingMap() {
                                   widthMeter: idealWidth 
                                 })
                               }}
-                              className="w-full accent-pink-500"
+                              className="w-full accent-primary"
                             />
                           </div>
 
                           <div className="space-y-1">
-                            <span className="block text-[8px] text-pink-700/60 uppercase font-bold">Presets de Tamanho</span>
+                            <span className="block text-[8px] text-muted-foreground uppercase font-bold">Presets de Tamanho</span>
                             <div className="grid grid-cols-4 gap-1">
                               {[2, 3, 4, 5].map(num => {
                                 const w = num === 2 ? 1.4 : num === 3 ? 2.0 : num === 4 ? 2.6 : 3.2
@@ -3972,7 +3958,7 @@ export default function SeatingMap() {
                                       capacity: num,
                                       widthMeter: w
                                     })}
-                                    className={`py-1 rounded border text-[9px] font-bold transition-all ${isCurrent ? 'bg-pink-500 text-white border-pink-500' : 'bg-white dark:bg-white/5 border-pink-200 text-pink-700 hover:bg-pink-50'}`}
+                                    className={`py-1 rounded border text-[9px] font-bold transition-all ${isCurrent ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-primary/30 text-primary hover:bg-primary/10'}`}
                                   >
                                     {num} L
                                   </button>
@@ -3986,33 +3972,33 @@ export default function SeatingMap() {
                       {/* Rotação e Tamanho (Medidas Reais) */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label htmlFor="rot-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Rotação (°)</label>
+                          <label htmlFor="rot-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Rotação (°)</label>
                           <input 
                             id="rot-inp"
                             type="number" 
                             value={node.rotation} 
                             onChange={e => updateNode(node.id, { rotation: Number(e.target.value) })}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 font-mono font-bold shadow-xs text-center text-xs" 
+                            className="w-full px-3 py-1.5 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] font-mono font-bold shadow-xs text-center text-xs" 
                           />
                         </div>
                         <div>
-                          <label htmlFor="price-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Preço (R$)</label>
+                          <label htmlFor="price-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Preço (R$)</label>
                           <input 
                             id="price-inp"
                             type="number" 
                             value={node.price} 
                             onChange={e => updateNode(node.id, { price: Number(e.target.value) })}
-                            className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 font-mono font-bold shadow-xs text-center text-xs" 
+                            className="w-full px-3 py-1.5 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] font-mono font-bold shadow-xs text-center text-xs" 
                           />
                         </div>
                       </div>
 
                       {/* AJUSTE FINO DE TAMANHO VETORIAL */}
-                      <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/80 space-y-1.5 shadow-inner">
-                        <span className="block text-[8px] text-plum font-bold uppercase tracking-wider">Medidas Reais (Metros)</span>
+                      <div className="p-2.5 bg-secondary rounded-xl border border-border space-y-1.5 shadow-inner">
+                        <span className="block text-[8px] text-primary font-bold uppercase tracking-wider">Medidas Reais (Metros)</span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label htmlFor="w-meter-inp" className="block text-[7.5px] text-espresso/70 uppercase mb-0.5 font-semibold text-center">Largura (X)</label>
+                            <label htmlFor="w-meter-inp" className="block text-[7.5px] text-muted-foreground uppercase mb-0.5 font-semibold text-center">Largura (X)</label>
                             <input 
                               id="w-meter-inp"
                               type="number" 
@@ -4020,11 +4006,11 @@ export default function SeatingMap() {
                               min="0.1"
                               value={node.widthMeter || toolDefaults[node.type]?.wMeter || 0.5} 
                               onChange={e => updateNode(node.id, { widthMeter: Math.max(0.1, parseFloat(e.target.value)) })}
-                              className="w-full px-2 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-espresso font-mono font-bold text-center text-xs" 
+                              className="w-full px-2 py-1 bg-card border border-input rounded-lg text-foreground font-mono font-bold text-center text-xs" 
                             />
                           </div>
                           <div>
-                            <label htmlFor="h-meter-inp" className="block text-[7.5px] text-espresso/70 uppercase mb-0.5 font-semibold text-center">Comprim. (Y)</label>
+                            <label htmlFor="h-meter-inp" className="block text-[7.5px] text-muted-foreground uppercase mb-0.5 font-semibold text-center">Comprim. (Y)</label>
                             <input 
                               id="h-meter-inp"
                               type="number" 
@@ -4032,14 +4018,14 @@ export default function SeatingMap() {
                               min="0.1"
                               value={node.heightMeter || toolDefaults[node.type]?.hMeter || 0.5} 
                               onChange={e => updateNode(node.id, { heightMeter: Math.max(0.1, parseFloat(e.target.value)) })}
-                              className="w-full px-2 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-espresso font-mono font-bold text-center text-xs" 
+                              className="w-full px-2 py-1 bg-card border border-input rounded-lg text-foreground font-mono font-bold text-center text-xs" 
                             />
                           </div>
                         </div>
                       </div>
 
                       <div>
-                        <label htmlFor="sec-sel" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Lote / Setor (Área)</label>
+                        <label htmlFor="sec-sel" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Lote / Setor (Área)</label>
                         <select
                           id="sec-sel"
                           value={node.sectionId}
@@ -4052,7 +4038,7 @@ export default function SeatingMap() {
                               price: section?.price !== undefined ? section.price : node.price
                             })
                           }}
-                          className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 shadow-xs font-bold"
+                          className="w-full px-3 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] shadow-xs font-bold"
                         >
                           {sections.map(s => (
                             <option key={s.id} value={s.id}>{s.name} (R$ {s.price})</option>
@@ -4061,33 +4047,33 @@ export default function SeatingMap() {
                       </div>
 
                       <div>
-                        <label htmlFor="label-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Identificação</label>
+                        <label htmlFor="label-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Identificação</label>
                         <input 
                           id="label-inp"
                           value={node.label} 
                           onChange={e => updateNode(node.id, { label: e.target.value })}
-                          className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 shadow-xs" 
+                          className="w-full px-3 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] shadow-xs" 
                         />
                       </div>
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label htmlFor="col-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Cor</label>
+                          <label htmlFor="col-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Cor</label>
                           <input 
                             id="col-inp"
                             type="color" 
                             value={node.color} 
                             onChange={e => updateNode(node.id, { color: e.target.value })}
-                            className="w-full h-8 bg-white dark:bg-white/5 border border-stone-200 rounded-xl cursor-pointer shadow-xs" 
+                            className="w-full h-8 bg-card border border-input rounded-xl cursor-pointer shadow-xs" 
                           />
                         </div>
                         <div>
-                          <label htmlFor="status-sel" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Status</label>
+                          <label htmlFor="status-sel" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Status</label>
                           <select 
                             id="status-sel"
                             value={node.status} 
                             onChange={e => updateNode(node.id, { status: e.target.value as SeatStatus })}
-                            className="w-full px-2 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 shadow-xs"
+                            className="w-full px-2 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] shadow-xs"
                           >
                             <option value="free">Livre</option>
                             <option value="sold">Vendido</option>
@@ -4099,27 +4085,27 @@ export default function SeatingMap() {
                       </div>
 
                       {node.capacity > 0 && node.type !== 'table' && (
-                        <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 shadow-xs">
-                          <span className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Ingressos Vendidos</span>
+                        <div className="p-3 bg-secondary rounded-xl border border-border shadow-xs">
+                          <span className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Ingressos Vendidos</span>
                           <div className="flex items-center justify-between mt-1.5">
-                            <span className="font-bold text-sm text-espresso font-mono">{node.sold || 0} / {node.capacity}</span>
+                            <span className="font-bold text-sm text-foreground font-mono">{node.sold || 0} / {node.capacity}</span>
                             <div className="flex gap-1">
-                              <button onClick={() => { if (node.sold > 0) updateNode(node.id, { sold: node.sold - 1, status: node.sold - 1 <= 0 ? 'free' : 'reserved' }) }} className="w-7 h-7 flex items-center justify-center bg-white dark:bg-white/5 rounded-lg border border-stone-300 hover:bg-stone-50 shadow-xs">-</button>
-                              <button onClick={() => { if (node.sold < node.capacity) updateNode(node.id, { sold: node.sold + 1, status: node.sold + 1 >= node.capacity ? 'sold' : 'reserved' }) }} className="w-7 h-7 flex items-center justify-center bg-plum/10 text-plum rounded-lg border border-plum/30 hover:bg-plum/20 font-bold shadow-xs">+</button>
+                              <button onClick={() => { if (node.sold > 0) updateNode(node.id, { sold: node.sold - 1, status: node.sold - 1 <= 0 ? 'free' : 'reserved' }) }} className="w-7 h-7 flex items-center justify-center bg-card rounded-lg border border-border hover:bg-foreground/5 shadow-xs">-</button>
+                              <button onClick={() => { if (node.sold < node.capacity) updateNode(node.id, { sold: node.sold + 1, status: node.sold + 1 >= node.capacity ? 'sold' : 'reserved' }) }} className="w-7 h-7 flex items-center justify-center bg-primary/10 text-primary rounded-lg border border-primary/30 hover:bg-primary/20 font-bold shadow-xs">+</button>
                             </div>
                           </div>
                         </div>
                       )}
 
                       <div className="flex gap-2 pt-1">
-                        <button onClick={() => updateNode(node.id, { locked: !node.locked })} className={`flex-1 py-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs ${node.locked ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}>
-                          {node.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />} {node.locked ? 'Travado' : 'Destravado'}
+                        <button onClick={() => updateNode(node.id, { locked: !node.locked })} className={`flex-1 py-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs ${node.locked ? 'bg-secondary border-border text-[var(--ev-warning)]' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}>
+                          {node.locked ? <I.Cadeado className="w-3.5 h-3.5" /> : <I.CadeadoAberto className="w-3.5 h-3.5" />} {node.locked ? 'Travado' : 'Destravado'}
                         </button>
                       </div>
 
-                      <div className="flex gap-2 pt-2 border-t border-stone-200/60">
-                        <button onClick={() => dupElement(node.id)} className="flex-1 py-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 hover:bg-stone-50 text-[10px] font-bold flex items-center justify-center gap-1 text-espresso/70 shadow-xs"><Copy className="w-3.5 h-3.5" /> Duplicar</button>
-                        <button onClick={() => delNode(node.id)} className="flex-1 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-[10px] font-bold flex items-center justify-center gap-1 text-red-500 shadow-xs"><Trash2 className="w-3.5 h-3.5" /> Remover</button>
+                      <div className="flex gap-2 pt-2 border-t border-border">
+                        <button onClick={() => dupElement(node.id)} className="flex-1 py-2 rounded-xl border border-border bg-card hover:bg-foreground/5 text-[10px] font-bold flex items-center justify-center gap-1 text-muted-foreground shadow-xs"><I.Copiar className="w-3.5 h-3.5" /> Duplicar</button>
+                        <button onClick={() => delNode(node.id)} className="flex-1 py-2 rounded-xl border border-destructive/30 bg-destructive/10 hover:border-destructive/60 text-[10px] font-bold flex items-center justify-center gap-1 text-destructive shadow-xs"><I.Lixeira className="w-3.5 h-3.5" /> Remover</button>
                       </div>
                     </div>
                   )
@@ -4127,20 +4113,20 @@ export default function SeatingMap() {
 
                 {/* Múltiplos Elementos Selecionados */}
                 {selected.length > 1 && (
-                  <div className="space-y-3 text-xs text-espresso/70">
+                  <div className="space-y-3 text-xs text-muted-foreground">
                     <div className="grid grid-cols-4 gap-1">
-                      <button onClick={() => updateMany(selected, { status: 'free' })} className="py-2 rounded-lg bg-green-50 border border-green-200 text-green-700 font-bold text-[8px] shadow-xs">Livre</button>
-                      <button onClick={() => updateMany(selected, { status: 'sold' })} className="py-2 rounded-lg bg-plum/10 border border-plum/30 text-plum font-bold text-[8px] shadow-xs">Vendido</button>
-                      <button onClick={() => updateMany(selected, { status: 'blocked' })} className="py-2 rounded-lg bg-stone-50 border border-stone-200 text-espresso/70 font-bold text-[8px] shadow-xs">Bloq.</button>
-                      <button onClick={() => updateMany(selected, { status: 'contact' })} className="py-2 rounded-lg bg-sky-50 border border-sky-200 text-sky-700 font-bold text-[8px] shadow-xs">Contato</button>
+                      <button onClick={() => updateMany(selected, { status: 'free' })} className="py-2 rounded-lg bg-secondary border border-border text-[var(--ev-success)] font-bold text-[8px] shadow-xs">Livre</button>
+                      <button onClick={() => updateMany(selected, { status: 'sold' })} className="py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-bold text-[8px] shadow-xs">Vendido</button>
+                      <button onClick={() => updateMany(selected, { status: 'blocked' })} className="py-2 rounded-lg bg-secondary border border-border text-muted-foreground font-bold text-[8px] shadow-xs">Bloq.</button>
+                      <button onClick={() => updateMany(selected, { status: 'contact' })} className="py-2 rounded-lg bg-primary/10 border border-primary/30 text-primary font-bold text-[8px] shadow-xs">Contato</button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => updateMany(selected, { locked: true })} className="py-2 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-700 text-[10px] font-bold shadow-xs">Travar</button>
-                      <button onClick={() => updateMany(selected, { locked: false })} className="py-2 rounded-lg bg-white dark:bg-white/5 border border-stone-200/80 text-espresso/70 text-[10px] font-bold shadow-xs">Destravar</button>
+                      <button onClick={() => updateMany(selected, { locked: true })} className="py-2 rounded-lg bg-secondary border border-border text-[var(--ev-warning)] text-[10px] font-bold shadow-xs">Travar</button>
+                      <button onClick={() => updateMany(selected, { locked: false })} className="py-2 rounded-lg bg-card border border-border text-muted-foreground text-[10px] font-bold shadow-xs">Destravar</button>
                     </div>
 
                     <div>
-                      <label htmlFor="sec-many-sel" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Alterar Lote da Seleção</label>
+                      <label htmlFor="sec-many-sel" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Alterar Lote da Seleção</label>
                       <select
                         id="sec-many-sel"
                         value=""
@@ -4154,7 +4140,7 @@ export default function SeatingMap() {
                           })
                           toast.success(`Setor alterado para ${selected.length} elementos.`)
                         }}
-                        className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 shadow-xs font-bold"
+                        className="w-full px-3 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] shadow-xs font-bold"
                       >
                         <option value="">-- Mudar todos para o Lote --</option>
                         {sections.map(s => (
@@ -4164,33 +4150,33 @@ export default function SeatingMap() {
                     </div>
 
                     {/* Mesclagem de Estruturas */}
-                    <div className="pt-2 border-t border-stone-200/60">
+                    <div className="pt-2 border-t border-border">
                       <button
                         onClick={mergeSelectedNodes}
-                        className="w-full py-2.5 bg-plum hover:bg-plum/90 text-cream font-bold rounded-xl text-[10px] flex items-center justify-center gap-1.5 shadow"
+                        className="w-full py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-[10px] flex items-center justify-center gap-1.5 shadow"
                       >
-                        <Layers className="w-3.5 h-3.5" />
+                        <I.Camadas className="w-3.5 h-3.5" />
                         Mesclar em Estrutura Única (Unir)
                       </button>
                     </div>
 
-                    <div className="pt-2 border-t border-stone-200/60 space-y-2">
-                      <span className="block text-[9px] text-espresso/70 uppercase font-bold tracking-wider">Alinhamento Técnico</span>
+                    <div className="pt-2 border-t border-border space-y-2">
+                      <span className="block text-[9px] text-muted-foreground uppercase font-bold tracking-wider">Alinhamento Técnico</span>
                       <div className="grid grid-cols-3 gap-1">
-                        <button onClick={() => align('left')} title="Alinhar à Esquerda" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignLeft className="w-4 h-4 mx-auto" /></button>
-                        <button onClick={() => align('center')} title="Alinhar Centro Horizontal" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignCenter className="w-4 h-4 mx-auto" /></button>
-                        <button onClick={() => align('right')} title="Alinhar à Direita" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignLeft className="w-4 h-4 mx-auto rotate-180" /></button>
+                        <button onClick={() => align('left')} title="Alinhar à Esquerda" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharEsquerda className="w-4 h-4 mx-auto" /></button>
+                        <button onClick={() => align('center')} title="Alinhar Centro Horizontal" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharCentro className="w-4 h-4 mx-auto" /></button>
+                        <button onClick={() => align('right')} title="Alinhar à Direita" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharEsquerda className="w-4 h-4 mx-auto rotate-180" /></button>
                       </div>
                       <div className="grid grid-cols-3 gap-1">
-                        <button onClick={() => align('top')} title="Alinhar ao Topo" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignCenter className="w-4 h-4 mx-auto -rotate-90" /></button>
-                        <button onClick={() => align('middle')} title="Alinhar Centro Vertical" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignCenter className="w-4 h-4 mx-auto" /></button>
-                        <button onClick={() => align('bottom')} title="Alinhar Abaixo" className="py-2 rounded-lg bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 shadow-xs"><AlignCenter className="w-4 h-4 mx-auto rotate-90" /></button>
+                        <button onClick={() => align('top')} title="Alinhar ao Topo" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharCentro className="w-4 h-4 mx-auto -rotate-90" /></button>
+                        <button onClick={() => align('middle')} title="Alinhar Centro Vertical" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharCentro className="w-4 h-4 mx-auto" /></button>
+                        <button onClick={() => align('bottom')} title="Alinhar Abaixo" className="py-2 rounded-lg bg-card hover:bg-foreground/5 border border-border shadow-xs"><I.AlinharCentro className="w-4 h-4 mx-auto rotate-90" /></button>
                       </div>
                     </div>
 
-                    <div className="flex gap-2 pt-2 border-t border-stone-200/60">
-                      <button onClick={dupMany} className="flex-1 py-2 rounded-xl border border-stone-200/80 bg-white dark:bg-white/5 hover:bg-stone-50 text-[10px] font-bold flex items-center justify-center gap-1 text-espresso/70 shadow-xs"><Copy className="w-3.5 h-3.5" /> Duplicar</button>
-                      <button onClick={delMany} className="flex-1 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-[10px] font-bold flex items-center justify-center gap-1 text-red-500 shadow-xs"><Trash2 className="w-3.5 h-3.5" /> Remover</button>
+                    <div className="flex gap-2 pt-2 border-t border-border">
+                      <button onClick={dupMany} className="flex-1 py-2 rounded-xl border border-border bg-card hover:bg-foreground/5 text-[10px] font-bold flex items-center justify-center gap-1 text-muted-foreground shadow-xs"><I.Copiar className="w-3.5 h-3.5" /> Duplicar</button>
+                      <button onClick={delMany} className="flex-1 py-2 rounded-xl border border-destructive/30 bg-destructive/10 hover:border-destructive/60 text-[10px] font-bold flex items-center justify-center gap-1 text-destructive shadow-xs"><I.Lixeira className="w-3.5 h-3.5" /> Remover</button>
                     </div>
                   </div>
                 )}
@@ -4201,14 +4187,14 @@ export default function SeatingMap() {
                   if (!wall) return null
                   const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
                   return (
-                    <div className="space-y-3 text-xs text-espresso/70">
-                      <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 shadow-xs text-center">
-                        <span className="block text-[9px] text-espresso/70 uppercase mb-0.5 font-bold">Comprimento do Muro</span>
-                        <span className="text-base font-mono font-bold text-plum">{len.toFixed(2)} metros</span>
+                    <div className="space-y-3 text-xs text-muted-foreground">
+                      <div className="p-3 bg-secondary rounded-xl border border-border shadow-xs text-center">
+                        <span className="block text-[9px] text-muted-foreground uppercase mb-0.5 font-bold">Comprimento do Muro</span>
+                        <span className="text-base font-mono font-bold text-primary">{len.toFixed(2)} metros</span>
                       </div>
 
                       <div>
-                        <label htmlFor="wall-thick-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Espessura (m)</label>
+                        <label htmlFor="wall-thick-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Espessura (m)</label>
                         <input 
                           id="wall-thick-inp"
                           type="number" 
@@ -4217,26 +4203,26 @@ export default function SeatingMap() {
                           max="1.0"
                           value={wall.thickness} 
                           onChange={e => updateWall(wall.id, { thickness: Math.max(0.05, parseFloat(e.target.value)) })}
-                          className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 font-mono font-bold text-center shadow-xs" 
+                          className="w-full px-3 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] font-mono font-bold text-center shadow-xs" 
                         />
                       </div>
 
                       <div>
-                        <label htmlFor="wall-color-inp" className="block text-[9px] text-espresso/70 uppercase mb-1 font-bold">Cor do Muro</label>
+                        <label htmlFor="wall-color-inp" className="block text-[9px] text-muted-foreground uppercase mb-1 font-bold">Cor do Muro</label>
                         <input 
                           id="wall-color-inp"
                           type="color" 
                           value={wall.color} 
                           onChange={e => updateWall(wall.id, { color: e.target.value })}
-                          className="w-full h-8 bg-white dark:bg-white/5 border border-stone-200 rounded-xl cursor-pointer shadow-xs" 
+                          className="w-full h-8 bg-card border border-input rounded-xl cursor-pointer shadow-xs" 
                         />
                       </div>
 
-                      <div className="flex gap-2 pt-2 border-t border-stone-200/60">
-                        <button onClick={() => updateWall(wall.id, { locked: !wall.locked })} className={`flex-1 py-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs ${wall.locked ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70 hover:bg-stone-50'}`}>
-                          {wall.locked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />} {wall.locked ? 'Travado' : 'Destravado'}
+                      <div className="flex gap-2 pt-2 border-t border-border">
+                        <button onClick={() => updateWall(wall.id, { locked: !wall.locked })} className={`flex-1 py-2 rounded-xl border text-[10px] font-semibold flex items-center justify-center gap-1.5 transition-all shadow-xs ${wall.locked ? 'bg-secondary border-border text-[var(--ev-warning)]' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}>
+                          {wall.locked ? <I.Cadeado className="w-3.5 h-3.5" /> : <I.CadeadoAberto className="w-3.5 h-3.5" />} {wall.locked ? 'Travado' : 'Destravado'}
                         </button>
-                        <button onClick={() => delWall(wall.id)} className="flex-1 py-2 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-[10px] font-semibold flex items-center justify-center gap-1 text-red-500 shadow-xs"><Trash2 className="w-3.5 h-3.5" /> Remover</button>
+                        <button onClick={() => delWall(wall.id)} className="flex-1 py-2 rounded-xl border border-destructive/30 bg-destructive/10 hover:border-destructive/60 text-[10px] font-semibold flex items-center justify-center gap-1 text-destructive shadow-xs"><I.Lixeira className="w-3.5 h-3.5" /> Remover</button>
                       </div>
                     </div>
                   )
@@ -4246,16 +4232,16 @@ export default function SeatingMap() {
           ) : (
             <>
               {/* Abas Superiores quando nada está selecionado */}
-              <div className="flex border-b border-stone-200/60 bg-[#faf8f5]/80 dark:bg-white/5 p-1 gap-1">
+              <div className="flex border-b border-border bg-secondary p-1 gap-1">
                 <button
                   onClick={() => setRightSidebarTab('pavilion')}
-                  className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${rightSidebarTab === 'pavilion' ? 'bg-white dark:bg-white/5 text-plum border-stone-200/40 shadow-xs font-bold' : 'bg-transparent border-transparent text-espresso/70 hover:text-espresso'}`}
+                  className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${rightSidebarTab === 'pavilion' ? 'bg-card text-primary border-border shadow-xs font-bold' : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground'}`}
                 >
                   Medidas do Salão
                 </button>
                 <button
                   onClick={() => setRightSidebarTab('lotes')}
-                  className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${rightSidebarTab === 'lotes' ? 'bg-white dark:bg-white/5 text-plum border-stone-200/40 shadow-xs font-bold' : 'bg-transparent border-transparent text-espresso/70 hover:text-espresso'}`}
+                  className={`flex-1 py-1.5 rounded-xl text-[10px] font-bold transition-all border ${rightSidebarTab === 'lotes' ? 'bg-card text-primary border-border shadow-xs font-bold' : 'bg-transparent border-transparent text-muted-foreground hover:text-foreground'}`}
                 >
                   Lotes & Preços
                 </button>
@@ -4265,25 +4251,25 @@ export default function SeatingMap() {
                 {rightSidebarTab === 'pavilion' ? (
                   <div className="space-y-4">
                     {/* Configurações do Pavilhão Físico */}
-                    <div className="p-3 bg-stone-50/50 border border-stone-200/80 rounded-2xl space-y-3 shadow-xs">
-                      <div className="flex items-center gap-1.5 text-plum border-b border-stone-200/50 pb-1.5">
-                        <Building2 className="w-3.5 h-3.5" />
+                    <div className="p-3 bg-secondary border border-border rounded-2xl space-y-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-primary border-b border-border pb-1.5">
+                        <I.Empresa className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">Espaço Físico / Pavilhão</span>
                       </div>
 
                       {/* Formato */}
                       <div className="space-y-1">
-                        <span className="block text-[8px] text-espresso/70 uppercase font-bold">Formato do Salão</span>
+                        <span className="block text-[8px] text-muted-foreground uppercase font-bold">Formato do Salão</span>
                         <div className="grid grid-cols-2 gap-1.5">
                           <button 
                             onClick={() => updateActiveEnv({ roomShape: 'rectangle' })}
-                            className={`py-1 rounded-lg border text-[9px] font-bold transition-all ${roomShape === 'rectangle' ? 'bg-plum text-white border-plum shadow-xs' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70 hover:bg-stone-50'}`}
+                            className={`py-1 rounded-lg border text-[9px] font-bold transition-all ${roomShape === 'rectangle' ? 'bg-primary text-primary-foreground border-primary shadow-xs' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}
                           >
                             Retangular
                           </button>
                           <button 
                             onClick={() => updateActiveEnv({ roomShape: 'l_shape' })}
-                            className={`py-1 rounded-lg border text-[9px] font-bold transition-all ${roomShape === 'l_shape' ? 'bg-plum text-white border-plum shadow-xs' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70 hover:bg-stone-50'}`}
+                            className={`py-1 rounded-lg border text-[9px] font-bold transition-all ${roomShape === 'l_shape' ? 'bg-primary text-primary-foreground border-primary shadow-xs' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}
                           >
                             Formato em L
                           </button>
@@ -4293,48 +4279,48 @@ export default function SeatingMap() {
                       {/* Dimensões */}
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-0.5">
-                          <label htmlFor="env-w-inp" className="block text-[8px] text-espresso/70 uppercase font-bold text-center">Largura (X)</label>
+                          <label htmlFor="env-w-inp" className="block text-[8px] text-muted-foreground uppercase font-bold text-center">Largura (X)</label>
                           <input 
                             id="env-w-inp"
                             type="number" 
                             value={roomWidth} 
                             onChange={e => updateActiveEnv({ roomWidth: Math.max(5, parseFloat(e.target.value) || 5) })}
-                            className="w-full px-1.5 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold text-xs" 
+                            className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-center font-mono font-bold text-xs" 
                           />
                         </div>
                         <div className="space-y-0.5">
-                          <label htmlFor="env-h-inp" className="block text-[8px] text-espresso/70 uppercase font-bold text-center">Comprimento (Y)</label>
+                          <label htmlFor="env-h-inp" className="block text-[8px] text-muted-foreground uppercase font-bold text-center">Comprimento (Y)</label>
                           <input 
                             id="env-h-inp"
                             type="number" 
                             value={roomHeight} 
                             onChange={e => updateActiveEnv({ roomHeight: Math.max(5, parseFloat(e.target.value) || 5) })}
-                            className="w-full px-1.5 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold text-xs" 
+                            className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-center font-mono font-bold text-xs" 
                           />
                         </div>
                       </div>
 
                       {/* Dimensões L */}
                       {roomShape === 'l_shape' && (
-                        <div className="grid grid-cols-2 gap-2 p-2 bg-[#faf8f5] dark:bg-white/5 border border-stone-200/60 rounded-xl">
+                        <div className="grid grid-cols-2 gap-2 p-2 bg-secondary border border-border rounded-xl">
                           <div className="space-y-0.5">
-                            <label htmlFor="env-lw-inp" className="block text-[7.5px] text-espresso/70 uppercase font-bold text-center">Perna (Largura)</label>
+                            <label htmlFor="env-lw-inp" className="block text-[7.5px] text-muted-foreground uppercase font-bold text-center">Perna (Largura)</label>
                             <input 
                               id="env-lw-inp"
                               type="number" 
                               value={roomLWidth} 
                               onChange={e => updateActiveEnv({ roomLWidth: Math.max(2, parseFloat(e.target.value) || 2) })}
-                              className="w-full px-1 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold text-[10px]" 
+                              className="w-full px-1 py-1 bg-card border border-input rounded-lg text-center font-mono font-bold text-[10px]" 
                             />
                           </div>
                           <div className="space-y-0.5">
-                            <label htmlFor="env-lh-inp" className="block text-[7.5px] text-espresso/70 uppercase font-bold text-center">Perna (Compr.)</label>
+                            <label htmlFor="env-lh-inp" className="block text-[7.5px] text-muted-foreground uppercase font-bold text-center">Perna (Compr.)</label>
                             <input 
                               id="env-lh-inp"
                               type="number" 
                               value={roomLHeight} 
                               onChange={e => updateActiveEnv({ roomLHeight: Math.max(2, parseFloat(e.target.value) || 2) })}
-                              className="w-full px-1 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold text-[10px]" 
+                              className="w-full px-1 py-1 bg-card border border-input rounded-lg text-center font-mono font-bold text-[10px]" 
                             />
                           </div>
                         </div>
@@ -4342,7 +4328,7 @@ export default function SeatingMap() {
 
                       {/* Rotação Global */}
                       <div className="space-y-0.5">
-                        <label htmlFor="env-rot-inp" className="block text-[8px] text-espresso/70 uppercase font-bold">Rotação Global</label>
+                        <label htmlFor="env-rot-inp" className="block text-[8px] text-muted-foreground uppercase font-bold">Rotação Global</label>
                         <div className="flex items-center gap-2">
                           <input 
                             id="env-rot-inp"
@@ -4351,13 +4337,13 @@ export default function SeatingMap() {
                             max="360"
                             value={roomRotation} 
                             onChange={e => updateActiveEnv({ roomRotation: parseInt(e.target.value) || 0 })}
-                            className="flex-1 accent-plum cursor-pointer h-1 bg-stone-200 rounded-lg appearance-none" 
+                            className="flex-1 accent-primary cursor-pointer h-1 bg-input rounded-lg appearance-none" 
                           />
                           <input 
                             type="number" 
                             value={roomRotation} 
                             onChange={e => updateActiveEnv({ roomRotation: Math.min(360, Math.max(0, parseInt(e.target.value) || 0)) })}
-                            className="w-10 px-1 py-0.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold text-[10px]" 
+                            className="w-10 px-1 py-0.5 bg-card border border-input rounded-lg text-center font-mono font-bold text-[10px]" 
                           />
                         </div>
                         <div className="grid grid-cols-4 gap-1 mt-1">
@@ -4365,7 +4351,7 @@ export default function SeatingMap() {
                             <button 
                               key={deg}
                               onClick={() => updateActiveEnv({ roomRotation: deg })}
-                              className={`py-0.5 rounded border font-mono text-[8px] ${roomRotation === deg ? 'bg-plum/10 border-plum/30 text-plum font-bold' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70 hover:bg-stone-50'}`}
+                              className={`py-0.5 rounded border font-mono text-[8px] ${roomRotation === deg ? 'bg-primary/10 border-primary/30 text-primary font-bold' : 'bg-card border-border text-muted-foreground hover:bg-foreground/5'}`}
                             >
                               {deg}°
                             </button>
@@ -4374,21 +4360,21 @@ export default function SeatingMap() {
                       </div>
 
                       {/* Ajuste Rápido */}
-                      <div className="space-y-1 border-t border-stone-200/50 pt-2">
-                        <span className="block text-[8px] text-espresso/70 uppercase font-bold">Ajuste Rápido (Metros)</span>
+                      <div className="space-y-1 border-t border-border pt-2">
+                        <span className="block text-[8px] text-muted-foreground uppercase font-bold">Ajuste Rápido (Metros)</span>
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <span className="block text-[7px] text-espresso/70 font-bold text-center">Largura</span>
+                            <span className="block text-[7px] text-muted-foreground font-bold text-center">Largura</span>
                             <div className="flex gap-1 mt-0.5">
-                              <button onClick={() => updateActiveEnv({ roomWidth: Math.max(5, roomWidth - 5) })} className="flex-1 py-0.5 rounded bg-stone-50 border border-stone-200 hover:bg-stone-100 text-[9px] font-bold text-espresso/70">-5m</button>
-                              <button onClick={() => updateActiveEnv({ roomWidth: roomWidth + 5 })} className="flex-1 py-0.5 rounded bg-plum/5 border border-plum/20 hover:bg-plum/10 text-[9px] font-bold text-plum">+5m</button>
+                              <button onClick={() => updateActiveEnv({ roomWidth: Math.max(5, roomWidth - 5) })} className="flex-1 py-0.5 rounded bg-secondary border border-border hover:bg-foreground/5 text-[9px] font-bold text-muted-foreground">-5m</button>
+                              <button onClick={() => updateActiveEnv({ roomWidth: roomWidth + 5 })} className="flex-1 py-0.5 rounded bg-primary/5 border border-primary/20 hover:bg-primary/10 text-[9px] font-bold text-primary">+5m</button>
                             </div>
                           </div>
                           <div>
-                            <span className="block text-[7px] text-espresso/70 font-bold text-center">Comprimento</span>
+                            <span className="block text-[7px] text-muted-foreground font-bold text-center">Comprimento</span>
                             <div className="flex gap-1 mt-0.5">
-                              <button onClick={() => updateActiveEnv({ roomHeight: Math.max(5, roomHeight - 5) })} className="flex-1 py-0.5 rounded bg-stone-50 border border-stone-200 hover:bg-stone-100 text-[9px] font-bold text-espresso/70">-5m</button>
-                              <button onClick={() => updateActiveEnv({ roomHeight: roomHeight + 5 })} className="flex-1 py-0.5 rounded bg-plum/5 border border-plum/20 hover:bg-plum/10 text-[9px] font-bold text-plum">+5m</button>
+                              <button onClick={() => updateActiveEnv({ roomHeight: Math.max(5, roomHeight - 5) })} className="flex-1 py-0.5 rounded bg-secondary border border-border hover:bg-foreground/5 text-[9px] font-bold text-muted-foreground">-5m</button>
+                              <button onClick={() => updateActiveEnv({ roomHeight: roomHeight + 5 })} className="flex-1 py-0.5 rounded bg-primary/5 border border-primary/20 hover:bg-primary/10 text-[9px] font-bold text-primary">+5m</button>
                             </div>
                           </div>
                         </div>
@@ -4396,37 +4382,37 @@ export default function SeatingMap() {
                     </div>
 
                     {/* Planta Baixa de Fundo */}
-                    <div className="p-3 bg-stone-50/50 border border-stone-200/80 rounded-2xl space-y-3 shadow-xs">
-                      <div className="flex items-center gap-1.5 text-plum border-b border-stone-200/50 pb-1.5">
-                        <ImagePlus className="w-3.5 h-3.5" />
+                    <div className="p-3 bg-secondary border border-border rounded-2xl space-y-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-primary border-b border-border pb-1.5">
+                        <I.ImagemMais className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">Planta Baixa de Fundo</span>
                       </div>
 
                       {!bgImage ? (
                         <button 
                           onClick={triggerImageUpload}
-                          className="w-full flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-stone-300 rounded-xl hover:border-plum/40 hover:bg-plum/5 transition-all text-center"
+                          className="w-full flex flex-col items-center justify-center gap-1.5 p-4 border-2 border-dashed border-border dark:border-input rounded-xl hover:border-primary/40 hover:bg-primary/5 transition-all text-center"
                         >
-                          <ImagePlus className="w-6 h-6 text-espresso/25" />
-                          <span className="text-[9px] text-espresso/70 font-bold">Subir Planta Baixa</span>
-                          <span className="text-[7.5px] text-espresso/70">Referência visual e calibração</span>
+                          <I.ImagemMais className="w-6 h-6 text-muted-foreground" />
+                          <span className="text-[9px] text-muted-foreground font-bold">Subir Planta Baixa</span>
+                          <span className="text-[7.5px] text-muted-foreground">Referência visual e calibração</span>
                         </button>
                       ) : (
                         <div className="space-y-2">
-                          <div className="relative rounded-lg overflow-hidden border border-stone-200 shadow-xs">
+                          <div className="relative rounded-lg overflow-hidden border border-border shadow-xs">
                             <img src={bgImage} alt="Planta" className="w-full h-12 object-cover opacity-50" />
                             <button 
                               onClick={() => setBgImage(null)} 
-                              className="absolute top-1 right-1 p-0.5 bg-red-500 text-white rounded hover:bg-red-600 transition-colors shadow"
+                              className="absolute top-1 right-1 p-0.5 bg-destructive text-destructive-foreground rounded hover:bg-[var(--ev-danger-hover)] transition-colors shadow"
                             >
-                              <Trash className="w-2.5 h-2.5" />
+                              <I.Lixeira className="w-2.5 h-2.5" />
                             </button>
                           </div>
 
                           <div>
-                            <div className="flex justify-between text-[8px] text-espresso/70 mb-0.5">
+                            <div className="flex justify-between text-[8px] text-muted-foreground mb-0.5">
                               <span>Opacidade:</span>
-                              <span className="font-mono font-bold text-espresso">{Math.round(bgOpacity * 100)}%</span>
+                              <span className="font-mono font-bold text-foreground">{Math.round(bgOpacity * 100)}%</span>
                             </div>
                             <input 
                               type="range" 
@@ -4434,14 +4420,14 @@ export default function SeatingMap() {
                               max="100" 
                               value={Math.round(bgOpacity * 100)} 
                               onChange={e => setBgOpacity(Number(e.target.value) / 100)} 
-                              className="w-full accent-plum h-1 bg-stone-200 rounded-lg appearance-none cursor-pointer" 
+                              className="w-full accent-primary h-1 bg-input rounded-lg appearance-none cursor-pointer" 
                             />
                           </div>
 
                           <div>
-                            <div className="flex justify-between text-[8px] text-espresso/70 mb-0.5">
+                            <div className="flex justify-between text-[8px] text-muted-foreground mb-0.5">
                               <span>Escala da planta:</span>
-                              <span className="font-mono font-bold text-espresso">{Math.round(bgScale * 100)}%</span>
+                              <span className="font-mono font-bold text-foreground">{Math.round(bgScale * 100)}%</span>
                             </div>
                             <input 
                               type="range" 
@@ -4449,28 +4435,29 @@ export default function SeatingMap() {
                               max="200" 
                               value={Math.round(bgScale * 100)} 
                               onChange={e => setBgScale(Number(e.target.value) / 100)} 
-                              className="w-full accent-plum h-1 bg-stone-200 rounded-lg appearance-none cursor-pointer" 
+                              className="w-full accent-primary h-1 bg-input rounded-lg appearance-none cursor-pointer" 
                             />
                           </div>
 
                           <button
                             onClick={startScaleCalibration}
-                            className={`w-full py-1.5 rounded-lg border text-[9px] font-bold flex items-center justify-center gap-1 transition-all shadow-xs ${calibrating ? 'bg-yellow-50 border-yellow-300 text-yellow-700' : 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100/60'}`}
+                            className={`w-full py-1.5 rounded-lg border text-[9px] font-bold flex items-center justify-center gap-1 transition-all shadow-xs ${calibrating ? 'bg-secondary border-border text-[var(--ev-warning)]' : 'bg-primary/10 border-primary/30 text-primary hover:border-primary/60'}`}
                           >
-                            <Scale className="w-3 h-3" />
+                            <I.Balanca className="w-3 h-3" />
                             {calibrating ? 'Marcando Pontos...' : 'Calibrar Escala Métrica'}
                           </button>
 
-                          <button
+                          <Button
+                            size="xs"
+                            className="w-full"
                             onClick={() => {
                               setAiReaderOpen(true)
                               runAiMapReader()
                             }}
-                            className="w-full py-1.5 rounded-lg bg-plum hover:bg-plum/90 text-white text-[9px] font-bold flex items-center justify-center gap-1 transition-all active:scale-98 shadow-xs"
                           >
-                            <Sparkles className="w-3 h-3 text-yellow-300 animate-pulse" />
+                            <I.Destaque className="animate-pulse" aria-hidden="true" />
                             Vetorizar Planta com IA 🤖
-                          </button>
+                          </Button>
                         </div>
                       )}
                       
@@ -4486,9 +4473,9 @@ export default function SeatingMap() {
                 ) : (
                   <div className="space-y-4">
                     {/* Categorias / Lotes */}
-                    <div className="p-3 bg-stone-50/50 border border-stone-200/80 rounded-2xl space-y-3 shadow-xs">
-                      <div className="flex items-center gap-1.5 text-plum border-b border-stone-200/50 pb-1.5">
-                        <Layers className="w-3.5 h-3.5" />
+                    <div className="p-3 bg-secondary border border-border rounded-2xl space-y-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-primary border-b border-border pb-1.5">
+                        <I.Camadas className="w-3.5 h-3.5" />
                         <span className="text-[10px] font-bold uppercase tracking-wider">Categoria / Lote Ativo</span>
                       </div>
 
@@ -4501,24 +4488,24 @@ export default function SeatingMap() {
                           return (
                             <div 
                               key={s.id} 
-                              className={`rounded-xl border transition-all shadow-xs overflow-hidden ${isActive ? 'bg-plum/5 border-plum/30 text-plum' : 'bg-white dark:bg-white/5 border-stone-200/80 text-espresso/70'}`}
+                              className={`rounded-xl border transition-all shadow-xs overflow-hidden ${isActive ? 'bg-primary/5 border-primary/30 text-primary' : 'bg-card border-border text-muted-foreground'}`}
                             >
                               <div 
                                 onClick={() => setActiveSec(s.id)}
-                                className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-stone-50/50 transition-all select-none"
+                                className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-foreground/5 transition-all select-none"
                               >
                                 <div className="w-3 h-3 rounded-full flex-shrink-0 border border-white/20 shadow-xs" style={{ background: s.color }} />
                                 <div className="flex-1 text-left min-w-0">
-                                  <div className="font-bold truncate text-[11px] text-espresso">{s.name}</div>
-                                  <div className="text-[8.5px] text-espresso/70 mt-0.5">R$ {s.price} · {secSold}/{secCap} vend.</div>
+                                  <div className="font-bold truncate text-[11px] text-foreground">{s.name}</div>
+                                  <div className="text-[8.5px] text-muted-foreground mt-0.5">R$ {s.price} · {secSold}/{secCap} vend.</div>
                                 </div>
-                                {isActive && <Check className="w-3.5 h-3.5 text-plum flex-shrink-0" />}
+                                {isActive && <I.Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
                               </div>
 
                               {isActive && (
-                                <div className="px-2.5 pb-2.5 pt-1 border-t border-stone-200/40 bg-white/40 space-y-1.5 text-[10px]">
+                                <div className="px-2.5 pb-2.5 pt-1 border-t border-border bg-card/40 space-y-1.5 text-[10px]">
                                   <div>
-                                    <label htmlFor={`sec-name-inp-${s.id}`} className="block text-[7.5px] text-espresso/70 uppercase font-bold mb-0.5">Nome do Lote</label>
+                                    <label htmlFor={`sec-name-inp-${s.id}`} className="block text-[7.5px] text-muted-foreground uppercase font-bold mb-0.5">Nome do Lote</label>
                                     <input 
                                       id={`sec-name-inp-${s.id}`}
                                       type="text"
@@ -4528,13 +4515,13 @@ export default function SeatingMap() {
                                         setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, name: newName } : sec))
                                         setSeats(prev => prev.map(st => st.sectionId === s.id ? { ...st, sectionName: newName } : st))
                                       }}
-                                      className="w-full px-1.5 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/50"
+                                      className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
                                     />
                                   </div>
 
                                   <div className="grid grid-cols-2 gap-1.5">
                                     <div>
-                                      <label htmlFor={`sec-price-inp-${s.id}`} className="block text-[7.5px] text-espresso/70 uppercase font-bold mb-0.5">Preço (R$)</label>
+                                      <label htmlFor={`sec-price-inp-${s.id}`} className="block text-[7.5px] text-muted-foreground uppercase font-bold mb-0.5">Preço (R$)</label>
                                       <input 
                                         id={`sec-price-inp-${s.id}`}
                                         type="number"
@@ -4544,11 +4531,11 @@ export default function SeatingMap() {
                                           setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, price: newPrice } : sec))
                                           setSeats(prev => prev.map(st => st.sectionId === s.id ? { ...st, price: newPrice } : st))
                                         }}
-                                        className="w-full px-1.5 py-1 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/50 font-mono"
+                                        className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] font-mono"
                                       />
                                     </div>
                                     <div>
-                                      <label htmlFor={`sec-color-inp-${s.id}`} className="block text-[7.5px] text-espresso/70 uppercase font-bold mb-0.5">Cor</label>
+                                      <label htmlFor={`sec-color-inp-${s.id}`} className="block text-[7.5px] text-muted-foreground uppercase font-bold mb-0.5">Cor</label>
                                       <div className="flex gap-1 items-center">
                                         <input 
                                           id={`sec-color-inp-${s.id}`}
@@ -4559,9 +4546,9 @@ export default function SeatingMap() {
                                             setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, color: newColor } : sec))
                                             setSeats(prev => prev.map(st => st.sectionId === s.id ? { ...st, color: newColor } : st))
                                           }}
-                                          className="w-6 h-5 p-0 border border-stone-200 rounded cursor-pointer"
+                                          className="w-6 h-5 p-0 border border-input rounded cursor-pointer"
                                         />
-                                        <span className="text-[8px] font-mono text-espresso/70 uppercase truncate">{s.color}</span>
+                                        <span className="text-[8px] font-mono text-muted-foreground uppercase truncate">{s.color}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -4593,9 +4580,9 @@ export default function SeatingMap() {
                                         pushHistory(nextSeats, walls)
                                         toast.success(`Lote excluído. Assentos migrados para o lote "${otherSec.name}".`)
                                       }}
-                                      className="w-full flex items-center justify-center gap-1 py-1 rounded-lg border border-red-200 bg-red-50 text-[9px] text-red-700 font-bold hover:bg-red-100 hover:border-red-300 transition-all active:scale-95"
+                                      className="w-full flex items-center justify-center gap-1 py-1 rounded-lg border border-destructive/30 bg-destructive/10 text-[9px] text-destructive font-bold hover:border-destructive/60 transition-all active:scale-95"
                                     >
-                                      <Trash2 className="w-2.5 h-2.5" /> Excluir Lote
+                                      <I.Lixeira className="w-2.5 h-2.5" /> Excluir Lote
                                     </button>
                                   )}
                                 </div>
@@ -4613,9 +4600,9 @@ export default function SeatingMap() {
                           setSections(nextSections)
                           setActiveSec(id)
                         }} 
-                        className="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-dashed border-stone-300 text-[10px] text-espresso/70 hover:text-espresso hover:border-plum/40 hover:bg-white dark:hover:bg-white/10 transition-all shadow-xs font-bold"
+                        className="mt-2 w-full flex items-center justify-center gap-1 py-1.5 rounded-lg border border-dashed border-border dark:border-input text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-foreground/5 transition-all shadow-xs font-bold"
                       >
-                        <Plus className="w-3 h-3" /> Nova Categoria
+                        <I.Criar className="w-3 h-3" /> Nova Categoria
                       </button>
                     </div>
                   </div>
@@ -4628,40 +4615,42 @@ export default function SeatingMap() {
       </div>
 
       {/* FOOTER INFERIOR */}
-      <footer className="w-full max-w-full flex items-center gap-5 px-6 py-2 border-t border-stone-200/60 bg-white dark:bg-white/5 z-30 shadow-md text-xs text-espresso/70 overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
-        <span className="flex items-center gap-1.5"><Armchair className="w-3.5 h-3.5 text-plum" /> Assentos Totais: <strong>{totalCap}</strong></span>
-        <span className="flex items-center gap-1.5"><Square className="w-3.5 h-3.5 text-amber-600" /> Mesas: <strong>{totalTables}</strong></span>
-        <span className="flex items-center gap-1.5"><LayoutGrid className="w-3.5 h-3.5 text-stone-500" /> Muros: <strong>{totalWalls}</strong></span>
-        <div className="w-px h-4 bg-stone-200" />
-        <span className="flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-green-600" /> Vendido: <strong>{totalSold} / {totalCap}</strong></span>
-        <span className="flex items-center gap-1.5"><Info className="w-3.5 h-3.5 text-yellow-600" /> Reservado: <strong>{reservedCount}</strong></span>
+      <footer className="w-full max-w-full flex items-center gap-5 px-6 py-2 border-t border-border bg-card z-30 shadow-md text-xs text-muted-foreground overflow-x-auto overflow-y-hidden flex-nowrap whitespace-nowrap min-w-0 flex-shrink-0">
+        <span className="flex items-center gap-1.5"><I.Lugar className="w-3.5 h-3.5 text-primary" /> Assentos Totais: <strong>{totalCap}</strong></span>
+        <span className="flex items-center gap-1.5"><I.Quadrado className="w-3.5 h-3.5 text-[var(--ev-warning)]" /> Mesas: <strong>{totalTables}</strong></span>
+        <span className="flex items-center gap-1.5"><I.Grade className="w-3.5 h-3.5 text-muted-foreground" /> Muros: <strong>{totalWalls}</strong></span>
+        <div className="w-px h-4 bg-muted" />
+        <span className="flex items-center gap-1.5"><I.Check className="w-3.5 h-3.5 text-[var(--ev-success)]" /> Vendido: <strong>{totalSold} / {totalCap}</strong></span>
+        <span className="flex items-center gap-1.5"><I.Info className="w-3.5 h-3.5 text-[var(--ev-warning)]" /> Reservado: <strong>{reservedCount}</strong></span>
         
-        <div className="ml-auto font-mono text-plum flex items-center gap-3">
+        <div className="ml-auto font-mono text-primary flex items-center gap-3">
           <span>Receita: <strong>R$ {revenue.toLocaleString('pt-BR')}</strong></span>
           <span className="opacity-30">|</span>
-          <span className="text-espresso/70">Potencial: <strong>R$ {potential.toLocaleString('pt-BR')}</strong></span>
+          <span className="text-muted-foreground">Potencial: <strong>R$ {potential.toLocaleString('pt-BR')}</strong></span>
         </div>
       </footer>
 
       {/* MODAL IA READER */}
       {aiReaderOpen && (
         <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
-          <div className="glass-panel w-full max-w-md overflow-hidden animate-float-in text-espresso">
-            <div className="flex justify-between items-center px-5 py-4 border-b border-stone-100 bg-stone-50/50">
-              <h3 className="font-serif text-base font-bold flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-plum" />
+          <div className="glass-panel w-full max-w-md overflow-hidden animate-float-in text-foreground">
+            <div className="flex justify-between items-center px-5 py-4 border-b border-border bg-secondary">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <I.Destaque className="w-5 h-5 text-primary" />
                 Evokaa AI Map Reader
               </h3>
-              <button 
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Fechar"
                 onClick={() => {
                   setAiReaderOpen(false)
                   setShowDetectionsOnCanvas(false)
                   setTempDetections([])
-                }} 
-                className="text-espresso/70 hover:text-espresso p-1 rounded-lg hover:bg-stone-100 transition-colors"
+                }}
               >
-                <X className="w-5 h-5" />
-              </button>
+                <I.Fechar />
+              </Button>
             </div>
 
             <div className="p-5 space-y-4">
@@ -4669,93 +4658,92 @@ export default function SeatingMap() {
               {aiScanning ? (
                 <div className="text-center py-6 space-y-4">
                   <div className="relative w-16 h-16 mx-auto">
-                    <div className="absolute inset-0 rounded-full border-4 border-plum/10 border-t-plum animate-spin" />
-                    <Sparkles className="w-6 h-6 text-plum absolute inset-0 m-auto animate-pulse" />
+                    <div className="absolute inset-0 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
+                    <I.Destaque className="w-6 h-6 text-primary absolute inset-0 m-auto animate-pulse" />
                   </div>
                   <div className="space-y-1">
-                    <h4 className="font-bold text-xs text-espresso/80">{aiScanStatus}</h4>
-                    <p className="text-[10px] text-espresso/70">Varredura: {aiScanProgress}%</p>
+                    <h4 className="font-bold text-xs text-foreground">{aiScanStatus}</h4>
+                    <p className="text-[10px] text-muted-foreground">Varredura: {aiScanProgress}%</p>
                   </div>
-                  <div className="w-full bg-stone-100 h-1.5 rounded-full overflow-hidden border border-stone-200 max-w-xs mx-auto">
-                    <div className="h-full bg-plum transition-all duration-150" style={{ width: `${aiScanProgress}%` }} />
+                  <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden border border-border max-w-xs mx-auto">
+                    <div className="h-full bg-primary transition-all duration-150" style={{ width: `${aiScanProgress}%` }} />
                   </div>
                 </div>
               ) : tempDetections.length > 0 ? (
                 <div className="space-y-4">
-                  <div className="bg-plum/5 border border-plum/20 p-3.5 rounded-xl flex items-start gap-2.5">
-                    <Sparkles className="w-5 h-5 text-plum flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-espresso/70 leading-relaxed">
-                      <p className="font-bold text-plum">Vetorização de planta baixa bem-sucedida!</p>
+                  <div className="bg-primary/5 border border-primary/20 p-3.5 rounded-xl flex items-start gap-2.5">
+                    <I.Destaque className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                    <div className="text-xs text-muted-foreground leading-relaxed">
+                      <p className="font-bold text-primary">Vetorização de planta baixa bem-sucedida!</p>
                       <p className="mt-0.5">Identificamos as estruturas aproximadas da planta e as adicionamos como objetos editáveis diretamente no seu mapa.</p>
                     </div>
                   </div>
 
                   <div className="space-y-2">
-                    <h4 className="font-bold text-[9px] uppercase tracking-wider text-espresso/70">Elementos Importados:</h4>
+                    <h4 className="font-bold text-[9px] uppercase tracking-wider text-muted-foreground">Elementos Importados:</h4>
                     <div className="grid grid-cols-3 gap-2">
-                      <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/80 text-center">
-                        <span className="block text-base font-mono font-bold text-plum">{detectedCount.tables}</span>
-                        <span className="text-[9px] text-espresso/70">Mesas</span>
+                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
+                        <span className="block text-base font-mono font-bold text-primary">{detectedCount.tables}</span>
+                        <span className="text-[9px] text-muted-foreground">Mesas</span>
                       </div>
-                      <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/80 text-center">
-                        <span className="block text-base font-mono font-bold text-green-600">{detectedCount.seats}</span>
-                        <span className="text-[9px] text-espresso/70">Cadeiras</span>
+                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
+                        <span className="block text-base font-mono font-bold text-[var(--ev-success)]">{detectedCount.seats}</span>
+                        <span className="text-[9px] text-muted-foreground">Cadeiras</span>
                       </div>
-                      <div className="p-2.5 bg-stone-50 rounded-xl border border-stone-200/80 text-center">
-                        <span className="block text-base font-mono font-bold text-amber-600">{detectedCount.stages}</span>
-                        <span className="text-[9px] text-espresso/70">Palco</span>
+                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
+                        <span className="block text-base font-mono font-bold text-[var(--ev-warning)]">{detectedCount.stages}</span>
+                        <span className="text-[9px] text-muted-foreground">Palco</span>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    <button 
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-destructive hover:text-destructive"
                       onClick={() => {
                         undo()
                         setTempDetections([])
                         setAiReaderOpen(false)
-                      }} 
-                      className="flex-1 py-2.5 bg-white dark:bg-white/5 hover:bg-stone-50 text-xs font-bold rounded-xl border border-stone-200 text-red-600 transition-all active:scale-98 shadow-xs"
+                      }}
                     >
                       Desfazer Importação
-                    </button>
-                    <button 
+                    </Button>
+                    <Button
+                      className="flex-1"
                       onClick={() => {
                         setTempDetections([])
                         setAiReaderOpen(false)
                       }}
-                      className="flex-1 py-2.5 bg-plum hover:bg-plum/90 text-xs font-bold rounded-xl text-cream transition-all active:scale-95 shadow"
                     >
                       Começar a Editar 🎨
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-xs text-espresso/70 leading-relaxed">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
                     Suba o arquivo da planta em <strong>imagem (PNG, JPG)</strong> ou <strong>PDF</strong>. O Evokaa AI Reader identificará mesas, cadeiras e outras estruturas gerando-as automaticamente no mapa.
                   </p>
 
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <button 
+                      <Button
+                        variant="outline"
+                        className="flex-1"
                         onClick={() => {
                           setShouldAutoScan(true)
                           triggerImageUpload()
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 rounded-xl text-xs text-espresso font-bold transition-all shadow-xs"
                       >
-                        <ImagePlus className="w-4 h-4 text-plum" />
+                        <I.ImagemMais className="text-primary" />
                         Subir Imagem
-                      </button>
-                      
-                      <button 
-                        onClick={() => pdfInputRef.current?.click()}
-                        className="flex-1 flex items-center justify-center gap-1.5 p-3 bg-white dark:bg-white/5 hover:bg-stone-50 border border-stone-200 rounded-xl text-xs text-espresso font-bold transition-all shadow-xs"
-                      >
-                        <Download className="w-4 h-4 text-plum rotate-180" />
+                      </Button>
+
+                      <Button variant="outline" className="flex-1" onClick={() => pdfInputRef.current?.click()}>
+                        <I.Carregar className="text-primary" />
                         Subir PDF
-                      </button>
+                      </Button>
                     </div>
 
                     <input 
@@ -4778,26 +4766,22 @@ export default function SeatingMap() {
                     />
 
                     {bgImage ? (
-                      <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2.5">
-                        <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        <span className="text-xs text-green-700 font-bold">Planta carregada no fundo do editor.</span>
+                      <div className="p-3 bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+                        <I.Check className="w-4 h-4 text-[var(--ev-success)] flex-shrink-0" />
+                        <span className="text-xs text-[var(--ev-success)] font-bold">Planta carregada no fundo do editor.</span>
                       </div>
                     ) : (
-                      <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2.5">
-                        <X className="w-4 h-4 text-red-500 flex-shrink-0" />
-                        <span className="text-xs text-red-600 font-bold">Aguardando arquivo da planta...</span>
+                      <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-2.5">
+                        <I.Fechar className="w-4 h-4 text-destructive flex-shrink-0" />
+                        <span className="text-xs text-destructive font-bold">Aguardando arquivo da planta...</span>
                       </div>
                     )}
                   </div>
 
-                  <button
-                    onClick={() => runAiMapReader()}
-                    disabled={!bgImage}
-                    className="w-full py-2.5 bg-plum hover:bg-plum/90 disabled:opacity-30 disabled:pointer-events-none text-xs font-bold rounded-xl text-cream transition-all flex items-center justify-center gap-1.5 shadow"
-                  >
-                    <Sparkles className="w-4 h-4 text-yellow-300 animate-pulse" />
+                  <Button className="w-full" onClick={() => runAiMapReader()} disabled={!bgImage}>
+                    <I.Destaque className="animate-pulse" />
                     Escanear Planta
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -4809,31 +4793,28 @@ export default function SeatingMap() {
       {/* MODAL GERADOR DE LAYOUT INTELIGENTE */}
       {autoLayoutModalOpen && (
         <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
-          <div className="glass-panel w-full max-w-lg overflow-hidden animate-float-in text-espresso">
-            <div className="flex justify-between items-center px-5 py-4 border-b border-stone-100 bg-stone-50/50">
-              <h3 className="font-serif text-base font-bold flex items-center gap-2">
-                <LayoutGrid className="w-5 h-5 text-plum" />
+          <div className="glass-panel w-full max-w-lg overflow-hidden animate-float-in text-foreground">
+            <div className="flex justify-between items-center px-5 py-4 border-b border-border bg-secondary">
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <I.Grade className="w-5 h-5 text-primary" />
                 Gerador de Layout Inteligente
               </h3>
-              <button 
-                onClick={() => setAutoLayoutModalOpen(false)} 
-                className="text-espresso/70 hover:text-espresso p-1 rounded-lg hover:bg-stone-100 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <Button variant="ghost" size="icon-sm" aria-label="Fechar" onClick={() => setAutoLayoutModalOpen(false)}>
+                <I.Fechar />
+              </Button>
             </div>
 
             <div className="p-5 overflow-y-auto max-h-[80vh] space-y-4 sidebar-dark-scroll text-xs">
-              <p className="text-espresso/70 leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed">
                 Configure os parâmetros físicos reais do seu evento. O sistema calculará e montará os muros externos, o palco, as saídas e distribuirá as mesas automaticamente respeitando as diretrizes de segurança e circulação.
               </p>
 
               {/* 1. Dimensões do Espaço */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-2">
-                <span className="block text-[9px] font-bold text-plum uppercase tracking-wider">1. Dimensões do Espaço (Metros)</span>
+              <div className="bg-secondary p-3 rounded-xl border border-border space-y-2">
+                <span className="block text-[9px] font-bold text-primary uppercase tracking-wider">1. Dimensões do Espaço (Metros)</span>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label htmlFor="space-w" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Largura do Espaço (X)</label>
+                    <label htmlFor="space-w" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Largura do Espaço (X)</label>
                     <input 
                       id="space-w"
                       type="number"
@@ -4841,11 +4822,11 @@ export default function SeatingMap() {
                       max="300"
                       value={autoLayoutConfig.width}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, width: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label htmlFor="space-h" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Comprimento do Espaço (Y)</label>
+                    <label htmlFor="space-h" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Comprimento do Espaço (Y)</label>
                     <input 
                       id="space-h"
                       type="number"
@@ -4853,28 +4834,28 @@ export default function SeatingMap() {
                       max="300"
                       value={autoLayoutConfig.height}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, height: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                 </div>
               </div>
 
               {/* 2. Tipo de Layout e Elementos */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-3">
-                <span className="block text-[9px] font-bold text-plum uppercase tracking-wider">2. Tipo de Layout & Assentos</span>
+              <div className="bg-secondary p-3 rounded-xl border border-border space-y-3">
+                <span className="block text-[9px] font-bold text-primary uppercase tracking-wider">2. Tipo de Layout & Assentos</span>
                 
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setAutoLayoutConfig(prev => ({ ...prev, layoutType: 'tables' }))}
-                    className={`py-2 rounded-lg font-bold border transition-all ${autoLayoutConfig.layoutType === 'tables' ? 'bg-plum/10 border-plum text-plum font-bold' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70'}`}
+                    className={`py-2 rounded-lg font-bold border transition-all ${autoLayoutConfig.layoutType === 'tables' ? 'bg-primary/10 border-primary text-primary font-bold' : 'bg-card border-border text-muted-foreground'}`}
                   >
                     Banquete (Mesas)
                   </button>
                   <button
                     type="button"
                     onClick={() => setAutoLayoutConfig(prev => ({ ...prev, layoutType: 'seats' }))}
-                    className={`py-2 rounded-lg font-bold border transition-all ${autoLayoutConfig.layoutType === 'seats' ? 'bg-plum/10 border-plum text-plum font-bold' : 'bg-white dark:bg-white/5 border-stone-200 text-espresso/70'}`}
+                    className={`py-2 rounded-lg font-bold border transition-all ${autoLayoutConfig.layoutType === 'seats' ? 'bg-primary/10 border-primary text-primary font-bold' : 'bg-card border-border text-muted-foreground'}`}
                   >
                     Auditório (Cadeiras)
                   </button>
@@ -4884,7 +4865,7 @@ export default function SeatingMap() {
                   <div className="space-y-3">
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <label htmlFor="tbl-count" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Qtd. de Mesas</label>
+                        <label htmlFor="tbl-count" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Qtd. de Mesas</label>
                         <input 
                           id="tbl-count"
                           type="number"
@@ -4892,11 +4873,11 @@ export default function SeatingMap() {
                           max="500"
                           value={autoLayoutConfig.tableCount}
                           onChange={e => setAutoLayoutConfig(prev => ({ ...prev, tableCount: parseInt(e.target.value) || 0 }))}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                          className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                         />
                       </div>
                       <div>
-                        <label htmlFor="tbl-shape" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Formato</label>
+                        <label htmlFor="tbl-shape" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Formato</label>
                         <select 
                           id="tbl-shape"
                           value={autoLayoutConfig.tableShape}
@@ -4910,7 +4891,7 @@ export default function SeatingMap() {
                               tableHeight: isRet ? 1.0 : 1.8 
                             }))
                           }}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg font-bold"
+                          className="w-full px-2 py-1.5 bg-card border border-input rounded-lg font-bold"
                         >
                           <option value="circle">Redonda</option>
                           <option value="square">Quadrada</option>
@@ -4918,7 +4899,7 @@ export default function SeatingMap() {
                         </select>
                       </div>
                       <div>
-                        <label htmlFor="tbl-seats" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Assentos / Mesa</label>
+                        <label htmlFor="tbl-seats" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Assentos / Mesa</label>
                         <input 
                           id="tbl-seats"
                           type="number"
@@ -4926,14 +4907,14 @@ export default function SeatingMap() {
                           max="12"
                           value={autoLayoutConfig.tableSeats}
                           onChange={e => setAutoLayoutConfig(prev => ({ ...prev, tableSeats: parseInt(e.target.value) || 0 }))}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                          className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label htmlFor="tbl-w" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Largura / Diâmetro (m)</label>
+                        <label htmlFor="tbl-w" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Largura / Diâmetro (m)</label>
                         <input 
                           id="tbl-w"
                           type="number"
@@ -4941,12 +4922,12 @@ export default function SeatingMap() {
                           min="0.5"
                           value={autoLayoutConfig.tableWidth}
                           onChange={e => setAutoLayoutConfig(prev => ({ ...prev, tableWidth: parseFloat(e.target.value) || 0 }))}
-                          className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                          className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                         />
                       </div>
                       {autoLayoutConfig.tableShape === 'rectangle' && (
                         <div>
-                          <label htmlFor="tbl-h" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Comprimento (m)</label>
+                          <label htmlFor="tbl-h" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Comprimento (m)</label>
                           <input 
                             id="tbl-h"
                             type="number"
@@ -4954,7 +4935,7 @@ export default function SeatingMap() {
                             min="0.5"
                             value={autoLayoutConfig.tableHeight}
                             onChange={e => setAutoLayoutConfig(prev => ({ ...prev, tableHeight: parseFloat(e.target.value) || 0 }))}
-                            className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                            className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                           />
                         </div>
                       )}
@@ -4962,7 +4943,7 @@ export default function SeatingMap() {
                   </div>
                 ) : (
                   <div>
-                    <label htmlFor="seat-count" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Quantidade total de Cadeiras</label>
+                    <label htmlFor="seat-count" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Quantidade total de Cadeiras</label>
                     <input 
                       id="seat-count"
                       type="number"
@@ -4970,19 +4951,19 @@ export default function SeatingMap() {
                       max="1000"
                       value={autoLayoutConfig.seatsCount}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, seatsCount: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2.5 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                 )}
               </div>
 
               {/* 3. Distribuição & Espaçamento */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-3">
-                <span className="block text-[9px] font-bold text-plum uppercase tracking-wider">3. Distribuição & Espaçamento</span>
+              <div className="bg-secondary p-3 rounded-xl border border-border space-y-3">
+                <span className="block text-[9px] font-bold text-primary uppercase tracking-wider">3. Distribuição & Espaçamento</span>
                 
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label htmlFor="rows-count" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Fileiras (0=Aut)</label>
+                    <label htmlFor="rows-count" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Fileiras (0=Aut)</label>
                     <input 
                       id="rows-count"
                       type="number"
@@ -4990,11 +4971,11 @@ export default function SeatingMap() {
                       max="100"
                       value={autoLayoutConfig.rowsCount}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, rowsCount: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label htmlFor="spacing-x" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Espaçamento X (m)</label>
+                    <label htmlFor="spacing-x" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Espaçamento X (m)</label>
                     <input 
                       id="spacing-x"
                       type="number"
@@ -5002,11 +4983,11 @@ export default function SeatingMap() {
                       min="0.2"
                       value={autoLayoutConfig.spacingX}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, spacingX: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label htmlFor="spacing-y" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Espaçamento Y (m)</label>
+                    <label htmlFor="spacing-y" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Espaçamento Y (m)</label>
                     <input 
                       id="spacing-y"
                       type="number"
@@ -5014,7 +4995,7 @@ export default function SeatingMap() {
                       min="0.2"
                       value={autoLayoutConfig.spacingY}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, spacingY: parseFloat(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -5025,7 +5006,7 @@ export default function SeatingMap() {
                       type="checkbox" 
                       checked={autoLayoutConfig.hasCentralAisle} 
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, hasCentralAisle: e.target.checked }))}
-                      className="rounded accent-plum" 
+                      className="rounded accent-primary" 
                     />
                     <span className="text-[10px] font-bold">Adicionar Corredor Central (Vão de 2.5m)</span>
                   </label>
@@ -5033,15 +5014,15 @@ export default function SeatingMap() {
               </div>
 
               {/* 4. Palco */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-3">
+              <div className="bg-secondary p-3 rounded-xl border border-border space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="block text-[9px] font-bold text-plum uppercase tracking-wider">4. Configuração do Palco</span>
+                  <span className="block text-[9px] font-bold text-primary uppercase tracking-wider">4. Configuração do Palco</span>
                   <label className="flex items-center gap-1.5 cursor-pointer">
                     <input 
                       type="checkbox" 
                       checked={autoLayoutConfig.hasStage} 
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, hasStage: e.target.checked }))}
-                      className="rounded accent-plum" 
+                      className="rounded accent-primary" 
                     />
                     <span className="text-[10px] font-bold">Adicionar Palco</span>
                   </label>
@@ -5050,34 +5031,34 @@ export default function SeatingMap() {
                 {autoLayoutConfig.hasStage && (
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label htmlFor="stg-w" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Largura (m)</label>
+                      <label htmlFor="stg-w" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Largura (m)</label>
                       <input 
                         id="stg-w"
                         type="number"
                         min="3"
                         value={autoLayoutConfig.stageWidth}
                         onChange={e => setAutoLayoutConfig(prev => ({ ...prev, stageWidth: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                        className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                       />
                     </div>
                     <div>
-                      <label htmlFor="stg-h" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Comprim. (m)</label>
+                      <label htmlFor="stg-h" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Comprim. (m)</label>
                       <input 
                         id="stg-h"
                         type="number"
                         min="2"
                         value={autoLayoutConfig.stageHeight}
                         onChange={e => setAutoLayoutConfig(prev => ({ ...prev, stageHeight: parseFloat(e.target.value) || 0 }))}
-                        className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                        className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                       />
                     </div>
                     <div>
-                      <label htmlFor="stg-pos" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Posição</label>
+                      <label htmlFor="stg-pos" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Posição</label>
                       <select 
                         id="stg-pos"
                         value={autoLayoutConfig.stagePosition}
                         onChange={e => setAutoLayoutConfig(prev => ({ ...prev, stagePosition: e.target.value as any }))}
-                        className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg font-bold"
+                        className="w-full px-2 py-1.5 bg-card border border-input rounded-lg font-bold"
                       >
                         <option value="Norte">Norte (Topo)</option>
                         <option value="Sul">Sul (Base)</option>
@@ -5090,59 +5071,53 @@ export default function SeatingMap() {
               </div>
 
               {/* 4. Estruturas de Apoio */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-2">
-                <span className="block text-[9px] font-bold text-plum uppercase tracking-wider">4. Infraestrutura de Apoio</span>
+              <div className="bg-secondary p-3 rounded-xl border border-border space-y-2">
+                <span className="block text-[9px] font-bold text-primary uppercase tracking-wider">4. Infraestrutura de Apoio</span>
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label htmlFor="cfg-bars" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Bares</label>
+                    <label htmlFor="cfg-bars" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Bares</label>
                     <input 
                       id="cfg-bars"
                       type="number"
                       min="0"
                       value={autoLayoutConfig.barsCount}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, barsCount: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label htmlFor="cfg-wcs" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Banheiros (WC)</label>
+                    <label htmlFor="cfg-wcs" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Banheiros (WC)</label>
                     <input 
                       id="cfg-wcs"
                       type="number"
                       min="0"
                       value={autoLayoutConfig.wcCount}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, wcCount: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                   <div>
-                    <label htmlFor="cfg-exits" className="block text-[8px] text-espresso/70 uppercase mb-1 font-bold">Saídas Emerg.</label>
+                    <label htmlFor="cfg-exits" className="block text-[8px] text-muted-foreground uppercase mb-1 font-bold">Saídas Emerg.</label>
                     <input 
                       id="cfg-exits"
                       type="number"
                       min="1"
                       value={autoLayoutConfig.emergencyExits}
                       onChange={e => setAutoLayoutConfig(prev => ({ ...prev, emergencyExits: parseInt(e.target.value) || 0 }))}
-                      className="w-full px-2 py-1.5 bg-white dark:bg-white/5 border border-stone-200 rounded-lg text-center font-mono font-bold"
+                      className="w-full px-2 py-1.5 bg-card border border-input rounded-lg text-center font-mono font-bold"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Botões */}
-              <div className="flex gap-3 pt-3 border-t border-stone-100">
-                <button
-                  onClick={() => setAutoLayoutModalOpen(false)}
-                  className="flex-1 py-2.5 bg-white dark:bg-white/5 hover:bg-stone-50 text-xs font-bold rounded-xl border border-stone-200 text-espresso/70 transition-all shadow-xs"
-                >
+              <div className="flex gap-3 pt-3 border-t border-border">
+                <Button variant="outline" className="flex-1" onClick={() => setAutoLayoutModalOpen(false)}>
                   Cancelar
-                </button>
-                <button
-                  onClick={generateAutoLayout}
-                  className="flex-1 py-2.5 bg-plum hover:bg-plum/90 text-xs font-bold rounded-xl text-cream transition-all active:scale-95 shadow"
-                >
+                </Button>
+                <Button className="flex-1" onClick={generateAutoLayout}>
                   Gerar Layout Inteligente
-                </button>
+                </Button>
               </div>
 
             </div>
@@ -5153,17 +5128,17 @@ export default function SeatingMap() {
       {/* DIÁLOGO DE CALIBRAÇÃO */}
       {showCalibrationDialog && (
         <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
-          <div className="glass-panel w-full max-w-sm overflow-hidden p-5 text-espresso">
-            <h3 className="font-serif text-base font-bold mb-2 flex items-center gap-2">
-              <Scale className="w-5 h-5 text-plum" />
+          <div className="glass-panel w-full max-w-sm overflow-hidden p-5 text-foreground">
+            <h3 className="text-base font-bold mb-2 flex items-center gap-2">
+              <I.Balanca className="w-5 h-5 text-primary" />
               Medida Real do Espaço
             </h3>
-            <p className="text-xs text-espresso/70 leading-relaxed mb-4">
+            <p className="text-xs text-muted-foreground leading-relaxed mb-4">
               Qual é o comprimento real em metros da linha que você acabou de marcar na planta de fundo?
             </p>
             <div className="space-y-3">
               <div>
-                <label htmlFor="calib-len" className="block text-[8.5px] text-espresso/70 uppercase mb-1 font-bold">Comprimento em Metros</label>
+                <label htmlFor="calib-len" className="block text-[8.5px] text-muted-foreground uppercase mb-1 font-bold">Comprimento em Metros</label>
                 <input
                   id="calib-len"
                   type="number"
@@ -5171,25 +5146,23 @@ export default function SeatingMap() {
                   min="0.1"
                   value={calibrationLength}
                   onChange={e => setCalibrationLength(e.target.value)}
-                  className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 font-mono font-bold text-center text-lg shadow-xs"
+                  className="w-full px-3 py-2 bg-card border border-input rounded-xl text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] font-mono font-bold text-center text-lg shadow-xs"
                 />
               </div>
               <div className="flex gap-2 pt-1.5">
-                <button
+                <Button
+                  variant="outline"
+                  className="flex-1"
                   onClick={() => {
                     setShowCalibrationDialog(false)
                     setCalibrationPoints([])
                   }}
-                  className="flex-1 py-2 bg-white dark:bg-white/5 hover:bg-stone-50 text-xs font-bold rounded-xl border border-stone-200 text-espresso/70 transition-all shadow-xs"
                 >
                   Cancelar
-                </button>
-                <button
-                  onClick={confirmCalibration}
-                  className="flex-1 py-2 bg-plum text-white text-xs font-bold rounded-xl hover:bg-plum/90 transition-all shadow"
-                >
+                </Button>
+                <Button className="flex-1" onClick={confirmCalibration}>
                   Confirmar
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -5202,19 +5175,6 @@ export default function SeatingMap() {
           0% { top: 0%; }
           50% { top: 100%; }
           100% { top: 0%; }
-        }
-        .sidebar-dark-scroll::-webkit-scrollbar {
-          width: 4px;
-        }
-        .sidebar-dark-scroll::-webkit-scrollbar-track {
-          background: rgba(0,0,0,0.02);
-        }
-        .sidebar-dark-scroll::-webkit-scrollbar-thumb {
-          background: rgba(0,0,0,0.08);
-          border-radius: 2px;
-        }
-        .sidebar-dark-scroll::-webkit-scrollbar-thumb:hover {
-          background: var(--plum);
         }
       `}</style>
 

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ImagePlus, Eye, Trash2, Loader2, X } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
 import {
   useEventBanners,
@@ -97,7 +97,7 @@ export default function ProducerEventBanners() {
     <PageHeader
       title="Banners"
       description="Banners promocionais dos seus eventos"
-      actions={<Button onClick={() => setShowForm(true)}><ImagePlus aria-hidden="true" />Novo banner</Button>}
+      actions={<Button onClick={() => setShowForm(true)}><I.ImagemMais aria-hidden="true" />Novo banner</Button>}
     />
   )
 
@@ -143,7 +143,7 @@ export default function ProducerEventBanners() {
           <EmptyState
             title="Nenhum banner ainda"
             description="Crie o primeiro banner promocional."
-            action={<Button onClick={() => setShowForm(true)}><ImagePlus aria-hidden="true" />Novo banner</Button>}
+            action={<Button onClick={() => setShowForm(true)}><I.ImagemMais aria-hidden="true" />Novo banner</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
@@ -164,10 +164,10 @@ export default function ProducerEventBanners() {
                   <div className="flex shrink-0 items-center gap-1">
                     <Switch checked={banner.active} onCheckedChange={() => toggleActive(banner)} aria-label={banner.active ? `Desativar ${banner.name}` : `Ativar ${banner.name}`} className="mr-1" />
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setPreviewBanner(banner)} aria-label={`Ver ${banner.name}`}>
-                      <Eye aria-hidden="true" />
+                      <I.Olho aria-hidden="true" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(banner.id)} aria-label={`Remover ${banner.name}`}>
-                      <Trash2 aria-hidden="true" />
+                      <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>
                 </div>
@@ -208,7 +208,7 @@ export default function ProducerEventBanners() {
                 <div className="relative">
                   <img src={previewImage} alt="Prévia do banner" onError={() => { setPreviewImage(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="h-32 w-full rounded-md border border-border object-cover" />
                   <Button type="button" variant="secondary" size="icon-sm" onClick={() => { setPreviewImage(null); setUrl('') }} aria-label="Trocar imagem" className="absolute right-2 top-2">
-                    <X aria-hidden="true" />
+                    <I.Fechar aria-hidden="true" />
                   </Button>
                 </div>
               ) : (
@@ -218,8 +218,8 @@ export default function ProducerEventBanners() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-banner" disabled={createBanner.isPending}>
-              {createBanner.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar banner'}
+            <Button type="submit" form="form-banner" loading={createBanner.isPending}>
+              Criar banner
             </Button>
           </DialogFooter>
         </DialogContent>
