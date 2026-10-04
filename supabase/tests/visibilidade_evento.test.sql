@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(46);
+select plan(52);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -55,6 +55,12 @@ select ok(has_function_privilege('anon', 'public.evento_acesso(uuid)', 'execute'
 select ok(not has_function_privilege('anon', 'public.pode_comprar(uuid, uuid)', 'execute')
   and has_function_privilege('authenticated', 'public.pode_comprar(uuid, uuid)', 'execute'),
   'pode_comprar: authenticated sim, anon não');
+select ok(exists (select 1 from pg_constraint where conrelid = 'public.events'::regclass and conname = 'events_slug_nao_uuid'),
+  'CHECK events_slug_nao_uuid existe');
+select throws_ok($$update public.events set slug = 'fb000000-0000-4000-8000-0000000000e2'
+  where id = 'fb000000-0000-4000-8000-0000000000e1'$$, '23514', null, 'slug igual ao uuid de outro evento é recusado');
+select throws_ok($$update public.events set slug = 'FB000000-0000-4000-8000-0000000000E2'
+  where id = 'fb000000-0000-4000-8000-0000000000e1'$$, '23514', null, 'slug no formato de uuid em maiúsculas é recusado');
 
 -- evento_acesso (como postgres: sem login) -------------------------------------------------------------------------
 select is(public.evento_acesso('fb000000-0000-4000-8000-0000000000e1'), 'aberto', 'pública: aberto');
@@ -75,14 +81,19 @@ select results_eq($$select event_id from public.ticket_types where event_id::tex
 select is(public.evento_acesso('fb000000-0000-4000-8000-0000000000e2'), 'link', 'anon chama evento_acesso');
 select is(public.evento_publico('vis-e1') ->> 'acesso', 'aberto', 'evento_publico: slug de evento público');
 select is(public.evento_publico('fb000000-0000-4000-8000-0000000000e1') #>> '{evento,slug}', 'vis-e1', 'evento_publico: por uuid');
+select is(public.evento_publico('fb000000-0000-4000-8000-0000000000e1') #>> '{evento,id}', 'fb000000-0000-4000-8000-0000000000e1',
+  'evento_publico(uuid) devolve o evento daquele uuid');
 select is(public.evento_publico('FB000000-0000-4000-8000-0000000000E1') #>> '{evento,slug}', 'vis-e1', 'evento_publico: uuid em maiúsculas');
 select is(jsonb_array_length(public.evento_publico('vis-e1') -> 'ingressos'), 1, 'evento_publico: só o ingresso ativo');
 select is(public.evento_publico('vis-e1') #>> '{evento,visibility}', 'public', 'evento_publico: traz as colunas do evento (visibility)');
-select is(public.evento_publico('vis-e2') ->> 'acesso', 'link', 'evento_publico: só com link abre pelo slug');
+select is(public.evento_publico('vis-e2'), null, 'evento_publico: só com link NÃO abre pelo slug (chutável)');
 select is(public.evento_publico('fb000000-0000-4000-8000-0000000000e2') #>> '{evento,slug}', 'vis-e2', 'evento_publico: só com link abre pelo uuid');
-select is(jsonb_array_length(public.evento_publico('vis-e2') -> 'ingressos'), 1, 'evento_publico: só com link traz os ingressos');
-select ok(public.evento_publico('vis-e3') ? 'cartao' and not (public.evento_publico('vis-e3') ? 'evento')
-  and not (public.evento_publico('vis-e3') ? 'ingressos'), 'evento_publico: com senha devolve só o cartão');
+select is(public.evento_publico('fb000000-0000-4000-8000-0000000000e2') ->> 'acesso', 'link', 'evento_publico: só com link por uuid dá acesso link');
+select is(jsonb_array_length(public.evento_publico('fb000000-0000-4000-8000-0000000000e2') -> 'ingressos'), 1, 'evento_publico: só com link traz os ingressos');
+select ok(public.evento_publico('fb000000-0000-4000-8000-0000000000e3') ? 'cartao'
+  and not (public.evento_publico('fb000000-0000-4000-8000-0000000000e3') ? 'evento')
+  and not (public.evento_publico('fb000000-0000-4000-8000-0000000000e3') ? 'ingressos'), 'evento_publico: com senha (por uuid) devolve só o cartão');
+select is(public.evento_publico('vis-e3'), null, 'evento_publico: com senha não abre pelo slug');
 select is(public.evento_publico('vis-e4'), null, 'evento_publico: privado devolve null');
 select is(public.evento_publico('vis-e5'), null, 'evento_publico: rascunho devolve null');
 select is(public.evento_publico('vis-e6'), null, 'evento_publico: em análise devolve null');
@@ -120,7 +131,7 @@ select throws_ok($$insert into public.favoritos (user_id, event_id) values
 select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-000000000009');
 select is((select count(*) from public.events where slug like 'vis-e%'), 6::bigint, 'o dono lê os 6 eventos dele');
 select is(public.evento_acesso('fb000000-0000-4000-8000-0000000000e4'), 'aberto', 'o dono tem acesso aberto ao evento de convidados');
-select is(public.evento_publico('vis-e5') ->> 'acesso', 'aberto', 'o dono abre o próprio rascunho pela página');
+select is(public.evento_publico('fb000000-0000-4000-8000-0000000000e5') ->> 'acesso', 'aberto', 'o dono abre o próprio rascunho pelo uuid');
 
 select * from finish();
 rollback;

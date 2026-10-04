@@ -6,7 +6,11 @@
 --    (as tabelas evento_liberado e evento_convidados ainda NÃO existem: neste PR password devolve sempre 'senha' e private
 --    sempre 'convidados'; o PR3e-2/3 reescrevem a função com create or replace.)
 -- 2) public.pode_comprar(order, tipo): refaz os joins da regra de order_items aceitando 'aberto' e 'link'.
--- 3) public.evento_publico(text): a página do evento lê por aqui (uuid OU slug exato, nunca lista).
+-- 3) public.evento_publico(text): a página do evento lê por aqui (nunca lista). Texto no formato de uuid busca SÓ por id;
+--    o resto busca SÓ por slug exato e só abre evento 'public' (Só com link, Senha e Convidados só abrem pelo uuid,
+--    porque o slug sai do título + data e dá para chutar). O "Copiar link" do painel usa /event/<id> fora de 'public'.
+--    + CHECK events_slug_nao_uuid: slug nunca no formato de uuid (impede gravar como slug o uuid de outro evento).
+--    Produção conferida em 05/10/2026: 0 slugs nesse formato, 0 nulos.
 --    'aberto'/'link' -> {acesso, evento, ingressos}; 'senha' -> {acesso, cartao}; 'convidados' e null -> null.
 -- 4) Regras trocadas (nomes exatos lidos do banco de produção em 05/10/2026):
 --    events "Eventos públicos ou do produtor" (+ visibility='public') e nova "Eventos com senha ou de convidados liberados";
@@ -23,6 +27,7 @@
 --   recriar "Usuários criam próprias compras" (check (auth.uid() = user_id) and status = 'pending');
 --   recriar "Usuários inserem itens da própria compra" com o texto antigo (join orders/ticket_types/events);
 --   recriar favoritos_insert (exists events published+approved) e evento_contagem_publica (visibility <> 'private');
+--   alter table public.events drop constraint if exists events_slug_nao_uuid;
 --   drop function public.evento_publico(text), public.pode_comprar(uuid, uuid), public.evento_acesso(uuid);
 -- =============================================================================
 begin;
@@ -67,11 +72,12 @@ declare
   v_id uuid;
   v_acesso text;
 begin
-  -- compara como texto: p_ref que não é uuid não pode dar erro de cast
-  select e.id into v_id from public.events e
-  where e.slug = p_ref or e.id::text = lower(p_ref)
-  order by (e.slug = p_ref) desc, e.created_at
-  limit 1;
+  -- uuid busca SÓ por id; o resto, SÓ por slug e só de evento público (slug de "Só com link" é chutável: título + data)
+  if p_ref ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' then
+    select e.id into v_id from public.events e where e.id = p_ref::uuid;
+  else
+    select e.id into v_id from public.events e where e.slug = p_ref and e.visibility = 'public';
+  end if;
   if v_id is null then return null; end if;
 
   v_acesso := public.evento_acesso(v_id);
@@ -92,6 +98,11 @@ begin
 end $$;
 revoke all on function public.evento_publico(text) from public, anon, authenticated;
 grant execute on function public.evento_publico(text) to anon, authenticated;
+
+-- 3b) Slug nunca no formato de uuid: senão um produtor gravaria como slug o uuid de outro evento e sequestraria o link
+alter table public.events drop constraint if exists events_slug_nao_uuid;
+alter table public.events add constraint events_slug_nao_uuid
+  check (slug is null or slug !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$');
 
 -- 4) Regras -------------------------------------------------------------------------------------------------------
 drop policy if exists "Eventos públicos ou do produtor" on public.events;
