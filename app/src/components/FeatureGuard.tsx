@@ -24,6 +24,7 @@ export default function FeatureGuard({ featureKey, children }: FeatureGuardProps
   }
 
   // Só tokens (Decisão 112): a rota /producer/lugar-marcado usa o guard fora do ProducerLayout.
+  // "Recurso fora do seu plano" fica: e2e-front-1b procura esse texto.
   // ponytail: sem "Fazer Upgrade" (a Assinatura está escondida e levava à tela "Em construção"). Com o
   // pagamento de planos no ar, voltar o botão para /producer/assinatura e tirar o "em breve" do texto.
   return (

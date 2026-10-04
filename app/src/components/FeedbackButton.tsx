@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { MessageSquarePlus, X, Send, Star, Bug, Lightbulb, HelpCircle, ThumbsUp, Check } from 'lucide-react'
 import { toast } from 'sonner'
-import { useFeedback } from '../hooks/useFeedback'
-import { MAX_MENSAGEM } from '../hooks/useFeedback'
+import { useFeedback, MAX_MENSAGEM } from '../hooks/useFeedback'
 import type { FeedbackType } from '../hooks/useFeedback'
 
 type FeedbackTypeConfig = {

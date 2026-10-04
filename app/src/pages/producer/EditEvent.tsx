@@ -400,7 +400,7 @@ export default function ProducerEditEvent() {
             </dl>
             <p className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
               {voltaParaAnalise
-                ? 'Se você mudar título, descrição, imagem, tipo, data, horário ou local, o evento volta para a análise da equipe e só fica visível ao público depois da aprovação. Mudar só os ingressos não volta para análise.'
+                ? 'Se você mudar título, descrição, imagem, tipo, data, horário ou local, o evento volta para a análise da equipe e só fica visível ao público depois da aprovação. Em geral, mudar só os ingressos não volta para análise.'
                 : 'Este evento ainda está em análise pela equipe; salvar não muda isso.'}
             </p>
           </section>
