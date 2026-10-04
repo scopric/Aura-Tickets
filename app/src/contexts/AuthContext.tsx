@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { supabase } from '../lib/supabase'
+import { apagarIngressosGuardados, comTempo, sessaoGuardadaNoAparelho } from '../lib/ingressosOffline'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
 
@@ -30,7 +31,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Sincroniza sessão ativa inicial do Supabase
-    supabase.auth.getSession()
+    // sem resposta em 4 s com sessão guardada (renovação do token em espera, sem rede): segue com o usuário do store
+    comTempo(supabase.auth.getSession(), 4000, () => ({ data: { session: null }, error: null }))
       .then(({ data: { session } }) => {
         if (session) {
           setSession(session)
@@ -41,9 +43,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Sem sessão no Supabase não há o que restaurar: o token não é copiado de outro lugar. Limpa o
           // store persistido já aqui, senão ele libera a rota até o INITIAL_SESSION chegar (demo só em DEV).
           const currentSession = useAuthStore.getState().session
-          if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
+          if (sessaoGuardadaNoAparelho()) {
+            // token vencido sem rede: o supabase-js não conseguiu renovar, mas não houve saída. Mantém o usuário do store
+            // (só nome e papel, nenhum token) para "Ingressos" abrir com a cópia local; sem servidor ele não lê nada além disso.
+          } else if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
             setSession(null)
             setUser(null)
+            apagarIngressosGuardados()
           }
           setLoading(false)
         }
@@ -93,8 +99,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
 
+          if (event !== 'SIGNED_OUT' && sessaoGuardadaNoAparelho()) { setLoading(false); return } // ver o getSession acima
           setSession(null)
           setUser(null)
+          apagarIngressosGuardados()
           setLoading(false)
         }
       } catch (err) {

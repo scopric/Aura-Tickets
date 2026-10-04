@@ -41,3 +41,39 @@ test('Ingressos já vistos abrem sem internet e o resto do app não é intercept
   const outra = await page.evaluate((uid) => Object.keys(localStorage).filter(k => k.startsWith('evk.ingressos.')).map(k => k.endsWith(uid)), UID)
   expect(outra).toEqual([true])
 })
+
+test('Token vencido e rede falhando: ingressos aparecem da cópia, com aviso; saída com rede apaga a cópia', async ({ page }) => {
+  const sess = (exp: number) => {
+    const jwt = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ aal: 'aal1', sub: UID, role: 'authenticated', exp })}.sig`
+    return { access_token: jwt, refresh_token: 'r', token_type: 'bearer', expires_in: 3600, expires_at: exp,
+      user: { id: UID, aud: 'authenticated', role: 'authenticated', email: 'p@teste.invalid', app_metadata: {}, user_metadata: {}, created_at: '2026-01-01T00:00:00Z' } }
+  }
+  const valida = sess(Math.floor(Date.now() / 1000) + 36000)
+  await page.addInitScript((s) => { if (!sessionStorage.getItem('semeado')) { sessionStorage.setItem('semeado', '1'); localStorage.setItem('sb-placeholder-auth-token', JSON.stringify(s)) } }, valida) // só na 1ª carga
+  await page.route('**/auth/v1/**', (r) => json(r, valida.user))
+  await page.route('**/rest/v1/**', (r) => json(r, []))
+  await page.route('**/rest/v1/profiles?*', (r) => json(r, { id: UID, full_name: 'Teste', role: 'participant', email: 'p@teste.invalid', is_authorized: true }))
+  await page.route('**/rest/v1/tickets?*', (r) => json(r, [ingresso]))
+  const link = page.getByRole('link', { name: 'Mostrar o QR de Show Offline Teste' })
+  await page.goto('/app/tickets')
+  await expect(link).toBeVisible()
+  await page.evaluate(() => navigator.serviceWorker.ready)
+
+  // token venceu (1 h) e o Supabase não responde, embora o aparelho esteja "conectado"
+  await page.evaluate((s) => localStorage.setItem('sb-placeholder-auth-token', JSON.stringify(s)), sess(Math.floor(Date.now() / 1000) - 600))
+  await page.unrouteAll()
+  await page.route('**/auth/v1/**', (r) => r.abort('failed'))
+  await page.route('**/rest/v1/**', (r) => r.abort('failed'))
+  await page.reload()
+  await expect(link).toBeVisible({ timeout: 20000 })
+  await expect(page.getByText(/Sem conexão\. Cópia de \d\d\/\d\d/)).toBeVisible()
+
+  // o servidor recusa a sessão (saída de verdade, com rede): token some e a cópia é apagada
+  await page.evaluate(() => { localStorage.removeItem('sb-placeholder-auth-token') })
+  await page.unrouteAll()
+  await page.route('**/auth/v1/**', (r) => json(r, {}))
+  await page.route('**/rest/v1/**', (r) => json(r, []))
+  await page.reload()
+  await expect(link).toBeHidden({ timeout: 15000 })
+  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.startsWith('evk.ingressos.')))).toEqual([])
+})

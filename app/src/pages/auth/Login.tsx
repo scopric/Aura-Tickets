@@ -1,3 +1,4 @@
+import { apagarIngressosGuardados } from '../../lib/ingressosOffline'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2, Edit3 } from 'lucide-react'
@@ -34,6 +35,7 @@ function blockedMessage(role: string) {
 // Derruba a sessão recusada só neste host ('local'): um admin que abre o app.* por engano
 // não perde a sessão do alpha.
 async function clearSession() {
+  apagarIngressosGuardados()
   await useAuthStore.getState().setUser(null)
   await useAuthStore.getState().setSession(null)
   await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
