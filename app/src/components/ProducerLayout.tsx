@@ -72,7 +72,7 @@ export default function ProducerLayout() {
   const abreBusca = useCallback(() => {
     carregarBusca().then(
       m => setBusca(() => m.default),
-      () => toast.error('Não foi possível abrir a busca. Tente de novo.'),
+      () => toast.error('Não foi possível abrir a busca. Recarregue a página e tente de novo.'),
     )
   }, [])
 
