@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { Link, MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import ProducerLayout from '../components/ProducerLayout'
+import { avisarCamada, CHAVE_AVISO_POLITICA, fecharPolitica } from '../lib/camadas'
+import { COOKIE_CONSENT_KEY, COOKIE_CONSENT_VERSION } from '../lib/tracking'
 
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { name: 'Ricardo', email: 'r@x.com' }, logout: vi.fn() }) }))
@@ -30,7 +32,9 @@ const montar = (url: string) =>
   )
 
 describe('ProducerLayout com a lateral nova', () => {
-  beforeEach(() => { localStorage.clear(); registrar.mockClear() })
+  // cookies decididos e Política fechada (o tour só abre com as camadas da V9a resolvidas)
+  const decidirCookies = () => localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({ version: COOKIE_CONSENT_VERSION, consent: { necessary: true, analytics: false } }))
+  beforeEach(() => { localStorage.clear(); decidirCookies(); localStorage.setItem(CHAVE_AVISO_POLITICA, '1'); registrar.mockClear() })
 
   it('mantém a raiz .painel-produtor e o menu com nome', () => {
     const { container } = montar('/producer/dashboard')
@@ -141,5 +145,18 @@ describe('ProducerLayout com a lateral nova', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(registrar).not.toHaveBeenCalled()
     expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?y=2')
+  })
+
+  it('cookies sem decisão: o tour espera e o ?tour= fica; decididos os cookies e fechada a Política, abre', () => {
+    localStorage.clear()
+    montar('/producer/events?tour=eventos&x=1')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?tour=eventos&x=1')
+    act(() => { decidirCookies(); avisarCamada() }) // cookies decididos: a Política passa a vez
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('local')).toHaveTextContent('?tour=eventos')
+    act(() => fecharPolitica())
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    expect(screen.getByText(/^1 de \d/)).toBeInTheDocument()
   })
 })

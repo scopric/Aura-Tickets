@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, cleanup } from '@testing-library/react'
+import { render, screen, fireEvent, cleanup, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import AppLayout from '../components/AppLayout'
+import { avisarCamada, CHAVE_AVISO_POLITICA, fecharPolitica } from '../lib/camadas'
+import { COOKIE_CONSENT_KEY, COOKIE_CONSENT_VERSION } from '../lib/tracking'
 
 const registrar = vi.fn()
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
@@ -32,7 +34,12 @@ const montar = (url: string) =>
   )
 
 describe('AppLayout: tour do participante (V9c)', () => {
-  beforeEach(() => { cleanup(); registrar.mockClear(); vi.stubGlobal('matchMedia', mediaQuery(false)) })
+  // cookies decididos e Política fechada (o tour só abre com as camadas da V9a resolvidas)
+  const decidirCookies = () => localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({ version: COOKIE_CONSENT_VERSION, consent: { necessary: true, analytics: false } }))
+  beforeEach(() => {
+    cleanup(); registrar.mockClear(); vi.stubGlobal('matchMedia', mediaQuery(false))
+    localStorage.clear(); decidirCookies(); localStorage.setItem(CHAVE_AVISO_POLITICA, '1')
+  })
 
   it('sem ?tour= nada abre sozinho', () => {
     montar('/app/hub')
@@ -76,5 +83,17 @@ describe('AppLayout: tour do participante (V9c)', () => {
     expect(container.querySelector('aside [data-tour]')).toBeNull()
     expect(container.querySelector('nav[aria-label="Navegação principal"] [data-tour="app-ingressos"]')).not.toBeNull()
     expect(container.querySelector('nav[aria-label="Navegação principal"] [data-tour="app-explorar"]')).not.toBeNull()
+  })
+
+  it('cookies sem decisão: o tour espera e o ?tour= fica; decididos os cookies e fechada a Política, abre', () => {
+    localStorage.clear()
+    montar('/app/hub?tour=app-inicio&x=1')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('local')).toHaveTextContent('/app/hub?tour=app-inicio&x=1')
+    act(() => { decidirCookies(); avisarCamada() }) // cookies decididos: a Política passa a vez
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByTestId('local')).toHaveTextContent('?tour=app-inicio')
+    act(() => fecharPolitica())
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
   })
 })
