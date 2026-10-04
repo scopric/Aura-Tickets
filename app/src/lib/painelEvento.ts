@@ -225,7 +225,7 @@ export function pendenciasDoPainel(f: Form, ingressosSalvos: Ing[], aceite: bool
 // aposGravar: o passo 1 já passou, ou seja, o evento foi gravado. Em evento já no ar isso significa que ele JÁ está em análise.
 export type ResultadoEnvio = { ok: true } | { ok: false; erro: string; aposGravar: boolean }
 
-export const ERRO_ACEITE_NO_AR = 'As alterações já foram para análise, mas o aceite não foi registrado: refaça o aceite.'
+export const ERRO_ACEITE_NO_AR = 'As alterações já foram para análise, mas o aceite não foi registrado.'
 
 // Texto do próprio front por status: a mensagem do servidor não é mostrada (a função pode mudar o texto e não deve vazar detalhe)
 function erroDoAceite(err: unknown): string {
@@ -263,21 +263,24 @@ export async function enviarEvento(p: {
   textoAceito: string // o texto que a pessoa leu (textoAceite montado da tela)
   aceitar: boolean
   publicar: boolean
+  soAceite?: boolean // só refaz o aceite do que já está salvo: gravarPendentes não grava conteúdo
 }): Promise<ResultadoEnvio> {
   try {
     await p.gravarPendentes()
   } catch {
     return { ok: false, erro: 'Não foi possível salvar o evento. Confira a internet e tente de novo.', aposGravar: false }
   }
-  const jaNoAr = !p.publicar
-  const falha = (erro: string) => ({ ok: false as const, erro: jaNoAr && p.aceitar ? ERRO_ACEITE_NO_AR : erro, aposGravar: true })
-  if (p.ingressosNaoSalvos()) return { ok: false, erro: 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.', aposGravar: true }
+  // Evento no ar que enviou alterações: o passo 1 já o mandou para análise, então a falha do aceite precisa dizer isso
+  const aposAlteracoes = !p.publicar && !p.soAceite
+  const falha = (erro: string) => ({ ok: false as const, erro, aposGravar: true })
+  if (p.ingressosNaoSalvos()) return falha('Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.')
   if (p.aceitar) {
     const { data, error } = await supabase.functions.invoke('aceite-evento', { body: { event_id: p.eventId } })
-    if (error) return falha(erroDoAceite(error))
+    if (error) return falha(`${aposAlteracoes ? `${ERRO_ACEITE_NO_AR} ` : ''}${erroDoAceite(error)}`)
     const hashLido = await sha256Hex(p.textoAceito)
     if ((data?.classificacao ?? null) !== p.tela.classificacao || !!data?.tem_bebida !== p.tela.temBebida || data?.texto_hash !== hashLido) {
-      return falha('O aceite registrado não é o texto que está na tela (classificação, bebida ou texto). Confira e envie de novo; nada foi publicado.')
+      // o aceite FOI gravado, mas não é o texto que a pessoa leu
+      return falha(`O aceite gravado não confere com o texto que você leu (classificação, bebida ou texto). Refaça o aceite.${p.publicar ? ' Nada foi publicado.' : aposAlteracoes ? ' As alterações já foram para análise.' : ''}`)
     }
   }
   if (p.publicar) {

@@ -162,7 +162,7 @@ export function pendencias(e: EntradaPendencias): Pendencia[] {
     { id: 'formato', rotulo: 'Formato', pronto: FORMATOS.some((f) => f.valor === e.category) },
     { id: 'descricao', rotulo: 'Descrição', pronto: (e.description?.trim().length ?? 0) >= 20 },
     { id: 'data', rotulo: 'Data e hora de início', pronto: !!e.date && !!e.time },
-    { id: 'local', rotulo: modo === 'online' ? 'Link da transmissão (https)' : modo === 'hibrido' ? 'CEP do local e link (https)' : 'CEP do local', pronto: localOk },
+    { id: 'local', rotulo: modo === 'online' ? 'Link da transmissão (https)' : modo === 'hibrido' ? 'Nome e cidade do local e link (https)' : 'Nome e cidade do local', pronto: localOk },
     { id: 'ingresso', rotulo: 'Ingresso com quantidade e preço válido', pronto: ingressoOk },
     { id: 'classificacao', rotulo: 'Classificação indicativa', pronto: e.category === 'esporte' || CLASSIFICACOES.some((c) => c.valor === e.classificacao) },
     { id: 'aceite', rotulo: 'Aceite do produtor', pronto: !!e.aceite },

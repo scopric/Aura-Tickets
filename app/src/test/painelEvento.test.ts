@@ -310,13 +310,36 @@ describe('Enviar para aprovação', () => {
     expect(update).not.toHaveBeenCalled()
   })
 
-  it('evento no ar: aceite que falha DEPOIS de gravar diz que as alterações já foram para análise (nunca "nada foi publicado")', async () => {
+  it('evento no ar: aceite que falha DEPOIS de gravar diz que as alterações já foram para análise e por que o aceite falhou', async () => {
+    const http = (status: number) => ({ data: null, error: { context: { status } } })
+    invoke.mockResolvedValueOnce(http(403) as never)
+    const r403 = (await enviarEvento({ ...base(), publicar: false })) as { ok: false; erro: string; aposGravar: boolean }
+    expect(r403.aposGravar).toBe(true)
+    expect(r403.erro).toBe(`${ERRO_ACEITE_NO_AR} O servidor recusou o aceite. Confirme a verificação em duas etapas no seu perfil e envie de novo.`)
+    invoke.mockResolvedValueOnce(http(429) as never)
+    expect(((await enviarEvento({ ...base(), publicar: false })) as { erro: string }).erro).toBe(`${ERRO_ACEITE_NO_AR} Muitas tentativas de envio em pouco tempo. Aguarde um pouco e tente de novo.`)
+    expect(ERRO_ACEITE_NO_AR).not.toMatch(/nada foi publicado/i)
+  })
+
+  it('refazer só o aceite (soAceite): sem a frase "alterações já foram para análise"', async () => {
     invoke.mockResolvedValueOnce({ data: null, error: { context: { status: 500 } } } as never)
-    expect(await enviarEvento({ ...base(), publicar: false })).toEqual({ ok: false, erro: ERRO_ACEITE_NO_AR, aposGravar: true })
-    invoke.mockResolvedValueOnce(resposta({ classificacao: 'A18' }) as never)
-    const r = (await enviarEvento({ ...base(), publicar: false })) as { erro: string }
-    expect(r.erro).toBe(ERRO_ACEITE_NO_AR)
-    expect(r.erro).not.toMatch(/nada foi publicado/)
+    const r = (await enviarEvento({ ...base(), publicar: false, soAceite: true })) as { erro: string }
+    expect(r.erro).toBe('O servidor não conseguiu registrar o aceite. Tente de novo em instantes.')
+    expect(r.erro).not.toMatch(/alterações/)
+  })
+
+  it('divergência: o aceite FOI gravado mas não confere; nunca diz "não foi registrado"', async () => {
+    invoke.mockResolvedValue(resposta({ texto_hash: 'a'.repeat(64) }) as never)
+    const rascunho = (await enviarEvento(base())) as { erro: string }
+    expect(rascunho.erro).toMatch(/aceite gravado não confere com o texto que você leu/)
+    expect(rascunho.erro).toMatch(/Nada foi publicado/)
+    expect(rascunho.erro).not.toMatch(/não foi registrado/)
+    const noAr = (await enviarEvento({ ...base(), publicar: false })) as { erro: string }
+    expect(noAr.erro).toMatch(/aceite gravado não confere/)
+    expect(noAr.erro).toMatch(/já foram para análise/)
+    expect(noAr.erro).not.toMatch(/Nada foi publicado|não foi registrado/)
+    const so = (await enviarEvento({ ...base(), publicar: false, soAceite: true })) as { erro: string }
+    expect(so.erro).not.toMatch(/análise|publicado/)
   })
 
   it('o banco recusa publicar: erro, sem dizer que enviou', async () => {

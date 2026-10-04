@@ -235,6 +235,7 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
 
     await expect(page.getByText('Em análise pela equipe')).toBeVisible()
     await expect(page.getByText('Em análise', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0) // o aceite acabou de ser feito e foi relido
     expect(db.chamadas.slice(antes)).toEqual(['INVOKE aceite-evento', 'PATCH events status'])
     expect(db.evento).toMatchObject({ status: 'published', approval_status: 'pending' })
   })
@@ -265,7 +266,7 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     await abre(page, /^Publicar/)
     await page.getByLabel('Li e aceito o termo do produtor').check()
     await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'não confere com o texto que você leu' })).toBeVisible()
     expect(db.chamadas).toContain('INVOKE aceite-evento')
     expect(db.chamadas.some(c => c === 'PATCH events status')).toBe(false)
     expect(db.evento.status).toBe('draft')
@@ -343,7 +344,7 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     await page.getByRole('button', { name: 'Enviar alterações para análise' }).click()
     const dlg = page.getByRole('dialog', { name: 'Enviar alterações para análise?' })
     await expect(dlg).toContainText('Vai para análise: descrição, classificação.')
-    await expect(dlg).toContainText('A classificação mudou de A16 para A18: refaça o aceite')
+    await expect(dlg).toContainText('A classificação ou a bebida mudou depois do último aceite: refaça o aceite com a classificação A18')
     const enviar = dlg.getByRole('button', { name: 'Enviar para análise' })
     await expect(enviar).toHaveAttribute('aria-disabled', 'true')
     await page.waitForTimeout(400) // a animação de abrir do diálogo: um clique no meio dela cairia fora e fecharia
@@ -487,7 +488,7 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await dlg.getByRole('button', { name: 'Enviar para análise' }).click()
 
     // o conteúdo já foi gravado (e o gatilho mandou o evento para análise): a tela diz a verdade
-    await expect(page.getByText('As alterações já foram para análise, mas o aceite não foi registrado: refaça o aceite.').first()).toBeVisible()
+    await expect(page.getByText('As alterações já foram para análise, mas o aceite não foi registrado. O servidor não conseguiu registrar o aceite. Tente de novo em instantes.').first()).toBeVisible()
     await expect(page.getByText('DETALHE INTERNO')).toHaveCount(0)
     await expect(page.getByText('Em análise pela equipe')).toBeVisible()
     await expect(page.getByText('Em análise', { exact: true }).first()).toBeVisible()
@@ -508,6 +509,75 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
     expect(db.chamadas).toEqual(['PATCH events classificacao', 'INVOKE aceite-evento', 'INVOKE aceite-evento'])
     expect(db.evento.status).toBe('published')
+  })
+
+  test('refazer o aceite NÃO grava as alterações pendentes: o diálogo manda para "Enviar alterações para análise"', async ({ page }) => {
+    const db = await montarBanco(page, {
+      evento: aprovado({ classificacao: 'A18' }), ingressos: [ingresso()],
+      aceites: [{ classificacao: 'A16', tem_bebida: false, versao: ACEITE_VERSAO, texto_hash: 'x' }], // o último aceite é de A16
+    })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Aceite pendente', { exact: true })).toBeVisible()
+    await abre(page, /^O que é/)
+    await page.getByLabel('Subtítulo').fill('Mudou depois')
+    await expect(page.getByText(/o envio delas para análise já refaz o aceite/)).toBeVisible()
+    await page.getByRole('button', { name: 'Refazer o aceite' }).click()
+    const dlg = page.getByRole('dialog', { name: 'Refazer o aceite?' })
+    await expect(dlg).toContainText('O aceite não grava conteúdo')
+    await expect(dlg.getByRole('button', { name: 'Registrar o aceite' })).toHaveCount(0)
+    expect(db.chamadas).toEqual([]) // nada gravado, nada enviado
+    await page.waitForTimeout(400)
+    await dlg.getByRole('button', { name: 'Enviar alterações para análise' }).click()
+    await expect(page.getByRole('dialog', { name: 'Enviar alterações para análise?' })).toBeVisible()
+    await page.getByRole('dialog').getByLabel(/Li e aceito o termo do produtor com a classificação A18/).check()
+    await page.getByRole('dialog').getByRole('button', { name: 'Enviar para análise' }).click()
+    await expect(page.getByText('Alterações enviadas para análise.')).toBeVisible()
+    expect(db.chamadas).toEqual(['PATCH events subtitle', 'INVOKE aceite-evento'])
+    await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0) // o aceite novo já foi relido
+  })
+
+  for (const [nome, evt] of [['evento aprovado', () => aprovado()], ['evento em análise', () => aprovado({ approval_status: 'pending' })]] as const) {
+    test(`${nome} SEM nenhum aceite registrado: faixa própria e o aceite é registrado`, async ({ page }) => {
+      const db = await montarBanco(page, { evento: evt(), ingressos: [ingresso()], aceites: [] })
+      await entrarProdutor(page)
+      await abrirPainel(page)
+      await expect(page.getByText('Aceite pendente', { exact: true })).toBeVisible()
+      await expect(page.getByText('Este evento ainda não tem aceite do produtor registrado.')).toBeVisible()
+      await page.getByRole('button', { name: 'Registrar o aceite' }).click()
+      const dlg = page.getByRole('dialog', { name: 'Refazer o aceite?' })
+      await page.waitForTimeout(400)
+      await dlg.getByLabel(/Li e aceito o termo do produtor/).check()
+      await dlg.getByRole('button', { name: 'Registrar o aceite' }).click()
+      await expect(page.getByText('Aceite registrado.')).toBeVisible()
+      await expect(page.getByText('Aceite pendente', { exact: true })).toHaveCount(0)
+      expect(db.chamadas).toEqual(['INVOKE aceite-evento']) // só o aceite
+    })
+  }
+
+  test('evento no ar, falha parcial (o evento gravou e o link não): relê e mostra "Em análise"', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ local_modo: 'online' }), ingressos: [ingresso()], link: 'https://meet.google.com/abc' })
+    await entrarProdutor(page)
+    await page.route(/\/rest\/v1\/evento_privado(\?|$)/, route => (route.request().method() === 'POST' ? route.fulfill({ status: 500, json: { message: 'falhou' } }) : route.fallback()))
+    await abrirPainel(page)
+    await abre(page, /^O que é/)
+    await page.getByLabel('Subtítulo').fill('Mudou o subtítulo')
+    await abre(page, /^Quando e onde/)
+    await page.getByLabel('Link da transmissão').fill('https://meet.google.com/outro')
+    await page.getByRole('button', { name: 'Enviar alterações para análise' }).click()
+    await page.waitForTimeout(400)
+    await page.getByRole('dialog').getByRole('button', { name: 'Enviar para análise' }).click()
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible() // o banco já estava em análise
+    expect(db.evento).toMatchObject({ approval_status: 'pending', subtitle: 'Mudou o subtítulo' })
+    expect(db.link).toBe('https://meet.google.com/abc') // o link não gravou
+  })
+
+  test('link antigo: evento aberto em modo presencial com link salvo o apaga na primeira gravação', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending', local_modo: 'presencial' }), ingressos: [ingresso()], link: 'https://meet.google.com/velho' })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect.poll(() => db.chamadas.includes('DELETE evento_privado'), { timeout: 8000 }).toBe(true)
+    expect(db.link).toBeNull()
   })
 
   test('em análise: mudar a classificação sem aceite novo mostra "Aceite pendente"', async ({ page }) => {
@@ -547,7 +617,7 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await abre(page, /^Publicar/)
     await page.getByLabel('Li e aceito o termo do produtor').check()
     await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'não confere com o texto que você leu' })).toBeVisible()
     expect(db.evento.status).toBe('draft')
     expect(db.chamadas.some(c => c === 'PATCH events status')).toBe(false)
   })
@@ -560,7 +630,7 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await abre(page, /^Publicar/)
     await page.getByLabel('Li e aceito o termo do produtor').check()
     await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
-    await expect(page.getByRole('alert').filter({ hasText: 'não é o texto que está na tela' })).toBeVisible()
+    await expect(page.getByRole('alert').filter({ hasText: 'não confere com o texto que você leu' })).toBeVisible()
     expect(db.evento.status).toBe('draft')
   })
 

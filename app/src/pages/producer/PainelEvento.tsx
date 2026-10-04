@@ -60,7 +60,7 @@ const frescas = { gcTime: 0, staleTime: 0, refetchOnMount: 'always', retry: 1 } 
 
 export default function PainelEvento() {
   const { eventId } = useParams()
-  const { user, role } = useAuth()
+  const { user } = useAuth()
   const ev = useQuery({
     queryKey: ['painel-evento', eventId], enabled: !!eventId, ...frescas,
     queryFn: async () => {
@@ -126,8 +126,9 @@ export default function PainelEvento() {
       </div>
     )
   }
-  // Quem lê o evento pela regra pública (evento no ar de outro produtor) não é dono nem colaborador: não vê o painel
-  if (!ev.data || !(dono || role === 'editor')) {
+  // Só o dono abre o painel (a regra de gravação do banco é por dono, sem equipe): quem lê o evento pela regra pública
+  // (evento no ar de outro produtor, ou um editor) vê "não encontrado"
+  if (!ev.data || !dono) {
     return (
       <div className="mx-auto max-w-3xl">
         <PageHeader title="Evento" />
@@ -153,7 +154,9 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const [inicial] = useState(() => {
     const f = formDoEvento(evento, dono ? linkInicial : '')
     const tipos = porCriacao(evento.ticket_types ?? []).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
-    return { f, s: snapDoForm(f, dono), tipos }
+    // o snapshot guarda o link LIDO: evento aberto em modo sem link (presencial, a definir) que ainda tem link salvo o apaga
+    // na primeira gravação (no evento no ar, no envio)
+    return { f, s: { ...snapDoForm(f, dono), ...(dono ? { online_url: linkInicial } : {}) }, tipos }
   })
   const [form, setForm] = useState<Form>(inicial.f)
   const [salvo, setSalvo] = useState<Snap>(inicial.s) // o que está gravado (no evento no ar, o que está no ar)
@@ -178,7 +181,6 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
   const [abertas, setAbertas] = useState<string[]>(['oque'])
-  const [aprovada] = useState(() => ({ classificacao: inicial.f.category === 'esporte' ? null : inicial.f.classificacao || null, bebida: inicial.tipos.some(i => i.bebida) })) // o que está no ar
 
   const set = useCallback((p: Partial<Form>) => setForm(f => ({ ...f, ...p })), [])
   const snap = useMemo(() => snapDoForm(form, dono), [form, dono])
@@ -241,7 +243,11 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const link = form.link.trim()
   const linkRuim = USA_LINK.includes(form.local_modo) && link !== '' && !linkValido(link)
   const temBebidaSalva = ingsSalvos.some(i => i.bebida)
-  const textoDoAceite = textoAceite({ titulo: form.title, formato: form.category || null, classificacao: esporte ? null : form.classificacao || null, temBebida: temBebidaSalva })
+  // "Refazer o aceite" vale o que está SALVO (a função lê o banco e nada é gravado pelo caminho); o envio vale o que está na tela
+  const classSalva = salvo.category === 'esporte' ? null : salvo.classificacao || null
+  const classificacaoTela = esporte ? null : form.classificacao || null
+  const classAceite = soAceite ? classSalva : classificacaoTela
+  const textoDoAceite = textoAceite({ titulo: soAceite ? salvo.title : form.title, formato: (soAceite ? salvo.category : form.category) || null, classificacao: classAceite, temBebida: temBebidaSalva })
   const aceiteMarcado = aceiteDe === textoDoAceite
   const lista = pendenciasDoPainel(form, ingsSalvos, aceiteMarcado || modo === 'publicado' || modo === 'analise')
   const prontos = lista.filter(p => p.pronto).length
@@ -254,17 +260,16 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   // evento no ar: só o conteúdo moderado vai para a faixa "Alterações não enviadas" (a cor salva sozinha)
   const moderado = modo === 'publicado' && mudouConteudo(diff, capaPendente)
   const alteracoes = moderado ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
-  const classificacaoTela = esporte ? null : form.classificacao || null
-  const mudouCls = classificacaoTela !== aprovada.classificacao
-  const mudouBebida = temBebidaSalva !== aprovada.bebida
-  const precisaAceiteNovo = modo === 'publicado' && (mudouCls || mudouBebida)
-  // Aceite pendente: o que está SALVO (classificação, bebida dos ingressos, versão do texto) já não é o do último aceite
-  // registrado. Acontece quando o aceite falha depois de gravar, e quando a classificação ou a bebida mudam em análise.
-  const classSalva = salvo.category === 'esporte' ? null : salvo.classificacao || null
-  const aceiteDefasado = dono && ultimoAceite !== undefined && (modo === 'analise' || modo === 'publicado')
-    && (ultimoAceite === null ? modo === 'analise' : ultimoAceite.versao !== ACEITE_VERSAO || ultimoAceite.classificacao !== classSalva || ultimoAceite.tem_bebida !== temBebidaSalva)
+  // Um critério só para o aceite: o ÚLTIMO aceite registrado (lido de evento_aceites). Vale quando não há nenhum, quando a
+  // versão do texto é outra e quando a classificação ou a bebida não são as dele. Leitura que falhou (undefined): só a
+  // classificação mudada na tela exige aceite novo no evento no ar.
+  const divergeDoAceite = (cls: string | null) => ultimoAceite === null || (ultimoAceite !== undefined
+    && (ultimoAceite.versao !== ACEITE_VERSAO || ultimoAceite.classificacao !== cls || ultimoAceite.tem_bebida !== temBebidaSalva))
+  const semAceite = ultimoAceite === null
+  const aceiteDefasado = dono && (modo === 'analise' || modo === 'publicado') && divergeDoAceite(classSalva)
+  const precisaAceiteNovo = modo === 'publicado' && (ultimoAceite === undefined ? 'classificacao' in diff : divergeDoAceite(classificacaoTela))
   const aceiteNoDialogo = soAceite || precisaAceiteNovo
-  const bloqueioDialogo = ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erros.inicio || erros.fim || linkRuim ? 'Corrija as datas e o link da transmissão antes de enviar.' : ''
+  const bloqueioDialogo = soAceite ? '' : ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erros.inicio || erros.fim || linkRuim ? 'Corrija as datas e o link da transmissão antes de enviar.' : ''
 
   const ingValidos = !ingSujo && ings.every(i => !temErro(errosDeIngresso(i)))
   const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub')
@@ -351,20 +356,23 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
     setEnviando(true); setErroEnvio('')
     try {
       const r = await enviarEvento({
-        eventId: evento.id, gravarPendentes: gravarSerial, ingressosNaoSalvos: () => vivo.current.ingSujo,
-        tela: { classificacao: classificacaoTela, temBebida: temBebidaSalva }, textoAceito: textoDoAceite,
+        eventId: evento.id, soAceite,
+        gravarPendentes: soAceite ? async () => undefined : gravarSerial, // refazer o aceite não grava conteúdo
+        ingressosNaoSalvos: () => !soAceite && vivo.current.ingSujo,
+        tela: { classificacao: classAceite, temBebida: temBebidaSalva }, textoAceito: textoDoAceite,
         aceitar: soAceite || modo === 'rascunho' || modo === 'recusado' || precisaAceiteNovo,
         publicar: modo === 'rascunho' || modo === 'recusado',
       })
       if (!r.ok) {
         setErroEnvio(r.erro)
-        // Evento já aprovado: o conteúdo gravado o devolveu para análise mesmo com o aceite falho. Relê para a tela dizer a verdade.
-        if (r.aposGravar && modo === 'publicado') { setDialogo(false); toast.error(r.erro, { duration: 12000 }); await recarregar() }
+        // Evento no ar: qualquer falha depois de começar a gravar pode ter deixado o banco em análise (até falha parcial:
+        // o evento gravou e o link não). Relê para a tela dizer a verdade; o erro vai na faixa e no aviso.
+        if (modo === 'publicado' && !soAceite) { setDialogo(false); toast.error(r.erro, { duration: 12000 }); await recarregar() }
         return
       }
+      await recarregar() // relê evento e último aceite ANTES de fechar: a faixa "Aceite pendente" não pode piscar depois do sucesso
       setDialogo(false); setSoAceite(false)
       toast.success(soAceite ? 'Aceite registrado.' : modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
-      await recarregar()
       void qc.invalidateQueries({ queryKey: ['producer-events'] })
       void qc.invalidateQueries({ queryKey: ['public-event', evento.id] })
     } finally {
@@ -425,7 +433,7 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
   const nome = form.title.trim() || 'Evento sem nome'
   const linhaData = [form.inicioD ? [dataComSemana(form.inicioD), horaCurta(form.inicioH)].filter(Boolean).join(' · ') : 'sem data', form.local_modo === 'a_definir' ? 'local a definir' : form.local_modo === 'online' ? 'online' : form.venue_city || form.venue_name].filter(Boolean).join(' · ')
   const cor = form.accent_color ?? corDoEvento(evento)
-  const classificacaoNova = CLASSIFICACOES.find(c => c.valor === classificacaoTela)
+  const classificacaoNova = CLASSIFICACOES.find(c => c.valor === classAceite)
   const aceiteTrava = !esporte && !form.classificacao
 
   const corpo = (id: string) => {
@@ -511,9 +519,12 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
         {aceiteDefasado && (
           <Faixa
             tom="atencao" titulo="Aceite pendente"
-            acoes={<Button size="sm" onClick={() => { setErroEnvio(''); setAceiteDe(null); setSoAceite(true); setDialogo(true) }}>Refazer o aceite</Button>}
+            acoes={<Button size="sm" onClick={() => { setErroEnvio(''); setAceiteDe(null); setSoAceite(true); setDialogo(true) }}>{semAceite ? 'Registrar o aceite' : 'Refazer o aceite'}</Button>}
           >
-            A classificação ou a bebida dos ingressos não é a do último aceite registrado (ou o texto do aceite mudou). Refaça o aceite; isso não muda o evento.
+            {semAceite
+              ? 'Este evento ainda não tem aceite do produtor registrado.'
+              : 'A classificação ou a bebida dos ingressos não é a do último aceite registrado (ou o texto do aceite mudou).'}
+            {moderado ? ' Há alterações não enviadas: o envio delas para análise já refaz o aceite.' : ' Refaça o aceite; isso não muda o evento.'}
             {erroEnvio && <span role="alert" className="mt-1 block text-destructive">{erroEnvio}</span>}
           </Faixa>
         )}
@@ -572,19 +583,19 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
             <DialogTitle>{soAceite ? 'Refazer o aceite?' : 'Enviar alterações para análise?'}</DialogTitle>
             <DialogDescription>
               {soAceite
-                ? 'O aceite registra a classificação e a bebida que estão salvas no evento. O evento não muda.'
+                ? moderado
+                  ? `Há alterações não enviadas (${alteracoes.join(', ')}). O aceite não grava conteúdo: para registrar o aceite, envie as alterações para análise; o envio já inclui o aceite.`
+                  : 'O aceite registra a classificação e a bebida que estão salvas no evento. O evento não muda.'
                 : `Enquanto a equipe analisa, ${nome} sai da vitrine e da busca. Quem já comprou continua vendo a página e o ingresso.`}
             </DialogDescription>
           </DialogHeader>
           {!soAceite && <p className="text-sm text-foreground">Vai para análise: {alteracoes.join(', ')}.</p>}
-          {aceiteNoDialogo && (
+          {aceiteNoDialogo && !(soAceite && moderado) && (
             <div className="grid gap-2 rounded-[10px] bg-secondary p-4">
               <p id="dlg-ac" className="text-sm font-medium text-foreground">
-                {soAceite
-                  ? `A classificação ou a bebida mudou depois do último aceite: refaça o aceite com a classificação ${classificacaoNova?.valor ?? 'sem classificação'}`
-                  : mudouCls
-                  ? `A classificação mudou de ${aprovada.classificacao ?? 'sem classificação'} para ${classificacaoNova?.valor ?? 'sem classificação'}: refaça o aceite`
-                  : 'A bebida alcoólica dos ingressos mudou: refaça o aceite'}
+                {semAceite
+                  ? 'Este evento ainda não tem aceite do produtor registrado: faça o aceite'
+                  : `A classificação ou a bebida mudou depois do último aceite: refaça o aceite com a classificação ${classificacaoNova?.valor ?? 'sem classificação'}`}
               </p>
               <details className="text-[13px] text-muted-foreground">
                 <summary className="cursor-pointer">Ver o texto do aceite</summary>
@@ -599,8 +610,12 @@ function Painel({ evento, dono, linkInicial, vendidosPorId, ultimoAceite }: { ev
           {(erroEnvio || bloqueioDialogo) && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><I.Erro size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{erroEnvio || bloqueioDialogo}</p>}
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDialogo(false)} disabled={enviando}>Cancelar</Button>
-            <Button loading={enviando} aria-disabled={(aceiteNoDialogo && !aceiteMarcado) || !!bloqueioDialogo || undefined} aria-describedby={aceiteNoDialogo && !aceiteMarcado ? 'dlg-ac' : undefined}
-              onClick={() => { if ((!aceiteNoDialogo || aceiteMarcado) && !bloqueioDialogo) void enviar() }}>{soAceite ? 'Registrar o aceite' : 'Enviar para análise'}</Button>
+            {soAceite && moderado ? (
+              <Button onClick={() => { setSoAceite(false); setAceiteDe(null) }}>Enviar alterações para análise</Button>
+            ) : (
+              <Button loading={enviando} aria-disabled={(aceiteNoDialogo && !aceiteMarcado) || !!bloqueioDialogo || undefined} aria-describedby={aceiteNoDialogo && !aceiteMarcado ? 'dlg-ac' : undefined}
+                onClick={() => { if ((!aceiteNoDialogo || aceiteMarcado) && !bloqueioDialogo) void enviar() }}>{soAceite ? 'Registrar o aceite' : 'Enviar para análise'}</Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
