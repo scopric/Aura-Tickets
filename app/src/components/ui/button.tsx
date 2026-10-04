@@ -90,7 +90,8 @@ function Button({
     >
       {loading && !asChild ? (
         // as duas camadas ocupam a mesma célula: a largura não pula quando o rótulo troca
-        <span className="grid items-center [&>*]:col-start-1 [&>*]:row-start-1">
+        // gap-[inherit]: repassa o gap do botão à camada invisível (célula única, o gap da grade não aparece)
+        <span className="grid items-center gap-[inherit] [&>*]:col-start-1 [&>*]:row-start-1">
           <span aria-hidden="true" className="invisible inline-flex items-center justify-center gap-[inherit]">{children}</span>
           <span className="inline-flex items-center justify-center">
             <Spinner role="presentation" aria-hidden="true" />

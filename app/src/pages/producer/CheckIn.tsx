@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import {
-  ScanLine, CheckCircle2, XCircle, Clock, Users,
-  Search, Ticket, AlertTriangle, Zap, ChevronDown
-} from 'lucide-react'
 import { toast } from 'sonner'
 import { Link, useSearchParams } from 'react-router-dom'
+import * as I from '@/components/icones/evokaa16'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
+import { Segmented } from '@/components/ui/toggle-group'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
+import { iniciais } from '../../hooks/useConversas'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
@@ -18,8 +23,15 @@ interface TicketCheck {
   status: 'pendente' | 'usado' | 'cancelado'
   checkInTime: string | null
   seat: string
-  avatar: string
   eventName: string
+}
+
+
+// Resultado da leitura: texto e fundo seguem o tema (--ev-success e --ev-warning mudam no escuro; text-destructive idem)
+const TOM = {
+  ok: { texto: 'text-[var(--ev-success)]', caixa: 'border-[var(--ev-success)] bg-[color-mix(in_srgb,var(--ev-success)_10%,hsl(var(--card)))]', Icone: I.Liberado, rotulo: 'Acesso Permitido' },
+  aviso: { texto: 'text-[var(--ev-warning)]', caixa: 'border-[var(--ev-warning)] bg-[color-mix(in_srgb,var(--ev-warning)_10%,hsl(var(--card)))]', Icone: I.Alerta, rotulo: 'Duplicado' },
+  erro: { texto: 'text-destructive', caixa: 'border-destructive bg-[color-mix(in_srgb,hsl(var(--destructive))_10%,hsl(var(--card)))]', Icone: I.Negado, rotulo: 'Acesso Negado' },
 }
 
 export default function ProducerCheckIn() {
@@ -29,9 +41,10 @@ export default function ProducerCheckIn() {
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
   const [search, setSearch] = useState('')
   const [mode, setMode] = useState<'scanner' | 'list'>('scanner')
-  const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; success: boolean; message: string } | null>(null)
+  const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; success: boolean; message: string; falha?: boolean } | null>(null)
   
   const inputRef = useRef<HTMLInputElement>(null)
+  const cartaoRef = useRef<HTMLDivElement>(null)
 
   // Mapear eventos ativos
   const activeEvents = events?.filter(e => e.status === 'published') || []
@@ -63,7 +76,6 @@ export default function ProducerCheckIn() {
         ? new Date(dbTicket.checked_in_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
         : null,
       seat: '-',
-      avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${dbTicket.buyer_name || 'U'}`,
       eventName: dbTicket.events?.title || 'Evento'
     }
   }
@@ -150,7 +162,6 @@ export default function ProducerCheckIn() {
           status: 'usado' as const,
           checkInTime: 'Agora',
           seat: '-',
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${data.buyerName}`,
           eventName: activeEvents.find(e => e.id === selectedEventId)?.title || 'Evento'
         }
 
@@ -172,7 +183,6 @@ export default function ProducerCheckIn() {
           status: 'cancelado' as const,
           checkInTime: data.checkedInAt ? new Date(data.checkedInAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null,
           seat: '-',
-          avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${data.buyerName || 'X'}`,
           eventName: ''
         }
 
@@ -196,11 +206,11 @@ export default function ProducerCheckIn() {
           status: 'cancelado',
           checkInTime: null,
           seat: '',
-          avatar: '',
           eventName: ''
         },
         success: false,
-        message: err.message || 'Erro de rede ao conectar com a API de check-in'
+        message: err.message || 'Erro de rede ao conectar com a API de check-in',
+        falha: true
       })
     }
   }
@@ -216,122 +226,114 @@ export default function ProducerCheckIn() {
     }
   }, [mode])
 
+  // o cartão nasce abaixo do campo: no celular fica fora da tela ou atrás da barra inferior (scroll-mb no cartão)
+  useEffect(() => {
+    cartaoRef.current?.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }, [lastScan])
+
+  const resultado = lastScan && TOM[lastScan.success ? 'ok' : lastScan.ticket.status === 'usado' ? 'aviso' : 'erro']
+
   return (
-    <div className="p-6 lg:p-10 max-w-5xl">
-      {/* Event Selector & Title */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Check-in</h1>
-          <p className="text-sm text-espresso/70 mt-1">Validação de ingressos e portaria em tempo real</p>
-        </div>
-        
-        {/* Selector Dropdown */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          {activeEvents.length > 0 && (
-            <div data-tour="checkin-evento" className="relative w-full sm:w-64">
-              <select
-                value={selectedEventId}
-                onChange={e => {
-                  setSelectedEventId(e.target.value)
-                  setLastScan(null)
-                }}
-                aria-label="Selecionar Evento"
-                title="Selecionar Evento"
-                className="w-full pl-4 pr-10 py-2.5 bg-white/60 border border-white/60 rounded-xl text-xs font-medium text-espresso appearance-none focus:outline-none focus:border-plum/30 transition-all cursor-pointer"
-              >
-                {!selectedEventId && <option value="" disabled>Selecione um evento</option>}
-                {activeEvents.map(e => (
-                  <option key={e.id} value={e.id}>{e.title}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/40 pointer-events-none" />
+    <div>
+      <PageHeader
+        title="Check-in"
+        description="Validação de ingressos e portaria em tempo real"
+        actions={
+          <>
+            {activeEvents.length > 0 && (
+              <div data-tour="checkin-evento" className="w-full sm:w-64">
+                <select
+                  value={selectedEventId}
+                  onChange={e => {
+                    setSelectedEventId(e.target.value)
+                    setLastScan(null)
+                  }}
+                  aria-label="Selecionar Evento"
+                  title="Selecionar Evento"
+                  className={selectNativo}
+                >
+                  {!selectedEventId && <option value="" disabled>Selecione um evento</option>}
+                  {activeEvents.map(e => (
+                    <option key={e.id} value={e.id}>{e.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div data-tour="checkin-modo" className="w-full sm:w-52">
+              <Segmented
+                label="Modo"
+                size="md"
+                value={mode}
+                onValueChange={v => setMode(v as 'scanner' | 'list')}
+                items={[
+                  { value: 'scanner', label: <><I.Escanear size={16} />Scanner</> },
+                  { value: 'list', label: <><I.Pessoas size={16} />Lista</> },
+                ]}
+              />
             </div>
-          )}
-          <div data-tour="checkin-modo" className="flex items-center gap-1 bg-white/40 border border-white/60 rounded-full p-1">
-            <button 
-              onClick={() => setMode('scanner')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'scanner' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/70 hover:text-espresso'}`}
-            >
-              <ScanLine className="w-3.5 h-3.5" /> Scanner
-            </button>
-            <button 
-              onClick={() => setMode('list')} 
-              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all flex items-center gap-1 ${mode === 'list' ? 'bg-plum text-cream shadow-sm' : 'text-espresso/70 hover:text-espresso'}`}
-            >
-              <Users className="w-3.5 h-3.5" /> Lista
-            </button>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {isEventsLoading ? (
-        <div className="h-64 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-plum" />
+        <div aria-busy="true" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
       ) : naoPublicado ? (
-        <div role="status" className="bg-white/60 border border-white/60 rounded-3xl p-12 text-center backdrop-blur-sm">
-          <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-8 h-8 text-plum" />
-          </div>
-          <h3 className="font-serif text-xl text-espresso mb-2">Este evento ainda não está publicado</h3>
-          <p className="text-sm text-espresso/70 max-w-sm mx-auto">
-            O check-in abre quando ele estiver no ar. Escolha outro evento acima ou <Link to="/producer/events" className="underline">veja seus eventos</Link>.
-          </p>
+        <div role="status">
+          <EmptyState
+            title="Este evento ainda não está publicado"
+            description={<>O check-in abre quando ele estiver no ar. Escolha outro evento acima ou <Link to="/producer/events" className="text-foreground underline underline-offset-4">veja seus eventos</Link>.</>}
+          />
         </div>
       ) : activeEvents.length === 0 ? (
-        <div className="bg-white/60 border border-white/60 rounded-3xl p-12 text-center backdrop-blur-sm">
-          <div className="w-16 h-16 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-8 h-8 text-plum" />
-          </div>
-          <h3 className="font-serif text-xl text-espresso mb-2">Nenhum evento ativo</h3>
-          <p className="text-sm text-espresso/70 max-w-sm mx-auto">
-            Você precisa ter pelo menos um evento publicado para gerenciar a portaria e check-in.
-          </p>
-        </div>
+        <EmptyState
+          title="Nenhum evento ativo"
+          description="Você precisa ter pelo menos um evento publicado para gerenciar a portaria e check-in."
+        />
       ) : (
         <>
           {/* Stats */}
-          <div data-tour="checkin-numeros" className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div data-tour="checkin-numeros" className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {[
-              { label: 'Total Emitido', value: isLoadingTickets ? '...' : total.toString(), icon: Ticket, color: 'text-plum', bg: 'bg-plum/5' },
-              { label: 'Check-in Realizado', value: isLoadingTickets ? '...' : checked.toString(), icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50' },
-              { label: 'Pendentes', value: isLoadingTickets ? '...' : pending.toString(), icon: Clock, color: 'text-amber-600', bg: 'bg-amber-50' },
-              { label: 'Cancelados', value: isLoadingTickets ? '...' : cancelled.toString(), icon: XCircle, color: 'text-red-400', bg: 'bg-red-50' },
+              { label: 'Total Emitido', value: total, icon: I.Ingressos, cor: 'text-muted-foreground' },
+              { label: 'Check-in Realizado', value: checked, icon: I.Liberado, cor: 'text-[var(--ev-success)]' },
+              { label: 'Pendentes', value: pending, icon: I.Horario, cor: 'text-[var(--ev-warning)]' },
+              { label: 'Cancelados', value: cancelled, icon: I.Negado, cor: 'text-destructive' },
             ].map(k => (
-              <div key={k.label} className={`p-4 rounded-2xl bg-white/60 border border-white/60 text-center ${k.bg}`}>
-                <k.icon className={`w-4 h-4 ${k.color} mx-auto mb-1.5`} />
-                <div className={`font-serif text-xl ${k.color}`}>{k.value}</div>
-                <div className="text-[10px] text-espresso/70 mt-0.5">{k.label}</div>
-              </div>
+              <Stat
+                key={k.label}
+                label={<span className="inline-flex items-center gap-1.5"><k.icon size={16} className={k.cor} />{k.label}</span>}
+                value={isLoadingTickets ? '...' : k.value}
+              />
             ))}
           </div>
 
           {/* Progress */}
-          <div className="mb-8 p-4 rounded-2xl bg-white/60 border border-white/60">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-espresso/70">Progresso do check-in</span>
-              <span className="text-xs font-medium text-plum">
+          <div className="mt-3 rounded-[10px] border border-border bg-card p-4">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span id="progresso-checkin" className="text-[13px] text-muted-foreground">Progresso do check-in</span>
+              <span className="text-[13px] font-medium tabular-nums text-foreground">
                 {isLoadingTickets ? 'Carregando...' : `${progress.toFixed(0)}% · ${checked}/${total}`}
               </span>
             </div>
-            <div className="w-full h-3 bg-canvas rounded-full overflow-hidden">
-              <div className="h-full bg-plum rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-            </div>
+            <Progress value={progress} aria-labelledby="progresso-checkin" className="h-2 bg-secondary" />
           </div>
 
           {/* Scanner Mode */}
           {mode === 'scanner' && (
-            <div className="space-y-6">
-              <div data-tour="checkin-leitor" className="p-8 rounded-3xl bg-white/60 border border-white/60 text-center backdrop-blur-sm">
-                <div className="w-20 h-20 rounded-full bg-plum/10 flex items-center justify-center mx-auto mb-4">
-                  <ScanLine className="w-10 h-10 text-plum" />
+            <div className="mt-6 space-y-4">
+              <div data-tour="checkin-leitor" className="rounded-[10px] border border-border bg-card p-6 text-center sm:p-8">
+                <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-secondary text-primary">
+                  <I.Escanear size={32} />
                 </div>
-                <p className="text-sm text-espresso/70 mb-4">Posicione o leitor ou digite o código do ingresso</p>
-                <input
+                <p className="mb-4 text-sm text-muted-foreground">Posicione o leitor ou digite o código do ingresso</p>
+                <Input
                   ref={inputRef}
                   type="text"
+                  aria-label="Código do ingresso"
                   value={search}
-                  onChange={e => { 
+                  onChange={e => {
                     setSearch(e.target.value)
                     // Se digitar o código completo ou passar leitor de código de barras/QR (geralmente dispara submit com Enter)
                     if (e.target.value.length >= 10 && !e.target.value.includes(' ')) {
@@ -339,44 +341,36 @@ export default function ProducerCheckIn() {
                       setSearch('')
                     }
                   }}
-                  onKeyDown={e => { 
-                    if (e.key === 'Enter' && search.trim().length >= 3) { 
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && search.trim().length >= 3) {
                       handleScan(search.trim())
-                      setSearch('') 
-                    } 
+                      setSearch('')
+                    }
                   }}
                   placeholder="Código do ingresso (ex: AUR-XXXX-001)..."
-                  className="w-full max-w-sm mx-auto px-6 py-4 bg-white/60 border border-white/60 rounded-full text-center text-lg text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 font-mono tracking-wider"
+                  className="mx-auto h-14 max-w-md text-center font-mono text-base tracking-wide md:text-base"
                 />
               </div>
 
               {/* Last Scan Result */}
-              {lastScan && (
-                <div className={`p-6 rounded-2xl border backdrop-blur-sm transition-all ${
-                  lastScan.success 
-                    ? 'bg-green-50/80 border-green-200 text-green-800' 
-                    : lastScan.ticket.status === 'usado' 
-                    ? 'bg-amber-50/80 border-amber-200 text-amber-800' 
-                    : 'bg-red-50/80 border-red-200 text-red-800'
-                }`}>
-                  <div className="flex items-center gap-4">
-                    <img src={lastScan.ticket.avatar} alt="" className="w-14 h-14 rounded-full object-cover ring-2 ring-white flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
+              {resultado && lastScan && (
+                <div ref={cartaoRef} className={cn('scroll-mb-[calc(var(--barra-cel,0px)+1rem)] rounded-[10px] border p-4 sm:p-5', resultado.caixa)}>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-3 sm:flex-nowrap">
+                    {!lastScan.falha && <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium text-muted-foreground">{iniciais(lastScan.ticket.name ?? '')}</span>}
+                    <div className={cn('min-w-0 flex-1', lastScan.falha ? 'max-sm:basis-full' : 'max-sm:basis-[calc(100%-4rem)]')}>
                       <div className="flex items-center gap-2">
-                        {lastScan.success ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /> : lastScan.ticket.status === 'usado' ? <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
-                        <h3 className="text-base font-serif text-espresso truncate">{lastScan.ticket.name}</h3>
+                        <resultado.Icone size={20} className={cn('shrink-0', resultado.texto)} />
+                        <h2 className="truncate text-base font-semibold leading-6 tracking-normal text-foreground">{lastScan.ticket.name}</h2>
                       </div>
-                      <p className="text-xs text-espresso/70 mt-0.5 truncate">
-                        {lastScan.ticket.ticketType} · {lastScan.ticket.ticketCode}
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {[lastScan.ticket.ticketType, lastScan.ticket.ticketCode].filter(Boolean).join(' · ')}
                       </p>
-                      <p className="text-[10px] font-medium mt-1">
+                      <p className="mt-1 text-xs font-medium text-foreground">
                         {lastScan.message}
                       </p>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap flex-shrink-0 ${
-                      lastScan.success ? 'bg-green-200/60 text-green-800' : lastScan.ticket.status === 'usado' ? 'bg-amber-200/60 text-amber-800' : 'bg-red-200/60 text-red-800'
-                    }`}>
-                      {lastScan.success ? 'Acesso Permitido' : lastScan.ticket.status === 'usado' ? 'Duplicado' : 'Acesso Negado'}
+                    <div className={cn('whitespace-nowrap rounded-full bg-card px-3 py-1.5 text-xs font-semibold sm:shrink-0', !lastScan.falha && 'max-sm:ml-16', resultado.texto)}>
+                      {resultado.rotulo}
                     </div>
                   </div>
                 </div>
@@ -386,51 +380,48 @@ export default function ProducerCheckIn() {
 
           {/* List Mode */}
           {mode === 'list' && (
-            <div className="space-y-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-                <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por participante ou código do ingresso..." className="w-full pl-10 pr-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <div className="mt-6 space-y-3">
+              <div className="relative w-full sm:max-w-md">
+                <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder="Buscar por participante ou código do ingresso..." className="pl-9" />
               </div>
-              
+
               {isLoadingTickets ? (
-                <div className="space-y-2">
+                <div aria-busy="true" className="space-y-2">
                   {[1, 2, 3].map(n => (
-                    <div key={n} className="h-16 bg-white/40 border border-white/60 rounded-2xl animate-pulse" />
+                    <Skeleton key={n} className="h-16 rounded-[10px] bg-muted" />
                   ))}
                 </div>
               ) : (
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                <ul className="max-h-[500px] divide-y divide-border overflow-y-auto rounded-[10px] border border-border bg-card">
                   {filtered.map(t => (
-                    <div key={t.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${t.status === 'usado' ? 'bg-green-50/40 border-green-100/40' : t.status === 'cancelado' ? 'bg-red-50/30 border-red-100/30 opacity-50' : 'bg-white/60 border-white/60'}`}>
-                      <img src={t.avatar} alt="" className="w-11 h-11 rounded-full object-cover ring-2 ring-canvas flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-espresso font-medium truncate">{t.name}</div>
-                        <div className="text-[10px] text-espresso/70">
+                    <li key={t.id} className="flex items-center gap-3 p-3">
+                      <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">{iniciais(t.name ?? '')}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className={cn('truncate text-sm font-medium', t.status === 'cancelado' ? 'text-muted-foreground' : 'text-foreground')}>{t.name}</div>
+                        <div className="truncate text-xs text-muted-foreground">
                           {t.ticketType} · {t.ticketCode}
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0">
+                      <div className="shrink-0 text-right">
                         {t.status === 'usado' && (
-                          <div className="text-xs text-green-600 font-semibold flex items-center gap-1 justify-end">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Confirmado às {t.checkInTime}
+                          <div className="flex items-center justify-end gap-1 text-xs font-semibold text-[var(--ev-success)]">
+                            <I.Liberado size={14} /> Confirmado às {t.checkInTime}
                           </div>
                         )}
-                        {t.status === 'cancelado' && <div className="text-xs text-red-500 font-medium">Cancelado</div>}
+                        {t.status === 'cancelado' && <div className="text-xs font-medium text-destructive">Cancelado</div>}
                         {t.status === 'pendente' && (
-                          <button 
-                            onClick={() => manualCheckIn(t)} 
-                            className="px-4 py-1.5 bg-plum text-cream text-xs font-semibold rounded-full hover:shadow-glow transition-all flex items-center gap-1"
-                          >
-                            <Zap className="w-3 h-3 fill-current" /> Confirmar Entrada
-                          </button>
+                          <Button size="sm" onClick={() => manualCheckIn(t)}>
+                            <I.Raio /> Confirmar Entrada
+                          </Button>
                         )}
                       </div>
-                    </div>
+                    </li>
                   ))}
                   {filtered.length === 0 && (
-                    <div className="py-12 text-center text-xs text-espresso/70">Nenhum participante encontrado nesta busca.</div>
+                    <li className="py-12 text-center text-xs text-muted-foreground">Nenhum participante encontrado nesta busca.</li>
                   )}
-                </div>
+                </ul>
               )}
             </div>
           )}

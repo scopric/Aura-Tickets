@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { ImagePlus, X, Grid3X3, List, Trash2, Copy, Star, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import {
   useEventPhotos,
   useCreatePhoto,
@@ -102,13 +102,13 @@ export default function ProducerEventGallery() {
         <>
           <div role="group" aria-label="Visualização" className="flex rounded-md border border-border p-0.5">
             <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon-sm" className={viewMode === 'grid' ? '' : icone} aria-pressed={viewMode === 'grid'} aria-label="Ver em grade" onClick={() => setViewMode('grid')}>
-              <Grid3X3 aria-hidden="true" />
+              <I.Grade aria-hidden="true" />
             </Button>
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon-sm" className={viewMode === 'list' ? '' : icone} aria-pressed={viewMode === 'list'} aria-label="Ver em lista" onClick={() => setViewMode('list')}>
-              <List aria-hidden="true" />
+              <I.Lista aria-hidden="true" />
             </Button>
           </div>
-          <Button onClick={() => setShowUpload(true)}><ImagePlus aria-hidden="true" />Adicionar foto</Button>
+          <Button onClick={() => setShowUpload(true)}><I.ImagemMais aria-hidden="true" />Adicionar foto</Button>
         </>
       }
     />
@@ -157,7 +157,7 @@ export default function ProducerEventGallery() {
         <EmptyState
           title={activeEvent === 'Todos' ? 'Nenhuma foto ainda' : 'Nenhuma foto deste evento'}
           description={activeEvent === 'Todos' ? 'Adicione a primeira foto da galeria.' : undefined}
-          action={<Button onClick={() => setShowUpload(true)}><ImagePlus aria-hidden="true" />Adicionar foto</Button>}
+          action={<Button onClick={() => setShowUpload(true)}><I.ImagemMais aria-hidden="true" />Adicionar foto</Button>}
         />
       ) : viewMode === 'grid' ? (
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
@@ -169,7 +169,7 @@ export default function ProducerEventGallery() {
               <div className="flex items-center justify-between gap-1 p-2">
                 <span className="min-w-0 truncate text-xs text-muted-foreground">{photo.caption || 'Sem legenda'}</span>
                 <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(photo.id)} aria-label={`Apagar ${photo.caption || 'foto sem legenda'}`}>
-                  <Trash2 aria-hidden="true" />
+                  <I.Lixeira aria-hidden="true" />
                 </Button>
               </div>
               {photo.featured && <Badge className="absolute right-2 top-2">Destaque</Badge>}
@@ -192,10 +192,10 @@ export default function ProducerEventGallery() {
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <Button variant="ghost" size="icon-sm" className={photo.featured ? 'text-primary hover:bg-foreground/5' : icone} aria-pressed={photo.featured} onClick={() => toggleFeatured(photo)} aria-label={photo.featured ? 'Tirar destaque' : 'Destacar'}>
-                  <Star aria-hidden="true" />
+                  <I.Estrela aria-hidden="true" ativo={photo.featured} />
                 </Button>
                 <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(photo.id)} aria-label={`Apagar ${photo.caption || 'foto sem legenda'}`}>
-                  <Trash2 aria-hidden="true" />
+                  <I.Lixeira aria-hidden="true" />
                 </Button>
               </div>
             </li>
@@ -216,7 +216,7 @@ export default function ProducerEventGallery() {
                 <div className="relative">
                   <img src={uploadPreview} alt="Prévia da foto" onError={() => { setUploadPreview(null); setUrl(''); toast.error('A imagem não carregou. Confira o endereço.') }} className="h-40 w-full rounded-md border border-border object-cover" />
                   <Button type="button" variant="secondary" size="icon-sm" onClick={() => { setUploadPreview(null); setUrl('') }} aria-label="Trocar imagem" className="absolute right-2 top-2">
-                    <X aria-hidden="true" />
+                    <I.Fechar aria-hidden="true" />
                   </Button>
                 </div>
               ) : (
@@ -238,8 +238,8 @@ export default function ProducerEventGallery() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowUpload(false)}>Cancelar</Button>
-            <Button type="submit" form="form-foto" disabled={createPhoto.isPending}>
-              {createPhoto.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Adicionando…</> : 'Adicionar'}
+            <Button type="submit" form="form-foto" loading={createPhoto.isPending}>
+              Adicionar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -259,13 +259,13 @@ export default function ProducerEventGallery() {
                 </DialogHeader>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button variant="outline" size="sm" aria-pressed={selectedPhoto.featured} onClick={() => toggleFeatured(selectedPhoto)}>
-                    <Star aria-hidden="true" />{selectedPhoto.featured ? 'Tirar destaque' : 'Destacar'}
+                    <I.Estrela aria-hidden="true" ativo={selectedPhoto.featured} />{selectedPhoto.featured ? 'Tirar destaque' : 'Destacar'}
                   </Button>
                   <Button variant="ghost" size="icon-sm" className={icone} onClick={() => { navigator.clipboard.writeText(selectedPhoto.url); toast.success('Endereço copiado.') }} aria-label="Copiar endereço da imagem">
-                    <Copy aria-hidden="true" />
+                    <I.Copiar aria-hidden="true" />
                   </Button>
                   <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(selectedPhoto.id)} aria-label="Apagar foto">
-                    <Trash2 aria-hidden="true" />
+                    <I.Lixeira aria-hidden="true" />
                   </Button>
                 </div>
               </div>

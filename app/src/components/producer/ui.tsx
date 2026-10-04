@@ -26,6 +26,9 @@ export function Stat({ label, value, hint }: { label: ReactNode; value: ReactNod
   )
 }
 
+// Select nativo de 40 px com o foco do campo (--ev-focus-field)
+export const selectNativo = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
+
 // Título de seção do painel: Jakarta 15/20 600 (o h2 global é grande demais para dentro de painel)
 export function SectionTitle({ id, children }: { id?: string; children: ReactNode }) {
   return <h2 id={id} className="text-[15px] font-semibold leading-5 tracking-normal text-foreground">{children}</h2>
