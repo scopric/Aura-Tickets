@@ -12,7 +12,7 @@ import '@/components/EventoCapa.css' // só as regras do duotone (.evcapa-duo)
 import './Download.css'
 
 // Instale o app (V11c; prancha App). Sem loja e sem download: é um atalho (PWA) na tela inicial.
-// Sem service worker o app não abre sem internet; a página diz isso em vez de prometer.
+// Só "Ingressos" abre sem internet (public/sw.js, Decisão 162); o resto do app precisa de conexão e a página diz isso.
 
 const REPOUSO = { rx: 6, ry: -18 } // pose de repouso da prancha: y -18 graus, x 6 graus, sem rotateZ
 const LIMITE = 25 // giro máximo para cada lado, em graus
@@ -198,7 +198,7 @@ export default function AppDownload() {
         <header className="lg:col-start-1 lg:row-start-1">
           <h1 className="text-2xl font-semibold leading-8 tracking-[-0.015em] lg:text-[32px] lg:leading-10">A Evokaa na sua tela inicial</h1>
           <p className="mt-2 text-base leading-6 text-muted-foreground">
-            Um atalho que abre seus ingressos direto, a um toque. Não tem loja nem download, e precisa de internet para abrir.
+            Um atalho que abre seus ingressos direto, a um toque. Não tem loja nem download. Seus ingressos já carregados abrem sem internet; o resto do app precisa de conexão.
           </p>
         </header>
 
@@ -267,7 +267,7 @@ export default function AppDownload() {
               <ul className="m-0 mt-1 list-none p-0 text-[15px] leading-5">
                 <li className="border-b border-border py-3">Ao abrir pelo ícone, aparece sem a barra do navegador.</li>
                 <li className="border-b border-border py-3">É um atalho: quase não ocupa espaço e se atualiza sozinho.</li>
-                <li className="py-3 text-muted-foreground">Sem internet o app não abre: os ingressos só aparecem com conexão.</li>
+                <li className="py-3 text-muted-foreground">Sem internet só a tela Ingressos abre, com os ingressos que você já tinha carregado. O resto do app precisa de conexão.</li>
               </ul>
             </>
           )}

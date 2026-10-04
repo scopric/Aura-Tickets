@@ -1,3 +1,4 @@
+import { comTempo, definirCopia, falhaDeRede, guardarIngressos, lerIngressos } from '../lib/ingressosOffline'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
@@ -214,7 +215,8 @@ export function useUserTickets() {
 
       // Buscar ingressos do usuário e trazer dados do tipo de ingresso (ticket_types)
       // E também do evento relacionado através do ticket_types.
-      const { data, error } = await supabase
+      const copia = lerIngressos<DbTicket>(user.id)
+      const consulta = supabase
         .from('tickets')
         .select(`
           ${COLUNAS_INGRESSO},
@@ -241,11 +243,18 @@ export function useUserTickets() {
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+      // com cópia, rede pendurada (ou renovação de token em espera) não segura a tela
+      const { data, error }: { data: any[] | null; error: { code?: string } | null } = copia ? await comTempo<{ data: any[] | null; error: { code?: string } | null }>(consulta, 3500, () => ({ data: null, error: { code: '' } })) : await consulta
 
-      if (error) throw error
+      if (error) {
+        // falha de rede (sem internet, fetch caiu, timeout): mostra a cópia da última vez que carregou (D4); erro do banco segue como erro
+        if (copia && falhaDeRede(error)) { definirCopia(copia.em); return copia.ingressos }
+        throw error
+      }
+      definirCopia(null)
 
       // Mapear retorno aninhado para facilitar o consumo no frontend
-      return (data || []).map((t: any) => ({
+      const lista = (data || []).map((t: any) => ({
         ...t,
         code: t.code ?? t.qr_code,
         ticket_types: {
@@ -255,8 +264,12 @@ export function useUserTickets() {
         },
         events: t.ticket_types?.events ?? undefined,
       })) as DbTicket[]
+      guardarIngressos(user.id, lista)
+      return lista
     },
     enabled: !!user?.id,
+    networkMode: 'always', // offline a consulta roda mesmo assim e cai na cópia guardada
+    retry: (n) => n < 2 && !(user?.id && lerIngressos(user.id)), // com cópia não insiste: cai nela já
   })
 }
 

@@ -6,6 +6,7 @@ import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary.tsx'
 import { queryClient } from './lib/queryClient.ts'
+import { registrarServiceWorker } from './lib/ingressosOffline.ts'
 import { ouvirInstalacao } from './lib/instalar.ts'
 
 // Depois de um deploy, a aba aberta pede um pedaço (layout ou página) que não existe mais: recarrega uma vez
@@ -21,6 +22,7 @@ window.addEventListener('vite:preloadError', () => {
   window.location.reload()
 })
 
+registrarServiceWorker() // ingresso sem internet: só /app/tickets (public/sw.js)
 ouvirInstalacao() // guarda o aviso de instalação do Chrome para a página /app/download
 
 createRoot(document.getElementById('root')!).render(
