@@ -76,7 +76,6 @@ const ProducerPartners = lazy(() => import('./pages/producer/Partners'))
 const ProducerTimeline = lazy(() => import('./pages/producer/Timeline'))
 const ProducerSettings = lazy(() => import('./pages/producer/ProducerSettings'))
 const TeamManager = lazy(() => import('./pages/producer/TeamManager'))
-const EventTicketConfig = lazy(() => import('./pages/producer/EventTicketConfig'))
 const EvokaaStore = lazy(() => import('./pages/producer/EvokaaStore'))
 const InterestList = lazy(() => import('./pages/producer/InterestList'))
 const Certificates = lazy(() => import('./pages/producer/Certificates'))
@@ -406,7 +405,7 @@ function Layout() {
               <Route path="/producer/settings" element={<ProducerSettings />} />
               <Route path="/producer/assinatura" element={<ComingSoonRoute title="A Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
               <Route path="/producer/team" element={<TeamManager />} />
-              <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
+              <Route path="/producer/ingressos-avancados" element={<Navigate to="/producer/events/new" replace />} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
               <Route path="/producer/bordero" element={<ProducerBordero />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />

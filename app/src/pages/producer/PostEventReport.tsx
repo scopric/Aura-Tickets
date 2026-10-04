@@ -84,7 +84,7 @@ export default function PostEventReport() {
         <EmptyState
           title="Você ainda não tem eventos"
           description="O relatório aparece aqui depois do evento."
-          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )

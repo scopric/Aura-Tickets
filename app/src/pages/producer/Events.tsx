@@ -74,7 +74,7 @@ export default function ProducerEvents() {
     <PageHeader
       title="Meus eventos"
       description="Todos os seus eventos, do rascunho ao encerrado"
-      actions={<Button asChild data-tour="eventos-criar"><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+      actions={<Button asChild data-tour="eventos-criar"><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
     />
   )
 
@@ -127,7 +127,7 @@ export default function ProducerEvents() {
             <EmptyState
               title="Você ainda não tem eventos"
               description="Crie o primeiro e acompanhe tudo por aqui."
-              action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+              action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
             />
           ) : (
             <EmptyState title="Nenhum evento com essa busca ou filtro" />

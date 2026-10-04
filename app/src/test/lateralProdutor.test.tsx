@@ -49,7 +49,7 @@ describe('lateral do produtor (V4a)', () => {
     expect(buscar).toHaveTextContent('Ctrl K')
     fireEvent.click(buscar)
     expect(onBuscar).toHaveBeenCalledTimes(1)
-    expect(screen.getByRole('link', { name: 'Criar evento' })).toHaveAttribute('href', '/producer/planner')
+    expect(screen.getByRole('link', { name: 'Criar evento' })).toHaveAttribute('href', '/producer/events/new')
   })
 
   it('o "+" (só ícone) mostra a dica "Criar evento" também na lateral aberta', async () => {

@@ -58,7 +58,7 @@ const porNome = (nome: string) => NAV.find(t => t.tela === nome)!
 
 /** Início é item solto (fora das seções); "Criar evento" é o botão "+", não item */
 export const INICIO = porNome('Início')
-export const ROTA_CRIAR_EVENTO = '/producer/planner'
+export const ROTA_CRIAR_EVENTO = '/producer/events/new'
 
 /** A rota é a da tela atual (a raiz /producer conta como Início); a lateral e a folha Menu usam a mesma regra */
 export function rotaAtiva(rota: string, pathname: string): boolean {

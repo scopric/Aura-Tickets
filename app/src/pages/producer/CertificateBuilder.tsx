@@ -235,7 +235,7 @@ export default function CertificateBuilder() {
         <EmptyState
           title="Crie um evento antes do certificado"
           description="O modelo de certificado é salvo para um evento."
-          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )
