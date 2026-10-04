@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/70">Última atualização: 4 de outubro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
+          <p className="text-xs text-espresso/70">Última atualização: 5 de outubro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
               <li>Dados de transações: histórico de compras (processado por parceiros)</li>
               <li>Dados de navegação: cookies e logs para melhorar a experiência</li>
               <li>Eventos salvos: os eventos que você marca com o coração, ligados à sua conta, com a data em que marcou. A lista não é mostrada ao produtor do evento nem a outras pessoas</li>
-              <li>Uso do Evo, o assistente de inteligência artificial (só para produtores): as mensagens e os dados de planejamento que você envia e o registro de cada uso, conforme a seção 8</li>
+              <li>Uso do Evo, o assistente de inteligência artificial (só para produtores): as mensagens e os dados de planejamento que você envia, a imagem da planta do local que você envia ao leitor de planta do Lugar marcado e o registro de cada uso, conforme a seção 8</li>
               <li>Registros de acesso: data, hora e endereço IP de cada login, guardados por 6 meses por obrigação legal (Marco Civil da Internet, art. 15) e depois apagados automaticamente; e o registro do seu aceite dos Termos de Uso e desta Política (versão, data e IP), mantido enquanto a conta existir e, depois, pelo prazo de defesa de direitos</li>
             </ul>
           </section>
@@ -61,7 +61,7 @@ export default function PrivacyPage() {
               <li>Com produtores de eventos que você adquire ingressos</li>
               <li>Com processadores de pagamento para transações</li>
               <li>Com fornecedores de medição de audiência (Vercel e Google), que tratam os dados em nosso nome, conforme a seção 7</li>
-              <li>Com o Google, que processa as conversas com o Evo em nosso nome, conforme a seção 8</li>
+              <li>Com o Google, que processa as conversas com o Evo e as plantas enviadas ao leitor de planta em nosso nome, conforme a seção 8</li>
               <li>Quando exigido por lei ou ordem judicial</li>
             </ul>
           </section>
@@ -101,8 +101,9 @@ export default function PrivacyPage() {
             <h2 className="text-lg font-medium text-espresso mb-2">8. Assistente de Inteligência Artificial (Evo)</h2>
             <p>O Evo é o assistente de inteligência artificial da Evokaa. Ele ajuda o produtor a planejar e criar eventos: calcula referências de normas de segurança, estima consumo e lotes e monta uma proposta de rascunho. O Evo só sugere: nada é criado, publicado ou pago sem o seu clique, e ele não toma decisões sobre você nem sobre a sua conta. Participantes não usam a inteligência artificial; para eles, a central do Evo abre apenas o atendimento da nossa equipe.</p>
             <p><strong>O que é enviado para a inteligência artificial:</strong> o texto que você escreve no chat, as últimas mensagens da mesma conversa (para dar contexto), os dados do formulário de planejamento (tipo de evento, público, cidade e estado, data, duração, preço-alvo e orçamento) e, quando você pede, a lista dos seus eventos com números agregados (título, data, situação, capacidade, cidade e quantidade de ingressos). Não enviamos dados dos compradores dos seus eventos. Não escreva no chat dados pessoais de terceiros, como CPF, e-mail ou telefone.</p>
-            <p><strong>Quem processa:</strong> o Google LLC (Estados Unidos), por meio da API paga do Gemini, como operador, tratando os dados em nosso nome e segundo as nossas instruções. Nesse serviço, o Google não usa as mensagens nem as respostas para treinar ou melhorar os produtos dele e guarda esse conteúdo por 55 dias, só para detectar e impedir uso abusivo. O processamento pode ocorrer em qualquer país em que o Google mantenha instalações, inclusive nos Estados Unidos. Essa transferência internacional se apoia em cláusulas-padrão contratuais aprovadas pela Autoridade Nacional de Proteção de Dados, previstas no contrato de tratamento de dados do Google (LGPD, art. 33, II, “b”).</p>
-            <p><strong>O que a Evokaa guarda:</strong> a conversa não fica gravada nos nossos servidores; ela existe só no seu navegador enquanto a central estiver aberta, e você pode baixá-la. Guardamos um registro de cada uso: data e hora, tipo de pedido, modelo usado, quantidade processada, custo, créditos descontados, ferramentas acionadas e um resumo de até 200 caracteres da sua mensagem, com e-mails, telefones, CPF e outros números longos mascarados. Esse registro serve para controlar créditos e custos, auditar o funcionamento do assistente e prevenir abusos, e fica guardado até você pedir a eliminação pelo contato da seção 10.</p>
+            <p><strong>Leitor de planta (Lugar marcado, só para produtores):</strong> quando você pede para ler a planta com IA, enviamos ao Google, pelo mesmo serviço, só a imagem da planta de fundo do editor; se você subiu um PDF, ela é apenas a página 1, convertida em imagem no seu navegador. Junto vai só uma instrução fixa da Evokaa: não enviamos o nome do evento nem dados da sua conta. A própria imagem pode trazer dados escritos nela, como nomes ou endereço: não envie planta com dados pessoais de terceiros.</p>
+            <p><strong>Quem processa:</strong> o Google LLC (Estados Unidos), por meio da API paga do Gemini, como operador, tratando os dados em nosso nome e segundo as nossas instruções. Nesse serviço, o Google não usa as mensagens, as plantas nem as respostas para treinar ou melhorar os produtos dele e guarda esse conteúdo por 55 dias, só para detectar e impedir uso abusivo. O processamento pode ocorrer em qualquer país em que o Google mantenha instalações, inclusive nos Estados Unidos. Essa transferência internacional se apoia em cláusulas-padrão contratuais aprovadas pela Autoridade Nacional de Proteção de Dados, previstas no contrato de tratamento de dados do Google (LGPD, art. 33, II, “b”).</p>
+            <p><strong>O que a Evokaa guarda:</strong> a conversa não fica gravada nos nossos servidores; ela existe só no seu navegador enquanto a central estiver aberta, e você pode baixá-la. Guardamos um registro de cada uso: data e hora, tipo de pedido, modelo usado, quantidade processada, custo, créditos descontados, ferramentas acionadas e um resumo de até 200 caracteres da sua mensagem, com e-mails, telefones, CPF e outros números longos mascarados; na leitura de planta, o resumo traz só a quantidade de peças encontradas ou o aviso de erro, e o leitor não guarda a imagem. A planta de fundo só fica gravada se você salvar o mapa do evento e, enquanto esse mapa estiver ativo, pode ser acessada por qualquer pessoa, como o resto do mapa. Esse registro serve para controlar créditos e custos, auditar o funcionamento do assistente e prevenir abusos, e fica guardado até você pedir a eliminação pelo contato da seção 10.</p>
             <p><strong>Base legal:</strong> execução do contrato de uso da plataforma, a seu pedido, quando você usa o Evo (LGPD, art. 7º, V).</p>
           </section>
 

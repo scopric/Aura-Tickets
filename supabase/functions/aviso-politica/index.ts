@@ -18,7 +18,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
 
 // Igual a PRIVACY_VERSION de app/src/lib/legal.ts: mudar os dois juntos.
-const VERSAO = '2026-10-04'
+const VERSAO = '2026-10-05'
 const REMETENTE = 'Evokaa <contato@evokaa.com.br>'
 // A Edge Function tem 150 s de parede; 110 s de envios + no máx. 15 s do último pedido deixa folga.
 const PRAZO_MS = 110_000
@@ -38,13 +38,14 @@ async function getCaller(req: Request) {
 }
 
 const ASSUNTO = 'Atualizamos a nossa Política de Privacidade'
-const INTRO = 'Atualizamos a Política de Privacidade da Evokaa em 4 de outubro de 2026. A mudança descreve os eventos que você salva (favoritos).'
+const INTRO = 'Atualizamos a Política de Privacidade da Evokaa em 5 de outubro de 2026. As mudanças descrevem os eventos que você salva (favoritos) e o leitor de planta com IA (produtores).'
 const ITENS = [
   'Quando você marca um evento com o coração, guardamos o evento ligado à sua conta, com a data em que marcou.',
   'A lista não é mostrada ao produtor do evento nem a outras pessoas.',
   'Ela fica até você remover o evento ou excluir a conta; um evento que saiu do ar continua na lista, marcado como fora do ar, e você pode removê-lo.',
+  'Leitor de planta com IA (só produtores): quando você pede a leitura, a imagem da planta vai ao Google (Gemini), que a processa como operador, em nosso nome.',
 ]
-const PARTICIPANTE = 'Se você não salva eventos, nada muda no uso dos seus dados.'
+const PARTICIPANTE = 'Se você não salva eventos nem usa o leitor de planta, nada muda no uso dos seus dados.'
 const URL_POLITICA = 'https://www.evokaa.com.br/privacidade'
 const URL_CONTATO = 'https://www.evokaa.com.br/contato'
 const ASSINATURA = 'Equipe Evokaa — Evoka Soluções Ltda, CNPJ 68.076.437/0001-42'

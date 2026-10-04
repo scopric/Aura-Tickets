@@ -20,3 +20,28 @@ export async function reduzirPlanta(arquivo: Blob, maxLado = 1600, alvoBytes = 3
     if (url.length * 0.75 <= alvoBytes || q < 0.4) return url
   }
 }
+
+// PDF da planta: a página 1 vira imagem aqui no navegador e segue o mesmo caminho da imagem (reduzirPlanta).
+// O pdf.js e o worker só são baixados quando o arquivo é PDF (import dinâmico: chunk separado, fora da entrada).
+// Build `legacy`: a moderna exige `Math.sumPrecise` (navegador novo) e falha em Safari/Chrome mais velhos.
+// `wasmUrl`: os decodificadores wasm (JBIG2 de PDF escaneado, JPEG 2000, cores ICC) ficam em public/pdfjs-wasm;
+// sem eles o PDF escaneado em JBIG2 sai em branco. ponytail: cópia dos arquivos de node_modules/pdfjs-dist/wasm
+// (versão 6.4.299); recopiar ao atualizar o pdfjs-dist. Os *_nowasm_fallback.js ficam ao lado para quando a CSP
+// passar a bloquear wasm: aí é preciso 'wasm-unsafe-eval' na CSP ou depender desses fallbacks. Só a página 1; sem as fontes padrão, fonte não embutida pode sair trocada.
+export async function pdfParaImagem(arquivo: Blob, maxLado = 1600): Promise<Blob> {
+  const [pdfjs, worker] = await Promise.all([import('pdfjs-dist/legacy/build/pdf.mjs'), import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')])
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+  const tarefa = pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), wasmUrl: '/pdfjs-wasm/' })
+  try {
+    const pagina = await (await tarefa.promise).getPage(1)
+    const base = pagina.getViewport({ scale: 1 })
+    const viewport = pagina.getViewport({ scale: maxLado / Math.max(base.width, base.height) })
+    const c = document.createElement('canvas')
+    c.width = Math.round(viewport.width)
+    c.height = Math.round(viewport.height)
+    await pagina.render({ canvas: c, viewport, background: '#fff' }).promise
+    return await new Promise<Blob>((ok, falha) => c.toBlob(b => (b ? ok(b) : falha(new Error('canvas vazio'))), 'image/png'))
+  } finally {
+    await tarefa.destroy()
+  }
+}

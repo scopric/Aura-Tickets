@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/authStore'
 // Aviso da mudança da Política de Privacidade (a própria política, seção 9, promete avisar).
 // Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar. Só aparece quando a camada aberta é a
 // da Política (depois da decisão de cookies; conta que aceitou a versão vigente no cadastro não vê: ver lib/camadas.ts).
-// ponytail: o texto fala da mudança de 04/10/2026 (favoritos); trocar junto com a próxima versão.
+// ponytail: o texto fala da mudança de 05/10/2026 (favoritos e leitor de planta); trocar junto com a próxima versão.
 const DATA = new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')
 
 export default function AvisoPolitica() {
@@ -30,7 +30,7 @@ export default function AvisoPolitica() {
         <Link to="/privacidade" className="font-semibold underline underline-offset-2">
           Política de Privacidade
         </Link>{' '}
-        em {DATA}: ela agora descreve os eventos que você salva (favoritos).
+        em {DATA}: ela agora descreve os eventos que você salva (favoritos) e o leitor de planta com IA dos produtores, que envia a imagem da planta ao Google (Gemini) como operador.
       </p>
       <button
         type="button"
