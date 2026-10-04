@@ -51,6 +51,8 @@ export function useCookieConsent() {
       localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({ consent: merged, version: COOKIE_CONSENT_VERSION, date: new Date().toISOString() }))
     } catch {
       cookiesDecididosEmMemoria() // sem armazenamento: a decisão vale só nesta visita (o aviso reaparece na próxima)
+      // cota cheia com um "aceito" antigo gravado: a recusa não grava, então apaga o antigo (apagar não depende de cota)
+      if (!merged.analytics) try { localStorage.removeItem(COOKIE_CONSENT_KEY) } catch { /* sem armazenamento */ }
     }
     // Só quando o consentimento analítico muda de fato (regravar o mesmo não repete a página):
     // passou a consentir → registra a página atual (Supabase e GA4); retirou → GA4 desligado

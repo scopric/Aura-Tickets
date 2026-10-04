@@ -52,14 +52,13 @@ export function fecharPolitica() {
  * Google), a regra não vale e a pessoa vê o aviso uma vez.
  */
 export function camadaAberta(versaoAceita = false): Camada {
-  const salvo = ler(COOKIE_CONSENT_KEY)
-  if (salvo === undefined) {
-    if (!cookiesEmMemoria) return 'cookies'
-  } else {
+  // decidido nesta visita sem conseguir gravar (sem armazenamento ou cota cheia): vale a decisão em memória
+  if (!cookiesEmMemoria) {
     // mesma regra do useCookieConsent: resposta válida só com a versão atual do formato
     let decidido = false
     try {
-      decidido = salvo !== null && JSON.parse(salvo)?.version === COOKIE_CONSENT_VERSION
+      const salvo = ler(COOKIE_CONSENT_KEY)
+      decidido = !!salvo && JSON.parse(salvo)?.version === COOKIE_CONSENT_VERSION
     } catch {
       // gravação corrompida: o aviso de cookies reaparece
     }
