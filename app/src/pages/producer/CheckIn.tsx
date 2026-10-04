@@ -54,6 +54,7 @@ export default function ProducerCheckIn() {
   const eventoAtual = useRef('') // descarta resposta de evento que já não está na tela
   const emVoo = useRef(new Set<string>()) // códigos sendo validados: a mesma leitura não dispara duas vezes
   const ultimaLeitura = useRef(0) // só a leitura mais recente troca o cartão (resposta atrasada não)
+  const versaoLista = useRef(0) // carga da lista iniciada antes de uma leitura (ou de outra carga) é descartada
   const cartaoRef = useRef<HTMLDivElement>(null)
 
   // Mapear eventos ativos
@@ -107,6 +108,7 @@ export default function ProducerCheckIn() {
   const loadTickets = async (eventId: string, silencioso = false) => {
     if (!eventId) return
     if (!silencioso) setIsLoadingTickets(true)
+    const versao = ++versaoLista.current
     try {
       const [lista, contagemNova] = await Promise.all([
         supabase.from('tickets')
@@ -121,7 +123,7 @@ export default function ProducerCheckIn() {
         contarIngressos(eventId),
       ])
       if (lista.error) throw lista.error
-      if (eventoAtual.current !== eventId) return
+      if (eventoAtual.current !== eventId || versaoLista.current !== versao) return
       setTickets(lista.data.map(mapDbTicketToTicketCheck))
       setContagem(contagemNova)
       setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
@@ -206,6 +208,7 @@ export default function ProducerCheckIn() {
       // Conferiu no servidor (entrou ou já tinha entrado): atualiza só este item e refaz só as contagens
       if (leitura.tom === 'ok' || leitura.rotulo === 'Já usado') {
         const quando = dados.checkedInAt ? hora(dados.checkedInAt) : null
+        versaoLista.current++
         setTickets(ts => ts.map(t => t.ticketCode === codigo ? { ...t, status: 'usado', checkInTime: quando ?? (leitura.tom === 'ok' ? hora(new Date().toISOString()) : t.checkInTime) } : t))
       }
       if (!leitura.falha) contarIngressos(evento).then(c => { if (eventoAtual.current === evento) setContagem(c) }).catch(() => {})
@@ -421,7 +424,7 @@ export default function ProducerCheckIn() {
                       <div className="shrink-0 text-right">
                         {t.status === 'usado' && (
                           <div className="flex items-center justify-end gap-1 text-xs font-semibold text-[var(--ev-success)]">
-                            <I.Liberado size={14} /> Confirmado às {t.checkInTime}
+                            <I.Liberado size={14} /> {t.checkInTime ? `Confirmado às ${t.checkInTime}` : 'Confirmado'}
                           </div>
                         )}
                         {t.status === 'cancelado' && <div className="text-xs font-medium text-destructive">Cancelado</div>}
