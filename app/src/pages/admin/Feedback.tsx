@@ -86,9 +86,8 @@ export default function AdminFeedback() {
           .limit(500),
       ])
 
-      // Os erros de `feedback` e de `contact_messages` costuma ser a regra de
-      // admin ainda não aplicada (docs/sql/20260929_admin_ler_contato.sql): mostrar o aviso e seguir.
-      // Nenhum dos dois derruba a tela: o outro bloco continua carregando.
+      // Nenhum dos dois erros derruba a tela: o outro bloco continua carregando e cada erro vira aviso.
+      // O de `contact_messages` costuma ser a regra de admin ainda não aplicada (docs/sql/20260929_admin_ler_contato.sql).
       if (cm.error) console.warn('[admin/feedback] contact_messages legível?', cm.error.message)
 
       // as linhas chegam como `never[]` enquanto o cliente do Supabase não tiver os tipos do banco
@@ -187,6 +186,7 @@ export default function AdminFeedback() {
     .filter(i => filterStatus === 'all' || i.status === filterStatus)
 
   const notas = items.filter(i => (i.rating || 0) > 0)
+  const indisponivel = !!data?.feedbackErro
   const stats = {
     total: items.length,
     novo: items.filter(i => i.status === 'novo').length,
@@ -218,11 +218,11 @@ export default function AdminFeedback() {
 
       {/* Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Stat label="Feedback" value={stats.total.toString()} />
-        <Stat label="Novos" value={stats.novo.toString()} />
-        <Stat label="Bugs" value={stats.bug.toString()} />
-        <Stat label="Resolvidos" value={stats.resolvido.toString()} />
-        <Stat label="Nota Média" value={stats.avgRating} />
+        <Stat label="Feedback" value={indisponivel ? '—' : stats.total.toString()} />
+        <Stat label="Novos" value={indisponivel ? '—' : stats.novo.toString()} />
+        <Stat label="Bugs" value={indisponivel ? '—' : stats.bug.toString()} />
+        <Stat label="Resolvidos" value={indisponivel ? '—' : stats.resolvido.toString()} />
+        <Stat label="Nota Média" value={indisponivel ? '—' : stats.avgRating} />
       </div>
 
       {/* Mensagens de contato */}
@@ -305,7 +305,7 @@ export default function AdminFeedback() {
               const max = Math.max(...[5, 4, 3, 2, 1].map(k => notas.filter(i => i.rating === k).length), 1)
               return barra(n, <><I.Estrela size={14} ativo aria-hidden="true" /> {n} {n === 1 ? 'estrela' : 'estrelas'}</>, count, max)
             })}
-            {notas.length === 0 && <p className="pt-1 text-xs text-muted-foreground">Ninguém avaliou ainda.</p>}
+            {notas.length === 0 && !indisponivel && <p className="pt-1 text-xs text-muted-foreground">Ninguém avaliou ainda.</p>}
           </div>
         </section>
       </div>
@@ -314,7 +314,7 @@ export default function AdminFeedback() {
       <div className="mb-6 flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
         <div className="relative max-w-sm flex-1">
           <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem ou e-mail..." aria-label="Buscar feedback" className="pl-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por mensagem..." aria-label="Buscar feedback" className="pl-9" />
         </div>
         <div className="flex items-center gap-2">
           <select value={filterType} aria-label="Filtrar por tipo" onChange={e => setFilterType(e.target.value)} className={cn(selectNativo, 'sm:w-auto')}>
@@ -333,7 +333,7 @@ export default function AdminFeedback() {
         <div className="flex justify-center py-16"><Spinner className="size-6 text-primary" /></div>
       ) : filtered.length === 0 ? (
         <EmptyState
-          title={items.length === 0 ? 'Nenhum feedback recebido ainda.' : 'Nenhum feedback encontrado para os filtros selecionados.'}
+          title={indisponivel ? 'Feedback indisponível (erro acima).' : items.length === 0 ? 'Nenhum feedback recebido ainda.' : 'Nenhum feedback encontrado para os filtros selecionados.'}
         />
       ) : (
         <div className={`${painel} overflow-hidden`}>

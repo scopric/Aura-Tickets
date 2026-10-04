@@ -20,5 +20,7 @@ describe('Admin: feedback', () => {
     render(<QueryClientProvider client={new QueryClient()}><AdminFeedback /></QueryClientProvider>)
     expect(await screen.findByText(/column feedback\.email does not exist/)).toBeInTheDocument()
     expect(screen.getByText('Carla')).toBeInTheDocument()
+    expect(screen.queryByText('Nenhum feedback recebido ainda.')).toBeNull()
+    expect(screen.getByText('Feedback indisponível (erro acima).')).toBeInTheDocument()
   })
 })
