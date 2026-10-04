@@ -229,7 +229,7 @@ Isso alinha o frontend com o webhook `stripe-webhook`.
 
 4. **Transferência de ingressos** — criar antes a tabela `ticket_transfers` (SQL revisado; hoje ela não existe no banco) e depois a interface
 5. **Conectar `ProducerTasks`** ao Supabase (criar tabela `producer_tasks`)
-6. ~~**Conectar `ProducerPartners`** ao Supabase (tabela `partners`)~~ ✅ Conectada (L22): grava só as 8 colunas reais de `partners` (`id`, `producer_id`, `name`, `type`, `contact`, `logo_url`, `notes`, `created_at`); valor, status, categoria, e-mail, telefone, evento e entregáveis voltam com o módulo M2 (Decisão 20)
+6. ~~**Conectar `ProducerPartners`** ao Supabase (tabela `partners`)~~ ✅ Conectada (L22): lê as 8 colunas reais de `partners` (`id`, `producer_id`, `name`, `type`, `contact`, `logo_url`, `notes`, `created_at`) e grava `name`, `type`, `contact` e `notes`; valor, status, categoria, e-mail, telefone, evento e entregáveis voltam com o módulo M2 (Decisão 20)
 7. **Conectar `ProducerCoupons`** ao Supabase (tabela `coupons`)
 
 ### 🟢 MÉDIO (planejar)

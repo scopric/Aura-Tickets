@@ -56,7 +56,7 @@ export default function ProducerPartners() {
 
   const abrir = (p: DbPartner | null) => {
     setEditando(p)
-    setForm(p ? { name: p.name, type: p.type ?? 'patrocinador', contact: p.contact ?? '', notes: p.notes ?? '' } : vazio)
+    setForm(p ? { name: p.name, type: p.type ?? '', contact: p.contact ?? '', notes: p.notes ?? '' } : vazio)
     setShowForm(true)
   }
 
@@ -64,7 +64,7 @@ export default function ProducerPartners() {
     e.preventDefault()
     const name = form.name.trim()
     if (!name) { toast.error('Informe o nome do parceiro'); return }
-    const dados = { name, type: form.type, contact: form.contact.trim() || null, notes: form.notes.trim() || null }
+    const dados = { name, type: form.type || null, contact: form.contact.trim() || null, notes: form.notes.trim() || null }
     try {
       if (editando) await updatePartner.mutateAsync({ id: editando.id, ...dados })
       else await createPartner.mutateAsync(dados)
@@ -162,6 +162,7 @@ export default function ProducerPartners() {
             <div className="grid gap-1.5">
               <Label htmlFor="parc-tipo">Tipo</Label>
               <select id="parc-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value })} className={selectNativo}>
+                <option value="">Sem tipo</option>
                 {tipos.map(t => <option key={t.valor} value={t.valor}>{t.rotulo}</option>)}
               </select>
             </div>
