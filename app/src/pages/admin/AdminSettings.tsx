@@ -296,6 +296,7 @@ export default function AdminSettingsPage() {
 
                 <div className="space-y-3 border-t border-border pt-4">
                   <h3 className="text-sm font-medium text-foreground">Controle da Plataforma</h3>
+                  <p className="text-xs text-muted-foreground">Ainda não funciona: salvar não muda nada no site.</p>
                   {[
                     { key: 'maintenance', label: 'Modo manutenção', desc: 'Mostra página de manutenção para todos' },
                     { key: 'registrationOpen', label: 'Cadastros abertos', desc: 'Permitir novos usuários se cadastrarem' },
@@ -306,7 +307,7 @@ export default function AdminSettingsPage() {
                         <Label htmlFor={`general-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
                         <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                       </div>
-                      <Switch id={`general-${item.key}`} aria-label={item.label} checked={getGeneralValue(item.key)} onCheckedChange={v => updateGeneralValue(item.key, v)} />
+                      <Switch id={`general-${item.key}`} aria-label={item.label} checked={getGeneralValue(item.key)} onCheckedChange={v => updateGeneralValue(item.key, v)} disabled />
                     </div>
                   ))}
                 </div>
@@ -361,10 +362,11 @@ export default function AdminSettingsPage() {
           {section === 'moderacao' && (
             <section className={cn(painel, 'space-y-6 p-4 sm:p-6')}>
               <SectionTitle>Moderação</SectionTitle>
+              <p className="text-xs text-muted-foreground">Ainda não funciona: salvar não muda nada no site.</p>
 
               <div className="grid gap-1.5">
                 <Label htmlFor="bannedWords">Palavras Proibidas</Label>
-                <Textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="resize-none" />
+                <Textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="resize-none" disabled />
                 <p className="text-xs text-muted-foreground">Separadas por virgula</p>
               </div>
 
@@ -378,7 +380,7 @@ export default function AdminSettingsPage() {
                       <Label htmlFor={`moderation-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
                       <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                     </div>
-                    <Switch id={`moderation-${item.key}`} aria-label={item.label} checked={getModerationValue(item.key)} onCheckedChange={v => updateModerationValue(item.key, v)} />
+                    <Switch id={`moderation-${item.key}`} aria-label={item.label} checked={getModerationValue(item.key)} onCheckedChange={v => updateModerationValue(item.key, v)} disabled />
                   </div>
                 ))}
 
@@ -387,12 +389,12 @@ export default function AdminSettingsPage() {
                     <Label htmlFor="reportThreshold" className="text-sm text-foreground">Limite de denúncias</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Bloquear automaticamente após X denúncias</p>
                   </div>
-                  <Input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-20 text-center" />
+                  <Input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-20 text-center" disabled />
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSave} loading={isSavingSettings}>
+                <Button onClick={handleSave} loading={isSavingSettings} disabled>
                   <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>
