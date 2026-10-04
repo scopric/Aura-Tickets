@@ -64,6 +64,7 @@ export default function EvoHub() {
   const [pulando, setPulando] = useState(false)
   const abertoRef = useRef(aberto)
   const mascoteRef = useRef<HTMLButtonElement>(null)
+  const balaoRef = useRef<HTMLDivElement>(null)
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const camada = useCamada()
@@ -116,7 +117,13 @@ export default function EvoHub() {
     setNaoLidas(0)
   }
 
+  // o balão sai da tela: se o foco estava nele, volta ao mascote (senão cai no body)
+  const devolverFoco = () => {
+    if (balaoRef.current?.contains(document.activeElement)) mascoteRef.current?.focus()
+  }
+
   const fecharBalao = () => {
+    if (balao === 'pergunta') return agoraNao() // fechar é escolha do usuário: vale como "Agora não"
     if (balao === 'convite') gravarConvite((c) => ({ ...c, fechados: c.fechados + 1 }))
     setBalao(null)
   }
@@ -124,12 +131,16 @@ export default function EvoHub() {
   // Ver o tour da tela: só navegação para ?tour= (o ProducerLayout abre); o registro vem ao fim do tour
   const mostrarTour = () => {
     if (!tour) return
+    devolverFoco()
     setBalao(null)
     setAberto(false)
-    navigate({ pathname, search: `?tour=${tour.id}` })
+    const q = new URLSearchParams(search) // mantém os outros parâmetros da tela (ex.: ?eventId=)
+    q.set('tour', tour.id)
+    navigate({ pathname, search: `?${q}` })
   }
   const agoraNao = () => {
     if (tour) void registrar(`dica:${tour.id}`)
+    devolverFoco()
     setBalao(null)
   }
 
@@ -155,19 +166,23 @@ export default function EvoHub() {
     setVisto({ pathname, dono: user?.id })
   }
 
+  // A pergunta só vale enquanto a tela oferece o tour (navegou para tela sem tour ou já feito/dispensado,
+  // ou o tour abriu por outro caminho): sai da tela e o estado é limpo (não volta quando o tour fechar)
+  if (balao === 'pergunta' && !oferecer) setBalao(null)
+  const balaoAtivo = balao === 'pergunta' && !oferecer ? null : balao
   // Derivado do selo; o número muda a cada resposta porque o leitor de tela não reanuncia um
   // aria-live com o mesmo texto
-  const anuncio = naoLidas === 0 ? '' : naoLidas === 1 ? 'Nova resposta do Evo' : `Nova resposta do Evo (${naoLidas})`
+  // A pergunta do tour também entra aqui: a região ao vivo já existe na página, então o leitor de tela a anuncia
+  const anuncio = naoLidas === 0
+    ? (balaoAtivo === 'pergunta' && tour && !aberto ? `Primeira vez em ${tour.nome}? Quer ver em ${tour.passos} passos?` : '')
+    : naoLidas === 1 ? 'Nova resposta do Evo' : `Nova resposta do Evo (${naoLidas})`
   const pensandoFechado = pensando && !aberto
   const selo = naoLidas + naoLidasSuporte
   const rotulo = pensandoFechado
     ? 'O Evo está pensando na sua resposta'
     : selo > 0 ? `Falar com o Evo (${selo} ${selo === 1 ? 'resposta nova' : 'respostas novas'})` : 'Falar com o Evo'
-  // pergunta de uma tela que já não tem tour (a pessoa navegou) não aparece
-  const balaoAtivo = balao === 'pergunta' && !tour ? null : balao
   const textoBalao = {
     convite: podeEvo ? 'Oi! Sou o Evo 👋 Posso te ajudar a\u00A0planejar seu evento.' : 'Oi! Sou o Evo 👋 Precisa de ajuda?',
-    pergunta: '',
     resposta: 'O Evo respondeu! Toque para ver.',
     aviso: 'O Evo tem um aviso para você',
   }
@@ -194,13 +209,14 @@ export default function EvoHub() {
           // < 380 px o balão cobriria o conteúdo: some (o selo e o anúncio continuam); a pergunta do tour
           // tem versão compacta (texto curto, botões lado a lado) que cabe em 360 px
           <div
+            ref={balaoRef}
             className={`glass-panel absolute bottom-14 right-full mr-3 flex w-max max-w-[min(260px,calc(100vw-7.5rem))] items-start gap-0.5 py-2 pl-3.5 pr-1 text-sm leading-snug rounded-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2 ${balaoAtivo === 'pergunta' ? '' : 'max-[379px]:hidden'}`}
           >
-            {balaoAtivo === 'pergunta' && tour ? (
-              <div>
+            {balaoAtivo === 'pergunta' ? (
+              tour && <div>
                 <p className="font-medium">
                   <span className="min-[380px]:hidden">Ver esta tela em {tour.passos} passos?</span>
-                  <span className="max-[379px]:hidden">Primeira vez em {tour.nome}? Quer ver em {tour.passos} passos?</span>
+                  <span className="hidden min-[380px]:inline">Primeira vez em {tour.nome}? Quer ver em {tour.passos} passos?</span>
                 </p>
                 <div className="mt-2 flex gap-2">
                   <button
