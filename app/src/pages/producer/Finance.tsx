@@ -1,8 +1,10 @@
 import * as I from '@/components/icones/evokaa16'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
-import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { brl } from '../../lib/taxa'
 import { forma } from '../../lib/bordero'
@@ -10,6 +12,9 @@ import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../.
 import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Segmented } from '@/components/ui/toggle-group'
+import { PERIODOS, ehPeriodo, type Periodo } from '../../lib/inicioProdutor'
+import { vendasPagas, faltaSegundoFator, janelaDoPeriodo } from '../../lib/vendasPagas'
 
 // Repasse e saque (transactions, withdrawals) ficam sem acesso do produtor até o gateway (Decisão 113).
 // Aqui só o que o banco já mostra: pedidos pagos dos eventos do produtor, em valor bruto.
@@ -23,53 +28,74 @@ type Pedido = {
 }
 
 const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
+const diaBr = (aaaammdd: string) => aaaammdd.split('-').reverse().join('/')
+const num = (v: unknown) => Number(v) || 0
+const COLUNAS = 'id, event_id, total, payment_method, created_at, events!inner(title, producer_id)'
 
 export default function ProducerFinance() {
   const { user } = useAuth()
+  const [busca, setBusca] = useSearchParams()
+  const p = busca.get('periodo')
+  const periodo: Periodo = ehPeriodo(p) ? p : 'tudo'
+  const mudaPeriodo = (v: string) => setBusca((prev: URLSearchParams) => { const n = new URLSearchParams(prev); n.set('periodo', v); return n }, { replace: true })
 
   const [filtroEvento] = useFiltroEvento()
-  const { data: todos = [], isPending, isError, refetch, isFetching } = useQuery({
-    queryKey: ['producer-financeiro', user?.id],
+  const { de, ate } = janelaDoPeriodo(periodo)
+  // soma e quebras vêm do banco (sem teto de 1.000 linhas); a lista na tela traz só as 20 mais recentes, o CSV traz todas
+  const { data: v, isPending, isError, refetch, isFetching } = useQuery({
+    queryKey: ['producer-financeiro', user?.id, periodo, filtroEvento],
     enabled: !!user?.id,
     queryFn: async () => {
-      // ponytail: soma no navegador, de 1.000 em 1.000 linhas; vira RPC de vendas quando a F2 gravar as taxas
-      const linhas = await fetchAllRows<Pedido>((de, ate) =>
-        supabase.from('orders')
-          .select('id, event_id, total, payment_method, created_at, events!inner(title, producer_id)')
-          .eq('events.producer_id', user!.id)
-          .eq('status', 'paid')
-          .order('created_at', { ascending: false })
-          .order('id')
-          .range(de, ate) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>)
-      // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
-      return [...new Map(linhas.map(p => [p.id, p])).values()]
+      const [soma, recentes] = await Promise.all([
+        vendasPagas({ de, ate, eventId: filtroEvento }),
+        (() => {
+          let q = supabase.from('orders').select(COLUNAS).eq('events.producer_id', user!.id).eq('status', 'paid')
+          if (de) q = q.gte('created_at', de)
+          if (filtroEvento) q = q.eq('event_id', filtroEvento)
+          return q.order('created_at', { ascending: false }).order('id').limit(20) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>
+        })(),
+      ])
+      if (recentes.error) throw recentes.error
+      return { soma, recentes: recentes.data ?? [] }
     },
   })
-
-  const pedidos = doEvento(todos, filtroEvento)
+  const soma = v?.soma
+  const vazio = !!soma && soma.pedidos === 0
+  // zero vendas com 2FA pendente é zero do banco, não falta de venda
+  const doisFatoresQ = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: vazio, queryFn: faltaSegundoFator })
 
   // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
-  const bruto = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0)
-  const porEvento = Object.values(pedidos.reduce<Record<string, { id: string; titulo: string; pedidos: number; bruto: number }>>((acc, p) => {
-    acc[p.event_id] ??= { id: p.event_id, titulo: p.events?.title || 'Sem título', pedidos: 0, bruto: 0 }
-    acc[p.event_id].pedidos += 1
-    acc[p.event_id].bruto += Number(p.total) || 0
-    return acc
-  }, {})).sort((a, b) => b.bruto - a.bruto)
+  const bruto = num(soma?.total)
+  const nPedidos = num(soma?.pedidos)
 
-  const exportar = () => downloadCsv(csvFilename(filtroEvento ? `pedidos-pagos-${slugArquivo(pedidos[0]?.events?.title, filtroEvento)}` : 'pedidos-pagos'), toCsv(
-    pedidos.map(p => ({ pedido: p.id, data: data(p.created_at), evento: p.events?.title ?? '', forma: forma(p.payment_method), valor_bruto: (Number(p.total) || 0).toFixed(2).replace('.', ',') })),
-    ['pedido', 'data', 'evento', 'forma', 'valor_bruto'],
-  ))
+  const exportar = async () => {
+    try {
+      const linhas = await fetchAllRows<Pedido>((a, z) => {
+        let q = supabase.from('orders').select(COLUNAS).eq('events.producer_id', user!.id).eq('status', 'paid')
+        if (de) q = q.gte('created_at', de)
+        if (filtroEvento) q = q.eq('event_id', filtroEvento)
+        return q.order('created_at', { ascending: false }).order('id').range(a, z) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>
+      })
+      // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
+      const unicos = [...new Map(linhas.map(x => [x.id, x])).values()]
+      downloadCsv(csvFilename(filtroEvento ? `pedidos-pagos-${slugArquivo(unicos[0]?.events?.title, filtroEvento)}` : 'pedidos-pagos'), toCsv(
+        unicos.map(x => ({ pedido: x.id, data: data(x.created_at), evento: x.events?.title ?? '', forma: forma(x.payment_method), valor_bruto: num(x.total).toFixed(2).replace('.', ',') })),
+        ['pedido', 'data', 'evento', 'forma', 'valor_bruto'],
+      ))
+    } catch { toast.error('Não foi possível exportar agora. Tente de novo.') }
+  }
 
   const header = (
     <PageHeader
       title="Financeiro"
       description="Vendas pagas dos seus eventos, em valor bruto"
       actions={
-        <Button variant="outline" onClick={exportar} disabled={pedidos.length === 0}>
+        <>
+          <Segmented label="Período" size="sm" value={periodo} onValueChange={mudaPeriodo} items={PERIODOS} className="w-full sm:w-72" />
+          <Button variant="outline" onClick={exportar} disabled={nPedidos === 0}>
           <I.Baixar aria-hidden="true" />Exportar CSV
-        </Button>
+          </Button>
+        </>
       }
     />
   )
@@ -78,7 +104,7 @@ export default function ProducerFinance() {
     <div className="mb-6 rounded-[10px] border border-border bg-card p-4">
       <p className="text-sm font-medium text-foreground">Os valores do repasse aparecem quando o pagamento estiver ligado.</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Até lá, esta tela mostra só o valor bruto dos pedidos pagos: o que o comprador pagou, com a taxa de serviço incluída. Taxas, repasse e saque ainda não são descontados aqui.
+        Até lá, esta tela mostra só o valor bruto dos pedidos pagos: o que o comprador pagou, com a taxa de serviço incluída. Taxas, repasse e saque ainda não são descontados aqui. Pedido reembolsado sai da soma.
       </p>
     </div>
   )
@@ -116,26 +142,68 @@ export default function ProducerFinance() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Vendas pagas (bruto)" value={brl(bruto)} />
-        <Stat label="Pedidos pagos" value={pedidos.length.toLocaleString('pt-BR')} />
-        <Stat label="Ticket médio (bruto)" value={pedidos.length ? brl(bruto / pedidos.length) : '—'} />
+        <Stat label="Pedidos pagos" value={nPedidos.toLocaleString('pt-BR')} />
+        <Stat label="Ticket médio (bruto)" value={nPedidos ? brl(bruto / nPedidos) : '—'} />
       </div>
+      {num(soma?.reembolsados.pedidos) > 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {num(soma?.reembolsados.pedidos).toLocaleString('pt-BR')} {num(soma?.reembolsados.pedidos) === 1 ? 'pedido reembolsado' : 'pedidos reembolsados'} ({brl(num(soma?.reembolsados.total))}) não {num(soma?.reembolsados.pedidos) === 1 ? 'entra' : 'entram'} na soma.
+        </p>
+      )}
 
-      {pedidos.length === 0 ? (
+      {vazio ? (
         <div className="mt-6">
-          <EmptyState title={filtroEvento ? 'Nenhum pedido pago neste evento' : 'Nenhum pedido pago ainda'} description="Quando alguém comprar ingresso de um evento seu, a venda aparece aqui." />
+          {doisFatoresQ.data ? (
+            <EmptyState title="Confirme o 2FA para ver as vendas" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos." />
+          ) : (
+            <EmptyState
+              title={filtroEvento ? 'Nenhum pedido pago neste evento' : 'Nenhum pedido pago ainda'}
+              description={periodo === 'tudo' ? 'Quando alguém comprar ingresso de um evento seu, a venda aparece aqui.' : 'Nenhum pedido pago neste período. Tente um período maior.'}
+            />
+          )}
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
           <section aria-labelledby="fin-por-evento" className="rounded-[10px] border border-border bg-card">
             <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-por-evento">Por evento</SectionTitle></div>
             <ul className="divide-y divide-border">
-              {porEvento.map(e => (
-                <li key={e.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              {soma!.por_evento.map(e => (
+                <li key={e.event_id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{e.titulo}</p>
+                    <p className="truncate text-sm text-foreground">{e.titulo || 'Sem título'}</p>
                     <p className="text-xs text-muted-foreground">{e.pedidos} {e.pedidos === 1 ? 'pedido' : 'pedidos'}</p>
                   </div>
-                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(e.bruto)}</p>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(num(e.total))}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section aria-labelledby="fin-por-forma" className="rounded-[10px] border border-border bg-card">
+            <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-por-forma">Por forma de pagamento</SectionTitle></div>
+            <ul className="divide-y divide-border">
+              {soma!.por_forma.map(f => (
+                <li key={f.forma} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm text-foreground">{forma(f.forma || null)}</p>
+                    <p className="text-xs text-muted-foreground">{f.pedidos} {f.pedidos === 1 ? 'pedido' : 'pedidos'}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(num(f.total))}</p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section aria-labelledby="fin-por-dia" className="rounded-[10px] border border-border bg-card">
+            <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-por-dia">Por dia</SectionTitle></div>
+            <ul className="max-h-96 divide-y divide-border overflow-y-auto">
+              {[...soma!.por_dia].reverse().map(d => (
+                <li key={d.dia} className="flex items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm text-foreground">{diaBr(d.dia)}</p>
+                    <p className="text-xs text-muted-foreground">{d.pedidos} {d.pedidos === 1 ? 'pedido' : 'pedidos'}</p>
+                  </div>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(num(d.total))}</p>
                 </li>
               ))}
             </ul>
@@ -144,19 +212,19 @@ export default function ProducerFinance() {
           <section aria-labelledby="fin-pedidos" className="rounded-[10px] border border-border bg-card">
             <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-pedidos">Últimos pedidos pagos</SectionTitle></div>
             <ul className="divide-y divide-border">
-              {pedidos.slice(0, 20).map(p => (
-                <li key={p.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              {v!.recentes.map(x => (
+                <li key={x.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm text-foreground">{p.events?.title || 'Sem título'}</p>
-                    <p className="text-xs text-muted-foreground">{data(p.created_at)} · {forma(p.payment_method)}</p>
+                    <p className="truncate text-sm text-foreground">{x.events?.title || 'Sem título'}</p>
+                    <p className="text-xs text-muted-foreground">{data(x.created_at)} · {forma(x.payment_method)}</p>
                   </div>
-                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(Number(p.total) || 0)}</p>
+                  <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{brl(num(x.total))}</p>
                 </li>
               ))}
             </ul>
-            {pedidos.length > 20 && (
+            {nPedidos > 20 && (
               <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-                Mostrando os 20 mais recentes de {pedidos.length.toLocaleString('pt-BR')}. O CSV traz todos.
+                Mostrando os 20 mais recentes de {nPedidos.toLocaleString('pt-BR')}. O CSV traz todos.
               </p>
             )}
           </section>
