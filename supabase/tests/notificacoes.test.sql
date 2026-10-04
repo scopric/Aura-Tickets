@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(32);
+select plan(34);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -111,9 +111,9 @@ select is((select count(*) from public.notifications where user_id <> 'ab000000-
 update public.events set start_date = '2026-12-10 21:00+00' where id = 'ab000000-0000-4000-8000-0000000000e3';
 select is((select count(*) from public.notifications), 2::bigint, 'evento que ninguém salvou: nenhum aviso');
 update public.events set status = 'cancelled' where id = 'ab000000-0000-4000-8000-0000000000e5';
-select results_eq($$select user_id::text, title, type from public.notifications where title like '%cancelado'$$,
-  $$values ('ab000000-0000-4000-8000-00000000000a', 'Um evento salvo foi cancelado', 'system')$$,
-  'cancelar avisa quem salvou');
+select results_eq($$select user_id::text, title, type, metadata->>'url' from public.notifications where title like '%cancelado'$$,
+  $$values ('ab000000-0000-4000-8000-00000000000a', 'Um evento salvo foi cancelado', 'system', '/app/salvos')$$,
+  'cancelar avisa quem salvou, com link para Salvos (o evento cancelado não abre)');
 
 -- Cancela e renomeia no mesmo UPDATE: o aviso traz o título aprovado, nunca o novo (e cortado em 120) ------------------
 delete from public.notifications;
@@ -135,19 +135,34 @@ update public.events set approval_status = 'rejected', rejection_reason = repeat
 select is((select length(body) from public.notifications where title like '%recusado'),
   length('"Em análise" foi recusado. Motivo: ') + 500, 'motivo da recusa cortado em 500 caracteres');
 
--- O produtor edita evento aprovado: volta para análise e não avisa quem salvou (ainda não está no ar com o dado novo)
+-- O produtor muda o local de evento aprovado: o banco o devolve para análise no mesmo UPDATE; quem salvou é avisado
+-- uma vez, sem o valor novo, com link para Salvos (o evento some do ar); o produtor NÃO recebe aviso de "voltou para análise"
 delete from public.notifications;
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000009');
-update public.events set venue_city = 'Niterói' where id = 'ab000000-0000-4000-8000-0000000000e4';
+update public.events set venue_city = 'Niterói', title = 'Título novo' where id = 'ab000000-0000-4000-8000-0000000000e4';
 select pg_temp.como('postgres');
 select is((select approval_status from public.events where id = 'ab000000-0000-4000-8000-0000000000e4'), 'pending',
   'edição do produtor devolve o evento para análise (regra que já existia)');
-select is((select count(*) from public.notifications), 0::bigint, 'e quem salvou não é avisado dessa edição');
+select results_eq($$select user_id::text, body, metadata->>'url' from public.notifications$$,
+  $$values ('ab000000-0000-4000-8000-00000000000a', '"No ar 4" mudou de data ou local e está em nova análise.', '/app/salvos')$$,
+  'produtor muda o local: quem salvou é avisado (título antigo, sem Niterói), e só ele');
+select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000009');
+update public.events set venue_city = 'Petrópolis' where id = 'ab000000-0000-4000-8000-0000000000e4';
+select pg_temp.como('postgres');
+select is((select count(*) from public.notifications), 1::bigint, 'segunda mudança, já em análise: não avisa de novo');
 
--- Aprovação pelo admin sem mudar dados não avisa quem salvou -----------------------------------------------------------
+-- Aprovação pelo admin sem mudar dados não avisa quem salvou ---------------------------------------------------------
+delete from public.notifications;
 update public.events set approval_status = 'approved' where id = 'ab000000-0000-4000-8000-0000000000e4';
 select is((select count(*) from public.notifications where user_id = 'ab000000-0000-4000-8000-00000000000a'), 0::bigint,
   'aprovar não avisa quem salvou (só o produtor)');
+
+-- Revogação: admin (aqui, o dono do banco, sem JWT) devolve evento aprovado para análise: avisa o produtor -------------
+delete from public.notifications;
+update public.events set approval_status = 'pending' where id = 'ab000000-0000-4000-8000-0000000000e3';
+select results_eq($$select user_id::text, title, body from public.notifications$$,
+  $$values ('ab000000-0000-4000-8000-000000000009', 'Seu evento voltou para análise', '"No ar 3" voltou para análise da equipe.')$$,
+  'revogar avisa o produtor, e só ele (e3 sem favoritos)');
 
 select * from finish();
 rollback;

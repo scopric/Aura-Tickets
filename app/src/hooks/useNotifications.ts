@@ -32,11 +32,13 @@ export function useUserNotifications() {
         .select('id, user_id, title, body, type, is_read, metadata, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .limit(50)
 
       if (error) throw error
       return (data || []) as DbNotification[]
     },
     enabled: !!user?.id,
+    refetchOnWindowFocus: true, // voltar para a aba traz os avisos novos
   })
 }
 

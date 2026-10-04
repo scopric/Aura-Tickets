@@ -13,12 +13,13 @@ const marcarTodasAsync = vi.fn()
 const apagarAsync = vi.fn()
 let lista: Aviso[] = []
 let estado = { isLoading: false, isError: false }
+let umaPendente = false
 const refetch = vi.fn()
 vi.mock('../hooks/useNotifications', async (original) => ({
   ...(await original<typeof import('../hooks/useNotifications')>()),
   useUserNotifications: () => ({ data: lista, ...estado, refetch }),
   useMarkAllNotificationsRead: () => ({ mutate: marcarTodas, mutateAsync: marcarTodasAsync, isPending: false }),
-  useMarkNotificationRead: vi.fn(() => ({ mutate: marcarUma, mutateAsync: marcarUmaAsync, isPending: false })),
+  useMarkNotificationRead: vi.fn(() => ({ mutate: marcarUma, mutateAsync: marcarUmaAsync, isPending: umaPendente })),
   useDeleteNotification: vi.fn(() => ({ mutateAsync: apagarAsync, isPending: false })),
 }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
@@ -35,7 +36,7 @@ const Local = () => <p data-testid="local">{useLocation().pathname}</p>
 const montarSino = (props: { verTodas?: { to: string; texto: string } } = {}) =>
   render(<MemoryRouter><NotificationsTopButton className="" {...props} /><Local /></MemoryRouter>)
 
-beforeEach(() => { vi.clearAllMocks(); estado = { isLoading: false, isError: false }; lista = [] })
+beforeEach(() => { vi.clearAllMocks(); estado = { isLoading: false, isError: false }; lista = []; umaPendente = false })
 
 describe('NotificationsTopButton (sino)', () => {
   it('vazio: estado honesto, "marcar todas" desligado e link de rodapé', async () => {
@@ -71,6 +72,17 @@ describe('NotificationsTopButton (sino)', () => {
     expect(screen.getByTestId('local')).toHaveTextContent('/producer/events/e1/edit')
   })
 
+  it('abrir o sino busca os avisos de novo; outra marcação em andamento não impede marcar a clicada', async () => {
+    lista = dois()
+    umaPendente = true
+    montarSino()
+    expect(refetch).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Notificações, 1 não lida' }))
+    expect(refetch).toHaveBeenCalledTimes(1)
+    fireEvent.click(await screen.findByText('Seu evento foi aprovado'))
+    expect(marcarUma).toHaveBeenCalledTimes(1)
+  })
+
   it('marcar todas chama a ação', async () => {
     lista = dois()
     montarSino()
@@ -92,6 +104,7 @@ describe('urlDoAviso', () => {
     expect(urlDoAviso({ metadata: { url: 'https://mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: { url: '//mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: { url: '/\\mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/app/salvos' } })).toBe('/app/salvos')
     expect(urlDoAviso({ metadata: null })).toBeNull()
   })
 })

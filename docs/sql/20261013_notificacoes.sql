@@ -7,6 +7,7 @@
 --
 -- Origens dos avisos (public.gf_notificar_evento, gatilho AFTER UPDATE em events):
 --   1. evento do produtor aprovado ou recusado pela moderação  -> aviso ao produtor (L5);
+--   1b. evento aprovado que a moderação devolve para análise    -> aviso ao produtor (revogação);
 --   2. evento publicado e aprovado que muda de data ou de local -> aviso a quem salvou (public.favoritos) (P09 b);
 --   3. evento publicado e aprovado que é cancelado             -> aviso a quem salvou (P09 b).
 --   Cada aviso leva metadata.url (caminho interno): o front o abre ao clicar.
@@ -17,7 +18,8 @@
 -- NÃO mover para supabase/migrations/ (motivo no cabeçalho de 20260927_security_hardening.sql).
 -- Teste: supabase/tests/notificacoes.test.sql (pgTAP; banco local, nunca em produção).
 -- Ordem: depende de 20261008_favoritos.sql (já em produção). Pode ser aplicado antes ou depois do front: sem este
--- SQL o sino do front só mostra "Não foi possível carregar"; sem o front, nada muda para o usuário.
+-- SQL o sino do front mostra "Nenhuma notificação por enquanto" (a leitura devolve 0 linhas, sem erro); sem o
+-- front, nada muda para o usuário.
 --
 -- DECISÕES
 -- 1. Quem escreve: só gatilhos SECURITY DEFINER (search_path vazio) e a chave de serviço. authenticated NÃO tem
@@ -34,8 +36,15 @@
 --    recusa e cancelamento = system (o front pinta system como alerta).
 -- 6. Fica de fora (outra fase): aviso para quem COMPROU ingresso quando o evento muda (depende de pedido pago,
 --    fase de pagamentos); mensagem nova do chat de suporte (o chat já tem contador e tempo real próprios); aviso
---    da Política (vai por e-mail pela aviso-politica). A re-aprovação de evento editado pelo produtor não
---    avisa quem salvou: o banco já devolve o evento a "em análise" na edição e não guarda o valor antigo.
+--    da Política (vai por e-mail pela aviso-politica).
+--    Mudança de data ou local feita pelo PRODUTOR: o gatilho gf_protect_event_moderation (BEFORE) já devolve o
+--    evento a "em análise" no mesmo UPDATE. O aviso sai mesmo assim (a condição é "estava no ar antes", não "está
+--    no ar agora"), uma vez só: a segunda mudança já parte de "pending". O texto diz "em nova análise" e NÃO traz os
+--    valores novos (não moderados). Quando a moderação reaprova, quem salvou não recebe outro aviso (o banco não
+--    guarda o valor antigo para comparar).
+--    Revogação: aprovado -> pending com quem altera diferente do produtor (admin ou chave de serviço) avisa o
+--    produtor. Se o próprio produtor edita, o banco faz o mesmo aprovado -> pending e NÃO há aviso a ele.
+--    Limite: um admin que também é o produtor do evento não gera o aviso de revogação.
 -- 7. Texto dos avisos a quem salvou: usa old.title (o título que passou pela moderação, cortado em 120), nunca new.title:
 --    o produtor pode renomear no mesmo UPDATE que cancela ou muda a data, e o aviso (tipo system) viraria canal de
 --    texto livre sem moderação para os participantes. O motivo da recusa vai cortado em 500.
@@ -110,17 +119,34 @@ begin
     where p.id = new.producer_id;
   end if;
 
-  -- 2. Evento no ar mudou de data ou de local: avisa quem salvou
-  if v_publico_antes and v_publico_agora
+  -- 1b. Moderação devolveu um evento aprovado para análise (quem edita não é o produtor): avisa o produtor
+  if old.approval_status = 'approved' and new.approval_status = 'pending'
+     and (select auth.uid()) is distinct from new.producer_id then
+    insert into public.notifications (user_id, title, body, type, metadata)
+    select p.id, 'Seu evento voltou para análise',
+           '"' || left(old.title, 120) || '" voltou para análise da equipe.',
+           'info',
+           jsonb_build_object('origem', 'moderacao', 'event_id', new.id, 'url', '/producer/events/' || new.id || '/edit')
+    from public.profiles p
+    where p.id = new.producer_id;
+  end if;
+
+  -- 2. Evento que estava no ar mudou de data ou de local: avisa quem salvou. Não exige "no ar agora": se o produtor
+  --    mudou, o banco já o pôs em análise no mesmo UPDATE (decisão 6)
+  if v_publico_antes and new.status = 'published'
      and (new.date, new."time", new.start_date, new.end_date, new.venue_name, new.venue_address, new.venue_city, new.venue_state)
          is distinct from
          (old.date, old."time", old.start_date, old.end_date, old.venue_name, old.venue_address, old.venue_city, old.venue_state)
   then
     insert into public.notifications (user_id, title, body, type, metadata)
     select p.id, 'Um evento salvo mudou de data ou local',
-           '"' || left(old.title, 120) || '" tem novos dados. Confira antes de se planejar.',
+           case when v_publico_agora
+                then '"' || left(old.title, 120) || '" tem novos dados. Confira antes de se planejar.'
+                else '"' || left(old.title, 120) || '" mudou de data ou local e está em nova análise.' end,
            'info',
-           jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id, 'url', '/event/' || new.id)
+           -- em análise o evento não aparece para o participante (RLS): leva a Salvos, não à página do evento
+           jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id,
+                              'url', case when v_publico_agora then '/event/' || new.id else '/app/salvos' end)
     from public.favoritos f
     join public.profiles p on p.id = f.user_id
     where f.event_id = new.id;
@@ -132,7 +158,8 @@ begin
     select p.id, 'Um evento salvo foi cancelado',
            '"' || left(old.title, 120) || '" foi cancelado.',
            'system',
-           jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id, 'url', '/event/' || new.id)
+           -- evento cancelado não aparece para o participante (RLS): leva a Salvos, não à página do evento
+           jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id, 'url', '/app/salvos')
     from public.favoritos f
     join public.profiles p on p.id = f.user_id
     where f.event_id = new.id;

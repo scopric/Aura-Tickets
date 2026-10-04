@@ -23,7 +23,7 @@ export function tempoRelativo(iso: string, agora = Date.now()) {
 export default function NotificationsTopButton({ className, verTodas }: { className: string; verTodas?: { to: string; texto: string } }) {
   const [aberto, setAberto] = useState(false)
   const navigate = useNavigate()
-  const { data: notificacoes = [], isLoading, isError } = useUserNotifications()
+  const { data: notificacoes = [], isLoading, isError, refetch } = useUserNotifications()
   const marcarUma = useMarkNotificationRead()
   const marcarTodas = useMarkAllNotificationsRead()
   const naoLidas = notificacoes.filter((n) => !n.is_read).length
@@ -31,13 +31,13 @@ export default function NotificationsTopButton({ className, verTodas }: { classN
 
   const abrir = (n: DbNotification) => {
     // lida continua focável (dá para ler pelo teclado); só a não lida marca ao clicar
-    if (!n.is_read && !marcarUma.isPending) marcarUma.mutate(n.id, { onError: () => toast.error('Não foi possível marcar como lida. Tente de novo.') })
+    if (!n.is_read) marcarUma.mutate(n.id, { onError: () => toast.error('Não foi possível marcar como lida. Tente de novo.') })
     const url = urlDoAviso(n)
     if (url) { setAberto(false); navigate(url) }
   }
 
   return (
-    <Popover open={aberto} onOpenChange={setAberto}>
+    <Popover open={aberto} onOpenChange={(v) => { setAberto(v); if (v) refetch() }}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
