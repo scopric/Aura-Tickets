@@ -1,17 +1,25 @@
 import { useState } from 'react'
-import { Plus, X, Pencil, Trash2, Upload, Wine, UtensilsCrossed, Package, Shirt, Wrench, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { useProducerMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../../hooks/useMenuItems'
 import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
+import { PageHeader, Stat, EmptyState, selectNativo, chipOk, chipAviso } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const categories = [
-  { value: 'bebida', label: 'Bebidas', icon: Wine },
-  { value: 'comida', label: 'Comidas', icon: UtensilsCrossed },
-  { value: 'combo', label: 'Combos', icon: Package },
-  { value: 'merch', label: 'Merch', icon: Shirt },
-  { value: 'servico', label: 'Servicos', icon: Wrench },
+  { value: 'bebida', label: 'Bebidas', icon: I.Cardapio },
+  { value: 'comida', label: 'Comidas', icon: I.Talheres },
+  { value: 'combo', label: 'Combos', icon: I.Pacote },
+  { value: 'merch', label: 'Merch', icon: I.Camiseta },
+  { value: 'servico', label: 'Serviços', icon: I.ChaveInglesa },
 ] as const
 
 type CategoryValue = typeof categories[number]['value']
@@ -30,6 +38,8 @@ interface MenuForm {
 const emptyForm: MenuForm = {
   name: '', description: '', price: 0, category: 'bebida', is_available: true, image_url: '', event_id: '', stock: null,
 }
+
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerMenu() {
   const { data: todos = [], isLoading } = useProducerMenuItems()
@@ -120,116 +130,97 @@ export default function ProducerMenu() {
   const isMutating = createItem.isPending || updateItem.isPending || deleteItem.isPending
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl">
+    <div>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Cardapio & Comandas</h1>
-          <p className="text-sm text-espresso/70 mt-1">Cadastre bebidas, comidas, combos e servicos para seu evento</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setMenuEnabled(!menuEnabled)}
-            className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-full transition-all ${
-              menuEnabled ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-            }`}
-          >
-            {menuEnabled ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-            Comandas {menuEnabled ? 'Ativas' : 'Desativadas'}
-          </button>
-          <button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
-            disabled={isMutating || (!!filtroEvento && carregandoEventos)}
-            className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" />
-            Novo Item
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Cardápio & Comandas"
+        description="Cadastre bebidas, comidas, combos e serviços para seu evento"
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setMenuEnabled(!menuEnabled)}>
+              {menuEnabled
+                ? <I.InterruptorLigado aria-hidden="true" className="text-[var(--ev-success)]" />
+                : <I.InterruptorDesligado aria-hidden="true" className="text-destructive" />}
+              Comandas {menuEnabled ? 'Ativas' : 'Desativadas'}
+            </Button>
+            <Button
+              onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
+              disabled={isMutating || (!!filtroEvento && carregandoEventos)}
+            >
+              <I.Criar aria-hidden="true" />
+              Novo Item
+            </Button>
+          </>
+        }
+      />
 
       <FiltroEvento />
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <div className="p-4 rounded-2xl bg-white/60 border border-white/60">
-          <div className="font-serif text-2xl text-espresso">{stats.total}</div>
-          <div className="text-xs text-espresso/70">Itens no cardapio</div>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="Itens no cardápio" value={stats.total} />
         {stats.byCategory.map(c => (
-          <div key={c.value} className="p-4 rounded-2xl bg-white/60 border border-white/60">
-            <c.icon className="w-4 h-4 text-plum mb-1" />
-            <div className="font-serif text-xl text-espresso">{c.count}</div>
-            <div className="text-xs text-espresso/70">{c.label}</div>
-          </div>
+          <Stat key={c.value} label={<span className="inline-flex items-center gap-1.5"><c.icon size={16} aria-hidden="true" />{c.label}</span>} value={c.count} />
         ))}
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <button
-          onClick={() => setActiveCategory('all')}
-          className={`px-4 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-all ${activeCategory === 'all' ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70 hover:bg-white/60'}`}
-        >
+      <div role="group" aria-label="Filtrar por categoria" className="mb-4 mt-6 flex items-center gap-1 overflow-x-auto pb-1">
+        <Button size="sm" variant={activeCategory === 'all' ? 'secondary' : 'ghost'} aria-pressed={activeCategory === 'all'} onClick={() => setActiveCategory('all')} className={activeCategory === 'all' ? '' : icone}>
           Todos
-        </button>
+        </Button>
         {categories.map(c => (
-          <button
+          <Button
             key={c.value}
+            size="sm"
+            variant={activeCategory === c.value ? 'secondary' : 'ghost'}
+            aria-pressed={activeCategory === c.value}
             onClick={() => setActiveCategory(c.value)}
-            className={`px-4 py-2 text-xs font-medium rounded-full whitespace-nowrap transition-all flex items-center gap-1.5 ${activeCategory === c.value ? 'bg-plum text-cream' : 'bg-white/40 text-espresso/70 hover:bg-white/60'}`}
+            className={activeCategory === c.value ? '' : icone}
           >
-            <c.icon className="w-3 h-3" />
+            <c.icon aria-hidden="true" />
             {c.label}
-          </button>
+          </Button>
         ))}
       </div>
 
       {/* Loading */}
       {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-plum animate-spin" />
+        <div aria-busy="true" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-40 rounded-[10px] bg-muted" />)}
         </div>
       )}
 
       {/* Items Grid */}
       {!isLoading && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(item => {
             const cat = categories.find(c => c.value === item.category)
             return (
-              <div key={item.id} className={`p-5 rounded-2xl bg-white/60 border transition-all ${item.is_available ? 'border-white/60' : 'border-red-200 opacity-60'}`}>
-                <div className="flex items-start justify-between mb-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                    item.category === 'bebida' ? 'bg-blue-100' :
-                    item.category === 'comida' ? 'bg-amber-100' :
-                    item.category === 'combo' ? 'bg-purple-100' :
-                    item.category === 'merch' ? 'bg-pink-100' :
-                    'bg-green-100'
-                  }`}>
-                    {cat && <cat.icon className="w-5 h-5 text-espresso/70" />}
+              <div key={item.id} className={`rounded-[10px] border border-border p-4 ${item.is_available ? 'bg-card' : 'bg-secondary'}`}>
+                <div className="mb-3 flex items-start justify-between">
+                  <div className="flex size-10 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                    {cat && <cat.icon size={20} aria-hidden="true" />}
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => toggleAvailable(item)} className={`p-1.5 rounded-lg transition-colors ${item.is_available ? 'text-green-700 hover:bg-green-50' : 'text-red-400 hover:bg-red-50'}`}>
-                      {item.is_available ? <ToggleRight className="w-4 h-4" /> : <ToggleLeft className="w-4 h-4" />}
-                    </button>
-                    <button onClick={() => startEdit(item)} className="p-1.5 rounded-lg hover:bg-espresso/5 text-espresso/70 hover:text-espresso transition-colors">
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/70 hover:text-red-500 transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <Button variant="ghost" size="icon-sm" className={item.is_available ? 'text-[var(--ev-success)] hover:bg-foreground/5' : icone} aria-pressed={item.is_available} onClick={() => toggleAvailable(item)} aria-label={`Disponível: ${item.name}`}>
+                      {item.is_available ? <I.InterruptorLigado aria-hidden="true" /> : <I.InterruptorDesligado aria-hidden="true" />}
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => startEdit(item)} aria-label={`Editar ${item.name}`}>
+                      <I.Editar aria-hidden="true" />
+                    </Button>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item.id)} aria-label={`Excluir ${item.name}`}>
+                      <I.Lixeira aria-hidden="true" />
+                    </Button>
                   </div>
                 </div>
-                <h3 className="text-sm font-medium text-espresso mb-1">{item.name}</h3>
-                <p className="text-xs text-espresso/70 mb-3 line-clamp-2">{item.description}</p>
+                <h3 className="mb-1 text-sm font-medium text-foreground">{item.name}</h3>
+                <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">{item.description}</p>
                 <div className="flex items-center justify-between">
-                  <span className="font-serif text-xl text-plum">R$ {Number(item.price).toFixed(2)}</span>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                    item.is_available ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-500'
-                  }`}>
+                  <span className="font-display text-xl font-semibold tabular-nums text-foreground">R$ {Number(item.price).toFixed(2)}</span>
+                  <Badge variant="secondary" className={item.is_available ? chipOk : chipAviso}>
                     {item.is_available ? 'Ativo' : 'Pausado'}
-                  </span>
+                  </Badge>
                 </div>
               </div>
             )
@@ -239,63 +230,56 @@ export default function ProducerMenu() {
 
       {/* Empty state */}
       {!isLoading && filtered.length === 0 && (
-        <div className="text-center py-20">
-          <div className="w-16 h-16 rounded-2xl bg-white/60 border border-white/60 flex items-center justify-center mx-auto mb-4">
-            <Wine className="w-8 h-8 text-espresso/20" />
-          </div>
-          <h3 className="text-sm font-medium text-espresso mb-1">Nenhum item encontrado</h3>
-          <p className="text-xs text-espresso/70">{filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Cadastre seu primeiro item no cardápio'}</p>
-        </div>
+        <EmptyState
+          title="Nenhum item encontrado"
+          description={filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Cadastre seu primeiro item no cardápio'}
+        />
       )}
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop">
-          <div className="glass-panel p-6 max-w-md w-full">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-serif text-xl text-espresso">{editingId ? 'Editar Item' : 'Novo Item'}</h2>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-espresso/5 text-espresso/70 transition-colors">
-                <X className="w-4 h-4" />
-              </button>
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>{editingId ? 'Editar Item' : 'Novo Item'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-nome">Nome</Label>
+              <Input id="item-nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tonica" />
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Nome</label>
-                <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tonica" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-descricao">Descrição</Label>
+              <Textarea id="item-descricao" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descrição do item" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-preco">Preço (R$)</Label>
+                <Input id="item-preco" type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
               </div>
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Descricao</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Descricao do item" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 resize-none" />
+              <div className="grid gap-1.5">
+                <Label htmlFor="item-categoria">Categoria</Label>
+                <select id="item-categoria" value={form.category} onChange={e => setForm({ ...form, category: e.target.value as CategoryValue })} className={selectNativo}>
+                  {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Preco (R$)</label>
-                  <input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Categoria</label>
-                  <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value as CategoryValue })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                    {categories.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Estoque (opcional)</label>
-                <input type="number" value={form.stock ?? ''} onChange={e => setForm({ ...form, stock: e.target.value ? Number(e.target.value) : null })} placeholder="Sem limite" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-              </div>
-              <div className="border-2 border-dashed border-espresso/10 rounded-xl p-6 text-center hover:border-plum/30 transition-colors">
-                <Upload className="w-5 h-5 text-espresso/30 mx-auto mb-2" />
-                <p className="text-xs text-espresso/70">Arraste uma imagem ou clique para selecionar</p>
-                <p className="text-[10px] text-espresso/70 mt-1">PNG, JPG ate 2MB · 800x600px recomendado</p>
-              </div>
-              <button onClick={handleSubmit} disabled={isMutating} className="w-full py-3 bg-plum text-cream font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-                {isMutating && <Loader2 className="w-4 h-4 animate-spin" />}
-                {editingId ? 'Salvar Alteracoes' : 'Cadastrar Item'}
-              </button>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-estoque">Estoque (opcional)</Label>
+              <Input id="item-estoque" type="number" value={form.stock ?? ''} onChange={e => setForm({ ...form, stock: e.target.value ? Number(e.target.value) : null })} placeholder="Sem limite" />
+            </div>
+            <div className="rounded-[10px] border-2 border-dashed border-border p-6 text-center">
+              <I.Carregar size={20} aria-hidden="true" className="mx-auto mb-2 text-muted-foreground" />
+              <p className="text-xs text-muted-foreground">Arraste uma imagem ou clique para selecionar</p>
+              <p className="mt-1 text-xs text-muted-foreground">PNG, JPG até 2MB · 800x600px recomendado</p>
             </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button onClick={handleSubmit} loading={isMutating}>
+              {editingId ? 'Salvar Alterações' : 'Cadastrar Item'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

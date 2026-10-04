@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Plus, Trash2, Loader2, Calendar, List, Columns3, Circle, CircleDot, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import {
   useProducerTasks,
   useCreateTask,
@@ -15,7 +15,7 @@ import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import { atrasada, prazoDoDia } from '../../lib/tarefas'
 import { diaBR } from '../../lib/visaoEvento'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo, chipOk, chipAviso, chipErro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -31,18 +31,26 @@ import {
 // Status e prioridade são os valores do CHECK de producer_tasks; o português só existe na tela.
 const STATUS: StatusTarefa[] = ['todo', 'in_progress', 'done']
 const rotuloStatus: Record<StatusTarefa, string> = { todo: 'Pendente', in_progress: 'Em andamento', done: 'Concluída' }
-const iconeStatus = { todo: Circle, in_progress: CircleDot, done: CheckCircle2 }
 const proximo: Record<StatusTarefa, StatusTarefa> = { todo: 'in_progress', in_progress: 'done', done: 'todo' }
 const rotuloPrioridade: Record<PrioridadeTarefa, string> = { low: 'Baixa', medium: 'Média', high: 'Alta' }
-const variantePrioridade = { low: 'outline', medium: 'secondary', high: 'destructive' } as const
+// Só alta e média ganham cor; baixa fica neutra
+const corPrioridade: Record<PrioridadeTarefa, string> = { low: '', medium: chipAviso, high: chipErro }
+const corColuna: Record<StatusTarefa, string> = { todo: chipAviso, in_progress: 'border-border bg-[var(--ev-brand-soft)] text-primary', done: chipOk }
 
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const emptyForm = { title: '', description: '', priority: 'medium' as PrioridadeTarefa, dueDate: '', eventId: '' }
 
 // O erro do Supabase é um objeto com `message`, não uma instância de Error
 const causa = (e: unknown) => (e as { message?: string } | null)?.message || 'erro desconhecido'
 const dataBr = (iso: string) => diaBR(iso).split('-').reverse().join('/')
+
+// Bolinha de status: vazia (pendente), com ponto (em andamento), cheia com check (concluída)
+const Bolinha = ({ status }: { status: StatusTarefa }) => (
+  <span className={`flex size-5 items-center justify-center rounded-full border-2 ${status === 'done' ? 'border-[var(--ev-success)] bg-[var(--ev-success)] text-background' : status === 'in_progress' ? 'border-primary' : 'border-input'}`}>
+    {status === 'done' && <I.Check size={12} aria-hidden="true" />}
+    {status === 'in_progress' && <span className="size-2 rounded-full bg-primary" />}
+  </span>
+)
 
 export default function ProducerTasks() {
   const { data: todas = [], isPending, isError, error, refetch, isFetching } = useProducerTasks()
@@ -113,13 +121,13 @@ export default function ProducerTasks() {
         <>
           <div role="group" aria-label="Modo de exibição" className="flex gap-1">
             <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'list' ? '' : icone} aria-label="Ver em lista" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>
-              <List aria-hidden="true" />
+              <I.Painel aria-hidden="true" />
             </Button>
             <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'kanban' ? '' : icone} aria-label="Ver em colunas por status" aria-pressed={viewMode === 'kanban'} onClick={() => setViewMode('kanban')}>
-              <Columns3 aria-hidden="true" />
+              <I.Colunas aria-hidden="true" />
             </Button>
           </div>
-          <Button onClick={abrir}><Plus aria-hidden="true" />Nova tarefa</Button>
+          <Button onClick={abrir}><I.Criar aria-hidden="true" />Nova tarefa</Button>
         </>
       }
     />
@@ -129,10 +137,13 @@ export default function ProducerTasks() {
     return (
       <div aria-busy="true">
         {header}
+        <p role="status" className="sr-only">Carregando tarefas…</p>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
-        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+        <div className="mt-6 grid gap-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-24 rounded-[10px] bg-muted" />)}
+        </div>
       </div>
     )
   }
@@ -146,42 +157,39 @@ export default function ProducerTasks() {
             <p className="text-sm text-foreground">Não foi possível carregar as tarefas.</p>
             <p className="mt-1 text-xs text-muted-foreground">{causa(error)}</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>Tentar de novo</Button>
         </div>
       </div>
     )
   }
 
   const cartao = (task: DbTask) => {
-    const Icone = iconeStatus[task.status]
     const evento = task.event_id ? events.find(ev => ev.id === task.event_id)?.title ?? 'Evento' : null
     const atrasou = atrasada(task, hoje)
     return (
-      <div key={task.id} className="rounded-[10px] border border-border bg-card p-4">
+      <div key={task.id} className={`rounded-[10px] border border-border p-4 ${task.status === 'done' ? 'bg-secondary' : 'bg-card'}`}>
         <div className="flex items-start gap-2">
           <Button
             variant="ghost" size="icon-sm" className={icone}
             onClick={() => mudarStatus(task)}
             aria-label={`${task.title}: ${rotuloStatus[task.status]}. Mudar para ${rotuloStatus[proximo[task.status]]}`}
           >
-            <Icone aria-hidden="true" className={task.status === 'done' ? 'text-primary' : undefined} />
+            <Bolinha status={task.status} />
           </Button>
           <div className="min-w-0 flex-1">
             <h3 className={`break-words text-sm font-medium ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</h3>
             {task.description && <p className="mt-1 break-words text-sm text-muted-foreground">{task.description}</p>}
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant={variantePrioridade[task.priority]}>{rotuloPrioridade[task.priority]}</Badge>
+              <Badge variant="secondary" className={corPrioridade[task.priority]}>{rotuloPrioridade[task.priority]}</Badge>
               <span className={`flex items-center gap-1 ${atrasou ? 'font-medium text-destructive' : ''}`}>
-                <Calendar className="size-3" aria-hidden="true" />
+                <I.Eventos size={16} aria-hidden="true" />
                 {task.due_date ? `${dataBr(task.due_date)}${atrasou ? ' (atrasada)' : ''}` : 'Sem prazo'}
               </span>
               {evento && <span className="min-w-0 truncate">{evento}</span>}
             </div>
           </div>
           <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setApagar(task)} aria-label={`Excluir ${task.title}`}>
-            <Trash2 aria-hidden="true" />
+            <I.Lixeira aria-hidden="true" />
           </Button>
         </div>
       </div>
@@ -205,7 +213,7 @@ export default function ProducerTasks() {
           <EmptyState
             title={filtroEvento ? 'Nenhuma tarefa neste evento' : 'Nenhuma tarefa ainda'}
             description={filtroEvento ? 'Tarefas sem evento aparecem em Todos os eventos.' : 'Crie a primeira tarefa e acompanhe o que falta fazer.'}
-            action={<Button onClick={abrir}><Plus aria-hidden="true" />Criar tarefa</Button>}
+            action={<Button onClick={abrir}><I.Criar aria-hidden="true" />Criar tarefa</Button>}
           />
         ) : viewMode === 'list' ? (
           <div className="grid gap-3">{tasks.map(cartao)}</div>
@@ -215,7 +223,7 @@ export default function ProducerTasks() {
               const doStatus = tasks.filter(t => t.status === col)
               return (
                 <section key={col} aria-label={rotuloStatus[col]} className="grid content-start gap-3">
-                  <SectionTitle>{rotuloStatus[col]} ({doStatus.length})</SectionTitle>
+                  <div className={`rounded-md border p-2 text-center text-xs font-medium ${corColuna[col]}`}>{rotuloStatus[col]} ({doStatus.length})</div>
                   {doStatus.map(cartao)}
                 </section>
               )
@@ -242,7 +250,7 @@ export default function ProducerTasks() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="tarefa-prioridade">Prioridade</Label>
-                <select id="tarefa-prioridade" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as PrioridadeTarefa })} className={select}>
+                <select id="tarefa-prioridade" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as PrioridadeTarefa })} className={selectNativo}>
                   {(Object.keys(rotuloPrioridade) as PrioridadeTarefa[]).map(p => <option key={p} value={p}>{rotuloPrioridade[p]}</option>)}
                 </select>
               </div>
@@ -253,7 +261,7 @@ export default function ProducerTasks() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="tarefa-evento">Evento</Label>
-              <select id="tarefa-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+              <select id="tarefa-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={selectNativo}>
                 <option value="">Sem evento</option>
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
@@ -261,9 +269,7 @@ export default function ProducerTasks() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-tarefa" disabled={createTask.isPending}>
-              {createTask.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar tarefa'}
-            </Button>
+            <Button type="submit" form="form-tarefa" loading={createTask.isPending}>Criar tarefa</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

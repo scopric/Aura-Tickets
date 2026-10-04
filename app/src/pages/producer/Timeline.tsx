@@ -1,9 +1,6 @@
 import { useState } from 'react'
-import {
-  Clock, Calendar, Plus, X, Trash2, CheckCircle2,
-  MapPin, Users, Truck, Mic, Music, Utensils, Star, Loader2
-} from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import {
@@ -13,39 +10,38 @@ import {
   useDeleteTimelineItem,
   type DbTimelineItem,
 } from '../../hooks/useProducerTools'
+import { PageHeader, EmptyState, selectNativo, chipOk } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
 
-const typeIcons: Record<string, typeof Mic> = {
-  soundcheck: Mic,
-  abertura: Users,
-  show: Music,
-  comida: Utensils,
-  transporte: Truck,
-  decoracao: Star,
-  vip: Star,
-  encerramento: CheckCircle2,
+const typeIcons: Record<string, I.IconeEvokaa> = {
+  soundcheck: I.Microfone,
+  abertura: I.Pessoas,
+  show: I.Musica,
+  comida: I.Talheres,
+  transporte: I.Caminhao,
+  decoracao: I.Estrela,
+  vip: I.Estrela,
+  encerramento: I.Liberado,
 }
 
 const typeLabels: Record<string, string> = {
   soundcheck: 'Soundcheck',
   abertura: 'Abertura',
   show: 'Show',
-  comida: 'Alimentacao',
-  transporte: 'Logistica',
-  decoracao: 'Decoracao',
+  comida: 'Alimentação',
+  transporte: 'Logística',
+  decoracao: 'Decoração',
   vip: 'VIP',
   encerramento: 'Encerramento',
 }
 
-const typeColors: Record<string, string> = {
-  soundcheck: 'bg-violet-50 text-violet-700',
-  abertura: 'bg-green-50 text-green-700',
-  show: 'bg-plum/10 text-plum',
-  comida: 'bg-orange-50 text-orange-700',
-  transporte: 'bg-blue-50 text-blue-700',
-  decoracao: 'bg-pink-50 text-pink-700',
-  vip: 'bg-amber-50 text-amber-700',
-  encerramento: 'bg-gray-50 text-gray-700',
-}
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerTimeline() {
   const { data: events = [], isLoading: eventsLoading } = useProducerEvents()
@@ -64,7 +60,7 @@ export default function ProducerTimeline() {
   const isLoading = eventsLoading || itemsLoading
 
   const addItem = async () => {
-    if (!form.time || !form.title || !selectedEventId) { toast.error('Hora, titulo e evento sao obrigatorios'); return }
+    if (!form.time || !form.title || !selectedEventId) { toast.error('Hora, título e evento são obrigatórios'); return }
     try {
       await createItem.mutateAsync({
         event_id: selectedEventId,
@@ -105,34 +101,39 @@ export default function ProducerTimeline() {
     }
   }
 
+  const header = (
+    <PageHeader
+      title="Cronograma"
+      description="Linha do tempo completa do evento"
+      actions={<Button onClick={() => setShowForm(true)}><I.Criar aria-hidden="true" />Adicionar Item</Button>}
+    />
+  )
+
   if (isLoading) {
     return (
-      <div className="p-6 lg:p-10 max-w-4xl mx-auto flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando cronograma...</p>
+      <div aria-busy="true">
+        {header}
+        <p role="status" className="sr-only">Carregando cronograma...</p>
+        <Skeleton className="mb-6 h-10 w-64 bg-muted" />
+        <div className="grid max-w-4xl gap-3">
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-24 rounded-[10px] bg-muted" />)}
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-4xl mx-auto">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Cronograma</h1>
-          <p className="text-sm text-espresso/70 mt-1">Linha do tempo completa do evento</p>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-          <Plus className="w-4 h-4" /> Adicionar Item
-        </button>
-      </div>
+    <div>
+      {header}
 
       {/* Event selector */}
-      <div className="mb-8 flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-plum" />
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <I.Eventos size={16} aria-hidden="true" className="text-muted-foreground" />
         <select
           value={selectedEventId || ''}
           onChange={e => setSelectedEventId(e.target.value || null)}
-          className="px-4 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30"
+          aria-label="Evento"
+          className={cn(selectNativo, 'sm:w-auto sm:min-w-64')}
         >
           {!selectedEventId && <option value="">Selecione um evento</option>}
           {events.map(e => (
@@ -140,7 +141,7 @@ export default function ProducerTimeline() {
           ))}
         </select>
         {selectedEvent?.date && (
-          <span className="text-xs text-espresso/70">
+          <span className="text-sm text-muted-foreground">
             {new Date(selectedEvent.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
         )}
@@ -148,103 +149,120 @@ export default function ProducerTimeline() {
 
       {/* Timeline */}
       {selectedEventId ? (
-        <div className="relative">
-          {/* Vertical line */}
-          <div className="absolute left-6 top-0 bottom-0 w-px bg-espresso/10" />
+        items.length === 0 ? (
+          <EmptyState
+            title="Nenhum item no cronograma."
+            description="Adicione o primeiro item da linha do tempo."
+          />
+        ) : (
+          <div className="relative max-w-4xl">
+            {/* Vertical line */}
+            <div aria-hidden="true" className="absolute bottom-0 left-6 top-0 w-px bg-border" />
+            <ol>
+              {items.map((item) => {
+                const Icon = typeIcons[item.type]
+                const atual = item.status === 'atual'
+                const concluido = item.status === 'concluido'
+                return (
+                  <li key={item.id} className="relative flex items-start gap-4 py-3">
+                    {/* Dot */}
+                    <button
+                      type="button"
+                      onClick={() => toggleStatus(item)}
+                      aria-label={`Avançar o status de ${item.title}`}
+                      className={`alvo-44 relative z-10 flex size-12 shrink-0 items-center justify-center rounded-full border outline-none focus-visible:shadow-ev-foco ${
+                        concluido ? chipOk :
+                        atual ? 'border-primary bg-primary text-primary-foreground' :
+                        'border-border bg-secondary text-muted-foreground'
+                      }`}
+                    >
+                      {concluido ? <I.Liberado size={20} aria-hidden="true" /> : <Icon size={20} aria-hidden="true" />}
+                    </button>
 
-          <div className="space-y-0">
-            {items.map((item) => {
-              const Icon = typeIcons[item.type]
-              return (
-                <div key={item.id} className="relative flex items-start gap-4 py-4 group">
-                  {/* Dot */}
-                  <button onClick={() => toggleStatus(item)} className={`relative z-10 w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                    item.status === 'concluido' ? 'bg-green-100 text-green-600' :
-                    item.status === 'atual' ? 'bg-plum text-cream shadow-glow scale-110' :
-                    'bg-canvas text-espresso/70'
-                  }`}>
-                    {item.status === 'concluido' ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
-                  </button>
-
-                  {/* Card */}
-                  <div className={`flex-1 p-4 rounded-2xl border transition-all ${
-                    item.status === 'atual' ? 'bg-plum/5 border-plum/20 shadow-sm' :
-                    item.status === 'concluido' ? 'bg-green-50/30 border-green-100/30 opacity-60' :
-                    'bg-white/60 border-white/60'
-                  }`}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`text-xs font-semibold font-mono ${item.status === 'atual' ? 'text-plum' : 'text-espresso/70'}`}>{item.time}</span>
-                          <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full ${typeColors[item.type]}`}>{typeLabels[item.type]}</span>
-                          {item.status === 'atual' && <span className="px-2 py-0.5 text-[9px] font-medium rounded-full bg-plum text-cream animate-pulse">AO VIVO</span>}
+                    {/* Card */}
+                    <div className={`min-w-0 flex-1 rounded-[10px] border p-4 ${
+                      atual ? 'border-primary bg-[var(--ev-brand-soft)]' :
+                      concluido ? 'border-border bg-secondary' :
+                      'border-border bg-card'
+                    }`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex flex-wrap items-center gap-2">
+                            <span className={`font-display text-sm font-semibold tabular-nums ${atual ? 'text-primary' : 'text-muted-foreground'}`}>{item.time}</span>
+                            <Badge variant="secondary">{typeLabels[item.type]}</Badge>
+                            {atual && <Badge className="motion-safe:animate-pulse">AO VIVO</Badge>}
+                          </div>
+                          <h3 className={`text-sm font-medium ${concluido ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{item.title}</h3>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{item.description}</p>
+                          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><I.Pessoas size={16} aria-hidden="true" />{item.responsible || 'Não definido'}</span>
+                            <span className="flex items-center gap-1"><I.Horario size={16} aria-hidden="true" />{item.duration || '-'}</span>
+                            <span className="flex items-center gap-1"><I.Local size={16} aria-hidden="true" />{item.location || '-'}</span>
+                          </div>
                         </div>
-                        <h3 className={`text-sm font-medium ${item.status === 'concluido' ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{item.title}</h3>
-                        <p className="text-xs text-espresso/70 mt-0.5">{item.description}</p>
-                        <div className="flex items-center gap-3 mt-2 text-[10px] text-espresso/70">
-                          <span className="flex items-center gap-1"><Users className="w-3 h-3" />{item.responsible || 'Nao definido'}</span>
-                          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.duration || '-'}</span>
-                          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.location || '-'}</span>
-                        </div>
+                        <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item)} aria-label={`Remover ${item.title}`}>
+                          <I.Lixeira aria-hidden="true" />
+                        </Button>
                       </div>
-                      <button onClick={() => handleDelete(item)} className="p-1.5 rounded-lg hover:bg-red-50 text-espresso/50 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
                     </div>
-                  </div>
-                </div>
-              )
-            })}
+                  </li>
+                )
+              })}
+            </ol>
           </div>
-
-          {items.length === 0 && (
-            <div className="text-center py-16">
-              <Clock className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-              <p className="text-sm text-espresso/70">Nenhum item no cronograma.</p>
-              <p className="text-xs text-espresso/70 mt-1">Adicione o primeiro item da linha do tempo.</p>
-            </div>
-          )}
-        </div>
+        )
       ) : (
-        <div className="text-center py-16">
-          <Calendar className="w-12 h-12 text-espresso/10 mx-auto mb-3" />
-          <p className="text-sm text-espresso/70">Selecione um evento para ver o cronograma.</p>
-        </div>
+        <EmptyState title="Selecione um evento para ver o cronograma." />
       )}
 
       {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">Novo Item</h3>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-full hover:bg-canvas text-espresso/70 hover:text-espresso transition-colors"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <input type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none" />
-                <input value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} placeholder="Duracao" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogHeader>
+            <DialogTitle>Novo Item</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cron-hora">Hora</Label>
+                <Input id="cron-hora" type="time" value={form.time} onChange={e => setForm({ ...form, time: e.target.value })} />
               </div>
-              <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titulo *" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-              <input value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descricao" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-              <select value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbTimelineItem['type'] })} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso/70 focus:outline-none">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cron-duracao">Duração</Label>
+                <Input id="cron-duracao" value={form.duration} onChange={e => setForm({ ...form, duration: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cron-titulo">Título *</Label>
+              <Input id="cron-titulo" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cron-descricao">Descrição</Label>
+              <Input id="cron-descricao" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cron-tipo">Tipo</Label>
+              <select id="cron-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbTimelineItem['type'] })} className={selectNativo}>
                 {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <div className="grid grid-cols-2 gap-3">
-                <input value={form.responsible} onChange={e => setForm({ ...form, responsible: e.target.value })} placeholder="Responsavel" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
-                <input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="Local" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-1.5">
+                <Label htmlFor="cron-responsavel">Responsável</Label>
+                <Input id="cron-responsavel" value={form.responsible} onChange={e => setForm({ ...form, responsible: e.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cron-local">Local</Label>
+                <Input id="cron-local" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3 mt-5">
-              <button onClick={() => setShowForm(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
-              <button onClick={addItem} disabled={createItem.isPending} className="px-6 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all disabled:opacity-50">
-                {createItem.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Adicionar'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button onClick={addItem} loading={createItem.isPending}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
