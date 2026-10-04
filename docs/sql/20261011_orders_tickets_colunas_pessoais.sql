@@ -32,8 +32,10 @@
 -- 6. INSERT, UPDATE e DELETE não mudam, nem as regras (RLS). INSERT ... RETURNING exige SELECT nas colunas
 --    devolvidas: o checkout passa a pedir .select('id, ..., customer_name, customer_email'), todas liberadas; o
 --    PostgREST monta o RETURNING só com as colunas do select (e as chaves), então não pede as retidas.
--- 7. O Realtime (Payment.tsx escuta UPDATE em orders) só manda as colunas com SELECT e exige SELECT só na chave
---    primária: continua funcionando com status e id.
+-- 7. Realtime (Payment.tsx escuta UPDATE em orders) com grant por coluna: NÃO VERIFICADO; testar quando a Fase 4
+--    ligar. Pela leitura de realtime.apply_rls (banco local), ele só manda as colunas com SELECT e exige SELECT só na
+--    chave primária, então status e id bastariam; não foi ensaiado (o Realtime não roda no banco local, e orders não
+--    está na publicação do Realtime no banco local).
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';

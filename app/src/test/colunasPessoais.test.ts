@@ -17,11 +17,14 @@ const topo = (s: string) => {
 
 function leiturasProibidas(codigo: string): string[] {
   const achados: string[] = []
-  // from('orders'|'tickets') ... .select(<literal> | vazio), sem atravessar outra consulta
+  // from('orders'|'tickets') [as never] ou from(<variável>) [as never] ... o PRIMEIRO .select( depois dele, sem atravessar
+  // outra consulta; select com variável não é conferido. from(<variável>) pode cair em orders/tickets: barra em qualquer tabela.
   const doFrom = new RegExp(
-    `\\.from\\(\\s*['"](orders|tickets)['"]\\s*\\)((?:(?!\\.from\\(|supabase)[\\s\\S])*?)\\.select\\(\\s*(${LITERAL}|\\))`, 'g')
+    `supabase\\s*\\.from\\(\\s*(['"](?:orders|tickets)['"]|[A-Za-z_$][\\w$]*)(?:\\s+as\\s+\\w+)?\\s*\\)` +
+    `(?:(?!\\.from\\(|supabase|\\.select\\()[\\s\\S])*?\\.select\\((\\s*\\)|\\s*${LITERAL})?`, 'g')
   for (const m of codigo.matchAll(doFrom)) {
-    if (m[3] === ')' || topo(m[3]).includes('*')) achados.push(`${m[1]}: ${m[0].replace(/\s+/g, ' ').slice(-70)}`)
+    const arg = m[2]?.trim()
+    if (arg !== undefined && (arg === ')' || topo(arg).includes('*'))) achados.push(`${m[1]}: ${m[0].replace(/\s+/g, ' ').slice(-70)}`)
   }
   // embed orders(...)/tickets(...) dentro do select de outra tabela
   for (const m of codigo.matchAll(new RegExp(`\\.select\\(\\s*${LITERAL}`, 'g'))) {
@@ -61,6 +64,10 @@ describe('orders e tickets sem colunas pessoais (E4)', () => {
       "supabase.from('check_ins').select('id, tickets (*)')",
       "supabase.from('events').select('id, pedido:orders!inner(*)')",
       "supabase.from('order_items').select('id, orders()')",
+      "supabase.from('orders' as never).select('*')",
+      "supabase.from(tabela).select('*').order('id').range(from, to)",
+      "supabase.from(tabela as never).select()",
+      "supabase\n  .from(t)\n  .select(`*`)",
     ]
     for (const r of ruins) expect(leiturasProibidas(r), r).toHaveLength(1)
   })
@@ -74,6 +81,11 @@ describe('orders e tickets sem colunas pessoais (E4)', () => {
       "supabase.from('orders').update({ status: 'x' }).eq('id', 1)\nsupabase.from('events').select('*')",
       "supabase.from('check_ins').select('id, tickets (buyer_name, ticket_types (name))')",
       'supabase.from(\'orders\').insert({}).select(`${COLUNAS_PEDIDO}, customer_name`).single()',
+      "supabase.from(tabela).select(colunas[tabela].join(', ')).order('id')\nsupabase.from('x').select('*')",
+      "supabase.from('tickets').select(colunasSel, opt).eq('event_id', 1)\nconst y = 1; supabase.from('events').select('*')",
+      "supabase.from(tabela as never).delete().eq('id', 1).select('id')",
+      "Array.from(ids).map(x => x)\nsupabase.from('events').select('*')",
+      "supabase.from('orders' as never).select('id, total')",
     ]
     for (const b of bons) expect(leiturasProibidas(b), b).toEqual([])
   })
