@@ -109,24 +109,19 @@ export function useDeleteTask() {
 }
 
 // ─── Partners ───
+// Colunas reais de public.partners (baseline); categoria, e-mail, telefone, valor, evento, entregáveis e status ainda não existem (Decisão 20, módulo M2)
 export interface DbPartner {
   id: string
   producer_id: string
-  type: 'patrocinador' | 'fornecedor'
+  type: string | null
   name: string
   contact: string | null
-  email: string | null
-  phone: string | null
-  category: string | null
-  value: number
-  status: 'confirmado' | 'pendente' | 'cancelado'
-  event_name: string | null
+  logo_url: string | null
   notes: string | null
-  contract_url: string | null
-  deliverables: string | null
   created_at: string
-  updated_at: string
 }
+
+export type PartnerInput = Pick<DbPartner, 'name' | 'type' | 'contact' | 'notes'>
 
 export function useProducerPartners() {
   const { user } = useAuth()
@@ -142,7 +137,7 @@ export function useProducerPartners() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      return (data || []).map((p: any) => ({ ...p, value: Number(p.value) || 0 })) as DbPartner[]
+      return (data || []) as DbPartner[]
     },
     enabled: !!user?.id,
   })
@@ -153,8 +148,8 @@ export function useCreatePartner() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (partner: Omit<Partial<DbPartner>, 'id' | 'producer_id' | 'created_at' | 'updated_at'>) => {
-      if (!user?.id) throw new Error('Nao autenticado')
+    mutationFn: async (partner: PartnerInput) => {
+      if (!user?.id) throw new Error('Não autenticado')
       const { data, error } = await supabase
         .from('partners')
         .insert({ ...partner, producer_id: user.id })
@@ -175,17 +170,17 @@ export function useUpdatePartner() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ id, ...updates }: { id: string } & Partial<DbPartner>) => {
+    mutationFn: async ({ id, ...updates }: { id: string } & Partial<PartnerInput>) => {
       const { data, error } = await supabase
         .from('partners')
         .update(updates)
         .eq('id', id)
         .eq('producer_id', user?.id)
-        .select()
-        .single()
+        .select('id')
 
       if (error) throw error
-      return data
+      if (!data?.length) throw new Error('Nada foi alterado') // RLS que barra devolve 0 linhas sem erro
+      return true
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['producer-partners', user?.id] })
@@ -199,13 +194,15 @@ export function useDeletePartner() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('partners')
         .delete()
         .eq('id', id)
         .eq('producer_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi apagado') // RLS que barra devolve 0 linhas sem erro
       return true
     },
     onSuccess: () => {
