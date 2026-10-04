@@ -5,6 +5,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import FiltroEvento from '@/components/producer/FiltroEvento'
 import { mensagemVinculo } from '../../lib/afiliados'
 import { brl } from '../../lib/taxa'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
@@ -44,9 +46,10 @@ export default function ProducerAffiliates() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
   const [editando, setEditando] = useState<Afiliado | null>(null)
   const [comissaoNova, setComissaoNova] = useState('')
+  const [filtroEvento] = useFiltroEvento()
 
   const queryKey = ['producer-afiliados', user?.id]
-  const { data: affiliates = [], isPending, isError, refetch } = useQuery({
+  const { data: todos = [], isPending, isError, refetch } = useQuery({
     queryKey,
     enabled: !!user?.id,
     queryFn: async () => {
@@ -63,6 +66,7 @@ export default function ProducerAffiliates() {
     },
   })
 
+  const affiliates = doEvento(todos, filtroEvento)
   const filtered = affiliates
     .filter(a => !search || a.email_mascarado.toLowerCase().includes(search.toLowerCase()) || (a.evento ?? '').toLowerCase().includes(search.toLowerCase()))
     .filter(a => filterStatus === 'all' || a.status === filterStatus)
@@ -128,7 +132,7 @@ export default function ProducerAffiliates() {
     }
   }
 
-  const abrirNovo = () => setShowForm(true)
+  const abrirNovo = () => { setForm({ ...formVazio, eventId: eventos.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
 
   return (
     <div>
@@ -137,6 +141,8 @@ export default function ProducerAffiliates() {
         description="Pessoas com conta na Evokaa que divulgam seus eventos por comissão"
         actions={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
       />
+
+      <FiltroEvento />
 
       <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
         O link de venda do afiliado chega com o módulo de Promoters.
@@ -165,7 +171,7 @@ export default function ProducerAffiliates() {
           {affiliates.length === 0 ? (
             <div className="mt-6">
               <EmptyState
-                title="Nenhum afiliado vinculado"
+                title={filtroEvento ? 'Nenhum afiliado neste evento' : 'Nenhum afiliado vinculado'}
                 description="Vincule pelo e-mail da conta Evokaa da pessoa e escolha o evento."
                 action={<Button onClick={abrirNovo}><UserPlus aria-hidden="true" />Vincular afiliado</Button>}
               />

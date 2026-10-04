@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Plus, X, Pencil, Trash2, Upload, Wine, UtensilsCrossed, Package, Shirt, Wrench, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react'
 import { useProducerMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../../hooks/useMenuItems'
 import { toast } from 'sonner'
+import { useProducerEvents } from '../../hooks/useEvents'
+import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import FiltroEvento from '@/components/producer/FiltroEvento'
 
 const categories = [
   { value: 'bebida', label: 'Bebidas', icon: Wine },
@@ -29,7 +32,10 @@ const emptyForm: MenuForm = {
 }
 
 export default function ProducerMenu() {
-  const { data: items = [], isLoading } = useProducerMenuItems()
+  const { data: todos = [], isLoading } = useProducerMenuItems()
+  const [filtroEvento] = useFiltroEvento()
+  const { data: events = [], isPending: carregandoEventos } = useProducerEvents()
+  const items = doEvento(todos, filtroEvento)
   const createItem = useCreateMenuItem()
   const updateItem = useUpdateMenuItem()
   const deleteItem = useDeleteMenuItem()
@@ -132,8 +138,8 @@ export default function ProducerMenu() {
             Comandas {menuEnabled ? 'Ativas' : 'Desativadas'}
           </button>
           <button
-            onClick={() => { setShowForm(true); setEditingId(null); setForm(emptyForm) }}
-            disabled={isMutating}
+            onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
+            disabled={isMutating || (!!filtroEvento && carregandoEventos)}
             className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
@@ -141,6 +147,8 @@ export default function ProducerMenu() {
           </button>
         </div>
       </div>
+
+      <FiltroEvento />
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
@@ -236,7 +244,7 @@ export default function ProducerMenu() {
             <Wine className="w-8 h-8 text-espresso/20" />
           </div>
           <h3 className="text-sm font-medium text-espresso mb-1">Nenhum item encontrado</h3>
-          <p className="text-xs text-espresso/70">Cadastre seu primeiro item no cardápio</p>
+          <p className="text-xs text-espresso/70">{filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Cadastre seu primeiro item no cardápio'}</p>
         </div>
       )}
 
