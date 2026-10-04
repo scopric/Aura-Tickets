@@ -1,7 +1,8 @@
 import type { DbEvent } from '../hooks/useEvents'
 import { brl } from './taxa'
 import { temFoto } from './corEvento'
-import { dataPorVir, situacaoEvento, vendidosDe } from './eventoProdutor'
+import { fimDe, situacaoEvento, vendidosDe } from './eventoProdutor'
+import { hrefDaTela } from './navegacaoProdutor'
 
 // Contas do Início da produtora (V5): períodos, séries por dia ou hora, variação e textos de data. Sem dependência.
 // Tudo no horário do navegador (a produtora vê o dia dela).
@@ -40,7 +41,7 @@ export function janelas(p: Periodo, agora: number, primeira?: number): { atual: 
   if (p === 'hoje') return { atual: { ini: hoje, n: 24, passo: 0 }, anterior: { ini: somaDias(hoje, -1), n: 24, passo: 0 } }
   if (p === 'tudo') {
     const ini = meiaNoite(Math.min(primeira ?? agora, agora))
-    const dias = Math.round((hoje - ini) / 86400000) + 1
+    const dias = Math.round((hoje - ini) / DIA_MS) + 1
     // ponytail: mais de 60 dias passa a baldes de semana; a conta de dias com mudança de horário só erra por 1 balde
     const passo = dias > 60 ? 7 : 1
     return { atual: { ini, n: Math.ceil(dias / passo), passo }, anterior: null }
@@ -116,7 +117,7 @@ export function horaCurta(t?: string | null): string | null {
 
 // "em 70 dias", "amanhã", "hoje"
 export function emQuantosDias(data: Date, agora: number): string {
-  const n = Math.round((meiaNoite(data.getTime()) - meiaNoite(agora)) / 86400000)
+  const n = Math.round((meiaNoite(data.getTime()) - meiaNoite(agora)) / DIA_MS)
   return n <= 0 ? 'hoje' : n === 1 ? 'amanhã' : `em ${n} dias`
 }
 
@@ -148,7 +149,7 @@ export type Sugestao = {
   chave: string // a que vai para o registro de dispensa
   texto: string
   barra?: { pct: number; mais: boolean } // regra do lote: quanto do lote já foi
-  acao: { texto: string; to?: string; copiar?: string } // `copiar` = id do evento cujo link vai para a área de transferência
+  acao: { texto: string; to?: string; copiar?: string } // `copiar` = slug (ou id) do evento cujo link vai para a área de transferência
 }
 export type DadosSugestao = {
   eventos: DbEvent[]
@@ -158,6 +159,9 @@ export type DadosSugestao = {
   empresa?: boolean // perfil da empresa preenchido
 }
 
+// ponytail: soma dos códigos de caractere em base 36; basta para distinguir um motivo de outro, não é hash de verdade
+const hashCurto = (t: string) => [...t].reduce((h, c) => h + c.charCodeAt(0), 0).toString(36)
+
 export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>, agora: number): Sugestao | null {
   const hoje = meiaNoite(agora)
   const { eventos, vendidos } = d
@@ -166,14 +170,15 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
   const publicados = eventos.filter(e => situacaoEvento(e) === 'Publicado')
   const noAr = publicados.filter(noFuturo)
   const abertos = eventos.filter(e => ['Publicado', 'Em análise', 'Rascunho'].includes(situacaoEvento(e)) && naoPassou(e))
-  const mais = vendidos?.cortado ? '+' : ''
+  const piso = vendidos?.cortado ? '+' : '' // a contagem é piso quando a lista foi cortada
   const sug = (chave: string, texto: string, acao: Sugestao['acao'], barra?: Sugestao['barra']): Sugestao => ({ chave, texto, acao, barra })
 
   const candidatas: Sugestao[] = [
     // 1. recusado pela análise
-    ...eventos.filter(e => situacaoEvento(e) === 'Recusado').map(e => {
+    // a chave leva um hash do motivo: recusa nova (motivo novo) volta a valer mesmo que a anterior tenha sido dispensada
+    ...eventos.filter(e => situacaoEvento(e) === 'Recusado' && naoPassou(e)).map(e => {
       const motivo = e.rejection_reason?.trim()
-      return sug(`sugestao:recusado:${e.id}`,
+      return sug(`sugestao:recusado:${e.id}:${hashCurto(motivo ?? '')}`,
         `O ${e.title} voltou da análise com um pedido de ajuste${motivo ? `: "${motivo}"` : ''}. Corrija e envie de novo.`,
         { texto: 'Abrir evento', to: editarEvento(e) })
     }),
@@ -183,13 +188,13 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
       .filter(c => c.cap > 0 && c.vend / c.cap >= 0.9)
       .sort((a, b) => b.vend / b.cap - a.vend / a.cap)
       .map(c => sug(`aviso-lote:${c.t.id}:${c.cap}`,
-        `${c.t.name} do ${c.e.title}: ${inteiro(c.vend)}${mais} de ${inteiro(c.cap)} vendidos.`,
+        `${c.t.name} do ${c.e.title}: ${inteiro(c.vend)}${piso} de ${inteiro(c.cap)} vendidos.`,
         { texto: 'Editar ingressos', to: editarEvento(c.e) },
-        { pct: Math.min(100, (c.vend / c.cap) * 100), mais: !!mais })) : []),
+        { pct: (c.vend / c.cap) * 100, mais: !!piso })) : []),
     // 3. testar o check-in: no ar, faltam até 7 dias, ao menos 1 ingresso vendido, nenhum check-in feito
     ...(vendidos && d.checkinFeito === false ? noAr
       .filter(e => dataDoEvento(e).getTime() <= agora + 7 * DIA_MS && (vendidos.porEvento[e.id] ?? 0) >= 1)
-      .map(e => sug(`dica:checkin:${e.id}`, 'Teste o check-in antes do dia.', { texto: 'Abrir check-in', to: '/producer/checkin?tour=checkin' })) : []),
+      .map(e => sug(`dica:checkin:${e.id}`, `Teste o check-in do ${e.title} antes do dia.`, { texto: 'Abrir check-in', to: '/producer/checkin?tour=checkin' })) : []),
     // 4. rascunho sem ingresso
     ...abertos.filter(e => e.status === 'draft' && !(e.ticket_types ?? []).length).map(e => sug(`sugestao:sem-ingresso:${e.id}`,
       `O ${e.title} ainda não tem ingressos. Crie pelo menos um para poder vender.`, { texto: 'Criar ingressos', to: editarEvento(e) })),
@@ -199,18 +204,18 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
       const dias = Math.floor((agora - aprovado) / DIA_MS)
       return dias >= 3 && vendidosDe(vendidos, e.id) === 0
         ? [sug(`sugestao:sem-venda:${e.id}`, `O ${e.title} está no ar há ${dias} dias e ainda não vendeu. Compartilhe o link com o seu público.`,
-          { texto: 'Copiar link', copiar: e.id })]
+          { texto: 'Copiar link', copiar: e.slug || e.id })]
         : []
     }) : []),
     // 6. sem foto de capa
     ...abertos.filter(e => ![e.cover_image, e.image_url].some(temFoto)).map(e => sug(`sugestao:sem-foto:${e.id}`,
       `O ${e.title} está sem foto de capa; a página mostra o cartaz na cor do evento. Se tiver uma foto, dá para pôr na edição.`,
       { texto: 'Adicionar foto', to: editarEvento(e) })),
-    // 7. terminou há até 7 dias (a maior data conhecida, como no banco) e teve venda
+    // 7. terminou há até 7 dias (fim = o do "ao vivo": end_date ou início + 12 h) e teve venda
     ...(vendidos ? eventos
-      .filter(e => ['Publicado', 'Encerrado'].includes(situacaoEvento(e)) && !dataPorVir(e, agora) && dataPorVir(e, agora - 7 * DIA_MS) && (vendidosDe(vendidos, e.id) ?? 0) > 0)
+      .filter(e => ['Publicado', 'Encerrado'].includes(situacaoEvento(e)) && fimDe(e) <= agora && fimDe(e) > agora - 7 * DIA_MS && (vendidosDe(vendidos, e.id) ?? 0) > 0)
       .map(e => sug(`sugestao:pos-evento:${e.id}`, `O ${e.title} terminou. Veja quantas pessoas entraram no relatório pós-evento.`,
-        { texto: 'Abrir relatório', to: `/producer/pos-evento?eventId=${e.id}` })) : []),
+        { texto: 'Abrir relatório', to: hrefDaTela('/producer/pos-evento', e.id) })) : []),
     // 8. perfil da empresa
     ...(d.empresa === false ? [sug('sugestao:empresa:perfil', 'Faltam os dados da empresa em Configurações.', { texto: 'Preencher', to: '/producer/settings' })] : []),
   ]

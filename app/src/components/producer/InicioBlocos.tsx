@@ -117,10 +117,10 @@ export function FaixaAviso({ children, acao, onDispensar }: {
   onDispensar: () => void
 }) {
   return (
-    <div role="region" aria-label="Evo sugere" className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 xl:col-span-12">
+    <div role="region" aria-labelledby="evo-sugere" className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-2 xl:col-span-12">
       <img src="/evo/evo-avatar.webp" alt="" aria-hidden="true" width={32} height={32} className="size-8 shrink-0 rounded-full" />
       <p className="min-w-0 flex-1 text-sm leading-5 text-foreground">
-        <span className="mr-2 font-display text-xs font-semibold text-muted-foreground">Evo sugere</span>
+        <span id="evo-sugere" className="mr-2 font-display text-xs font-semibold text-muted-foreground">Evo sugere</span>
         {children}
       </p>
       {acao.to

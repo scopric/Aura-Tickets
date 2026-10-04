@@ -273,7 +273,8 @@ export default function ProducerDashboard() {
   })
 
   // "Evo sugere": uma sugestão por vez (lib/inicioProdutor). A dispensa vai para o registro do tour; só decide depois de lê-lo.
-  const sugestao = carregou ? sugestaoDoEvo({
+  // Só depois de tudo chegar (registro, vendas e perfil): senão a faixa troca de sugestão enquanto carrega.
+  const sugestao = carregou && !vendasQ.isPending && !passosQ.isPending ? sugestaoDoEvo({
     eventos, vendidos: v ? vendidos : undefined, porTipo, checkinFeito: passosDados?.checkinFeito, empresa: passosDados?.empresa,
   }, registrados, agora) : null
 
@@ -288,8 +289,9 @@ export default function ProducerDashboard() {
     else if (recentes.size < 8) recentes.set(chave, { chave, qtd: 1, tipo: tipos.get(i.tipo) ?? 'Ingresso', evento: titulos.get(i.evento) ?? '', t: i.t })
   }
 
-  const copiarLink = async (id?: string) => {
-    const alvo = id ?? (proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0])?.id
+  const copiarLink = async (endereco?: string) => {
+    const e = proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0]
+    const alvo = endereco ?? (e && (e.slug || e.id))
     if (!alvo) return
     try {
       await navigator.clipboard.writeText(siteUrl(`/event/${alvo}`))
@@ -402,7 +404,7 @@ export default function ProducerDashboard() {
             {sugestao.barra && (
               <span className="ml-3 inline-flex items-center gap-2 align-middle">
                 <span aria-hidden="true" className="inline-block h-1.5 w-24 overflow-hidden rounded-full bg-secondary">
-                  <span className="block h-full rounded-full bg-[var(--ev-warm)]" style={{ width: `${sugestao.barra.pct}%` }} />
+                  <span className="block h-full rounded-full bg-[var(--ev-warm)]" style={{ width: `${Math.min(100, sugestao.barra.pct)}%` }} />
                 </span>
                 <span className="font-display text-[13px] font-semibold tabular-nums text-[var(--ev-warm-text)]">{Math.round(sugestao.barra.pct)}%{sugestao.barra.mais && '+'}</span>
               </span>

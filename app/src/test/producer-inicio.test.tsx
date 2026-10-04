@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor, fireEvent, within, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -74,6 +74,7 @@ const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empr
 }
 
 beforeEach(() => { localStorage.clear(); reduzir = true })
+afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('matchMedia', () => ({ matches: reduzir })) })
 
 describe('Início do produtor', () => {
   it('sem eventos: data como título, convite, passos zerados e nada de gráfico', async () => {
@@ -163,16 +164,23 @@ describe('Início do produtor', () => {
   it('sem venda há 5 dias de aprovado: "Copiar link" copia o link daquele evento', async () => {
     const escrever = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: escrever } })
-    preparar([{ ...noAr, cover_image: 'https://x.supabase.co/capa.jpg', approved_at: ha(5) }], [], [], { empresa: true })
+    preparar([{ ...noAr, slug: 'show-x', cover_image: 'https://x.supabase.co/capa.jpg', approved_at: ha(5) }], [], [], { empresa: true })
     montar()
     const faixa = await screen.findByRole('region', { name: 'Evo sugere' })
     expect(faixa.textContent).toMatch(/está no ar há 5 dias e ainda não vendeu/)
     fireEvent.click(within(faixa).getByRole('button', { name: 'Copiar link' }))
-    await waitFor(() => expect(escrever).toHaveBeenCalledWith(expect.stringMatching(/\/event\/e1$/)))
+    await waitFor(() => expect(escrever).toHaveBeenCalledWith(expect.stringMatching(/\/event\/show-x$/)))
     fireEvent.click(within(faixa).getByRole('button', { name: 'Dispensar sugestão' }))
     await waitFor(() => expect(gravados).toEqual(['sugestao:sem-venda:e1']))
-    vi.unstubAllGlobals()
-    vi.stubGlobal('matchMedia', () => ({ matches: reduzir }))
+  })
+
+  it('vendas ainda carregando: nenhuma sugestão aparece (nem a que depende só dos eventos)', async () => {
+    preparar([{ ...e1, cover_image: null }], [], [], { empresa: true })
+    tabelas.orders = () => new Promise(() => {}) // nunca responde
+    montar()
+    await screen.findByText('[TESTE] Show', { selector: 'h3' })
+    await new Promise(r => setTimeout(r, 300))
+    expect(screen.queryByRole('region', { name: 'Evo sugere' })).toBeNull()
   })
 
   it('aviso de lote dispensado volta se a capacidade mudou', async () => {

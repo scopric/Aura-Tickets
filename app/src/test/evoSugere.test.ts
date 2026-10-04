@@ -3,8 +3,8 @@ import { sugestaoDoEvo, type DadosSugestao } from '../lib/inicioProdutor'
 import type { DbEvent } from '../hooks/useEvents'
 
 const DIA = 86400000
-const agora = new Date(2026, 9, 10, 12, 0, 0).getTime() // 10/10/2026, meio-dia
-const dia = (n: number) => { const d = new Date(agora); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+const agora = Date.parse('2026-10-10T12:00:00-03:00') // 10/10/2026, meio-dia em Brasília
+const dia = (n: number) => new Date(agora + n * DIA - 3 * 3600000).toISOString().slice(0, 10) // a data de Brasília, n dias depois
 const FOTO = 'https://x.supabase.co/storage/capa.jpg'
 const nada = new Set<string>()
 const tt = (cap: number) => [{ id: 'tt1', name: 'Pista', quantity_total: cap, capacity: null, is_active: true }]
@@ -29,11 +29,21 @@ describe('Evo sugere: uma regra por vez', () => {
   it('1. recusado: texto com o motivo, ou sem a citação quando não há motivo', () => {
     const e = ev({ approval_status: 'rejected', rejection_reason: 'Falta o endereço' })
     const s = sugestaoDoEvo(dados([e]), nada, agora)!
-    expect(s.chave).toBe('sugestao:recusado:e1')
+    expect(s.chave).toMatch(/^sugestao:recusado:e1:[0-9a-z]+$/)
     expect(s.texto).toBe('O Show voltou da análise com um pedido de ajuste: "Falta o endereço". Corrija e envie de novo.')
     expect(s.acao).toEqual({ texto: 'Abrir evento', to: '/producer/events/e1/edit' })
     expect(sugestaoDoEvo(dados([ev({ approval_status: 'rejected', rejection_reason: null })]), nada, agora)!.texto)
       .toBe('O Show voltou da análise com um pedido de ajuste. Corrija e envie de novo.')
+  })
+
+  it('1. recusa dispensada volta com motivo novo; recusado de evento que já passou não aparece', () => {
+    const com = (motivo: string, o = {}) => dados([ev({ approval_status: 'rejected', rejection_reason: motivo, ...o })])
+    const antiga = chaveDe(com('Falta o endereço'))!
+    expect(chaveDe(com('Falta o endereço'), new Set([antiga]))).toBeUndefined()
+    const nova = chaveDe(com('Falta a classificação'), new Set([antiga]))
+    expect(nova).toMatch(/^sugestao:recusado:e1:/)
+    expect(nova).not.toBe(antiga)
+    expect(chaveDe(com('Falta o endereço', { date: dia(-30) }))).toBeUndefined()
   })
 
   it('2. lote com 90% ou mais: mesma chave de antes (tipo + capacidade), barra e "+" com a lista cortada', () => {
@@ -43,6 +53,7 @@ describe('Evo sugere: uma regra por vez', () => {
     expect(s.texto).toBe('Pista do Show: 9 de 10 vendidos.')
     expect(s.barra).toEqual({ pct: 90, mais: false })
     expect(sugestaoDoEvo({ ...d, vendidos: { porEvento: { e1: 9 }, cortado: true } }, nada, agora)!.texto).toBe('Pista do Show: 9+ de 10 vendidos.')
+    expect(sugestaoDoEvo(dados([ev({ ticket_types: tt(10) })], { porTipo: { tt1: 11 } }), nada, agora)!.barra!.pct).toBeCloseTo(110) // a tela limita só a largura
     expect(chaveDe(dados([ev({ ticket_types: tt(10) })], { porTipo: { tt1: 8 } }))).toBeUndefined() // 80%
     expect(chaveDe(dados([ev({ ticket_types: tt(10), approval_status: 'pending' })], { porTipo: { tt1: 10 } }))).toBeUndefined() // não está no ar
   })
@@ -50,6 +61,7 @@ describe('Evo sugere: uma regra por vez', () => {
   it('3. testar o check-in: no ar, faltam até 7 dias, 1 vendido, nenhum check-in', () => {
     const d = (n: number, o: Partial<DadosSugestao> = {}) => dados([ev({ date: dia(n) })], { checkinFeito: false, ...o })
     expect(chaveDe(d(7))).toBe('dica:checkin:e1')
+    expect(sugestaoDoEvo(d(7), nada, agora)!.texto).toBe('Teste o check-in do Show antes do dia.')
     expect(chaveDe(d(8))).toBeUndefined()
     expect(chaveDe(d(7, { checkinFeito: true }))).toBeUndefined()
     expect(chaveDe(d(7, { checkinFeito: undefined }))).toBeUndefined() // ainda não carregou
@@ -75,6 +87,7 @@ describe('Evo sugere: uma regra por vez', () => {
       texto: 'O Show está no ar há 5 dias e ainda não vendeu. Compartilhe o link com o seu público.',
       acao: { texto: 'Copiar link', copiar: 'e1' },
     })
+    expect(sugestaoDoEvo(dados([ev({ slug: 'show-x', approved_at: new Date(agora - 5 * DIA).toISOString() })], { vendidos: { porEvento: {}, cortado: false } }), nada, agora)!.acao.copiar).toBe('show-x')
     expect(chaveDe(d(5, { vendidos: { porEvento: { e1: 1 }, cortado: false } }))).toBeUndefined()
     expect(chaveDe(d(5, { vendidos: { porEvento: {}, cortado: true } }))).toBeUndefined() // lista cortada: zero não é certeza
     expect(chaveDe(d(5, { vendidos: undefined }))).toBeUndefined() // vendas ainda não chegaram
@@ -90,7 +103,13 @@ describe('Evo sugere: uma regra por vez', () => {
   })
 
   it('7. pós-evento: terminou há até 7 dias e teve venda', () => {
-    const d = (n: number, o: Partial<DadosSugestao> = {}) => dados([ev({ date: dia(n) })], o)
+    const d = (n: number, o: Partial<DadosSugestao> = {}) => dados([ev({ date: dia(n) })], o) // começa às 22h; fim = 10h do dia seguinte
+    expect(chaveDe(dados([ev({ date: dia(0), time: '11:00:00' })]))).toBeUndefined() // no dia, 1 h depois do início: está acontecendo
+    expect(chaveDe(dados([ev({ date: dia(0), time: null })]))).toBeUndefined() // só com o dia: vale 24 h
+    expect(chaveDe(dados([ev({ date: dia(-1), time: null })]))).toBe('sugestao:pos-evento:e1') // dia inteiro de ontem: fim hoje 00h
+    expect(chaveDe(dados([ev({ date: dia(-2), time: '22:00:00' })]))).toBe('sugestao:pos-evento:e1') // fim + 1 dia
+    expect(chaveDe(dados([ev({ date: dia(-9), time: '22:00:00' })]))).toBeUndefined() // fim + 8 dias
+    expect(chaveDe(dados([ev({ date: dia(-9), time: '22:00:00', end_date: new Date(agora - DIA).toISOString() })]))).toBe('sugestao:pos-evento:e1') // end_date manda
     expect(chaveDe(d(-1))).toBe('sugestao:pos-evento:e1')
     expect(chaveDe(d(-6))).toBe('sugestao:pos-evento:e1')
     expect(chaveDe(d(-8))).toBeUndefined() // terminou há mais de 7 dias
@@ -111,7 +130,7 @@ describe('Evo sugere: uma regra por vez', () => {
 
   it('prioridade: duas valendo, vale a primeira da ordem', () => {
     const recusado = ev({ id: 'e2', approval_status: 'rejected', cover_image: null })
-    expect(chaveDe(dados([ev({ cover_image: null }), recusado], { empresa: false }))).toBe('sugestao:recusado:e2')
+    expect(chaveDe(dados([ev({ cover_image: null }), recusado], { empresa: false }))).toMatch(/^sugestao:recusado:e2:/)
     // lote (2) antes de check-in (3), que vem antes de sem foto (6) e empresa (8)
     const d = dados([ev({ ticket_types: tt(10), date: dia(2), cover_image: null })], { porTipo: { tt1: 10 }, checkinFeito: false, empresa: false })
     expect(chaveDe(d)).toBe('aviso-lote:tt1:10')
