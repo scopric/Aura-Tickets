@@ -1,0 +1,69 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
+
+const toast = vi.hoisted(() => Object.assign(vi.fn(), { loading: vi.fn(() => 'id'), success: vi.fn(), error: vi.fn() }))
+vi.mock('sonner', () => ({ toast }))
+
+// Perfil: o banco responde ao update com zero linha (RLS filtrando) ou com a linha
+let linhas: { id: string }[] = []
+vi.mock('../lib/supabase', () => ({
+  supabase: { from: () => ({ update: () => ({ eq: () => ({ select: () => Promise.resolve({ data: linhas, error: null }) }) }) }) },
+}))
+// usuário estável: um objeto novo a cada render refaria o efeito do Perfil em laço
+const usuario = vi.hoisted(() => ({ id: 'u1', full_name: 'Ana', email: 'a@a.com', phone: '', city: '', bio: '', birth_date: null }))
+vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: usuario }) }))
+vi.mock('../hooks/useTwoFactor', () => ({ useTwoFactor: () => ({ loading: false, enabled: false, toggle: vi.fn(), modal: null }) }))
+vi.mock('../hooks/useMatchmaking', () => ({ useMatchmakingProfile: () => ({ profile: null }), consentimentoVigente: () => false }))
+vi.mock('../hooks/useUserTickets', () => ({ useUserTickets: () => ({ data: [], isLoading: false }) }))
+vi.mock('../hooks/useUserOrders', () => ({ useUserOrders: () => ({ data: [], isLoading: false }) }))
+vi.mock('../hooks/useCheckout', () => ({
+  useOrderTickets: () => ({
+    isLoading: false,
+    data: [{ id: 't1', status: 'cancelled', code: 'EVK-1', ticket_types: { name: 'Pista', price: 10, type: 'individual' }, events: { id: 'e1', title: 'Noite', date: '2026-12-12', time: '20:00:00' } }],
+  }),
+}))
+vi.mock('../hooks/useEvents', () => ({ usePublicEvent: () => ({ data: undefined, isLoading: false }) }))
+vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
+vi.mock('../components/YourTable', () => ({ default: () => null }))
+vi.mock('../lib/confete', () => ({ soltarConfete: () => () => {} }))
+
+import Profile from '../pages/app/Profile'
+import Success from '../pages/checkout/Success'
+
+beforeEach(() => vi.clearAllMocks())
+
+describe('Perfil', () => {
+  const editar = () => {
+    render(<MemoryRouter><Profile /></MemoryRouter>)
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }))
+  }
+  it('Salvar com zero linha gravada vira erro, não sucesso', async () => {
+    linhas = []
+    editar()
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/ }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalled())
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+  it('Salvar com a linha gravada dá sucesso; Cancelar desfaz a edição', async () => {
+    linhas = [{ id: 'u1' }]
+    editar()
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/ }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }))
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Outro' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }))
+    expect(screen.queryByLabelText('Nome')).toBeNull()
+    expect(screen.getByText('Ana', { selector: 'div' })).toBeTruthy()
+  })
+})
+
+describe('Confirmação da compra', () => {
+  it('mostra o valor do ingresso com a taxa (R$ 10,00 + R$ 3,00) e o horário sem segundos', () => {
+    render(<MemoryRouter initialEntries={[{ pathname: '/checkout/success', state: { orderId: 'o1', totalAmount: 13 } }]}><Success /></MemoryRouter>)
+    expect(screen.getByText('Valor com taxa')).toBeTruthy()
+    expect(screen.getByText(/R\$\s13,00/)).toBeTruthy()
+    expect(screen.queryByText(/20:00:00/)).toBeNull()
+    expect(screen.getAllByText(/20h/).length).toBeGreaterThan(0)
+  })
+})

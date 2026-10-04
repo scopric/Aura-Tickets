@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import EventoCapa from '../../components/EventoCapa'
 import { useUserOrders } from '../../hooks/useCheckout'
+import { dataCurta, horaCurta } from '../../lib/ingresso'
 
 const methodLabels: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
@@ -28,8 +29,14 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   refunded: { label: 'Reembolsado', color: 'text-muted-foreground' },
 }
 
+// "Sáb, 12 dez"; com o ano ("Sáb, 12 dez de 2025") quando não é o ano corrente
+const dataDoEvento = (data?: string | null) => {
+  const d = dataCurta(data)
+  return d && data!.slice(0, 4) !== String(new Date().getFullYear()) ? `${d} de ${data!.slice(0, 4)}` : d
+}
+
 export default function AppOrders() {
-  const { data: orders = [], isLoading } = useUserOrders()
+  const { data: orders = [], isLoading, isError, refetch } = useUserOrders()
 
   if (isLoading) {
     return (
@@ -44,7 +51,13 @@ export default function AppOrders() {
     <div className="max-w-3xl text-foreground">
       <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Minhas Compras</h1>
 
-      {orders.length === 0 ? (
+      {isError && orders.length === 0 ? (
+        <div role="alert" className="flex max-w-sm flex-col items-start gap-3">
+          <p className="text-lg font-semibold">Não foi possível carregar suas compras.</p>
+          <p className="text-[15px] text-muted-foreground">Suas compras não foram apagadas. Confira a conexão e tente de novo.</p>
+          <Button variant="outline" size="lg" onClick={() => refetch()}>Tentar de novo</Button>
+        </div>
+      ) : orders.length === 0 ? (
         <div role="status" className="flex max-w-sm flex-col items-start gap-3">
           <I.Ingressos size={40} className="text-muted-foreground" aria-hidden="true" />
           <p className="text-lg font-semibold">Você ainda não fez nenhuma compra.</p>
@@ -69,18 +82,16 @@ export default function AppOrders() {
                       <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs leading-4 text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <I.Eventos size={16} aria-hidden="true" />
-                          {order.created_at
-                            ? new Date(order.created_at).toLocaleDateString('pt-BR', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                              })
-                            : '-'}
+                          {[dataDoEvento(order.events?.date), horaCurta(order.events?.time)].filter(Boolean).join(' · ') || 'Data a definir'}
                         </span>
                         <span className="flex items-center gap-1">
                           <I.Local size={16} aria-hidden="true" />
                           {order.events?.venue_name || 'Local a definir'}
                         </span>
+                      </p>
+                      <p className="mt-1 text-xs leading-4 text-muted-foreground">
+                        Pedido #{order.id.slice(0, 8).toUpperCase()}
+                        {order.created_at && ` · comprado em ${new Date(order.created_at).toLocaleDateString('pt-BR')}`}
                       </p>
                     </div>
                   </div>

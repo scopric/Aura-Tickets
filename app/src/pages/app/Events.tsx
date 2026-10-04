@@ -55,7 +55,7 @@ const precoDe = (ticketTypes?: { price: number | string }[] | null) => {
 export default function AppEvents() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('Todos')
-  const { data: events = [], isLoading } = usePublicEvents()
+  const { data: events = [], isLoading, isError, refetch } = usePublicEvents()
   // o círculo de busca da barra inferior chega com ?busca=1: foca o campo. Espera a lista carregar (o campo só existe
   // depois) e refoca a cada toque (location.key muda mesmo com a tela já aberta)
   const [params] = useSearchParams()
@@ -78,6 +78,8 @@ export default function AppEvents() {
 
   const featured = filtered[0]
   const rest = filtered.slice(1)
+  const semEventos = events.length === 0
+  const filtrando = !!search || activeCategory !== 'Todos'
   const hoje = hojeSP() // a cada renderização: o rótulo "Hoje" confere depois da meia-noite
 
   if (isLoading) {
@@ -136,13 +138,25 @@ export default function AppEvents() {
       </div>
 
       {/* Featured Event: o destaque do Explorar (capa 4:5, selo da data sobre a foto, nome abaixo); no computador, ao lado da lista */}
-      {rest.length === 0 && !featured ? (
+      {isError && events.length === 0 ? (
+        <div role="alert" className="mx-auto flex max-w-sm flex-col items-center px-4 py-12 text-center">
+          <h2 className="text-lg font-semibold leading-6">Não foi possível carregar os eventos</h2>
+          <p className="mt-1.5 text-[15px] leading-[22px] text-muted-foreground">Confira a conexão e tente de novo.</p>
+          <Button variant="outline" size="lg" className="mt-5" onClick={() => refetch()}>Tentar de novo</Button>
+        </div>
+      ) : rest.length === 0 && !featured ? (
         <div role="status" className="mx-auto flex max-w-sm flex-col items-center px-4 py-12 text-center">
           <img src="/evo/evo-corpo-celular.webp" alt="" width={76} height={132} className="h-[132px] w-auto" />
-          <h2 className="mt-4 text-lg font-semibold leading-6">Nenhum evento encontrado</h2>
+          <h2 className="mt-4 text-lg font-semibold leading-6">{semEventos ? 'Ainda não há eventos publicados' : 'Nenhum evento encontrado'}</h2>
           <p className="mt-1.5 text-[15px] leading-[22px] text-muted-foreground">
-            Tente ajustar os filtros ou a busca para encontrar o que procura.
+            {semEventos ? 'Quando sair o primeiro, ele aparece aqui.' : 'Tente ajustar os filtros ou a busca para encontrar o que procura.'}
           </p>
+          {semEventos && (
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <Button asChild variant="outline"><Link to="/app/salvos">Ver salvos</Link></Button>
+              <Button asChild variant="outline"><Link to="/app/hub">Ir para o Início</Link></Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className={featured ? 'lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-10' : undefined}>
@@ -197,8 +211,8 @@ export default function AppEvents() {
         </div>
       )}
 
-      {/* Bottom CTA */}
-      <div className="flex flex-col items-start justify-between gap-4 border-t border-border pt-6 md:flex-row md:items-center">
+      {/* Bottom CTA: limpar filtros só faz sentido com filtro ativo */}
+      {filtrando && <div className="flex flex-col items-start justify-between gap-4 border-t border-border pt-6 md:flex-row md:items-center">
         <div>
           <h2 className="text-lg font-semibold leading-6">Não encontrou o que procura?</h2>
           <p className="mt-1 text-[15px] text-muted-foreground">
@@ -215,7 +229,7 @@ export default function AppEvents() {
         >
           Ver todos os eventos
         </Button>
-      </div>
+      </div>}
     </div>
   )
 }

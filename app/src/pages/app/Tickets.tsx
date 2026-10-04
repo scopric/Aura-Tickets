@@ -12,12 +12,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { useUserTickets } from '../../hooks/useUserTickets'
 import { temFoto, varsDoEvento } from '../../lib/corEvento'
 import { useFalta } from '../../hooks/useFalta'
-import { agruparPorEvento, corDoEvento, dataCurta, diasAte, ehProximo, enderecoDoEvento, horaCurta, linkMapa, quandoFalta, type GrupoIngressos } from '../../lib/ingresso'
+import { agruparPorEvento, corDoEvento, dataCurta, diasAte, ehProximo, enderecoDoEvento, horaCurta, linkMapa, motivoSemQr, quandoFalta, type GrupoIngressos } from '../../lib/ingresso'
 import '../../components/Ingresso.css'
 
 const quando = (g: GrupoIngressos) => [dataCurta(g.evento?.date), horaCurta(g.evento?.time)].filter(Boolean).join(' · ')
 const contar = (n: number) => `${n} ingresso${n > 1 ? 's' : ''}`
 const foco = 'has-[:focus-visible]:shadow-ev-foco'
+const cancelado = (g: GrupoIngressos) => g.evento?.status === 'cancelled'
 
 // O botão quadrado do QR leva direto ao QR (o ingresso abre virado); o resto do cartão leva à frente do ingresso
 function QrChip({ g, className, icone }: { g: GrupoIngressos; className: string; icone: number }) {
@@ -58,6 +59,7 @@ function Passe({ g }: { g: GrupoIngressos }) {
               )}
               <span className="text-[13px] font-medium text-[rgb(255_255_255/0.9)]">{[tipo, contar(g.ingressos.length)].filter(Boolean).join(' · ')}</span>
             </div>
+            {cancelado(g) && <p role="status" className="mt-2 text-sm font-semibold">Evento cancelado: o QR não vale. Fale com o suporte.</p>}
             {/* o cartaz já traz o nome e a data; com foto, eles vão no texto */}
             {comFoto && <p className="mt-2 break-words font-display text-[24px] font-extrabold leading-[1.1] tracking-[-0.015em] wide">{e?.title ?? 'Evento'}</p>}
             <p className={`${comFoto ? 'mt-1 text-sm font-medium text-[rgb(255_255_255/0.9)]' : 'mt-2 font-display text-[26px] font-extrabold leading-[1.1] tracking-[-0.015em] wide'}`}>
@@ -74,7 +76,7 @@ function Passe({ g }: { g: GrupoIngressos }) {
           <span aria-hidden="true" className="size-12 shrink-0" />
         </div>
         <Link to={`?evento=${g.id}`} aria-label={`Abrir ${contar(g.ingressos.length)} de ${e?.title ?? 'Evento'}, ${quando(g)}`} className="passe-abrir absolute inset-0 outline-none" />
-        <QrChip g={g} className="absolute bottom-4 right-4 size-12 rounded-xl bg-white text-[#0b0d12] focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]" icone={24} />
+        {!cancelado(g) && <QrChip g={g} className="absolute bottom-4 right-4 size-12 rounded-xl bg-white text-[#0b0d12] focus-visible:shadow-[0_0_0_2px_var(--evento-fundo-e),0_0_0_4px_#fff]" icone={24} />}
       </div>
     </div>
   )
@@ -89,13 +91,13 @@ function Linha({ g }: { g: GrupoIngressos }) {
       <div className="linha-recorte relative flex h-20 items-center gap-3 rounded-xl bg-secondary px-3 text-left has-[a.linha-abrir:hover]:bg-[var(--ev-sec-press)]">
         {e && <EventoCapa evento={e} tamanho="mini" className="!size-14" />}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-xs leading-4 text-muted-foreground">{[quando(g), dias !== null && dias >= 0 ? quandoFalta(dias).toLowerCase() : null].filter(Boolean).join(' · ')}</span>
+          <span className="block truncate text-xs leading-4 text-muted-foreground">{[cancelado(g) ? 'Evento cancelado' : null, quando(g), dias !== null && dias >= 0 ? quandoFalta(dias).toLowerCase() : null].filter(Boolean).join(' · ')}</span>
           <span className="block truncate font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{e?.title ?? 'Evento'}</span>
           <span className="block truncate text-[13px] leading-[18px] text-muted-foreground">{[[e?.venue_name, e?.venue_city].filter(Boolean).join(', '), contar(g.ingressos.length)].filter(Boolean).join(' · ')}</span>
         </span>
         <span aria-hidden="true" className="size-11 shrink-0" />
         <Link to={`?evento=${g.id}`} aria-label={`Abrir ${contar(g.ingressos.length)} de ${e?.title ?? 'Evento'}, ${quando(g)}`} className="linha-abrir absolute inset-0 rounded-xl outline-none" />
-        <QrChip g={g} className="absolute right-3 top-1/2 size-11 -translate-y-1/2 rounded-full bg-card text-foreground shadow-ev-secondary focus-visible:shadow-ev-foco" icone={16} />
+        {!cancelado(g) && <QrChip g={g} className="absolute right-3 top-1/2 size-11 -translate-y-1/2 rounded-full bg-card text-foreground shadow-ev-secondary focus-visible:shadow-ev-foco" icone={16} />}
       </div>
     </div>
   )
@@ -115,7 +117,7 @@ function LinhaAnterior({ g }: { g: GrupoIngressos }) {
   const situacao = g.ingressos.length > 1
     ? Object.entries(tally).map(([st, n]) => `${n} ${palavra(st, n)}`).join(' · ')
     : um.status === 'used' ? `Usado${um.checked_in_at ? ` em ${new Date(um.checked_in_at).toLocaleDateString('pt-BR')}` : ''}`
-    : um.status === 'active' ? 'Evento encerrado'
+    : um.status === 'active' ? motivoSemQr(um) ?? 'Evento encerrado'
     : palavra(um.status, 1).replace(/^./, c => c.toUpperCase())
   return (
     <li className="flex h-20 items-center gap-3 rounded-xl bg-secondary px-3">
@@ -138,7 +140,8 @@ export default function ParticipantTickets() {
   const proximos = agruparPorEvento(tickets.filter(t => ehProximo(t, agora)))
   const anteriores = agruparPorEvento(tickets.filter(t => !ehProximo(t, agora)), true)
   const eventoId = params.get('evento')
-  // o link direto abre qualquer ingresso ativo, mesmo o de um evento que a lista já considera anterior
+  // o link direto abre qualquer ingresso ativo, mesmo o de um evento que a lista já considera anterior (evento de vários dias sem end_date);
+  // o QR some só se o evento está cancelado ou tem end_date vencida (motivoSemQr)
   const aberto = eventoId ? agruparPorEvento(tickets.filter(t => t.status === 'active')).find(g => g.id === eventoId) : undefined
 
   return (

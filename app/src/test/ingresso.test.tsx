@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import IngressosDoEvento from '../components/Ingresso'
 import Tickets from '../pages/app/Tickets'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa } from '../lib/ingresso'
+import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa, motivoSemQr } from '../lib/ingresso'
 import type { DbTicket } from '../hooks/useCheckout'
 
 const evento = {
@@ -87,6 +87,17 @@ describe('mapa e carteira', () => {
     for (const status of ['used', 'cancelled', 'transferred'] as const) expect(ehProximo(ticket(1, { status }), agora)).toBe(false)
     expect(ehProximo(ticket(1, { events: { ...evento, date: null } }), agora)).toBe(true)
   })
+  it('QR só vale para ingresso ativo de evento em pé: diz o motivo nos demais', () => {
+    const agora = Date.parse('2026-12-12T20:00:00-03:00')
+    expect(motivoSemQr(ticket(1), agora)).toBeNull()
+    expect(motivoSemQr(ticket(1, { status: 'used' }), agora)).toBe('Ingresso já usado')
+    expect(motivoSemQr(ticket(1, { status: 'cancelled' }), agora)).toBe('Ingresso cancelado')
+    expect(motivoSemQr(ticket(1, { events: { ...evento, status: 'cancelled' } }), agora)).toBe('Evento cancelado')
+    const comFim = ticket(1, { events: { ...evento, end_date: '2026-12-13T05:00:00Z' } })
+    expect(motivoSemQr(comFim, Date.parse('2026-12-13T01:00:00-03:00'))).toBeNull() // end_date ainda não passou
+    expect(motivoSemQr(comFim, Date.parse('2026-12-13T03:00:00-03:00'))).toBe('Evento encerrado')
+    expect(motivoSemQr(ticket(1), Date.parse('2026-12-20T12:00:00-03:00'))).toBeNull() // sem end_date: o QR fica (evento de vários dias)
+  })
   it('agrupa por evento em ordem cronológica (ou do mais recente ao mais antigo)', () => {
     const e2 = { ...evento, id: 'e2', date: '2026-11-01' }
     const lista = [ticket(1), ticket(2), ticket(3, { events: e2, event_id: 'e2' })]
@@ -105,9 +116,14 @@ const carteira = (tickets: DbTicket[], entrada = '/app/tickets') => {
 
 describe('Carteira', () => {
   const passado = { ...evento, date: '2026-01-10', time: '20:00:00' }
-  it('o link direto ?evento= abre qualquer ingresso ativo, mesmo de evento que a lista já considera anterior', () => {
+  it('o link direto ?evento= abre o ingresso ativo de evento anterior sem end_date, com QR', () => {
     carteira([ticket(1, { events: passado })], '/app/tickets?evento=e1')
     expect(screen.getByRole('button', { name: /Mostrar QR/ })).toBeTruthy()
+  })
+  it('o link direto de evento com end_date vencida abre sem QR: diz que o evento acabou', () => {
+    carteira([ticket(1, { events: { ...passado, end_date: '2026-01-11T02:00:00Z' } })], '/app/tickets?evento=e1')
+    expect(screen.getByRole('status').textContent).toContain('Evento encerrado')
+    expect(screen.queryByRole('button', { name: /Mostrar QR/ })).toBeNull()
   })
   it('evento anterior com ingressos de situações diferentes mostra a contagem por situação', () => {
     carteira([ticket(1, { status: 'used', events: passado }), ticket(2, { status: 'cancelled', events: passado }), ticket(3, { status: 'cancelled', events: passado })])
@@ -125,6 +141,12 @@ describe('Carteira', () => {
 })
 
 describe('IngressosDoEvento', () => {
+  it('evento cancelado: avisa o motivo e não oferece o QR', () => {
+    render(<MemoryRouter><ThemeProvider><IngressosDoEvento ingressos={[ticket(1, { events: { ...evento, status: 'cancelled' } })]} evento={{ ...evento, status: 'cancelled' }} abrirNoQr /></ThemeProvider></MemoryRouter>)
+    expect(screen.getByRole('status').textContent).toContain('Evento cancelado')
+    expect(screen.queryByRole('button', { name: /Mostrar QR/ })).toBeNull()
+    expect(screen.queryByText('EVK-0001', { selector: 'span' })).toBeNull()
+  })
   it('"1 de N" quando há vários ingressos; navega e respeita os limites; um só não mostra o contador', () => {
     const { unmount } = render(tela(3))
     expect(screen.getByText('1 de 3')).toBeTruthy()

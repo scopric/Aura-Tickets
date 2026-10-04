@@ -31,7 +31,7 @@ export interface DbTicket {
   user_id: string
   code: string
   qr_code?: string
-  status: 'active' | 'used' | 'cancelled' | 'transferred'
+  status: 'active' | 'used' | 'cancelled' | 'refunded' | 'transferred'
   seat_info: string | null
   buyer_name?: string | null
   checked_in_at: string | null
@@ -53,6 +53,7 @@ export interface DbTicket {
     image_url?: string | null
     accent_color?: string | null
     end_date?: string | null
+    status?: string | null
     venue_address?: string | null
     venue_city?: string | null
     venue_state?: string | null
@@ -221,6 +222,7 @@ export function useUserTickets() {
               accent_color,
               date,
               end_date,
+              status,
               time,
               venue_name,
               venue_address,
