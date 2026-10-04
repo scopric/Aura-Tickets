@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(29);
+select plan(32);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -114,6 +114,26 @@ update public.events set status = 'cancelled' where id = 'ab000000-0000-4000-800
 select results_eq($$select user_id::text, title, type from public.notifications where title like '%cancelado'$$,
   $$values ('ab000000-0000-4000-8000-00000000000a', 'Um evento salvo foi cancelado', 'system')$$,
   'cancelar avisa quem salvou');
+
+-- Cancela e renomeia no mesmo UPDATE: o aviso traz o título aprovado, nunca o novo (e cortado em 120) ------------------
+delete from public.notifications;
+insert into public.events (id, producer_id, title, slug, status, approval_status, start_date) values
+  ('ab000000-0000-4000-8000-0000000000e6', 'ab000000-0000-4000-8000-000000000009', 'Título aprovado', 'p1-e6', 'published', 'approved', '2026-12-06 20:00+00');
+insert into public.favoritos (user_id, event_id) values
+  ('ab000000-0000-4000-8000-00000000000a', 'ab000000-0000-4000-8000-0000000000e6');
+update public.events set status = 'cancelled', title = 'Clique em evil.example para o reembolso' where id = 'ab000000-0000-4000-8000-0000000000e6';
+select is((select body from public.notifications where title like '%cancelado'), '"Título aprovado" foi cancelado.',
+  'cancela e renomeia no mesmo UPDATE: o aviso traz o título antigo');
+insert into public.events (id, producer_id, title, slug, status, approval_status, start_date) values
+  ('ab000000-0000-4000-8000-0000000000e7', 'ab000000-0000-4000-8000-000000000009', repeat('x', 300), 'p1-e7', 'published', 'approved', '2026-12-07 20:00+00');
+insert into public.favoritos (user_id, event_id) values
+  ('ab000000-0000-4000-8000-00000000000a', 'ab000000-0000-4000-8000-0000000000e7');
+update public.events set start_date = '2026-12-08 20:00+00', title = 'Outro nome' where id = 'ab000000-0000-4000-8000-0000000000e7';
+select is((select length(body) from public.notifications where body like '%novos dados%'), length('"' || repeat('x', 120) || '" tem novos dados. Confira antes de se planejar.'),
+  'mudar a data: título antigo cortado em 120 caracteres');
+update public.events set approval_status = 'rejected', rejection_reason = repeat('m', 2000) where id = 'ab000000-0000-4000-8000-0000000000e2';
+select is((select length(body) from public.notifications where title like '%recusado'),
+  length('"Em análise" foi recusado. Motivo: ') + 500, 'motivo da recusa cortado em 500 caracteres');
 
 -- O produtor edita evento aprovado: volta para análise e não avisa quem salvou (ainda não está no ar com o dado novo)
 delete from public.notifications;

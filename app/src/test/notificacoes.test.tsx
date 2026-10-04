@@ -91,6 +91,7 @@ describe('urlDoAviso', () => {
     expect(urlDoAviso({ metadata: { url: '/event/abc' } })).toBe('/event/abc')
     expect(urlDoAviso({ metadata: { url: 'https://mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: { url: '//mal.example' } })).toBeNull()
+    expect(urlDoAviso({ metadata: { url: '/\\mal.example' } })).toBeNull()
     expect(urlDoAviso({ metadata: null })).toBeNull()
   })
 })

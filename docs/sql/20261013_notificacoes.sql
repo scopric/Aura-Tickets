@@ -36,7 +36,10 @@
 --    fase de pagamentos); mensagem nova do chat de suporte (o chat já tem contador e tempo real próprios); aviso
 --    da Política (vai por e-mail pela aviso-politica). A re-aprovação de evento editado pelo produtor não
 --    avisa quem salvou: o banco já devolve o evento a "em análise" na edição e não guarda o valor antigo.
--- 7. Índice (user_id, created_at desc): o sino lê "meus avisos, mais novos primeiro".
+-- 7. Texto dos avisos a quem salvou: usa old.title (o título que passou pela moderação, cortado em 120), nunca new.title:
+--    o produtor pode renomear no mesmo UPDATE que cancela ou muda a data, e o aviso (tipo system) viraria canal de
+--    texto livre sem moderação para os participantes. O motivo da recusa vai cortado em 500.
+-- 8. Índice (user_id, created_at desc): o sino lê "meus avisos, mais novos primeiro".
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -97,9 +100,9 @@ begin
     select p.id,
            case new.approval_status when 'approved' then 'Seu evento foi aprovado' else 'Seu evento foi recusado' end,
            case new.approval_status
-             when 'approved' then '"' || new.title || '" já está no ar.'
-             else '"' || new.title || '" foi recusado.'
-                  || coalesce(' Motivo: ' || nullif(btrim(new.rejection_reason), ''), '')
+             when 'approved' then '"' || left(new.title, 120) || '" já está no ar.'
+             else '"' || left(new.title, 120) || '" foi recusado.'
+                  || coalesce(' Motivo: ' || left(nullif(btrim(new.rejection_reason), ''), 500), '')
            end,
            case new.approval_status when 'approved' then 'info' else 'system' end,
            jsonb_build_object('origem', 'moderacao', 'event_id', new.id, 'url', '/producer/events/' || new.id || '/edit')
@@ -115,7 +118,7 @@ begin
   then
     insert into public.notifications (user_id, title, body, type, metadata)
     select p.id, 'Um evento salvo mudou de data ou local',
-           '"' || new.title || '" tem novos dados. Confira antes de se planejar.',
+           '"' || left(old.title, 120) || '" tem novos dados. Confira antes de se planejar.',
            'info',
            jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id, 'url', '/event/' || new.id)
     from public.favoritos f
@@ -127,7 +130,7 @@ begin
   if v_publico_antes and new.status = 'cancelled' and old.status is distinct from 'cancelled' then
     insert into public.notifications (user_id, title, body, type, metadata)
     select p.id, 'Um evento salvo foi cancelado',
-           '"' || new.title || '" foi cancelado.',
+           '"' || left(old.title, 120) || '" foi cancelado.',
            'system',
            jsonb_build_object('origem', 'evento_salvo', 'event_id', new.id, 'url', '/event/' || new.id)
     from public.favoritos f

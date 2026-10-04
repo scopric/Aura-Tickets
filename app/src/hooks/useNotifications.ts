@@ -13,10 +13,10 @@ export interface DbNotification {
   created_at: string
 }
 
-/** Caminho interno do aviso (metadata.url), ou null. Só aceita "/algo": nunca endereço de fora nem "//". */
+/** Caminho interno do aviso (metadata.url), ou null. Só aceita "/algo": nunca endereço de fora, "//" nem "/\\". */
 export function urlDoAviso(n: Pick<DbNotification, 'metadata'>): string | null {
   const url = n.metadata?.url
-  return typeof url === 'string' && /^\/(?!\/)/.test(url) ? url : null
+  return typeof url === 'string' && /^\/(?![\/\\])/.test(url) ? url : null
 }
 
 export function useUserNotifications() {
