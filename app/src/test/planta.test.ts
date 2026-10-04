@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TIPOS, MAX_PECAS, MAX_CORPO_BYTES, conferirArquivo, corpoGemini, interpretar } from '../../../supabase/functions/_shared/planta'
+import { TIPOS, MAX_PECAS, MAX_CORPO_BYTES, LIMITE_PLANTA_HORA, conferirArquivo, corpoGemini, interpretar, portaoPlanta } from '../../../supabase/functions/_shared/planta'
 import { alternarTipo, contarPorTipo, emMetros, nosDaProposta, pecasValidas, type PecaProposta, type Quadro } from '../lib/plantaIA'
 
 const resposta = (obj: unknown, finishReason = 'STOP') => ({
@@ -48,6 +48,18 @@ describe('interpretar', () => {
     expect(c.generationConfig.responseMimeType).toBe('application/json')
     expect(c.generationConfig.responseSchema.properties.pecas.items.properties.tipo.enum).toEqual([...TIPOS])
     expect(c.tools).toBeUndefined()
+  })
+})
+
+describe('limite de leituras por hora', () => {
+  it('abaixo do limite passa; no limite barra; contagem ilegível falha fechado', () => {
+    expect(LIMITE_PLANTA_HORA).toBe(10)
+    expect(portaoPlanta(0, null)).toBeNull()
+    expect(portaoPlanta(9, null)).toBeNull()
+    expect(portaoPlanta(10, null)).toBe('limite_planta')
+    expect(portaoPlanta(15, null)).toBe('limite_planta')
+    expect(portaoPlanta(0, { message: 'falhou' })).toBe('planta_instavel')
+    expect(portaoPlanta(null, null)).toBe('planta_instavel')
   })
 })
 

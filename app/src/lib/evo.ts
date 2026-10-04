@@ -17,6 +17,9 @@ export const RECUSAS: Record<string, string> = {
   rede: 'Não consegui falar com o Evo. Confira sua conexão e tente de novo.',
   indisponivel: 'O Evo ainda não está disponível. Tente mais tarde.',
   instabilidade: 'O Evo está com instabilidade. Tente de novo em instantes.',
+  // leitor de planta (Lugar marcado)
+  limite_planta: 'Você fez muitas leituras de planta na última hora. Tente de novo mais tarde.',
+  planta_instavel: 'O leitor de planta está instável no momento. Tente de novo mais tarde. Esta tentativa não usou seus créditos.',
 }
 
 export async function chamarEvo(body: object): Promise<Resposta> {

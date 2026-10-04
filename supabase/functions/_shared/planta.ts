@@ -19,6 +19,16 @@ export const MAX_BYTES = 1_500_000 // depois de decodificar o base64; a planta c
 export const MAX_CORPO_BYTES = Math.ceil((MAX_BYTES * 4) / 3) + 10_000 // Content-Length máximo do pedido ao agent: a imagem em base64 mais a folga do JSON
 export const MAX_SAIDA_TOKENS = 16384 // teto de saída do Gemini (inclui raciocínio); também o custo estimado quando a chamada aborta
 export const MAX_ROTULO = 24
+// ponytail: limite por produtor (user_id) por hora corrida, contando toda leitura reservada (ok, erro e pendente)
+// pelas linhas de ai_usage com tier 'imagem'. Para mudar, troque o número aqui e publique a função agent.
+// Sem trava entre pedidos simultâneos: dois pedidos no mesmo instante podem passar 1 além; trava no ai_reserve se importar.
+export const LIMITE_PLANTA_HORA = 10
+
+// Portão do limite: contagem ilegível falha fechado (nada de Gemini) com o aviso de instabilidade.
+export function portaoPlanta(contagem: number | null | undefined, erro: unknown): 'planta_instavel' | 'limite_planta' | null {
+  if (erro || typeof contagem !== 'number') return 'planta_instavel'
+  return contagem >= LIMITE_PLANTA_HORA ? 'limite_planta' : null
+}
 const ROTULO_RE = /^[\p{L}\p{N} .\-/]{1,24}$/u
 
 const INSTRUCAO = `Você lê a planta baixa de um local de evento (imagem) e propõe as peças que o editor de mapa da Evokaa tem. Responda só o JSON do schema.

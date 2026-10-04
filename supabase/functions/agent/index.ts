@@ -15,7 +15,7 @@ import { resumir } from '../_shared/mascara.ts'
 import { FORMATOS, TEMAS, ESTILOS, MAX_TEMAS, MAX_ESTILOS } from '../_shared/tipoEvento.ts'
 import { adminCan, mfaOk } from '../_shared/mfa.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { conferirArquivo, corpoGemini as corpoPlanta, interpretar as interpretarPlanta, MAX_CORPO_BYTES, MAX_SAIDA_TOKENS } from '../_shared/planta.ts'
+import { conferirArquivo, corpoGemini as corpoPlanta, interpretar as interpretarPlanta, portaoPlanta, MAX_CORPO_BYTES, MAX_SAIDA_TOKENS } from '../_shared/planta.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -34,6 +34,8 @@ const MENSAGENS: Record<string, string> = {
   arquivo_invalido: 'Não consegui usar essa planta. Use uma imagem PNG, JPG ou WebP de até 1,5 MB.',
   entrada_invalida: 'Não entendi o pedido. Confira os campos e tente de novo.',
   erro_ia: 'O Evo não conseguiu responder agora. Tente de novo em instantes.',
+  limite_planta: 'Você fez muitas leituras de planta na última hora. Tente de novo mais tarde.',
+  planta_instavel: 'O leitor de planta está instável no momento. Tente de novo mais tarde. Esta tentativa não usou seus créditos.',
 }
 const recusa = (motivo: string, extra: Record<string, unknown> = {}) =>
   json(200, { ok: false, motivo: motivo in MENSAGENS ? motivo : 'erro_ia', message: MENSAGENS[motivo] ?? MENSAGENS.erro_ia, ...extra })
@@ -572,14 +574,20 @@ async function atender(req: Request): Promise<Response> {
 
 // ---------- leitura de planta (modo planta) ----------
 
-// Sem ai_precheck nem roteador: o ai_reserve já traz os portões (ligado, teto diário, limite por hora e
-// crédito). p_mode 'planejar' + resumo "planta:" evita SQL novo: o CHECK de ai_usage.mode só aceita
+// Sem ai_precheck nem roteador: antes do ai_reserve, o limite de leituras de planta por hora do produtor
+// (portaoPlanta); depois, os portões do ai_reserve (ligado, teto diário, limite por hora e crédito). p_mode 'planejar' + resumo "planta:" evita SQL novo: o CHECK de ai_usage.mode só aceita
 // chat, planejar e ping. Nada de imagem, base64 ou texto do Gemini vai para o log.
 async function lerPlanta(c: {
   admin: any; caller: { id: string }; cfg: any; key: string; prazo: number; arquivo: { mime: string; b64: string } | null
 }): Promise<Response> {
   const { admin, caller, cfg, key, prazo, arquivo } = c
   const model = cfg.model_vision
+  // conta toda leitura de planta (tier 'imagem' só existe aqui) da última hora, inclusive as que deram erro
+  const { count, error: contagemError } = await admin.from('ai_usage').select('id', { count: 'exact', head: true })
+    .eq('user_id', caller.id).eq('tier', 'imagem').gte('created_at', new Date(Date.now() - 3_600_000).toISOString())
+  if (contagemError) console.error('[agent] contagem de leituras de planta falhou:', contagemError.message)
+  const barrado = portaoPlanta(count, contagemError)
+  if (barrado) return recusa(barrado)
   const { data: reserva, error } = await admin.rpc('ai_reserve', { p_user: caller.id, p_tier: 'imagem', p_mode: 'planejar', p_model: model })
   if (error || !reserva) {
     console.error('[agent] ai_reserve (planta) falhou:', error?.message)
@@ -612,6 +620,7 @@ async function lerPlanta(c: {
     // e o teto diário não contaria; registra o pior caso (saída no máximo) só para o teto. O crédito do produtor segue sem cobrança.
     if (uso.called && !uso.in && !uso.out && (e as Error)?.name === 'AbortError') { uso.in = 1500; uso.out = MAX_SAIDA_TOKENS }
     await finalizar('erro', 'planta: erro')
-    return recusa('erro_ia')
+    // falha do Gemini (HTTP, prazo, resposta bloqueada, truncada ou fora do schema): sem cobrança, aviso de instabilidade
+    return recusa('planta_instavel')
   }
 }

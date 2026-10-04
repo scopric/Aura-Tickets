@@ -404,6 +404,22 @@ describe('Lugar marcado: carga e erros', () => {
     expect(h.toast.error).toHaveBeenCalledWith('O Evo atingiu o limite de uso de hoje. Tente de novo amanhã.')
   })
 
+  it.each([
+    ['limite_planta', 'Você fez muitas leituras de planta na última hora. Tente de novo mais tarde.'],
+    ['planta_instavel', 'O leitor de planta está instável no momento. Tente de novo mais tarde. Esta tentativa não usou seus créditos.'],
+  ])('recusa %s mostra a mensagem do leitor de planta e não abre proposta', async (motivo, texto) => {
+    h.eventos = dois
+    comPlanta()
+    h.invoke.mockResolvedValue({ data: { ok: false, motivo }, error: null })
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    expect(h.toast.error).toHaveBeenCalledWith(texto)
+    expect(screen.queryByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeNull()
+  })
+
   it('salvar demorado + troca de evento: o fim do salvamento não marca o mapa novo como alterado', async () => {
     h.eventos = dois
     let termina!: (v: unknown) => void
