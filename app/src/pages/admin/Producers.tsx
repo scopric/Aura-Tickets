@@ -98,7 +98,7 @@ export default function AdminProducers() {
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
-      <PageHeader title="Produtores" description="Contas com papel de produtor e a verificação do cadastro de empresa" />
+      <PageHeader title="Produtores" description="Contas de produtor. O selo Verificado é só um registro interno: por enquanto não libera nem bloqueia nada." />
 
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         {kpis.map(k => <Stat key={k.label} label={k.label} value={isLoading ? '…' : k.value} />)}

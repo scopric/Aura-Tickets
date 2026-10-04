@@ -10,7 +10,7 @@ import { Badge } from '../../components/ui/badge'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Spinner } from '../../components/ui/spinner'
-import { EmptyState, chipAviso, chipErro, chipInfo, chipNeutro, selectNativo } from '../../components/producer/ui'
+import { EmptyState, chipErro, chipInfo, chipNeutro, selectNativo } from '../../components/producer/ui'
 import { cn } from '../../lib/utils'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '../../components/ui/dropdown-menu'
 
@@ -20,13 +20,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenu
 
 // Abertas, Minhas, Sem dono e Urgentes são só as conversas com a equipe; "Com o assistente" são as
 // abertas que o assistente ainda atende (20261003_chat_bot.sql)
-type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'mediacao' | 'assistente' | 'resolvidas'
+type Filtro = 'abertas' | 'minhas' | 'sem_dono' | 'urgentes' | 'assistente' | 'resolvidas'
 const FILTROS: { id: Filtro; rotulo: string; icone: I.IconeEvokaa }[] = [
   { id: 'abertas', rotulo: 'Abertas', icone: I.CaixaDeEntrada },
   { id: 'minhas', rotulo: 'Minhas', icone: I.Conta },
   { id: 'sem_dono', rotulo: 'Sem dono', icone: I.PessoaRemover },
   { id: 'urgentes', rotulo: 'Urgentes', icone: I.Alerta },
-  { id: 'mediacao', rotulo: 'Mediação', icone: I.Balanca },
   { id: 'assistente', rotulo: 'Com o assistente', icone: I.Bot },
   { id: 'resolvidas', rotulo: 'Resolvidas', icone: I.Verificado },
 ]
@@ -39,7 +38,6 @@ interface LinhaInbox {
   assignee_id: string | null
   department_name: string | null
   topic_label: string | null
-  mediation: boolean
   contact_name: string | null
   last_message_at: string
   last_message_preview: string | null
@@ -65,7 +63,7 @@ interface ConversaAdmin {
   rating: number | null
   bot_state: 'bot' | 'humano'
   bot_resolveu: boolean
-  chat_topics: { label: string; mediation: boolean } | null
+  chat_topics: { label: string } | null
   chat_contacts: { name: string; email: string | null; phone: string | null; origin: string; marketing_opt_in: boolean } | null
 }
 
@@ -107,7 +105,7 @@ function useConversaAdmin(id: string | null) {
     queryFn: async () => {
       const { data: d, error } = await supabase
         .from('conversations' as never)
-        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label, mediation), chat_contacts(name, email, phone, origin, marketing_opt_in)')
+        .select('id, user_id, status, priority, assignee_id, assignee_name, department_id, customer_last_read_at, agent_last_read_at, last_customer_message_at, created_at, rating, bot_state, bot_resolveu, chat_topics(label), chat_contacts(name, email, phone, origin, marketing_opt_in)')
         .eq('id', id!)
         .maybeSingle()
       if (error) throw error
@@ -358,7 +356,6 @@ export default function Atendimento() {
                         <span className="mt-1 flex flex-wrap items-center gap-1">
                           {l.nao_lida && <Badge className={selo}>Não lida</Badge>}
                           {l.priority === 'urgent' && <Badge variant="secondary" className={cn(selo, chipErro)}>Urgente</Badge>}
-                          {l.mediation && <Badge variant="secondary" className={cn(selo, chipAviso)}>Mediação</Badge>}
                           {l.bot_state === 'bot' && (
                             <Badge variant="secondary" className={cn(selo, chipInfo)}>
                               <I.Bot aria-hidden="true" />{l.status === 'resolved' && l.bot_resolveu ? 'Resolvida pelo assistente' : 'Assistente'}

@@ -11,6 +11,7 @@ import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, t
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAdminFinance } from '../../hooks/useAdminFinance'
+import { TAXA_PERCENTUAL, TAXA_MINIMA } from '../../lib/taxa'
 import { downloadCsv, toCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
 
 // Mapa de apresentação: a coluna `type` do banco (income/expense/withdrawal/refund/fee) para
@@ -45,11 +46,6 @@ export default function AdminFinance() {
   const [txSearch, setTxSearch] = useState('')
   const [txFilterType, setTxFilterType] = useState<string>('all')
 
-  // Tools states
-  const [platformCommission, setPlatformCommission] = useState(10.0) // 10%
-  const [payoutPixDays, setPayoutPixDays] = useState(0) // D+0
-  const [payoutCardDays, setPayoutCardDays] = useState(14) // D+14
-  const [payoutBoletoDays, setPayoutBoletoDays] = useState(2) // D+2
 
   const orders = data?.orders ?? []
   const transactions = data?.transactions ?? []
@@ -127,7 +123,7 @@ export default function AdminFinance() {
     { id: 'overview', icon: I.Carteira, label: 'Visão Geral' },
     { id: 'transactions', icon: I.Relatorio, label: 'Extrato Comercial' },
     { id: 'withdraws', icon: I.Horario, label: `Repasses / Saques (${pendingWithdrawals.length})` },
-    { id: 'tools', icon: I.Configuracoes, label: 'Ferramentas & Taxas' },
+    { id: 'tools', icon: I.Configuracoes, label: 'Taxas' },
   ] as const
 
   return (
@@ -280,8 +276,7 @@ export default function AdminFinance() {
             <div className={cn('fin-anim space-y-3 p-5', painel)}>
               <h3 className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground"><I.Atualizar size={14} aria-hidden="true" /> Política de Taxação</h3>
               <p className="text-xs leading-relaxed text-muted-foreground">
-                Comissão e prazos de repasse são configurados na aba <strong>Ferramentas &amp; Taxas</strong>.
-                Nenhum valor é retido hoje: a comissão passa a ser lançada em <span className="font-mono">transactions</span>
+                A taxa está fixa no sistema (veja a aba <strong>Taxas</strong>). A comissão passa a ser lançada em <span className="font-mono">transactions</span>
                 quando o gateway confirmar o pagamento, na Fase 4.
               </p>
             </div>
@@ -448,105 +443,13 @@ export default function AdminFinance() {
           <div className="lg:col-span-2 space-y-6">
             <div className={cn('space-y-6 p-6', painel)}>
               <div>
-                <SectionTitle>Configurações de Comissão & Taxas</SectionTitle>
-                <p className="mt-0.5 text-xs text-muted-foreground">Taxa operacional padrão retida pela Evokaa e regras de resgate.</p>
+                <SectionTitle>Taxa de serviço</SectionTitle>
+                <p className="mt-0.5 text-xs text-muted-foreground">Taxa de serviço cobrada do comprador; ingresso gratuito não paga taxa.</p>
               </div>
 
-              <div className="space-y-4">
-                {/* Comissão Slider */}
-                <div className="space-y-2">
-                  <div className="flex justify-between items-center text-xs font-medium text-foreground">
-                    <span className="flex items-center gap-1.5"><I.Porcentagem size={14} className="text-primary" aria-hidden="true" /> Taxa de Comissão da Plataforma</span>
-                    <span className="text-sm font-semibold tabular-nums text-primary">{platformCommission.toFixed(1)}%</span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="25"
-                    step="0.5"
-                    value={platformCommission}
-                    disabled
-                    aria-label="Taxa de comissão (desativada)"
-                    onChange={e => setPlatformCommission(parseFloat(e.target.value))}
-                    className="w-full cursor-not-allowed accent-primary"
-                  />
-                  <div className="flex justify-between text-[11px] font-medium uppercase text-muted-foreground">
-                    <span>0% (Taxa Zero)</span>
-                    <span>10% (Padrão)</span>
-                    <span>25% (Máxima)</span>
-                  </div>
-                </div>
-
-                <hr className="border-border" />
-
-                {/* Prazos de Liquidação */}
-                <div className="space-y-3">
-                  <h4 className="text-[11px] font-medium uppercase tracking-wide text-foreground">Prazos de Liberação para Repasse</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div className="space-y-1 rounded-[10px] border border-border bg-secondary p-3.5">
-                      <span className="text-[11px] font-medium uppercase text-muted-foreground">PIX</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="30"
-                          value={payoutPixDays}
-                          disabled
-                          aria-label="Prazo Pix em dias (desativado)"
-                          onChange={e => setPayoutPixDays(parseInt(e.target.value) || 0)}
-                          className="h-8 w-16 px-2 text-xs font-semibold"
-                        />
-                        <span className="text-xs font-medium text-muted-foreground">dias (D+{payoutPixDays})</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 rounded-[10px] border border-border bg-secondary p-3.5">
-                      <span className="text-[11px] font-medium uppercase text-muted-foreground">Cartão de Crédito</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="60"
-                          value={payoutCardDays}
-                          disabled
-                          aria-label="Prazo de cartão em dias (desativado)"
-                          onChange={e => setPayoutCardDays(parseInt(e.target.value) || 0)}
-                          className="h-8 w-16 px-2 text-xs font-semibold"
-                        />
-                        <span className="text-xs font-medium text-muted-foreground">dias (D+{payoutCardDays})</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 rounded-[10px] border border-border bg-secondary p-3.5">
-                      <span className="text-[11px] font-medium uppercase text-muted-foreground">Boleto Bancário</span>
-                      <div className="flex items-center gap-1">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="30"
-                          value={payoutBoletoDays}
-                          disabled
-                          aria-label="Prazo de boleto em dias (desativado)"
-                          onChange={e => setPayoutBoletoDays(parseInt(e.target.value) || 0)}
-                          className="h-8 w-16 px-2 text-xs font-semibold"
-                        />
-                        <span className="text-xs font-medium text-muted-foreground">dias (D+{payoutBoletoDays})</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end pt-2">
-                  <Button type="button" disabled>
-                    <I.Atualizar aria-hidden="true" />
-                    <span>Salvar indisponível até a Fase 4</span>
-                  </Button>
-                </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  A comissão precisa ser cobrada pelo gateway e registrada em <span className="font-mono">transactions</span>;
-                  salvar um valor aqui não mudaria nada no repasse real.
-                </p>
-              </div>
+              <p className="text-sm text-foreground">
+                Taxa de serviço: {TAXA_PERCENTUAL}% do preço do ingresso, mínimo {brl(TAXA_MINIMA)}, paga pelo comprador. Prazos de repasse: ainda não definidos (dependem do gateway).
+              </p>
             </div>
 
             {/* Comissões: só o que está lançado no banco */}
@@ -615,16 +518,6 @@ export default function AdminFinance() {
                   </Button>
                 ))}
               </div>
-            </div>
-
-            <div className={cn('space-y-3 p-5', painel)}>
-              <h3 className="flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                <I.Alerta size={14} className="text-[var(--ev-warning)]" aria-hidden="true" /> Compliance de Saques
-              </h3>
-              <p className="text-xs font-medium leading-relaxed text-foreground">
-                Regra operacional: saques em processamento acima de {brl(10000)} exigem auditoria manual do
-                faturamento do produtor e validação de documentos fiscais antes da liberação Pix.
-              </p>
             </div>
           </div>
         </div>

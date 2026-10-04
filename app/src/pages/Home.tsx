@@ -818,8 +818,8 @@ export default function Home() {
             {/* 5. Segurança Total - col-span-12 md:col-span-4 */}
             <div className="feature-item md:col-span-4">
               <FeatureCard
-                title="Segurança Total"
-                desc="Autenticação antifraude em cada transação, proteção total de dados de acordo com a LGPD e check-in criptografado."
+                title="Segurança"
+                desc="Seus dados tratados conforme a LGPD e ingresso com QR Code conferido na entrada."
                 accent="#ef4444"
               >
                 <SecurityWidget />

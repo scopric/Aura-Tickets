@@ -141,6 +141,7 @@ export default function AdminSettingsPage() {
       let key = ''
       let payload = {}
 
+      // ponytail: Geral e Moderação estão desligadas na tela (nada no site lê essas chaves); estes ramos voltam a valer na E11
       if (section === 'geral') {
         key = 'general'
         payload = { ...general, currency: 'BRL' }
@@ -272,19 +273,20 @@ export default function AdminSettingsPage() {
 
               <section className={cn(painel, 'space-y-6 p-4 sm:p-6')}>
                 <SectionTitle>Configurações Gerais</SectionTitle>
+                <p id="aviso-geral" className="text-xs text-muted-foreground">Ainda não funciona: nenhum destes campos é lido pelo site (a moeda é sempre Real). Ligar cada um é a fase E11.</p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="grid gap-1.5">
                     <Label htmlFor="platformName">Nome da Plataforma</Label>
-                    <Input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} />
+                    <Input id="platformName" placeholder="Nome da Plataforma" value={general.platformName} onChange={e => setGeneral({ ...general, platformName: e.target.value })} disabled aria-describedby="aviso-geral" />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="tagline">Tagline</Label>
-                    <Input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} />
+                    <Input id="tagline" placeholder="Tagline" value={general.tagline} onChange={e => setGeneral({ ...general, tagline: e.target.value })} disabled aria-describedby="aviso-geral" />
                   </div>
                   <div className="grid gap-1.5">
                     <Label htmlFor="timezone">Timezone</Label>
-                    <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className={selectNativo}>
+                    <select id="timezone" aria-label="Timezone" value={general.timezone} onChange={e => setGeneral({ ...general, timezone: e.target.value })} className={selectNativo} disabled aria-describedby="aviso-geral">
                       <option>America/Sao_Paulo</option><option>America/Recife</option><option>America/Manaus</option>
                     </select>
                   </div>
@@ -306,13 +308,13 @@ export default function AdminSettingsPage() {
                         <Label htmlFor={`general-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
                         <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                       </div>
-                      <Switch id={`general-${item.key}`} aria-label={item.label} checked={getGeneralValue(item.key)} onCheckedChange={v => updateGeneralValue(item.key, v)} />
+                      <Switch id={`general-${item.key}`} aria-label={item.label} checked={getGeneralValue(item.key)} onCheckedChange={v => updateGeneralValue(item.key, v)} disabled aria-describedby="aviso-geral" />
                     </div>
                   ))}
                 </div>
 
                 <div className="flex justify-end">
-                  <Button onClick={handleSave} loading={isSavingSettings}>
+                  <Button onClick={handleSave} loading={isSavingSettings} disabled aria-describedby="aviso-geral">
                     <I.Guardar aria-hidden="true" />Salvar
                   </Button>
                 </div>
@@ -361,10 +363,11 @@ export default function AdminSettingsPage() {
           {section === 'moderacao' && (
             <section className={cn(painel, 'space-y-6 p-4 sm:p-6')}>
               <SectionTitle>Moderação</SectionTitle>
+              <p id="aviso-moderacao" className="text-xs text-muted-foreground">Ainda não funciona: salvar não muda nada no site.</p>
 
               <div className="grid gap-1.5">
                 <Label htmlFor="bannedWords">Palavras Proibidas</Label>
-                <Textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="resize-none" />
+                <Textarea id="bannedWords" placeholder="palavra1, palavra2" value={moderation.bannedWords} onChange={e => setModeration({ ...moderation, bannedWords: e.target.value })} rows={3} className="resize-none" disabled aria-describedby="aviso-moderacao" />
                 <p className="text-xs text-muted-foreground">Separadas por virgula</p>
               </div>
 
@@ -378,7 +381,7 @@ export default function AdminSettingsPage() {
                       <Label htmlFor={`moderation-${item.key}`} className="text-sm text-foreground">{item.label}</Label>
                       <p className="mt-1 text-xs text-muted-foreground">{item.desc}</p>
                     </div>
-                    <Switch id={`moderation-${item.key}`} aria-label={item.label} checked={getModerationValue(item.key)} onCheckedChange={v => updateModerationValue(item.key, v)} />
+                    <Switch id={`moderation-${item.key}`} aria-label={item.label} checked={getModerationValue(item.key)} onCheckedChange={v => updateModerationValue(item.key, v)} disabled aria-describedby="aviso-moderacao" />
                   </div>
                 ))}
 
@@ -387,12 +390,12 @@ export default function AdminSettingsPage() {
                     <Label htmlFor="reportThreshold" className="text-sm text-foreground">Limite de denúncias</Label>
                     <p className="mt-1 text-xs text-muted-foreground">Bloquear automaticamente após X denúncias</p>
                   </div>
-                  <Input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-20 text-center" />
+                  <Input id="reportThreshold" placeholder="3" type="number" value={moderation.reportThreshold} onChange={e => setModeration({ ...moderation, reportThreshold: e.target.value })} className="w-20 text-center" disabled aria-describedby="aviso-moderacao" />
                 </div>
               </div>
 
               <div className="flex justify-end">
-                <Button onClick={handleSave} loading={isSavingSettings}>
+                <Button onClick={handleSave} loading={isSavingSettings} disabled>
                   <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>

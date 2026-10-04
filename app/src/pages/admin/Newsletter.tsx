@@ -107,9 +107,9 @@ export default function AdminNewsletter() {
   const [selectedEventIds, setSelectedEventIds] = useState<string[]>([])
   
   const [includeCoupon, setIncludeCoupon] = useState(false)
-  const [couponTitle, setCouponTitle] = useState('Cupom Especial de Assinante')
+  const [couponTitle, setCouponTitle] = useState('Cupom para produtores')
   const [couponCode, setCouponCode] = useState('CLUBEEVOKAA10')
-  const [couponDesc, setCouponDesc] = useState('Insira no carrinho para obter 10% de desconto adicional.')
+  const [couponDesc, setCouponDesc] = useState('Cupom para produtores (ainda não ativo)')
 
   const [includeCta, setIncludeCta] = useState(true)
   const [ctaText, setCtaText] = useState('Buscar Todos os Eventos')
@@ -296,7 +296,7 @@ export default function AdminNewsletter() {
       setHeading('Evokaa Destaques da Semana')
       setSubtitle('Fique por dentro das melhores experiências e garanta seu lugar')
       setPrimaryColor('#7c3aed')
-      setBodyText(`Olá! O fim de semana está chegando e selecionamos as experiências mais procuradas e imperdíveis da Evokaa.\n\nConfira as atrações recomendadas abaixo e garanta seu ingresso em lotes promocionais antes que esgotem!`)
+      setBodyText(`Olá! O fim de semana está chegando e selecionamos as experiências mais procuradas e imperdíveis da Evokaa.\n\nConfira as atrações recomendadas abaixo e garanta seu ingresso antes que esgote!`)
       setIncludeCoupon(false)
       setIncludeCta(true)
       setCtaText('Explorar Todos os Eventos')
@@ -310,17 +310,17 @@ export default function AdminNewsletter() {
     }
     
     if (type === 'pre-venda') {
-      setTitle('Exclusivo 🚀 Pré-Venda de Ingressos Liberada!')
-      setHeading('Pré-Venda Antecipada!')
-      setSubtitle('Acesso exclusivo concedido aos inscritos da nossa newsletter')
+      setTitle('Em breve: novo evento na Evokaa')
+      setHeading('Em breve: novo evento na Evokaa')
+      setSubtitle('Aviso para quem assina a newsletter')
       setPrimaryColor('#f43f5e')
-      setBodyText(`Olá! Como membro VIP da Evokaa, você acaba de ganhar acesso antecipado de 24 horas para garantir os ingressos do lote promocional do nosso próximo grande evento.\n\nAlém de garantir o seu lugar antes do público geral, use o cupom exclusivo de assinante para garantir um desconto extra.`)
-      setIncludeCoupon(true)
-      setCouponTitle('🎟️ Cupom de Desconto Adicional:')
+      setBodyText(`Um evento que combina com você está chegando. Assim que as vendas abrirem, o botão abaixo leva aos eventos.`)
+      setIncludeCoupon(false)
+      setCouponTitle('Cupom para produtores')
       setCouponCode('CLUBEEVOKAA10')
-      setCouponDesc('Ganhe 10% de desconto adicional. Insira o código na tela de checkout.')
+      setCouponDesc('Cupom para produtores (ainda não ativo)')
       setIncludeCta(true)
-      setCtaText('Acessar Pré-Venda VIP')
+      setCtaText('Ver eventos')
       setCtaUrl('https://evokaa.com.br/events')
       setSelectedEventIds([])
       toast.success('Template de Pré-venda aplicado no construtor!')
@@ -331,7 +331,7 @@ export default function AdminNewsletter() {
       setHeading('Novidades na Evokaa!')
       setSubtitle('Sempre evoluindo para conectar você às suas paixões')
       setPrimaryColor('#10b981')
-      setBodyText(`Buscamos constantemente melhorar a sua experiência.\n\nNeste mês trazemos novidades de peso na plataforma:\n• Nova carteira digital offline no App Evokaa (acesse seus ingressos sem internet);\n• Pagamento simplificado via Pix Parcelado em até 4x;\n• Filtros avançados no calendário de busca.`)
+      setBodyText(`Buscamos melhorar sua experiência.\n\n[Escreva aqui só novidades que já estão no ar.]`)
       setIncludeCoupon(false)
       setIncludeCta(true)
       setCtaText('Conhecer Recursos no App')
@@ -625,7 +625,7 @@ export default function AdminNewsletter() {
                   </span>
                   <div className="flex flex-wrap gap-2">
                     <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('destaques')}>🎪 Destaques da Semana</Button>
-                    <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('pre-venda')}>🚀 Pré-Venda Exclusiva</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('pre-venda')}>Aviso de pré-venda</Button>
                     <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('institucional')}>📣 Informativo Evokaa</Button>
                   </div>
                 </div>
@@ -777,6 +777,7 @@ export default function AdminNewsletter() {
                           className={marca}
                         />
                       </div>
+                      <p className="text-xs text-muted-foreground">Só ative quando o cupom existir em Cupons e a assinatura do produtor estiver no ar. Hoje a newsletter vai para todos os inscritos, não só produtores.</p>
 
                       {includeCoupon && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1.5 anim-fade">
@@ -900,7 +901,7 @@ export default function AdminNewsletter() {
 
               {/* Mail client headers mock */}
               <div className="mb-4 space-y-1 rounded-[10px] border border-border bg-secondary/50 p-3 text-xs">
-                <div><span className="text-muted-foreground">Remetente:</span> <span className="font-semibold text-foreground">Evokaa Eventos &lt;news@evokaa.com.br&gt;</span></div>
+                <div><span className="text-muted-foreground">Remetente:</span> <span className="font-semibold text-foreground">Evokaa Eventos &lt;contato@evokaa.com.br&gt;</span></div>
                 <div><span className="text-muted-foreground">Assunto:</span> <span className="font-bold text-foreground">{title || '(Sem assunto)'}</span></div>
               </div>
 

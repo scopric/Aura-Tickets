@@ -160,7 +160,7 @@ export default function AdminTickets() {
       <div className={cn(alertaAviso, 'mb-6 p-4 text-[13px]')}>
         <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
         <div>
-          <span className="font-semibold">Bilheteria e Ingressos:</span> Ingressos reais são emitidos automaticamente pelos webhooks de confirmação de pagamento. Emissões manuais e reembolsos bancários automatizados estão desabilitados até a ativação dos gateways na Fase 4.
+          <span className="font-semibold">Bilheteria e Ingressos:</span> Ainda não há emissão automática de ingressos: o pagamento está em teste. Emissão manual e reembolso ficam desligados até o gateway entrar.
         </div>
       </div>
 

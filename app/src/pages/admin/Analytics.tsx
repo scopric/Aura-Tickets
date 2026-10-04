@@ -628,7 +628,7 @@ interface ActivityLog {
 
 export default function AdminAnalytics() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users_engagement' | 'traffic' | 'funnel'>('overview')
+  const [activeSubTab, setActiveSubTab] = useState<'overview' | 'users_engagement' | 'traffic'>('overview')
   const [period, setPeriod] = useState<'7d' | '30d' | 'all' | 'custom'>('7d')
   // período personalizado (só na aba Tráfego); datas em AAAA-MM-DD, aplicadas pelo botão
   const hojeIso = new Date().toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' })
@@ -695,10 +695,7 @@ export default function AdminAnalytics() {
 
           let actionString = 'Navegou na plataforma'
           if (l.event_type === 'login') actionString = 'Efetuou login'
-          else if (l.event_type === 'logout') actionString = 'Efetuou logout'
           else if (l.event_type === 'session_start') actionString = 'Iniciou sessão'
-          else if (l.event_type === 'add_to_cart') actionString = 'Adicionou ingresso ao carrinho'
-          else if (l.event_type === 'purchase') actionString = 'Comprou ingresso'
           else if (l.event_type === 'page_view' && l.path) {
             if (l.path.startsWith('/event/')) actionString = 'Visualizou evento'
             else if (l.path === '/') actionString = 'Acessou a Home'

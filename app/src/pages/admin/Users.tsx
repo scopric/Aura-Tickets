@@ -65,12 +65,12 @@ const PLAN_FEATURES: Record<string, string[]> = {
 const availableFeatures = [
   { key: 'crm', name: 'CRM Pipeline', desc: 'Funil e gestão de leads' },
   { key: 'affiliates', name: 'Afiliados', desc: 'Comissionamento e promotores' },
-  { key: 'collective_tables', name: 'Mesa Coletiva', desc: 'Matchmaking de participantes' },
+  { key: 'collective_tables', name: 'Mesa Coletiva', desc: 'Ainda não libera nada' },
   { key: 'seating_map', name: 'Lugar Marcado', desc: 'Editor de mapas de assentos' },
-  { key: 'api_access', name: 'Acesso à API', desc: 'Tokens e integrações externas' },
+  { key: 'api_access', name: 'Acesso à API', desc: 'Ainda não libera nada' },
   { key: 'banners', name: 'Banners Destaque', desc: 'Banners promocionais na home' },
-  { key: 'communications', name: 'Campanhas de E-mail', desc: 'Disparos ilimitados para base' },
-  { key: 'checkin', name: 'Scanner de Portaria', desc: 'App de check-in com leitura de QR' },
+  { key: 'communications', name: 'Campanhas de E-mail', desc: 'Ainda não libera nada' },
+  { key: 'checkin', name: 'Scanner de Portaria', desc: 'Leitura de QR na entrada' },
 ]
 
 export default function AdminUsers() {
@@ -491,7 +491,7 @@ export default function AdminUsers() {
     <div ref={ref} className="p-6 lg:p-10 max-w-7xl">
       <PageHeader
         title="Gestão de Usuários"
-        description="Autorização de acessos, precificação e liberação de recursos do Supabase"
+        description="Papéis, planos e recursos extras"
       />
 
       {/* KPIs Grid */}
@@ -532,7 +532,6 @@ export default function AdminUsers() {
             <option value="user">Participante</option>
             <option value="customer">Cliente</option>
             <option value="producer">Produtor</option>
-            <option value="editor">Editor</option>
             <option value="admin">Administrador</option>
           </select>
         </div>
@@ -560,7 +559,7 @@ export default function AdminUsers() {
               <tr className="border-b border-border">
                 <th className={cn(th, 'px-3 sm:px-4')}>Usuário</th>
                 <th className={cn(th, 'hidden md:table-cell')}>Contato</th>
-                <th className={cn(th, 'hidden lg:table-cell')}>Assinatura / Preço</th>
+                <th className={cn(th, 'hidden lg:table-cell')}>Plano</th>
                 <th className={cn(th, 'hidden lg:table-cell')}>Recursos Extras</th>
                 <th className={cn(th, 'px-3 sm:px-4')}>Cadastro</th>
                 <th className={cn(th, 'px-3 sm:px-4')}><span className="sr-only">Ações</span></th>
@@ -594,9 +593,6 @@ export default function AdminUsers() {
                       {sub ? (
                         <div className="text-xs">
                           <span className="font-semibold capitalize text-primary">{sub.plan}</span>
-                          <div className="mt-0.5 text-[11px] text-muted-foreground">
-                            <span>Preço do plano</span>
-                          </div>
                           {sub.expires_at && (
                             <div className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
                               <I.Horario size={12} aria-hidden="true" /> Expira: {new Date(sub.expires_at).toLocaleDateString('pt-BR')}
@@ -659,7 +655,7 @@ export default function AdminUsers() {
 
             {/* Tabs Selector */}
             <div role="group" aria-label="Seções do usuário" className="px-6 border-b border-border flex gap-4">
-              {([['config', 'Configurações RLS'], ['history', 'Histórico & Comportamento']] as const).map(([id, rotuloAba]) => (
+              {([['config', 'Acesso'], ['history', 'Histórico & Comportamento']] as const).map(([id, rotuloAba]) => (
                 <button
                   key={id}
                   type="button"
@@ -696,7 +692,6 @@ export default function AdminUsers() {
                       >
                         <option value="user">Participante</option>
                         <option value="producer">Produtor</option>
-                        <option value="editor">Editor</option>
                         {(souSuper || selectedProfile.role === 'admin') && <option value="admin">Administrador</option>}
                       </select>
                     </div>
@@ -756,7 +751,7 @@ export default function AdminUsers() {
                     <div className={cn(alertaAviso, 'p-4 text-[13px] leading-relaxed')}>
                       <I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" />
                       <p>
-                        Este usuário é um <strong>Participante</strong>. Ferramentas de produtor não se aplicam a contas de participante comuns, a menos que você altere o papel dele para Produtor ou Editor no painel acima.
+                        Este usuário é um <strong>Participante</strong>. Ferramentas de produtor não se aplicam a contas de participante comuns, a menos que você altere o papel dele para Produtor no painel acima.
                       </p>
                     </div>
                   ) : (
@@ -939,16 +934,13 @@ export default function AdminUsers() {
                               <div key={log.id} className="relative pl-6">
                                 <div className={cn(
                                   'absolute left-[-25px] top-1 size-3 rounded-full border-2 border-card',
-                                  log.event_type === 'login' || log.event_type === 'purchase' ? 'bg-[var(--ev-success)]'
-                                    : log.event_type === 'add_to_cart' ? 'bg-[var(--ev-warning)]'
+                                  log.event_type === 'login' ? 'bg-[var(--ev-success)]'
                                     : 'bg-primary',
                                 )} />
                                 <div className="flex items-center justify-between gap-2 text-xs font-medium text-muted-foreground">
                                   <span className="font-semibold capitalize text-foreground">
                                     {log.event_type === 'page_view' ? 'Visualizou Página' :
                                      log.event_type === 'login' ? 'Efetuou Login' :
-                                     log.event_type === 'add_to_cart' ? 'Adicionou ao Carrinho' :
-                                     log.event_type === 'purchase' ? 'Comprou Ingresso' :
                                      log.event_type === 'session_start' ? 'Iniciou Sessão' :
                                      log.event_type}
                                   </span>
