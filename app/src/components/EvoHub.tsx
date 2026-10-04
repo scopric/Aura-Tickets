@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useAuth } from '../hooks/useAuth'
 import { publicoDoPapel, useMinhasConversas } from '../hooks/useConversas'
+import { useCamada } from '../lib/camadas'
 import { JanelaSuporte, SupportChatPanel } from './SupportChatWidget'
 import { BotaoSom } from './chat/ChatThread'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
@@ -61,6 +62,7 @@ export default function EvoHub() {
   const abertoRef = useRef(aberto)
   const mascoteRef = useRef<HTMLButtonElement>(null)
   const { pathname } = useLocation()
+  const camada = useCamada()
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
   // Respostas da equipe não lidas (a aba "Falar com a Evokaa"); o canal do Realtime fica aqui porque o EvoHub não desmonta
   const { naoLidas: naoLidasSuporte } = useMinhasConversas(true)
@@ -69,14 +71,15 @@ export default function EvoHub() {
     abertoRef.current = aberto
   }, [aberto])
 
-  // Convite ~2 s depois de carregar
+  // Convite ~2 s depois de carregar; o relógio só começa com cookies e Política resolvidos (uma camada por vez)
   useEffect(() => {
+    if (camada !== null) return
     const t = setTimeout(() => {
       const c = lerConvite()
       if (!abertoRef.current && (!c || (!c.aberto && c.fechados < 3))) setBalao((b) => b ?? 'convite')
     }, 2000)
     return () => clearTimeout(t)
-  }, [])
+  }, [camada])
 
   // O aviso de resposta some sozinho em 8 s (o selo fica)
   useEffect(() => {

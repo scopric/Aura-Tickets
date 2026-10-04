@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { trackPageView, hasAnalyticsConsent } from '../lib/tracking'
 import { gaRevokeConsent } from '../lib/googleAnalytics'
+import { avisarCamada } from '../lib/camadas'
 
 // Só duas categorias: o site não usa cookie de marketing nem de preferências
 // (tema e id do chat de suporte são funcionais). Formato salvo continua o mesmo
@@ -53,6 +54,7 @@ export function useCookieConsent() {
     // passou a consentir → registra a página atual (Supabase e GA4); retirou → GA4 desligado
     if (merged.analytics && !tinhaAnalytics) trackPageView(window.location.pathname)
     else if (!merged.analytics && tinhaAnalytics) gaRevokeConsent()
+    avisarCamada() // a Política (e depois o Evo) só abrem depois desta decisão
   }, [])
 
   const acceptAll = useCallback(() => {

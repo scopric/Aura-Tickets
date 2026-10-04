@@ -7,6 +7,8 @@ import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import EvoHub from '../components/EvoHub'
+import { fecharPolitica } from '../lib/camadas'
+import { PRIVACY_VERSION } from '../lib/legal'
 import userEvent from '@testing-library/user-event'
 
 let role = 'producer'
@@ -18,7 +20,8 @@ vi.mock('../hooks/useFeedback', () => ({ useFeedback: () => ({ mutateAsync: vi.f
 // jsdom não tem scrollIntoView nem ResizeObserver (tooltip do Radix); no Node 26 o localStorage global vem vazio
 Element.prototype.scrollIntoView = vi.fn()
 vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} })
-const mem: Record<string, string> = {}
+// cookies decididos e Política fechada: o balão do Evo só corre com as outras camadas resolvidas (lib/camadas.ts)
+const mem: Record<string, string> = { 'aura-cookie-consent': JSON.stringify({ version: '1.0', consent: { necessary: true, analytics: false } }), [`aviso-politica-${PRIVACY_VERSION}`]: '1' }
 vi.stubGlobal('localStorage', { getItem: (k: string) => mem[k] ?? null, setItem: (k: string, v: string) => { mem[k] = v } })
 
 const SALDO_OK = { data: { habilitado: true, plano: 'free', cota: 5, concedido: 0, usado: 1, restante: 4, periodo: 'mes' }, error: null }
@@ -224,6 +227,7 @@ describe('EvoHub: painel, chat e rascunho', () => {
   it('convite: localStorage falhando não quebra (mostra e fecha)', async () => {
     const quebrado = { getItem: () => { throw new Error('bloqueado') }, setItem: () => { throw new Error('bloqueado') } }
     vi.stubGlobal('localStorage', quebrado)
+    fecharPolitica() // sem armazenamento a Política fecha só em memória
     try {
       montar()
       expect(await screen.findByText('Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.', {}, { timeout: 3000 })).toBeInTheDocument()

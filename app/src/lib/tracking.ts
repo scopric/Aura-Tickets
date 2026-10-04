@@ -21,7 +21,9 @@ export function ehAutomacao(): boolean {
 export const semHash: BeforeSend = (event) =>
   ehAutomacao() ? null : { ...event, url: event.url.split('#')[0] }
 
-const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
+export const COOKIE_CONSENT_KEY = 'aura-cookie-consent'
+// igual a VERSION de hooks/useCookieConsent.ts (o camadas.test confere)
+export const COOKIE_CONSENT_VERSION = '1.0'
 const SESSION_ID_KEY = 'aura_session_id'
 
 /**

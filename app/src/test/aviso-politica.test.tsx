@@ -11,7 +11,8 @@ const montar = () => render(<MemoryRouter><AvisoPolitica /></MemoryRouter>)
 
 describe('AvisoPolitica', () => {
   beforeEach(() => {
-    mem = {}
+    // a Política só abre depois da decisão de cookies (lib/camadas.ts)
+    mem = { 'aura-cookie-consent': JSON.stringify({ version: '1.0', consent: { necessary: true, analytics: false } }) }
     vi.stubGlobal('localStorage', armazenamento())
   })
 

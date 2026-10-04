@@ -2,16 +2,17 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { PRIVACY_VERSION } from '../lib/legal'
+import { CHAVE_AVISO_POLITICA, fecharPolitica, useCamada } from '../lib/camadas'
 
 // Aviso da mudança da Política de Privacidade (a própria política, seção 9, promete avisar).
-// Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar.
+// Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar. Só aparece quando a camada aberta é a
+// da Política (depois da decisão de cookies; conta criada na versão vigente não vê: ver lib/camadas.ts).
 // ponytail: o texto fala da mudança de 04/10/2026 (favoritos); trocar junto com a próxima versão.
-const CHAVE = `aviso-politica-${PRIVACY_VERSION}`
 const DATA = new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')
 
 function jaFechado() {
   try {
-    return localStorage.getItem(CHAVE) === '1'
+    return localStorage.getItem(CHAVE_AVISO_POLITICA) === '1'
   } catch {
     return false
   }
@@ -19,16 +20,13 @@ function jaFechado() {
 
 export default function AvisoPolitica() {
   const [aberto, setAberto] = useState(() => !jaFechado())
+  const camada = useCamada()
   // no painel do produtor, celular e tablet: abaixo da barra de 56 px do topo (menu, sino e feedback)
   const produtor = useLocation().pathname.startsWith('/producer')
-  if (!aberto) return null
+  if (!aberto || camada !== 'politica') return null
 
   const fechar = () => {
-    try {
-      localStorage.setItem(CHAVE, '1')
-    } catch {
-      // sem armazenamento no navegador: o aviso some só nesta visita
-    }
+    fecharPolitica() // sem armazenamento no navegador, o aviso some só nesta visita
     setAberto(false)
   }
 
