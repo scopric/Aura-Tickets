@@ -194,7 +194,7 @@ create table if not exists public.evento_aceites (
   event_id uuid references public.events (id) on delete set null,
   producer_id uuid not null,
   versao text not null,
-  texto text not null check (char_length(texto) between 1 and 5000),
+  texto text not null check (texto <> ''),
   texto_hash text not null check (texto_hash ~ '^[0-9a-f]{64}$'),
   classificacao text check (classificacao = any (array['AL', 'A6', 'A10', 'A12', 'A14', 'A16', 'A18']::text[])),
   tem_bebida boolean not null,
@@ -205,7 +205,7 @@ create table if not exists public.evento_aceites (
 );
 -- o texto lido fica gravado (o hash sozinho não se recompõe se o título mudar ou o evento for apagado). Tabela vazia
 -- em produção em 04/10 (conferido): a coluna obrigatória entra sem valor padrão.
-alter table public.evento_aceites add column if not exists texto text not null check (char_length(texto) between 1 and 5000);
+alter table public.evento_aceites add column if not exists texto text not null check (texto <> '');
 create index if not exists evento_aceites_event_id_idx on public.evento_aceites (event_id, aceito_em desc);
 alter table public.evento_aceites enable row level security;
 
