@@ -574,7 +574,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           const falta = resumoFalta(s.id)
           return (
             <AccordionItem key={s.id} value={s.id}>
-              <AccordionTrigger id={`s-${s.id}`} className="min-h-16 items-center px-2 py-2 hover:no-underline">
+              <AccordionTrigger id={`s-${s.id}`} className="min-h-16 min-w-0 items-center px-2 py-2 hover:no-underline">
                 <span aria-hidden="true" className={cn('grid size-5 shrink-0 place-items-center rounded-full', ok ? 'bg-[var(--ev-success)] text-background' : 'ring-[1.5px] ring-inset ring-[var(--ev-warning)]')}>
                   {ok ? <I.Check size={12} /> : <span className="size-1.5 rounded-full bg-[var(--ev-warning)]" />}
                 </span>

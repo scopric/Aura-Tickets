@@ -833,6 +833,21 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await expect(page.getByRole('button', { name: /^O que é/ })).toHaveCount(0)
   })
 
+  test('celular de 320 e 375 px: sem rolagem para o lado com local comprido, título de palavra única e evento travado', async ({ page }) => {
+    await montarBanco(page, {
+      evento: aprovado({ title: 'Superfestivaldeverãodaevokaacomnomesemespaço', venue_name: 'Centro de Convenções e Exposições Internacionais Professor Doutor Fulano de Tal' }),
+      ingressos: [ingresso()], vendidos: { [T_PISTA]: 3 },
+    })
+    await entrarProdutor(page)
+    for (const width of [320, 375]) {
+      await page.setViewportSize({ width, height: 800 })
+      await abrirPainel(page)
+      await expect(page.getByText(/Travado/)).toBeVisible()
+      const sobra = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(sobra, `largura ${width}`).toBeLessThanOrEqual(0)
+    }
+  })
+
   test('releitura que falha não desmonta o painel aberto', async ({ page }) => {
     const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
     await entrarProdutor(page)
