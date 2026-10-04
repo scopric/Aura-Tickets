@@ -81,7 +81,7 @@ export default function AppChat() {
             <button
               key={conv.eventId}
               type="button"
-              aria-current={activeEventId === conv.eventId ? 'true' : undefined}
+              aria-pressed={activeEventId === conv.eventId}
               onClick={() => setSelectedEventId(conv.eventId)}
               className={`max-w-[16rem] flex-none rounded-ev-lg px-4 py-2 text-left transition-colors duration-rapido focus-visible:outline-none focus-visible:shadow-ev-foco motion-reduce:transition-none md:max-w-none md:rounded-none md:border-b md:border-border md:p-3.5 md:last:border-b-0 ${
                 activeEventId === conv.eventId

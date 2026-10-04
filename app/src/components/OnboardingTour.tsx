@@ -98,8 +98,9 @@ export default function OnboardingTour({ role, onComplete }: OnboardingTourProps
   const s = steps[step]
   const progress = ((step + 1) / steps.length) * 100
 
+  // z-50 (não 70): o aviso da Política (z-50, depois do <main> no DOM) tem de ficar por cima do véu e clicável
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 glass-backdrop" onClick={() => setShow(false)} />
       <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="tour-titulo" className="glass-panel relative w-full max-w-md overflow-hidden outline-none">
         {/* Progress bar */}

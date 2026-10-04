@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { toast } from 'sonner'
 import { siteUrl } from '../../lib/appHost'
 import * as I from '@/components/icones/evokaa16'
@@ -41,8 +41,6 @@ export default function AppHub() {
 
   const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
   const { messages: chatMessages, isLoading: isLoadingChat, sendMessage, markAsRead } = useChat(activeEventId)
-
-  const ref = useRef<HTMLDivElement>(null)
 
   // Marcar mensagens como lidas quando abrir a aba de chat
   useEffect(() => {
@@ -97,13 +95,13 @@ export default function AppHub() {
 
   const renderStats = () => (
     <dl className="grid grid-cols-2 divide-x divide-border border-y border-border py-3 text-center">
-      <div>
-        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{isLoadingTickets ? '–' : myTickets.length}</dd>
+      <div className="flex flex-col-reverse">
         <dt className="text-xs leading-4 text-muted-foreground">Ingressos</dt>
+        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{isLoadingTickets ? '–' : myTickets.length}</dd>
       </div>
-      <div>
-        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{dbEvents.length}</dd>
+      <div className="flex flex-col-reverse">
         <dt className="text-xs leading-4 text-muted-foreground">Eventos</dt>
+        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{dbEvents.length}</dd>
       </div>
     </dl>
   )
@@ -143,10 +141,10 @@ export default function AppHub() {
               </p>
               {/* Actions */}
               <div className="mt-3 flex items-center gap-2">
-                <Button className="flex-1" onClick={() => setShowQR(ticket.qr)}>
+                <Button className="flex-1" onClick={() => setShowQR(ticket.qr)} aria-label={`Ver QR Code de ${ticket.eventName}`}>
                   <I.Qr aria-hidden="true" /> Ver QR Code
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label="Copiar link do evento" title="Copiar link do evento">
+                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label={`Copiar link do evento ${ticket.eventName}`} title="Copiar link do evento">
                   <I.Compartilhar aria-hidden="true" />
                 </Button>
               </div>
@@ -355,7 +353,7 @@ export default function AppHub() {
   )
 
   return (
-    <div ref={ref} className="w-full pb-8 text-foreground">
+    <div className="w-full pb-8 text-foreground">
       {/* Welcome */}
       <div className="max-w-lg lg:max-w-7xl mx-auto px-4 py-4 lg:py-6">
         <div className="flex items-center gap-3">

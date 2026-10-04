@@ -119,7 +119,7 @@ export default function AppEvents() {
             <button
               type="button"
               aria-label="Limpar busca"
-              onClick={() => setSearch('')}
+              onClick={() => { setSearch(''); campoBusca.current?.focus() }}
               className="absolute right-0 top-0 grid h-11 w-11 place-items-center rounded-ev-lg text-muted-foreground focus-visible:outline-none focus-visible:shadow-ev-foco"
             >
               <I.Fechar size={16} />

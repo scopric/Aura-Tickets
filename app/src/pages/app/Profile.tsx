@@ -225,9 +225,9 @@ export default function ParticipantProfile() {
           { label: 'Ingressos', value: isLoading ? '-' : activeTickets.toString() },
           { label: 'Gasto Total', value: isLoading ? '-' : formatCurrency(totalSpent, 'BRL') },
         ].map(s => (
-          <div key={s.label} className="px-1">
-            <dd className="whitespace-nowrap font-display text-lg font-semibold leading-6 tabular-nums">{s.value}</dd>
+          <div key={s.label} className="flex flex-col-reverse px-1">
             <dt className="mt-0.5 text-xs leading-4 text-muted-foreground">{s.label}</dt>
+            <dd className="whitespace-nowrap font-display text-lg font-semibold leading-6 tabular-nums">{s.value}</dd>
           </div>
         ))}
       </dl>

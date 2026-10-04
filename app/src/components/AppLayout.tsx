@@ -291,10 +291,11 @@ export default function AppLayout() {
               <input
                 type="text"
                 disabled
+                data-busca-app
                 aria-label="Busca de eventos (em breve)"
                 title="Busca de eventos em breve"
                 placeholder="Busca de eventos em breve"
-                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:text-white/40 disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none transition-all"
+                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:!text-muted-foreground disabled:cursor-not-allowed disabled:opacity-100 focus:outline-none transition-all"
               />
             </div>
           </div>
