@@ -24,7 +24,7 @@ insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) value
   ('d4000000-0000-4000-8000-000000000003', 'c1@teste-l4.local', now(), '{"full_name":"Carla"}'),
   ('d4000000-0000-4000-8000-000000000004', 'c2@teste-l4.local', now(), '{"full_name":"Caio"}'),
   ('d4000000-0000-4000-8000-000000000005', 'adm@teste-l4.local', now(), '{"full_name":"Ada"}');
-update public.profiles set role = 'admin' where id = 'd4000000-0000-4000-8000-000000000005';
+update public.profiles set role = 'admin', admin_permissions = array['super_admin'] where id = 'd4000000-0000-4000-8000-000000000005'; -- S3: o admin precisa de permissão (Decisão 163)
 insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at) values
   ('d4000000-0000-4000-8000-0000000000f4', 'd4000000-0000-4000-8000-000000000004', 'teste', 'totp', 'verified', now(), now()),
   ('d4000000-0000-4000-8000-0000000000f5', 'd4000000-0000-4000-8000-000000000005', 'teste', 'totp', 'verified', now(), now());
