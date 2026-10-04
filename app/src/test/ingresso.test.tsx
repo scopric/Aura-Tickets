@@ -93,7 +93,10 @@ describe('mapa e carteira', () => {
     expect(motivoSemQr(ticket(1, { status: 'used' }), agora)).toBe('Ingresso já usado')
     expect(motivoSemQr(ticket(1, { status: 'cancelled' }), agora)).toBe('Ingresso cancelado')
     expect(motivoSemQr(ticket(1, { events: { ...evento, status: 'cancelled' } }), agora)).toBe('Evento cancelado')
-    expect(motivoSemQr(ticket(1), Date.parse('2026-12-13T12:00:00-03:00'))).toBe('Evento encerrado')
+    const comFim = ticket(1, { events: { ...evento, end_date: '2026-12-13T05:00:00Z' } })
+    expect(motivoSemQr(comFim, Date.parse('2026-12-13T01:00:00-03:00'))).toBeNull() // end_date ainda não passou
+    expect(motivoSemQr(comFim, Date.parse('2026-12-13T03:00:00-03:00'))).toBe('Evento encerrado')
+    expect(motivoSemQr(ticket(1), Date.parse('2026-12-20T12:00:00-03:00'))).toBeNull() // sem end_date: o QR fica (evento de vários dias)
   })
   it('agrupa por evento em ordem cronológica (ou do mais recente ao mais antigo)', () => {
     const e2 = { ...evento, id: 'e2', date: '2026-11-01' }
@@ -113,8 +116,12 @@ const carteira = (tickets: DbTicket[], entrada = '/app/tickets') => {
 
 describe('Carteira', () => {
   const passado = { ...evento, date: '2026-01-10', time: '20:00:00' }
-  it('o link direto ?evento= abre o ingresso ativo de evento anterior, mas sem QR: diz que o evento acabou', () => {
+  it('o link direto ?evento= abre o ingresso ativo de evento anterior sem end_date, com QR', () => {
     carteira([ticket(1, { events: passado })], '/app/tickets?evento=e1')
+    expect(screen.getByRole('button', { name: /Mostrar QR/ })).toBeTruthy()
+  })
+  it('o link direto de evento com end_date vencida abre sem QR: diz que o evento acabou', () => {
+    carteira([ticket(1, { events: { ...passado, end_date: '2026-01-11T02:00:00Z' } })], '/app/tickets?evento=e1')
     expect(screen.getByRole('status').textContent).toContain('Evento encerrado')
     expect(screen.queryByRole('button', { name: /Mostrar QR/ })).toBeNull()
   })

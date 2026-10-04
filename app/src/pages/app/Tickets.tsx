@@ -140,7 +140,8 @@ export default function ParticipantTickets() {
   const proximos = agruparPorEvento(tickets.filter(t => ehProximo(t, agora)))
   const anteriores = agruparPorEvento(tickets.filter(t => !ehProximo(t, agora)), true)
   const eventoId = params.get('evento')
-  // o link direto abre qualquer ingresso ativo, mesmo o de um evento que a lista já considera anterior
+  // o link direto abre qualquer ingresso ativo, mesmo o de um evento que a lista já considera anterior (evento de vários dias sem end_date);
+  // o QR some só se o evento está cancelado ou tem end_date vencida (motivoSemQr)
   const aberto = eventoId ? agruparPorEvento(tickets.filter(t => t.status === 'active')).find(g => g.id === eventoId) : undefined
 
   return (

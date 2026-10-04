@@ -622,7 +622,7 @@ export function useFeaturedEvents() {
     queryKey: ['featured-events'],
     queryFn: async () => {
       try {
-        const todayStr = new Date().toISOString().split('T')[0]
+        const todayStr = diaBR(Date.now())
         
         // Buscamos primeiro os eventos que são destaque manual e que estão ativos e futuros
         const { data: featuredData, error: featuredError } = await supabase
@@ -684,7 +684,7 @@ export function useFeaturedEvents() {
       } catch (err) {
         console.error('[useFeaturedEvents] Erro:', err)
         if (!demoAtual()) return []
-        const todayStr = new Date().toISOString().split('T')[0]
+        const todayStr = diaBR(Date.now())
         return MOCK_EVENTS.filter(e => e.status === 'published' && e.date && e.date >= todayStr).slice(0, 10)
       }
     }

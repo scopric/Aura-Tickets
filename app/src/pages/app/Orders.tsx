@@ -29,6 +29,12 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   refunded: { label: 'Reembolsado', color: 'text-muted-foreground' },
 }
 
+// "Sáb, 12 dez"; com o ano ("Sáb, 12 dez de 2025") quando não é o ano corrente
+const dataDoEvento = (data?: string | null) => {
+  const d = dataCurta(data)
+  return d && data!.slice(0, 4) !== String(new Date().getFullYear()) ? `${d} de ${data!.slice(0, 4)}` : d
+}
+
 export default function AppOrders() {
   const { data: orders = [], isLoading, isError, refetch } = useUserOrders()
 
@@ -45,7 +51,7 @@ export default function AppOrders() {
     <div className="max-w-3xl text-foreground">
       <h1 className="mb-6 text-2xl font-semibold tracking-[-0.015em]">Minhas Compras</h1>
 
-      {isError ? (
+      {isError && orders.length === 0 ? (
         <div role="alert" className="flex max-w-sm flex-col items-start gap-3">
           <p className="text-lg font-semibold">Não foi possível carregar suas compras.</p>
           <p className="text-[15px] text-muted-foreground">Suas compras não foram apagadas. Confira a conexão e tente de novo.</p>
@@ -76,7 +82,7 @@ export default function AppOrders() {
                       <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs leading-4 text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <I.Eventos size={16} aria-hidden="true" />
-                          {[dataCurta(order.events?.date), horaCurta(order.events?.time)].filter(Boolean).join(' · ') || 'Data a definir'}
+                          {[dataDoEvento(order.events?.date), horaCurta(order.events?.time)].filter(Boolean).join(' · ') || 'Data a definir'}
                         </span>
                         <span className="flex items-center gap-1">
                           <I.Local size={16} aria-hidden="true" />
