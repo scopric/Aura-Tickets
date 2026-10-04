@@ -238,7 +238,7 @@ export default function AdminSettingsPage() {
       <PageHeader title="Configurações" description="Administração da plataforma" />
       {erroLeitura && (
         <div role="alert" className={cn(alertaErro, 'mb-6')}>
-          Não foi possível ler as configurações; salvar agora gravaria os valores padrão por cima.
+          Não foi possível ler as configurações; salvar agora gravaria os valores padrão por cima. Recarregue a página para tentar de novo.
         </div>
       )}
 
