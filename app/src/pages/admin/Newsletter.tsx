@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState, PageHeader, SectionTitle, Stat, chipAviso, chipNeutro, chipOk } from '@/components/producer/ui'
-import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
+import { Tabela, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import type { DbEvent } from '../../hooks/useEvents'
@@ -562,7 +562,7 @@ export default function AdminNewsletter() {
         title="Newsletter Evokaa"
         description="Crie campanhas de e-mail profissionais de mercado com construtores visuais e gerencie inscritos."
         actions={
-          <div className="flex flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
+          <div className={trilho} role="group" aria-label="Seções da newsletter">
             {([
               ['campaigns', I.Painel, 'Construtor de Campanhas'],
               ['subscribers', I.Pessoas, `Base de Inscritos (${subscribers.length})`],
@@ -572,10 +572,7 @@ export default function AdminNewsletter() {
                 type="button"
                 aria-pressed={activeTab === id}
                 onClick={() => setActiveTab(id)}
-                className={cn(
-                  'flex h-8 items-center gap-1.5 rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  activeTab === id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-                )}
+                className={activeTab === id ? segmentoOn : segmentoOff}
               >
                 <Icone size={16} aria-hidden="true" /> {texto}
               </button>
@@ -605,17 +602,14 @@ export default function AdminNewsletter() {
                 </div>
 
                 {/* Switch visual vs code */}
-                <div className="flex shrink-0 gap-1 rounded-ev-lg bg-secondary p-0.5">
+                <div className={cn(trilho, 'shrink-0')} role="group" aria-label="Modo do editor">
                   {([['visual', I.Painel, 'Visual'], ['code', I.Codigo, 'Código']] as const).map(([modo, Icone, texto]) => (
                     <button
                       key={modo}
                       type="button"
                       aria-pressed={editorMode === modo}
                       onClick={() => setEditorMode(modo)}
-                      className={cn(
-                        'flex h-7 items-center gap-1 rounded-ev-md px-2.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        editorMode === modo ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-                      )}
+                      className={editorMode === modo ? segmentoOn : segmentoOff}
                     >
                       <Icone size={14} aria-hidden="true" /> {texto}
                     </button>

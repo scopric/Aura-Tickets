@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState, PageHeader, selectNativo, chipAviso, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -402,7 +402,7 @@ export default function AdminCoupons() {
         </div>
       )}
 
-      <div className="mb-4 flex w-fit max-w-full flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5" role="tablist" aria-label="Tipo de cupom">
+      <div className={cn(trilho, 'mb-4 w-fit max-w-full')} role="group" aria-label="Tipo de cupom">
         {([
           ['planos', `Cupons da Evokaa (${deAdmin.length})`],
           ['pedidos', `Pedidos dos afiliados (${pendentes.length})`],
@@ -411,13 +411,9 @@ export default function AdminCoupons() {
           <button
             key={v}
             type="button"
-            role="tab"
-            aria-selected={filtro === v}
+            aria-pressed={filtro === v}
             onClick={() => setFiltro(v)}
-            className={cn(
-              'flex h-8 items-center rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              filtro === v ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-            )}
+            className={filtro === v ? segmentoOn : segmentoOff}
           >
             {l}
           </button>

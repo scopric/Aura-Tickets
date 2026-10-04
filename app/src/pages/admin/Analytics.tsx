@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
+import { Segmented } from '@/components/ui/toggle-group'
 import { EmptyState, PageHeader, SectionTitle, chipInfo, chipNeutro } from '@/components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
@@ -806,7 +807,7 @@ export default function AdminAnalytics() {
         <PageHeader title="Analytics" description="Tráfego, audiência e registros de atividade da plataforma." />
 
         <div className="space-y-3">
-          <div role="group" aria-label="Seções do Analytics" className="flex w-fit max-w-full flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
+          <div role="group" aria-label="Seções do Analytics" className={cn(trilho, 'w-fit max-w-full')}>
             {abas.map(a => (
               <button
                 key={a.id}
@@ -816,10 +817,7 @@ export default function AdminAnalytics() {
                   setActiveSubTab(a.id)
                   if (a.id !== 'traffic' && period === 'custom') setPeriod('7d') // o personalizado é só do Tráfego
                 }}
-                className={cn(
-                  'flex h-8 items-center gap-1.5 rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                  activeSubTab === a.id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-                )}
+                className={activeSubTab === a.id ? segmentoOn : segmentoOff}
               >
                 <a.icone size={16} aria-hidden /> {a.rotulo}
               </button>
@@ -827,27 +825,19 @@ export default function AdminAnalytics() {
           </div>
 
           {activeSubTab !== 'users_engagement' && (
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="mr-1 text-xs text-muted-foreground">Período</span>
-              <div className="flex flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
-                {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    aria-pressed={period === p.id}
-                    onClick={() => {
-                      if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
-                      setPeriod(p.id)
-                    }}
-                    className={cn(
-                      'flex h-8 items-center rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                      period === p.id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {p.rotulo}
-                  </button>
-                ))}
-              </div>
+              <Segmented
+                label="Período"
+                // no celular (4 colunas de 85 px) "Todo período" não cabe: vira "Tudo"
+                items={[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => ({ value: p.id, label: p.id === 'all' ? <><span className="sm:hidden">Tudo</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.rotulo }))}
+                value={period}
+                onValueChange={v => {
+                  if (v === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
+                  setPeriod(v as typeof period)
+                }}
+                className={activeSubTab === 'traffic' ? 'w-full sm:w-[30rem]' : 'w-full sm:w-80'}
+              />
             </div>
           )}
 
