@@ -103,6 +103,9 @@ test.describe('começo rápido', () => {
     await montarBanco(page)
     await entrarProdutor(page)
     await page.goto('/producer/events/new?tour=criar-evento')
+    // o tour espera as camadas do primeiro acesso, uma por vez (V9a): cookies, depois o aviso da Política
+    await page.getByRole('button', { name: /Rejeitar opcionais/ }).click()
+    await page.getByRole('button', { name: 'Fechar aviso da Política de Privacidade' }).click()
     const dialogo = page.getByRole('dialog')
     await expect(dialogo.getByText('Do zero')).toBeVisible()
     await dialogo.getByRole('button', { name: 'Próximo' }).click()
