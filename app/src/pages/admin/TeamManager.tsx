@@ -95,7 +95,7 @@ export default function AdminTeamManager() {
   const [conviteEmAndamento, setConviteEmAndamento] = useState<string | null>(null)
   // Nome, cargo e e-mail de quem entrou por convite (qualquer admin); cadastro completo só para o super_admin
   const [cargos, setCargos] = useState<Record<string, string>>({})
-  const [ficha, setFicha] = useState<{ id: string; dados: Ficha | null } | null>(null)
+  const [ficha, setFicha] = useState<{ id: string; dados: Ficha | null; erro: string | null } | null>(null)
   
   // Permission management
   const [selectedAdmin, setSelectedAdmin] = useState<AdminProfile | null>(null)
@@ -150,11 +150,12 @@ export default function AdminTeamManager() {
     supabase.rpc('colaborador_dados' as never, { p_user: id } as never).then(({ data, error }) => {
       if (cancelado) return
       if (error) console.error('[Equipe] cadastro do colaborador:', error.message)
-      setFicha({ id, dados: ((data ?? []) as Ficha[])[0] ?? null })
+      setFicha({ id, dados: ((data ?? []) as Ficha[])[0] ?? null, erro: error?.message ?? null })
     })
     return () => { cancelado = true }
   }, [canEdit, selectedAdmin])
   const fichaAtual = selectedAdmin && ficha?.id === selectedAdmin.id ? ficha.dados : 'carregando'
+  const fichaErro = selectedAdmin && ficha?.id === selectedAdmin.id ? ficha.erro : null
 
   // Animar entrada
   useEffect(() => {
@@ -499,6 +500,8 @@ export default function AdminTeamManager() {
                 <div className="mb-2 text-xs font-semibold text-foreground">Dados do cadastro</div>
                 {fichaAtual === 'carregando' ? (
                   <Spinner className="text-primary" />
+                ) : fichaErro ? (
+                  <p role="alert" className="text-xs text-destructive">Não foi possível carregar o cadastro: {fichaErro}</p>
                 ) : !fichaAtual ? (
                   <p className="text-xs text-muted-foreground">Sem cadastro de colaborador (conta que entrou na equipe antes do convite).</p>
                 ) : (
