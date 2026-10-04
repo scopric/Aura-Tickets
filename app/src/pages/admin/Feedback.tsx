@@ -70,13 +70,13 @@ export default function AdminFeedback() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [selected, setSelected] = useState<FeedbackItem | null>(null)
 
-  const { data, isLoading, isError, error } = useQuery<{ feedback: FeedbackItem[]; contatos: ContactMessage[]; contatosErro: string | null }>({
+  const { data, isLoading, isError, error } = useQuery<{ feedback: FeedbackItem[]; contatos: ContactMessage[]; contatosErro: string | null; feedbackErro: string | null }>({
     queryKey: ['admin-feedback'],
     queryFn: async () => {
       const [fb, cm] = await Promise.all([
         supabase
           .from('feedback')
-          .select('id, type, message, rating, email, page, status, created_at')
+          .select('id, type, message, rating, page, status, created_at')
           .order('created_at', { ascending: false })
           .limit(500),
         supabase
@@ -86,14 +86,14 @@ export default function AdminFeedback() {
           .limit(500),
       ])
 
-      // O erro de `feedback` é sempre falha real. O de `contact_messages` costuma ser a regra de
+      // Os erros de `feedback` e de `contact_messages` costuma ser a regra de
       // admin ainda não aplicada (docs/sql/20260929_admin_ler_contato.sql): mostrar o aviso e seguir.
-      if (fb.error) throw fb.error
+      // Nenhum dos dois derruba a tela: o outro bloco continua carregando.
       if (cm.error) console.warn('[admin/feedback] contact_messages legível?', cm.error.message)
 
       // as linhas chegam como `never[]` enquanto o cliente do Supabase não tiver os tipos do banco
       // (pendência conhecida: `supabase gen types typescript`), por isso o cast
-      const linhasFb = (fb.data || []) as { id: string; type: string; message: string; rating: number | null; email: string | null; page: string | null; status: FeedbackStatus; created_at: string }[]
+      const linhasFb = (fb.data || []) as { id: string; type: string; message: string; rating: number | null; page: string | null; status: FeedbackStatus; created_at: string }[]
       const linhasCm = (cm.data || []) as { id: string; name: string; email: string; phone: string | null; subject: string | null; message: string; page: string | null; created_at: string }[]
 
       return {
@@ -102,7 +102,7 @@ export default function AdminFeedback() {
           type: f.type,
           message: f.message,
           rating: f.rating,
-          email: f.email,
+          email: null,
           page: f.page,
           status: f.status,
           createdAt: f.created_at,
@@ -118,6 +118,7 @@ export default function AdminFeedback() {
           createdAt: c.created_at,
         })),
         contatosErro: cm.error ? cm.error.message : null,
+        feedbackErro: fb.error ? fb.error.message : null,
       }
     },
   })
@@ -209,9 +210,9 @@ export default function AdminFeedback() {
     <div className="p-6 lg:p-10 max-w-7xl">
       <PageHeader title="Feedback" description="Sugestões, bugs e mensagens de contato recebidos pelo site" />
 
-      {isError && (
+      {(isError || data?.feedbackErro) && (
         <div role="alert" className={cn(alertaErro, 'mb-6')}>
-          Não foi possível carregar o feedback: {(error as Error)?.message || 'erro desconhecido'}
+          Não foi possível carregar o feedback: {(error as Error)?.message || data?.feedbackErro || 'erro desconhecido'}
         </div>
       )}
 
