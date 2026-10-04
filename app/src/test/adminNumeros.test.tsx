@@ -8,8 +8,11 @@ vi.mock('../lib/supabase', () => ({ supabase: { from, auth: { mfa: { listFactors
 const usuario = { id: 'a1', admin_permissions: ['manage_events'] }
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: usuario }) }))
 
+vi.mock('../hooks/useAdminFinance', () => ({ useAdminFinance: () => ({ data: undefined, isLoading: false, isError: true, error: new Error('rls negou') }) }))
+
 import AdminDashboard from '../pages/admin/Dashboard'
 import AdminCoupons from '../pages/admin/Coupons'
+import AdminFinance from '../pages/admin/Finance'
 import AdminSettings from '../pages/admin/AdminSettings'
 
 describe('Admin: Painel com permissão', () => {
@@ -58,5 +61,14 @@ describe('Admin: Configurações', () => {
     render(<MemoryRouter><AdminSettings /></MemoryRouter>)
     expect(await screen.findByText(/Não foi possível ler as configurações/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /Salvar/ })).toBeDisabled()
+  })
+})
+
+describe('Admin: Financeiro', () => {
+  it('com erro não mostra KPIs zerados nem o banner de números reais', () => {
+    render(<MemoryRouter><AdminFinance /></MemoryRouter>)
+    expect(screen.getByText(/Não foi possível carregar os dados financeiros: rls negou/)).toBeInTheDocument()
+    expect(screen.queryByText('Volume Geral de Vendas (GMV)')).toBeNull()
+    expect(screen.queryByText(/Estes números são/)).toBeNull()
   })
 })

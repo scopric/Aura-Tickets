@@ -47,6 +47,7 @@ export default function AdminFinance() {
   const [txFilterType, setTxFilterType] = useState<string>('all')
 
 
+  const pronto = !isLoading && !isError // com erro não se mostra zero como se fosse número
   const orders = data?.orders ?? []
   const transactions = data?.transactions ?? []
   const withdrawals = data?.withdrawals ?? []
@@ -144,7 +145,7 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {aviso}
+      {!isError && aviso}
 
       {isLoading && (
         <div className="flex items-center justify-center py-20">
@@ -153,7 +154,7 @@ export default function AdminFinance() {
       )}
 
       {/* Financial KPIs */}
-      {!isLoading && (
+      {pronto && (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Volume Geral de Vendas (GMV)', value: brl(grossSalesVolume), change: `${pedidosPagos.length} pedido(s) pago(s)` },
@@ -168,7 +169,7 @@ export default function AdminFinance() {
       </div>
       )}
 
-      {activeTab === 'overview' && !isLoading && (
+      {activeTab === 'overview' && pronto && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Pedidos pagos — a curva só existe depois que o gateway confirmar venda */}
           <div className="lg:col-span-2 space-y-6">
@@ -284,7 +285,7 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {activeTab === 'transactions' && !isLoading && (
+      {activeTab === 'transactions' && pronto && (
         <div className={cn('fin-anim overflow-hidden', painel)}>
           {/* Filters Bar */}
           <div className="flex flex-col items-center justify-between gap-4 border-b border-border bg-secondary/50 p-4 md:flex-row">
@@ -371,7 +372,7 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {activeTab === 'withdraws' && !isLoading && (
+      {activeTab === 'withdraws' && pronto && (
         <div className={cn('fin-anim overflow-hidden', painel)}>
           <div className="border-b border-border bg-secondary/50 p-4">
             <SectionTitle>Solicitações Bancárias de Repasses</SectionTitle>
@@ -437,7 +438,7 @@ export default function AdminFinance() {
         </div>
       )}
 
-      {activeTab === 'tools' && !isLoading && (
+      {activeTab === 'tools' && pronto && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 fin-anim animate-fadeIn">
           {/* Painel de Configuração de Comissões e Taxas */}
           <div className="lg:col-span-2 space-y-6">
