@@ -44,21 +44,10 @@ export default function Checkout() {
   const [nascimento, setNascimento] = useState('')
   const [salvandoNascimento, setSalvandoNascimento] = useState(false)
 
-  // Estados do Mapa de Assentos
+  // Estados do Mapa de Assentos (só visualização até o M5.1: nenhum assento entra no pedido)
   const [seatingMap, setSeatingMap] = useState<any | null>(null)
   const [loadingMap, setLoadingMap] = useState(false)
-  const [selectedSeats, setSelectedSeats] = useState<Record<string, { seatId: string; label: string; price: number; ticketTypeId: string; occupantName: string }>>(
-    pendingCheckout?.selectedSeats || {}
-  )
   const [chooseViaMap, setChooseViaMap] = useState(false)
-  const [occupantModal, setOccupantModal] = useState<{
-    open: boolean
-    seatId: string
-    label: string
-    ticketTypeId: string
-    price: number
-  } | null>(null)
-  const [tempOccupantName, setTempOccupantName] = useState('')
 
   // Estados para Navegação (Pan e Zoom) no Checkout
   const [mapZoom, setMapZoom] = useState(0.8)
@@ -192,25 +181,13 @@ export default function Checkout() {
         .maybeSingle()
         
       if (data) {
-        setSeatingMap(data)
-        setChooseViaMap(true)
+        setSeatingMap(data) // abre na seleção rápida: o carrinho da página do evento fica como veio
       }
       setLoadingMap(false)
     }
     
     loadSeatingMap()
   }, [eventId])
-
-  // Sincronizar carrinho com os assentos escolhidos no mapa
-  useEffect(() => {
-    if (seatingMap) {
-      const newCart: Record<string, number> = {}
-      Object.values(selectedSeats).forEach(s => {
-        newCart[s.ticketTypeId] = (newCart[s.ticketTypeId] || 0) + 1
-      })
-      setCart(newCart)
-    }
-  }, [selectedSeats, seatingMap])
 
   const ticketTypes = event?.ticket_types || []
 
@@ -245,47 +222,7 @@ export default function Checkout() {
       toast.info(`Para comprar o(a) ${seat.label}, entre em contato com o organizador do evento pelo WhatsApp ou e-mail de suporte.`, { duration: 6000 })
       return
     }
-    if (seat.status !== 'free') return
-    
-    if (selectedSeats[seat.id]) {
-      setSelectedSeats(prev => {
-        const next = { ...prev }
-        delete next[seat.id]
-        return next
-      })
-      return
-    }
-    
-    setOccupantModal({
-      open: true,
-      seatId: seat.id,
-      label: seat.label,
-      ticketTypeId: seat.sectionId,
-      price: seat.price
-    })
-    setTempOccupantName('')
-  }
-
-  const handleConfirmSeat = () => {
-    if (!tempOccupantName.trim()) {
-      toast.error('Por favor, informe o nome do ocupante.')
-      return
-    }
-    if (!occupantModal) return
-    
-    setSelectedSeats(prev => ({
-      ...prev,
-      [occupantModal.seatId]: {
-        seatId: occupantModal.seatId,
-        label: occupantModal.label,
-        price: occupantModal.price,
-        ticketTypeId: occupantModal.ticketTypeId,
-        occupantName: tempOccupantName
-      }
-    }))
-    
-    setOccupantModal(null)
-    toast.success(`${occupantModal.label} reservado(a) no seu carrinho!`)
+    // sem reserva de assento ainda (M5.1): clicar em lugar livre não faz nada
   }
 
   // Grava em profiles.birth_date só se estiver vazia: com o perfil ainda carregando, nunca sobrescreve
@@ -338,7 +275,6 @@ export default function Checkout() {
       sessionStorage.setItem('aura_pending_checkout', JSON.stringify({
         eventId,
         cart,
-        selectedSeats,
         totalAmount: grandTotal,
         itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
       }))
@@ -359,7 +295,6 @@ export default function Checkout() {
       state: {
         eventId,
         cart,
-        selectedSeats,
         totalAmount: grandTotal,
         itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
       }
@@ -431,7 +366,7 @@ export default function Checkout() {
                     onClick={() => setChooseViaMap(!chooseViaMap)}
                     className="text-[13px] font-semibold text-primary underline underline-offset-4"
                   >
-                    {chooseViaMap ? 'Seleção rápida de ingressos' : 'Escolher assentos no mapa'}
+                    {chooseViaMap ? 'Esconder o mapa do salão' : 'Ver o mapa do salão'}
                   </button>
                 )}
               </div>
@@ -445,19 +380,13 @@ export default function Checkout() {
                         <div className="text-base font-medium leading-6">{ticket.name}</div>
                         <div className="text-[13px] leading-5 text-muted-foreground">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
                       </div>
-                      {chooseViaMap ? (
-                        <div className="rounded-full bg-secondary px-2.5 py-1 font-display text-xs font-semibold tabular-nums">
-                          {qty} assento(s)
-                        </div>
-                      ) : (
-                        <ContadorIngresso
-                          nome={ticket.name}
-                          qtd={qty}
-                          onMenos={() => updateQty(ticket.id, -1)}
-                          onMais={() => updateQty(ticket.id, 1)}
-                          maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
-                        />
-                      )}
+                      <ContadorIngresso
+                        nome={ticket.name}
+                        qtd={qty}
+                        onMenos={() => updateQty(ticket.id, -1)}
+                        onMais={() => updateQty(ticket.id, 1)}
+                        maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
+                      />
                     </div>
                   )
                 })
@@ -500,11 +429,11 @@ export default function Checkout() {
               <div className={`${cartao} space-y-4`}>
                 <div className="flex items-center gap-2">
                   <I.Lugar size={20} className="text-muted-foreground" />
-                  <h3 className="text-[15px] font-semibold leading-5">Mapa do Salão - Seleção de Poltronas/Mesas</h3>
+                  <h3 className="text-[15px] font-semibold leading-5">Mapa do Salão</h3>
                 </div>
 
-                <p className="text-[13px] leading-5 text-muted-foreground">
-                  Clique nos assentos/mesas livres (em verde/cores do setor) para reservá-los digitando o nome do ocupante. Assentos azuis requerem contato.
+                <p role="note" className="text-[13px] leading-5 text-muted-foreground">
+                  A escolha de lugar no mapa ainda não reserva o assento. Por enquanto, compre pela Seleção rápida.
                 </p>
 
                 {/* Legenda de Status */}
@@ -528,10 +457,6 @@ export default function Checkout() {
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-sky-500" style={{ backgroundColor: '#0284c7' }} />
                     <span>Contato</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-purple-600" style={{ backgroundColor: '#7c3aed' }} />
-                    <span>Meu Carrinho</span>
                   </div>
                 </div>
 
@@ -692,13 +617,11 @@ export default function Checkout() {
 
                           {/* Assentos */}
                           {seats.map((s: any) => {
-                            const isSelected = !!selectedSeats[s.id]
                             const w = (s.widthMeter || 0.5) * ppm
                             const h = (s.heightMeter || 0.5) * ppm
 
                             let statusColor = s.color
-                            if (isSelected) statusColor = '#7c3aed'
-                            else if (s.status === 'sold') statusColor = '#dc2626'
+                            if (s.status === 'sold') statusColor = '#dc2626'
                             else if (s.status === 'reserved') statusColor = '#d97706'
                             else if (s.status === 'blocked') statusColor = '#78716c'
                             else if (s.status === 'contact') statusColor = '#0284c7'
@@ -710,7 +633,7 @@ export default function Checkout() {
                                   ev.stopPropagation()
                                   handleSeatClick(s)
                                 }}
-                                className={`absolute origin-center transition-all ${s.status === 'free' || s.status === 'contact' || isSelected ? 'hover:scale-105 hover:brightness-105 active:scale-95 cursor-pointer' : 'opacity-55 cursor-not-allowed'} ${isSelected ? 'z-20 scale-105' : 'z-10'}`}
+                                className={`absolute origin-center transition-all ${s.status === 'contact' ? 'hover:scale-105 hover:brightness-105 active:scale-95 cursor-pointer' : s.status === 'free' ? '' : 'opacity-55 cursor-not-allowed'} z-10`}
                                 style={{
                                   left: s.x * ppm - w / 2,
                                   top: s.y * ppm - h / 2,
@@ -722,7 +645,7 @@ export default function Checkout() {
                                 {s.type === 'seat' && (
                                   <div 
                                     className="w-full h-full rounded border flex items-center justify-center bg-white dark:bg-white/5 shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
-                                    style={{ borderColor: statusColor, background: isSelected ? `${statusColor}25` : `${statusColor}10` }}
+                                    style={{ borderColor: statusColor, background: `${statusColor}10` }}
                                   >
                                     <I.Lugar size={10} style={{ color: statusColor }} />
                                   </div>
@@ -736,7 +659,7 @@ export default function Checkout() {
                                         borderColor: statusColor, 
                                         width: '72%', 
                                         height: '72%',
-                                        background: isSelected ? `${statusColor}15` : '#ffffff'
+                                        background: '#ffffff'
                                       }}
                                     >
                                       <span className="text-[5px] font-bold text-espresso/90 truncate max-w-[85%] leading-none">{s.label}</span>
@@ -802,17 +725,12 @@ export default function Checkout() {
                                 {s.type !== 'seat' && s.type !== 'table' && (
                                   <div 
                                     className="w-full h-full rounded-sm border flex flex-col items-center justify-center text-[5px] font-bold text-center bg-white dark:bg-white/5 shadow-[0_1px_2px_rgba(0,0,0,0.02)] p-0.5 overflow-hidden"
-                                    style={{ borderColor: statusColor, background: isSelected ? `${statusColor}15` : `${statusColor}05`, color: statusColor }}
+                                    style={{ borderColor: statusColor, background: `${statusColor}05`, color: statusColor }}
                                   >
                                     <span className="truncate max-w-full leading-none">{s.label}</span>
                                   </div>
                                 )}
 
-                                {(isSelected && selectedSeats[s.id]?.occupantName) && (
-                                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-stone-850 text-white text-[5px] rounded whitespace-nowrap pointer-events-none font-bold z-10 shadow">
-                                    {selectedSeats[s.id].occupantName}
-                                  </div>
-                                )}
                               </div>
                             )
                           })}
@@ -899,41 +817,6 @@ export default function Checkout() {
           </div>
         </div>
       </div>
-
-      {/* Modal de Ocupante */}
-      {occupantModal && occupantModal.open && (
-        <div className="fixed inset-0 flex items-center justify-center p-4 z-[55] animate-fade-in glass-backdrop">
-          <div role="dialog" aria-modal="true" aria-labelledby="modal-occ-titulo" className="glass-panel w-full max-w-sm space-y-4 p-6">
-            <div className="flex items-center gap-2">
-              <I.Ingressos size={20} className="text-muted-foreground" />
-              <h3 id="modal-occ-titulo" className="text-lg font-semibold">Identificar Assento</h3>
-            </div>
-            <p className="text-[13px] leading-5 text-muted-foreground">
-              Digite o nome completo da pessoa que irá ocupar o(a) <strong className="text-foreground">{occupantModal.label}</strong> (Lote: {textoPreco(ticketTypes.find(t => t.id === occupantModal.ticketTypeId)?.price ?? occupantModal.price)}).
-            </p>
-            <div>
-              <label htmlFor="modal-occ-inp" className="mb-1.5 block text-[13px] font-semibold leading-5">Nome do Ocupante</label>
-              <Input
-                id="modal-occ-inp"
-                type="text"
-                value={tempOccupantName}
-                onChange={e => setTempOccupantName(e.target.value)}
-                placeholder="Nome completo do ocupante"
-                className="h-12 rounded-ev-lg bg-card"
-                autoFocus
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <Button type="button" variant="outline" size="lg" className="flex-1 rounded-full" onClick={() => setOccupantModal(null)}>
-                Cancelar
-              </Button>
-              <Button type="button" size="lg" className="flex-1 rounded-full" onClick={handleConfirmSeat}>
-                Confirmar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

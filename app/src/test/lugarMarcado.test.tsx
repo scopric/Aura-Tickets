@@ -8,6 +8,10 @@ const h = vi.hoisted(() => ({
   upsert: vi.fn(),
   eq: vi.fn(),
   mapa: null as unknown,
+  tipos: [] as unknown[],
+  colunasTipos: '',
+  eqTipos: vi.fn(),
+  tiposAtraso: null as Promise<unknown> | null,
   erroLeitura: false,
   eventos: { data: undefined as unknown, isLoading: false, isError: false, refetch: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
@@ -19,8 +23,14 @@ vi.mock('../hooks/useEvents', () => ({
 }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    from: () => ({
-      select: () => ({ eq: (c: string, v: string) => { h.eq(c, v); return { maybeSingle: async () => (h.erroLeitura ? { data: null, error: { message: 'falhou' } } : { data: h.mapa, error: null }) } } }),
+    from: (tabela: string) => ({
+      select: (colunas: string) => ({
+        eq: (c: string, v: string) => {
+          if (tabela === 'ticket_types') { h.colunasTipos = colunas; h.eqTipos(v); return h.tiposAtraso ?? Promise.resolve({ data: h.tipos, error: null }) }
+          h.eq(c, v)
+          return { maybeSingle: async () => (h.erroLeitura ? { data: null, error: { message: 'falhou' } } : { data: h.mapa, error: null }) }
+        },
+      }),
       upsert: h.upsert,
     }),
   },
@@ -121,6 +131,74 @@ describe('Lugar marcado: alterações não salvas', () => {
     const depois = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(depois)
     expect(depois.defaultPrevented).toBe(false)
+  })
+})
+
+describe('Lugar marcado: setor ligado ao ingresso (E7a)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.scrollTo = vi.fn()
+    h.eventos = dois
+    h.erroLeitura = false
+    h.upsert.mockResolvedValue({ error: null })
+    h.tiposAtraso = null
+    h.tipos = [
+      { id: 'tt1', name: 'Pista', price: 80, type: 'individual', is_active: true },
+      { id: 'tt2', name: 'Mesa Coletiva', price: 300, type: 'coletiva', is_active: true },
+      { id: 'tt3', name: 'Camarote', price: 500, type: 'vip', is_active: false },
+    ]
+    h.mapa = { environments: [{ id: 'terreo', name: 'Térreo', seats: [], sections: [{ id: 'vip', name: 'VIP', color: '#000', price: 10 }] }], config: { zoom: 1, pan: { x: 0, y: 0 } } }
+  })
+
+  it('o select só lista ingresso ativo e não coletivo, grava ticketTypeId no setor e o aviso de não salvo pega', async () => {
+    montar('/producer/seating?eventId=e1')
+    const salvar = await screen.findByRole('button', { name: /Salvar/ })
+    await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByText('Lotes & Preços'))
+    expect(screen.getByText('Não vende (sem ingresso ligado)', { selector: 'div' })).toBeTruthy()
+    const select = (await screen.findByLabelText('Ingresso deste setor')) as HTMLSelectElement
+    await waitFor(() => expect(select.querySelector('option[value="tt1"]')).toBeTruthy())
+    expect(select.querySelector('option[value="tt2"]')).toBeNull() // coletiva
+    expect(select.querySelector('option[value="tt3"]')).toBeNull() // inativo
+    expect(h.colunasTipos).toBe('id, name, price, type, is_active')
+
+    const ev = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(ev)
+    expect(ev.defaultPrevented).toBe(false) // ainda como carregado
+    fireEvent.change(select, { target: { value: 'tt1' } })
+    const ev2 = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(ev2)
+    expect(ev2.defaultPrevented).toBe(true)
+
+    fireEvent.click(screen.getByRole('button', { name: /Salvar/ }))
+    await waitFor(() => expect(h.upsert).toHaveBeenCalledTimes(1))
+    const setor = h.upsert.mock.calls[0][0].environments[0].sections[0]
+    expect(setor.ticketTypeId).toBe('tt1')
+    expect(setor.price).toBe(80) // preço do ingresso, só para exibição
+  })
+
+  it('trocar de evento recarrega os ingressos; "Ingresso indisponível" só aparece com a lista carregada', async () => {
+    h.mapa = { environments: [{ id: 'terreo', name: 'Térreo', seats: [], sections: [{ id: 'vip', name: 'VIP', color: '#000', price: 10, ticketTypeId: 'tt-removido' }] }], config: { zoom: 1, pan: { x: 0, y: 0 } } }
+    let entrega!: (v: unknown) => void
+    h.tiposAtraso = new Promise(r => { entrega = r })
+    montar('/producer/seating?eventId=e1')
+    const salvar = await screen.findByRole('button', { name: /Salvar/ })
+    await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(screen.getByText('Lotes & Preços'))
+    expect(h.eqTipos).toHaveBeenLastCalledWith('e1')
+    // lista ainda carregando: texto neutro, sem acusar indisponível
+    await screen.findByLabelText('Ingresso deste setor')
+    expect(screen.queryByText(/Ingresso indisponível/)).toBeNull()
+    expect(screen.getByText(/lista ainda não carregada/)).toBeTruthy()
+    await act(async () => { entrega({ data: h.tipos, error: null }) })
+    expect(await screen.findByText(/Ingresso indisponível/)).toBeTruthy() // lista carregada e tt-removido não está nela
+
+    // troca de evento: nova leitura e, enquanto ela não volta, volta ao texto neutro
+    h.tiposAtraso = new Promise(() => {})
+    fireEvent.change(screen.getByLabelText('Evento do mapa'), { target: { value: 'e2' } })
+    await waitFor(() => expect(h.eqTipos).toHaveBeenLastCalledWith('e2'))
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    expect(screen.queryByText(/Ingresso indisponível/)).toBeNull()
   })
 })
 

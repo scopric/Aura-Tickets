@@ -55,6 +55,7 @@ interface Section {
   name: string
   color: string
   price: number
+  ticketTypeId?: string // ticket_types.id do ingresso que este setor vende (sem ele, o setor não vende)
 }
 
 interface Environment {
@@ -544,6 +545,28 @@ export default function SeatingMap() {
     setIsPan(false)
     toast.success(`${typeLabels[type]} adicionado ao centro do salão!`)
   }
+
+  // Ingressos do evento escolhido para ligar a um setor (coletiva não tem lugar marcado; inativo não vende)
+  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number }[]>([])
+  const [tiposCarregados, setTiposCarregados] = useState(false) // falso enquanto carrega e se a leitura falhar
+  useEffect(() => {
+    setTiposIngresso([])
+    setTiposCarregados(false)
+    if (!eventId) return
+    let cancelado = false
+    supabase
+      .from('ticket_types')
+      .select('id, name, price, type, is_active')
+      .eq('event_id', eventId)
+      .then(({ data, error }) => {
+        if (cancelado) return
+        if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
+        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean }[] // ticket_types não está nos tipos gerados
+        setTiposCarregados(true)
+        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(({ id, name, price }) => ({ id, name, price })))
+      })
+    return () => { cancelado = true }
+  }, [eventId])
 
   // Carregar do Supabase: roda ao montar e a cada troca de evento (zera o mapa, o desfazer e a planta antes de ler)
   useEffect(() => {
@@ -4498,6 +4521,7 @@ export default function SeatingMap() {
                                 <div className="flex-1 text-left min-w-0">
                                   <div className="font-bold truncate text-[11px] text-foreground">{s.name}</div>
                                   <div className="text-[8.5px] text-muted-foreground mt-0.5">R$ {s.price} · {secSold}/{secCap} vend.</div>
+                                  {!s.ticketTypeId && <div className="text-[8.5px] text-destructive mt-0.5">Não vende (sem ingresso ligado)</div>}
                                 </div>
                                 {isActive && <I.Check className="w-3.5 h-3.5 text-primary flex-shrink-0" />}
                               </div>
@@ -4517,6 +4541,30 @@ export default function SeatingMap() {
                                       }}
                                       className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
                                     />
+                                  </div>
+
+                                  <div>
+                                    <label htmlFor={`sec-ticket-sel-${s.id}`} className="block text-[7.5px] text-muted-foreground uppercase font-bold mb-0.5">Ingresso deste setor</label>
+                                    <select
+                                      id={`sec-ticket-sel-${s.id}`}
+                                      value={s.ticketTypeId || ''}
+                                      onChange={(e) => {
+                                        const tt = tiposIngresso.find(t => t.id === e.target.value)
+                                        // o preço mostrado vem do ingresso; quem manda no valor cobrado é o ingresso, não o mapa
+                                        setSections(prev => prev.map(sec => sec.id === s.id ? { ...sec, ticketTypeId: tt?.id, ...(tt ? { price: tt.price } : {}) } : sec))
+                                        if (tt) setSeats(prev => prev.map(st => st.sectionId === s.id ? { ...st, price: tt.price } : st))
+                                      }}
+                                      className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
+                                    >
+                                      <option value="">Não vende (sem ingresso ligado)</option>
+                                      {!tiposCarregados && s.ticketTypeId && (
+                                        <option value={s.ticketTypeId}>Ingresso ligado (lista ainda não carregada)</option>
+                                      )}
+                                      {tiposCarregados && s.ticketTypeId && !tiposIngresso.some(t => t.id === s.ticketTypeId) && (
+                                        <option value={s.ticketTypeId}>Ingresso indisponível (inativo, coletiva ou removido)</option>
+                                      )}
+                                      {tiposIngresso.map(t => <option key={t.id} value={t.id}>{t.name} (R$ {t.price})</option>)}
+                                    </select>
                                   </div>
 
                                   <div className="grid grid-cols-2 gap-1.5">
