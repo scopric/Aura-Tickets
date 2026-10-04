@@ -8,6 +8,7 @@ import { useCreateOrder } from '../../hooks/useCheckout'
 import { usePayment } from '../../hooks/usePayment'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
+import { useAuthStore } from '../../stores/authStore'
 import { formatCurrency } from '../../lib/formatters'
 import { mesaErro } from '../../hooks/useMatchmaking'
 import { resumoCarrinho } from '../../lib/taxa'
@@ -15,6 +16,7 @@ import { resumoCarrinho } from '../../lib/taxa'
 export default function CheckoutPayment() {
   const location = useLocation()
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
 
   // Recuperar do location.state ou do sessionStorage (quando volta do login)
   const locationState = (location.state || {}) as {
@@ -191,8 +193,8 @@ export default function CheckoutPayment() {
               orderId: order.id,
               method: 'credit_card',
               amount: resumo.total,
-              customerEmail: order.customer_email || 'comprador@cliente.com',
-              customerName: order.customer_name || 'Comprador Evokaa',
+              customerEmail: order.customer_email || user?.email || '',
+              customerName: order.customer_name || user?.full_name || '',
               customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
             })
 

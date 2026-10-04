@@ -18,6 +18,7 @@ import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from 
 
 import { esgotado, lotacao, noLimite } from '../lib/lotacao'
 import { CLASSIFICACOES } from '../lib/tipoEvento'
+import { fimDe } from '../lib/eventoProdutor'
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -170,8 +171,7 @@ export default function EventPage() {
     t.sale_end && Date.parse(t.sale_end) < agora ? 'Vendas encerradas'
     : t.sale_start && Date.parse(t.sale_start) > agora ? `Vendas começam em ${new Date(t.sale_start).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}`
     : null
-  const fimDoEvento = event.end_date ? Date.parse(event.end_date) : event.date ? Date.parse(event.date + 'T00:00:00') + 864e5 : null
-  const encerrado = fimDoEvento !== null && fimDoEvento < agora
+  const encerrado = fimDe(event) < agora // regra do projeto: sem end_date, início + 12h (como ehProximo)
   const aVenda = encerrado ? [] : ticketTypes.filter((t) => !esgotado(t) && !janela(t))
   const motivos = ticketTypes.filter((t) => !esgotado(t)).map(janela).filter(Boolean) as string[]
   const motivoSemVenda = encerrado ? 'Evento encerrado' : motivos.find((m) => m.startsWith('Vendas começam')) ?? motivos[0] ?? null
@@ -250,7 +250,7 @@ export default function EventPage() {
             sub={hora || undefined}
           />
           <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} />
-          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : 'Classificação não informada pelo produtor'} />
+          <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} />
         </div>
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
@@ -262,6 +262,7 @@ export default function EventPage() {
           )}
 
           {ticketTypes.map((ticket) => {
+            const fechado = encerrado ? 'Evento encerrado' : janela(ticket)
             if (ticket.type === 'coletiva') {
               return (
                 <div key={ticket.id} className="py-3">
@@ -277,6 +278,7 @@ export default function EventPage() {
                       perks: ticket.perks || [],
                     }}
                     cartQty={cart[ticket.id] || 0}
+                    motivoFechado={fechado}
                     mostrarAvisoFoto={ticket.id === ticketTypes.find((t) => t.type === 'coletiva')?.id}
                     // Match de Mesa: 1 lugar por conta em cada evento (o banco recusa quantidade maior)
                     onAdd={() => { if (!cart[ticket.id]) addToCart(ticket.id) }}
@@ -295,7 +297,6 @@ export default function EventPage() {
             }
 
             const acabou = esgotado(ticket)
-            const fechado = encerrado ? 'Evento encerrado' : janela(ticket)
             const { taxa, total } = calcularTaxa(ticket.price)
             const perks = ticket.perks || []
             return (
