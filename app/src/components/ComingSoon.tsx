@@ -10,8 +10,8 @@ interface ComingSoonProps {
 
 /**
  * Tela honesta de "em construção" para funcionalidades ainda não finalizadas.
- * Usada para ocultar páginas que hoje exibiriam dados mockados, sem deletar o
- * código original (que permanece pronto para ser religado quando a feature ficar real).
+ * O `ComingSoonRoute` esconde páginas cujo código ainda existe; a `ComingSoon`
+ * direta serve a rotas sem tela (ex.: Borderô, até ter dado real).
  */
 export default function ComingSoon({ title = 'Esta ferramenta', backTo = '/producer/dashboard' }: ComingSoonProps) {
   return (
@@ -26,9 +26,8 @@ export default function ComingSoon({ title = 'Esta ferramenta', backTo = '/produ
         <h2 className="font-serif text-2xl text-espresso mb-3">Em construção</h2>
 
         <p className="text-sm text-espresso/70 leading-relaxed mb-8">
-          <strong className="text-espresso/70">{title}</strong> está sendo finalizada e ficará
-          disponível em breve. Estamos trabalhando para entregá-la com dados reais e totalmente
-          funcional.
+          <strong className="text-espresso/70">{title}</strong>: esta área será liberada em
+          breve. Estamos trabalhando para entregá-la com dados reais e totalmente funcional.
         </p>
 
         <Link

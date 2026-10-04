@@ -17,7 +17,7 @@ import { Loader2 } from 'lucide-react'
 import { Analytics } from '@vercel/analytics/react'
 
 import FeatureGuard from './components/FeatureGuard'
-import { ComingSoonRoute } from './components/ComingSoon'
+import ComingSoon, { ComingSoonRoute } from './components/ComingSoon'
 import { trackPageView, trackEvent, semHash } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
@@ -78,7 +78,6 @@ const ProducerSettings = lazy(() => import('./pages/producer/ProducerSettings'))
 const TeamManager = lazy(() => import('./pages/producer/TeamManager'))
 const EventTicketConfig = lazy(() => import('./pages/producer/EventTicketConfig'))
 const EvokaaStore = lazy(() => import('./pages/producer/EvokaaStore'))
-const EventBordero = lazy(() => import('./pages/producer/EventBordero'))
 const InterestList = lazy(() => import('./pages/producer/InterestList'))
 const Certificates = lazy(() => import('./pages/producer/Certificates'))
 const CertificateBuilder = lazy(() => import('./pages/producer/CertificateBuilder'))
@@ -405,11 +404,11 @@ function Layout() {
               <Route path="/producer/timeline" element={<ProducerTimeline />} />
               <Route path="/producer/faq" element={<ProducerFAQ />} />
               <Route path="/producer/settings" element={<ProducerSettings />} />
-              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A área de Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
+              <Route path="/producer/assinatura" element={<ComingSoonRoute title="A Assinatura"><ProducerSubscription /></ComingSoonRoute>} />
               <Route path="/producer/team" element={<TeamManager />} />
               <Route path="/producer/ingressos-avancados" element={<ComingSoonRoute title="A configuração avançada de ingressos"><EventTicketConfig /></ComingSoonRoute>} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
-              <Route path="/producer/bordero" element={<ComingSoonRoute title="O Borderô"><EventBordero /></ComingSoonRoute>} />
+              <Route path="/producer/bordero" element={<ComingSoon title="O Borderô" />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />
