@@ -331,11 +331,13 @@ export default function AdminTeamManager() {
                   const permsCount = admin.admin_permissions?.length || 0
 
                   return (
-                    <div
+                    <button
+                      type="button"
                       key={admin.id}
                       onClick={() => handleEditPermissions(admin)}
+                      aria-pressed={selectedAdmin?.id === admin.id}
                       className={cn(
-                        'flex items-center justify-between gap-4 rounded-[10px] border p-4 transition-colors',
+                        'flex w-full items-center justify-between gap-4 rounded-[10px] border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                         canEdit && admin.id !== user?.id ? 'cursor-pointer' : 'cursor-default',
                         selectedAdmin?.id === admin.id
                           ? 'border-primary bg-[var(--ev-brand-soft)]'
@@ -343,7 +345,7 @@ export default function AdminTeamManager() {
                       )}
                     >
                       <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary font-semibold text-foreground">
+                        <div aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary font-semibold text-foreground">
                           {admin.avatar_url ? (
                             <img src={admin.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
                           ) : (
@@ -390,7 +392,7 @@ export default function AdminTeamManager() {
                         </div>
                         <I.ChevronDireita size={16} className={cn('text-muted-foreground transition-transform', selectedAdmin?.id === admin.id && 'translate-x-1 text-primary')} aria-hidden="true" />
                       </div>
-                    </div>
+                    </button>
                   )
                 })}
               </div>

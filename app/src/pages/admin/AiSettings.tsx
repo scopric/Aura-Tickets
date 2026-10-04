@@ -11,8 +11,9 @@ import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Spinner } from '../../components/ui/spinner'
 import { Switch } from '../../components/ui/switch'
+import { Segmented } from '../../components/ui/toggle-group'
 import { EmptyState, PageHeader, SectionTitle, Stat, chipAviso, selectNativo } from '../../components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '../../components/admin/ui'
+import { Tabela, alertaAviso, alertaErro, painel, th } from '../../components/admin/ui'
 import { cn } from '../../lib/utils'
 
 // Tela do Evo (agente de IA). Contrato: docs/sql/20260929_agente_evo.sql + supabase/functions/agent.
@@ -481,13 +482,7 @@ export default function AdminAiSettings() {
       <section className={cardCls} aria-labelledby="ia-gasto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <SectionTitle id="ia-gasto">Gasto</SectionTitle>
-          <div className={cn(trilho, 'w-fit')} role="group" aria-label="Período">
-            {PERIODOS.map(([v, l]) => (
-              <button key={v} type="button" aria-pressed={periodo === v} onClick={() => setPeriodo(v)} className={periodo === v ? segmentoOn : segmentoOff}>
-                {l}
-              </button>
-            ))}
-          </div>
+          <Segmented label="Período" items={PERIODOS.map(([value, label]) => ({ value, label }))} value={periodo} onValueChange={v => setPeriodo(v as Periodo)} className="w-full sm:w-72" />
         </div>
 
         {resumo.isLoading ? (
@@ -496,7 +491,7 @@ export default function AdminAiSettings() {
           <div role="alert" className={alertaErro}>Não foi possível carregar o gasto: {msgErro(resumo.error)}</div>
         ) : !r ? vazio('Sem dados.') : (
           <>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <Stat label="Gasto (US$)" value={usd(r.totais.usd)} />
               <Stat label="Gasto (R$)" value={brl(r.totais.brl)} />
               <Stat label="Perguntas" value={String(r.totais.perguntas)} hint={`${r.totais.chamadas} ${r.totais.chamadas === 1 ? 'chamada' : 'chamadas'} à IA (inclui testes e recusas)`} />

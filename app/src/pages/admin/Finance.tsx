@@ -134,7 +134,7 @@ export default function AdminFinance() {
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
       <PageHeader title="Financeiro" description="Visão geral do volume financeiro, comissões coletadas e moderação de repasses." />
 
-      <div className={cn(trilho, 'mb-6 w-fit')}>
+      <div className={cn(trilho, 'mb-6 w-fit')} role="group" aria-label="Seções do financeiro">
         {abas.map(a => (
           <button key={a.id} type="button" onClick={() => setActiveTab(a.id)} aria-pressed={activeTab === a.id} className={activeTab === a.id ? segmentoOn : segmentoOff}>
             <a.icon aria-hidden="true" /> {a.label}
@@ -158,7 +158,7 @@ export default function AdminFinance() {
 
       {/* Financial KPIs */}
       {!isLoading && (
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {[
           { label: 'Volume Geral de Vendas (GMV)', value: brl(grossSalesVolume), change: `${pedidosPagos.length} pedido(s) pago(s)` },
           { label: 'Receita Líquida (Plataforma)', value: brl(platformRevenue), change: 'Comissões lançadas' },

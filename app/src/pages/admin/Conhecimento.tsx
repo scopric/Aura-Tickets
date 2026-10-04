@@ -311,6 +311,7 @@ export default function AdminConhecimento() {
         title="Conhecimento"
         description="O assistente do chat responde com os artigos publicados, no público de quem pergunta. Rascunho não aparece para ninguém."
         actions={
+          aba === 'perguntas' ? undefined : (
           <>
             {aba === 'artigos' && (
               <Button type="button" onClick={() => setForm({ ...artigoVazio })}>
@@ -323,6 +324,7 @@ export default function AdminConhecimento() {
               </Button>
             )}
           </>
+          )
         }
       />
 
@@ -341,13 +343,13 @@ export default function AdminConhecimento() {
         )}
       </div>
 
-      <div className={cn(trilho, 'mb-4 w-fit')} role="tablist" aria-label="Seções da base">
+      <div className={cn(trilho, 'mb-4 w-fit')} role="group" aria-label="Seções da base">
         {([
           ['artigos', `Artigos (${publicados} publicados)`],
           ['dicionario', 'Dicionário'],
           ['perguntas', `Perguntas sem resposta (${perguntas.data?.length ?? 0})`],
         ] as const).map(([v, l]) => (
-          <button key={v} type="button" role="tab" aria-selected={aba === v} onClick={() => setAba(v)} className={aba === v ? segmentoOn : segmentoOff}>
+          <button key={v} type="button" aria-pressed={aba === v} onClick={() => setAba(v)} className={aba === v ? segmentoOn : segmentoOff}>
             {l}
           </button>
         ))}

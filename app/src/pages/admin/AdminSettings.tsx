@@ -10,10 +10,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Spinner } from '@/components/ui/spinner'
+import { Segmented } from '@/components/ui/toggle-group'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { EmptyState, PageHeader, SectionTitle, selectNativo, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
-import { Tabela, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
+import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
 
@@ -434,13 +435,7 @@ export default function AdminSettingsPage() {
             <div className="space-y-6">
               <SectionTitle>Logs do Sistema</SectionTitle>
 
-              <div className={cn(trilho, 'w-fit')} role="group" aria-label="Filtrar por tipo">
-                {LOG_FILTERS.map(f => (
-                  <button key={f.id} type="button" aria-pressed={logFilter === f.id} onClick={() => setLogFilter(f.id)} className={logFilter === f.id ? segmentoOn : segmentoOff}>
-                    {f.label}
-                  </button>
-                ))}
-              </div>
+              <Segmented label="Filtrar por tipo" items={LOG_FILTERS.map(f => ({ value: f.id, label: f.label }))} value={logFilter} onValueChange={v => setLogFilter(v as LogFilter)} className="w-full sm:w-80" />
 
               {logsError && (
                 <div role="alert" className={alertaErro}>
@@ -499,15 +494,7 @@ export default function AdminSettingsPage() {
                     {mfa.loading ? 'Carregando status...' : mfa.enabled ? 'Ativo — Seu login de administrador exige o código do Google Authenticator' : 'Inativo — Ative para proteger sua conta administrativa'}
                   </div>
                 </div>
-                <button
-                  disabled={mfa.loading}
-                  aria-label={mfa.enabled ? 'Desativar 2FA' : 'Ativar 2FA'}
-                  aria-pressed={mfa.enabled}
-                  onClick={mfa.toggle}
-                  className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-50', mfa.enabled ? 'bg-primary' : 'bg-input')}
-                >
-                  <span aria-hidden="true" className={cn('absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-transform motion-reduce:transition-none', mfa.enabled ? 'translate-x-5' : 'translate-x-0.5')} />
-                </button>
+                <Switch checked={mfa.enabled} onCheckedChange={() => mfa.toggle()} disabled={mfa.loading} aria-label="Autenticação de dois fatores" />
               </div>
             </div>
           )}
