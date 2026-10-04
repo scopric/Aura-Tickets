@@ -865,7 +865,7 @@ export default function AdminAnalytics() {
         </div>
       </header>
 
-      {loadError && activeSubTab === 'overview' && (
+      {loadError && activeSubTab !== 'traffic' && (
         <div role="alert" className={alertaErro}>
           <span title={loadError}>Não foi possível ler os dados agora{lidoEm ? ` (última leitura às ${lidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})` : ''}.</span> Os números abaixo podem estar incompletos.
         </div>
