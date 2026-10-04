@@ -78,6 +78,8 @@ export default function ProducerEditEvent() {
     }
   }, [existingEvent])
 
+  // Rascunho (duplicado, do Evo ou recusado/tirado do ar): salvar mantém status draft e nada nesta tela publica.
+  const ehRascunho = existingEvent?.status === 'draft'
   // Só evento aprovado ou recusado volta para análise, e só se mudar conteúdo (gatilho gf_protect_event_moderation).
   const voltaParaAnalise = existingEvent?.approval_status === 'approved' || existingEvent?.approval_status === 'rejected'
   // ponytail: ingresso já salvo não tem remoção aqui (o salvar não apaga); a remoção vem no PR3 da F1 e esta tela some no PR4.
@@ -151,9 +153,11 @@ export default function ProducerEditEvent() {
         tickets: ticketsPayload
       })
 
-      toast.success(voltaParaAnalise
-        ? 'Alterações salvas. Se você mudou título, descrição, imagem, tipo, data ou local, o evento voltou para a análise da equipe.'
-        : 'Alterações salvas.')
+      toast.success(ehRascunho
+        ? 'Alterações salvas. O evento continua como rascunho.'
+        : voltaParaAnalise
+          ? 'Alterações salvas. Se você mudou título, descrição, imagem, tipo, data, horário ou local, o evento voltou para a análise da equipe.'
+          : 'Alterações salvas.')
       setTimeout(() => navigate('/producer/events'), 800)
     } catch (err: any) {
       setSalvando(false)
@@ -399,7 +403,9 @@ export default function ProducerEditEvent() {
               </div>
             </dl>
             <p className="mt-4 rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
-              {voltaParaAnalise
+              {ehRascunho
+                ? 'Este evento é um rascunho e não vai ao ar: salvar mantém como rascunho e nesta tela não há como publicá-lo.'
+                : voltaParaAnalise
                 ? 'Se você mudar título, descrição, imagem, tipo, data, horário ou local, o evento volta para a análise da equipe e só fica visível ao público depois da aprovação. Em geral, mudar só os ingressos não volta para análise.'
                 : 'Este evento ainda está em análise pela equipe; salvar não muda isso.'}
             </p>
