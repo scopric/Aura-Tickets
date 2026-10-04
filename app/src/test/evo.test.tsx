@@ -393,14 +393,14 @@ describe('EvoHub: painel, chat e rascunho', () => {
 describe('EvoHub: pergunta do tour da tela (V9b)', () => {
   const CONVITE = 'Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.'
   const PERGUNTA = 'Primeira vez em Eventos? Quer ver em 4 passos?'
-  // onboarding_logs com memória: o insert grava na lista, como o banco faria
+  // onboarding_logs com memória: o upsert grava na lista, como o banco faria
   let registros: { step_name: string }[]
-  let inserts: ReturnType<typeof vi.fn>
+  let upserts: ReturnType<typeof vi.fn>
   function montarTour(rota: string, feitos: string[] = []) {
     registros = feitos.map((step_name) => ({ step_name }))
-    inserts = vi.fn((linha: { step_name: string }) => { registros.push({ step_name: linha.step_name }); return Promise.resolve({ error: null }) })
+    upserts = vi.fn((linha: { step_name: string }) => { registros.push({ step_name: linha.step_name }); return Promise.resolve({ error: null }) })
     return montar(SALDO_OK, [], rota, (tabela) =>
-      tabela === 'onboarding_logs' ? { select: () => ({ eq: () => Promise.resolve({ data: registros, error: null }) }), insert: inserts } : undefined)
+      tabela === 'onboarding_logs' ? { select: () => ({ eq: () => Promise.resolve({ data: registros, error: null }) }), upsert: upserts } : undefined)
   }
   const COOKIES = 'aura-cookie-consent'
   const semConvitePrevio = () => { role = 'producer'; delete mem['evo-convite-v1'] }
@@ -417,7 +417,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar' }))
     expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?tour=eventos')
     expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
-    expect(inserts).not.toHaveBeenCalled() // o registro do tour vem do ProducerLayout, ao fim
+    expect(upserts).not.toHaveBeenCalled() // o registro do tour vem do ProducerLayout, ao fim
   })
 
   it('Agora não grava dica:<id>, fecha e a pergunta não volta', async () => {
@@ -425,7 +425,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     const { unmount } = montarTour('/producer/events')
     await screen.findByRole('button', { name: 'Mostrar' }, { timeout: 4000 })
     fireEvent.click(screen.getByRole('button', { name: 'Agora não' }))
-    await waitFor(() => expect(inserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:eventos', skipped: false })))
+    await waitFor(() => expect(upserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:eventos', skipped: false }), { onConflict: 'user_id,step_name' }))
     expect(screen.queryByText(PERGUNTA)).toBeNull()
     expect(screen.getByTestId('local')).toHaveTextContent(/^\/producer\/events$/)
     // outra carga da mesma tela: já dispensado, vale o convite normal
@@ -442,7 +442,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     const x = screen.getByRole('button', { name: 'Fechar aviso do Evo' })
     x.focus()
     fireEvent.click(x)
-    await waitFor(() => expect(inserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:eventos' })))
+    await waitFor(() => expect(upserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:eventos' }), { onConflict: 'user_id,step_name' }))
     expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Falar com o Evo' })).toHaveFocus()
   })
@@ -584,7 +584,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Mostrar esta tela' }))
     expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?tour=eventos')
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(inserts).not.toHaveBeenCalled()
+    expect(upserts).not.toHaveBeenCalled()
     expect(supabase.functions.invoke).not.toHaveBeenCalled()
   })
 

@@ -18,7 +18,8 @@ export function useRegistrarTour() {
     if (!user?.id) return
     await qc.cancelQueries({ queryKey: chave(user.id) }) // uma leitura em andamento não pode apagar o registro otimista
     qc.setQueryData<string[]>(chave(user.id), o => (o ? Object.assign([...o, step_name], { falhou: (o as { falhou?: boolean }).falhou }) : o)) // mantém a marca de leitura com erro
-    const { error } = await logs().insert({ user_id: user.id, step_name, completed_at: new Date().toISOString(), skipped })
+    // um registro por passo (índice único user_id+step_name, docs/sql/20261012): refazer sobrescreve com o último estado
+    const { error } = await logs().upsert({ user_id: user.id, step_name, completed_at: new Date().toISOString(), skipped }, { onConflict: 'user_id,step_name' })
     if (error && !silencioso) toast.error('Não foi possível guardar sua escolha.')
     await qc.invalidateQueries({ queryKey: chave(user.id) }, { throwOnError: false })
   }

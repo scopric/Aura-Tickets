@@ -70,8 +70,11 @@ const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empr
   tabelas.tickets = ingressos(i, false, opcoes.cortado)
   gravados.length = 0
   tabelas.onboarding_logs = c => {
-    const grava = c.find(([n]) => n === 'insert')
-    if (grava) { gravados.push((grava[1][0] as { step_name: string }).step_name); return { data: null, error: null } }
+    const grava = c.find(([n]) => n === 'upsert')
+    if (grava) {
+      expect(grava[1][1]).toEqual({ onConflict: 'user_id,step_name' }) // o índice único do banco
+      gravados.push((grava[1][0] as { step_name: string }).step_name); return { data: null, error: null }
+    }
     return { data: gravados.map(step_name => ({ step_name })), error: null }
   }
 }
