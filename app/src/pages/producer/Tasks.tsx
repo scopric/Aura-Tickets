@@ -1,9 +1,5 @@
 import { useState } from 'react'
-import {
-  CheckCircle2, Circle, Plus, X, Trash2,
-  Calendar, Tag, User, ChevronDown, ChevronUp, MessageSquare,
-  Hash, Send, Filter, Layout, Columns3, Loader2
-} from 'lucide-react'
+import { Plus, Trash2, Loader2, Calendar, List, Columns3, Circle, CircleDot, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   useProducerTasks,
@@ -11,340 +7,279 @@ import {
   useUpdateTask,
   useDeleteTask,
   type DbTask,
+  type StatusTarefa,
+  type PrioridadeTarefa,
 } from '../../hooks/useProducerTools'
+import { useProducerEvents } from '../../hooks/useEvents'
+import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import { atrasada, prazoDoDia } from '../../lib/tarefas'
+import { diaBR } from '../../lib/visaoEvento'
+import FiltroEvento from '@/components/producer/FiltroEvento'
+import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
-const categories = ['Pre-evento', 'Marketing', 'Logistica', 'Financeiro', 'Dia do Evento', 'Pos-evento']
+// Status e prioridade são os valores do CHECK de producer_tasks; o português só existe na tela.
+const STATUS: StatusTarefa[] = ['todo', 'in_progress', 'done']
+const rotuloStatus: Record<StatusTarefa, string> = { todo: 'Pendente', in_progress: 'Em andamento', done: 'Concluída' }
+const iconeStatus = { todo: Circle, in_progress: CircleDot, done: CheckCircle2 }
+const proximo: Record<StatusTarefa, StatusTarefa> = { todo: 'in_progress', in_progress: 'done', done: 'todo' }
+const rotuloPrioridade: Record<PrioridadeTarefa, string> = { low: 'Baixa', medium: 'Média', high: 'Alta' }
+const variantePrioridade = { low: 'outline', medium: 'secondary', high: 'destructive' } as const
 
-const tagColors: Record<string, string> = {
-  urgente: '#ef4444', dj: '#7a3b69', decoracao: '#f59e0b', som: '#3b82f6',
-  iluminacao: '#8b5cf6', bar: '#22c55e', seguranca: '#dc2626', foto: '#06b6d4',
-  video: '#ec4899', imprensa: '#78716c', patrocinio: '#d97706', voluntario: '#0891b2',
-}
+const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
+const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const emptyForm = { title: '', description: '', priority: 'medium' as PrioridadeTarefa, dueDate: '', eventId: '' }
 
-const priorityColors = {
-  alta: 'text-red-500 bg-red-50 border-red-100',
-  media: 'text-amber-700 bg-amber-50 border-amber-100',
-  baixa: 'text-blue-700 bg-blue-50 border-blue-100',
-}
+// O erro do Supabase é um objeto com `message`, não uma instância de Error
+const causa = (e: unknown) => (e as { message?: string } | null)?.message || 'erro desconhecido'
+const dataBr = (iso: string) => diaBR(iso).split('-').reverse().join('/')
 
 export default function ProducerTasks() {
-  const { data: tasks = [], isLoading } = useProducerTasks()
+  const { data: todas = [], isPending, isError, error, refetch, isFetching } = useProducerTasks()
+  const { data: events = [] } = useProducerEvents()
   const createTask = useCreateTask()
   const updateTask = useUpdateTask()
   const deleteTask = useDeleteTask()
+  const [filtroEvento] = useFiltroEvento()
+  const tasks = doEvento(todas, filtroEvento)
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ title: '', description: '', category: 'Pre-evento', priority: 'media' as DbTask['priority'], dueDate: '', assignee: '', eventName: '', tags: [] as string[] })
-  const [filterCategory, setFilterCategory] = useState('Todos')
-  const [filterTag, setFilterTag] = useState('Todos')
+  const [form, setForm] = useState(emptyForm)
   const [viewMode, setViewMode] = useState<'list' | 'kanban'>('list')
-  const [expandedTask, setExpandedTask] = useState<string | null>(null)
-  const [newComment, setNewComment] = useState('')
-  const [newSubtask, setNewSubtask] = useState('')
-  const [tagInput, setTagInput] = useState('')
-
-  const allTags = [...new Set(tasks.flatMap(t => t.tags || []))]
-
-  const filtered = tasks
-    .filter(t => filterCategory === 'Todos' || t.category === filterCategory)
-    .filter(t => filterTag === 'Todos' || (t.tags || []).includes(filterTag))
+  const [apagar, setApagar] = useState<DbTask | null>(null)
 
   const total = tasks.length
-  const done = tasks.filter(t => t.status === 'concluida').length
-  const overdue = tasks.filter(t => t.status !== 'concluida').length
+  const done = tasks.filter(t => t.status === 'done').length
+  const pendentes = total - done
+  const hoje = diaBR(new Date())
+  const atrasadas = tasks.filter(t => atrasada(t, hoje)).length
 
-  const addTask = async () => {
-    if (!form.title) return
+  const abrir = () => { setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
+
+  const addTask = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.title.trim()) { toast.error('Informe o título da tarefa'); return }
     try {
       await createTask.mutateAsync({
-        title: form.title,
-        description: form.description,
-        category: form.category,
+        title: form.title.trim(),
+        description: form.description.trim() || null,
         priority: form.priority,
-        due_date: form.dueDate || null,
-        assignee: form.assignee || null,
-        event_name: form.eventName || null,
-        tags: form.tags,
-        subtasks: [],
-        comments: [],
-        status: 'pendente',
+        status: 'todo',
+        due_date: form.dueDate ? prazoDoDia(form.dueDate) : null,
+        event_id: form.eventId || null,
       })
-      setForm({ title: '', description: '', category: 'Pre-evento', priority: 'media', dueDate: '', assignee: '', eventName: '', tags: [] })
       setShowForm(false)
-      toast.success('Tarefa criada!')
-    } catch {
-      toast.error('Erro ao criar tarefa')
+      toast.success('Tarefa criada.')
+    } catch (err) {
+      toast.error(`Não foi possível criar a tarefa: ${causa(err)}`)
     }
   }
 
-  const toggleTask = async (task: DbTask) => {
-    const newStatus = task.status === 'concluida' ? 'pendente' : task.status === 'pendente' ? 'em-andamento' : 'concluida'
+  const mudarStatus = async (task: DbTask) => {
     try {
-      await updateTask.mutateAsync({ id: task.id, status: newStatus })
-    } catch {
-      toast.error('Erro ao atualizar status')
+      await updateTask.mutateAsync({ id: task.id, status: proximo[task.status] })
+    } catch (err) {
+      toast.error(`Não foi possível mudar o status: ${causa(err)}`)
     }
   }
 
-  const handleDelete = async (id: string) => {
+  const confirmarApagar = async () => {
+    if (!apagar) return
     try {
-      await deleteTask.mutateAsync(id)
-      toast.success('Tarefa removida!')
-    } catch {
-      toast.error('Erro ao remover tarefa')
+      await deleteTask.mutateAsync(apagar.id)
+      toast.success('Tarefa removida.')
+    } catch (err) {
+      toast.error(`Não foi possível remover a tarefa: ${causa(err)}`)
+    } finally {
+      setApagar(null)
     }
   }
 
-  const addSubtask = async (task: DbTask) => {
-    if (!newSubtask.trim()) return
-    try {
-      await updateTask.mutateAsync({
-        id: task.id,
-        subtasks: [...(task.subtasks || []), { id: `st${Date.now()}`, title: newSubtask, done: false }],
-      })
-      setNewSubtask('')
-    } catch {
-      toast.error('Erro ao adicionar sub-tarefa')
-    }
-  }
+  const header = (
+    <PageHeader
+      title="Tarefas"
+      description="Organize o que falta fazer, com prazo e evento"
+      actions={
+        <>
+          <div role="group" aria-label="Modo de exibição" className="flex gap-1">
+            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'list' ? '' : icone} aria-label="Ver em lista" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')}>
+              <List aria-hidden="true" />
+            </Button>
+            <Button variant={viewMode === 'kanban' ? 'secondary' : 'ghost'} size="icon" className={viewMode === 'kanban' ? '' : icone} aria-label="Ver em colunas por status" aria-pressed={viewMode === 'kanban'} onClick={() => setViewMode('kanban')}>
+              <Columns3 aria-hidden="true" />
+            </Button>
+          </div>
+          <Button onClick={abrir}><Plus aria-hidden="true" />Nova tarefa</Button>
+        </>
+      }
+    />
+  )
 
-  const toggleSubtask = async (task: DbTask, subId: string) => {
-    try {
-      await updateTask.mutateAsync({
-        id: task.id,
-        subtasks: (task.subtasks || []).map((s: any) => s.id === subId ? { ...s, done: !s.done } : s),
-      })
-    } catch {
-      toast.error('Erro ao atualizar sub-tarefa')
-    }
-  }
-
-  const addComment = async (task: DbTask) => {
-    if (!newComment.trim()) return
-    try {
-      await updateTask.mutateAsync({
-        id: task.id,
-        comments: [...(task.comments || []), { id: `c${Date.now()}`, author: 'Voce', text: newComment, date: new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' }) }],
-      })
-      setNewComment('')
-    } catch {
-      toast.error('Erro ao adicionar comentario')
-    }
-  }
-
-  const addTag = () => {
-    if (!tagInput.trim() || form.tags.includes(tagInput.trim())) return
-    setForm({ ...form, tags: [...form.tags, tagInput.trim()] })
-    setTagInput('')
-  }
-
-  if (isLoading) {
+  if (isPending) {
     return (
-      <div className="p-6 lg:p-10 max-w-5xl mx-auto flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-10 h-10 text-plum animate-spin mb-4" />
-        <p className="text-espresso/70 text-sm">Carregando tarefas...</p>
+      <div aria-busy="true">
+        {header}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+        </div>
+        <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div>
+        {header}
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm text-foreground">Não foi possível carregar as tarefas.</p>
+            <p className="mt-1 text-xs text-muted-foreground">{causa(error)}</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  const cartao = (task: DbTask) => {
+    const Icone = iconeStatus[task.status]
+    const evento = task.event_id ? events.find(ev => ev.id === task.event_id)?.title ?? 'Evento' : null
+    const atrasou = atrasada(task, hoje)
+    return (
+      <div key={task.id} className="rounded-[10px] border border-border bg-card p-4">
+        <div className="flex items-start gap-2">
+          <Button
+            variant="ghost" size="icon-sm" className={icone}
+            onClick={() => mudarStatus(task)}
+            aria-label={`${task.title}: ${rotuloStatus[task.status]}. Mudar para ${rotuloStatus[proximo[task.status]]}`}
+          >
+            <Icone aria-hidden="true" className={task.status === 'done' ? 'text-primary' : undefined} />
+          </Button>
+          <div className="min-w-0 flex-1">
+            <h3 className={`break-words text-sm font-medium ${task.status === 'done' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>{task.title}</h3>
+            {task.description && <p className="mt-1 break-words text-sm text-muted-foreground">{task.description}</p>}
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant={variantePrioridade[task.priority]}>{rotuloPrioridade[task.priority]}</Badge>
+              <span className={`flex items-center gap-1 ${atrasou ? 'font-medium text-destructive' : ''}`}>
+                <Calendar className="size-3" aria-hidden="true" />
+                {task.due_date ? `${dataBr(task.due_date)}${atrasou ? ' (atrasada)' : ''}` : 'Sem prazo'}
+              </span>
+              {evento && <span className="min-w-0 truncate">{evento}</span>}
+            </div>
+          </div>
+          <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setApagar(task)} aria-label={`Excluir ${task.title}`}>
+            <Trash2 aria-hidden="true" />
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Tarefas</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie seu pipeline de producao</p>
-        </div>
-        <button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-5 py-2.5 bg-plum text-cream text-sm font-medium rounded-full hover:shadow-glow transition-all">
-          <Plus className="w-4 h-4" /> Nova Tarefa
-        </button>
+    <div>
+      {header}
+      <FiltroEvento />
+
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Stat label="Total" value={total} />
+        <Stat label="Concluídas" value={done} />
+        <Stat label="Pendentes" value={pendentes} />
+        <Stat label="Atrasadas" value={atrasadas} />
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        {[
-          { label: 'Total', value: total, color: 'text-blue-600', bg: 'bg-blue-50' },
-          { label: 'Concluidas', value: done, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Pendentes', value: overdue, color: 'text-amber-600', bg: 'bg-amber-50' },
-        ].map(s => (
-          <div key={s.label} className={`p-4 rounded-2xl ${s.bg} border border-white/60 text-center`}>
-            <div className={`font-serif text-2xl ${s.color}`}>{s.value}</div>
-            <div className="text-[10px] text-espresso/70 mt-0.5">{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-1 p-1 bg-white/60 border border-white/60 rounded-full">
-          {(['Todos', ...categories] as const).map(cat => (
-            <button key={cat} onClick={() => setFilterCategory(cat)} className={`px-3 py-1.5 rounded-full text-[11px] font-medium transition-all ${filterCategory === cat ? 'bg-plum text-cream' : 'text-espresso/70 hover:text-espresso'}`}>{cat}</button>
-          ))}
-        </div>
-        {allTags.length > 0 && (
-          <div className="flex items-center gap-1">
-            <Hash className="w-3.5 h-3.5 text-espresso/20" />
-            <select value={filterTag} onChange={e => setFilterTag(e.target.value)} className="bg-white/60 border border-white/60 rounded-full px-3 py-1.5 text-[11px] text-espresso focus:outline-none">
-              <option value="Todos">Tags</option>
-              {allTags.map(tag => <option key={tag} value={tag}>{tag}</option>)}
-            </select>
+      <div className="mt-6">
+        {total === 0 ? (
+          <EmptyState
+            title={filtroEvento ? 'Nenhuma tarefa neste evento' : 'Nenhuma tarefa ainda'}
+            description={filtroEvento ? 'Tarefas sem evento aparecem em Todos os eventos.' : 'Crie a primeira tarefa e acompanhe o que falta fazer.'}
+            action={<Button onClick={abrir}><Plus aria-hidden="true" />Criar tarefa</Button>}
+          />
+        ) : viewMode === 'list' ? (
+          <div className="grid gap-3">{tasks.map(cartao)}</div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {STATUS.map(col => {
+              const doStatus = tasks.filter(t => t.status === col)
+              return (
+                <section key={col} aria-label={rotuloStatus[col]} className="grid content-start gap-3">
+                  <SectionTitle>{rotuloStatus[col]} ({doStatus.length})</SectionTitle>
+                  {doStatus.map(cartao)}
+                </section>
+              )
+            })}
           </div>
         )}
-        <div className="flex items-center gap-1 ml-auto">
-          <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg text-espresso/70 hover:text-espresso transition-colors ${viewMode === 'list' ? 'text-plum bg-plum/10' : ''}`}><Layout className="w-4 h-4" /></button>
-          <button onClick={() => setViewMode('kanban')} className={`p-2 rounded-lg text-espresso/70 hover:text-espresso transition-colors ${viewMode === 'kanban' ? 'text-plum bg-plum/10' : ''}`}><Columns3 className="w-4 h-4" /></button>
-        </div>
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 glass-backdrop" onClick={() => setShowForm(false)} />
-          <div className="glass-panel relative w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-serif text-xl text-espresso">Nova Tarefa</h3>
-              <button onClick={() => setShowForm(false)} className="p-1 rounded-lg hover:bg-espresso/5 text-espresso/70"><X className="w-5 h-5" /></button>
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Nova tarefa</DialogTitle>
+            <DialogDescription>Prazo e evento são opcionais.</DialogDescription>
+          </DialogHeader>
+          <form id="form-tarefa" onSubmit={addTask} className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label htmlFor="tarefa-titulo">Título</Label>
+              <Input id="tarefa-titulo" maxLength={200} value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Ex.: Contratar o DJ" />
             </div>
-            <div className="space-y-3">
-              <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="Titulo da tarefa" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} placeholder="Descricao" rows={2} className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30 resize-none" />
-              <div className="grid grid-cols-2 gap-3">
-                <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+            <div className="grid gap-1.5">
+              <Label htmlFor="tarefa-descricao">Descrição (opcional)</Label>
+              <Textarea id="tarefa-descricao" maxLength={1000} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="tarefa-prioridade">Prioridade</Label>
+                <select id="tarefa-prioridade" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as PrioridadeTarefa })} className={select}>
+                  {(Object.keys(rotuloPrioridade) as PrioridadeTarefa[]).map(p => <option key={p} value={p}>{rotuloPrioridade[p]}</option>)}
                 </select>
-                <select value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value as DbTask['priority'] })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
-                  <option value="baixa">Baixa</option>
-                  <option value="media">Media</option>
-                  <option value="alta">Alta</option>
-                </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <input type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                <input value={form.assignee} onChange={e => setForm({ ...form, assignee: e.target.value })} placeholder="Responsavel" className="px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
+              <div className="grid gap-1.5">
+                <Label htmlFor="tarefa-prazo">Prazo (opcional)</Label>
+                <Input id="tarefa-prazo" type="date" value={form.dueDate} onChange={e => setForm({ ...form, dueDate: e.target.value })} />
               </div>
-              <input value={form.eventName} onChange={e => setForm({ ...form, eventName: e.target.value })} placeholder="Evento" className="w-full px-4 py-2.5 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-              <div className="flex items-center gap-2">
-                <input value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && addTag()} placeholder="Tag" className="flex-1 px-4 py-2 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30" />
-                <button onClick={addTag} className="px-3 py-2 bg-plum text-cream text-xs rounded-xl">Add</button>
-              </div>
-              {form.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {form.tags.map(tag => (
-                    <span key={tag} className="px-2 py-0.5 text-[10px] rounded-full text-white" style={{ background: tagColors[tag] || '#7a3b69' }}>{tag}</span>
-                  ))}
-                </div>
-              )}
-              <button onClick={addTask} disabled={createTask.isPending} className="w-full py-3 bg-plum text-cream text-sm font-medium rounded-xl hover:shadow-glow transition-all disabled:opacity-50">
-                {createTask.isPending ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Criar Tarefa'}
-              </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Task List */}
-      {viewMode === 'list' ? (
-        <div className="space-y-3">
-          {filtered.map(task => (
-            <div key={task.id} className={`p-4 rounded-2xl border backdrop-blur-sm transition-all ${task.status === 'concluida' ? 'bg-espresso/[0.02] border-espresso/5 opacity-70' : 'bg-white/60 border-white/60 hover:shadow-md'}`}>
-              <div className="flex items-start gap-3">
-                <button onClick={() => toggleTask(task)} className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${task.status === 'concluida' ? 'bg-green-500 border-green-500' : 'border-espresso/20 hover:border-plum'}`}>
-                  {task.status === 'concluida' && <CheckCircle2 className="w-3 h-3 text-white" />}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className={`text-sm font-medium ${task.status === 'concluida' ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{task.title}</h3>
-                    <span className={`px-2 py-0.5 text-[9px] font-medium rounded-full border ${priorityColors[task.priority]}`}>{task.priority}</span>
-                  </div>
-                  <p className="text-xs text-espresso/70 mb-2">{task.description}</p>
-                  <div className="flex items-center gap-3 text-[10px] text-espresso/70">
-                    <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{task.due_date || 'Sem prazo'}</span>
-                    <span className="flex items-center gap-1"><User className="w-3 h-3" />{task.assignee || 'Nao atribuido'}</span>
-                    <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{task.category}</span>
-                    {(task.tags || []).map(tag => (
-                      <span key={tag} className="px-1.5 py-0.5 rounded-full text-white text-[9px]" style={{ background: tagColors[tag] || '#7a3b69' }}>{tag}</span>
-                    ))}
-                  </div>
-                </div>
-                <button onClick={() => handleDelete(task.id)} className="p-1.5 rounded-lg text-espresso/50 hover:text-red-500 hover:bg-red-50 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
-
-              {/* Expandable details */}
-              <button onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)} className="flex items-center gap-1 mt-2 text-[10px] text-plum hover:underline">
-                {expandedTask === task.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                {expandedTask === task.id ? 'Ocultar' : 'Detalhes'}
-              </button>
-
-              {expandedTask === task.id && (
-                <div className="mt-3 pt-3 border-t border-espresso/5 space-y-3">
-                  {/* Subtasks */}
-                  {(task.subtasks || []).length > 0 && (
-                    <div className="space-y-1.5">
-                      {(task.subtasks || []).map((sub: any) => (
-                        <div key={sub.id} className="flex items-center gap-2">
-                          <button onClick={() => toggleSubtask(task, sub.id)} className={`w-4 h-4 rounded border flex items-center justify-center ${sub.done ? 'bg-green-500 border-green-500' : 'border-espresso/20'}`}>
-                            {sub.done && <CheckCircle2 className="w-3 h-3 text-white" />}
-                          </button>
-                          <span className={`text-xs ${sub.done ? 'text-espresso/70 line-through' : 'text-espresso'}`}>{sub.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <input value={newSubtask} onChange={e => setNewSubtask(e.target.value)} onKeyDown={e => e.key === 'Enter' && addSubtask(task)} placeholder="Nova sub-tarefa" className="flex-1 px-3 py-1.5 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
-                    <button onClick={() => addSubtask(task)} className="p-1.5 rounded-lg bg-plum text-cream text-xs"><Plus className="w-3 h-3" /></button>
-                  </div>
-
-                  {/* Comments */}
-                  {(task.comments || []).length > 0 && (
-                    <div className="space-y-2">
-                      {(task.comments || []).map((c: any) => (
-                        <div key={c.id} className="p-2 rounded-xl bg-canvas">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className="text-[10px] font-medium text-espresso">{c.author}</span>
-                            <span className="text-[9px] text-espresso/70">{c.date}</span>
-                          </div>
-                          <p className="text-xs text-espresso/70">{c.text}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-espresso/20" />
-                    <input value={newComment} onChange={e => setNewComment(e.target.value)} onKeyDown={e => e.key === 'Enter' && addComment(task)} placeholder="Comentario..." className="flex-1 px-3 py-1.5 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none focus:border-plum/30" />
-                    <button onClick={() => addComment(task)} className="p-1.5 rounded-lg bg-plum text-cream"><Send className="w-3 h-3" /></button>
-                  </div>
-                </div>
-              )}
+            <div className="grid gap-1.5">
+              <Label htmlFor="tarefa-evento">Evento</Label>
+              <select id="tarefa-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+                <option value="">Sem evento</option>
+                {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
+              </select>
             </div>
-          ))}
-        </div>
-      ) : (
-        /* Kanban */
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {(['pendente', 'em-andamento', 'concluida'] as const).map(col => {
-            const colTasks = filtered.filter(t => t.status === col)
-            const colLabels = { pendente: 'Pendente', 'em-andamento': 'Em Andamento', concluida: 'Concluida' }
-            const colColors = { pendente: 'bg-amber-50 text-amber-700', 'em-andamento': 'bg-blue-50 text-blue-700', concluida: 'bg-green-50 text-green-700' }
-            return (
-              <div key={col} className="flex-shrink-0 w-72">
-                <div className={`p-2 rounded-xl ${colColors[col]} text-xs font-medium mb-3 text-center`}>{colLabels[col]} ({colTasks.length})</div>
-                <div className="space-y-2">
-                  {colTasks.map(task => (
-                    <div key={task.id} className="p-3 rounded-xl bg-white/60 border border-white/60 hover:shadow-md transition-all cursor-pointer" onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)}>
-                      <h4 className="text-xs font-medium text-espresso">{task.title}</h4>
-                      <div className="flex items-center gap-2 mt-1 text-[10px] text-espresso/70">
-                        <span className={`px-1.5 py-0.5 rounded-full border ${priorityColors[task.priority]}`}>{task.priority}</span>
-                        <span>{task.due_date || 'Sem prazo'}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+          </form>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
+            <Button type="submit" form="form-tarefa" disabled={createTask.isPending}>
+              {createTask.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Criando…</> : 'Criar tarefa'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!apagar} onOpenChange={aberto => { if (!aberto) setApagar(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir “{apagar?.title}”?</AlertDialogTitle>
+            <AlertDialogDescription>Não dá para desfazer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmarApagar} disabled={deleteTask.isPending}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
