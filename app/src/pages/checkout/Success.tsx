@@ -52,7 +52,7 @@ export default function CheckoutSuccess() {
 
   const firstTicket = tickets[0]
   const event = firstTicket?.events
-  const pedidoDeOutraConta = !isLoading && !carregandoPedido && !orderIdState && tickets.length === 0 && !pedidoDaConta // veio só pelo link e a conta não enxerga o pedido (decide pela posse, não por haver ingresso)
+  const pedidoDeOutraConta = !isLoading && !carregandoPedido && !orderIdState && tickets.length === 0 && pedidoDaConta === null // veio só pelo link e a conta não enxerga o pedido (decide pela posse, não por haver ingresso)
   // A cor do evento vem do evento inteiro (os ingressos só trazem a capa); sem ela, o mesmo sorteio do restante do site
   const { data: eventoCompleto, isLoading: carregandoEvento } = usePublicEvent(event?.id)
   const corEv = ehHex(eventoCompleto?.accent_color) ? eventoCompleto.accent_color : corSorteada(event?.id ?? orderId ?? 'evento')
