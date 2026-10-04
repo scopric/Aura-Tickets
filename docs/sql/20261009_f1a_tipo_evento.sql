@@ -1,6 +1,6 @@
 -- =============================================================================
 -- F1-a da criação de evento (PR1 + PR2 do plano glittery-growing-crab; plano da sessão fancy-pondering-scott;
--- Decisões 87–95, 148 e 149). 04/10/2026. SÓ ACRESCENTA: nenhuma linha existente muda de valor.
+-- Decisões 87–95, 148 e 149). 04/10/2026. Acrescenta colunas, tabelas e regras; o único dado alterado é o start_date (bloco 1b).
 --   1. events: temas, estilos, classificacao, local_modo, privado_alterado_em (+ CHECKs; no máximo 10 tags).
 --   2. ticket_types.inclui_bebida (bebida marcada por ingresso, decisão do Ricardo em 04/10).
 --   3. evento_privado: o link do evento online, lido só pelo dono, pelo admin e por quem tem ingresso.
