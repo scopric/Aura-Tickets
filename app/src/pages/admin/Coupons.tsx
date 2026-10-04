@@ -46,10 +46,10 @@ interface Coupon {
   created_at: string
   producer?: { full_name: string | null } | null
   event?: { title: string | null } | null
-  affiliate?: { referral_code: string; user?: { full_name: string | null } | null } | null
 }
 
-interface AfiliadoOpcao { id: string; referral_code: string; user?: { full_name: string | null; email: string } | null }
+// vem do RPC afiliados_para_cupons (S3: Cupons vê do afiliado só nome e código, não a tabela platform_affiliates)
+interface AfiliadoOpcao { id: string; nome: string | null; codigo: string; ativo: boolean }
 
 interface Pedido {
   id: string
@@ -62,7 +62,6 @@ interface Pedido {
   status: 'pending' | 'approved' | 'rejected'
   admin_notes: string | null
   created_at: string
-  affiliate?: { referral_code: string; user?: { full_name: string | null } | null } | null
 }
 
 const PLANOS = PAID_PLANS.map(p => ({ id: p.id as Plano, nome: p.name }))
@@ -125,8 +124,7 @@ const paraInput = (iso: string | null) => {
   return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 const tipoDe = (c: Coupon): Tipo => (c.affiliate_id ? 'afiliado' : c.upgrade_from?.length ? 'upgrade' : 'plano')
-const nomeAfiliado = (a?: { referral_code: string; user?: { full_name: string | null } | null } | null) =>
-  a ? `${a.user?.full_name || 'Afiliado'} (${a.referral_code})` : 'Afiliado'
+const nomeAfiliado = (a?: AfiliadoOpcao | null) => (a ? `${a.nome || 'Afiliado'} (${a.codigo})` : 'Afiliado')
 
 function situacao(c: Coupon): { label: string; cls: string } {
   const agora = Date.now()
@@ -173,7 +171,7 @@ export default function AdminCoupons() {
     queryFn: async () => {
       const { data, error: e } = await supabase
         .from('coupons')
-        .select('*, producer:profiles!coupons_producer_id_fkey(full_name), event:events!coupons_event_id_fkey(title), affiliate:platform_affiliates!coupons_affiliate_id_fkey(referral_code, user:profiles!platform_affiliates_user_id_fkey(full_name))')
+        .select('*, producer:profiles!coupons_producer_id_fkey(full_name), event:events!coupons_event_id_fkey(title)')
         .order('created_at', { ascending: false })
         .limit(500)
       if (e) throw e
@@ -184,22 +182,19 @@ export default function AdminCoupons() {
   const { data: afiliados = [] } = useQuery<AfiliadoOpcao[]>({
     queryKey: ['admin-coupons-afiliados'],
     queryFn: async () => {
-      const { data, error: e } = await supabase
-        .from('platform_affiliates')
-        .select('id, referral_code, user:profiles!platform_affiliates_user_id_fkey(full_name, email)')
-        .eq('status', 'active')
-        .order('referral_code')
+      const { data, error: e } = await supabase.rpc('afiliados_para_cupons' as never)
       if (e) throw e
       return (data || []) as unknown as AfiliadoOpcao[]
     },
   })
+  const porId = (id: string | null) => afiliados.find(a => a.id === id) ?? null
 
   const { data: pedidos = [] } = useQuery<Pedido[]>({
     queryKey: ['admin-coupon-requests'],
     queryFn: async () => {
       const { data, error: e } = await supabase
         .from('affiliate_coupon_requests')
-        .select('*, affiliate:platform_affiliates!affiliate_coupon_requests_affiliate_id_fkey(referral_code, user:profiles!platform_affiliates_user_id_fkey(full_name))')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(200)
       if (e) throw e
@@ -355,7 +350,7 @@ export default function AdminCoupons() {
     plans: p.plans || [],
     audience: 'private',
     description: p.prospect ? `Pedido do afiliado — ${p.prospect}` : 'Pedido do afiliado',
-    code: `${p.affiliate?.referral_code || 'AF'}${p.discount_percent}`.slice(0, 30),
+    code: `${porId(p.affiliate_id)?.codigo || 'AF'}${p.discount_percent}`.slice(0, 30),
     request_id: p.id,
   })
 
@@ -443,7 +438,7 @@ export default function AdminCoupons() {
                 {pedidos.map(p => (
                   <tr key={p.id} className="border-b border-border last:border-0 align-top hover:bg-[var(--ev-tint-hover)]">
                     <td className="px-4 py-3 text-sm text-foreground">
-                      {nomeAfiliado(p.affiliate)}
+                      {nomeAfiliado(porId(p.affiliate_id))}
                       <div className="text-[11px] text-muted-foreground">{dataBr(p.created_at)}</div>
                     </td>
                     <td className="px-4 py-3 text-sm text-foreground">
@@ -461,7 +456,7 @@ export default function AdminCoupons() {
                     <td className="px-4 py-3">
                       {p.status === 'pending' && (
                         <div className="flex justify-end gap-1">
-                          <Button size="sm" onClick={() => criarDoPedido(p)} aria-label={`Criar cupom para o pedido de ${nomeAfiliado(p.affiliate)}`}>
+                          <Button size="sm" onClick={() => criarDoPedido(p)} aria-label={`Criar cupom para o pedido de ${nomeAfiliado(porId(p.affiliate_id))}`}>
                             <I.Check aria-hidden="true" /> Criar cupom
                           </Button>
                           <Button
@@ -474,7 +469,7 @@ export default function AdminCoupons() {
                               if (!motivo.trim()) { toast.error('Informe o motivo da recusa.'); return }
                               recusar.mutate({ id: p.id, motivo: motivo.trim().slice(0, 500) })
                             }}
-                            aria-label={`Recusar pedido de ${nomeAfiliado(p.affiliate)}`}
+                            aria-label={`Recusar pedido de ${nomeAfiliado(porId(p.affiliate_id))}`}
                           >
                             <I.Proibido aria-hidden="true" /> Recusar
                           </Button>
@@ -526,7 +521,7 @@ export default function AdminCoupons() {
                           <Badge variant="secondary" className={cn(chipNeutro, 'mb-1')}>{TIPO_LABEL[tipo]}</Badge>
                           <div>{c.plans?.length ? c.plans.map(p => PLANOS.find(x => x.id === p)?.nome || p).join(', ') : 'Todos os planos pagos'}</div>
                           {tipo === 'upgrade' && <div>vindo de: {(c.upgrade_from || []).map(p => ORIGENS.find(x => x.id === p)?.nome || p).join(', ')}</div>}
-                          {tipo === 'afiliado' && <div>{nomeAfiliado(c.affiliate)}</div>}
+                          {tipo === 'afiliado' && <div>{nomeAfiliado(porId(c.affiliate_id))}</div>}
                         </>
                       ) : `${c.producer?.full_name || 'Produtor'}${c.event?.title ? ` — ${c.event.title}` : ' — todos os eventos dele'}`}
                     </td>
@@ -623,8 +618,8 @@ export default function AdminCoupons() {
                 <span className={rotulo}>Afiliado *</span>
                 <select className={selectNativo} value={form.affiliate_id} onChange={e => set('affiliate_id', e.target.value)} disabled={!!form.request_id || !!form.id}>
                   <option value="">Escolha o afiliado…</option>
-                  {afiliados.map(a => <option key={a.id} value={a.id}>{a.user?.full_name || a.user?.email} ({a.referral_code})</option>)}
-                  {form.affiliate_id && !afiliados.some(a => a.id === form.affiliate_id) && <option value={form.affiliate_id}>Afiliado não ativo</option>}
+                  {afiliados.filter(a => a.ativo).map(a => <option key={a.id} value={a.id}>{a.nome} ({a.codigo})</option>)}
+                  {form.affiliate_id && !afiliados.some(a => a.ativo && a.id === form.affiliate_id) && <option value={form.affiliate_id}>Afiliado não ativo</option>}
                 </select>
               </label>
             )}
