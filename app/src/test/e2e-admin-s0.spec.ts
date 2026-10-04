@@ -96,9 +96,9 @@ for (const v of VARIANTES) {
       await shot(page, `3-${v.nome}`)
     })
 
-    test('4 configurações gerais: moeda fixa, BRL, [] = erro', async ({ page }) => {
+    test('4 configurações gerais: moeda fixa e aba desligada com aviso', async ({ page }) => {
       const gravados: Record<string, any>[] = []
-      let resp: unknown = [{ id: 1 }]
+      const resp: unknown = [{ id: 1 }]
       await simular(page, {
         '**/rest/v1/platform_settings*': (r) => {
           if (r.request().method() === 'GET') return json(r, 200, [{ key: 'general', value: { platformName: 'Evokaa', currency: 'USD' } }])
@@ -109,12 +109,10 @@ for (const v of VARIANTES) {
       await entrar(page, v, '/admin/settings')
       await expect(page.getByText(/Real \(R\$\)/).first()).toBeVisible()
       await expect(page.locator('select#currency')).toHaveCount(0)
-      await page.getByRole('button', { name: 'Salvar' }).first().click()
-      await expect(page.getByText('Configurações salvas com sucesso!')).toBeVisible()
-      expect(gravados[0].value.currency).toBe('BRL')
-      resp = []
-      await page.getByRole('button', { name: 'Salvar' }).first().click()
-      await expect(page.getByText(/Nada foi gravado/)).toBeVisible()
+      // S1: a aba Geral não muda nada no site, então fica desligada com aviso (o Salvar não grava)
+      await expect(page.getByText(/Ainda não funciona: nenhum destes campos/)).toBeVisible()
+      await expect(page.getByRole('button', { name: 'Salvar' }).first()).toBeDisabled()
+      expect(gravados).toHaveLength(0)
       await shot(page, `4-${v.nome}`)
     })
 
