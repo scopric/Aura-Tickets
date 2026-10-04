@@ -157,6 +157,8 @@ describe('useUpdateEvent preserva tipo e situação dos ingressos', () => {
     expect(insert.mock.calls[0][0]).toEqual([expect.objectContaining({ inclui_bebida: true })])
     const { update: u2 } = await salvaIngressos([{ id: 'a', name: 'X', price: 1 }])
     expect(u2.mock.calls[0][0]).not.toHaveProperty('inclui_bebida')
+    const { insert: i2 } = await salvaIngressos([{ name: 'Com', price: 10, capacity: 5, inclui_bebida: true }, { name: 'Sem', price: 10, capacity: 5 }])
+    expect(i2.mock.calls[0][0].map((t: Record<string, unknown>) => t.inclui_bebida)).toEqual([true, false]) // novos em lote: sempre booleano
     const { update: u3 } = await salvaIngressos([{ id: 'a', name: 'X', price: 1, inclui_bebida: false }])
     expect(u3.mock.calls[0][0]).toMatchObject({ inclui_bebida: false }) // desmarcar a bebida precisa gravar false
   })
@@ -193,9 +195,11 @@ describe('useCreateEvent: formato, datas e colunas da F1', () => {
     const { evento } = await criado({ title: 'X', temas: [], estilos: [] })
     for (const k of ['temas', 'estilos', 'classificacao', 'local_modo', 'venue_zip']) expect(evento[k]).toBeUndefined()
   })
-  it('ingresso leva inclui_bebida só quando marcado', async () => {
+  it('todo ingresso leva inclui_bebida booleano e as mesmas chaves (em lote, chave undefined vira NULL no banco: 23502)', async () => {
     const { ingressos } = await criado({ title: 'X' }, [{ name: 'Open bar', price: 100, capacity: 10, inclui_bebida: true }, { name: 'Pista', price: 50, capacity: 10 }])
-    expect(ingressos.map(t => t.inclui_bebida)).toEqual([true, undefined])
+    expect(ingressos.map(t => t.inclui_bebida)).toEqual([true, false])
+    expect(Object.keys(ingressos[0]).sort()).toEqual(Object.keys(ingressos[1]).sort())
+    for (const t of ingressos) for (const v of Object.values(t)) expect(v).not.toBeUndefined()
   })
 })
 
