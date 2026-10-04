@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { EvoMarkdown, type Mensagem } from '../components/evo/EvoChat'
 import { conversaParaMarkdown, nomeArquivoConversa } from '../lib/evoConversa'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import EvoHub from '../components/EvoHub'
@@ -34,11 +34,12 @@ function consultaVazia(data: unknown[] = []): unknown {
 const canal: Record<string, unknown> = {}
 canal.on = vi.fn(() => canal)
 canal.subscribe = vi.fn(() => canal)
-function montar(saldo: unknown = SALDO_OK, conversas: unknown[] = []) {
+const Local = () => { const l = useLocation(); return <p data-testid="local">{l.pathname + l.search}</p> }
+function montar(saldo: unknown = SALDO_OK, conversas: unknown[] = [], rota = '/', porTabela?: (tabela: string) => unknown) {
   ;(supabase as unknown as { rpc: unknown }).rpc = vi.fn((nome: string) => Promise.resolve(nome === 'ai_balance' ? saldo : { data: null, error: null }))
-  vi.mocked(supabase.from).mockImplementation(() => consultaVazia(conversas) as never)
+  vi.mocked(supabase.from).mockImplementation(((tabela: string) => porTabela?.(tabela) ?? consultaVazia(conversas)) as never)
   vi.mocked(supabase.channel).mockImplementation(() => canal as never)
-  return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter><EvoHub /></MemoryRouter></QueryClientProvider>)
+  return render(<QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[rota]}><EvoHub /><Local /></MemoryRouter></QueryClientProvider>)
 }
 
 describe('Evo: markdown mínimo e exportação da conversa', () => {
@@ -374,5 +375,99 @@ describe('EvoHub: painel, chat e rascunho', () => {
     expect(botao.className).not.toMatch(/\b(ring|rounded)-/)
     await userEvent.tab()
     expect(botao).toHaveFocus()
+  })
+})
+
+describe('EvoHub: pergunta do tour da tela (V9b)', () => {
+  const CONVITE = 'Oi! Sou o Evo 👋 Posso te ajudar a planejar seu evento.'
+  const PERGUNTA = 'Primeira vez em Eventos? Quer ver em 4 passos?'
+  // onboarding_logs com memória: o insert grava na lista, como o banco faria
+  let registros: { step_name: string }[]
+  let inserts: ReturnType<typeof vi.fn>
+  function montarTour(rota: string, feitos: string[] = []) {
+    registros = feitos.map((step_name) => ({ step_name }))
+    inserts = vi.fn((linha: { step_name: string }) => { registros.push({ step_name: linha.step_name }); return Promise.resolve({ error: null }) })
+    return montar(SALDO_OK, [], rota, (tabela) =>
+      tabela === 'onboarding_logs' ? { select: () => ({ eq: () => Promise.resolve({ data: registros, error: null }) }), insert: inserts } : undefined)
+  }
+  const COOKIES = 'aura-cookie-consent'
+  const semConvitePrevio = () => { role = 'producer'; delete mem['evo-convite-v1'] }
+
+  it('tela com tour não feito: vira a pergunta (sem emoji, com Mostrar e Agora não) e Mostrar põe ?tour=', async () => {
+    semConvitePrevio()
+    montarTour('/producer/events')
+    expect(await screen.findByText(PERGUNTA, {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByText(CONVITE)).toBeNull()
+    expect(screen.getByText('Ver esta tela em 4 passos?')).toBeInTheDocument() // versão compacta (< 380 px)
+    expect(screen.getByRole('button', { name: 'Agora não' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar' }))
+    expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?tour=eventos')
+    expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
+    expect(inserts).not.toHaveBeenCalled() // o registro do tour vem do ProducerLayout, ao fim
+  })
+
+  it('Agora não grava dica:<id>, fecha e a pergunta não volta', async () => {
+    semConvitePrevio()
+    const { unmount } = montarTour('/producer/events')
+    await screen.findByText(PERGUNTA, {}, { timeout: 4000 })
+    fireEvent.click(screen.getByRole('button', { name: 'Agora não' }))
+    await waitFor(() => expect(inserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:eventos', skipped: false })))
+    expect(screen.queryByText(PERGUNTA)).toBeNull()
+    expect(screen.getByTestId('local')).toHaveTextContent(/^\/producer\/events$/)
+    // outra carga da mesma tela: já dispensado, vale o convite normal
+    unmount()
+    montarTour('/producer/events', ['dica:eventos'])
+    expect(await screen.findByText(CONVITE, {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByText(PERGUNTA)).toBeNull()
+  })
+
+  it('com tour:<id> gravado: convite normal', async () => {
+    semConvitePrevio()
+    montarTour('/producer/events', ['tour:eventos'])
+    expect(await screen.findByText(CONVITE, {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByText(PERGUNTA)).toBeNull()
+  })
+
+  it('tela sem tour: convite normal', async () => {
+    semConvitePrevio()
+    montarTour('/producer/finance')
+    expect(await screen.findByText(CONVITE, {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
+  })
+
+  it('camada aberta (cookies ainda sem decisão): nem a pergunta nem o convite', async () => {
+    semConvitePrevio()
+    const salvo = mem[COOKIES]
+    delete mem[COOKIES]
+    try {
+      montarTour('/producer/events')
+      await new Promise((r) => setTimeout(r, 2500))
+      expect(screen.queryByText(PERGUNTA)).toBeNull()
+      expect(screen.queryByText(CONVITE)).toBeNull()
+    } finally {
+      mem[COOKIES] = salvo
+    }
+  })
+
+  it('atalho "Mostrar esta tela" no chat: só navega para ?tour= e fecha o painel, sem gravar nem perguntar ao Evo', async () => {
+    role = 'producer'
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
+    vi.mocked(supabase.functions.invoke).mockReset()
+    montarTour('/producer/events')
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Mostrar esta tela' }))
+    expect(screen.getByTestId('local')).toHaveTextContent('/producer/events?tour=eventos')
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(inserts).not.toHaveBeenCalled()
+    expect(supabase.functions.invoke).not.toHaveBeenCalled()
+  })
+
+  it('atalho "Mostrar esta tela" não aparece em tela sem tour', async () => {
+    role = 'producer'
+    mem['evo-convite-v1'] = JSON.stringify({ aberto: true, fechados: 0 })
+    montarTour('/producer/finance')
+    fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
+    await screen.findByLabelText('Mensagem para o Evo')
+    expect(screen.queryByRole('button', { name: 'Mostrar esta tela' })).toBeNull()
   })
 })

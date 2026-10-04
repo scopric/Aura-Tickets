@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { TOURS, tourDaRota } from '../lib/tours'
+import { TOURS, tourDaRota, tourDoCaminho } from '../lib/tours'
 
 describe('catálogo de tours do produtor', () => {
   it('tem os cinco tours previstos', () => {
@@ -24,5 +24,22 @@ describe('catálogo de tours do produtor', () => {
     expect(tourDaRota('nao-existe', '/producer/events')).toBeNull()
     expect(tourDaRota('toString', '/producer/events')).toBeNull()
     expect(tourDaRota(null, '/producer/events')).toBeNull()
+  })
+
+  it('tourDoCaminho acha o tour pela rota da tela e devolve nome e número de passos', () => {
+    expect(tourDoCaminho('/producer/events')).toEqual({ id: 'eventos', nome: 'Eventos', passos: TOURS.eventos.passos.length })
+    expect(tourDoCaminho('/producer/events/')).toMatchObject({ id: 'eventos' })
+    expect(tourDoCaminho('/producer/planner')).toMatchObject({ id: 'criar-evento', passos: 3 })
+    expect(tourDoCaminho('/producer')).toMatchObject({ id: 'inicio', passos: 4 })
+    expect(tourDoCaminho('/producer/dashboard')).toMatchObject({ id: 'inicio' })
+    for (const t of Object.values(TOURS)) expect(tourDoCaminho(t.rota)?.nome).toBe(t.nome)
+  })
+
+  it('tourDoCaminho é null em tela sem tour', () => {
+    expect(tourDoCaminho('/producer/finance')).toBeNull()
+    expect(tourDoCaminho('/producer/events/new')).toBeNull()
+    expect(tourDoCaminho('/producer/events/abc/edit')).toBeNull()
+    expect(tourDoCaminho('/app/hub')).toBeNull()
+    expect(tourDoCaminho('/')).toBeNull()
   })
 })
