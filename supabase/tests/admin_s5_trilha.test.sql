@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(121);
+select plan(128);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -376,6 +376,30 @@ select is(pg_temp.nlog($$tabela = 'withdrawals'$$), 0::bigint, 'delete-account: 
 select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
   and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~* 'secret|removido|39053344705|11988887777|1990-01-01|12345678000195|saida'),
   0::bigint, 'delete-account: nenhum e-mail, nome, telefone, CPF, Pix, conta, CNPJ ou webhook em antes/depois');
+
+-- O. INSERT e DELETE seguem a lista de vigiadas (coluna futura e texto livre nunca entram) -------------------------------------
+select pg_temp.como('postgres');
+alter table public.kb_termos add column teste_futuro text;
+select pg_temp.marca();
+insert into public.kb_termos (id, forma, normal, teste_futuro) values ('d7000000-0000-4000-8000-0000000000ad', 'formax', 'normalx', 'futuro-secreto');
+delete from public.kb_termos where id = 'd7000000-0000-4000-8000-0000000000ad';
+select is(pg_temp.nlog($$tabela = 'kb_termos'$$), 2::bigint, 'kb_termos: INSERT e DELETE gravam');
+select is(pg_temp.ult($$tabela = 'kb_termos' and acao = 'criar'$$) #>> '{depois,forma}', 'formax', 'INSERT grava a coluna vigiada');
+select is(pg_temp.ult($$tabela = 'kb_termos' and acao = 'criar'$$) ->> 'objeto_id', 'd7000000-0000-4000-8000-0000000000ad', 'objeto_id segue com o id');
+select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
+  and (coalesce(antes::text, '') || coalesce(depois::text, '')) like '%futuro-secreto%'), 0::bigint, 'coluna nova (teste_futuro) não entra em INSERT nem em DELETE');
+select pg_temp.marca();
+insert into public.affiliate_coupon_requests (id, affiliate_id, discount_percent, valid_days, prospect, reason) values
+  ('d7000000-0000-4000-8000-0000000000ae', 'd7000000-0000-4000-8000-0000000000a7', 10, 7, 'prospect-secreto', 'razao-secreta');
+delete from public.affiliate_coupon_requests where id = 'd7000000-0000-4000-8000-0000000000ae';
+select is(pg_temp.nlog($$tabela = 'affiliate_coupon_requests' and acao = 'excluir'$$), 1::bigint, 'pedido de cupom apagado: grava');
+select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
+  and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~ 'secret'), 0::bigint, 'pedido de cupom apagado: prospect e reason fora da trilha');
+select pg_temp.marca();
+insert into public.admin_invites (id, email, cargo, permissions, token_hash) values
+  ('d7000000-0000-4000-8000-0000000000af', 'outro@teste-s5.local', 'Cargo-Secreto', array['view_audit']::text[], repeat('cd', 32));
+select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
+  and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~ 'Secreto|outro@'), 0::bigint, 'convite: cargo e e-mail fora da trilha');
 
 select * from finish();
 rollback;

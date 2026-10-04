@@ -10,11 +10,12 @@
 --      ocultas). LISTA DE PERMITIDAS: num UPDATE grava só as colunas vigiadas que mudaram (nunca updated_at; lista vazia
 --      não grava nada); coluna que não está na lista nunca entra, mesmo mudando junto (o delete-account anonimiza
 --      profiles e muda role, admin_permissions e is_verified no mesmo UPDATE: só essas três entram). Colunas ocultas
---      aparecem como "«oculto»" em antes e depois; INSERT e DELETE gravam a linha inteira com as ocultas mascaradas.
+--      aparecem como "«oculto»" em antes e depois; INSERT e DELETE gravam só as vigiadas (ocultas mascaradas).
 --      Motivo: cabeçalho x-evokaa-motivo (base64 UTF-8; sem ele, nulo).
 --      IP: NÃO é gravado por enquanto (fica nulo): não está provado que o gateway impede forjar cf-connecting-ip e
 --      x-forwarded-for, e IP é dado pessoal. audit_ip_cabecalho() fica pronta e desligada; liga na S6, depois de testar no
 --      navegador (trocar o null por public.audit_ip_cabecalho() em audit_registra e nas duas RPCs).
+--      INSERT e DELETE seguem a MESMA lista (o id do objeto vai em objeto_id): coluna futura nunca entra em claro.
 --      OCULTOS A MAIS (o Jurídico pode liberar depois): dados pessoais de profiles e producer_profiles, pix e conta de
 --      withdrawals, e-mail de admin_invites, nome e notas de platform_affiliates, nota de ai_credit_grants, assunto,
 --      nome, e-mail e mensagem de contact_messages, user_agent e mensagem de feedback.
@@ -283,9 +284,10 @@ begin
     select coalesce(jsonb_object_agg(o.key, o.value), '{}'::jsonb) into v_antes
       from jsonb_each(v_old) o where v_depois ? o.key;
   elsif tg_op = 'INSERT' then
-    v_depois := v_new - 'updated_at';
+    -- a mesma lista de permitidas: coluna que não está nela (inclusive coluna futura) nunca entra
+    select coalesce(jsonb_object_agg(n.key, n.value), '{}'::jsonb) into v_depois from jsonb_each(v_new) n where n.key = any (v_vigiadas);
   else
-    v_antes := v_old - 'updated_at';
+    select coalesce(jsonb_object_agg(o.key, o.value), '{}'::jsonb) into v_antes from jsonb_each(v_old) o where o.key = any (v_vigiadas);
   end if;
 
   -- colunas ocultas: o valor nunca entra na trilha, só o fato de existir ou mudar
@@ -352,18 +354,18 @@ declare
     {"t":"admin_invites","ins":"true","upd":"old.status is distinct from new.status or old.permissions is distinct from new.permissions or old.token_hash is distinct from new.token_hash or old.expires_at is distinct from new.expires_at","v":"status,permissions,token_hash,expires_at","o":"token_hash,email"},
     {"t":"producer_profiles","upd":"old.commission_rate is distinct from new.commission_rate or old.is_verified is distinct from new.is_verified or old.pix_key is distinct from new.pix_key or old.bank_account is distinct from new.bank_account or old.cnpj is distinct from new.cnpj or old.stripe_account_id is distinct from new.stripe_account_id or old.woovi_account_id is distinct from new.woovi_account_id","v":"commission_rate,is_verified,pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id","o":"pix_key,bank_account,cnpj,stripe_account_id,woovi_account_id,webhook_url,notification_settings,company_name,api_key"},
     {"t":"withdrawals","upd":"old.status is distinct from new.status","v":"status,processed_at,processed_by","o":"pix_key,bank_account"},
-    {"t":"revenue_advances","upd":"old.status is distinct from new.status","del":"true","v":"status,transferred_at"},
+    {"t":"revenue_advances","upd":"old.status is distinct from new.status","del":"true","v":"producer_id,event_id,amount,status,transferred_at"},
     {"t":"platform_settings","ins":"true","upd":"old.key is distinct from new.key or old.value is distinct from new.value","del":"true","v":"key,value"},
     {"t":"events","upd":"old.approval_status is distinct from new.approval_status or old.approved_at is distinct from new.approved_at or old.approved_by is distinct from new.approved_by or old.rejection_reason is distinct from new.rejection_reason or old.featured_carousel is distinct from new.featured_carousel","v":"approval_status,approved_at,approved_by,rejection_reason,featured_carousel"},
     {"t":"coupons","ins":"new.producer_id is null","upd":"(old.producer_id is null or new.producer_id is null) and (to_jsonb(new) - 'uses' - 'updated_at') is distinct from (to_jsonb(old) - 'uses' - 'updated_at')","del":"old.producer_id is null","v":"producer_id,event_id,code,discount_type,discount_value,max_uses,valid_until,valid_from,is_active,description,max_uses_per_user,min_order_value,max_discount,audience,plans,duration,duration_months,affiliate_id,upgrade_from"},
-    {"t":"affiliate_coupon_requests","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes or old.coupon_id is distinct from new.coupon_id","del":"true","v":"status,admin_notes,coupon_id,decided_at,decided_by,discount_percent,valid_days,plans"},
+    {"t":"affiliate_coupon_requests","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes or old.coupon_id is distinct from new.coupon_id","del":"true","v":"affiliate_id,status,admin_notes,coupon_id,decided_at,decided_by,discount_percent,valid_days,plans"},
     {"t":"platform_affiliates","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"user_id,referral_code,recurring_percent,status,agreement_date,full_name,notes,cpf,payout_account_id","o":"full_name,notes,cpf,birth_date,email,phone,whatsapp,cep,street,street_number,complement,neighborhood,city,state,payout_account_id"},
-    {"t":"platform_affiliate_producers","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"producer_id,affiliate_id,source,ended_at,ended_by,end_reason,affiliate_link_id"},
+    {"t":"platform_affiliate_producers","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"producer_id,affiliate_id,source,ended_at,ended_by,affiliate_link_id"},
     {"t":"affiliate_links","ins":"true","upd":"(to_jsonb(new) - 'clicks') is distinct from (to_jsonb(old) - 'clicks')","del":"true","v":"affiliate_id,slug,label,is_active"},
-    {"t":"feedback","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes","del":"true","v":"status,admin_notes","o":"message,user_agent"},
-    {"t":"contact_messages","upd":"old.* is distinct from new.*","del":"true","v":"subject,message","o":"name,email,phone,subject,message"},
+    {"t":"feedback","upd":"old.status is distinct from new.status or old.admin_notes is distinct from new.admin_notes","del":"true","v":"status,admin_notes,message,user_agent","o":"message,user_agent"},
+    {"t":"contact_messages","upd":"old.* is distinct from new.*","del":"true","v":"name,email,phone,subject,message","o":"name,email,phone,subject,message"},
     {"t":"ai_settings","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"enabled,model_router,model_simple,model_complex,model_vision,prices,usd_brl,daily_cap_brl,hourly_limit,quotas,credit_cost,max_steps,max_output_tokens,key_updated_at,key_updated_by"},
-    {"t":"ai_credit_grants","ins":"true","o":"note"},
+    {"t":"ai_credit_grants","ins":"true","v":"user_id,amount,created_by","o":"note"},
     {"t":"chat_settings","ins":"true","upd":"old.* is distinct from new.*","v":"hours,response_time,team_email,bot_enabled"},
     {"t":"kb_articles","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"slug,title,body,keywords,audience,department_id,status,review_note","o":"body,busca"},
     {"t":"kb_termos","ins":"true","upd":"old.* is distinct from new.*","del":"true","v":"forma,normal"},
