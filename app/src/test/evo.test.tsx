@@ -530,7 +530,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
       expect(screen.getByText('Primeira vez em Início? Quer ver em 3 passos?', { selector: 'span' })).toBeInTheDocument()
       fireEvent.click(screen.getByRole('button', { name: 'Mostrar' }))
       expect(screen.getByTestId('local')).toHaveTextContent('/app/hub?tour=app-inicio')
-      expect(inserts).not.toHaveBeenCalled() // quem grava é o AppLayout, ao fim
+      expect(upserts).not.toHaveBeenCalled() // quem grava é o AppLayout, ao fim
     } finally {
       role = 'producer'
     }
@@ -542,7 +542,7 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     try {
       montarTour('/app/hub')
       fireEvent.click(await screen.findByRole('button', { name: 'Agora não' }, { timeout: 4000 }))
-      await waitFor(() => expect(inserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:app-inicio' })))
+      await waitFor(() => expect(upserts).toHaveBeenCalledWith(expect.objectContaining({ step_name: 'dica:app-inicio' }), { onConflict: 'user_id,step_name' }))
     } finally {
       role = 'producer'
     }
