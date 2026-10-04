@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Outlet, Link, useLocation, useSearchParams } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Outlet, Link, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
@@ -7,8 +7,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { useUserNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
-import { useRegistrarTour } from '../hooks/useTourLog'
-import { tourDaRota } from '../lib/tours'
+import { useTourDaUrl } from '../hooks/useTourDaUrl'
 import { cn } from '../lib/utils'
 import ThemeToggle from './ThemeToggle'
 import { ErrorBoundary } from './error-boundary'
@@ -37,6 +36,9 @@ const abas = [
   { to: '/app/profile', Icone: I.Conta, label: 'Conta' },
 ]
 
+// Mesma consulta do breakpoint lg: a lateral só aparece a partir dela; abaixo, vale a barra inferior
+const COMPUTADOR = '(min-width: 1024px)'
+
 function formatTimeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime()
   const mins = Math.floor(diff / 60000)
@@ -54,18 +56,10 @@ export default function AppLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
-  const [params, setSearchParams] = useSearchParams()
-  const registrar = useRegistrarTour()
-  const tourId = params.get('tour')
-  const tour = tourDaRota(tourId, location.pathname)
-  // ponytail: igual ao ProducerLayout; extrair se houver um 3º layout
-  const tirarParametro = useCallback(
-    () => setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true }),
-    [setSearchParams])
-  // ?tour= que não existe ou não é desta tela: tira da URL
-  useEffect(() => { if (tourId && !tour) tirarParametro() }, [tourId, tour, tirarParametro])
+  const paginaRef = useRef<HTMLElement>(null)
+  const { tour, tourId, fim } = useTourDaUrl(paginaRef)
   // Os dois menus têm os mesmos alvos: a lateral só os expõe no computador (no celular ela fica fora da tela)
-  const [computador, setComputador] = useState(() => !!window.matchMedia?.('(min-width: 1024px)').matches)
+  const [computador, setComputador] = useState(() => !!window.matchMedia?.(COMPUTADOR).matches)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,11 +90,11 @@ export default function AppLayout() {
   // Avisa o resto da página que a barra existe (--barra-cel no <body>, abaixo de lg, já com a área segura): o Evo e o
   // aviso de cookies sobem sobre ela. Limpa ao sair.
   useEffect(() => {
-    const mq = window.matchMedia?.('(max-width: 1023px)')
+    const mq = window.matchMedia?.(COMPUTADOR)
     if (!mq) return
     const aplicar = () => {
-      document.body.style.setProperty('--barra-cel', mq.matches ? 'calc(68px + env(safe-area-inset-bottom, 0px))' : '0px')
-      setComputador(!mq.matches)
+      document.body.style.setProperty('--barra-cel', mq.matches ? '0px' : 'calc(68px + env(safe-area-inset-bottom, 0px))')
+      setComputador(mq.matches)
     }
     aplicar()
     mq.addEventListener('change', aplicar)
@@ -394,7 +388,7 @@ export default function AppLayout() {
         </header>
 
         {/* Page Content (pb-24: o fim da página rola acima do Evo flutuante) */}
-        <main className="flex-1 p-6 pb-[calc(6rem+var(--barra-cel,0px))] lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
+        <main ref={paginaRef} className="flex-1 p-6 pb-[calc(6rem+var(--barra-cel,0px))] lg:p-10 lg:pb-24 max-w-[1440px] mx-auto w-full">
           <ErrorBoundary resetKey={location.pathname}>
             <Outlet />
           </ErrorBoundary>
@@ -433,10 +427,7 @@ export default function AppLayout() {
       <EvoHub />
       {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
       {tour && (
-        <Tour key={tourId} tour={tour} onFim={puladas => {
-          void registrar(`tour:${tourId}`, { skipped: puladas })
-          tirarParametro()
-        }} />
+        <Tour key={tourId} tour={tour} onFim={fim} />
       )}
     </div>
   )

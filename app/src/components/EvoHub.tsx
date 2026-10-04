@@ -71,7 +71,8 @@ export default function EvoHub() {
   const conviteDisparado = useRef(false) // nesta carga o convite vale uma vez, mesmo se a camada sair e voltar a null
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
   // Tour da tela: o Evo oferece se a pessoa ainda não fez nem dispensou. O tour nunca abre sozinho.
-  // Produtor: tours de /producer. Participante: só o de /app/*. Quem não tem tour na tela nem lê o registro
+  // Produtor: lê o registro em qualquer tela (tours de /producer). Participante (role 'user'): só em rota /app/ que tem tour;
+  // nas demais não lê o registro. Admin: sem tour
   const ehProdutor = user?.role === 'producer'
   const tour = (ehProdutor || (user?.role === 'user' && pathname.startsWith('/app/'))) ? tourDoCaminho(pathname) : null
   const { feitos, registrar, carregou } = useTourLog({ ativo: ehProdutor || !!tour })

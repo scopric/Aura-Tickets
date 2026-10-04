@@ -47,13 +47,15 @@ describe('AppLayout: tour do participante (V9c)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Próximo' }))
     fireEvent.click(screen.getByRole('button', { name: 'Concluir' }))
     expect(registrar).toHaveBeenCalledWith('tour:app-inicio', { skipped: false })
+    expect(screen.getByRole('heading', { name: 'Início' })).toHaveFocus() // o foco volta ao título da página, não ao body
     expect(screen.getByTestId('local')).toHaveTextContent('/app/hub?x=1')
   })
 
-  it('pular grava skipped', () => {
+  it('pular grava skipped e devolve o foco ao título', () => {
     montar('/app/hub?tour=app-inicio')
     fireEvent.click(screen.getByRole('button', { name: 'Pular' }))
     expect(registrar).toHaveBeenCalledWith('tour:app-inicio', { skipped: true })
+    expect(screen.getByRole('heading', { name: 'Início' })).toHaveFocus()
   })
 
   it('?tour= de outra tela ou inexistente: não abre e sai da URL', () => {

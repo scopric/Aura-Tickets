@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useSearchParams } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, type ComponentType } from 'react'
 import { ErrorBoundary } from './error-boundary'
 import { Menu } from 'lucide-react'
@@ -6,9 +6,8 @@ import { toast } from 'sonner'
 import Tour from './producer/Tour'
 import Lateral from './producer/Lateral'
 import BarraCelular from './producer/BarraCelular'
-import { tourDaRota } from '../lib/tours'
 import { gravarNav, lerNav, noMac } from '../lib/navegacaoProdutor'
-import { useRegistrarTour } from '../hooks/useTourLog'
+import { useTourDaUrl } from '../hooks/useTourDaUrl'
 import { cn } from '@/lib/utils'
 import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
@@ -42,24 +41,7 @@ export default function ProducerLayout() {
   const menuBtnRef = useRef<HTMLButtonElement>(null)
   const paginaRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
-  const [params, setSearchParams] = useSearchParams()
-  const registrar = useRegistrarTour()
-  const tourId = params.get('tour')
-  const tour = tourDaRota(tourId, location.pathname)
-  const tirarParametro = useCallback(
-    () => setSearchParams((p: URLSearchParams) => { const n = new URLSearchParams(p); n.delete('tour'); return n }, { replace: true }),
-    [setSearchParams])
-  // ?tour= que não existe ou não é desta tela: tira da URL
-  useEffect(() => { if (tourId && !tour) tirarParametro() }, [tourId, tour, tirarParametro])
-  // Tour fechado: foco no título da tela. Roda depois da limpeza do Tour, que tira o inert do #root
-  // (com setTimeout o foco era pedido ainda com a página inerte e caía no body)
-  const focarTitulo = useRef(false)
-  useEffect(() => {
-    if (tour || !focarTitulo.current) return
-    focarTitulo.current = false
-    const h1 = paginaRef.current?.querySelector('h1')
-    if (h1) { h1.tabIndex = -1; h1.focus() }
-  }, [tour])
+  const { tour, tourId, fim } = useTourDaUrl(paginaRef)
   // Gaveta aberta numa rota e a rota mudou: fecha (ajuste no render, senão reabriria ao voltar a ela)
   if (gavetaEm && gavetaEm !== location.pathname) setGavetaEm(null)
   const mobileOpen = !!gavetaEm
@@ -205,11 +187,7 @@ export default function ProducerLayout() {
       {Busca && <Busca onFechar={fechaBusca} />}
       {/* O tour nunca abre sozinho: só com ?tour=<id> e na tela do próprio tour */}
       {tour && (
-        <Tour key={tourId} tour={tour} onFim={puladas => {
-          void registrar(`tour:${tourId}`, { skipped: puladas })
-          focarTitulo.current = true
-          tirarParametro()
-        }} />
+        <Tour key={tourId} tour={tour} onFim={fim} />
       )}
     </div>
   )
