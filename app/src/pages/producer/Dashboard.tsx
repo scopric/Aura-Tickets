@@ -205,7 +205,7 @@ export default function ProducerDashboard() {
       texto: 'Enviar um evento para análise',
       to: '/producer/events?tour=eventos',
     },
-    { feito: eventos.some(e => (e.ticket_types ?? []).length > 0), texto: 'Criar o evento e os ingressos', to: '/producer/planner?tour=criar-evento' },
+    { feito: eventos.some(e => (e.ticket_types ?? []).length > 0), texto: 'Adicionar os ingressos', to: '/producer/events?tour=eventos' }, // ingressos ficam no painel do evento: não levar a criar outro
     { feito: passosDados.empresa, texto: 'Preencher o perfil da empresa', to: '/producer/settings?tour=configuracoes' },
     { feito: publicados.length > 0, texto: 'Evento aprovado e no ar', to: '/producer/events?tour=eventos' },
     // ponytail: sem venda (gateway desligado), não há o que testar na portaria; o item entra com o 1º ingresso vendido
