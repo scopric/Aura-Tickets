@@ -60,7 +60,7 @@ function Variacao({ v }: { v: number | null }) {
 
 export default function ProducerDashboard() {
   const { user } = useAuth()
-  const { feitos: registrados, registrar, carregou } = useTourLog()
+  const { feitos: registrados, registrar, carregou, erro: erroRegistro } = useTourLog()
   const [montagem] = useState(() => Date.now())
   const [busca, setBusca] = useSearchParams()
   const [metrica, setMetrica] = useState<Metrica>('receita')
@@ -73,15 +73,18 @@ export default function ProducerDashboard() {
 
   // Decisão 157.1: confete no 1º evento aprovado, uma vez por conta (registro no banco; o ref cobre StrictMode e re-render
   // enquanto o registro otimista não chega). Com "reduzir movimento" não desenha, mas o registro é gravado igual.
+  // Só é o "1º" se todos os aprovados são recentes (7 dias): conta antiga sem registro não ganha festa fora de hora.
+  // E só com o registro lido sem erro (leitura falha viria como "nada registrado" e repetiria a festa).
   const celebrou = useRef(false)
-  const aprovado = eventosQ.data?.find(e => e.approval_status === 'approved')
+  const aprovados = eventosQ.data?.filter(e => e.approval_status === 'approved') ?? []
+  const aprovado = aprovados.length && aprovados.every(e => montagem - Date.parse(e.approved_at ?? '') < 7 * 86400000) ? aprovados[0] : undefined
   useEffect(() => {
-    if (!aprovado || !carregou || celebrou.current || registrados.has('celebracao:primeiro-evento')) return
+    if (!aprovado || !carregou || erroRegistro || celebrou.current || registrados.has('celebracao:primeiro-evento')) return
     celebrou.current = true
     const d = derivarCor(corDoEvento(aprovado))
     soltarConfete([d.cor, d.duoLuz, '#f2994a'])
-    registrar('celebracao:primeiro-evento')
-  }, [aprovado, carregou, registrados, registrar])
+    registrar('celebracao:primeiro-evento', { silencioso: true })
+  }, [aprovado, carregou, erroRegistro, registrados, registrar])
 
   const vendasQ = useQuery({
     queryKey: ['producer-inicio-vendas', user?.id],

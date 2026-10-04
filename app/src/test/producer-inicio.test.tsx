@@ -51,7 +51,7 @@ const e1 = {
   venue_name: 'Espaço Torres', venue_city: 'Curitiba',
   ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 100, capacity: null, is_active: true }],
 }
-const noAr = { ...e1, approval_status: 'approved' }
+const noAr = { ...e1, approval_status: 'approved', approved_at: ha(1) }
 const lote10 = { ...noAr, ticket_types: [{ id: 'tt1', name: 'Pista', quantity_total: 10, capacity: null, is_active: true }] }
 const passado = { ...e1, id: 'e2', title: 'Rascunho velho', status: 'draft', date: '2020-01-01', start_date: '2020-01-01T00:00:00Z', capacity: 50, ticket_types: [] }
 
@@ -320,6 +320,34 @@ describe('Início do produtor', () => {
       await new Promise(r => setTimeout(r, 300))
       expect(confetti).not.toHaveBeenCalled()
       expect(gravados).not.toContain('celebracao:primeiro-evento')
+    })
+
+    const semConfete = async (eventos: unknown[]) => {
+      reduzir = false
+      preparar(eventos, [], [], { empresa: true })
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).not.toContain('celebracao:primeiro-evento')
+    }
+
+    it('aprovado há 30 dias (conta antiga sem registro): sem confete e sem gravar', () => semConfete([{ ...noAr, approved_at: ha(30) }]))
+
+    it('um aprovado recente e outro antigo: não é o primeiro, sem confete', () =>
+      semConfete([noAr, { ...noAr, id: 'e3', title: 'Outro', approved_at: ha(30) }]))
+
+    it('aprovado sem approved_at: sem confete', () => semConfete([{ ...noAr, approved_at: null }]))
+
+    it('leitura do registro com erro: sem confete e sem gravar (não repete a festa)', async () => {
+      reduzir = false
+      preparar([noAr], [], [], { empresa: true })
+      tabelas.onboarding_logs = () => ({ data: null, error: { code: '', message: 'Failed to fetch' } })
+      montar()
+      await screen.findByText('[TESTE] Show', { selector: 'h3' })
+      await new Promise(r => setTimeout(r, 300))
+      expect(confetti).not.toHaveBeenCalled()
+      expect(gravados).toEqual([])
     })
   })
 })
