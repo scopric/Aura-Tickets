@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { brl } from '../../lib/taxa'
+import { forma } from '../../lib/bordero'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
@@ -21,8 +22,6 @@ type Pedido = {
   events: { title: string }
 }
 
-const FORMA: Record<string, string> = { pix: 'Pix', credit_card: 'Cartão de crédito', boleto: 'Boleto' }
-const forma = (m: string | null) => (m && FORMA[m]) || 'Não informada'
 const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 
 export default function ProducerFinance() {

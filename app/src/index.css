@@ -1325,3 +1325,9 @@ body {
 /* Archivo largo (contrato v3.4, 3): nome do evento no ingresso e nos cartoes. Use com font-display e font-extrabold.
    A fonte carrega a largura 112 em peso 800 (index.html). */
 .wide { font-stretch: 112%; }
+
+/* Impressão do Borderô (E5): só o conteúdo da tela; sem lateral, barra do topo, barra do celular nem o Evo */
+@media print {
+  .painel-produtor > aside, .painel-produtor > nav, .painel-produtor > [role="region"], .painel-produtor .sticky, .painel-produtor [data-tour="evo"] { display: none !important; }
+  .painel-produtor > div { margin-left: 0 !important; padding-bottom: 0 !important; }
+}

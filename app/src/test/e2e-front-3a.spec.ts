@@ -11,13 +11,14 @@ async function entrar(page: Page, aba: string, email: string, botao: RegExp) {
   await page.waitForURL(u => !u.toString().includes('/auth/login'))
 }
 
-test('produtor: Antecipação e Borderô mostram "Em construção", sem o borderô de exemplo', async ({ page }) => {
+test('produtor: Antecipação mostra "Em construção" e o Borderô mostra a tela real, sem o borderô de exemplo', async ({ page }) => {
   await entrar(page, 'Produtor', 'produtor@aura.teste', /Entrar como Produtor/)
-  for (const rota of ['/producer/antecipacao', '/producer/bordero']) {
-    await page.goto(rota)
-    await expect(page.getByRole('heading', { name: 'Em construção' })).toBeVisible()
-    await expect(page.getByText(/147\.600|Noite Eletro/)).toHaveCount(0)
-  }
+  await page.goto('/producer/antecipacao')
+  await expect(page.getByRole('heading', { name: 'Em construção' })).toBeVisible()
+  await page.goto('/producer/bordero')
+  await expect(page.getByRole('heading', { name: 'Borderô', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Em construção' })).toHaveCount(0)
+  await expect(page.getByText(/147\.600|Noite Eletro/)).toHaveCount(0)
 })
 
 test('/checkout/success de um pedido Pix: sem "Pague com Pix" falso; "Ver meus ingressos" no lugar do download', async ({ page }) => {
