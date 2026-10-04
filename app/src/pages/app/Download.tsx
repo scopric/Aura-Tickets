@@ -1,5 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
+import { getAppMode } from '@/lib/appHost'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -197,7 +198,7 @@ export default function AppDownload() {
         <header className="lg:col-start-1 lg:row-start-1">
           <h1 className="text-2xl font-semibold leading-8 tracking-[-0.015em] lg:text-[32px] lg:leading-10">A Evokaa na sua tela inicial</h1>
           <p className="mt-2 text-base leading-6 text-muted-foreground">
-            Um atalho que abre seus ingressos direto, com o QR pronto para a porta. Não tem loja nem download.
+            Um atalho que abre seus ingressos direto, a um toque. Não tem loja nem download, e precisa de internet para abrir.
           </p>
         </header>
 
@@ -261,9 +262,9 @@ export default function AppDownload() {
 
               <h2 className="mt-7 text-[15px] font-semibold leading-5">O que muda</h2>
               <ul className="m-0 mt-1 list-none p-0 text-[15px] leading-5">
-                <li className="border-b border-border py-3">Abre em tela cheia, sem a barra do navegador.</li>
+                <li className="border-b border-border py-3">Ao abrir pelo ícone, aparece sem a barra do navegador.</li>
                 <li className="border-b border-border py-3">É um atalho: quase não ocupa espaço e se atualiza sozinho.</li>
-                <li className="py-3 text-muted-foreground">Por enquanto, precisa de internet para abrir os ingressos.</li>
+                <li className="py-3 text-muted-foreground">Sem internet o app não abre: os ingressos só aparecem com conexão.</li>
               </ul>
             </>
           )}
@@ -271,8 +272,9 @@ export default function AppDownload() {
           <h2 className="mb-2 mt-7 text-[15px] font-semibold leading-5">Aparência</h2>
           <ThemeToggle />
 
-          <Link to="/" className="mt-6 inline-block text-sm text-[hsl(var(--primary-text))] underline-offset-4 hover:underline">
-            Voltar para o site
+          {/* no app.* a raiz leva ao login: a volta é o Início do participante */}
+          <Link to={getAppMode() === 'app' ? '/app/hub' : '/'} className="mt-6 inline-block text-sm text-[hsl(var(--primary-text))] underline-offset-4 hover:underline">
+            {getAppMode() === 'app' ? 'Ir para o Início' : 'Voltar para o site'}
           </Link>
         </section>
       </div>

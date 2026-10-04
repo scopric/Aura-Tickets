@@ -38,6 +38,16 @@ function createMockSession(user: any) {
   }
 }
 
+// O Supabase responde em inglês: os erros comuns do login viram frase em português; o resto passa como veio
+const ERROS_LOGIN: [RegExp, string][] = [
+  [/invalid login credentials/i, 'E-mail ou senha incorretos'],
+  [/email not confirmed/i, 'Confirme seu e-mail pelo link que enviamos antes de entrar.'],
+  [/rate limit|too many requests|you can only request this after/i, 'Muitas tentativas. Aguarde um pouco e tente de novo.'],
+  [/user is banned/i, 'Esta conta está bloqueada. Fale com o suporte.'],
+  [/failed to fetch|network/i, 'Sem conexão. Confira a internet e tente de novo.'],
+]
+export const erroDeLogin = (msg?: string) => ERROS_LOGIN.find(([re]) => re.test(msg ?? ''))?.[1] ?? (msg || 'Erro ao realizar login')
+
 export function useAuth() {
   const queryClient = useQueryClient()
   const { user, isAuthenticated, isLoading, fetchProfile } = useAuthStore()
@@ -81,7 +91,7 @@ export function useAuth() {
       // 2. Login real via Supabase JS client (API oficial)
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        throw new Error(error.message || 'Erro ao realizar login')
+        throw new Error(erroDeLogin(error.message))
       }
       if (!data.session) {
         throw new Error('Sessão não retornada pelo servidor')
@@ -227,7 +237,7 @@ export function useAuth() {
 
   const register = async (
     name: string, email: string, password: string, role: 'user' | 'producer' | 'admin',
-    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean; howDidYouHear?: string; referralEmail?: string; affiliateCode?: string; affiliateRefSeenAt?: string; affiliateLink?: string }
+    consent?: { acceptedTerms?: boolean; acceptedPrivacy?: boolean; marketingConsent?: boolean; dataSharingConsent?: boolean; howDidYouHear?: string; affiliateCode?: string; affiliateRefSeenAt?: string; affiliateLink?: string }
   ): Promise<boolean> => {
     try {
       // O aceite vai nos metadados do usuário (prova de aceite, LGPD art. 8º, § 2º); a função

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Outlet, Link, useLocation } from 'react-router-dom'
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
   Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
@@ -56,6 +56,7 @@ export default function AppLayout() {
   const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const paginaRef = useRef<HTMLElement>(null)
   const { tour, tourId, fim } = useTourDaUrl(paginaRef)
   // Os dois menus têm os mesmos alvos: a lateral só os expõe no computador (no celular ela fica fora da tela)
@@ -68,6 +69,13 @@ export default function AppLayout() {
       await uploadAvatar(file, user.id)
     }
     e.target.value = '' // escolher a mesma imagem de novo volta a disparar o envio
+  }
+
+  // Busca do topo (computador): leva ao Explorar com o termo já no campo (Events.tsx lê ?q=)
+  const buscar = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    const q = String(new FormData(e.currentTarget).get('q') ?? '').trim()
+    navigate(q ? `/app/events?q=${encodeURIComponent(q)}` : '/app/events')
   }
 
   const triggerUpload = () => {
@@ -170,6 +178,7 @@ export default function AppLayout() {
                 )}
                 style={active ? { background: 'rgba(143, 51, 245, 0.15)', borderLeft: '3px solid #8f33f5', borderRadius: '0px 8px 8px 0px' } : {}}
                 title={collapsed ? item.label : undefined}
+                aria-label={collapsed ? item.label : undefined}
               >
                 <item.icon
                   className={cn(
@@ -204,16 +213,16 @@ export default function AppLayout() {
             <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
             {!collapsed ? (
               <div className="flex items-center gap-2.5 px-1">
-                <div className="relative group cursor-pointer shrink-0" onClick={triggerUpload} title="Alterar foto de perfil">
+                <button type="button" className="relative group cursor-pointer shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum" onClick={triggerUpload} title="Alterar foto de perfil" aria-label="Alterar foto de perfil">
                   <img
                     src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
-                    alt="Avatar"
+                    alt=""
                     className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                   />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Camera className="w-3.5 h-3.5 text-white" />
-                  </div>
-                </div>
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                  </span>
+                </button>
                 <div className="flex-1 min-w-0">
                   <div className="text-[12px] text-white/80 font-medium truncate">
                     {user.name || user.full_name || 'Usuário'}
@@ -222,16 +231,16 @@ export default function AppLayout() {
                 </div>
               </div>
             ) : (
-              <div className="relative group cursor-pointer" onClick={triggerUpload} title="Alterar foto de perfil">
+              <button type="button" className="relative group cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-plum" onClick={triggerUpload} title="Alterar foto de perfil" aria-label="Alterar foto de perfil">
                 <img
                   src={user.avatar_url || user.avatar || '/images/logo-evokaa-sm.png'}
-                  alt="Avatar"
+                  alt=""
                   className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 group-hover:opacity-75 transition-opacity"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Camera className="w-3.5 h-3.5 text-white" />
-                </div>
-              </div>
+                <span className="absolute inset-0 flex items-center justify-center bg-black/45 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-3.5 h-3.5 text-white" aria-hidden="true" />
+                </span>
+              </button>
             )}
           </div>
         )}
@@ -246,6 +255,7 @@ export default function AppLayout() {
               collapsed ? 'justify-center px-0 py-2.5 mx-1' : 'px-3 py-2.5'
             )}
             title={collapsed ? 'Sair' : undefined}
+            aria-label={collapsed ? 'Sair' : undefined}
           >
             <LogOut className="w-[17px] h-[17px] flex-shrink-0" />
             {!collapsed && <span className="text-[13px]">Sair</span>}
@@ -255,6 +265,7 @@ export default function AppLayout() {
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={() => setCollapsed(!collapsed)}
+          aria-label={collapsed ? 'Expandir menu lateral' : 'Recolher menu lateral'}
           className="absolute -right-3 top-[70px] w-6 h-6 rounded-full flex items-center justify-center transition-transform hover:scale-110 z-50 hidden lg:flex"
           style={{
             background: 'linear-gradient(135deg, #1d68c4, #8f33f5)',
@@ -283,6 +294,7 @@ export default function AppLayout() {
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileOpen(true)}
+              aria-label="Abrir menu"
               className="lg:hidden p-2 rounded-lg hover:bg-white/[0.04] transition-colors"
             >
               <Menu className="w-5 h-5 text-white/70" />
@@ -297,20 +309,20 @@ export default function AppLayout() {
               />
             </Link>
 
-            {/* Search (no celular some: ainda desabilitada, alargaria a página inteira) */}
-            <div className="relative hidden w-72 max-w-full sm:block">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
-              {/* A busca ainda não filtra nada: fica desabilitada e avisa, em vez de fingir (pendência: filtro real) */}
+            {/* Busca (no celular some: lá o círculo da barra inferior abre o Explorar com o campo focado). Aqui leva ao
+                Explorar com o termo já digitado */}
+            <form role="search" onSubmit={buscar} className="relative hidden w-72 max-w-full sm:block">
+              <Search aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
               <input
-                type="text"
-                disabled
-                data-busca-app
-                aria-label="Busca de eventos (em breve)"
-                title="Busca de eventos em breve"
-                placeholder="Busca de eventos em breve"
-                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:!text-muted-foreground disabled:cursor-not-allowed disabled:opacity-100 focus:outline-none transition-all"
+                type="search"
+                name="q"
+                autoComplete="off"
+                enterKeyHint="search"
+                aria-label="Buscar eventos"
+                placeholder="Buscar eventos"
+                className="w-full pl-9 pr-4 py-2 bg-white/[0.02] border border-white/[0.06] rounded-xl text-sm text-white placeholder:!text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-plum transition-all"
               />
-            </div>
+            </form>
           </div>
 
           <div className="flex items-center gap-4">
@@ -318,9 +330,11 @@ export default function AppLayout() {
             <div className="relative">
               <button
                 onClick={() => setShowNotifs(!showNotifs)}
+                aria-label={unreadCount > 0 ? `Notificações, ${unreadCount} não lida${unreadCount > 1 ? 's' : ''}` : 'Notificações'}
+                aria-expanded={showNotifs}
                 className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
               >
-                <Bell className="w-5 h-5 text-white/60" />
+                <Bell className="w-5 h-5 text-white/60" aria-hidden="true" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-[#07080c]" />
                 )}

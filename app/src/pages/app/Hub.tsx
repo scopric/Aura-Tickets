@@ -1,9 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { siteUrl } from '../../lib/appHost'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { usePublicEvents } from '../../hooks/useEvents'
@@ -11,7 +13,7 @@ import { useUserTickets } from '../../hooks/useCheckout'
 import { useAuth } from '../../hooks/useAuth'
 import TicketQRCode from '../../components/TicketQRCode'
 import { useEventMenuItems } from '../../hooks/useMenuItems'
-import { useChat } from '../../hooks/useChat'
+import { motivoSemQr } from '../../lib/ingresso'
 import Chip from '../../components/Chip'
 import EventoCapa from '../../components/EventoCapa'
 import EventoLinha from '../../components/EventoLinha'
@@ -19,7 +21,6 @@ import EventoLinha from '../../components/EventoLinha'
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
   const [showQR, setShowQR] = useState<string | null>(null)
-  const [chatMessage, setChatMessage] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [menuCategory, setMenuCategory] = useState<string>('Todos')
   
@@ -27,7 +28,7 @@ export default function AppHub() {
   const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
   const { data: dbTickets = [], isLoading: isLoadingTickets } = useUserTickets()
 
-  // Evento ativo para o cardápio e chat (primeiro evento dos ingressos do usuário)
+  // Evento ativo para o cardápio (primeiro evento dos ingressos do usuário)
   const activeEventId = useMemo(() => {
     const activeTicket = dbTickets.find(t => t.status === 'active')
     return activeTicket?.events?.id || null
@@ -39,14 +40,6 @@ export default function AppHub() {
   }, [dbTickets])
 
   const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
-  const { messages: chatMessages, isLoading: isLoadingChat, sendMessage, markAsRead } = useChat(activeEventId)
-
-  // Marcar mensagens como lidas quando abrir a aba de chat
-  useEffect(() => {
-    if (activeTab === 'chat' && activeEventId) {
-      markAsRead.mutate()
-    }
-  }, [activeTab, activeEventId])
 
   // Mapear tickets do DB para o formato do layout
   const myTickets = (dbTickets || []).map(t => {
@@ -62,23 +55,17 @@ export default function AppHub() {
       time: t.events?.time || '--:--',
       location: t.events?.venue_name || 'Local a definir',
       type: t.ticket_types?.name || 'Ingresso',
-      seat: t.seat_info || 'Livre',
+      seat: t.seat_info, // o lugar só aparece quando o ingresso traz um (a consulta de ingressos ainda não pede a coluna)
       price: t.ticket_types?.price || 0,
       qr: t.code || t.qr_code || '',
-      status: t.status === 'active' ? 'ativo' : t.status === 'used' ? 'usado' : t.status === 'cancelled' ? 'cancelado' : 'transferido',
+      status: t.status,
+      semQr: motivoSemQr(t), // null = o QR vale
     }
   })
-
-  const handleSendChat = () => {
-    if (!chatMessage.trim()) return
-    sendMessage.mutate(chatMessage, {
-      onSuccess: () => setChatMessage(''),
-      onError: (err: any) => toast.error(err.message || 'Erro ao enviar mensagem'),
-    })
-  }
+  const ativos = myTickets.filter(t => !t.semQr).length // vale: ativo, evento não cancelado nem encerrado
 
   const tabs = [
-    { id: 'ingressos' as const, label: 'Meus Ingressos', count: myTickets.length > 0 ? myTickets.length : undefined },
+    { id: 'ingressos' as const, label: 'Meus Ingressos', count: ativos > 0 ? ativos : undefined },
     { id: 'eventos' as const, label: 'Eventos', count: dbEvents.length > 0 ? dbEvents.length : undefined },
     { id: 'cardapio' as const, label: 'Cardápio', count: undefined },
     { id: 'chat' as const, label: 'Chat', count: undefined },
@@ -95,11 +82,11 @@ export default function AppHub() {
   const renderStats = () => (
     <dl className="grid grid-cols-2 divide-x divide-border border-y border-border py-3 text-center">
       <div className="flex flex-col-reverse">
-        <dt className="text-xs leading-4 text-muted-foreground">Ingressos</dt>
-        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{isLoadingTickets ? '–' : myTickets.length}</dd>
+        <dt className="text-xs leading-4 text-muted-foreground">Ingressos ativos</dt>
+        <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{isLoadingTickets ? '–' : ativos}</dd>
       </div>
       <div className="flex flex-col-reverse">
-        <dt className="text-xs leading-4 text-muted-foreground">Eventos</dt>
+        <dt className="text-xs leading-4 text-muted-foreground">Eventos publicados</dt>
         <dd className="font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums">{dbEvents.length}</dd>
       </div>
     </dl>
@@ -117,7 +104,7 @@ export default function AppHub() {
           <I.Ingressos size={40} className="text-muted-foreground" aria-hidden="true" />
           <p className="text-base font-semibold">Você ainda não tem ingressos.</p>
           <p className="text-[13px] leading-[18px] text-muted-foreground">Explore eventos e faça sua primeira compra!</p>
-          <Button variant="outline" onClick={() => setActiveTab('eventos')}>Explorar Eventos</Button>
+          <Button asChild variant="outline"><Link to="/app/events">Explorar Eventos</Link></Button>
         </div>
       ) : (
         <ul className="divide-y divide-border">
@@ -130,19 +117,23 @@ export default function AppHub() {
                   <p className="line-clamp-2 font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{ticket.eventName}</p>
                   <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{ticket.location}</p>
                 </div>
-                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.status === 'ativo' ? 'text-[var(--ev-success)]' : 'text-[var(--ev-warning)]'}`}>
-                  {{ ativo: 'Ativo', usado: 'Usado', cancelado: 'Cancelado', transferido: 'Transferido' }[ticket.status]}
+                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.semQr ? 'text-[var(--ev-warning)]' : 'text-[var(--ev-success)]'}`}>
+                  {ticket.status === 'active' ? (ticket.semQr ?? 'Ativo') : ({ used: 'Usado', cancelled: 'Cancelado', transferred: 'Transferido', refunded: 'Reembolsado' } as Record<string, string>)[ticket.status] ?? ticket.status}
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
-                <I.Lugar size={16} aria-hidden="true" className="flex-none" />
-                <span className="truncate">{ticket.type} · {ticket.seat}</span>
+                <I.Ingressos size={16} aria-hidden="true" className="flex-none" />
+                <span className="truncate">{ticket.type}{ticket.seat ? ` · ${ticket.seat}` : ''}</span>
               </p>
               {/* Actions */}
               <div className="mt-3 flex items-center gap-2">
-                <Button className="flex-1" onClick={() => setShowQR(ticket.qr)} aria-label={`Ver QR Code de ${ticket.eventName}`}>
-                  <I.Qr aria-hidden="true" /> Ver QR Code
-                </Button>
+                {ticket.semQr ? (
+                  <p className="flex-1 text-[13px] font-semibold leading-[18px] text-[var(--ev-warning)]">{ticket.semQr}</p>
+                ) : (
+                  <Button className="flex-1" onClick={() => setShowQR(ticket.qr)} aria-label={`Ver QR Code de ${ticket.eventName}`}>
+                    <I.Qr aria-hidden="true" /> Ver QR Code
+                  </Button>
+                )}
                 <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label={`Copiar link do evento ${ticket.eventName}`} title="Copiar link do evento">
                   <I.Compartilhar aria-hidden="true" />
                 </Button>
@@ -221,9 +212,9 @@ export default function AppHub() {
 
           {/* Categories */}
           <div role="group" aria-label="Categorias do cardápio" className="flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {['Todos', 'bebida', 'comida', 'combo', 'servico'].map((cat) => (
+            {['Todos', 'bebida', 'comida', 'combo', 'merch', 'servico'].map((cat) => (
               <Chip key={cat} marcado={menuCategory === cat} onClick={() => setMenuCategory(cat)}>
-                {cat === 'Todos' ? 'Todos' : cat.charAt(0).toUpperCase() + cat.slice(1)}
+                {cat === 'servico' ? 'Serviço' : cat === 'merch' ? 'Merch' : cat.charAt(0).toUpperCase() + cat.slice(1)}
               </Chip>
             ))}
           </div>
@@ -240,7 +231,7 @@ export default function AppHub() {
               {dbMenuItems
                 .filter(item => menuCategory === 'Todos' || item.category === menuCategory)
                 .map(item => {
-                  const icons: Record<string, I.IconeEvokaa> = { bebida: I.Cardapio, comida: I.Talheres, combo: I.Pacote, merchandise: I.Pacote, servico: I.Destaque }
+                  const icons: Record<string, I.IconeEvokaa> = { bebida: I.Cardapio, comida: I.Talheres, combo: I.Pacote, merch: I.Pacote, servico: I.Destaque }
                   const Icon = icons[item.category] || I.Pacote
                   return (
                     <li key={item.id} className="flex items-center gap-3 py-3">
@@ -270,84 +261,10 @@ export default function AppHub() {
   const renderChat = () => (
     <div className="space-y-4">
       <h2 className={tituloSecao}>Chat com o Produtor</h2>
-      {!activeEventId ? (
-        <div className="space-y-1 py-8 text-center">
-          <p className="text-sm font-semibold">Chat disponível para eventos ativos</p>
-          <p className="text-[13px] leading-[18px] text-muted-foreground">Adquira um ingresso para conversar com o produtor</p>
-        </div>
-      ) : (
-        <>
-          {/* Producer info */}
-          <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <span aria-hidden="true" className="grid size-9 flex-none place-items-center rounded-full bg-secondary text-muted-foreground">
-                <I.Conta size={16} />
-              </span>
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">Produtor</div>
-                <div className="truncate text-xs leading-4 text-muted-foreground">{activeEventName}</div>
-              </div>
-            </div>
-            <div className="flex flex-none items-center gap-1.5">
-              <span aria-hidden="true" className="size-1.5 rounded-full bg-[var(--ev-success)]" />
-              <span className="text-xs font-medium text-[var(--ev-success)]">Online</span>
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex h-[220px] flex-col justify-between overflow-y-auto rounded-ev-lg border border-border p-3">
-            {isLoadingChat ? (
-              <div className="flex h-full items-center justify-center">
-                <Spinner className="size-5" />
-              </div>
-            ) : chatMessages.length === 0 ? (
-              <div className="my-auto space-y-1 py-8 text-center">
-                <p className="text-sm font-semibold">Nenhuma mensagem ainda</p>
-                <p className="text-[13px] leading-[18px] text-muted-foreground">Envie uma mensagem para o produtor!</p>
-              </div>
-            ) : (
-              <div className="flex-1 space-y-2 overflow-y-auto">
-                {chatMessages.map(msg => (
-                  <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                      msg.sender_id === user?.id
-                        ? 'rounded-br-sm bg-primary text-primary-foreground'
-                        : 'rounded-bl-sm bg-secondary text-foreground'
-                    }`}>
-                      <p className="text-sm leading-5">{msg.content}</p>
-                      <span className={`mt-0.5 block text-right text-[11px] leading-4 ${msg.sender_id === user?.id ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
-                        {new Date(msg.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="flex items-center gap-2">
-            <Input
-              value={chatMessage}
-              onChange={e => setChatMessage(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSendChat()}
-              aria-label="Mensagem para o produtor"
-              placeholder="Escreva uma mensagem..."
-              disabled={sendMessage.isPending}
-              className="h-11 flex-1 rounded-ev-lg bg-card text-base"
-            />
-            <Button
-              size="icon-lg"
-              onClick={handleSendChat}
-              disabled={!chatMessage.trim()}
-              loading={sendMessage.isPending}
-              aria-label="Enviar mensagem"
-            >
-              <I.Enviar aria-hidden="true" />
-            </Button>
-          </div>
-        </>
-      )}
+      <div role="status" className="space-y-1 py-8 text-center">
+        <p className="text-sm font-semibold">O chat com o produtor ainda não está disponível</p>
+        <p className="text-[13px] leading-[18px] text-muted-foreground">Para tirar uma dúvida, fale com a equipe da Evokaa pelo botão do Evo, no canto da tela.</p>
+      </div>
     </div>
   )
 
@@ -419,19 +336,21 @@ export default function AppHub() {
       </div>
 
       {/* QR Code Modal */}
-      {showQR && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" onClick={() => setShowQR(null)}>
-          <div className="w-full max-w-xs rounded-ev-xl border border-border bg-card p-8 text-center text-card-foreground shadow-ev-2" onClick={e => e.stopPropagation()}>
-            <h3 className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</h3>
-            <p className="mb-6 text-[13px] leading-[18px] text-muted-foreground">Apresente na entrada do evento</p>
-            <div className="mx-auto mb-4 size-48">
-              <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
-            </div>
-            <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
-            <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!showQR} onOpenChange={aberto => { if (!aberto) setShowQR(null) }}>
+        <DialogContent showCloseButton={false} className="max-w-xs gap-0 p-8 text-center sm:max-w-xs">
+          <DialogTitle className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</DialogTitle>
+          <DialogDescription className="mb-6 text-[13px] leading-[18px]">Apresente na entrada do evento</DialogDescription>
+          {showQR && (
+            <>
+              <div className="mx-auto mb-4 size-48">
+                <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
+              </div>
+              <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
+            </>
+          )}
+          <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

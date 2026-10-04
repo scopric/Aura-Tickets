@@ -423,6 +423,8 @@ export default function AuthLogin() {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                  aria-pressed={showPassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors"
                   disabled={isSubmitting}
                 >
@@ -431,11 +433,7 @@ export default function AuthLogin() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-espresso/70 cursor-pointer">
-                <input type="checkbox" className="accent-plum" disabled={isSubmitting} />
-                Lembrar-me
-              </label>
+            <div className="flex items-center justify-end">
               <Link to="/auth/forgot" className="text-xs text-plum hover:underline">Esqueci a senha</Link>
             </div>
 
@@ -512,12 +510,12 @@ export default function AuthLogin() {
 
         {/* App download hint */}
         <div className="mt-8 p-4 rounded-2xl bg-void text-cream text-center">
-          <p className="text-xs text-cream/70 mb-2">Baixe o app para uma experiência completa</p>
+          <p className="text-xs text-cream/70 mb-2">Instale a Evokaa na tela inicial do celular</p>
           <Link
             to="/app/download"
             className="text-xs text-plum hover:text-cream transition-colors inline-flex items-center gap-1"
           >
-            Ver opções de download <ArrowRight className="w-3 h-3" />
+            Ver como instalar <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
         </>)}

@@ -7,25 +7,15 @@ import { Spinner } from '@/components/ui/spinner'
 import Chip from '../../components/Chip'
 import EventoCapa from '../../components/EventoCapa'
 import EventoLinha from '../../components/EventoLinha'
+import BotaoSalvar from '../../components/BotaoSalvar'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { temFoto } from '../../lib/corEvento'
-import { rotuloDia } from '../../lib/explorar'
+import { categoriasDoCatalogo, chaveDe, rotuloDia, semAcento } from '../../lib/explorar'
 import { calcularTaxa, brl } from '../../lib/taxa'
 import { rotuloFormato } from '../../lib/tipoEvento'
 import { diaBR } from '../../lib/visaoEvento'
 
 const hojeSP = () => diaBR(Date.now())
-
-const categories = [
-  'Todos',
-  'Música',
-  'Negócios',
-  'Networking',
-  'Arte',
-  'Esporte',
-  'Gastronomia',
-  'Tecnologia',
-]
 
 function formatEventDate(dateStr: string | null, timeStr: string | null) {
   if (!dateStr) return 'Data a definir'
@@ -53,25 +43,27 @@ const precoDe = (ticketTypes?: { price: number | string }[] | null) => {
 }
 
 export default function AppEvents() {
-  const [search, setSearch] = useState('')
-  const [activeCategory, setActiveCategory] = useState('Todos')
-  const { data: events = [], isLoading, isError, refetch } = usePublicEvents()
-  // o círculo de busca da barra inferior chega com ?busca=1: foca o campo. Espera a lista carregar (o campo só existe
-  // depois) e refoca a cada toque (location.key muda mesmo com a tela já aberta)
+  // o círculo de busca da barra inferior chega com ?busca=1 (foca o campo, depois da lista carregada: ele só existe
+  // então); a busca do topo, no computador, chega com ?q=termo (já digitado). Os dois valem a cada toque: location.key
+  // muda mesmo com a tela já aberta
   const [params] = useSearchParams()
   const { key } = useLocation()
+  const [search, setSearch] = useState(params.get('q') ?? '')
+  const [activeCategory, setActiveCategory] = useState<string | null>(null) // chave da categoria; null = Todos
+  const { data: events = [], isLoading, isError, refetch } = usePublicEvents()
   const campoBusca = useRef<HTMLInputElement>(null)
   useEffect(() => { if (params.has('busca') && !isLoading) campoBusca.current?.focus() }, [params, key, isLoading])
+  useEffect(() => { const q = params.get('q'); if (q !== null) setSearch(q) }, [params, key])
+  // só as categorias que os eventos publicados têm (as mesmas do Explorar de /events)
+  const categories = useMemo(() => categoriasDoCatalogo(events), [events])
 
   const filtered = useMemo(() => {
+    const busca = semAcento(search.trim())
     return events.filter((e) => {
       const matchesSearch =
-        !search ||
-        e.title.toLowerCase().includes(search.toLowerCase()) ||
-        (e.venue_city || '').toLowerCase().includes(search.toLowerCase()) ||
-        rotuloFormato(e.category).toLowerCase().includes(search.toLowerCase())
-      const matchesCategory =
-        activeCategory === 'Todos' || e.category === activeCategory
+        !busca ||
+        [e.title, e.venue_city, rotuloFormato(e.category)].some((t) => semAcento(t || '').includes(busca))
+      const matchesCategory = !activeCategory || chaveDe(rotuloFormato(e.category)) === activeCategory
       return matchesSearch && matchesCategory
     })
   }, [events, search, activeCategory])
@@ -79,7 +71,7 @@ export default function AppEvents() {
   const featured = filtered[0]
   const rest = filtered.slice(1)
   const semEventos = events.length === 0
-  const filtrando = !!search || activeCategory !== 'Todos'
+  const filtrando = !!search || !!activeCategory
   const hoje = hojeSP() // a cada renderização: o rótulo "Hoje" confere depois da meia-noite
 
   if (isLoading) {
@@ -131,11 +123,14 @@ export default function AppEvents() {
       </div>
 
       {/* Category Filters */}
-      <div role="group" aria-label="Filtros" className="-mt-2 flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {categories.map((cat) => (
-          <Chip key={cat} marcado={activeCategory === cat} onClick={() => setActiveCategory(cat)}>{cat}</Chip>
-        ))}
-      </div>
+      {categories.length > 0 && (
+        <div role="group" aria-label="Filtros" className="-mt-2 flex items-center gap-2 overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <Chip marcado={!activeCategory} onClick={() => setActiveCategory(null)}>Todos</Chip>
+          {categories.map((c) => (
+            <Chip key={c.chave} marcado={activeCategory === c.chave} onClick={() => setActiveCategory(activeCategory === c.chave ? null : c.chave)}>{c.nome}</Chip>
+          ))}
+        </div>
+      )}
 
       {/* Featured Event: o destaque do Explorar (capa 4:5, selo da data sobre a foto, nome abaixo); no computador, ao lado da lista */}
       {isError && events.length === 0 ? (
@@ -161,7 +156,7 @@ export default function AppEvents() {
       ) : (
         <div className={featured ? 'lg:grid lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:gap-10' : undefined}>
           {featured && (
-            <section aria-labelledby="t-destaque" className="lg:sticky lg:top-24">
+            <section aria-labelledby="t-destaque" className="relative max-w-[360px] lg:sticky lg:top-24">
               <h2 id="t-destaque" className="mb-3 text-[15px] font-semibold">Em destaque</h2>
               <Link
                 to={`/event/${featured.slug || featured.id}`}
@@ -177,11 +172,12 @@ export default function AppEvents() {
                   )}
                 </span>
                 <span className="wide mt-3 block font-display text-2xl font-extrabold leading-7 tracking-[-0.015em]">{featured.title}</span>
-                <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">
+                <span className="mt-1 block pr-11 text-[13px] leading-[18px] text-muted-foreground">
                   {formatEventDate(featured.date, featured.time)} · {featured.venue_city || featured.venue_name || 'Local a definir'}
                 </span>
-                {precoDe(featured.ticket_types) && <span className="mt-1 block text-[13px] leading-[18px]">{precoDe(featured.ticket_types)}</span>}
+                {precoDe(featured.ticket_types) && <span className="mt-1 block pr-11 text-[13px] leading-[18px]">{precoDe(featured.ticket_types)}</span>}
               </Link>
+              <BotaoSalvar eventId={featured.id} className="absolute bottom-0 right-0 size-11 text-muted-foreground" />
             </section>
           )}
 
@@ -204,6 +200,7 @@ export default function AppEvents() {
                   linha={`${formatEventDate(event.date, event.time)} · ${event.venue_city || event.venue_name || 'Local a definir'}`}
                   preco={precoDe(event.ticket_types)}
                   className="sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3"
+                  salvavel
                 />
               ))}
             </ul>
@@ -224,7 +221,7 @@ export default function AppEvents() {
           size="lg"
           onClick={() => {
             setSearch('')
-            setActiveCategory('Todos')
+            setActiveCategory(null)
           }}
         >
           Ver todos os eventos
