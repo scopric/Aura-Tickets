@@ -9,7 +9,7 @@ import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
 import { mensagemVinculo } from '../../lib/afiliados'
 import { brl } from '../../lib/taxa'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -31,7 +31,6 @@ interface Afiliado {
 }
 
 const formVazio = { email: '', eventId: '', comissao: '' }
-const select = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const filtros = [['all', 'Todos'], ['active', 'Ativos'], ['inactive', 'Inativos']] as const
 
@@ -234,7 +233,7 @@ export default function ProducerAffiliates() {
           <form id="form-afiliado" onSubmit={vincular} className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="afiliado-evento">Evento</Label>
-              <select id="afiliado-evento" required value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+              <select id="afiliado-evento" required value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={selectNativo}>
                 <option value="">Escolha o evento</option>
                 {eventos.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
@@ -250,7 +249,7 @@ export default function ProducerAffiliates() {
           </form>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-afiliado" disabled={salvando}>{salvando ? 'Vinculando…' : 'Vincular'}</Button>
+            <Button type="submit" form="form-afiliado" loading={salvando}>Vincular</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

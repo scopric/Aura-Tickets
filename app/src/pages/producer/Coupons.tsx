@@ -11,7 +11,7 @@ import {
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,6 @@ const couponStatus = (c: DbCoupon) =>
   : 'ativo'
 
 const rotulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
-const select = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
@@ -260,7 +259,7 @@ export default function ProducerCoupons() {
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="cupom-tipo">Tipo</Label>
-                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={select}>
+                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={selectNativo}>
                   <option value="percent">Percentual (%)</option>
                   <option value="fixed">Valor fixo (R$)</option>
                 </select>
@@ -282,7 +281,7 @@ export default function ProducerCoupons() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="cupom-evento">Evento</Label>
-              <select id="cupom-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={select}>
+              <select id="cupom-evento" value={form.eventId} onChange={e => setForm({ ...form, eventId: e.target.value })} className={selectNativo}>
                 <option value="">Todos os eventos</option>
                 {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title}</option>)}
               </select>
