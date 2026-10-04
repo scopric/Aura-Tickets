@@ -110,11 +110,6 @@ export default function AdminEvents() {
   const aprovadosNoTotal = allEvents.filter(e => e.approval_status === 'approved').length
   const pending = allEvents.filter(naFilaDeModeracao)
   
-  const totalRevenue = approved.reduce((s, e) => {
-    const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
-    return s + eventRevenue
-  }, 0)
-
   const filteredEvents = allEvents.filter(e => {
     if (activeTab === 'all') return true
     if (activeTab === 'pending') return naFilaDeModeracao(e)
@@ -132,7 +127,8 @@ export default function AdminEvents() {
         <Stat label="Total" value={allEvents.length.toString()} />
         <Stat label="No ar" value={approved.length.toString()} hint={`${aprovadosNoTotal} aprovados no total`} />
         <Stat label="Pendentes" value={pending.length.toString()} />
-        <Stat label="Receita" value={`R$ ${(totalRevenue / 1000).toFixed(1)}K`} />
+        {/* ponytail: '—' até a Fase 4; usar vendas reais (useVendidosPorEvento), não ticket_types.sold */}
+        <Stat label="Receita" value="—" hint="sem venda confirmada (Fase 4)" />
       </div>
 
       {/* Abas de filtro */}
@@ -180,13 +176,11 @@ export default function AdminEvents() {
                 <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Publicação</th>
                 <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Moderação</th>
                 <th className={cn(th, 'px-2 text-center sm:px-4')}>Destaque</th>
-                <th className={cn(th, 'hidden px-2 text-right sm:px-4 lg:table-cell')}>Receita</th>
                 <th className="px-2 py-3 sm:px-4"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
               {filteredEvents.map(e => {
-                const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
                 const pubStatus = statusCfg[e.status] || { label: e.status, cls: chipNeutro }
                 const appStatus = approvalStatusCfg[e.approval_status || 'pending']
                 const formattedDate = e.date
@@ -236,11 +230,6 @@ export default function AdminEvents() {
                       >
                         <I.Estrela ativo={!!e.featured_carousel} />
                       </Button>
-                    </td>
-                    <td className="hidden px-2 py-3 text-right sm:px-4 lg:table-cell">
-                      <div className="font-display text-sm tabular-nums text-foreground">
-                        {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
-                      </div>
                     </td>
                     <td className="px-2 py-3 text-right sm:px-4">
                       <div className="flex flex-wrap items-center justify-end gap-1">
@@ -394,7 +383,7 @@ export default function AdminEvents() {
                             <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
-                            <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.sold ?? 0}</td>
+                            <td className="py-1.5 pr-2 tabular-nums text-foreground">—</td>
                             <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
                           </tr>
                         ))}
