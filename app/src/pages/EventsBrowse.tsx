@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import EventoCapa from '../components/EventoCapa'
 import { temFoto } from '../lib/corEvento'
+import { rotuloFormato } from '../lib/tipoEvento'
 import { brl, TAXA_MINIMA, TAXA_PERCENTUAL } from '../lib/taxa'
 import { cn } from '../lib/utils'
 import {
@@ -275,7 +276,7 @@ export default function EventsBrowse() {
                                 <EventoCapa evento={e} tamanho="cartao" />
                               </span>
                               <span className="min-w-0 flex-1">
-                                {e.category && <span className="block text-xs font-medium leading-4 text-muted-foreground">{e.category}</span>}
+                                {e.category && <span className="block text-xs font-medium leading-4 text-muted-foreground">{rotuloFormato(e.category)}</span>}
                                 <span className="mt-0.5 line-clamp-2 block text-base font-semibold leading-[22px]">{e.title}</span>
                                 <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">{linhaLocal(e)}</span>
                                 <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={e} /></span>

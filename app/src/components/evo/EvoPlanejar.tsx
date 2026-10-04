@@ -1,12 +1,13 @@
 import { useId, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Loader2 } from 'lucide-react'
-import { GENEROS } from '../../lib/generos'
+import { FORMATOS, ESTILOS, MAX_ESTILOS, rotuloFormato } from '../../lib/tipoEvento'
 import { useCreateEvent } from '../../hooks/useEvents'
 import { supabase } from '../../lib/supabase'
 
 export interface PlanejarForm {
-  genero: string
+  formato: string
+  estilos?: string[]
   publico: number
   cidade: string
   uf: string
@@ -20,8 +21,9 @@ export interface PlanejarForm {
 export interface EventProposal {
   title: string
   description: string
-  category: string
-  genero: string
+  category: string // slug do formato
+  temas: string[]
+  estilos: string[]
   date?: string
   time?: string
   venue_name?: string
@@ -52,7 +54,7 @@ const inteiroEntre = (v: string, min: number, max: number) => {
 const hojeLocal = () => new Intl.DateTimeFormat('sv-SE').format(new Date())
 const opcionalNaoNegativo =(v: string) => (v.trim() === '' ? undefined : Number(v) >= 0 ? Number(v) : null)
 
-export const FORM_PLANEJAR_VAZIO = { genero: '', publico: '', cidade: '', uf: '', data: '', duracao: '', preco: '', orcamento: '', layout: 'em_pe' }
+export const FORM_PLANEJAR_VAZIO = { formato: '', estilos: [] as string[], publico: '', cidade: '', uf: '', data: '', duracao: '', preco: '', orcamento: '', layout: 'em_pe' }
 export type CamposPlanejar = typeof FORM_PLANEJAR_VAZIO
 
 /**
@@ -67,7 +69,7 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
   desabilitado: boolean
 }) {
   const [erro, setErro] = useState('')
-  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
+  const set = (k: Exclude<keyof typeof f, 'estilos'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value })
 
   const enviar = (e: React.FormEvent) => {
     e.preventDefault()
@@ -76,7 +78,7 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
     const preco = opcionalNaoNegativo(f.preco)
     const orcamento = opcionalNaoNegativo(f.orcamento)
     const cidade = f.cidade.trim()
-    if (!GENEROS.some((g) => g.valor === f.genero)) return setErro('Escolha o gênero do evento.')
+    if (!FORMATOS.some((x) => x.valor === f.formato)) return setErro('Escolha o formato do evento.')
     if (publico === null) return setErro('Público esperado: um número inteiro de 1 a 200.000.')
     if (cidade.length < 2 || cidade.length > 80) return setErro('Informe a cidade.')
     if (!UFS.includes(f.uf)) return setErro('Escolha o estado (UF).')
@@ -84,8 +86,9 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
     if (preco === null || orcamento === null) return setErro('Preço e orçamento não podem ser negativos.')
     setErro('')
     onEnviar({
-      genero: f.genero, publico, cidade, uf: f.uf, duracao_h: duracao,
+      formato: f.formato, publico, cidade, uf: f.uf, duracao_h: duracao,
       layout: f.layout as PlanejarForm['layout'],
+      ...(f.estilos.length > 0 && { estilos: f.estilos }),
       ...(f.data && { data: f.data }),
       ...(preco !== undefined && { preco_alvo: preco }),
       ...(orcamento !== undefined && { orcamento }),
@@ -100,12 +103,28 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
       </div>
 
       <div>
-        <label htmlFor="evo-genero" className={rotulo}>Gênero</label>
-        <select id="evo-genero" required value={f.genero} onChange={set('genero')} className={campo}>
+        <label htmlFor="evo-formato" className={rotulo}>Formato do evento</label>
+        <select id="evo-formato" required value={f.formato} onChange={set('formato')} className={campo}>
           <option value="">Escolha…</option>
-          {GENEROS.map((g) => <option key={g.valor} value={g.valor}>{g.rotulo}</option>)}
+          {FORMATOS.map((x) => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
         </select>
       </div>
+
+      <fieldset>
+        <legend className={rotulo}>Estilo musical (opcional, até {MAX_ESTILOS})</legend>
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
+          {ESTILOS.map((x) => {
+            const marcado = f.estilos.includes(x.valor)
+            return (
+              <label key={x.valor} className="flex items-center gap-1.5 text-xs text-slate-800 dark:text-slate-200">
+                <input type="checkbox" checked={marcado} disabled={!marcado && f.estilos.length >= MAX_ESTILOS}
+                  onChange={() => setF({ ...f, estilos: marcado ? f.estilos.filter((v) => v !== x.valor) : [...f.estilos, x.valor] })} />
+                {x.rotulo}
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
 
       <div className="grid grid-cols-2 gap-3">
         <div>
@@ -138,7 +157,7 @@ export function FormPlanejar({ f, setF, onEnviar, onCancelar, desabilitado }: {
           <input id="evo-data" type="date" min={hojeLocal()} value={f.data} onChange={set('data')} className={campo} />
         </div>
         <div>
-          <label htmlFor="evo-layout" className={rotulo}>Formato</label>
+          <label htmlFor="evo-layout" className={rotulo}>Disposição</label>
           <select id="evo-layout" value={f.layout} onChange={set('layout')} className={campo}>
             {LAYOUTS.map((l) => <option key={l.valor} value={l.valor}>{l.rotulo}</option>)}
           </select>
@@ -250,16 +269,16 @@ export function PropostaCard({ proposta, usageId, edicao, criando, criadoId, sem
           title: p.title.trim(),
           description: p.description.trim(),
           category: proposta.category,
+          temas: proposta.temas,
+          estilos: proposta.estilos,
           date: p.date || null,
           time: p.time || null,
-          // sem isto o useCreateEvent grava a hora da criação como início do evento
-          ...(p.date ? { start_date: new Date(`${p.date}T${p.time || '20:00'}`).toISOString() } : {}),
           venue_name: proposta.venue_name || null,
           venue_city: p.cidade.trim(),
           venue_state: p.uf,
           capacity,
           status: 'draft',
-          settings: { genero: proposta.genero, uf: p.uf, origem: 'evo', ai_usage_id: usageId ?? null },
+          settings: { uf: p.uf, origem: 'evo', ai_usage_id: usageId ?? null },
         },
         tickets: [],
       })
@@ -294,7 +313,7 @@ export function PropostaCard({ proposta, usageId, edicao, criando, criadoId, sem
         <input id={`evo-p-titulo-${id}`} value={p.title} onChange={set('title')} maxLength={120} className={campo} />
       </div>
       <p className="text-xs text-slate-700 dark:text-slate-200">
-        <span className="font-medium">Categoria:</span> {proposta.category}
+        <span className="font-medium">Formato:</span> {rotuloFormato(proposta.category)}
       </p>
       <div>
         <label htmlFor={`evo-p-desc-${id}`} className={rotulo}>Descrição</label>

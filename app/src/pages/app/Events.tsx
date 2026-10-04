@@ -7,6 +7,7 @@ import {
 import { usePublicEvents } from '../../hooks/useEvents'
 import { cn } from '../../lib/utils'
 import { calcularTaxa, brl } from '../../lib/taxa'
+import { rotuloFormato } from '../../lib/tipoEvento'
 
 const categories = [
   'Todos',
@@ -55,7 +56,7 @@ export default function AppEvents() {
         !search ||
         e.title.toLowerCase().includes(search.toLowerCase()) ||
         (e.venue_city || '').toLowerCase().includes(search.toLowerCase()) ||
-        (e.category || '').toLowerCase().includes(search.toLowerCase())
+        rotuloFormato(e.category).toLowerCase().includes(search.toLowerCase())
       const matchesCategory =
         activeCategory === 'Todos' || e.category === activeCategory
       return matchesSearch && matchesCategory
@@ -129,7 +130,7 @@ export default function AppEvents() {
           <div className="absolute bottom-0 left-0 right-0 p-8">
             <div className="flex items-center gap-3 mb-3">
               <span className="px-3 py-1 rounded-full bg-plum/90 text-cream text-xs font-semibold">
-                {featured.category || 'Evento'}
+                {rotuloFormato(featured.category) || 'Evento'}
               </span>
               {getMinPrice(featured.ticket_types) && (
                 <span className="px-3 py-1 rounded-full bg-white/20 backdrop-blur text-cream text-xs font-semibold">
@@ -201,7 +202,7 @@ export default function AppEvents() {
                   />
                   <div className="absolute top-3 left-3">
                     <span className="px-2.5 py-1 rounded-lg bg-slate-950/80 backdrop-blur text-xs font-medium text-cream border border-white/[0.05]">
-                      {event.category || 'Evento'}
+                      {rotuloFormato(event.category) || 'Evento'}
                     </span>
                   </div>
                   {getMinPrice(event.ticket_types) && (

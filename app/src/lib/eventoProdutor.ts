@@ -85,7 +85,8 @@ export function confirmacaoCancelar(titulo: string, vendidos: number | undefined
     : `${base}\n\nSe o evento tiver ingressos vendidos, o cancelamento é recusado: fale com o suporte da Evokaa.`
 }
 
-// Cópia como rascunho, com os mesmos tipos de ingresso (sem vendas)
+// Cópia como rascunho, com os mesmos tipos de ingresso (sem vendas). Sem datas (date, time, start_date, end_date):
+// o evento novo nasce "sem data" e o produtor escolhe uma (F1).
 export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: Partial<DbTicketType>[] } {
   return {
     event: {
@@ -97,15 +98,15 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       image_url: FOTO_PADRAO,
       accent_color: e.accent_color,
       category: e.category,
+      temas: e.temas,
+      estilos: e.estilos,
+      classificacao: e.classificacao,
+      local_modo: e.local_modo,
       tags: e.tags,
       venue_name: e.venue_name,
       venue_address: e.venue_address,
       venue_city: e.venue_city,
       venue_state: e.venue_state,
-      date: e.date,
-      time: e.time,
-      start_date: e.start_date,
-      end_date: e.end_date,
       status: 'draft',
       visibility: e.visibility,
       capacity: e.capacity,
@@ -121,6 +122,7 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       type: t.type,
       perks: t.perks,
       is_active: t.is_active, // tipo oculto continua oculto na cópia
+      inclui_bebida: t.inclui_bebida,
     })),
   }
 }

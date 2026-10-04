@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import gsap from 'gsap'
 import { supabase } from '../../lib/supabase'
 import type { DbEvent } from '../../hooks/useEvents'
+import { rotuloFormato } from '../../lib/tipoEvento'
 
 interface Campaign {
   id: string
@@ -56,7 +57,7 @@ export function eventoNewsletterHtml(evt: DbEvent, primaryColor: string) {
           </td>
           ` : ''}
           <td style="vertical-align: top;">
-            <span style="font-size: 10px; font-weight: bold; color: ${primaryColor}; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(evt.category || 'Geral')}</span>
+            <span style="font-size: 10px; font-weight: bold; color: ${primaryColor}; text-transform: uppercase; letter-spacing: 0.5px;">${escapeHtml(rotuloFormato(evt.category) || 'Geral')}</span>
             <h3 style="margin: 3px 0 5px 0; font-size: 15px; color: #2d2421; font-weight: bold;">${escapeHtml(evt.title)}</h3>
             <p style="margin: 0 0 12px 0; font-size: 12px; color: #8e7a72;">📍 ${escapeHtml(evt.venue_city || 'Cidade a definir')} | 📅 ${evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR', {day: 'numeric', month: 'short'}) : 'A definir'}</p>
             <a href="https://evokaa.com.br/event/${evt.id}" style="background-color: ${primaryColor}; color: #ffffff; text-decoration: none; padding: 7px 14px; border-radius: 8px; font-size: 11px; font-weight: bold; display: inline-block;">Garantir Ingresso</a>
