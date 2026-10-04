@@ -57,10 +57,21 @@ Deno.serve(async (req) => {
     const temBebida = (bebida ?? []).length > 0
     const texto = textoAceite({ titulo: evento.title, formato: evento.category, classificacao: evento.classificacao, temBebida })
     const { ip, forwarded_for } = clientIp(req.headers)
+    const textoHash = await sha256(texto)
+    // duplo clique ou nova tentativa: mesmo texto do mesmo evento nos últimos 5 minutos devolve o aceite anterior
+    const { data: recente, error: recenteError } = await admin.from('evento_aceites').select('id, aceito_em')
+      .eq('event_id', eventId).eq('texto_hash', textoHash)
+      .gte('aceito_em', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+      .order('aceito_em', { ascending: false }).limit(1)
+    if (recenteError) return json(500, { error: 'Não foi possível conferir o aceite anterior' })
+    const classificacao = evento.category === 'esporte' ? null : evento.classificacao
+    if (recente && recente.length > 0) {
+      return json(200, { ok: true, ...recente[0], versao, classificacao, tem_bebida: temBebida })
+    }
     const linha = {
-      event_id: eventId, producer_id: user.id, versao, texto, texto_hash: await sha256(texto),
+      event_id: eventId, producer_id: user.id, versao, texto, texto_hash: textoHash,
       // esporte não é classificado (variante 2b do texto): nada de classificação contraditória no registro
-      classificacao: evento.category === 'esporte' ? null : evento.classificacao, tem_bebida: temBebida,
+      classificacao, tem_bebida: temBebida,
       ip, forwarded_for, user_agent: (req.headers.get('user-agent') ?? '').slice(0, 300),
     }
     const { data: gravado, error: gravarError } = await admin.from('evento_aceites').insert(linha)
