@@ -13,13 +13,15 @@ import Salvos from '../pages/app/Salvos'
 // insert e delete().eq().eq() respondem com `resposta`
 let linhas: { event_id: string }[]
 let salvos: { event_id: string; criado_em: string; events: Record<string, unknown> | null }[]
+let salvosErro = false
+let salvosPendente = false
 let resposta: { error: { code: string } | null }
 // sucesso muda `linhas`, como o banco: a releitura depois de gravar traz o novo estado
 const insert = vi.fn((l: { event_id: string }) => { if (!resposta.error) linhas = [...linhas, { event_id: l.event_id }]; return Promise.resolve(resposta) })
 const apagar = vi.fn((_c: string, id: string) => { if (!resposta.error) linhas = linhas.filter(l => l.event_id !== id); return Promise.resolve(resposta) })
 const select = vi.fn((cols: string) => ({
   eq: () => cols.includes('events')
-    ? { order: () => Promise.resolve({ data: salvos, error: null }) }
+    ? { order: () => salvosPendente ? new Promise(() => {}) : Promise.resolve(salvosErro ? { data: null, error: new Error('falhou') } : { data: salvos, error: null }) }
     : Promise.resolve({ data: linhas, error: null }),
 }))
 const from = vi.fn(() => ({ select, insert, delete: () => ({ eq: () => ({ eq: apagar }) }) }))
@@ -40,6 +42,8 @@ beforeEach(() => {
   cliente = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   linhas = [{ event_id: 'a' }]
   salvos = []
+  salvosErro = false
+  salvosPendente = false
   resposta = { error: null }
   vi.clearAllMocks()
   sessionStorage.clear()
@@ -217,16 +221,58 @@ describe('Salvos', () => {
     expect(screen.getAllByText('Evento fora do ar')).toHaveLength(2)
     expect(screen.queryByText('Rascunho')).toBeNull() // o título de um evento fora do ar não aparece
     expect(screen.getAllByRole('link')).toHaveLength(1) // só o do evento no ar
-    expect(select).toHaveBeenCalledWith('event_id, criado_em, events (*)')
+    expect(select).toHaveBeenCalledWith('event_id, criado_em, events (*, ticket_types (*))')
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Remover' })[1])
     await waitFor(() => expect(apagar).toHaveBeenCalledWith('event_id', 'e-3'))
   })
 
-  it('vazio: a dica leva ao Explorar público (/events)', async () => {
+  it('vazio: a dica leva ao Explorar do app (/app/events)', async () => {
     linhas = []
     entrar('user')
     render(<Salvos />, { wrapper })
-    expect(await screen.findByRole('link', { name: 'Explorar eventos' })).toHaveAttribute('href', '/events')
+    expect(await screen.findByRole('link', { name: 'Explorar eventos' })).toHaveAttribute('href', '/app/events')
+  })
+
+  it('carregando: esqueleto com aviso para leitor de tela; erro: mensagem e Tentar de novo', async () => {
+    entrar('user')
+    salvosPendente = true
+    const { unmount } = render(<Salvos />, { wrapper })
+    expect(await screen.findByText('Carregando os eventos salvos')).toBeInTheDocument()
+    unmount()
+    cliente.clear()
+    salvosPendente = false
+    salvosErro = true
+    render(<Salvos />, { wrapper })
+    expect(await screen.findByText('Não deu para carregar os eventos salvos.')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Tentar de novo' })).toBeInTheDocument()
+  })
+
+  it('"Salvar não reserva ingresso"; preço com taxa; evento passado marcado', async () => {
+    linhas = [{ event_id: 'e-1' }, { event_id: 'e-2' }]
+    salvos = [
+      { event_id: 'e-1', criado_em: '2026-10-03', events: { ...publicado, date: '2099-01-10', ticket_types: [{ price: 50 }] } },
+      { event_id: 'e-2', criado_em: '2026-10-02', events: { ...publicado, id: 'e-2', title: 'Já foi', date: '2020-01-10', ticket_types: [{ price: 50 }] } },
+    ]
+    entrar('user')
+    render(<Salvos />, { wrapper })
+    expect(await screen.findByText(/não reserva ingresso/)).toBeInTheDocument()
+    expect(screen.getByText(/com taxa/)).toBeInTheDocument()
+    expect(screen.getByText('Evento passado')).toBeInTheDocument()
+  })
+})
+
+describe('Remover dos salvos', () => {
+  it('o coração marcado remove e avisa com Desfazer, que salva de novo', async () => {
+    entrar('user')
+    render(<BotaoSalvar eventId="a" />, { wrapper })
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Salvar evento' })).toHaveAttribute('aria-pressed', 'true'))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar evento' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1))
+    const [msg, opcoes] = vi.mocked(toast.success).mock.calls[0] as unknown as [string, { action: { label: string; onClick: () => void } }]
+    expect(msg).toBe('Removido dos salvos')
+    expect(opcoes.action.label).toBe('Desfazer')
+    opcoes.action.onClick()
+    await waitFor(() => expect(insert).toHaveBeenCalledWith({ user_id: 'u-1', event_id: 'a' }))
   })
 })

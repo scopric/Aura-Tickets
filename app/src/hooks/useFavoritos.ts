@@ -85,7 +85,7 @@ export function useEventosSalvos() {
     queryKey: ['favoritos', 'eventos', userId],
     queryFn: async () => {
       const { data, error } = await supabase.from('favoritos' as never)
-        .select('event_id, criado_em, events (*)')
+        .select('event_id, criado_em, events (*, ticket_types (*))')
         .eq('user_id', userId!)
         .order('criado_em', { ascending: false })
       if (error) throw error

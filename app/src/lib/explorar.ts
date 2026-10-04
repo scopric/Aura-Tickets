@@ -2,7 +2,7 @@
 // de verdade nos eventos publicados, filtros e o preço "a partir de". Sem dependência (além do rótulo do formato).
 import { calcularTaxa } from './taxa'
 import { dataCurta, diaMais } from './visaoEvento'
-import { rotuloFormato } from './tipoEvento'
+import { CLASSIFICACOES, ESTILOS, rotuloFormato } from './tipoEvento'
 
 export interface TipoIngresso { price: number | string; is_active?: boolean | null; sale_end?: string | null }
 
@@ -20,13 +20,17 @@ export interface EventoCatalogo {
   image_url?: string | null
   accent_color?: string | null
   featured_carousel?: boolean | null
+  estilos?: string[] | null
+  classificacao?: string | null
   ticket_types?: TipoIngresso[] | null
 }
 
 export interface Filtros {
   cidade: string | null // chave da cidade (chaveDe)
-  quando: '' | 'hoje' | 'fds'
+  quando: '' | 'hoje' | 'amanha' | 'fds' | 'mes'
   categoria: string | null // chave da categoria
+  estilo: string | null // slug em events.estilos
+  gratis: boolean
   busca: string
 }
 
@@ -77,6 +81,15 @@ export function fimDeSemana(hoje: string): string[] {
   return [sab, diaMais(sab, 1)]
 }
 
+// Atalho de data como endereço (/events/hoje): slug da URL <-> chave do filtro
+export const QUANDO_SLUG = { hoje: 'hoje', amanha: 'amanha', fds: 'fim-de-semana', mes: 'este-mes' } as const
+export const quandoDoSlug = (slug?: string): Filtros['quando'] =>
+  (Object.keys(QUANDO_SLUG) as (keyof typeof QUANDO_SLUG)[]).find(k => QUANDO_SLUG[k] === slug) ?? ''
+
+// Dias do atalho ('mes' é conferido em passa(), pelo prefixo AAAA-MM)
+const diasDe = (q: Filtros['quando'], hoje: string): string[] =>
+  q === 'hoje' ? [hoje] : q === 'amanha' ? [diaMais(hoje, 1)] : q === 'fds' ? fimDeSemana(hoje) : []
+
 // ---- Cidades e categorias: só as que os eventos publicados têm ---------------------------------------------------
 export interface Opcao { chave: string; nome: string; qtd: number }
 
@@ -98,6 +111,16 @@ export const cidadesDoCatalogo = (eventos: EventoCatalogo[]) => contar(eventos.m
 // A categoria é o formato (slug em events.category; texto antigo passa como está): o chip mostra o rótulo.
 export const categoriasDoCatalogo = (eventos: EventoCatalogo[]) => contar(eventos.map(e => rotuloFormato(e.category)))
 
+// Estilos musicais que os eventos publicados têm (rótulo do vocabulário; slug desconhecido fica de fora)
+export function estilosDoCatalogo(eventos: EventoCatalogo[]): Opcao[] {
+  const qtd = new Map<string, number>()
+  for (const e of eventos) for (const s of new Set(e.estilos ?? [])) qtd.set(s, (qtd.get(s) ?? 0) + 1)
+  return ESTILOS.filter(x => qtd.has(x.valor)).map(x => ({ chave: x.valor, nome: x.rotulo, qtd: qtd.get(x.valor)! }))
+    .sort((a, b) => b.qtd - a.qtd || a.nome.localeCompare(b.nome, 'pt-BR'))
+}
+
+export const rotuloClassificacao = (c?: string | null) => CLASSIFICACOES.find(x => x.valor === c)?.rotulo ?? null
+
 // ---- Filtro ---------------------------------------------------------------------------------------------------------
 const texto = (e: EventoCatalogo) =>
   semAcento([e.title, e.venue_name, e.venue_city, rotuloFormato(e.category), e.short_description, e.description].filter(Boolean).join(' '))
@@ -108,8 +131,10 @@ export function passa(e: EventoCatalogo, f: Filtros, hoje: string, ignorar?: key
   if (ignorar !== 'categoria' && f.categoria && chaveDe(rotuloFormato(e.category)) !== f.categoria) return false
   if (ignorar !== 'quando' && f.quando) {
     if (!e.date) return false
-    if (f.quando === 'hoje' ? e.date !== hoje : !fimDeSemana(hoje).includes(e.date)) return false
+    if (f.quando === 'mes' ? e.date.slice(0, 7) !== hoje.slice(0, 7) : !diasDe(f.quando, hoje).includes(e.date)) return false
   }
+  if (ignorar !== 'estilo' && f.estilo && !e.estilos?.includes(f.estilo)) return false
+  if (ignorar !== 'gratis' && f.gratis && aPartirDe(e) !== 0) return false
   if (ignorar !== 'busca') {
     const palavras = semAcento(f.busca).split(/\s+/).filter(Boolean)
     if (palavras.length) {
