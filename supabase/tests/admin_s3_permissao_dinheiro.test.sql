@@ -1,3 +1,4 @@
+-- ATENÇÃO: depois da S4 (20261015), manage_support lê 0 em producer_subscriptions e orders (usa chat_cliente_contexto): asserções ajustadas.
 -- pgTAP da S3 do admin (docs/sql/20261014_admin_s3_permissao_dinheiro.sql, Decisão 163): o banco exige a permissão da
 -- tela nas tabelas de dinheiro. Só em banco descartável: aplicar baseline + docs/sql até o estado de produção + o SQL da S3
 -- e rodar este arquivo (psql -f ou `supabase test db`). Tudo em begin ... rollback: nada fica gravado. Nunca contra produção.
@@ -100,8 +101,8 @@ select policies_are('public', 'platform_settings', array['gf_mfa_aal2', 'gf_plat
   'platform_settings: admin, leitura pública e 2FA');
 select policies_are('public', 'platform_affiliates', array['Admin gerencia afiliados evokaa', 'Afiliado le o proprio cadastro', 'gf_mfa_aal2'],
   'platform_affiliates: só manage_affiliates e o próprio afiliado (manage_coupons fora)');
-select policies_are('public', 'producer_subscriptions', array['gf_mfa_aal2', 'gf_producer_subscriptions_admin_all', 'gf_producer_subscriptions_owner_select', 'gf_producer_subscriptions_support_select'],
-  'producer_subscriptions: admin, dono, leitura do suporte e 2FA');
+select policies_are('public', 'producer_subscriptions', array['gf_mfa_aal2', 'gf_producer_subscriptions_admin_all', 'gf_producer_subscriptions_owner_select'],
+  'producer_subscriptions: admin, dono e 2FA (a regra do suporte saiu na S4)');
 -- leitura: producer_profiles aceita ['manage_users', 'manage_finance'] (+ super_admin)
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.producer_profiles $$), 2::bigint, 'producer_profiles: adm_users lê 2');
@@ -194,7 +195,7 @@ select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000010', 'aa
 select is(pg_temp.n($$select count(*) from public.platform_settings where key = 'segredo_s3'$$), 0::bigint, 'platform_settings: adm_none lê 0');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000011', 'aal1');
 select is(pg_temp.n($$select count(*) from public.platform_settings where key = 'segredo_s3'$$), 0::bigint, 'platform_settings: adm_aal1 lê 0');
--- leitura: producer_subscriptions aceita ['manage_users', 'manage_support'] (+ super_admin)
+-- leitura: producer_subscriptions aceita ['manage_users'] (+ super_admin); a regra do suporte da S3 saiu na S4
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 1::bigint, 'producer_subscriptions: adm_users lê 1');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
@@ -210,7 +211,7 @@ select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 0:
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000007', 'aal2');
 select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 0::bigint, 'producer_subscriptions: adm_tix lê 0');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000008', 'aal2');
-select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 1::bigint, 'producer_subscriptions: adm_sup lê 1');
+select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 0::bigint, 'producer_subscriptions: adm_sup lê 0 (S4: o suporte usa chat_cliente_contexto)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select is(pg_temp.n($$select count(*) from public.producer_subscriptions $$), 1::bigint, 'producer_subscriptions: super lê 1');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000010', 'aal2');
@@ -240,7 +241,7 @@ select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000010', 'aa
 select is(pg_temp.n($$select count(*) from public.user_custom_features $$), 0::bigint, 'user_custom_features: adm_none lê 0');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000011', 'aal1');
 select is(pg_temp.n($$select count(*) from public.user_custom_features $$), 0::bigint, 'user_custom_features: adm_aal1 lê 0');
--- leitura: orders aceita ['manage_finance', 'view_analytics', 'manage_support'] (+ super_admin)
+-- leitura: orders aceita ['manage_finance', 'view_analytics'] (+ super_admin); manage_support saiu na S4
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.orders $$), 0::bigint, 'orders: adm_users lê 0');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000002', 'aal2');
@@ -256,7 +257,7 @@ select is(pg_temp.n($$select count(*) from public.orders $$), 1::bigint, 'orders
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000007', 'aal2');
 select is(pg_temp.n($$select count(*) from public.orders $$), 0::bigint, 'orders: adm_tix lê 0');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000008', 'aal2');
-select is(pg_temp.n($$select count(*) from public.orders $$), 1::bigint, 'orders: adm_sup lê 1');
+select is(pg_temp.n($$select count(*) from public.orders $$), 0::bigint, 'orders: adm_sup lê 0 (S4: o suporte usa chat_cliente_contexto)');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000009', 'aal2');
 select is(pg_temp.n($$select count(*) from public.orders $$), 1::bigint, 'orders: super lê 1');
 select pg_temp.como('authenticated', 'd5000000-0000-4000-8000-000000000010', 'aal2');

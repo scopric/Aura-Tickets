@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(538);
+select plan(561);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -103,13 +103,15 @@ insert into public.piggy_transactions (id, box_id, type) values ('d6000000-0000-
 insert into public.tasks (id, event_id, title) values ('d6000000-0000-4000-9000-000000000020', 'd6000000-0000-4000-9000-000000000001', 'tarefa');
 insert into public.academy_courses (id, title) values ('d6000000-0000-4000-9000-000000000021', 'curso');
 insert into public.conversations (id, user_id) values ('d6000000-0000-4000-9000-000000000022', 'd6000000-0000-4000-8000-000000000020');
+insert into public.conversations (id, user_id, producer_id, kind) values ('d6000000-0000-4000-9000-000000000023', 'd6000000-0000-4000-8000-000000000019', 'd6000000-0000-4000-8000-000000000017', 'producer');
 insert into public.producer_subscriptions (producer_id, plan) values ('d6000000-0000-4000-8000-000000000017', 'free');
-select is((select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'orders', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses') and (coalesce(qual, '') || coalesce(with_check, '')) like '%gf_is_admin%'), 0::bigint, 'nenhuma regra permissiva das tabelas da S4 usa gf_is_admin');
-select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'orders', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses')), 21::bigint, 'gf_mfa_aal2 RESTRICTIVE continua nas 21 tabelas');
+select is((select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and tablename in ('academy_courses', 'check_ins', 'contact_messages', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'evento_aceites', 'evento_privado', 'events', 'feedback', 'orders', 'piggy_transactions', 'profiles', 'tasks', 'ticket_types', 'tickets', 'user_activities') and (coalesce(qual, '') || coalesce(with_check, '')) like '%gf_is_admin%'), 0::bigint, 'nenhuma regra permissiva das tabelas da S4 usa gf_is_admin');
+select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE' and tablename in ('academy_courses', 'check_ins', 'contact_messages', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'evento_aceites', 'evento_privado', 'events', 'feedback', 'orders', 'piggy_transactions', 'profiles', 'tasks', 'ticket_types', 'tickets', 'user_activities')), 21::bigint, 'gf_mfa_aal2 RESTRICTIVE continua nas 21 tabelas');
 select policies_are('public', 'contact_messages', array['gf_mfa_aal2', 'gf_contact_messages_admin_all'], 'contact_messages: uma regra de admin e o 2FA');
 select ok(not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'producer_subscriptions' and policyname = 'gf_producer_subscriptions_support_select'), 'regra provisória do suporte em producer_subscriptions removida');
 select ok(has_function_privilege('authenticated', 'public.chat_cliente_contexto(uuid)', 'execute') and not has_function_privilege('anon', 'public.chat_cliente_contexto(uuid)', 'execute'), 'chat_cliente_contexto: authenticated executa, anon não');
 select is((select provolatile::text from pg_proc where oid = 'public.admin_activity_stats(timestamptz)'::regprocedure), 's', 'admin_activity_stats é STABLE');
+select is((select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and roles = array['authenticated']::name[] and policyname in ('gf_customers_owner','gf_event_banners_all','gf_event_photos_all','gf_event_surveys_owner','gf_event_timeline_all','gf_event_zones_owner','gf_piggy_tx_owner','gf_tasks_owner','gf_academy_admin_write','gf_budget_boxes_all')), 10::bigint, 'as 10 regras de dono/admin sem tela de admin são só authenticated (seg6)');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 1::bigint, 'profiles: adm_manage_users lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000002', 'aal2');
@@ -125,7 +127,7 @@ select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000007', 'aal2');
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 1::bigint, 'profiles: adm_manage_coupons lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000008', 'aal2');
-select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 1::bigint, 'profiles: adm_manage_support lê 1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 0::bigint, 'profiles: adm_manage_support lê 0');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000009', 'aal2');
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 1::bigint, 'profiles: adm_view_analytics lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000010', 'aal2');
@@ -150,6 +152,46 @@ select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000019', 'aa
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 0::bigint, 'profiles: comprador lê 0');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000020', 'aal1');
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000020'$$), 1::bigint, 'profiles: comum lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000001', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_users lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000002', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_team lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000003', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_affiliates lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000004', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_events lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000005', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_finance lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000006', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_tickets lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000007', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_coupons lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000008', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_support lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000009', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_view_analytics lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000010', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): adm_manage_settings lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000011', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): adm_manage_feedback lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000012', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): adm_manage_newsletter lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000013', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): adm_moderate_mesa lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000014', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 1::bigint, 'profiles (perfil de admin): super lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000015', 'aal2');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): adm_none lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000016', 'aal1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): adm_aal1 lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000017', 'aal1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): p1 lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000018', 'aal1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): p2 lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000019', 'aal1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): comprador lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000020', 'aal1');
+select is(pg_temp.n($$select count(*) from public.profiles where id = 'd6000000-0000-4000-8000-000000000014'$$), 0::bigint, 'profiles (perfil de admin): comum lê 0');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.events where id = 'd6000000-0000-4000-9000-000000000001'$$), 1::bigint, 'events: adm_manage_users lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000002', 'aal2');
@@ -1131,6 +1173,7 @@ select is(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->
 select is((public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'ingressos')::text::jsonb @> '[{"status":"active"}]'::jsonb and jsonb_array_length(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'pedidos') = 1 and public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'plano' = 'null'::jsonb, true, 'chat_cliente_contexto: adm_manage_support vê ingresso e pedido, plano vazio');
 select ok(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')::text !~* 'cpf|phone|buyer_email|@', 'chat_cliente_contexto: adm_manage_support sem CPF, telefone ou e-mail');
 select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000018')$$, '42501', null, 'chat_cliente_contexto: adm_manage_support barrado para cliente sem conversa');
+select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000019')$$, '42501', null, 'chat_cliente_contexto: adm_manage_support barrado para cliente só com conversa de produtor sem mediação');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000009', 'aal2');
 select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')$$, '42501', null, 'chat_cliente_contexto: adm_view_analytics barrado');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000010', 'aal2');
@@ -1146,6 +1189,7 @@ select is(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->
 select is((public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'ingressos')::text::jsonb @> '[{"status":"active"}]'::jsonb and jsonb_array_length(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'pedidos') = 1 and public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')->'plano' = 'null'::jsonb, true, 'chat_cliente_contexto: super vê ingresso e pedido, plano vazio');
 select ok(public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')::text !~* 'cpf|phone|buyer_email|@', 'chat_cliente_contexto: super sem CPF, telefone ou e-mail');
 select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000018')$$, '42501', null, 'chat_cliente_contexto: super barrado para cliente sem conversa');
+select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000019')$$, '42501', null, 'chat_cliente_contexto: super barrado para cliente só com conversa de produtor sem mediação');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000015', 'aal2');
 select throws_ok($$select public.chat_cliente_contexto('d6000000-0000-4000-8000-000000000020')$$, '42501', null, 'chat_cliente_contexto: adm_none barrado');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000016', 'aal1');

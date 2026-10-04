@@ -4,7 +4,8 @@
 -- regra pede a permissão da área. super_admin passa em todas. Depende da S3 (cria gf_admin_can_any).
 --   1. Regras trocadas (mesmos nomes, drop + create, padrão `(select fn())`, ramo do dono/comprador intacto):
 --      profiles        SELECT dono ou [manage_users, manage_team, manage_affiliates, manage_events, manage_finance,
---                      manage_tickets, manage_coupons, manage_support, view_analytics, manage_settings]
+--                      manage_tickets, manage_coupons, view_analytics, manage_settings]; manage_support só lê perfis
+--                      de admin (a lista de atendentes do Atendimento)
 --      events          SELECT admin [manage_events, manage_users, manage_finance, manage_tickets, view_analytics,
 --                      manage_coupons, moderate_mesa]
 --      ticket_types    SELECT admin [manage_tickets, manage_events, moderate_mesa]
@@ -34,7 +35,10 @@
 -- NÃO mover para supabase/migrations/ (motivo no cabeçalho de 20260927_security_hardening.sql).
 -- Teste: supabase/tests/admin_s4_permissao_dados.test.sql (pgTAP; banco descartável, nunca produção).
 --
--- PASSO 0 (só leitura; o bloco 0 também confere e aborta). Esperado em produção em 04/10/2026 (a 2ª aplicação aceita também o md5 da versão S4 gravado no bloco 0):
+-- PASSO 0 (só leitura; rodar SOZINHO antes, em produção). Confere os papéis das regras que este arquivo recria (seg6 passou
+-- várias a `authenticated`; este arquivo mantém assim; esperado: roles = {authenticated} nas 9 regras de dono/admin):
+--   select tablename, policyname, roles from pg_policies where policyname like 'gf_%' order by 1, 2;
+-- Funções (o bloco 0 também confere e aborta). Esperado em produção em 04/10/2026 (a 2ª aplicação aceita também o md5 da versão S4 gravado no bloco 0):
 --   select 'admin_activity_stats' f, md5(pg_get_functiondef('public.admin_activity_stats(timestamptz)'::regprocedure))
 --   union all select 'gf_protect_event_cancel', md5(pg_get_functiondef('public.gf_protect_event_cancel()'::regprocedure));
 --   admin_activity_stats fed37226a310506ee5fa8d5f0a89b8b2 | gf_protect_event_cancel 3c42b43723e092d45ffd579e42bfd377
@@ -50,7 +54,7 @@
 -- 4. Papéis: iguais aos de hoje em cada regra (várias são `public`; anon já não executa gf_is_admin/gf_admin_can desde a
 --    seg6, o que não muda).
 -- 5. chat_cliente_contexto: security definer, search_path '', 42501 sem manage_support e também para cliente SEM
---    conversa (suporte só vê o contexto de quem o procurou). Devolve papel, plano, até 5 ingressos e 5 pedidos (sem CPF,
+--    conversa visível ao suporte (chat_role = 'agent'; conversa só com o produtor não conta). Devolve papel, plano, até 5 ingressos e 5 pedidos (sem CPF,
 --    telefone ou e-mail) na mesma forma que o front já lia.
 -- TELAS QUE PODEM FICAR VAZIAS: Dashboard (sem permissão própria: lê profiles e events) para admin só de feedback,
 -- newsletter ou moderate_mesa (profiles) e só de feedback/newsletter (events); exportações de Configurações (matriz).
@@ -96,7 +100,7 @@ begin
   end loop;
   -- RPC nova: não existe ainda ou é exatamente a deste arquivo
   if to_regprocedure('public.chat_cliente_contexto(uuid)') is not null
-     and md5(pg_get_functiondef(to_regprocedure('public.chat_cliente_contexto(uuid)'))) <> '3f82c6ba17fd88b1d866652056c261db' then
+     and md5(pg_get_functiondef(to_regprocedure('public.chat_cliente_contexto(uuid)'))) <> 'ab8314760bd83173a96fb97985839d4d' then
     raise exception 'public.chat_cliente_contexto(uuid) já existe e não é a versão da S4 (md5 diferente)';
   end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.events'::regclass
@@ -109,9 +113,11 @@ end $$;
 -- profiles
 drop policy if exists gf_profiles_select_own_or_admin on public.profiles;
 create policy gf_profiles_select_own_or_admin on public.profiles as permissive for select to authenticated
-  using (id = (select auth.uid()) or (select public.gf_admin_can_any(array['manage_users', 'manage_team',
-    'manage_affiliates', 'manage_events', 'manage_finance', 'manage_tickets', 'manage_coupons', 'manage_support',
-    'view_analytics', 'manage_settings'])));
+  using (id = (select auth.uid())
+         or (select public.gf_admin_can_any(array['manage_users', 'manage_team', 'manage_affiliates', 'manage_events',
+              'manage_finance', 'manage_tickets', 'manage_coupons', 'view_analytics', 'manage_settings']))
+         -- Atendimento só lista atendentes (admins): manage_support não lê participante
+         or (role = 'admin' and (select public.gf_admin_can('manage_support'))));
 
 -- events, ticket_types, tickets, check_ins, user_activities
 drop policy if exists gf_events_admin_select on public.events;
@@ -160,52 +166,52 @@ create policy evento_privado_select on public.evento_privado as permissive for s
 
 -- tabelas sem tela de admin: o ramo admin vira super_admin; o do dono fica
 drop policy if exists gf_customers_owner on public.customers;
-create policy gf_customers_owner on public.customers as permissive for all to public
+create policy gf_customers_owner on public.customers as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())))
   with check ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())));
 drop policy if exists gf_event_banners_all on public.event_banners;
-create policy gf_event_banners_all on public.event_banners as permissive for all to public
+create policy gf_event_banners_all on public.event_banners as permissive for all to authenticated
   using (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')))
   with check (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')));
 drop policy if exists gf_budget_boxes_all on public.event_budget_boxes;
 create policy gf_budget_boxes_all on public.event_budget_boxes as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))) with check ((select public.gf_admin_can('super_admin')));
 drop policy if exists gf_event_photos_all on public.event_photos;
-create policy gf_event_photos_all on public.event_photos as permissive for all to public
+create policy gf_event_photos_all on public.event_photos as permissive for all to authenticated
   using (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')))
   with check (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')));
 drop policy if exists gf_event_surveys_owner on public.event_surveys;
-create policy gf_event_surveys_owner on public.event_surveys as permissive for all to public
+create policy gf_event_surveys_owner on public.event_surveys as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())))
   with check ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())));
 drop policy if exists gf_event_timeline_all on public.event_timeline_items;
-create policy gf_event_timeline_all on public.event_timeline_items as permissive for all to public
+create policy gf_event_timeline_all on public.event_timeline_items as permissive for all to authenticated
   using (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')))
   with check (producer_id = (select auth.uid()) or (select public.gf_admin_can('super_admin')));
 drop policy if exists gf_event_zones_owner on public.event_zones;
-create policy gf_event_zones_owner on public.event_zones as permissive for all to public
+create policy gf_event_zones_owner on public.event_zones as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())))
   with check ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())));
 drop policy if exists gf_piggy_tx_owner on public.piggy_transactions;
-create policy gf_piggy_tx_owner on public.piggy_transactions as permissive for all to public
+create policy gf_piggy_tx_owner on public.piggy_transactions as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))
          or box_id in (select b.id from public.event_budget_boxes b where b.producer_id = (select auth.uid())))
   with check ((select public.gf_admin_can('super_admin'))
          or box_id in (select b.id from public.event_budget_boxes b where b.producer_id = (select auth.uid())));
 drop policy if exists gf_tasks_owner on public.tasks;
-create policy gf_tasks_owner on public.tasks as permissive for all to public
+create policy gf_tasks_owner on public.tasks as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())))
   with check ((select public.gf_admin_can('super_admin'))
          or event_id in (select e.id from public.events e where e.producer_id = (select auth.uid())));
 drop policy if exists gf_academy_admin_write on public.academy_courses;
-create policy gf_academy_admin_write on public.academy_courses as permissive for all to public
+create policy gf_academy_admin_write on public.academy_courses as permissive for all to authenticated
   using ((select public.gf_admin_can('super_admin'))) with check ((select public.gf_admin_can('super_admin')));
 
 -- orders: a regra da S3 era [manage_finance, view_analytics, manage_support]; o suporte passa pela RPC
@@ -289,8 +295,11 @@ begin
   if not public.gf_admin_can('manage_support') then
     raise exception 'acesso negado: precisa da permissão manage_support' using errcode = '42501';
   end if;
-  if p_user is null or not exists (select 1 from public.conversations c where c.user_id = p_user) then
-    raise exception 'este cliente não tem conversa' using errcode = '42501';
+  -- só de quem tem conversa que ESTE atendente vê (chat_role = 'agent': conversa com a Evokaa ou mediação), não a que é
+  -- só entre cliente e produtor
+  if p_user is null or not exists (select 1 from public.conversations c
+      where c.user_id = p_user and public.chat_role(c.id) = 'agent') then
+    raise exception 'este cliente não tem conversa que o suporte veja' using errcode = '42501';
   end if;
   return jsonb_build_object(
     'papel', (select pr.role from public.profiles pr where pr.id = p_user),
@@ -335,6 +344,15 @@ begin
       raise exception 'gf_mfa_aal2 sumiu de public.%', t;
     end if;
   end loop;
+  if (select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE'
+        and roles = array['authenticated']::name[]
+        and (tablename, policyname) in (('customers', 'gf_customers_owner'), ('event_banners', 'gf_event_banners_all'),
+          ('event_photos', 'gf_event_photos_all'), ('event_surveys', 'gf_event_surveys_owner'),
+          ('event_timeline_items', 'gf_event_timeline_all'), ('event_zones', 'gf_event_zones_owner'),
+          ('piggy_transactions', 'gf_piggy_tx_owner'), ('tasks', 'gf_tasks_owner'),
+          ('academy_courses', 'gf_academy_admin_write'), ('event_budget_boxes', 'gf_budget_boxes_all'))) <> 10 then
+    raise exception 'as 10 regras de dono/admin sem tela de admin têm de ter roles = {authenticated} (seg6)';
+  end if;
   if exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'contact_messages'
       and policyname = 'gf_contact_admin_read')
      or (select count(*) from pg_policies where schemaname = 'public' and tablename = 'contact_messages'
@@ -390,7 +408,7 @@ order by 1, 2;
 -- ENSAIO COM ROLLBACK: trocar o "commit;" do fim do bloco de conferência por "rollback;" e rodar tudo. Comportamento
 -- por papel: supabase/tests/admin_s4_permissao_dados.test.sql, em banco descartável.
 --
--- Desfazer (volta ao estado de produção de 04/10/2026; as regras e funções abaixo são as lidas na época. A regra
+-- Desfazer (volta ao estado de produção de 04/10/2026 (papéis `authenticated` do seg6); as regras e funções abaixo são as lidas na época. A regra
 -- gf_producer_subscriptions_support_select NÃO volta: era da S3 e este arquivo a removeu):
 -- begin;
 -- drop policy if exists gf_orders_admin_select on public.orders;
@@ -429,39 +447,39 @@ order by 1, 2;
 --     or exists (select 1 from public.tickets t where t.event_id = evento_privado.event_id
 --                and t.user_id = (select auth.uid()) and t.status = any (array['active', 'used'])));
 -- drop policy if exists gf_customers_owner on public.customers;
--- create policy gf_customers_owner on public.customers for all to public
+-- create policy gf_customers_owner on public.customers for all to authenticated
 --   using (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()))
 --   with check (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()));
 -- drop policy if exists gf_event_banners_all on public.event_banners;
--- create policy gf_event_banners_all on public.event_banners for all to public
+-- create policy gf_event_banners_all on public.event_banners for all to authenticated
 --   using (producer_id = auth.uid() or public.gf_is_admin()) with check (producer_id = auth.uid() or public.gf_is_admin());
 -- drop policy if exists gf_budget_boxes_all on public.event_budget_boxes;
 -- create policy gf_budget_boxes_all on public.event_budget_boxes for all to authenticated
 --   using ((select public.gf_is_admin())) with check ((select public.gf_is_admin()));
 -- drop policy if exists gf_event_photos_all on public.event_photos;
--- create policy gf_event_photos_all on public.event_photos for all to public
+-- create policy gf_event_photos_all on public.event_photos for all to authenticated
 --   using (producer_id = auth.uid() or public.gf_is_admin()) with check (producer_id = auth.uid() or public.gf_is_admin());
 -- drop policy if exists gf_event_surveys_owner on public.event_surveys;
--- create policy gf_event_surveys_owner on public.event_surveys for all to public
+-- create policy gf_event_surveys_owner on public.event_surveys for all to authenticated
 --   using (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()))
 --   with check (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()));
 -- drop policy if exists gf_event_timeline_all on public.event_timeline_items;
--- create policy gf_event_timeline_all on public.event_timeline_items for all to public
+-- create policy gf_event_timeline_all on public.event_timeline_items for all to authenticated
 --   using (producer_id = auth.uid() or public.gf_is_admin()) with check (producer_id = auth.uid() or public.gf_is_admin());
 -- drop policy if exists gf_event_zones_owner on public.event_zones;
--- create policy gf_event_zones_owner on public.event_zones for all to public
+-- create policy gf_event_zones_owner on public.event_zones for all to authenticated
 --   using (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()))
 --   with check (public.gf_is_admin() or event_id in (select id from public.events where producer_id = auth.uid()));
 -- drop policy if exists gf_piggy_tx_owner on public.piggy_transactions;
--- create policy gf_piggy_tx_owner on public.piggy_transactions for all to public
+-- create policy gf_piggy_tx_owner on public.piggy_transactions for all to authenticated
 --   using (public.gf_is_admin() or box_id in (select id from public.event_budget_boxes where producer_id = auth.uid()))
 --   with check (public.gf_is_admin() or box_id in (select id from public.event_budget_boxes where producer_id = auth.uid()));
 -- drop policy if exists gf_tasks_owner on public.tasks;
--- create policy gf_tasks_owner on public.tasks for all to public
+-- create policy gf_tasks_owner on public.tasks for all to authenticated
 --   using ((select public.gf_is_admin()) or event_id in (select id from public.events where producer_id = (select auth.uid())))
 --   with check ((select public.gf_is_admin()) or event_id in (select id from public.events where producer_id = (select auth.uid())));
 -- drop policy if exists gf_academy_admin_write on public.academy_courses;
--- create policy gf_academy_admin_write on public.academy_courses for all to public
+-- create policy gf_academy_admin_write on public.academy_courses for all to authenticated
 --   using (public.gf_is_admin()) with check (public.gf_is_admin());
 -- create or replace function public.admin_activity_stats(desde timestamp with time zone)
 --  returns table(sessoes bigint, visualizacoes bigint, logins bigint, contas_ativas bigint)
