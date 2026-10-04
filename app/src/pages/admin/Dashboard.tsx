@@ -4,6 +4,7 @@ import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { PageHeader, SectionTitle, Stat } from '@/components/producer/ui'
 import { painel } from '@/components/admin/ui'
+import { naFilaDeModeracao } from '../../lib/eventoProdutor'
 import { supabase } from '../../lib/supabase'
 
 type Res<T> = { data: T | null; error: string | null }
@@ -28,7 +29,7 @@ interface EventoRecente { id: string; title: string; created_at: string }
 
 interface Dados {
   roles: Res<string[]>
-  eventos: Res<(string | null)[]> // approval_status de cada evento
+  eventos: Res<{ status: string; approval_status: string | null }[]> // situação de cada evento
   newsletter: Res<number>
   suporte: Res<number>
   contato: Res<number>
@@ -50,12 +51,12 @@ export default function AdminDashboard() {
     const [roles, eventos, newsletter, suporte, contato, fila, eventosRecentes, contasRecentes] = await Promise.all([
       // ponytail: o PostgREST corta em 1.000 linhas; trocar por count head por papel quando passar de centenas de contas
       tenta(supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
-      tenta(supabase.from('events').select('id, approval_status'), r => (r.data || []).map((e: any) => e.approval_status ?? null)),
+      tenta(supabase.from('events').select('id, status, approval_status'), r => (r.data || []).map((e: any) => ({ status: String(e.status), approval_status: e.approval_status ?? null }))),
       tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
       tenta(supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open'), r => r.count ?? 0),
       tenta(supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
       // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201
-      tenta(supabase.from('events').select('id, title, date, created_at, profiles!producer_id(full_name)').or('approval_status.eq.pending,approval_status.is.null').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as FilaItem[]),
+      tenta(supabase.from('events').select('id, title, date, created_at, profiles!producer_id(full_name)').eq('status', 'published').or('approval_status.eq.pending,approval_status.is.null').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as FilaItem[]),
       tenta(supabase.from('events').select('id, title, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as EventoRecente[]),
       tenta(supabase.from('profiles').select('id, full_name, email, role, created_at').order('created_at', { ascending: false }).limit(5), r => (r.data || []) as Conta[]),
     ])
@@ -76,8 +77,8 @@ export default function AdminDashboard() {
   const ev = dados?.eventos.data
   const kpis: { label: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
     { label: 'Contas', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
-    { label: 'Eventos pendentes', value: ev ? ev.filter(s => !s || s === 'pending').length : null, error: dados?.eventos.error },
-    { label: 'Eventos aprovados', value: ev ? ev.filter(s => s === 'approved').length : null, error: dados?.eventos.error },
+    { label: 'Eventos pendentes', value: ev ? ev.filter(naFilaDeModeracao).length : null, error: dados?.eventos.error },
+    { label: 'Eventos aprovados', value: ev ? ev.filter(e => e.approval_status === 'approved').length : null, error: dados?.eventos.error },
     { label: 'Inscritos na newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
     { label: 'Conversas de suporte abertas', value: dados?.suporte.data, error: dados?.suporte.error },
     { label: 'Mensagens de contato', value: dados?.contato.data, error: dados?.contato.error },

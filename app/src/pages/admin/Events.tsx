@@ -8,6 +8,7 @@ import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
+import { naFilaDeModeracao } from '../../lib/eventoProdutor'
 import { rotuloFormato } from '../../lib/tipoEvento'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
@@ -86,11 +87,11 @@ export default function AdminEvents() {
   }
 
   const handleSuspend = async (eventId: string, title: string) => {
-    if (!window.confirm(`Revogar a aprovação de "${title}"?\n\nO evento sai do ar, dos destaques e volta para a fila de pendentes. Se for aprovado de novo, o produtor precisa republicá-lo — a aprovação não coloca o evento no ar sozinha.`)) return
+    if (!window.confirm(`Revogar a aprovação de "${title}"?\n\nO evento sai do ar e dos destaques e volta a rascunho até o produtor reenviá-lo para aprovação. A aprovação não coloca o evento no ar sozinha.`)) return
 
     try {
       await approveMutation.mutateAsync({ eventId, status: 'pending' })
-      toast.success('Aprovação revogada. O evento voltou para pendentes.')
+      toast.success('Aprovação revogada. O evento voltou a rascunho até o produtor reenviar.')
     } catch (err: any) {
       toast.error('Erro ao revogar aprovação: ' + err.message)
     }
@@ -106,7 +107,7 @@ export default function AdminEvents() {
   }
 
   const approved = allEvents.filter(e => e.status === 'published' && e.approval_status === 'approved')
-  const pending = allEvents.filter(e => e.approval_status === 'pending' || !e.approval_status)
+  const pending = allEvents.filter(naFilaDeModeracao)
   
   const totalRevenue = approved.reduce((s, e) => {
     const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
@@ -114,9 +115,9 @@ export default function AdminEvents() {
   }, 0)
 
   const filteredEvents = allEvents.filter(e => {
-    const appStatus = e.approval_status || 'pending'
     if (activeTab === 'all') return true
-    return appStatus === activeTab
+    if (activeTab === 'pending') return naFilaDeModeracao(e)
+    return (e.approval_status || 'pending') === activeTab
   })
 
   const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados'], ['rejected', 'Rejeitados']] as const

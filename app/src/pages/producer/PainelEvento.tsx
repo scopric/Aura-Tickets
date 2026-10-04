@@ -1,0 +1,566 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
+import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
+import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
+import SecaoIngressos from '../../components/producer/painel/SecaoIngressos'
+import SecaoOQueE from '../../components/producer/painel/SecaoOQueE'
+import SecaoPublicar, { type Falta } from '../../components/producer/painel/SecaoPublicar'
+import SecaoQuandoOnde from '../../components/producer/painel/SecaoQuandoOnde'
+import SecaoRegras from '../../components/producer/painel/SecaoRegras'
+import { Faixa } from '../../components/producer/painel/campos'
+import { useAutoSave } from '../../components/producer/painel/useAutoSave'
+import { EmptyState, PageHeader } from '@/components/producer/ui'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
+import { gravarEvento, useCreateEvent, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTicketType } from '../../hooks/useEvents'
+import { useAuth } from '../../hooks/useAuth'
+import { siteUrl } from '../../lib/appHost'
+import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
+import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
+import { copiaDoEvento, erroAoExcluir } from '../../lib/eventoProdutor'
+import { hrefDaTela } from '../../lib/navegacaoProdutor'
+import {
+  SECAO_DA_PENDENCIA, diffCampos, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
+} from '../../lib/painelEvento'
+import { supabase } from '../../lib/supabase'
+import { brl, calcularTaxa } from '../../lib/taxa'
+import { CLASSIFICACOES, TEMAS, rotuloFormato, textoAceite } from '../../lib/tipoEvento'
+import { dataComSemana, horaCurta } from '../../lib/visaoEvento'
+
+// Painel do evento (F1 PR3b; prancha Painel.dc.html e Estados.dc.html): a rota de edição. Seis seções em sanfona, a barra
+// "N de 8 prontos", salvamento automático no rascunho, recusado e em análise, e "Enviar alterações" no evento no ar.
+// O formulário nasce do evento lido ao abrir e NÃO se realimenta da consulta depois (cada gravação invalida listas).
+
+const SECOES = [
+  { id: 'oque', nome: 'O que é' }, { id: 'quando', nome: 'Quando e onde' }, { id: 'img', nome: 'Imagem' },
+  { id: 'ing', nome: 'Ingressos' }, { id: 'regras', nome: 'Regras e idade' }, { id: 'pub', nome: 'Publicar' },
+] as const
+const NOME_SECAO = Object.fromEntries(SECOES.map(s => [s.id, s.nome])) as Record<string, string>
+const PONTO: Record<ModoPainel, string> = { rascunho: 'bg-muted-foreground', recusado: 'bg-destructive', analise: 'bg-[var(--ev-warning)]', publicado: 'bg-[var(--ev-success)]', fechado: 'bg-muted-foreground' }
+const ATIVO = ['rascunho', 'recusado', 'analise']
+
+const porCriacao = (l: DbTicketType[]) => [...l].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+const semCentavos = (v: number) => brl(v).replace(',00', '')
+
+// ---- carregamento -------------------------------------------------------------------------------------------------
+// Consultas próprias, sem cache entre visitas (gcTime 0): o formulário nasce do que está no banco agora, não de uma cópia
+// de até 5 min que outra tela deixou (usePublicEvent).
+const frescas = { gcTime: 0, staleTime: 0, refetchOnMount: 'always', retry: 1 } as const
+
+export default function PainelEvento() {
+  const { eventId } = useParams()
+  const { user } = useAuth()
+  const ev = useQuery({
+    queryKey: ['painel-evento', eventId], enabled: !!eventId, ...frescas,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('events').select('*, ticket_types (*)').eq('id', eventId!).maybeSingle()
+      if (error) throw error
+      return data as DbEvent | null
+    },
+  })
+  const dono = !!ev.data && ev.data.producer_id === user?.id
+  const lk = useQuery({
+    queryKey: ['painel-link', eventId], enabled: dono, ...frescas,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('evento_privado' as never).select('online_url').eq('event_id', eventId!).maybeSingle()
+      if (error) throw error
+      return (data as { online_url: string | null } | null)?.online_url ?? ''
+    },
+  })
+  // Vendidos por tipo: ticket_types.sold não é atualizado por nada no banco; vale a contagem de ingressos válidos
+  const vd = useQuery({
+    queryKey: ['painel-vendidos', eventId], enabled: !!ev.data, ...frescas,
+    queryFn: async () => {
+      const tipos = ev.data!.ticket_types ?? []
+      const contagens = await Promise.all(tipos.map(t =>
+        supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('ticket_type_id', t.id).in('status', ['active', 'used'])))
+      const porId: Record<string, number> = {}
+      tipos.forEach((t, i) => {
+        const gravado = Math.max(Number(t.sold) || 0, Number((t as unknown as { quantity_sold?: number }).quantity_sold) || 0)
+        porId[t.id] = Math.max(contagens[i].error ? 0 : contagens[i].count ?? 0, gravado)
+      })
+      return porId
+    },
+  })
+
+  const cabecalho = <PageHeader title="Evento" description="Carregando o painel…" />
+  if (ev.isPending || (dono && lk.isPending) || (ev.data && vd.isPending)) {
+    return (
+      <div aria-busy="true" className="mx-auto max-w-3xl">
+        {cabecalho}
+        <Skeleton className="h-8 rounded-md bg-muted" />
+        <Skeleton className="mt-6 h-80 rounded-[10px] bg-muted" />
+      </div>
+    )
+  }
+  if (ev.isError || lk.isError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Evento" />
+        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">Não foi possível carregar o evento. Nada foi alterado.</p>
+          <Button variant="outline" size="sm" onClick={() => { void ev.refetch(); void lk.refetch() }}>Tentar de novo</Button>
+        </div>
+      </div>
+    )
+  }
+  if (!ev.data) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <PageHeader title="Evento" />
+        <EmptyState title="Evento não encontrado" action={<Button asChild variant="outline"><Link to="/producer/events">Voltar para meus eventos</Link></Button>} />
+      </div>
+    )
+  }
+  return <Painel evento={ev.data} dono={dono} linkInicial={lk.data ?? ''} vendidosPorId={vd.data ?? {}} />
+}
+
+// ---- painel ----------------------------------------------------------------------------------------------------------
+function Painel({ evento, dono, linkInicial, vendidosPorId }: { evento: DbEvent; dono: boolean; linkInicial: string; vendidosPorId: Record<string, number> }) {
+  const qc = useQueryClient()
+  const navigate = useNavigate()
+  const atualizarIngressos = useUpdateEvent()
+  const criar = useCreateEvent()
+  const excluir = useDeleteEvent()
+  const modo = modoPainel(evento)
+  const autosalva = ATIVO.includes(modo)
+  const somenteLeitura = modo === 'fechado'
+
+  // estado inicial: lido uma vez
+  const [inicial] = useState(() => {
+    const f = formDoEvento(evento, dono ? linkInicial : '')
+    const tipos = porCriacao(evento.ticket_types ?? []).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
+    return { f, s: snapDoForm(f, dono), tipos }
+  })
+  const [form, setForm] = useState<Form>(inicial.f)
+  const [salvo, setSalvo] = useState<Snap>(inicial.s) // o que está gravado (no evento no ar, o que está no ar)
+  const salvoRef = useRef(inicial.s)
+  const guardaBase = (s: Snap) => { salvoRef.current = s; setSalvo(s) }
+  const [ings, setIngs] = useState<Ing[]>(inicial.tipos)
+  const [ingsSalvos, setIngsSalvos] = useState<Ing[]>(inicial.tipos)
+  const [removidos, setRemovidos] = useState<string[]>([])
+  const [salvandoIng, setSalvandoIng] = useState(false)
+  const [tentouIng, setTentouIng] = useState(false)
+  const [alternando, setAlternando] = useState<string | null>(null)
+  const [capa, setCapa] = useState<CapaPronta | null>(null) // foto nova, já reduzida; sobe ao gravar
+  const [removida, setRemovida] = useState(false)
+  const [urlAtual, setUrlAtual] = useState<string | null>(evento.cover_image)
+  const [corManual, setCorManual] = useState(false)
+  const enviada = useRef<{ blob: Blob; url: string } | null>(null) // não sobe de novo se a gravação falhar depois do envio
+  useLiberarPrevia(capa)
+  const [aceiteDe, setAceiteDe] = useState<string | null>(null) // o texto aceito: mudou o texto, o aceite se desfaz
+  const [enviando, setEnviando] = useState(false)
+  const [erroEnvio, setErroEnvio] = useState('')
+  const [dialogo, setDialogo] = useState(false)
+  const [saida, setSaida] = useState<string | null>(null)
+  const [abertas, setAbertas] = useState<string[]>(['oque'])
+  const [aprovada] = useState(() => ({ classificacao: inicial.f.category === 'esporte' ? null : inicial.f.classificacao || null, bebida: inicial.tipos.some(i => i.bebida) })) // o que está no ar
+
+  const set = useCallback((p: Partial<Form>) => setForm(f => ({ ...f, ...p })), [])
+  const snap = useMemo(() => snapDoForm(form, dono), [form, dono])
+  const diff = useMemo(() => diffCampos(salvo, snap), [salvo, snap])
+  const capaPendente = !!capa || removida
+  const esporte = form.category === 'esporte'
+  const ingSujo = removidos.length > 0 || JSON.stringify(ings) !== JSON.stringify(ingsSalvos)
+  const vendidosTotal = ingsSalvos.reduce((s, i) => s + i.vendidos, 0)
+  const travado = vendidosTotal > 0
+
+  // ---- gravação do evento (salvamento automático e envio usam a mesma, uma por vez) ----
+  const vivo = useRef({ snap, capa, removida, ingSujo })
+  useEffect(() => { vivo.current = { snap, capa, removida, ingSujo } })
+  const fila = useRef<Promise<void>>(Promise.resolve())
+  const excluindo = useRef(false)
+
+  async function gravarAgora() {
+    if (excluindo.current) return
+    const v = vivo.current
+    const campos = diffCampos(salvoRef.current, v.snap)
+    const { online_url: link, ...col } = campos
+    let extra: Partial<DbEvent> = {}
+    let url: string | undefined
+    if (v.capa) {
+      if (enviada.current?.blob !== v.capa.blob) enviada.current = { blob: v.capa.blob, url: await enviarCapa(v.capa, evento.producer_id, evento.id) }
+      url = enviada.current.url
+      extra = { cover_image: url, image_url: url }
+    } else if (v.removida) {
+      extra = { cover_image: FOTO_PADRAO, image_url: FOTO_PADRAO }
+    }
+    await gravarEvento(evento.id, { ...col, ...extra } as Partial<DbEvent>)
+    guardaBase({ ...salvoRef.current, ...col })
+    if (link !== undefined) {
+      const { error } = await supabase.from('evento_privado' as never).upsert({ event_id: evento.id, online_url: link || null } as never, { onConflict: 'event_id' }).select('event_id').single()
+      if (error) throw error
+      guardaBase({ ...salvoRef.current, online_url: link })
+    }
+    if (v.capa && vivo.current.capa === v.capa) { URL.revokeObjectURL(v.capa.previewUrl); setCapa(null); setUrlAtual(url ?? null) }
+    else if (v.removida && vivo.current.removida) { setRemovida(false); setUrlAtual(FOTO_PADRAO) }
+    void qc.invalidateQueries({ queryKey: ['producer-events'] })
+    void qc.invalidateQueries({ queryKey: ['public-event', evento.id] })
+  }
+  const gravarSerial = () => { const p = fila.current.catch(() => undefined).then(gravarAgora); fila.current = p; return p }
+
+  const gatilho = useMemo(() => ({ snap, capa, removida }), [snap, capa, removida])
+  const { estado, tentarDeNovo } = useAutoSave({
+    ativo: autosalva, mudou: gatilho, gravar: gravarSerial,
+    temMudanca: () => !excluindo.current && (!!vivo.current.capa || vivo.current.removida || temErro(diffCampos(salvoRef.current, vivo.current.snap))),
+  })
+
+  // ---- derivados da tela ----
+  const erros = errosDeData(form, inicial.f)
+  const link = form.link.trim()
+  const linkRuim = link !== '' && !linkValido(link)
+  const temBebidaSalva = ingsSalvos.some(i => i.bebida)
+  const textoDoAceite = textoAceite({ titulo: form.title, formato: form.category || null, classificacao: esporte ? null : form.classificacao || null, temBebida: temBebidaSalva })
+  const aceiteMarcado = aceiteDe === textoDoAceite
+  const lista = pendenciasDoPainel(form, ingsSalvos, aceiteMarcado || modo === 'publicado' || modo === 'analise')
+  const prontos = lista.filter(p => p.pronto).length
+  const faltas: Falta[] = [
+    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]] })),
+    ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos' }] : []),
+    ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
+    ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
+  ]
+  const alteracoes = modo === 'publicado' ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
+  const classificacaoTela = esporte ? null : form.classificacao || null
+  const mudouCls = classificacaoTela !== aprovada.classificacao
+  const mudouBebida = temBebidaSalva !== aprovada.bebida
+  const precisaAceiteNovo = modo === 'publicado' && (mudouCls || mudouBebida)
+
+  const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub') || lista.filter(p => SECAO_DA_PENDENCIA[p.id] === id).every(p => p.pronto)
+  const ativos = ingsSalvos.filter(i => i.ativo)
+  const precos = ativos.map(i => precoDe(i.preco) ?? 0).filter(p => p > 0).map(p => calcularTaxa(p).total)
+  const resumos: Record<string, string> = {
+    oque: [rotuloFormato(form.category) || 'Sem formato', form.temas.map(t => TEMAS.find(x => x.valor === t)?.rotulo).filter(Boolean).join(', ')].filter(Boolean).join(' · '),
+    quando: [
+      form.inicioD ? [dataComSemana(form.inicioD), horaCurta(form.inicioH)].filter(Boolean).join(' · ') : 'Sem data',
+      form.local_modo === 'a_definir' ? 'local a definir' : form.local_modo === 'online' ? 'online' : (form.venue_name || 'sem local') + (form.local_modo === 'hibrido' ? ' + online' : ''),
+    ].join(' · '),
+    img: capa || (temFoto(urlAtual) && !removida) ? 'Foto de capa e cor' : 'Sem foto: o evento ganha um cartaz',
+    ing: ings.length === 0 ? 'Nenhum ingresso' : `${ings.length} ${ings.length === 1 ? 'ingresso' : 'ingressos'}${precos.length ? ` · a partir de ${semCentavos(Math.min(...precos))}` : ativos.length ? ' · gratuito' : ''}`,
+    regras: esporte ? 'Esporte: sem selo' : form.classificacao ? `Classificação ${form.classificacao}${temBebidaSalva ? ' · inclui bebida' : ''}` : 'Falta a classificação',
+    pub: modo === 'publicado' ? 'No ar' : modo === 'analise' ? 'Em análise' : modo === 'fechado' ? rotuloDoModo(evento) : faltas.length === 0 ? 'Pronto para enviar' : faltas.length === 1 ? 'Falta 1 item' : `Faltam ${faltas.length} itens`,
+  }
+  const resumoFalta = (id: string) => !pronta(id) && !(id === 'pub' && modo !== 'rascunho' && modo !== 'recusado')
+
+  const abrir = (id: string) => {
+    setAbertas(a => (a.includes(id) ? a : [...a, id]))
+    setTimeout(() => {
+      const cab = document.getElementById(`s-${id}`)
+      cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+      cab?.focus({ preventScroll: true })
+    }, 50)
+  }
+
+  // ---- ingressos: gravação própria ----
+  async function salvarIngressos() {
+    setTentouIng(true)
+    if (ings.some(i => temErro(errosDeIngresso(i)))) { toast.error('Corrija os ingressos marcados antes de salvar.'); return }
+    setSalvandoIng(true)
+    try {
+      if (removidos.length > 0) {
+        const { data, error } = await supabase.from('ticket_types').delete().in('id', removidos).eq('event_id', evento.id).select('id')
+        if (error) throw error
+        if ((data?.length ?? 0) !== removidos.length) throw new Error('Não foi possível remover um dos ingressos')
+        setRemovidos([])
+      }
+      await atualizarIngressos.mutateAsync({
+        eventId: evento.id, event: {},
+        tickets: ings.map(i => ({
+          id: i.novo ? undefined : i.id, name: i.nome.trim(), price: precoDe(i.preco) ?? 0, capacity: quantidadeDe(i.qtd) ?? 0,
+          inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'],
+        })),
+      })
+      const { data, error } = await supabase.from('ticket_types').select('*').eq('event_id', evento.id)
+      if (error) throw error
+      const novos = porCriacao((data ?? []) as DbTicketType[]).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
+      setIngs(novos); setIngsSalvos(novos); setTentouIng(false)
+      void qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }) // o Match de Mesa aparece com o primeiro ingresso coletiva
+      toast.success('Ingressos salvos.')
+    } catch (err) {
+      const code = (err as { code?: string } | null)?.code
+      toast.error(code === '23503' ? 'Este ingresso já tem pedidos ligados e não pode ser removido. Use Ocultar.' : 'Não foi possível salvar os ingressos. Confira a internet e tente de novo.')
+    } finally {
+      setSalvandoIng(false)
+    }
+  }
+
+  async function alternarIngresso(g: Ing) {
+    setAlternando(g.id)
+    try {
+      const { error } = await supabase.from('ticket_types').update({ is_active: !g.ativo } as never).eq('id', g.id).eq('event_id', evento.id).select('id').single()
+      if (error) throw error
+      const troca = (l: Ing[]) => l.map(i => (i.id === g.id ? { ...i, ativo: !g.ativo } : i))
+      setIngs(troca); setIngsSalvos(troca)
+      toast.success(g.ativo ? 'Ingresso oculto: não aparece mais para venda.' : 'Ingresso de volta à venda.')
+    } catch {
+      toast.error('Não foi possível mudar o ingresso. Tente de novo.')
+    } finally {
+      setAlternando(null)
+    }
+  }
+
+  // ---- enviar ----
+  const emEnvio = useRef(false) // o botão já fica travado (loading), mas o estado só muda no próximo render: duplo clique rápido
+  async function enviar() {
+    if (emEnvio.current) return
+    emEnvio.current = true
+    setEnviando(true); setErroEnvio('')
+    try {
+      const r = await enviarEvento({
+        eventId: evento.id, gravarPendentes: gravarSerial, ingressosNaoSalvos: () => vivo.current.ingSujo,
+        tela: { classificacao: classificacaoTela, temBebida: temBebidaSalva },
+        aceitar: modo !== 'publicado' || precisaAceiteNovo, publicar: modo !== 'publicado',
+      })
+      if (!r.ok) { setErroEnvio(r.erro); return }
+      setDialogo(false)
+      toast.success(modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
+      await qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] })
+      void qc.invalidateQueries({ queryKey: ['producer-events'] })
+      void qc.invalidateQueries({ queryKey: ['public-event', evento.id] })
+    } finally {
+      emEnvio.current = false
+      setEnviando(false)
+    }
+  }
+
+  function descartar() {
+    setForm(formDoSnap(salvoRef.current))
+    if (capa) URL.revokeObjectURL(capa.previewUrl)
+    setCapa(null); setRemovida(false); setAceiteDe(null); setErroEnvio('')
+  }
+
+  // ---- sair com alterações não enviadas (evento no ar) ----
+  const avisaSair = alteracoes.length > 0 || (autosalva && (estado === 'erro' || estado === 'salvando'))
+  useEffect(() => {
+    if (!avisaSair) return
+    const antes = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', antes)
+    return () => window.removeEventListener('beforeunload', antes)
+  }, [avisaSair])
+  const guardaLinks = alteracoes.length > 0
+  useEffect(() => {
+    if (!guardaLinks) return
+    // O projeto usa BrowserRouter: useBlocker não existe aqui. Captura o clique em link do app antes do roteador.
+    const clique = (e: MouseEvent) => {
+      const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null
+      if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || a.target === '_blank' || a.hasAttribute('download')) return
+      const u = new URL(a.href, window.location.href)
+      if (u.origin !== window.location.origin || u.pathname + u.search === window.location.pathname + window.location.search) return
+      e.preventDefault(); e.stopPropagation()
+      setSaida(u.pathname + u.search + u.hash)
+    }
+    document.addEventListener('click', clique, true)
+    return () => document.removeEventListener('click', clique, true)
+  }, [guardaLinks])
+
+  // ---- menu "Mais ações" (as mesmas regras de Meus eventos) ----
+  async function duplicar() {
+    if (!window.confirm(`Duplicar "${evento.title}"? A cópia nasce como rascunho, com os mesmos ingressos.`)) return
+    try { await criar.mutateAsync(copiaDoEvento(evento)); toast.success('Evento duplicado como rascunho.') } catch { toast.error('Não foi possível duplicar o evento.') }
+  }
+  async function excluirRascunho() {
+    if (!window.confirm(`Excluir o evento "${evento.title}"? Esta ação não pode ser desfeita.`)) return
+    excluindo.current = true // o salvamento automático não grava um evento que está sendo apagado
+    try {
+      await excluir.mutateAsync(evento.id)
+      toast.success('Evento excluído.')
+      navigate('/producer/events')
+    } catch (err) {
+      excluindo.current = false
+      toast.error(erroAoExcluir(err, vendidosTotal).mensagem)
+    }
+  }
+
+  const nome = form.title.trim() || 'Evento sem nome'
+  const linhaData = [form.inicioD ? [dataComSemana(form.inicioD), horaCurta(form.inicioH)].filter(Boolean).join(' · ') : 'sem data', form.local_modo === 'a_definir' ? 'local a definir' : form.local_modo === 'online' ? 'online' : form.venue_city || form.venue_name].filter(Boolean).join(' · ')
+  const cor = form.accent_color ?? corDoEvento(evento)
+  const classificacaoNova = CLASSIFICACOES.find(c => c.valor === classificacaoTela)
+  const aceiteTrava = !esporte && !form.classificacao
+
+  const corpo = (id: string) => {
+    switch (id) {
+      case 'oque': return <SecaoOQueE f={form} set={set} />
+      case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} dono={dono} erros={erros} />
+      case 'img': return (
+        <CapaEventoCampo
+          evento={{ id: evento.id, title: form.title, date: form.inicioD }}
+          urlAtual={removida ? null : urlAtual} capa={capa} onCapa={setCapa}
+          onRemover={() => setRemovida(temFoto(urlAtual))}
+          cor={cor} corManual={corManual} onCor={(valor, manual) => { set({ accent_color: valor }); if (manual) setCorManual(true) }}
+          ocupado={enviando} podeEnviar={dono} avisoAnalise={modo === 'publicado'}
+        />
+      )
+      case 'ing': return (
+        <SecaoIngressos
+          ings={ings} setIngs={setIngs} sujo={ingSujo} salvando={salvandoIng} tentou={tentouIng} onSalvar={() => void salvarIngressos()}
+          onRemover={g => { if (!g.novo) setRemovidos(r => [...r, g.id]); setIngs(l => l.filter(i => i.id !== g.id)) }}
+          onAlternar={g => void alternarIngresso(g)} alternando={alternando} classificacao={form.classificacao} aDefinir={form.local_modo === 'a_definir'}
+        />
+      )
+      case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
+      default: return (
+        <SecaoPublicar
+          modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
+          onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
+        />
+      )
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl">
+      <PageHeader
+        title={nome}
+        description={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="inline-flex items-center gap-1.5 font-medium text-foreground"><span aria-hidden="true" className={cn('size-2 rounded-full', PONTO[modo])} />{rotuloDoModo(evento)}</span>
+            <span aria-hidden="true">·</span><span>{linhaData}</span>
+          </span>
+        }
+        actions={
+          <>
+            <span role="status" aria-live="polite" className={cn('inline-flex h-8 items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground', estado === 'erro' && 'text-destructive')}>
+              {autosalva && estado === 'salvando' && <><span aria-hidden="true" className="size-3 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent motion-reduce:animate-none" />Salvando…</>}
+              {autosalva && estado === 'salvo' && <><I.Check size={14} aria-hidden="true" />Salvo</>}
+              {autosalva && estado === 'erro' && <><I.Erro size={14} aria-hidden="true" />Não salvou. <button type="button" className="underline" onClick={() => void tentarDeNovo()}>Tentar de novo</button></>}
+            </span>
+            <Button asChild variant="outline">
+              <a href={siteUrl(`/event/${evento.id}`)} target="_blank" rel="noopener noreferrer"><I.AbrirExterno aria-hidden="true" />Ver página<span className="sr-only"> (abre em nova aba)</span></a>
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" aria-label="Mais ações: duplicar, orçamento, excluir rascunho"><I.Mais aria-hidden="true" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={() => void duplicar()} disabled={criar.isPending}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
+                <DropdownMenuItem asChild><Link to={hrefDaTela('/producer/caixinha', evento.id)}><I.Financeiro size={16} aria-hidden="true" />Montar o orçamento</Link></DropdownMenuItem>
+                {(modo === 'rascunho' || modo === 'recusado') && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onSelect={() => void excluirRascunho()} disabled={excluir.isPending}><I.Lixeira size={16} aria-hidden="true" />Excluir rascunho</DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
+
+      <div className="mb-4 grid gap-3 empty:hidden">
+        {modo === 'recusado' && (
+          <Faixa tom="erro" titulo="A equipe recusou o envio" acoes={<Button variant="outline" size="sm" onClick={() => abrir('pub')}>Ir para Publicar</Button>}>
+            Motivo: “{evento.rejection_reason || 'Nenhuma justificativa fornecida.'}”
+          </Faixa>
+        )}
+        {modo === 'analise' && (
+          <Faixa tom="info" titulo="Em análise pela equipe">
+            Você pode continuar editando: tudo é salvo e a equipe aprova a versão mais recente. Se você mudar algo depois que ela abrir o evento, ela recarrega antes de aprovar.
+          </Faixa>
+        )}
+        {modo === 'fechado' && <Faixa tom="info" titulo={`Este evento está ${rotuloDoModo(evento).toLowerCase()}`}>Ele não pode mais ser editado por aqui.</Faixa>}
+        {alteracoes.length > 0 && (
+          <Faixa
+            tom="atencao" titulo={`Alterações não enviadas: ${alteracoes.join(', ')}`}
+            acoes={<><Button variant="ghost" size="sm" onClick={descartar}>Descartar</Button><Button size="sm" onClick={() => { setErroEnvio(''); setDialogo(true) }}>Enviar alterações para análise</Button></>}
+          >
+            Nada muda na página até você enviar. Ao enviar, o evento sai da vitrine e da busca até a equipe aprovar. Ingressos salvos valem na hora.
+          </Faixa>
+        )}
+      </div>
+
+      {modo !== 'fechado' && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos} de {lista.length}</span> <span className="text-sm text-muted-foreground">prontos</span></span>
+          <span role="progressbar" aria-label="Itens prontos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={prontos} className="h-2 min-w-24 flex-1 overflow-hidden rounded bg-secondary">
+            <span className="block h-full origin-left rounded bg-foreground transition-transform motion-reduce:transition-none" style={{ transform: `scaleX(${prontos / lista.length})` }} />
+          </span>
+          {prontos < lista.length
+            ? <Button variant="link" size="sm" onClick={() => abrir(SECAO_DA_PENDENCIA[lista.find(p => !p.pronto)!.id])}>Ver o que falta</Button>
+            : <span className="text-[13px] text-muted-foreground">Tudo pronto</span>}
+        </div>
+      )}
+
+      <Accordion type="multiple" value={abertas} onValueChange={setAbertas} className="border-t border-border">
+        {SECOES.map(s => {
+          const ok = pronta(s.id)
+          const falta = resumoFalta(s.id)
+          return (
+            <AccordionItem key={s.id} value={s.id}>
+              <AccordionTrigger id={`s-${s.id}`} className="min-h-16 items-center px-2 py-2 hover:no-underline">
+                <span aria-hidden="true" className={cn('grid size-5 shrink-0 place-items-center rounded-full', ok ? 'bg-[var(--ev-success)] text-background' : 'ring-[1.5px] ring-inset ring-[var(--ev-warning)]')}>
+                  {ok ? <I.Check size={12} /> : <span className="size-1.5 rounded-full bg-[var(--ev-warning)]" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold leading-5 text-foreground">{s.nome}<span className="sr-only">{ok ? ', pronto' : falta ? ', falta algo' : ''}</span></span>
+                  <span className={cn('block truncate text-[13px] font-normal leading-5', falta ? 'text-[var(--ev-warning)]' : 'text-muted-foreground')}>{resumos[s.id]}</span>
+                </span>
+                {s.id === 'quando' && travado && <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-normal text-muted-foreground"><I.Cadeado size={14} aria-hidden="true" />Travado: há ingressos vendidos</span>}
+              </AccordionTrigger>
+              <AccordionContent className="px-2 pb-6 pt-1">
+                <fieldset disabled={somenteLeitura} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
+              </AccordionContent>
+            </AccordionItem>
+          )
+        })}
+      </Accordion>
+
+      {/* Match de Mesa: só o dono do evento (editor da equipe e outro produtor não) e só com ingresso coletiva */}
+      {dono && evento.ticket_types?.some(t => t.type === 'coletiva') && <MatchDeMesaPanel eventId={evento.id} />}
+
+      <Dialog open={dialogo} onOpenChange={o => { if (!enviando) setDialogo(o) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enviar alterações para análise?</DialogTitle>
+            <DialogDescription>Enquanto a equipe analisa, {nome} sai da vitrine e da busca. Quem já comprou continua vendo a página e o ingresso.</DialogDescription>
+          </DialogHeader>
+          <p className="text-sm text-foreground">Vai para análise: {alteracoes.join(', ')}.</p>
+          {precisaAceiteNovo && (
+            <div className="grid gap-2 rounded-[10px] bg-secondary p-4">
+              <p id="dlg-ac" className="text-sm font-medium text-foreground">
+                {mudouCls
+                  ? `A classificação mudou de ${aprovada.classificacao ?? 'sem classificação'} para ${classificacaoNova?.valor ?? 'sem classificação'}: refaça o aceite`
+                  : 'A bebida alcoólica dos ingressos mudou: refaça o aceite'}
+              </p>
+              <details className="text-[13px] text-muted-foreground">
+                <summary className="cursor-pointer">Ver o texto do aceite</summary>
+                <p className="mt-1 whitespace-pre-line">{textoDoAceite}</p>
+              </details>
+              <div className="flex items-start gap-2">
+                <Checkbox id="dlg-aceite" checked={aceiteMarcado} onCheckedChange={v => setAceiteDe(v === true ? textoDoAceite : null)} className="mt-0.5" />
+                <Label htmlFor="dlg-aceite" className="font-normal">Li e aceito o termo do produtor{classificacaoNova ? ` com a classificação ${classificacaoNova.valor}` : ''}</Label>
+              </div>
+            </div>
+          )}
+          {erroEnvio && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><I.Erro size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{erroEnvio}</p>}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDialogo(false)} disabled={enviando}>Cancelar</Button>
+            <Button loading={enviando} aria-disabled={(precisaAceiteNovo && !aceiteMarcado) || undefined} aria-describedby={precisaAceiteNovo && !aceiteMarcado ? 'dlg-ac' : undefined}
+              onClick={() => { if (!precisaAceiteNovo || aceiteMarcado) void enviar() }}>Enviar para análise</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={saida !== null} onOpenChange={o => { if (!o) setSaida(null) }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sair sem enviar?</DialogTitle>
+            <DialogDescription>As alterações de {nome} ainda não foram enviadas. Se sair agora, elas se perdem.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { const destino = saida; setSaida(null); if (destino) navigate(destino) }}>Sair e perder</Button>
+            <Button variant="outline" onClick={() => setSaida(null)}>Continuar editando</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+
+}

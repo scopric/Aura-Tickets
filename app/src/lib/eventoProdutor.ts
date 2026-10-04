@@ -16,6 +16,11 @@ export function situacaoEvento(e: { status: string; approval_status?: string | n
   return 'Em análise'
 }
 
+// Fila de moderação do admin (F1): só o que o produtor ENVIOU (published) e ainda não foi decidido. Rascunho com
+// approval_status 'pending' (o padrão do banco) não é pedido de análise. Sem approval_status conta como pendente.
+export const naFilaDeModeracao = (e: { status: string; approval_status?: string | null }): boolean =>
+  e.status === 'published' && (e.approval_status === 'pending' || !e.approval_status)
+
 // Decisão 129: com ingresso vendido o produtor não tira o evento do ar nem reabre o cancelado até existir reembolso
 // (M12). O banco recusa (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql): EV001 ao
 // cancelar; EV002 ao voltar a rascunho ou encerrar antes da data; EV003 ao reabrir um cancelado.
