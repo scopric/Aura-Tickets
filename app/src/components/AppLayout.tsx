@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react'
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Calendar, Ticket, ShoppingCart, MessageCircle,
-  Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User, Loader2,
+  Bell, Settings, LogOut, ChevronLeft, ChevronRight, Search, User,
   Menu, Camera
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
-import { useUserNotifications, useMarkAllNotificationsRead } from '../hooks/useNotifications'
+import { useUserNotifications } from '../hooks/useNotifications'
 import { useTourDaUrl } from '../hooks/useTourDaUrl'
 import { cn } from '../lib/utils'
 import ThemeToggle from './ThemeToggle'
@@ -15,6 +15,7 @@ import { uploadAvatar } from '../lib/avatarUpload'
 import EvoHub from './EvoHub'
 import Tour from './producer/Tour'
 import FeedbackTopButton from './FeedbackTopButton'
+import NotificationsTopButton from './NotificationsTopButton'
 import * as I from './icones/evokaa16'
 
 const navItems = [
@@ -39,21 +40,9 @@ const abas = [
 // Mesma consulta do breakpoint lg: a lateral só aparece a partir dela; abaixo, vale a barra inferior
 const COMPUTADOR = '(min-width: 1024px)'
 
-function formatTimeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return 'Agora'
-  if (mins < 60) return `${mins} min`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h`
-  const days = Math.floor(hrs / 24)
-  return `${days}d`
-}
-
 export default function AppLayout() {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [showNotifs, setShowNotifs] = useState(false)
   const { user, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
@@ -82,15 +71,9 @@ export default function AppLayout() {
     fileInputRef.current?.click()
   }
 
-  const { data: notifications = [], isLoading: isNotifLoading } = useUserNotifications()
-  const markAllRead = useMarkAllNotificationsRead()
+  const { data: notifications = [] } = useUserNotifications()
 
   const unreadCount = notifications.filter((n: any) => !n.is_read).length
-
-  const handleMarkAllRead = () => {
-    markAllRead.mutate()
-    setShowNotifs(false)
-  }
 
   const isActive = (path: string) =>
     location.pathname === path || location.pathname.startsWith(path + '/')
@@ -326,67 +309,11 @@ export default function AppLayout() {
           </div>
 
           <div className="flex items-center gap-4">
-            {/* Notifications */}
-            <div className="relative">
-              <button
-                onClick={() => setShowNotifs(!showNotifs)}
-                aria-label={unreadCount > 0 ? `Notificações, ${unreadCount} não lida${unreadCount > 1 ? 's' : ''}` : 'Notificações'}
-                aria-expanded={showNotifs}
-                className="relative p-2.5 rounded-xl hover:bg-white/[0.04] transition-colors"
-              >
-                <Bell className="w-5 h-5 text-white/60" aria-hidden="true" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full bg-purple-500 ring-2 ring-[#07080c]" />
-                )}
-              </button>
-
-              {/* Notifications Dropdown */}
-              {showNotifs && (
-                <div className="absolute right-0 top-full mt-2 w-96 glass-panel rounded-2xl overflow-hidden z-50">
-                  <div className="p-4 border-b border-white/[0.06] flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-white">Notificações</h3>
-                    <button
-                      onClick={handleMarkAllRead}
-                      disabled={markAllRead.isPending || unreadCount === 0}
-                      className="text-xs text-purple-400 hover:text-purple-300 disabled:opacity-40 font-medium"
-                    >
-                      {markAllRead.isPending ? (
-                        <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
-                      ) : (
-                        'Marcar como lidas'
-                      )}
-                    </button>
-                  </div>
-                  <div className="max-h-72 overflow-y-auto">
-                    {isNotifLoading ? (
-                      <div className="p-6 text-center">
-                        <Loader2 className="w-5 h-5 text-purple-500 animate-spin mx-auto" />
-                      </div>
-                    ) : notifications.length === 0 ? (
-                      <div className="p-6 text-center text-sm text-white/40">
-                        Nenhuma notificação
-                      </div>
-                    ) : (
-                      notifications.map((n: any) => (
-                        <div
-                          key={n.id}
-                          className={cn(
-                            'p-3 border-b border-white/[0.04] last:border-0 transition-colors',
-                            !n.is_read ? 'bg-purple-500/10' : ''
-                          )}
-                        >
-                          <p className="text-sm text-white/90 font-medium">{n.title}</p>
-                          {n.message && (
-                            <p className="text-xs text-white/60 mt-0.5">{n.message}</p>
-                          )}
-                          <p className="text-[11px] text-white/40 mt-1">{formatTimeAgo(n.created_at)}</p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
+            {/* Sino: o mesmo componente do produtor */}
+            <NotificationsTopButton
+              className="rounded-xl p-2.5 text-white/60 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400"
+              verTodas={{ to: '/app/notifications', texto: 'Ver todas as notificações' }}
+            />
 
             <FeedbackTopButton className="p-2.5 rounded-xl text-white/60 hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-400" />
 

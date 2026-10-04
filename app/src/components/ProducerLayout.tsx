@@ -172,7 +172,7 @@ export default function ProducerLayout() {
             <img src="/images/logo-evokaa-sm.png" alt="Evokaa" className="h-7 w-auto" />
           </div>
           <div className="pointer-events-auto flex items-center gap-1 lg:rounded-full lg:border lg:border-border lg:bg-card lg:p-0.5">
-            <NotificationsTopButton className={botaoTopo} />
+            <NotificationsTopButton className={botaoTopo} verTodas={{ to: '/producer/settings?secao=notificacoes', texto: 'Preferências de notificação' }} />
             <FeedbackTopButton className={botaoTopo} />
           </div>
         </div>

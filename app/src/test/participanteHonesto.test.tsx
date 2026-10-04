@@ -16,7 +16,7 @@ vi.mock('../hooks/useEvents', () => ({ usePublicEvents: () => ({ data: eventos, 
 vi.mock('../hooks/useCheckout', () => ({ useUserTickets: () => ({ data: ingressos, isLoading: false }) }))
 vi.mock('../hooks/useMenuItems', () => ({ useEventMenuItems: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAuth', async (original) => ({ ...(await original<typeof import('../hooks/useAuth')>()), useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
-vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }) }))
+vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false, isError: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }), useMarkNotificationRead: () => ({ mutate: vi.fn(), isPending: false }), urlDoAviso: () => null }))
 vi.mock('../components/BotaoSalvar', () => ({ default: ({ eventId }: { eventId: string }) => <button type="button" aria-label="Salvar evento" data-evento={eventId} /> }))
 vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => vi.fn() }))
 vi.mock('../components/EvoHub', () => ({ default: () => null }))

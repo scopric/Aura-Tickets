@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Bell, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
-import { useUserNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '../hooks/useNotifications'
+import { useUserNotifications, useMarkNotificationRead, useMarkAllNotificationsRead, urlDoAviso, type DbNotification } from '../hooks/useNotifications'
 
 const rtf = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' })
 const UNIDADES: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -16,20 +18,30 @@ export function tempoRelativo(iso: string, agora = Date.now()) {
   return 'agora'
 }
 
-/** Sino da barra de topo do produtor: lista as notificações do próprio usuário (tema claro e escuro). */
-export default function NotificationsTopButton({ className }: { className: string }) {
+/** Sino da barra de topo (participante e produtor): lista os avisos do próprio usuário, marca como lido e abre o link do aviso.
+ *  `verTodas` (opcional) põe um link de rodapé, também no estado vazio. */
+export default function NotificationsTopButton({ className, verTodas }: { className: string; verTodas?: { to: string; texto: string } }) {
   const [aberto, setAberto] = useState(false)
+  const navigate = useNavigate()
   const { data: notificacoes = [], isLoading, isError } = useUserNotifications()
   const marcarUma = useMarkNotificationRead()
   const marcarTodas = useMarkAllNotificationsRead()
   const naoLidas = notificacoes.filter((n) => !n.is_read).length
+  const nomeSino = naoLidas > 0 ? `Notificações, ${naoLidas} não lida${naoLidas > 1 ? 's' : ''}` : 'Notificações'
+
+  const abrir = (n: DbNotification) => {
+    // lida continua focável (dá para ler pelo teclado); só a não lida marca ao clicar
+    if (!n.is_read && !marcarUma.isPending) marcarUma.mutate(n.id, { onError: () => toast.error('Não foi possível marcar como lida. Tente de novo.') })
+    const url = urlDoAviso(n)
+    if (url) { setAberto(false); navigate(url) }
+  }
 
   return (
     <Popover open={aberto} onOpenChange={setAberto}>
       <Tooltip>
         <TooltipTrigger asChild>
           <PopoverTrigger asChild>
-            <button type="button" aria-label={`Notificações (${naoLidas} não lidas)`} className={`relative ${className}`}>
+            <button type="button" aria-label={nomeSino} className={`relative ${className}`}>
               <Bell className="h-5 w-5" aria-hidden="true" />
               {naoLidas > 0 && (
                 <span aria-hidden="true" className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-purple-500 ring-2 ring-[#f8fafc] dark:ring-[#0a0b10]" />
@@ -45,7 +57,7 @@ export default function NotificationsTopButton({ className }: { className: strin
           <h3 className="text-sm font-semibold">Notificações</h3>
           <button
             type="button"
-            onClick={() => marcarTodas.mutate()}
+            onClick={() => marcarTodas.mutate(undefined, { onError: () => toast.error('Não foi possível marcar como lidas. Tente de novo.') })}
             disabled={marcarTodas.isPending || naoLidas === 0}
             className="rounded text-xs font-medium text-purple-700 hover:text-purple-900 disabled:opacity-50 dark:text-purple-300 dark:hover:text-purple-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
           >
@@ -72,12 +84,11 @@ export default function NotificationsTopButton({ className }: { className: strin
                 <li key={n.id} className={`border-b border-slate-900/5 last:border-0 dark:border-white/5 ${n.is_read ? '' : 'bg-purple-500/10'}`}>
                   <button
                     type="button"
-                    // lida continua focável (dá para ler pelo teclado); só a não lida marca ao clicar
-                    onClick={() => !n.is_read && !marcarUma.isPending && marcarUma.mutate(n.id)}
+                    onClick={() => abrir(n)}
                     className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
                   >
                     <span className="block text-sm font-medium">{n.title}{!n.is_read && <span className="sr-only"> (não lida)</span>}</span>
-                    {n.message && <span className="mt-0.5 block text-xs text-slate-700 dark:text-slate-300">{n.message}</span>}
+                    {n.body && <span className="mt-0.5 block text-xs text-slate-700 dark:text-slate-300">{n.body}</span>}
                     <span className="mt-1 block text-[11px] text-slate-600 dark:text-slate-400">{tempoRelativo(n.created_at)}</span>
                   </button>
                 </li>
@@ -85,6 +96,15 @@ export default function NotificationsTopButton({ className }: { className: strin
             </ul>
           )}
         </div>
+        {verTodas && (
+          <Link
+            to={verTodas.to}
+            onClick={() => setAberto(false)}
+            className="block border-t border-slate-900/10 p-3 text-center text-xs font-medium text-purple-700 hover:text-purple-900 dark:border-white/10 dark:text-purple-300 dark:hover:text-purple-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-purple-500"
+          >
+            {verTodas.texto}
+          </Link>
+        )}
       </PopoverContent>
     </Popover>
   )
