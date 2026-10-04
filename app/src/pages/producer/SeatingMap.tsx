@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
-import { reduzirPlanta } from '../../lib/plantaFundo'
+import { reduzirPlanta, pdfParaImagem } from '../../lib/plantaFundo'
 import * as I from '@/components/icones/evokaa16'
+import { chamarEvo, RECUSAS, creditos } from '../../components/evo/EvoChat'
+import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 
@@ -72,6 +74,12 @@ interface Environment {
   roomLHeight?: number // altura perna L
   roomRotation?: number // rotação global do pavilhão
 }
+
+// ponytail: custo padrão da leitura (ai_settings.credit_cost.imagem); o produtor não lê as configurações do Evo.
+// Se a administração mudar o valor, este texto fica desatualizado até uma leitura recusada ou concluída mostrar o real.
+const CUSTO_LEITURA = 5
+const ESCALA_PADRAO = 40 // pixelsPerMeter de um pavimento novo; 40 = escala ainda não calibrada
+const MAX_ARQUIVO_BYTES = 15 * 1024 * 1024 // planta enviada pelo produtor (imagem ou PDF); a que vai ao Evo já sai reduzida
 
 const sectionColors = [
   '#7a3b69', '#1e3a5f', '#d97706', '#16a34a', '#dc2626',
@@ -450,15 +458,13 @@ export default function SeatingMap() {
   const [bgDragging, setBgDragging] = useState(false)
   const [bgDragStart, setBgDragStart] = useState({ x: 0, y: 0 })
 
-  // IA Reader
+  // Leitor de planta com IA: a proposta fica aqui até o produtor revisar e aplicar (nada vai ao mapa antes)
   const [aiReaderOpen, setAiReaderOpen] = useState(false)
-  const [shouldAutoScan, setShouldAutoScan] = useState(false)
-  const [aiScanProgress, setAiScanProgress] = useState(0)
-  const [aiScanStatus, setAiScanStatus] = useState('')
-  const [aiScanning, setAiScanning] = useState(false)
-  const [detectedCount, setDetectedCount] = useState({ seats: 0, tables: 0, stages: 0 })
-  const [showDetectionsOnCanvas, setShowDetectionsOnCanvas] = useState(false)
-  const [tempDetections, setTempDetections] = useState<SeatNode[]>([])
+  const [lendo, setLendo] = useState(false)
+  const [proposta, setProposta] = useState<{ imagem: string; pecas: PecaProposta[]; custo?: number; restante?: number } | null>(null)
+  const [bgNatural, setBgNatural] = useState<{ w: number; h: number } | null>(null)
+  // a proposta é da planta em que foi lida: trocou ou tirou a planta, ela some
+  const propostaAtual = proposta && proposta.imagem === bgImage ? proposta : null
 
   // Auto-abrir a barra lateral direita ao selecionar elementos no canvas
   useEffect(() => {
@@ -469,7 +475,6 @@ export default function SeatingMap() {
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const pdfInputRef = useRef<HTMLInputElement>(null)
 
   const activeSection = activeEnvObj.sections.find(s => s.id === activeSec) || activeEnvObj.sections[0]
   const seats = activeEnvObj.seats || []
@@ -1489,330 +1494,99 @@ export default function SeatingMap() {
     toast.success(`Alinhado: ${dir}`)
   }
 
-  const uploadBgImage = (file: File) => {
-    reduzirPlanta(file).then(resultStr => {
+  // Imagem ou PDF (página 1) → planta de fundo reduzida. Os dois seguem o mesmo caminho (reduzirPlanta).
+  const uploadBgImage = async (file: File) => {
+    if (file.size > MAX_ARQUIVO_BYTES) {
+      toast.error('Esse arquivo passa de 15 MB. Use um arquivo menor.')
+      return
+    }
+    const pdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+    try {
+      const resultStr = await reduzirPlanta(pdf ? await pdfParaImagem(file) : file)
       setBgImage(resultStr)
       setBgScale(1.0)
       setBgOffset({ x: 100, y: 80 })
       setBgOpacity(0.4)
-      toast.success('Imagem da planta carregada como fundo!')
-      
-      if (shouldAutoScan) {
-        runAiMapReader(resultStr)
-        setShouldAutoScan(false)
-      }
-    }).catch(() => toast.error('Não consegui ler essa imagem. Use PNG, JPG ou WebP.'))
+      toast.success(pdf ? 'Página 1 do PDF carregada como planta de fundo!' : 'Imagem da planta carregada como fundo!')
+    } catch {
+      toast.error(pdf ? 'Não consegui abrir esse PDF. Confira se ele não tem senha ou use uma imagem.' : 'Não consegui ler essa imagem. Use PNG, JPG ou WebP.')
+    }
   }
 
   const triggerImageUpload = () => {
     fileInputRef.current?.click()
   }
 
-  const runAiScannerFallback = () => {
-    setAiScanStatus('Lendo e mapeando planta baixa (Simulado)...')
-    setAiScanProgress(80)
-    
-    setTimeout(() => {
-      setAiScanProgress(100)
-      setAiScanStatus('Análise concluída com sucesso!')
-      setAiScanning(false)
-      
-      const detected: SeatNode[] = []
-      const startX = 10.0 + roomWidth / 4
-      const startY = 10.0 + roomHeight / 4
-      
-      // Gerar mesas no salão
-      for (let i = 0; i < 12; i++) {
-        const mx = startX + (i % 4) * 4.5
-        const my = startY + Math.floor(i / 4) * 4.0
-        
-        detected.push({
-          id: `ai-table-mock-${Date.now()}-${i}`,
-          x: mx,
-          y: my,
-          label: `Mesa IA-${i + 1}`,
-          type: 'table',
-          color: '#d97706',
-          price: 150,
-          rotation: 0,
-          sold: 0,
-          capacity: 4,
-          sectionId: 'vip',
-          status: 'free',
-          locked: false,
-          widthMeter: 1.6,
-          heightMeter: 1.6,
-          tableShape: 'circle',
-          seatsCount: 4
-        })
-      }
-      
-      // Importar automaticamente no editor
-      setSeats(prev => {
-        const merged = [...prev, ...detected]
-        pushHistory(merged, walls)
-        return merged
-      })
-      setTempDetections(detected)
-      setDetectedCount({
-        seats: 0,
-        tables: 12,
-        stages: 0
-      })
-      toast.success('Evokaa AI Reader gerou e importou 12 mesas de layout base no seu espaço!')
-    }, 1000)
-  }
-
-  const runAiMapReader = (imgUrl?: string) => {
-    const imageToUse = imgUrl || bgImage
-    if (!imageToUse) {
-      toast.error('Faça upload de uma planta baixa antes de escanear.')
+  // A planta de fundo (já reduzida) vai ao Evo; a proposta volta para revisão e não toca no mapa
+  const lerPlantaComIA = async () => {
+    if (!eventId || !bgImage || lendo) return
+    setLendo(true)
+    let r: Awaited<ReturnType<typeof chamarEvo>>
+    try {
+      r = await chamarEvo({ mode: 'planta', event_id: eventId, imagem: bgImage })
+    } catch {
+      r = { ok: false, motivo: 'rede' }
+    }
+    setLendo(false)
+    if (!r.ok) {
+      toast.error(r.motivo === 'sem_credito' && typeof r.custo === 'number' && typeof r.restante === 'number'
+        ? `Esta leitura custa ${creditos(r.custo)} e você tem ${r.restante}.`
+        : RECUSAS[r.motivo] ?? r.message ?? RECUSAS.erro_ia)
       return
     }
-
-    setAiScanning(true)
-    setAiScanProgress(0)
-    setAiScanStatus('Iniciando visão computacional...')
-    setShowDetectionsOnCanvas(true)
-
-    // Criar imagem temporária para processamento de pixels
-    const img = new Image()
-    img.src = imageToUse
-    img.crossOrigin = 'anonymous'
-
-    img.onload = () => {
-      // 1. Configurar canvas invisível de baixa resolução para performance
-      const procCanvas = document.createElement('canvas')
-      const maxDim = 500
-      let w = img.width
-      let h = img.height
-      if (w > h) {
-        if (w > maxDim) {
-          h = Math.round((h * maxDim) / w)
-          w = maxDim
-        }
-      } else {
-        if (h > maxDim) {
-          w = Math.round((w * maxDim) / h)
-          h = maxDim
-        }
-      }
-      procCanvas.width = w
-      procCanvas.height = h
-
-      const ctx = procCanvas.getContext('2d')
-      if (!ctx) {
-        runAiScannerFallback()
-        return
-      }
-
-      ctx.drawImage(img, 0, 0, w, h)
-
-      try {
-        const imgData = ctx.getContext('2d')?.getImageData(0, 0, w, h)
-        if (!imgData) {
-          runAiScannerFallback()
-          return
-        }
-
-        const data = imgData.data
-        const threshold = 160 // Limiar de escala de cinza para considerar como elemento/parede (preto)
-        const visited = new Uint8Array(w * h)
-        const detections: { x: number; y: number; size: number }[] = []
-
-        const getPixel = (px: number, py: number) => {
-          const idx = (py * w + px) * 4
-          const r = data[idx]
-          const g = data[idx + 1]
-          const b = data[idx + 2]
-          return 0.299 * r + 0.587 * g + 0.114 * b // luminância escala cinza
-        }
-
-        setAiScanStatus('Analisando contraste da planta...')
-        setAiScanProgress(30)
-
-        // Varredura de pixels saltando de 4 em 4 para alto desempenho
-        for (let y = 6; y < h - 6; y += 4) {
-          for (let x = 6; x < w - 6; x += 4) {
-            const idx = y * w + x
-            if (visited[idx]) continue
-
-            const val = getPixel(x, y)
-            if (val < threshold) {
-              // Encontramos um possível blob de estrutura.
-              let sumX = 0
-              let sumY = 0
-              let count = 0
-              let minX = x, maxX = x
-              let minY = y, maxY = y
-
-              const queue: [number, number][] = [[x, y]]
-              visited[idx] = 1
-
-              while (queue.length > 0 && count < 1000) {
-                const [cx, cy] = queue.shift()!
-                sumX += cx
-                sumY += cy
-                count++
-
-                if (cx < minX) minX = cx
-                if (cx > maxX) maxX = cx
-                if (cy < minY) minY = cy
-                if (cy > maxY) maxY = cy
-
-                const neighbors = [
-                  [cx + 3, cy],
-                  [cx - 3, cy],
-                  [cx, cy + 3],
-                  [cx, cy - 3]
-                ]
-
-                for (const [nx, ny] of neighbors) {
-                  if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                    const nIdx = ny * w + nx
-                    if (!visited[nIdx]) {
-                      visited[nIdx] = 1
-                      if (getPixel(nx, ny) < threshold) {
-                        queue.push([nx, ny])
-                      }
-                    }
-                  }
-                }
-              }
-
-              // Blob de tamanho compatível com mesa/cadeira
-              if (count > 12 && count < 500) {
-                const bW = maxX - minX
-                const bH = maxY - minY
-                const bSize = Math.max(bW, bH)
-                const ratio = Math.min(bW, bH) / Math.max(bW, bH)
-
-                // Evitar linhas (paredes) e blobs muito estreitos
-                if (ratio > 0.45 && bSize > 8 && bSize < 50) {
-                  detections.push({
-                    x: sumX / count,
-                    y: sumY / count,
-                    size: bSize
-                  })
-                }
-              }
-            }
-          }
-        }
-
-        setAiScanStatus('Mapeando e filtrando mesas detectadas...')
-        setAiScanProgress(65)
-
-        // Limpeza de duplicados por distância mínima
-        const filteredDetections: typeof detections = []
-        const minDistanceInPixels = Math.max(14, Math.min(w, h) * 0.05)
-
-        detections.forEach(det => {
-          let tooClose = false
-          for (const existing of filteredDetections) {
-            const dist = Math.hypot(det.x - existing.x, det.y - existing.y)
-            if (dist < minDistanceInPixels) {
-              tooClose = true
-              break
-            }
-          }
-          if (!tooClose) {
-            filteredDetections.push(det)
-          }
-        })
-
-        setAiScanStatus('Posicionando elementos no salão...')
-        setAiScanProgress(85)
-
-        // Converter para SeatNodes nos eixos corretos do salão (com offset do canvas)
-        const detectedNodes: SeatNode[] = []
-        const offsetLeft = 10.0
-        const offsetTop = 10.0
-
-        filteredDetections.forEach((det, i) => {
-          const mx = offsetLeft + (det.x / w) * roomWidth
-          const my = offsetTop + (det.y / h) * roomHeight
-
-          let capacity = 4
-          let wMeter = 1.4
-          let hMeter = 1.4
-
-          if (det.size > 22) {
-            capacity = 8
-            wMeter = 1.8
-            hMeter = 1.8
-          } else if (det.size > 16) {
-            capacity = 6
-            wMeter = 1.6
-            hMeter = 1.6
-          }
-
-          detectedNodes.push({
-            id: `ai-table-${Date.now()}-${i}`,
-            x: mx,
-            y: my,
-            label: `Mesa IA-${i + 1}`,
-            type: 'table',
-            color: '#d97706',
-            price: 150,
-            rotation: 0,
-            sold: 0,
-            capacity: capacity,
-            sectionId: 'vip',
-            status: 'free',
-            locked: false,
-            widthMeter: wMeter,
-            heightMeter: hMeter,
-            tableShape: 'circle',
-            seatsCount: capacity
-          })
-        })
-
-        setTimeout(() => {
-          setAiScanProgress(100)
-          setAiScanStatus('Vetorização concluída!')
-          setAiScanning(false)
-
-          setTempDetections(detectedNodes)
-          setDetectedCount({
-            seats: 0,
-            tables: detectedNodes.length,
-            stages: 0
-          })
-
-          if (detectedNodes.length > 0) {
-            setSeats(prev => {
-              const merged = [...prev, ...detectedNodes]
-              pushHistory(merged, walls)
-              return merged
-            })
-            setShowDetectionsOnCanvas(false)
-            toast.success(`Evokaa AI Reader vetorizou e importou ${detectedNodes.length} mesas na sua planta!`)
-          } else {
-            runAiScannerFallback()
-          }
-        }, 600)
-
-      } catch (err) {
-        console.error('Erro de leitura de ImageData:', err)
-        runAiScannerFallback()
-      }
+    const pecas = pecasValidas(r.pecas, t => (toolDefaults[t as ToolType]?.wMeter ?? 0) > 0)
+    if (pecas.length === 0) {
+      toast.warning('A leitura não reconheceu nenhuma peça nessa planta. Ela foi cobrada; tente uma imagem mais nítida ou monte o mapa à mão.')
+      return
     }
-
-    img.onerror = () => {
-      runAiScannerFallback()
-    }
+    setProposta({ imagem: bgImage, pecas: pecas.map((p, i) => ({ ...p, id: `ia-${i}`, marcada: true })), custo: r.custo, restante: r.restante })
+    toast.success(`${pecas.length} peças propostas. Revise por cima da planta antes de aplicar.`)
   }
 
-  const importAiDetections = () => {
-    if (tempDetections.length === 0) return
-    const merged = [...seats, ...tempDetections]
-    setSeats(merged)
-    pushHistory(merged, walls)
-    setTempDetections([])
-    setShowDetectionsOnCanvas(false)
+  // Só as peças marcadas entram, num único passo do desfazer, e ficam selecionadas para mover o bloco
+  const aplicarProposta = () => {
+    if (!propostaAtual || !bgNatural) return
+    const nos = nosDaProposta(propostaAtual.pecas, {
+      offset: bgOffset, scale: bgScale, naturalWidth: bgNatural.w, naturalHeight: bgNatural.h, pixelsPerMeter,
+    })
+    if (nos.length === 0) {
+      toast.error('Nenhuma peça marcada. Marque ao menos uma ou cancele.')
+      return
+    }
+    const contagem: Partial<Record<ToolType, number>> = {}
+    const novos: SeatNode[] = nos.map(n => {
+      const def = toolDefaults[n.tipo]
+      contagem[n.tipo] = (contagem[n.tipo] ?? seats.filter(s => s.type === n.tipo).length) + 1
+      const quadrada = Math.abs(n.widthMeter - n.heightMeter) <= 0.15 * Math.max(n.widthMeter, n.heightMeter)
+      return {
+        id: genId(),
+        x: n.x,
+        y: n.y,
+        label: n.rotulo || `${typeLabels[n.tipo]} ${contagem[n.tipo]}`,
+        type: n.tipo,
+        color: activeSection?.color || def.color || '#7a3b69',
+        price: activeSection?.price !== undefined ? activeSection.price : 100,
+        rotation: 0,
+        sold: 0,
+        capacity: def.cap || 0,
+        sectionId: activeSec,
+        status: 'free',
+        locked: false,
+        widthMeter: n.widthMeter,
+        heightMeter: n.heightMeter,
+        tableShape: n.tipo === 'table' ? (quadrada ? 'circle' : 'rectangle') : undefined,
+        seatsCount: n.tipo === 'table' ? (def.cap || 6) : undefined,
+      }
+    })
+    const next = [...seats, ...novos]
+    setSeats(next)
+    pushHistory(next, walls)
+    setSelected(novos.map(n => n.id))
+    setSelectedWallId(null)
+    setTool('select')
+    setProposta(null)
     setAiReaderOpen(false)
-    toast.success('Estruturas vetorizadas importadas com sucesso!')
+    toast.success(`${novos.length} peças aplicadas e selecionadas: mova o bloco ou ajuste uma a uma. Ctrl+Z desfaz tudo.`)
   }
 
   const generateAutoLayout = () => {
@@ -2576,12 +2350,7 @@ export default function SeatingMap() {
           </button>
 
           <button
-            onClick={() => {
-              setAiReaderOpen(true)
-              if (bgImage) {
-                runAiMapReader()
-              }
-            }}
+            onClick={() => setAiReaderOpen(true)}
             aria-label="Leitor de mapa com IA"
             className="flex items-center gap-2 h-8 px-3 md:px-4 rounded-md border border-border bg-card text-xs font-medium text-foreground hover:bg-foreground/5 transition-colors"
           >
@@ -2934,7 +2703,33 @@ export default function SeatingMap() {
                   alt="Planta Baixa" 
                   className="w-full h-auto select-none pointer-events-none" 
                   draggable={false} 
+                  onLoad={e => setBgNatural({ w: e.currentTarget.naturalWidth, h: e.currentTarget.naturalHeight })}
                 />
+              </div>
+            )}
+
+            {/* Proposta do leitor de planta com IA: por cima da planta, clique desmarca a peça. Nada entra no mapa antes de "Aplicar". */}
+            {propostaAtual && bgNatural && (
+              <div
+                className="absolute z-40 pointer-events-none"
+                style={{ left: bgOffset.x, top: bgOffset.y, width: bgScale * LARGURA_BASE_PX, height: (bgScale * LARGURA_BASE_PX * bgNatural.h) / bgNatural.w }}
+              >
+                {propostaAtual.pecas.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={p.marcada}
+                    aria-label={`${typeLabels[p.tipo]}${p.rotulo ? ` ${p.rotulo}` : ''}: ${p.marcada ? 'marcada, clique para desmarcar' : 'desmarcada, clique para marcar'}`}
+                    title={`${typeLabels[p.tipo]}${p.rotulo ? ` · ${p.rotulo}` : ''}`}
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => {
+                      e.stopPropagation()
+                      setProposta({ ...propostaAtual, pecas: propostaAtual.pecas.map(x => (x.id === p.id ? { ...x, marcada: !x.marcada } : x)) })
+                    }}
+                    className={`absolute rounded-sm border-2 ${calibrating ? 'pointer-events-none' : 'pointer-events-auto'} ${p.marcada ? 'border-plum bg-plum/25' : 'border-dashed border-stone-400 bg-stone-300/20'}`}
+                    style={{ left: `${(p.x - p.w / 2) * 100}%`, top: `${(p.y - p.h / 2) * 100}%`, width: `${p.w * 100}%`, height: `${p.h * 100}%` }}
+                  />
+                ))}
               </div>
             )}
 
@@ -3088,37 +2883,6 @@ export default function SeatingMap() {
                 </div>
               )
             })()}
-
-            {/* Overlay da IA */}
-            {showDetectionsOnCanvas && tempDetections.map((d, index) => {
-              const dimX = (d.widthMeter || 0.5) * pixelsPerMeter
-              const dimY = (d.heightMeter || 0.5) * pixelsPerMeter
-              return (
-                <div 
-                  key={`det-${index}`}
-                  className="absolute border-2 border-yellow-500 bg-yellow-500/20 rounded-full flex items-center justify-center animate-pulse z-40 pointer-events-none -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: d.x * pixelsPerMeter,
-                    top: d.y * pixelsPerMeter,
-                    width: dimX,
-                    height: dimY
-                  }}
-                >
-                  <I.Destaque className="w-3.5 h-3.5 text-yellow-500" />
-                </div>
-              )
-            })}
-
-            {/* Scanner de IA */}
-            {aiScanning && (
-              <div 
-                className="absolute left-0 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent pointer-events-none shadow-[0_0_15px_hsl(var(--primary)/0.6)] z-50 animate-pulse"
-                style={{ 
-                  animation: 'scannerAnimation 3.5s ease-in-out infinite',
-                  top: 0
-                }}
-              />
-            )}
 
             {/* RENDERIZAÇÃO DOS ELEMENTOS */}
             {filteredSeats.map(s => {
@@ -4470,16 +4234,9 @@ export default function SeatingMap() {
                             {calibrating ? 'Marcando Pontos...' : 'Calibrar Escala Métrica'}
                           </button>
 
-                          <Button
-                            size="xs"
-                            className="w-full"
-                            onClick={() => {
-                              setAiReaderOpen(true)
-                              runAiMapReader()
-                            }}
-                          >
-                            <I.Destaque className="animate-pulse" aria-hidden="true" />
-                            Vetorizar Planta com IA 🤖
+                          <Button size="xs" className="w-full" onClick={() => setAiReaderOpen(true)}>
+                            <I.Destaque aria-hidden="true" />
+                            Ler planta com IA
                           </Button>
                         </div>
                       )}
@@ -4487,7 +4244,7 @@ export default function SeatingMap() {
                       <input 
                         type="file" 
                         ref={fileInputRef} 
-                        accept="image/*" 
+                        accept="image/*,application/pdf" 
                         className="hidden" 
                         onChange={e => e.target.files?.[0] && uploadBgImage(e.target.files[0])} 
                       />
@@ -4678,165 +4435,120 @@ export default function SeatingMap() {
         </div>
       </footer>
 
-      {/* MODAL IA READER */}
-      {aiReaderOpen && (
+      {/* LEITOR DE PLANTA COM IA: 1) escolher a planta e ler; 2) revisar a proposta por cima da planta e aplicar */}
+      {aiReaderOpen && !propostaAtual && (
         <div className="fixed inset-0 glass-backdrop flex items-center justify-center z-50 p-4">
-          <div className="glass-panel w-full max-w-md overflow-hidden animate-float-in text-foreground">
+          <div role="dialog" aria-label="Leitor de planta com IA" className="glass-panel w-full max-w-md overflow-hidden animate-float-in text-foreground">
             <div className="flex justify-between items-center px-5 py-4 border-b border-border bg-secondary">
               <h3 className="text-base font-bold flex items-center gap-2">
                 <I.Destaque className="w-5 h-5 text-primary" />
-                Evokaa AI Map Reader
+                Leitor de planta com IA
               </h3>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 aria-label="Fechar"
-                onClick={() => {
-                  setAiReaderOpen(false)
-                  setShowDetectionsOnCanvas(false)
-                  setTempDetections([])
-                }}
+                onClick={() => setAiReaderOpen(false)}
               >
                 <I.Fechar />
               </Button>
             </div>
 
             <div className="p-5 space-y-4">
-              
-              {aiScanning ? (
-                <div className="text-center py-6 space-y-4">
-                  <div className="relative w-16 h-16 mx-auto">
-                    <div className="absolute inset-0 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
-                    <I.Destaque className="w-6 h-6 text-primary absolute inset-0 m-auto animate-pulse" />
-                  </div>
-                  <div className="space-y-1">
-                    <h4 className="font-bold text-xs text-foreground">{aiScanStatus}</h4>
-                    <p className="text-[10px] text-muted-foreground">Varredura: {aiScanProgress}%</p>
-                  </div>
-                  <div className="w-full bg-secondary h-1.5 rounded-full overflow-hidden border border-border max-w-xs mx-auto">
-                    <div className="h-full bg-primary transition-all duration-150" style={{ width: `${aiScanProgress}%` }} />
-                  </div>
-                </div>
-              ) : tempDetections.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="bg-primary/5 border border-primary/20 p-3.5 rounded-xl flex items-start gap-2.5">
-                    <I.Destaque className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-muted-foreground leading-relaxed">
-                      <p className="font-bold text-primary">Vetorização de planta baixa bem-sucedida!</p>
-                      <p className="mt-0.5">Identificamos as estruturas aproximadas da planta e as adicionamos como objetos editáveis diretamente no seu mapa.</p>
-                    </div>
-                  </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Suba a planta do local em <strong>imagem (PNG, JPG, WebP)</strong> ou <strong>PDF</strong> (só a página 1). Ela vira a planta de fundo do editor.
+                Depois a IA do Evo <strong>propõe</strong> peças (mesas, palco, bares, portas…) por cima dela. Você revisa e só então aplica ao mapa.
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                É uma proposta: a IA pode errar ou deixar peças de fora, então confira. Para a leitura, a imagem da planta é enviada ao serviço de IA do Evo (Google Gemini).
+              </p>
 
-                  <div className="space-y-2">
-                    <h4 className="font-bold text-[9px] uppercase tracking-wider text-muted-foreground">Elementos Importados:</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
-                        <span className="block text-base font-mono font-bold text-primary">{detectedCount.tables}</span>
-                        <span className="text-[9px] text-muted-foreground">Mesas</span>
-                      </div>
-                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
-                        <span className="block text-base font-mono font-bold text-[var(--ev-success)]">{detectedCount.seats}</span>
-                        <span className="text-[9px] text-muted-foreground">Cadeiras</span>
-                      </div>
-                      <div className="p-2.5 bg-secondary rounded-xl border border-border text-center">
-                        <span className="block text-base font-mono font-bold text-[var(--ev-warning)]">{detectedCount.stages}</span>
-                        <span className="text-[9px] text-muted-foreground">Palco</span>
-                      </div>
-                    </div>
-                  </div>
+              <Button variant="outline" className="w-full" onClick={triggerImageUpload} disabled={lendo}>
+                <I.ImagemMais className="text-primary" />
+                {bgImage ? 'Trocar a planta (imagem ou PDF)' : 'Subir imagem ou PDF'}
+              </Button>
 
-                  <div className="flex gap-3 pt-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1 text-destructive hover:text-destructive"
-                      onClick={() => {
-                        undo()
-                        setTempDetections([])
-                        setAiReaderOpen(false)
-                      }}
-                    >
-                      Desfazer Importação
-                    </Button>
-                    <Button
-                      className="flex-1"
-                      onClick={() => {
-                        setTempDetections([])
-                        setAiReaderOpen(false)
-                      }}
-                    >
-                      Começar a Editar 🎨
-                    </Button>
-                  </div>
+              {bgImage ? (
+                <div className="p-3 bg-secondary border border-border rounded-xl flex items-center gap-2.5">
+                  <I.Check className="w-4 h-4 text-[var(--ev-success)] flex-shrink-0" />
+                  <span className="text-xs text-[var(--ev-success)] font-bold">Planta carregada no fundo do editor.</span>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Suba o arquivo da planta em <strong>imagem (PNG, JPG)</strong> ou <strong>PDF</strong>. O Evokaa AI Reader identificará mesas, cadeiras e outras estruturas gerando-as automaticamente no mapa.
-                  </p>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => {
-                          setShouldAutoScan(true)
-                          triggerImageUpload()
-                        }}
-                      >
-                        <I.ImagemMais className="text-primary" />
-                        Subir Imagem
-                      </Button>
-
-                      <Button variant="outline" className="flex-1" onClick={() => pdfInputRef.current?.click()}>
-                        <I.Carregar className="text-primary" />
-                        Subir PDF
-                      </Button>
-                    </div>
-
-                    <input 
-                      type="file" 
-                      ref={pdfInputRef} 
-                      accept=".pdf" 
-                      className="hidden" 
-                      onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          const mockPdfImage = 'https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?q=80&w=1200&auto=format&fit=crop'
-                          setBgImage(mockPdfImage)
-                          setBgScale(1.0)
-                          setBgOffset({ x: 100, y: 80 })
-                          setBgOpacity(0.4)
-                          toast.success('Arquivo PDF carregado com sucesso!')
-                          runAiMapReader(mockPdfImage)
-                        }
-                      }} 
-                    />
-
-                    {bgImage ? (
-                      <div className="p-3 bg-secondary border border-border rounded-xl flex items-center gap-2.5">
-                        <I.Check className="w-4 h-4 text-[var(--ev-success)] flex-shrink-0" />
-                        <span className="text-xs text-[var(--ev-success)] font-bold">Planta carregada no fundo do editor.</span>
-                      </div>
-                    ) : (
-                      <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-xl flex items-center gap-2.5">
-                        <I.Fechar className="w-4 h-4 text-destructive flex-shrink-0" />
-                        <span className="text-xs text-destructive font-bold">Aguardando arquivo da planta...</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <Button className="w-full" onClick={() => runAiMapReader()} disabled={!bgImage}>
-                    <I.Destaque className="animate-pulse" />
-                    Escanear Planta
-                  </Button>
+                <div className="p-3 bg-secondary border border-border rounded-xl text-xs text-muted-foreground font-bold">
+                  Nenhuma planta carregada ainda.
                 </div>
               )}
 
+              <Button className="w-full" onClick={lerPlantaComIA} disabled={!bgImage || !eventId || lendo}>
+                {lendo ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-current/30 border-t-current animate-spin" />
+                    Lendo a planta… pode levar até 2 minutos
+                  </>
+                ) : (
+                  <>
+                    <I.Destaque />
+                    Ler com IA (usa {creditos(CUSTO_LEITURA)} do Evo)
+                  </>
+                )}
+              </Button>
             </div>
           </div>
         </div>
       )}
+
+      {aiReaderOpen && propostaAtual && (() => {
+        const porTipo = contarPorTipo(propostaAtual.pecas)
+        const marcadas = propostaAtual.pecas.filter(p => p.marcada).length
+        return (
+          <div role="dialog" aria-label="Revisar a proposta da IA" className="glass-panel fixed bottom-4 left-1/2 -translate-x-1/2 z-50 w-[min(92vw,28rem)] max-h-[55vh] overflow-y-auto p-4 space-y-3 text-foreground shadow-xl">
+            <div className="flex justify-between items-start gap-3">
+              <div>
+                <h3 className="font-serif text-sm font-bold flex items-center gap-2">
+                  <I.Destaque className="w-4 h-4 text-primary" />
+                  Revise a proposta da IA
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {marcadas} de {propostaAtual.pecas.length} peças marcadas. Clique numa peça sobre a planta para marcar ou desmarcar.
+                  {typeof propostaAtual.restante === 'number' && ` Esta leitura gastou ${creditos(propostaAtual.custo ?? CUSTO_LEITURA)}; restam ${propostaAtual.restante}.`}
+                </p>
+              </div>
+              <Button variant="ghost" size="icon-sm" aria-label="Descartar a proposta e fechar" onClick={() => { setProposta(null); setAiReaderOpen(false) }}>
+                <I.Fechar />
+              </Button>
+            </div>
+
+            <ul className="space-y-1">
+              {Object.entries(porTipo).map(([tipo, c]) => (
+                <li key={tipo} className="flex items-center justify-between gap-2 text-xs">
+                  <span><strong className="font-mono">{c.marcadas}</strong>/{c.total} {typeLabels[tipo as ToolType]}</span>
+                  <button
+                    onClick={() => setProposta({ ...propostaAtual, pecas: alternarTipo(propostaAtual.pecas, tipo) })}
+                    className="text-[11px] font-bold text-primary hover:underline"
+                  >
+                    {c.marcadas === c.total ? 'Desmarcar tipo' : 'Marcar tipo'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {pixelsPerMeter === ESCALA_PADRAO && (
+              <p className="text-[11px] leading-relaxed bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-2">
+                A escala ainda não foi calibrada. Calibre antes de aplicar (<strong>Calibrar Escala Métrica</strong>, na barra lateral): calibrar depois muda os metros e desalinha as peças da planta.
+              </p>
+            )}
+
+            <div className="flex gap-2 pt-1">
+              <Button variant="outline" className="flex-1" onClick={() => { setProposta(null); setAiReaderOpen(false) }}>
+                Descartar
+              </Button>
+              <Button className="flex-1" onClick={aplicarProposta} disabled={marcadas === 0 || !bgNatural}>
+                Aplicar ao mapa ({marcadas})
+              </Button>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* MODAL GERADOR DE LAYOUT INTELIGENTE */}
       {autoLayoutModalOpen && (
@@ -5216,15 +4928,6 @@ export default function SeatingMap() {
           </div>
         </div>
       )}
-
-      {/* Animação do Scanner */}
-      <style>{`
-        @keyframes scannerAnimation {
-          0% { top: 0%; }
-          50% { top: 100%; }
-          100% { top: 0%; }
-        }
-      `}</style>
 
     </div>
   )

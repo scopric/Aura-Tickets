@@ -25,12 +25,12 @@ export interface Mensagem {
 
 type Saldo = { habilitado: boolean; plano: string; cota: number; concedido: number; usado: number; restante: number; periodo: 'mes' }
 type Resposta =
-  | { ok: true; reply_md: string; proposal?: EventProposal; usage_id: string; restante: number }
+  | { ok: true; reply_md: string; proposal?: EventProposal; pecas?: unknown; custo?: number; usage_id: string; restante: number }
   | { ok: false; motivo: string; message?: string; custo?: number; restante?: number }
 
 const MAX = 2000
 
-const RECUSAS: Record<string, string> = {
+export const RECUSAS: Record<string, string> = {
   desligado: 'O Evo ainda não está disponível.',
   sem_credito: 'Seus créditos do Evo acabaram este mês.',
   limite_hora: 'Você fez muitas perguntas na última hora. Espere um pouco e tente de novo.',
@@ -50,7 +50,7 @@ const ATALHOS = [
   { rotulo: 'Meus eventos', pergunta: 'Quais são os meus eventos?' },
 ]
 
-async function chamarEvo(body: object): Promise<Resposta> {
+export async function chamarEvo(body: object): Promise<Resposta> {
   const { data, error } = await supabase.functions.invoke('agent', { body })
   if (!error) return data as Resposta
   // Erro HTTP ou do relay traz a resposta em `context`
@@ -128,7 +128,7 @@ function baixarConversa(mensagens: Mensagem[]) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-const creditos = (n: number) => (n === 1 ? '1 crédito' : `${n} créditos`)
+export const creditos = (n: number) => (n === 1 ? '1 crédito' : `${n} créditos`)
 
 /**
  * Aba Evo: saldo, atalhos, conversa e o formulário de planejamento. Mensagens, texto digitado e

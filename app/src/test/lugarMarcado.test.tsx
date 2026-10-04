@@ -15,14 +15,22 @@ const h = vi.hoisted(() => ({
   erroLeitura: false,
   eventos: { data: undefined as unknown, isLoading: false, isError: false, refetch: vi.fn() },
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() },
+  invoke: vi.fn(),
+  pdf: vi.fn(),
+  reduzir: null as null | ((b: Blob) => Promise<string>),
 }))
 
 vi.mock('sonner', () => ({ toast: h.toast }))
 vi.mock('../hooks/useEvents', () => ({
   useProducerEvents: () => h.eventos,
 }))
+vi.mock('../lib/plantaFundo', async () => {
+  const real = await vi.importActual<typeof import('../lib/plantaFundo')>('../lib/plantaFundo')
+  return { ...real, pdfParaImagem: h.pdf, reduzirPlanta: (b: Blob) => (h.reduzir ? h.reduzir(b) : real.reduzirPlanta(b)) }
+})
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    functions: { invoke: h.invoke },
     from: (tabela: string) => ({
       select: (colunas: string) => ({
         eq: (c: string, v: string) => {
@@ -254,20 +262,109 @@ describe('Lugar marcado: carga e erros', () => {
     expect(h.upsert.mock.calls[0][0].config.background).toBeNull()
   })
 
-  it('planta externa na tela (PDF falso) + salvar: grava sem planta e não fica "alterado"', async () => {
+  const entradaDaPlanta = () => document.querySelector('input[accept="image/*,application/pdf"]') as HTMLInputElement
+  // jsdom não decodifica imagem: informa o tamanho natural (proporção 2:1) e dispara o onLoad da planta
+  const carregarPlanta = async () => {
+    const img = await waitFor(() => {
+      const el = document.querySelector('img[alt="Planta Baixa"]') as HTMLImageElement
+      expect(el).toBeTruthy()
+      return el
+    })
+    Object.defineProperty(img, 'naturalWidth', { value: 2000, configurable: true })
+    Object.defineProperty(img, 'naturalHeight', { value: 1000, configurable: true })
+    fireEvent.load(img)
+  }
+  const comPlanta = () => { h.mapa = { ...(h.mapa as object), config: { zoom: 1, pan: { x: 0, y: 0 }, background: { ...fundo, offset: { x: 150, y: 100 }, scale: 1 } } } }
+  const pecas = [
+    { tipo: 'table', x: 0.25, y: 0.5, w: 0.05, h: 0.1 },
+    { tipo: 'table', x: 0.5, y: 0.5, w: 0.05, h: 0.1 },
+    { tipo: 'stage', x: 0.5, y: 0.1, w: 0.3, h: 0.1 },
+  ]
+
+  it('PDF vira imagem no navegador, segue o caminho da imagem e é salvo como planta de fundo', async () => {
     h.eventos = dois
+    h.mapa = { ...(h.mapa as object), config: { zoom: 1, pan: { x: 0, y: 0 }, background: null } }
+    h.pdf.mockResolvedValue(new Blob(['png']))
+    h.reduzir = async () => 'data:image/webp;base64,PDFPAGINA1'
     montar('/producer/seating?eventId=e1')
     const salvar = await screen.findByRole('button', { name: /Salvar/ })
     await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
-    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
-    const pdf = document.querySelector('input[accept=".pdf"]') as HTMLInputElement
-    await act(async () => { fireEvent.change(pdf, { target: { files: [new File(['x'], 'a.pdf', { type: 'application/pdf' })] } }) })
+    await act(async () => { fireEvent.change(entradaDaPlanta(), { target: { files: [new File(['%PDF'], 'planta.pdf', { type: 'application/pdf' })] } }) })
+    expect(h.pdf).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(document.querySelector('img[alt="Planta Baixa"]')).toBeTruthy())
     fireEvent.click(salvar)
     await waitFor(() => expect(h.upsert).toHaveBeenCalled())
-    expect(h.upsert.mock.calls[0][0].config.background).toBeNull()
-    const ev = new Event('beforeunload', { cancelable: true })
-    window.dispatchEvent(ev)
-    expect(ev.defaultPrevented).toBe(false)
+    expect(h.upsert.mock.calls[0][0].config.background.image).toBe('data:image/webp;base64,PDFPAGINA1')
+    h.reduzir = null
+  })
+
+  it('PDF que não abre mostra o motivo e não deixa planta', async () => {
+    h.eventos = dois
+    h.mapa = { ...(h.mapa as object), config: { zoom: 1, pan: { x: 0, y: 0 }, background: null } }
+    h.pdf.mockRejectedValue(new Error('senha'))
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await act(async () => { fireEvent.change(entradaDaPlanta(), { target: { files: [new File(['%PDF'], 'x.pdf', { type: 'application/pdf' })] } }) })
+    await waitFor(() => expect(h.toast.error).toHaveBeenCalledWith(expect.stringMatching(/Não consegui abrir esse PDF/)))
+    expect(document.querySelector('img[alt="Planta Baixa"]')).toBeNull()
+  })
+
+  it('lê com a IA, mostra a proposta sem tocar no mapa, desmarca uma peça e aplica só as marcadas, com a proporção da imagem', async () => {
+    h.eventos = dois
+    comPlanta()
+    h.invoke.mockResolvedValue({ data: { ok: true, pecas, descartadas: 0, usage_id: 'u1', restante: 0, custo: 5 }, error: null })
+    montar('/producer/seating?eventId=e1')
+    const salvar = await screen.findByRole('button', { name: /Salvar/ })
+    await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    expect(screen.getByText(/usa 5 créditos do Evo/)).toBeTruthy()
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    expect(h.invoke).toHaveBeenCalledWith('agent', { body: { mode: 'planta', event_id: 'e1', imagem: fundo.image } })
+
+    expect(await screen.findByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeTruthy()
+    expect(screen.getByText(/3 de 3 peças marcadas/)).toBeTruthy()
+    expect(h.upsert).not.toHaveBeenCalled() // nada foi ao mapa
+    const desmarcarMesa = screen.getAllByRole('button', { name: /Mesa Inteligente.*clique para desmarcar/ })
+    fireEvent.click(desmarcarMesa[0])
+    expect(screen.getByText(/2 de 3 peças marcadas/)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: /Aplicar ao mapa \(2\)/ }))
+    expect(screen.queryByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeNull()
+    fireEvent.click(salvar)
+    await waitFor(() => expect(h.upsert).toHaveBeenCalled())
+    const seats = h.upsert.mock.calls[0][0].environments[0].seats
+    expect(seats.map((x: { type: string }) => x.type).sort()).toEqual(['stage', 'table'])
+    // planta 1000 x 500 px (proporção 2:1), planta com escala 1, 40 px/m: palco em x=0.5, y=0.1
+    const palco = seats.find((x: { type: string }) => x.type === 'stage')
+    expect(palco.widthMeter).toBe(7.5)
+    expect(palco.heightMeter).toBe(1.25)
+  })
+
+  it('sem crédito: mostra quanto custa e quanto sobra, e não abre proposta', async () => {
+    h.eventos = dois
+    comPlanta()
+    h.invoke.mockResolvedValue({ data: { ok: false, motivo: 'sem_credito', custo: 5, restante: 2 }, error: null })
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    expect(h.toast.error).toHaveBeenCalledWith('Esta leitura custa 5 créditos e você tem 2.')
+    expect(screen.queryByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeNull()
+  })
+
+  it('recusa do servidor usa a mensagem do Evo (arquivo inválido cai no texto do servidor)', async () => {
+    h.eventos = dois
+    comPlanta()
+    h.invoke.mockResolvedValue({ data: { ok: false, motivo: 'teto_diario' }, error: null })
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    expect(h.toast.error).toHaveBeenCalledWith('O Evo atingiu o limite de uso de hoje. Tente de novo amanhã.')
   })
 
   it('salvar demorado + troca de evento: o fim do salvamento não marca o mapa novo como alterado', async () => {

@@ -20,3 +20,24 @@ export async function reduzirPlanta(arquivo: Blob, maxLado = 1600, alvoBytes = 3
     if (url.length * 0.75 <= alvoBytes || q < 0.4) return url
   }
 }
+
+// PDF da planta: a página 1 vira imagem aqui no navegador e segue o mesmo caminho da imagem (reduzirPlanta).
+// O pdf.js e o worker só são baixados quando o arquivo é PDF (import dinâmico: chunk separado, fora da entrada).
+// ponytail: só a página 1; sem as fontes padrão do pdf.js, texto de fonte não embutida pode sair trocado.
+export async function pdfParaImagem(arquivo: Blob, maxLado = 1600): Promise<Blob> {
+  const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')])
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default
+  const tarefa = pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) })
+  try {
+    const pagina = await (await tarefa.promise).getPage(1)
+    const base = pagina.getViewport({ scale: 1 })
+    const viewport = pagina.getViewport({ scale: maxLado / Math.max(base.width, base.height) })
+    const c = document.createElement('canvas')
+    c.width = Math.round(viewport.width)
+    c.height = Math.round(viewport.height)
+    await pagina.render({ canvas: c, viewport, background: '#fff' }).promise
+    return await new Promise<Blob>((ok, falha) => c.toBlob(b => (b ? ok(b) : falha(new Error('canvas vazio'))), 'image/png'))
+  } finally {
+    await tarefa.destroy()
+  }
+}

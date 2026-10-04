@@ -15,6 +15,7 @@ import { resumir } from '../_shared/mascara.ts'
 import { FORMATOS, TEMAS, ESTILOS, MAX_TEMAS, MAX_ESTILOS } from '../_shared/tipoEvento.ts'
 import { adminCan, mfaOk } from '../_shared/mfa.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { conferirArquivo, corpoGemini as corpoPlanta, interpretar as interpretarPlanta } from '../_shared/planta.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -30,6 +31,7 @@ const MENSAGENS: Record<string, string> = {
   teto_diario: 'O Evo atingiu o limite de uso de hoje. Tente de novo amanhã.',
   sem_chave: 'O Evo ainda não foi configurado pela administração da Evokaa.',
   nao_autorizado: 'O Evo está disponível só para produtores.',
+  arquivo_invalido: 'Não consegui usar essa planta. Use uma imagem PNG, JPG ou WebP de até 1,5 MB.',
   entrada_invalida: 'Não entendi o pedido. Confira os campos e tente de novo.',
   erro_ia: 'O Evo não conseguiu responder agora. Tente de novo em instantes.',
 }
@@ -85,8 +87,15 @@ function validarForm(f: any): Form | null {
   }
 }
 
-function validarCorpo(b: any): { mode: 'chat' | 'planejar' | 'ping'; message: string; history: Turno[]; form?: Form } | null {
-  if (!b || typeof b !== 'object' || !['chat', 'planejar', 'ping'].includes(b.mode)) return null
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+function validarCorpo(b: any): { mode: 'chat' | 'planejar' | 'ping' | 'planta'; message: string; history: Turno[]; form?: Form; eventId?: string; imagem?: string } | null {
+  if (!b || typeof b !== 'object' || !['chat', 'planejar', 'ping', 'planta'].includes(b.mode)) return null
+  // planta: só o evento e a imagem reduzida (data URL); o arquivo é conferido depois do login (conferirArquivo)
+  if (b.mode === 'planta') {
+    if (typeof b.event_id !== 'string' || !UUID_RE.test(b.event_id) || typeof b.imagem !== 'string') return null
+    return { mode: 'planta', message: '', history: [], eventId: b.event_id, imagem: b.imagem }
+  }
   if (!opcional(b.message, v => typeof v === 'string' && v.length <= 2000)) return null
   const message = typeof b.message === 'string' ? b.message.trim() : ''
   if (b.mode === 'chat' && !message) return null
@@ -118,16 +127,17 @@ function validarCorpo(b: any): { mode: 'chat' | 'planejar' | 'ping'; message: st
 type Uso = { in: number; out: number; called: boolean }
 
 // Prazo total do pedido: a Edge Function tem 150 s de parede (supabase.com/docs/guides/functions/limits);
-// 110 s deixa folga para o ai_finish e a resposta. Cada chamada ao Gemini espera no máximo 50 s.
+// 110 s deixa folga para o ai_finish e a resposta. Cada chamada ao Gemini espera no máximo 50 s
+// (a leitura de planta pede mais: até 100 s, ainda dentro do prazo total).
 const PRAZO_MS = 110_000
 
-async function gemini(key: string, model: string, body: any, uso: Uso, prazo: number): Promise<any> {
+async function gemini(key: string, model: string, body: any, uso: Uso, prazo: number, limiteChamadaMs = 50_000): Promise<any> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`
   const chamar = async (b: any) => {
     const restante = prazo - Date.now()
     if (restante <= 0) throw new Error('sem_tempo')
     const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), Math.min(50_000, restante))
+    const timer = setTimeout(() => ctrl.abort(), Math.min(limiteChamadaMs, restante))
     try {
       uso.called = true
       const r = await fetch(url, {
@@ -308,13 +318,25 @@ async function atender(req: Request): Promise<Response> {
     corpo = null
   }
   if (!corpo) return recusa('entrada_invalida')
-  const { mode, message, history, form } = corpo
+  const { mode, message, history, form, eventId, imagem } = corpo
   // Admin: o banco decide (gf_is_admin/gf_admin_can, só com 2FA e o código, Decisão 99).
   // ping: só quem pode mexer nas configurações da IA (manage_settings)
   // null = o banco não respondeu: "tente de novo", não "não autorizado"
   const pode = mode === 'ping' ? await adminCan(req, 'manage_settings') : role === 'admin' ? await adminCan(req) : true
   if (pode === null) return json(503, { ok: false, motivo: 'erro_ia', message: 'Tente de novo em instantes.' })
   if (!pode) return recusa('nao_autorizado')
+
+  // planta: arquivo e dono do evento conferidos antes de qualquer crédito ou chamada paga.
+  // Dono comparado aqui com o cliente de serviço: a RLS deixa ler evento publicado de outro produtor.
+  let arquivo: ReturnType<typeof conferirArquivo> = null
+  if (mode === 'planta') {
+    arquivo = conferirArquivo(imagem)
+    if (!arquivo) return recusa('arquivo_invalido')
+    if (role !== 'admin') {
+      const { data: ev } = await admin.from('events').select('producer_id').eq('id', eventId!).maybeSingle()
+      if (ev?.producer_id !== caller.id) return recusa('nao_autorizado')
+    }
+  }
 
   const { data: cfg, error: cfgError } = await admin.from('ai_settings').select('*').eq('id', 1).maybeSingle()
   if (cfgError || !cfg) {
@@ -353,6 +375,8 @@ async function atender(req: Request): Promise<Response> {
     await registrar('ping', 'simples', cfg.model_simple, uso, 'ping do admin', ok ? 'ok' : 'erro')
     return ok ? json(200, { ok: true, model: cfg.model_simple, latency_ms }) : recusa('erro_ia')
   }
+
+  if (mode === 'planta') return lerPlanta({ admin, caller, cfg, key, prazo, arquivo })
 
   const pedido = mode === 'planejar'
     ? `${message ? message + '\n\n' : ''}Quero planejar um evento. Formulário (dados informados pelo produtor):\n${JSON.stringify(form)}\nUse as ferramentas para os números. Ao terminar, chame propor_rascunho_evento: com preço-alvo, os lotes vêm de sugerir_lotes; sem preço-alvo, proponha um lote único "Ingresso" com a capacidade toda e preço 0 e diga ao produtor que o preço é ele quem define antes de criar.`
@@ -537,6 +561,49 @@ async function atender(req: Request): Promise<Response> {
     console.error('[agent] falha no ciclo:', e instanceof Error ? e.message : 'desconhecida')
     const { error } = await finalizar('erro')
     if (error) console.error('[agent] ai_finish (erro) falhou:', error.message)
+    return recusa('erro_ia')
+  }
+}
+
+// ---------- leitura de planta (modo planta) ----------
+
+// Sem ai_precheck nem roteador: o ai_reserve já traz os portões (ligado, teto diário, limite por hora e
+// crédito). p_mode 'planejar' + resumo "planta:" evita SQL novo: o CHECK de ai_usage.mode só aceita
+// chat, planejar e ping. Nada de imagem, base64 ou texto do Gemini vai para o log.
+async function lerPlanta(c: {
+  admin: any; caller: { id: string }; cfg: any; key: string; prazo: number; arquivo: { mime: string; b64: string } | null
+}): Promise<Response> {
+  const { admin, caller, cfg, key, prazo, arquivo } = c
+  const model = cfg.model_vision
+  const { data: reserva, error } = await admin.rpc('ai_reserve', { p_user: caller.id, p_tier: 'imagem', p_mode: 'planejar', p_model: model })
+  if (error || !reserva) {
+    console.error('[agent] ai_reserve (planta) falhou:', error?.message)
+    return recusa('erro_ia')
+  }
+  if (!reserva.ok) {
+    let restante: number | undefined
+    if (reserva.motivo === 'sem_credito') {
+      const { data: pre } = await admin.rpc('ai_precheck', { p_user: caller.id })
+      restante = pre?.ok ? pre.restante : 0
+    }
+    return recusa(reserva.motivo, { custo: Number(cfg.credit_cost?.imagem) || 0, ...(restante === undefined ? {} : { restante }) })
+  }
+
+  const uso: Uso = { in: 0, out: 0, called: false }
+  const finalizar = async (status: 'ok' | 'erro', resumo: string) => {
+    const { error } = await admin.rpc('ai_finish', {
+      p_id: reserva.id, p_tokens_in: uso.in, p_tokens_out: uso.out, p_steps: 0, p_tools: [], p_status: status, p_resumo: resumo, p_called: uso.called,
+    })
+    if (error) console.error('[agent] ai_finish (planta) falhou:', error.message)
+  }
+  try {
+    const leitura = interpretarPlanta(await gemini(key, model, corpoPlanta(arquivo!), uso, prazo, 100_000))
+    if (!leitura.ok) throw new Error('planta_ilegivel')
+    await finalizar('ok', `planta: ${leitura.pecas.length} peças`)
+    return json(200, { ok: true, pecas: leitura.pecas, descartadas: leitura.descartadas, usage_id: reserva.id, restante: reserva.restante, custo: reserva.custo })
+  } catch (e) {
+    console.error('[agent] falha na leitura de planta:', e instanceof Error ? e.message : 'desconhecida')
+    await finalizar('erro', 'planta: erro')
     return recusa('erro_ia')
   }
 }
