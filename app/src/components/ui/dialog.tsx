@@ -49,11 +49,16 @@ function DialogContent({
   children,
   showCloseButton = true,
   overlayClassName,
+  onOpenAutoFocus,
+  onCloseAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   overlayClassName?: string
 }) {
+  // Modal aberto por estado (sem DialogTrigger): o Radix devolve o foco ao gatilho, que não existe, e o foco cai no body.
+  // Guarda quem tinha o foco ao abrir e devolve a ele ao fechar; quem passa onCloseAutoFocus com preventDefault decide sozinho.
+  const origem = React.useRef<HTMLElement | null>(null)
   return (
     <DialogPortal data-slot="dialog-portal">
       <DialogOverlay className={overlayClassName} />
@@ -64,6 +69,16 @@ function DialogContent({
           className
         )}
         {...props}
+        onOpenAutoFocus={e => { origem.current = document.activeElement as HTMLElement | null; onOpenAutoFocus?.(e) }}
+        onCloseAutoFocus={e => {
+          onCloseAutoFocus?.(e)
+          const o = origem.current
+          origem.current = null
+          // sem origem útil (Safari e iOS não focam o botão no clique): o Radix devolve ao DialogTrigger, se houver
+          if (e.defaultPrevented || !o || o === document.body || !o.isConnected) return
+          e.preventDefault()
+          setTimeout(() => { if (document.activeElement === document.body) o.focus() }) // depois do fechamento; quem já moveu o foco fica onde está
+        }}
       >
         {children}
         {showCloseButton && (

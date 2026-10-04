@@ -29,6 +29,11 @@ export function Stat({ label, value, hint }: { label: ReactNode; value: ReactNod
 // Select nativo de 40 px com o foco do campo (--ev-focus-field)
 export const selectNativo = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 
+// Etiquetas de estado (ok, atenção, erro) que seguem o tema: --ev-success e --ev-warning mudam no escuro; text-destructive idem
+export const chipOk = 'border-[color-mix(in_srgb,var(--ev-success)_40%,transparent)] bg-[color-mix(in_srgb,var(--ev-success)_10%,hsl(var(--card)))] text-[var(--ev-success)]'
+export const chipAviso = 'border-[color-mix(in_srgb,var(--ev-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--ev-warning)_10%,hsl(var(--card)))] text-[var(--ev-warning)]'
+export const chipErro = 'border-[color-mix(in_srgb,hsl(var(--destructive))_40%,transparent)] bg-[color-mix(in_srgb,hsl(var(--destructive))_10%,hsl(var(--card)))] text-destructive'
+
 // Título de seção do painel: Jakarta 15/20 600 (o h2 global é grande demais para dentro de painel)
 export function SectionTitle({ id, children }: { id?: string; children: ReactNode }) {
   return <h2 id={id} className="text-[15px] font-semibold leading-5 tracking-normal text-foreground">{children}</h2>

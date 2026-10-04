@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
-import {
-  Users, Plus, Mail, Shield, Eye, Check, Trash2,
-  LayoutDashboard, Calendar, FolderOpen, Palette, BarChart3,
-  Wallet, Wine, Calculator, Settings, Activity,
-  ChevronDown, ChevronUp, UserCheck,
-  Edit3, Ban
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { iniciais } from '../../hooks/useConversas'
+import { PageHeader, Stat, selectNativo, chipAviso, chipErro } from '@/components/producer/ui'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 
 interface Permission {
   view: boolean
@@ -26,21 +28,21 @@ interface TeamMember {
   permissions: Record<string, Permission>
   lastActive: string
   joinedAt: string
-  avatar: string
+  avatar: string | null
 }
 
-const defaultPermissions: Record<string, { label: string; icon: typeof LayoutDashboard }> = {
-  dashboard: { label: 'Dashboard', icon: LayoutDashboard },
-  events: { label: 'Eventos', icon: Calendar },
-  eventManager: { label: 'Gestor de Festas', icon: FolderOpen },
-  planner: { label: 'Planejar Evento', icon: Edit3 },
-  brand: { label: 'Brand Studio', icon: Palette },
-  crm: { label: 'CRM', icon: Activity },
-  finance: { label: 'Financeiro', icon: BarChart3 },
-  wallet: { label: 'Carteira', icon: Wallet },
-  menu: { label: 'Cardápio', icon: Wine },
-  tables: { label: 'Mesas', icon: Calculator },
-  settings: { label: 'Configurações', icon: Settings },
+const defaultPermissions: Record<string, { label: string; icon: I.IconeEvokaa }> = {
+  dashboard: { label: 'Dashboard', icon: I.Painel },
+  events: { label: 'Eventos', icon: I.Eventos },
+  eventManager: { label: 'Gestor de Festas', icon: I.Pasta },
+  planner: { label: 'Planejar Evento', icon: I.Editar },
+  brand: { label: 'Brand Studio', icon: I.Paleta },
+  crm: { label: 'CRM', icon: I.Atividade },
+  finance: { label: 'Financeiro', icon: I.Relatorio },
+  wallet: { label: 'Carteira', icon: I.Carteira },
+  menu: { label: 'Cardápio', icon: I.Cardapio },
+  tables: { label: 'Mesas', icon: I.Calculadora },
+  settings: { label: 'Configurações', icon: I.Configuracoes },
 }
 
 const createDefaultPermissions = (): Record<string, Permission> => {
@@ -92,7 +94,7 @@ export default function TeamManager() {
       permissions: isAdm ? createAdminPermissions() : createDefaultPermissions(),
       lastActive: dbMember.accepted_at ? 'Ativo recentemente' : '-',
       joinedAt: new Date(dbMember.invited_at || dbMember.created_at || Date.now()).toLocaleDateString('pt-BR'),
-      avatar: profile.avatar_url || `https://api.dicebear.com/7.x/initials/svg?seed=${profile.full_name || 'U'}`
+      avatar: profile.avatar_url || null
     }
   }
 
@@ -267,168 +269,163 @@ export default function TeamManager() {
   }
 
   const roleLabels: Record<string, { label: string; cls: string }> = {
-    admin: { label: 'Administrador', cls: 'bg-plum/10 text-plum border-plum/20' },
-    editor: { label: 'Editor', cls: 'bg-amber-50 text-amber-700 border-amber-100' },
-    viewer: { label: 'Visualizador', cls: 'bg-blue-50 text-blue-700 border-blue-100' },
-    blocked: { label: 'Bloqueado', cls: 'bg-red-50 text-red-500 border-red-100' }
+    admin: { label: 'Administrador', cls: 'border-transparent bg-[var(--ev-brand-soft)] text-primary' },
+    editor: { label: 'Editor', cls: chipAviso },
+    viewer: { label: 'Visualizador', cls: '' },
+    blocked: { label: 'Bloqueado', cls: chipErro }
   }
 
   return (
-    <div ref={ref} className="p-6 lg:p-10 max-w-6xl">
+    <div ref={ref}>
       {/* Header */}
-      <div className="flex items-start justify-between mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Equipe</h1>
-          <p className="text-sm text-espresso/70 mt-1">Gerencie a equipe de administradores e permissões de acesso</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="font-serif text-2xl text-espresso">{members.filter(m => m.status === 'active').length}<span className="text-espresso/70">/5</span></div>
-            <div className="text-[10px] text-espresso/70 uppercase tracking-wider font-semibold">Membros ativos</div>
-          </div>
-          <button
-            onClick={() => canAddMore ? setShowInvite(!showInvite) : toast.error('Limite de 5 membros atingido')}
-            className={`px-5 py-2.5 text-sm font-medium rounded-full transition-all flex items-center gap-2 ${canAddMore ? 'bg-plum text-cream hover:shadow-glow' : 'bg-espresso/5 text-espresso/70 cursor-not-allowed'}`}
-          >
-            <Plus className="w-4 h-4" /> Convidar
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Equipe"
+        description="Gerencie a equipe de administradores e permissões de acesso"
+        actions={
+          <>
+            <div className="hidden text-right sm:block">
+              <div className="font-display text-2xl font-semibold tabular-nums text-foreground">{members.filter(m => m.status === 'active').length}<span className="text-muted-foreground">/5</span></div>
+              <div className="text-xs text-muted-foreground">Membros ativos</div>
+            </div>
+            <Button
+              variant={canAddMore ? 'default' : 'secondary'}
+              aria-disabled={!canAddMore}
+              onClick={() => canAddMore ? setShowInvite(!showInvite) : toast.error('Limite de 5 membros atingido')}
+            >
+              <I.Criar aria-hidden="true" /> Convidar
+            </Button>
+          </>
+        }
+      />
 
       {isLoading ? (
-        <div className="grid grid-cols-2 gap-4 mb-8">
+        <div aria-busy="true" className="grid grid-cols-2 gap-3">
           {[1, 2].map(n => (
-            <div key={n} className="p-5 rounded-2xl bg-white/40 border border-white/60 animate-pulse h-[98px]" />
+            <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />
           ))}
         </div>
       ) : (
         /* KPIs */
-        <div className="grid grid-cols-2 gap-4 mb-8">
-          {[
-            { label: 'Total Membros', value: members.length.toString(), icon: Users },
-            { label: 'Membros Ativos', value: members.filter(m => m.status === 'active').length.toString(), icon: UserCheck },
-          ].map(k => (
-            <div key={k.label} className="team-card p-5 rounded-2xl bg-white/60 border border-white/60">
-              <k.icon className="w-4 h-4 text-plum mb-3" />
-              <div className="font-serif text-2xl text-espresso">{k.value}</div>
-              <div className="text-[10px] text-espresso/70 mt-1 uppercase tracking-wider font-semibold">{k.label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="team-card"><Stat label="Total Membros" value={members.length.toString()} /></div>
+          <div className="team-card"><Stat label="Membros Ativos" value={members.filter(m => m.status === 'active').length.toString()} /></div>
         </div>
       )}
 
       {/* Invite Form */}
       {showInvite && (
-        <div className="team-card p-6 rounded-2xl bg-white/60 border border-white/60 mb-6">
-          <h3 className="text-sm font-medium text-espresso mb-4">Convidar Membro</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2">
-              <label className="text-xs text-espresso/70 mb-1 block">E-mail</label>
+        <div className="team-card mt-6 rounded-[10px] border border-border bg-card p-4">
+          <h2 className="mb-4 text-[15px] font-semibold leading-5 text-foreground">Convidar Membro</h2>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div className="grid gap-1.5 md:col-span-2">
+              <Label htmlFor="equipe-email">E-mail</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-                <input value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="colega@email.com" className="w-full pl-10 pr-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" />
+                <I.Email size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input id="equipe-email" value={inviteEmail} onChange={e => setInviteEmail(e.target.value)} placeholder="colega@email.com" className="pl-9" />
               </div>
             </div>
-            <div>
-              <label className="text-xs text-espresso/70 mb-1 block">Nível de Acesso</label>
-              <select value={inviteRole} onChange={e => setInviteRole(e.target.value as 'editor' | 'viewer')} aria-label="Nível de Acesso" title="Selecionar nível de acesso" className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso focus:outline-none focus:border-plum/30">
+            <div className="grid gap-1.5">
+              <Label htmlFor="equipe-nivel">Nível de Acesso</Label>
+              <select id="equipe-nivel" value={inviteRole} onChange={e => setInviteRole(e.target.value as 'editor' | 'viewer')} className={selectNativo}>
                 <option value="editor">Editor</option>
                 <option value="viewer">Visualizador</option>
               </select>
             </div>
           </div>
-          <div className="flex items-center gap-2 mt-3">
-            <button onClick={handleInvite} className="px-5 py-2.5 bg-plum text-cream text-sm rounded-full hover:shadow-glow transition-all flex items-center gap-2"><Plus className="w-4 h-4" /> Adicionar membro</button>
-            <button onClick={() => setShowInvite(false)} className="px-5 py-2.5 text-sm text-espresso/70 hover:text-espresso transition-colors">Cancelar</button>
+          <div className="mt-3 flex items-center gap-2">
+            <Button onClick={handleInvite}><I.Criar aria-hidden="true" /> Adicionar membro</Button>
+            <Button variant="ghost" onClick={() => setShowInvite(false)}>Cancelar</Button>
           </div>
         </div>
       )}
 
       {/* Members List */}
       {isLoading ? (
-        <div className="space-y-3">
+        <div aria-busy="true" className="mt-6 grid gap-3">
           {[1, 2].map(n => (
-            <div key={n} className="h-16 bg-white/40 border border-white/60 rounded-2xl animate-pulse" />
+            <Skeleton key={n} className="h-16 rounded-[10px] bg-muted" />
           ))}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="mt-6 grid gap-3">
           {members.map(member => {
             const isExpanded = expandedMember === member.id
             const isEditing = editingMember === member.id
             const roleCfg = roleLabels[member.role] || roleLabels.viewer
 
             return (
-              <div key={member.id} className="team-card bg-white/60 border border-white/60 rounded-2xl overflow-hidden">
+              <div key={member.id} className="team-card overflow-hidden rounded-[10px] border border-border bg-card">
                 {/* Summary Row */}
-                <div className="flex items-center gap-4 p-4 cursor-pointer hover:bg-white/40 transition-colors" onClick={() => setExpandedMember(isExpanded ? null : member.id)}>
-                  <img src={member.avatar} alt="" className="w-10 h-10 rounded-full object-cover ring-2 ring-canvas flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-espresso">{member.name}</span>
-                      <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border ${roleCfg.cls}`}>{roleCfg.label}</span>
-                      {member.status === 'pending' && <span className="px-2 py-0.5 bg-amber-50 text-amber-700 text-[10px] rounded-full border border-amber-100">Pendente</span>}
-                      {member.status === 'blocked' && <span className="px-2 py-0.5 bg-red-50 text-red-500 text-[10px] rounded-full border border-red-100 font-medium">Bloqueado</span>}
+                <button type="button" aria-expanded={isExpanded} className="flex w-full items-center gap-4 p-4 text-left outline-none transition-colors hover:bg-[var(--ev-tint-hover)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring" onClick={() => setExpandedMember(isExpanded ? null : member.id)}>
+                  {member.avatar
+                    ? <img src={member.avatar} alt="" className="size-10 shrink-0 rounded-full object-cover" />
+                    : <span aria-hidden="true" className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">{iniciais(member.name)}</span>}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium text-foreground">{member.name}</span>
+                      <Badge variant="secondary" className={roleCfg.cls}>{roleCfg.label}</Badge>
+                      {member.status === 'pending' && <Badge variant="secondary" className={chipAviso}>Pendente</Badge>}
+                      {member.status === 'blocked' && <Badge variant="secondary" className={chipErro}>Bloqueado</Badge>}
                     </div>
-                    <div className="text-[11px] text-espresso/70 mt-0.5">{member.email} · Atividade: {member.lastActive}</div>
+                    <div className="mt-0.5 text-xs text-muted-foreground">{member.email} · Atividade: {member.lastActive}</div>
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    {isExpanded ? <ChevronUp className="w-4 h-4 text-espresso/20" /> : <ChevronDown className="w-4 h-4 text-espresso/20" />}
+                  <div className="flex shrink-0 items-center gap-1 text-muted-foreground">
+                    {isExpanded ? <I.ChevronCima aria-hidden="true" size={16} /> : <I.ChevronBaixo aria-hidden="true" size={16} />}
                   </div>
-                </div>
+                </button>
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="border-t border-espresso/5 p-4 space-y-4">
+                  <div className="grid gap-4 border-t border-border p-4">
                     {/* Actions */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <select value={member.role} onChange={e => updateRole(member.id, e.target.value as 'admin' | 'editor' | 'viewer')} aria-label="Cargo do membro" title="Selecionar cargo do membro" className="px-3 py-1.5 bg-white/60 border border-white/60 rounded-lg text-xs text-espresso focus:outline-none">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select value={member.role} onChange={e => updateRole(member.id, e.target.value as 'admin' | 'editor' | 'viewer')} aria-label="Cargo do membro" className={cn(selectNativo, 'w-auto')}>
                         <option value="admin">Administrador</option>
                         <option value="editor">Editor</option>
                         <option value="viewer">Visualizador</option>
                       </select>
                       {member.status !== 'blocked' ? (
-                        <button onClick={() => updateStatus(member.id, 'blocked')} className="px-3 py-1.5 bg-red-50 text-red-500 text-xs rounded-lg border border-red-100 hover:bg-red-100 transition-all flex items-center gap-1"><Ban className="w-3 h-3" /> Bloquear</button>
+                        <Button variant="outline" size="sm" className="text-destructive" onClick={() => updateStatus(member.id, 'blocked')}><I.Proibido aria-hidden="true" /> Bloquear</Button>
                       ) : (
-                        <button onClick={() => updateStatus(member.id, 'active')} className="px-3 py-1.5 bg-green-50 text-green-700 text-xs rounded-lg border border-green-100 hover:bg-green-100 transition-all flex items-center gap-1"><Check className="w-3 h-3" /> Ativar</button>
+                        <Button variant="outline" size="sm" className="text-[var(--ev-success)]" onClick={() => updateStatus(member.id, 'active')}><I.Check aria-hidden="true" /> Ativar</Button>
                       )}
-                      <button onClick={() => { setEditingMember(isEditing ? null : member.id) }} className="px-3 py-1.5 bg-plum/10 text-plum text-xs rounded-lg hover:bg-plum/20 transition-all flex items-center gap-1"><Shield className="w-3 h-3" /> {isEditing ? 'Fechar' : 'Permissões'}</button>
-                      <button onClick={() => removeMember(member.id)} className="px-3 py-1.5 text-red-500 text-xs hover:bg-red-50 rounded-lg transition-all flex items-center gap-1 ml-auto"><Trash2 className="w-3 h-3" /> Remover</button>
+                      <Button variant="secondary" size="sm" aria-pressed={isEditing} onClick={() => { setEditingMember(isEditing ? null : member.id) }}><I.Escudo aria-hidden="true" /> {isEditing ? 'Fechar' : 'Permissões'}</Button>
+                      <Button variant="ghost" size="sm" className="ml-auto text-destructive hover:bg-foreground/5 hover:text-destructive" onClick={() => removeMember(member.id)}><I.Lixeira aria-hidden="true" /> Remover</Button>
                     </div>
 
                     {/* Permissions Grid */}
                     {isEditing && (
-                      <div className="space-y-3">
+                      <div className="grid gap-3">
                         <div className="flex items-center justify-between">
-                          <h4 className="text-xs font-semibold text-espresso">Permissões de Módulo</h4>
-                          <div className="flex items-center gap-3 text-[10px] text-espresso/70">
-                            <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> Ver</span>
-                            <span className="flex items-center gap-1"><Edit3 className="w-3 h-3" /> Editar</span>
-                            <span className="flex items-center gap-1"><Trash2 className="w-3 h-3" /> Excluir</span>
+                          <h3 className="text-[15px] font-semibold leading-5 text-foreground">Permissões de Módulo</h3>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1"><I.Olho size={16} aria-hidden="true" /> Ver</span>
+                            <span className="flex items-center gap-1"><I.Editar size={16} aria-hidden="true" /> Editar</span>
+                            <span className="flex items-center gap-1"><I.Lixeira size={16} aria-hidden="true" /> Excluir</span>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                           {Object.entries(defaultPermissions).map(([key, mod]) => {
                             const perm = member.permissions[key] || { view: false, edit: false, delete: false }
                             const Icon = mod.icon
                             return (
-                              <div key={key} className="p-3 rounded-xl bg-white/40 border border-white/60">
-                                <div className="flex items-center justify-between mb-2">
+                              <div key={key} className="rounded-[10px] border border-border bg-card p-3">
+                                <div className="mb-2 flex items-center justify-between">
                                   <div className="flex items-center gap-2">
-                                    <Icon className="w-4 h-4 text-plum" />
-                                    <span className="text-xs text-espresso">{mod.label}</span>
+                                    <Icon size={16} aria-hidden="true" className="text-muted-foreground" />
+                                    <span className="text-xs text-foreground">{mod.label}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <button onClick={() => updatePermission(member.id, key, 'view')} aria-label="Permissão de Visualização" title="Visualizar" className={`p-1 rounded transition-all ${perm.view ? 'bg-plum/10 text-plum' : 'bg-espresso/5 text-espresso/50'}`}><Eye className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => updatePermission(member.id, key, 'edit')} aria-label="Permissão de Edição" title="Editar" className={`p-1 rounded transition-all ${perm.edit ? 'bg-amber-50 text-amber-700' : 'bg-espresso/5 text-espresso/50'}`}><Edit3 className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => updatePermission(member.id, key, 'delete')} aria-label="Permissão de Exclusão" title="Excluir" className={`p-1 rounded transition-all ${perm.delete ? 'bg-red-50 text-red-500' : 'bg-espresso/5 text-espresso/50'}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.view} onClick={() => updatePermission(member.id, key, 'view')} aria-label={`Permissão de Visualização: ${mod.label}`} title="Visualizar" className={perm.view ? 'bg-[var(--ev-brand-soft)] text-primary hover:bg-[var(--ev-brand-soft)] hover:text-primary' : 'bg-secondary text-muted-foreground'}><I.Olho aria-hidden="true" /></Button>
+                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.edit} onClick={() => updatePermission(member.id, key, 'edit')} aria-label={`Permissão de Edição: ${mod.label}`} title="Editar" className={perm.edit ? `${chipAviso} border hover:text-[var(--ev-warning)]` : 'bg-secondary text-muted-foreground'}><I.Editar aria-hidden="true" /></Button>
+                                    <Button variant="ghost" size="icon-sm" aria-pressed={perm.delete} onClick={() => updatePermission(member.id, key, 'delete')} aria-label={`Permissão de Exclusão: ${mod.label}`} title="Excluir" className={perm.delete ? `${chipErro} border hover:text-destructive` : 'bg-secondary text-muted-foreground'}><I.Lixeira aria-hidden="true" /></Button>
                                   </div>
                                 </div>
                                 <div className="flex gap-1">
-                                  {perm.view && <span className="px-1.5 py-0.5 bg-plum/10 text-plum text-[9px] rounded-full">Ver</span>}
-                                  {perm.edit && <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] rounded-full">Editar</span>}
-                                  {perm.delete && <span className="px-1.5 py-0.5 bg-red-50 text-red-500 text-[9px] rounded-full">Excluir</span>}
-                                  {!perm.view && !perm.edit && !perm.delete && <span className="text-[9px] text-espresso/70 font-medium">Sem acesso</span>}
+                                  {perm.view && <Badge variant="secondary" className="border-transparent bg-[var(--ev-brand-soft)] text-primary">Ver</Badge>}
+                                  {perm.edit && <Badge variant="secondary" className={chipAviso}>Editar</Badge>}
+                                  {perm.delete && <Badge variant="secondary" className={chipErro}>Excluir</Badge>}
+                                  {!perm.view && !perm.edit && !perm.delete && <span className="text-xs font-medium text-muted-foreground">Sem acesso</span>}
                                 </div>
                               </div>
                             )
@@ -439,9 +436,9 @@ export default function TeamManager() {
 
                     {/* Stats */}
                     <div className="grid grid-cols-1 gap-3">
-                      <div className="p-3 rounded-xl bg-canvas text-center">
-                        <div className="text-sm font-semibold text-espresso">{member.joinedAt}</div>
-                        <div className="text-[9px] text-espresso/70">Entrou em</div>
+                      <div className="rounded-[10px] bg-secondary p-3 text-center">
+                        <div className="text-sm font-semibold text-foreground">{member.joinedAt}</div>
+                        <div className="text-xs text-muted-foreground">Entrou em</div>
                       </div>
                     </div>
                   </div>
