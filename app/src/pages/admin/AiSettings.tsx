@@ -1,12 +1,19 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Loader2, PlugZap, Info, Search, Gift, Save, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { PRIVACY_VERSION } from '../../lib/legal'
 import { PLANS, type PlanId } from '../../lib/plans'
+import { Badge } from '../../components/ui/badge'
+import { Button } from '../../components/ui/button'
+import { Input } from '../../components/ui/input'
+import { Spinner } from '../../components/ui/spinner'
 import { Switch } from '../../components/ui/switch'
+import { EmptyState, PageHeader, SectionTitle, Stat, chipAviso, selectNativo } from '../../components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '../../components/admin/ui'
+import { cn } from '../../lib/utils'
 
 // Tela do Evo (agente de IA). Contrato: docs/sql/20260929_agente_evo.sql + supabase/functions/agent.
 // A chave do Gemini nunca volta ao navegador: só o status (últimos 4) via ai_key_status.
@@ -312,55 +319,53 @@ export default function AdminAiSettings() {
 
   const r = resumo.data
   const reais = (v: number) => (cfg ? brl(v * cfg.usd_brl) : '—')
-  const inputCls = 'w-full px-3 py-2 bg-background border border-border rounded-lg text-sm text-foreground focus:outline-none focus:border-primary'
-  const cardCls = 'p-6 rounded-2xl bg-card border border-border space-y-4'
-  const thCls = 'px-3 py-2 text-[11px] uppercase text-muted-foreground font-semibold'
-  const vazio = (t: string) => <p className="text-sm text-muted-foreground py-6 text-center border border-dashed border-border rounded-xl">{t}</p>
+  const cardCls = cn(painel, 'space-y-4 p-4 sm:p-6')
+  const vazio = (t: string) => <EmptyState title={t} />
+  // tabela de apoio dentro de um cartão: moldura própria, rolagem horizontal da Tabela
+  const molde = 'overflow-hidden rounded-[10px] border border-border'
+  const corStatus = (s: string) => (s === 'erro' ? 'text-destructive' : s === 'pendente' ? 'text-[var(--ev-warning)]' : 'text-[var(--ev-success)]')
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl space-y-6">
-      <div className="flex items-center gap-3">
-        <img src="/evo/evo-avatar.webp" alt="" className="w-12 h-12 rounded-full" width={48} height={48} />
-        <div>
-          <h1 className="font-serif text-3xl text-foreground">IA / Evo</h1>
-          <p className="text-sm text-muted-foreground mt-1">Chave do Google Gemini, modelos, limites, créditos e gasto do assistente Evo.</p>
+      <div className="flex items-start gap-3">
+        <img src="/evo/evo-avatar.webp" alt="" className="size-12 rounded-full" width={48} height={48} />
+        <div className="min-w-0 flex-1 [&>div]:mb-0">
+          <PageHeader title="IA / Evo" description="Chave do Google Gemini, modelos, limites, créditos e gasto do assistente Evo." />
         </div>
       </div>
 
       {cfgQ.isError && (
-        <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">
+        <div role="alert" className={alertaErro}>
           Não foi possível carregar a configuração: {msgErro(cfgQ.error)}
         </div>
       )}
 
       {/* 1. Chave */}
       <section className={cardCls} aria-labelledby="ia-chave">
-        <h2 id="ia-chave" className="text-lg font-semibold text-foreground flex items-center gap-2"><KeyRound className="w-5 h-5 text-primary" aria-hidden="true" /> Chave do Google Gemini</h2>
+        <div className="flex items-center gap-2"><I.Chave size={16} className="text-primary" aria-hidden="true" /><SectionTitle id="ia-chave">Chave do Google Gemini</SectionTitle></div>
         <p className="text-sm" aria-live="polite">
           {status.isLoading ? <span className="text-muted-foreground">Verificando…</span>
-            : status.isError ? <span className="text-red-600">{msgErro(status.error)}</span>
-            : status.data?.configurada ? <span className="text-green-700 dark:text-green-400">Configurada — termina em ••••{status.data.final_4}{status.data.atualizada_em ? `, atualizada em ${dataBr(status.data.atualizada_em)}` : ''}</span>
-            : <span className="text-amber-700">Não configurada</span>}
+            : status.isError ? <span className="text-destructive">{msgErro(status.error)}</span>
+            : status.data?.configurada ? <span className="text-[var(--ev-success)]">Configurada — termina em ••••{status.data.final_4}{status.data.atualizada_em ? `, atualizada em ${dataBr(status.data.atualizada_em)}` : ''}</span>
+            : <span className="text-[var(--ev-warning)]">Não configurada</span>}
         </p>
         <form onSubmit={salvarChave} className="flex flex-col sm:flex-row gap-2">
           <label htmlFor="ia-chave-input" className="sr-only">Nova chave do Gemini</label>
-          <input id="ia-chave-input" ref={chaveRef} type="password" autoComplete="off" spellCheck={false} maxLength={200} className={inputCls} placeholder="Cole a nova chave aqui" />
-          <button type="submit" disabled={salvandoChave} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
-            {salvandoChave && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Salvar chave
-          </button>
-          <button type="button" onClick={() => testar.mutate()} disabled={testar.isPending} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
-            {testar.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <PlugZap className="w-4 h-4" aria-hidden="true" />} Testar conexão
-          </button>
+          <Input id="ia-chave-input" ref={chaveRef} type="password" autoComplete="off" spellCheck={false} maxLength={200} placeholder="Cole a nova chave aqui" />
+          <Button type="submit" loading={salvandoChave}>Salvar chave</Button>
+          <Button type="button" variant="outline" onClick={() => testar.mutate()} loading={testar.isPending}>
+            <I.Conectar aria-hidden="true" /> Testar conexão
+          </Button>
         </form>
-        {testar.data && <p className="text-xs text-green-700 dark:text-green-400">Conexão ok: {testar.data.model}, {testar.data.latency_ms} ms.</p>}
-        {testar.isError && <p className="text-xs text-red-600" role="alert">Teste falhou: {erroDe(testar.error)}</p>}
+        {testar.data && <p className="text-xs text-[var(--ev-success)]">Conexão ok: {testar.data.model}, {testar.data.latency_ms} ms.</p>}
+        {testar.isError && <p className="text-xs text-destructive" role="alert">Teste falhou: {erroDe(testar.error)}</p>}
         <p className="text-xs text-muted-foreground">Crie a chave em aistudio.google.com com faturamento ativo (plano pago). No plano gratuito o Google usa os dados para treinar — não use.</p>
       </section>
 
       {/* 2. Liga/desliga */}
       <section className={cardCls} aria-labelledby="ia-ligado">
         <div className="flex items-center justify-between gap-4">
-          <h2 id="ia-ligado" className="text-lg font-semibold text-foreground">Evo {cfg?.enabled ? 'ligado' : 'desligado'}</h2>
+          <SectionTitle id="ia-ligado">Evo {cfg?.enabled ? 'ligado' : 'desligado'}</SectionTitle>
           <Switch
             checked={!!cfg?.enabled}
             disabled={!cfg || ligar.isPending}
@@ -368,42 +373,42 @@ export default function AdminAiSettings() {
             aria-labelledby="ia-ligado"
           />
         </div>
-        <p className="text-xs text-amber-800 dark:text-amber-300 flex gap-2"><Info className="w-4 h-4 flex-shrink-0" aria-hidden="true" /> Ligue só depois da liberação do jurídico (Google como processador de dados fora do Brasil).</p>
+        <p className={alertaAviso}><I.Info size={16} className="text-[var(--ev-warning)]" aria-hidden="true" /> Ligue só depois da liberação do jurídico (Google como processador de dados fora do Brasil).</p>
       </section>
 
       {cfgQ.isLoading ? (
-        <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+        <div className="flex justify-center py-10"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
       ) : f ? (
         <form onSubmit={enviar} className="space-y-6">
           {/* 3. Modelos e preços */}
           <section className={cardCls} aria-labelledby="ia-modelos">
-            <h2 id="ia-modelos" className="text-lg font-semibold text-foreground">Modelos por nível</h2>
+            <SectionTitle id="ia-modelos">Modelos por nível</SectionTitle>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {MODELOS.map(([k, rotulo]) => (
                 <label key={k} className="space-y-1">
                   <span className="text-xs font-semibold text-muted-foreground">{rotulo}</span>
-                  <select className={inputCls} value={f[k] as string} onChange={e => set(k, e.target.value)}>
+                  <select className={selectNativo} value={f[k] as string} onChange={e => set(k, e.target.value)}>
                     {Object.keys(f.prices).map(m => <option key={m} value={m}>{m}{m.includes('preview') ? ' (preview)' : ''}</option>)}
                   </select>
                 </label>
               ))}
             </div>
-            <div className="overflow-x-auto border border-border rounded-xl">
-              <table className="w-full text-left text-sm">
+            <div className={molde}>
+              <Tabela label="Preço por modelo">
                 <caption className="sr-only">Preço por modelo, em US$ por 1 milhão de tokens</caption>
                 <thead className="border-b border-border">
-                  <tr><th className={thCls}>Modelo</th><th className={thCls}>Entrada (US$/1M)</th><th className={thCls}>Saída (US$/1M)</th></tr>
+                  <tr><th className={th}>Modelo</th><th className={th}>Entrada (US$/1M)</th><th className={th}>Saída (US$/1M)</th></tr>
                 </thead>
                 <tbody>
                   {Object.entries(f.prices).map(([m, p]) => (
                     <tr key={m} className="border-b border-border last:border-0">
-                      <td className="px-3 py-2 font-mono text-xs text-foreground">
-                        {m} {m.includes('preview') && <span className="ml-1 px-1.5 py-0.5 rounded border border-amber-500/30 bg-amber-500/10 text-[10px] text-amber-700 font-sans">preview</span>}
+                      <td className="px-4 py-2 font-mono text-xs text-foreground">
+                        {m} {m.includes('preview') && <Badge variant="secondary" className={cn(chipAviso, 'ml-1 px-1.5 py-0 font-sans')}>preview</Badge>}
                       </td>
                       {(['in', 'out'] as const).map(lado => (
-                        <td key={lado} className="px-3 py-2">
-                          <input
-                            className={`${inputCls} max-w-[8rem]`}
+                        <td key={lado} className="px-4 py-2">
+                          <Input
+                            className="max-w-[8rem]"
                             inputMode="decimal"
                             aria-label={`${m}: preço de ${lado === 'in' ? 'entrada' : 'saída'} em US$ por 1M de tokens`}
                             value={numInput(p[lado])}
@@ -414,14 +419,14 @@ export default function AdminAiSettings() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </Tabela>
             </div>
             <p className="text-xs text-muted-foreground">Preços oficiais de 29/09/2026; os Gemini 3.x Flash dobram em 01/01/2027.</p>
           </section>
 
           {/* 4. Limites e créditos */}
           <section className={cardCls} aria-labelledby="ia-limites">
-            <h2 id="ia-limites" className="text-lg font-semibold text-foreground">Limites e créditos</h2>
+            <SectionTitle id="ia-limites">Limites e créditos</SectionTitle>
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold text-foreground">Créditos por plano</legend>
               <p className="text-xs text-muted-foreground">Todos os planos renovam no dia 1º e não acumulam para o mês seguinte.</p>
@@ -429,7 +434,7 @@ export default function AdminAiSettings() {
                 {PLANS.map(p => (
                   <label key={p.id} className="space-y-1">
                     <span className="text-xs font-semibold text-muted-foreground">{p.name} (mês)</span>
-                    <input className={inputCls} inputMode="numeric" value={numInput(f.quotas[p.id])} onChange={e => set('quotas', { ...f.quotas, [p.id]: lerNum(e.target.value) })} />
+                    <Input inputMode="numeric" value={numInput(f.quotas[p.id])} onChange={e => set('quotas', { ...f.quotas, [p.id]: lerNum(e.target.value) })} />
                   </label>
                 ))}
               </div>
@@ -440,7 +445,7 @@ export default function AdminAiSettings() {
                 {NIVEIS.map(([n, rotulo]) => (
                   <label key={n} className="space-y-1">
                     <span className="text-xs font-semibold text-muted-foreground">{rotulo}</span>
-                    <input className={inputCls} inputMode="numeric" value={numInput(f.credit_cost[n])} onChange={e => set('credit_cost', { ...f.credit_cost, [n]: lerNum(e.target.value) })} />
+                    <Input inputMode="numeric" value={numInput(f.credit_cost[n])} onChange={e => set('credit_cost', { ...f.credit_cost, [n]: lerNum(e.target.value) })} />
                   </label>
                 ))}
               </div>
@@ -455,17 +460,17 @@ export default function AdminAiSettings() {
               ] as const).map(([k, rotulo, modo]) => (
                 <label key={k} className="space-y-1">
                   <span className="text-xs font-semibold text-muted-foreground">{rotulo}</span>
-                  <input className={inputCls} inputMode={modo} value={numInput(f[k])} onChange={e => set(k, lerNum(e.target.value))} />
+                  <Input inputMode={modo} value={numInput(f[k])} onChange={e => set(k, lerNum(e.target.value))} />
                 </label>
               ))}
             </div>
           </section>
 
           <div className="flex justify-end gap-2">
-            {form && <button type="button" onClick={() => setForm(null)} className="px-4 py-2 rounded-lg border border-border text-sm text-muted-foreground">Descartar alterações</button>}
-            <button type="submit" disabled={!form || salvar.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center gap-2 disabled:opacity-50">
-              {salvar.isPending ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Save className="w-4 h-4" aria-hidden="true" />} Salvar configurações
-            </button>
+            {form && <Button type="button" variant="outline" onClick={() => setForm(null)}>Descartar alterações</Button>}
+            <Button type="submit" disabled={!form} loading={salvar.isPending}>
+              <I.Guardar aria-hidden="true" /> Salvar configurações
+            </Button>
           </div>
         </form>
       ) : !cfgQ.isError ? (
@@ -475,11 +480,10 @@ export default function AdminAiSettings() {
       {/* 5. Painel de gasto */}
       <section className={cardCls} aria-labelledby="ia-gasto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <h2 id="ia-gasto" className="text-lg font-semibold text-foreground">Gasto</h2>
-          <div className="flex bg-background p-1 border border-border rounded-xl w-fit" role="group" aria-label="Período">
+          <SectionTitle id="ia-gasto">Gasto</SectionTitle>
+          <div className={cn(trilho, 'w-fit')} role="group" aria-label="Período">
             {PERIODOS.map(([v, l]) => (
-              <button key={v} type="button" aria-pressed={periodo === v} onClick={() => setPeriodo(v)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${periodo === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}>
+              <button key={v} type="button" aria-pressed={periodo === v} onClick={() => setPeriodo(v)} className={periodo === v ? segmentoOn : segmentoOff}>
                 {l}
               </button>
             ))}
@@ -487,24 +491,16 @@ export default function AdminAiSettings() {
         </div>
 
         {resumo.isLoading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-8 h-8 text-primary animate-spin" aria-label="Carregando" /></div>
+          <div className="flex justify-center py-10"><Spinner className="size-8 text-primary" aria-label="Carregando" /></div>
         ) : resumo.isError ? (
-          <div role="alert" className="p-4 rounded-2xl border border-red-200 bg-red-50 text-sm text-red-700">Não foi possível carregar o gasto: {msgErro(resumo.error)}</div>
+          <div role="alert" className={alertaErro}>Não foi possível carregar o gasto: {msgErro(resumo.error)}</div>
         ) : !r ? vazio('Sem dados.') : (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {[
-                ['Gasto (US$)', usd(r.totais.usd)],
-                ['Gasto (R$)', brl(r.totais.brl)],
-                ['Perguntas', String(r.totais.perguntas), `${r.totais.chamadas} ${r.totais.chamadas === 1 ? 'chamada' : 'chamadas'} à IA (inclui testes e recusas)`],
-                ['Custo médio por pergunta', r.totais.perguntas > 0 ? brl(r.totais.custo_medio_brl) : '—'],
-              ].map(([l, v, obs]) => (
-                <div key={l} className="p-4 rounded-xl bg-muted/40 border border-border">
-                  <div className="text-xs text-muted-foreground">{l}</div>
-                  <div className="font-serif text-2xl text-foreground mt-1">{v}</div>
-                  {obs && <div className="text-xs text-muted-foreground mt-1">{obs}</div>}
-                </div>
-              ))}
+              <Stat label="Gasto (US$)" value={usd(r.totais.usd)} />
+              <Stat label="Gasto (R$)" value={brl(r.totais.brl)} />
+              <Stat label="Perguntas" value={String(r.totais.perguntas)} hint={`${r.totais.chamadas} ${r.totais.chamadas === 1 ? 'chamada' : 'chamadas'} à IA (inclui testes e recusas)`} />
+              <Stat label="Custo médio por pergunta" value={r.totais.perguntas > 0 ? brl(r.totais.custo_medio_brl) : '—'} />
             </div>
 
             {r.por_dia.length === 0 ? vazio('Nenhuma pergunta no período.') : (
@@ -512,10 +508,14 @@ export default function AdminAiSettings() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={r.por_dia}>
                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" vertical={false} />
-                    <XAxis dataKey="dia" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${v}`} />
-                    <Tooltip formatter={(v: number, nome: string) => (nome === 'usd' ? [usd(v), 'Gasto'] : [v, nome])} />
-                    <Bar dataKey="usd" fill="#8f33f5" radius={[4, 4, 0, 0]} />
+                    <XAxis dataKey="dia" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${v}`} />
+                    <Tooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 10, color: 'hsl(var(--popover-foreground))' }}
+                      labelStyle={{ color: 'hsl(var(--popover-foreground))' }}
+                      formatter={(v: number, nome: string) => (nome === 'usd' ? [usd(v), 'Gasto'] : [v, nome])}
+                    />
+                    <Bar dataKey="usd" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -523,22 +523,22 @@ export default function AdminAiSettings() {
 
             <h3 className="text-sm font-semibold text-foreground">Produtores que mais gastaram (top 20)</h3>
             {r.por_produtor.length === 0 ? vazio('Nenhum produtor no período.') : (
-              <div className="overflow-x-auto border border-border rounded-xl">
-                <table className="w-full text-left text-sm">
+              <div className={molde}>
+                <Tabela label="Produtores que mais gastaram">
                   <thead className="border-b border-border"><tr>
-                    <th className={thCls}>Produtor</th><th className={thCls}>Perguntas</th><th className={thCls}>Créditos</th><th className={thCls}>Gasto (R$)</th>
+                    <th className={th}>Produtor</th><th className={th}>Perguntas</th><th className={th}>Créditos</th><th className={th}>Gasto (R$)</th>
                   </tr></thead>
-                  <tbody>
+                  <tbody className="text-sm">
                     {r.por_produtor.map(p => (
                       <tr key={p.user_id} className="border-b border-border last:border-0">
-                        <td className="px-3 py-2 text-foreground">{p.nome || '—'}<div className="text-[11px] text-muted-foreground">{p.email || '—'}</div></td>
-                        <td className="px-3 py-2">{p.perguntas}</td>
-                        <td className="px-3 py-2">{p.creditos}</td>
-                        <td className="px-3 py-2">{reais(p.usd)}</td>
+                        <td className="px-4 py-2 text-foreground">{p.nome || '—'}<div className="text-xs text-muted-foreground">{p.email || '—'}</div></td>
+                        <td className="px-4 py-2 tabular-nums">{p.perguntas}</td>
+                        <td className="px-4 py-2 tabular-nums">{p.creditos}</td>
+                        <td className="px-4 py-2 tabular-nums">{reais(p.usd)}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Tabela>
               </div>
             )}
 
@@ -546,43 +546,43 @@ export default function AdminAiSettings() {
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-foreground">Por modelo</h3>
                 {r.por_modelo.length === 0 ? vazio('Sem dados.') : (
-                  <div className="overflow-x-auto border border-border rounded-xl">
-                    <table className="w-full text-left text-sm">
+                  <div className={molde}>
+                    <Tabela label="Gasto por modelo">
                       <thead className="border-b border-border"><tr>
-                        <th className={thCls}>Modelo</th><th className={thCls}>Perguntas</th><th className={thCls}>Tokens (entrada/saída)</th><th className={thCls}>US$</th>
+                        <th className={th}>Modelo</th><th className={th}>Perguntas</th><th className={th}>Tokens (entrada/saída)</th><th className={th}>US$</th>
                       </tr></thead>
-                      <tbody>
+                      <tbody className="text-sm">
                         {r.por_modelo.map(m => (
                           <tr key={m.model || '-'} className="border-b border-border last:border-0">
-                            <td className="px-3 py-2 font-mono text-xs">{m.model || '—'}</td>
-                            <td className="px-3 py-2">{m.perguntas}</td>
-                            <td className="px-3 py-2 text-xs">{m.tokens_in.toLocaleString('pt-BR')} / {m.tokens_out.toLocaleString('pt-BR')}</td>
-                            <td className="px-3 py-2">{usd(m.usd)}</td>
+                            <td className="px-4 py-2 font-mono text-xs">{m.model || '—'}</td>
+                            <td className="px-4 py-2 tabular-nums">{m.perguntas}</td>
+                            <td className="px-4 py-2 text-xs tabular-nums">{m.tokens_in.toLocaleString('pt-BR')} / {m.tokens_out.toLocaleString('pt-BR')}</td>
+                            <td className="px-4 py-2 tabular-nums">{usd(m.usd)}</td>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </Tabela>
                   </div>
                 )}
               </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold text-foreground">Por modo</h3>
                 {r.por_modo.length === 0 ? vazio('Sem dados.') : (
-                  <div className="overflow-x-auto border border-border rounded-xl">
-                    <table className="w-full text-left text-sm">
+                  <div className={molde}>
+                    <Tabela label="Gasto por modo">
                       <thead className="border-b border-border"><tr>
-                        <th className={thCls}>Modo</th><th className={thCls}>Perguntas</th><th className={thCls}>US$</th>
+                        <th className={th}>Modo</th><th className={th}>Perguntas</th><th className={th}>US$</th>
                       </tr></thead>
-                      <tbody>
+                      <tbody className="text-sm">
                         {r.por_modo.map(m => (
                           <tr key={m.mode} className="border-b border-border last:border-0">
-                            <td className="px-3 py-2">{m.mode}</td>
-                            <td className="px-3 py-2">{m.perguntas}</td>
-                            <td className="px-3 py-2">{usd(m.usd)}</td>
+                            <td className="px-4 py-2">{m.mode}</td>
+                            <td className="px-4 py-2 tabular-nums">{m.perguntas}</td>
+                            <td className="px-4 py-2 tabular-nums">{usd(m.usd)}</td>
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </Tabela>
                   </div>
                 )}
               </div>
@@ -590,27 +590,27 @@ export default function AdminAiSettings() {
 
             <h3 className="text-sm font-semibold text-foreground">Histórico (últimas 100 do período)</h3>
             {r.historico.length === 0 ? vazio('Nenhuma pergunta no período.') : (
-              <div className="overflow-x-auto border border-border rounded-xl">
-                <table className="w-full text-left text-sm">
+              <div className={molde}>
+                <Tabela label="Histórico de perguntas">
                   <thead className="border-b border-border"><tr>
-                    <th className={thCls}>Data</th><th className={thCls}>Produtor</th><th className={thCls}>Modo</th><th className={thCls}>Nível</th>
-                    <th className={thCls}>Modelo</th><th className={thCls}>Tokens</th><th className={thCls}>Custo</th><th className={thCls}>Situação</th>
+                    <th className={th}>Data</th><th className={th}>Produtor</th><th className={th}>Modo</th><th className={th}>Nível</th>
+                    <th className={th}>Modelo</th><th className={th}>Tokens</th><th className={th}>Custo</th><th className={th}>Situação</th>
                   </tr></thead>
                   <tbody>
                     {r.historico.map(h => (
                       <tr key={h.id} className="border-b border-border last:border-0 align-top">
-                        <td className="px-3 py-2 text-xs whitespace-nowrap">{dataBr(h.created_at)}</td>
-                        <td className="px-3 py-2 text-xs">{h.nome || '—'}<div className="text-[11px] text-muted-foreground">{h.email || '—'}</div></td>
-                        <td className="px-3 py-2 text-xs">{h.mode}</td>
-                        <td className="px-3 py-2 text-xs">{h.tier}</td>
-                        <td className="px-3 py-2 font-mono text-[11px]">{h.model || '—'}</td>
-                        <td className="px-3 py-2 text-xs whitespace-nowrap">{h.tokens_in} / {h.tokens_out}</td>
-                        <td className="px-3 py-2 text-xs whitespace-nowrap">{usd(h.cost_usd)}<div className="text-[11px] text-muted-foreground">{h.credits} crédito(s)</div></td>
-                        <td className={`px-3 py-2 text-xs ${h.status === 'erro' ? 'text-red-600' : h.status === 'pendente' ? 'text-amber-700' : 'text-green-700'}`}>{h.status}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-xs tabular-nums">{dataBr(h.created_at)}</td>
+                        <td className="px-4 py-2 text-xs">{h.nome || '—'}<div className="text-xs text-muted-foreground">{h.email || '—'}</div></td>
+                        <td className="px-4 py-2 text-xs">{h.mode}</td>
+                        <td className="px-4 py-2 text-xs">{h.tier}</td>
+                        <td className="px-4 py-2 font-mono text-[11px]">{h.model || '—'}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-xs tabular-nums">{h.tokens_in} / {h.tokens_out}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-xs tabular-nums">{usd(h.cost_usd)}<div className="text-xs text-muted-foreground">{h.credits} crédito(s)</div></td>
+                        <td className={`px-4 py-2 text-xs ${corStatus(h.status)}`}>{h.status}</td>
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Tabela>
               </div>
             )}
           </>
@@ -619,21 +619,21 @@ export default function AdminAiSettings() {
 
       {/* 6. Conceder créditos */}
       <section className={cardCls} aria-labelledby="ia-creditos">
-        <h2 id="ia-creditos" className="text-lg font-semibold text-foreground flex items-center gap-2"><Gift className="w-5 h-5 text-primary" aria-hidden="true" /> Conceder créditos</h2>
+        <div className="flex items-center gap-2"><I.Presente size={16} className="text-primary" aria-hidden="true" /><SectionTitle id="ia-creditos">Conceder créditos</SectionTitle></div>
         <p className="text-xs text-muted-foreground">Créditos extras valem no mês em que forem concedidos.</p>
         <form onSubmit={buscar} className="flex gap-2">
           <label htmlFor="ia-busca" className="sr-only">E-mail do produtor</label>
-          <input id="ia-busca" className={inputCls} value={busca} onChange={e => setBusca(e.target.value)} placeholder="E-mail do produtor" maxLength={120} />
-          <button type="submit" disabled={buscando} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground flex items-center gap-2 disabled:opacity-50">
-            {buscando ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Search className="w-4 h-4" aria-hidden="true" />} Buscar
-          </button>
+          <Input id="ia-busca" value={busca} onChange={e => setBusca(e.target.value)} placeholder="E-mail do produtor" maxLength={120} />
+          <Button type="submit" variant="outline" loading={buscando}>
+            <I.Buscar aria-hidden="true" /> Buscar
+          </Button>
         </form>
         {achados && (achados.length === 0 ? vazio('Nenhum produtor com esse e-mail.') : (
           <fieldset className="space-y-1">
             <legend className="text-xs font-semibold text-muted-foreground">Escolha o produtor</legend>
             {achados.map(p => (
               <label key={p.id} className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
-                <input type="radio" name="ia-produtor" checked={escolhido?.id === p.id} onChange={() => setEscolhido(p)} />
+                <input type="radio" name="ia-produtor" className="accent-primary" checked={escolhido?.id === p.id} onChange={() => setEscolhido(p)} />
                 {p.full_name || '—'} <span className="text-muted-foreground">({p.email})</span>
               </label>
             ))}
@@ -643,34 +643,32 @@ export default function AdminAiSettings() {
           <form onSubmit={enviarCredito} className="grid grid-cols-1 sm:grid-cols-[8rem_1fr_auto] gap-2 items-end">
             <label className="space-y-1">
               <span className="text-xs font-semibold text-muted-foreground">Quantidade (1–10000)</span>
-              <input className={inputCls} inputMode="numeric" value={qtd} onChange={e => setQtd(e.target.value.replace(/\D/g, ''))} required />
+              <Input inputMode="numeric" value={qtd} onChange={e => setQtd(e.target.value.replace(/\D/g, ''))} required />
             </label>
             <label className="space-y-1">
               <span className="text-xs font-semibold text-muted-foreground">Nota (opcional, até 200)</span>
-              <input className={inputCls} value={nota} onChange={e => setNota(e.target.value)} maxLength={200} />
+              <Input value={nota} onChange={e => setNota(e.target.value)} maxLength={200} />
             </label>
-            <button type="submit" disabled={conceder.isPending} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50">
-              {conceder.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Conceder a {escolhido.email}
-            </button>
+            <Button type="submit" loading={conceder.isPending}>Conceder a {escolhido.email}</Button>
           </form>
         )}
       </section>
 
       {/* 7. Aviso da Política de Privacidade por e-mail */}
       <section className={cardCls} aria-labelledby="ia-aviso">
-        <h2 id="ia-aviso" className="text-lg font-semibold text-foreground flex items-center gap-2"><Mail className="w-5 h-5 text-primary" aria-hidden="true" /> Aviso da Política de Privacidade ({new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')})</h2>
+        <div className="flex items-center gap-2"><I.Email size={16} className="text-primary" aria-hidden="true" /><SectionTitle id="ia-aviso">Aviso da Política de Privacidade ({new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')})</SectionTitle></div>
         <p className="text-xs text-muted-foreground">Envio único: quem já recebeu não recebe de novo.</p>
-        <button type="button" onClick={() => contarAviso.mutate()} disabled={contarAviso.isPending} className="px-4 py-2 rounded-lg border border-border text-sm text-foreground flex items-center gap-2 disabled:opacity-50">
-          {contarAviso.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Contar destinatários
-        </button>
+        <Button type="button" variant="outline" onClick={() => contarAviso.mutate()} loading={contarAviso.isPending} className="w-fit">
+          Contar destinatários
+        </Button>
         <div aria-live="polite" className="text-sm space-y-1">
-          {contarAviso.isError && <p className="text-red-600" role="alert">{erroDe(contarAviso.error)}</p>}
+          {contarAviso.isError && <p className="text-destructive" role="alert">{erroDe(contarAviso.error)}</p>}
           {avisoN !== null && <p className="text-foreground">{pessoas(avisoN)} {avisoN === 1 ? 'vai' : 'vão'} receber</p>}
-          {enviarAviso.isError && <p className="text-red-600" role="alert">{erroDe(enviarAviso.error)}</p>}
+          {enviarAviso.isError && <p className="text-destructive" role="alert">{erroDe(enviarAviso.error)}</p>}
           {enviarAviso.data && (
             <p className="text-foreground">
               Enviados: {enviarAviso.data.enviados ?? 0} · Falhas: {enviarAviso.data.falhas ?? 0} · Restantes: {enviarAviso.data.restantes ?? 0}
-              {(enviarAviso.data.restantes ?? 0) > 0 && <span className="block text-amber-700">Clique de novo para continuar.</span>}
+              {(enviarAviso.data.restantes ?? 0) > 0 && <span className="block text-[var(--ev-warning)]">Clique de novo para continuar.</span>}
             </p>
           )}
         </div>
@@ -678,11 +676,11 @@ export default function AdminAiSettings() {
           <form onSubmit={e => { e.preventDefault(); if (podeEnviarAviso) enviarAviso.mutate() }} className="flex flex-col sm:flex-row gap-2 sm:items-end">
             <label className="space-y-1">
               <span className="text-xs font-semibold text-muted-foreground">Digite ENVIAR para confirmar</span>
-              <input className={inputCls} value={avisoConfirma} onChange={e => setAvisoConfirma(e.target.value)} autoComplete="off" spellCheck={false} maxLength={20} />
+              <Input value={avisoConfirma} onChange={e => setAvisoConfirma(e.target.value)} autoComplete="off" spellCheck={false} maxLength={20} />
             </label>
-            <button type="submit" disabled={!podeEnviarAviso} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 whitespace-nowrap">
-              {enviarAviso.isPending && <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />} Enviar para {pessoas(avisoN)}
-            </button>
+            <Button type="submit" disabled={!podeEnviarAviso} loading={enviarAviso.isPending}>
+              Enviar para {pessoas(avisoN)}
+            </Button>
           </form>
         )}
       </section>
