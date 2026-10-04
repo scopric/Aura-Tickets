@@ -351,6 +351,8 @@ test.describe('painel do evento: modo guiado "Passo N de 6"', () => {
     await expect(page.getByText('1 de 8')).toBeVisible()
     await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
     await expect(secao(page, /^Quando e onde/)).toBeFocused()
+    await expect(secao(page, /^Quando e onde/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false') // só a do passo, não as já visitadas
     await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=true')
     await page.reload()
     await expect(page.getByText('1 de 8')).toBeVisible()

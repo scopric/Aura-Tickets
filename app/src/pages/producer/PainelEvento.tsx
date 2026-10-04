@@ -304,7 +304,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   const abrir = (id: string) => {
     if (guiado) setPasso(SECOES.findIndex(s => s.id === id))
-    setAbertas(a => (a.includes(id) ? a : [...a, id])) // também com o guia: ao sair dele a sanfona não volta a um valor velho
+    // com o guia, só a seção do passo (ao sair dele fica só ela, não um valor velho nem as já visitadas)
+    setAbertas(a => (guiado ? [id] : a.includes(id) ? a : [...a, id]))
     setTimeout(() => {
       const cab = document.getElementById(`s-${id}`)
       cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
