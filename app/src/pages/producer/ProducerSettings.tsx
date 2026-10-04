@@ -40,7 +40,7 @@ export default function ProducerSettings() {
   useEffect(() => {
     if (busca.get('secao') !== 'notificacoes') return
     setSection('notificacoes')
-    setBusca((p) => { p.delete('secao'); return p }, { replace: true }) // senão voltaria para esta aba a cada troca
+    setBusca((p: URLSearchParams) => { p.delete('secao'); return p }, { replace: true }) // senão voltaria para esta aba a cada troca
   }, [busca, setBusca])
   // Confirmação da exclusão num modal da página: window.confirm pode ser bloqueado pelo
   // navegador e devolver false sem mostrar nada (foi o que aconteceu no teste de 27/09).
