@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { brl } from '../../lib/taxa'
+import { totaisMesas } from '../../lib/calculadoras'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +13,7 @@ interface TableConfig {
   capacity: number
   pricePerSeat: number
   filled: number
+  qty: number
 }
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
@@ -27,6 +29,7 @@ export default function TableCalculator() {
       capacity: 6,
       pricePerSeat: 100,
       filled: 0,
+      qty: 1,
     }])
   }
 
@@ -35,14 +38,14 @@ export default function TableCalculator() {
   }
 
   const updateTable = (id: string, field: keyof TableConfig, value: string | number) => {
-    setTables(tables.map(t => t.id === id ? { ...t, [field]: value } : t))
+    setTables(tables.map(t => {
+      if (t.id !== id) return t
+      const n = { ...t, [field]: value }
+      return { ...n, filled: Math.min(n.filled, n.capacity) }
+    }))
   }
 
-  const totalSeats = tables.reduce((s, t) => s + t.capacity, 0)
-  const totalFilled = tables.reduce((s, t) => s + t.filled, 0)
-  const totalRevenue = tables.reduce((s, t) => s + t.filled * t.pricePerSeat, 0)
-  const maxRevenue = tables.reduce((s, t) => s + t.capacity * t.pricePerSeat, 0)
-  const occupancyRate = totalSeats > 0 ? Math.round((totalFilled / totalSeats) * 100) : 0
+  const { mesas: totalMesas, lugares: totalSeats, ocupados: totalFilled, receita: totalRevenue, maximo: maxRevenue, ocupacao: occupancyRate } = totaisMesas(tables)
 
   const duplicateTable = (table: TableConfig) => {
     setTables([...tables, { ...table, id: Date.now().toString(), name: `${table.name} (cópia)` }])
@@ -62,7 +65,7 @@ export default function TableCalculator() {
       />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Mesas" value={tables.length} />
+        <Stat label="Mesas" value={totalMesas} />
         <Stat label="Lugares ocupados" value={`${totalFilled}/${totalSeats}`} />
         <Stat label="Ocupação" value={`${occupancyRate}%`} />
         <Stat label="Receita" value={brl(totalRevenue)} hint={`de ${brl(maxRevenue)} no máximo`} />
@@ -79,7 +82,7 @@ export default function TableCalculator() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {tables.map((table) => {
               const fillPercent = table.capacity > 0 ? Math.round((table.filled / table.capacity) * 100) : 0
-              const tableRevenue = table.filled * table.pricePerSeat
+              const tableRevenue = Math.round(table.filled * table.pricePerSeat * 100) / 100
               const id = `mesa-${table.id}`
 
               return (
@@ -105,17 +108,23 @@ export default function TableCalculator() {
                     <div className="grid gap-1.5">
                       <Label htmlFor={`${id}-cap`}>Lugares</Label>
                       <Input id={`${id}-cap`} type="number" inputMode="numeric" min={0} value={table.capacity}
-                        onChange={e => updateTable(table.id, 'capacity', parseInt(e.target.value) || 0)} />
+                        onChange={e => updateTable(table.id, 'capacity', Math.max(parseInt(e.target.value) || 0, 0))} />
                     </div>
                     <div className="grid gap-1.5">
                       <Label htmlFor={`${id}-preco`}>Preço por lugar (R$)</Label>
                       <Input id={`${id}-preco`} type="number" inputMode="decimal" min={0} value={table.pricePerSeat}
-                        onChange={e => updateTable(table.id, 'pricePerSeat', parseInt(e.target.value) || 0)} />
+                        onChange={e => updateTable(table.id, 'pricePerSeat', Math.max(parseFloat(e.target.value) || 0, 0))} />
                     </div>
                   </div>
 
                   <div className="mt-3 grid gap-1.5">
-                    <Label htmlFor={`${id}-ocupados`}>Ocupados</Label>
+                    <Label htmlFor={`${id}-qtd`}>Quantidade de mesas iguais</Label>
+                    <Input id={`${id}-qtd`} type="number" inputMode="numeric" min={1} step={1} value={table.qty}
+                      onChange={e => updateTable(table.id, 'qty', Math.min(Math.max(parseInt(e.target.value) || 1, 1), 999))} />
+                  </div>
+
+                  <div className="mt-3 grid gap-1.5">
+                    <Label htmlFor={`${id}-ocupados`}>Ocupados (em cada mesa)</Label>
                     <div className="flex items-center gap-2">
                       <input
                         type="range"
@@ -127,7 +136,7 @@ export default function TableCalculator() {
                         className="min-w-0 flex-1 accent-primary"
                       />
                       <Input id={`${id}-ocupados`} type="number" inputMode="numeric" min={0} max={table.capacity} value={table.filled}
-                        onChange={e => updateTable(table.id, 'filled', parseInt(e.target.value) || 0)}
+                        onChange={e => updateTable(table.id, 'filled', Math.min(Math.max(parseInt(e.target.value) || 0, 0), table.capacity))}
                         className="w-16 text-center" />
                     </div>
                   </div>
@@ -141,8 +150,8 @@ export default function TableCalculator() {
                       <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${Math.min(fillPercent, 100)}%` }} />
                     </div>
                     <div className="mt-3 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Receita</span>
-                      <span className="font-medium tabular-nums text-foreground">{brl(tableRevenue)}</span>
+                      <span className="text-muted-foreground">Receita{table.qty > 1 ? ` (${table.qty} mesas)` : ''}</span>
+                      <span className="font-medium tabular-nums text-foreground">{brl(tableRevenue * table.qty)}</span>
                     </div>
                   </div>
                 </div>

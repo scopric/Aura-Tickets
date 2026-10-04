@@ -145,7 +145,7 @@ export default function ProducerTimeline() {
         </select>
         {selectedEvent?.date && (
           <span className="text-sm text-muted-foreground">
-            {new Date(selectedEvent.date).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
+            {new Date(`${selectedEvent.date.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </span>
         )}
       </div>
