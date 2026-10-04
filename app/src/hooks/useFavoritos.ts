@@ -33,7 +33,7 @@ export function useFavoritos() {
   const mutacao = useMutation({
     // uma de cada vez: dois toques rápidos no mesmo coração rodam em ordem e o último vence
     scope: { id: 'favoritos' },
-    mutationFn: async ({ eventId, salvar }: { eventId: string; salvar: boolean }) => {
+    mutationFn: async ({ eventId, salvar }: { eventId: string; salvar: boolean; avisar?: boolean }) => {
       const { error } = salvar
         ? await supabase.from('favoritos' as never).insert({ user_id: userId, event_id: eventId } as never)
         : await supabase.from('favoritos' as never).delete().eq('user_id', userId!).eq('event_id', eventId)
@@ -49,13 +49,17 @@ export function useFavoritos() {
       queryClient.setQueryData(chave, ctx?.antes)
       toast.error(salvar ? 'Não deu para salvar o evento. Tente de novo.' : 'Não deu para remover o evento dos salvos. Tente de novo.')
     },
+    // "Desfazer" só depois que o banco confirmou a remoção (a fila serial garante que o desfazer roda depois)
+    onSuccess: (_d, { eventId, salvar, avisar }) => {
+      if (!salvar && avisar) toast.success('Removido dos salvos', { action: { label: 'Desfazer', onClick: () => mutacao.mutate({ eventId, salvar: true }) } })
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: ['favoritos'] }), // os ids e a lista da tela Salvos
   })
 
   return {
     userId,
     salvo: (eventId: string) => ids.includes(eventId),
-    definir: (eventId: string, salvar: boolean) => mutacao.mutate({ eventId, salvar }),
+    definir: (eventId: string, salvar: boolean, avisar = false) => mutacao.mutate({ eventId, salvar, avisar }),
   }
 }
 

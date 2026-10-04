@@ -8,6 +8,7 @@ export interface TipoIngresso { price: number | string; is_active?: boolean | nu
 
 export interface EventoCatalogo {
   id: string
+  slug?: string | null
   title: string
   date?: string | null
   time?: string | null

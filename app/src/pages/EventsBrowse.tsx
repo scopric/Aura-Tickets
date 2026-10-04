@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
@@ -11,7 +11,7 @@ import Chip from '../components/Chip'
 import EventoCapa from '../components/EventoCapa'
 import EventoLinha, { Preco } from '../components/EventoLinha'
 import { useFavoritos } from '../hooks/useFavoritos'
-import { siteUrl } from '../lib/appHost'
+import { getAppMode, siteUrl } from '../lib/appHost'
 import Salvos from './app/Salvos'
 import { temFoto } from '../lib/corEvento'
 import { brl, TAXA_MINIMA, TAXA_PERCENTUAL } from '../lib/taxa'
@@ -40,7 +40,8 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
   const base = noApp ? '/app/events' : '/events'
   const navigate = useNavigate()
   const { userId } = useFavoritos()
-  const quando = quandoDoSlug(useParams().quando)
+  const slugQuando = useParams().quando
+  const quando = quandoDoSlug(slugQuando)
   // o círculo de busca da barra inferior do app chega com ?busca=1 (foca o campo); a busca do topo, com ?q=termo
   const [params] = useSearchParams()
   const campoBusca = useRef<HTMLInputElement>(null)
@@ -115,6 +116,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
     return { frase: 'Ainda não tem evento publicado.', apoio: 'Quando sair o primeiro, ele aparece aqui. Assine a newsletter para saber quando.', botao: '', acao: () => {} }
   }
 
+  if (slugQuando && !quando) return <Navigate to={base} replace /> // atalho que não existe: volta para o Explorar
   const px = noApp ? '' : 'px-5 lg:px-8'
   const abas = !!userId && noApp // só o participante salva; visitante e equipe não veem a aba
 
@@ -125,8 +127,12 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
 
         {abas && (
           <div role="group" aria-label="Explorar" className="mt-3 flex gap-2">
-            <Chip marcado={!aba} onClick={() => navigate('/app/events')}>Eventos</Chip>
-            <Chip marcado={!!aba} onClick={() => navigate('/app/salvos')}>Salvos</Chip>
+            {([['/app/events', 'Eventos', !aba], ['/app/salvos', 'Salvos', !!aba]] as const).map(([to, nome, atual]) => (
+              <Link key={to} to={to} aria-current={atual ? 'page' : undefined} className={cn(
+                'grid h-10 place-items-center rounded-ev-pill px-4 text-sm focus-visible:outline-none focus-visible:shadow-ev-foco',
+                atual ? 'bg-[var(--ev-brand-soft)] font-semibold text-primary' : 'font-medium shadow-[inset_0_0_0_1px_hsl(var(--input))] hover:bg-[var(--ev-tint-hover)]'
+              )}>{nome}</Link>
+            ))}
           </div>
         )}
 
@@ -231,7 +237,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
                 {v.apoio && <p className="mt-1.5 text-pretty text-[15px] leading-[22px] text-muted-foreground">{v.apoio}</p>}
                 {v.botao && <Button variant="outline" size="lg" className="mt-5" onClick={v.acao}>{v.botao}</Button>}
                 {/* catálogo vazio: a newsletter fica no rodapé do site (no app não há rodapé: abre o do site) */}
-                {!v.botao && <Button asChild variant="outline" size="lg" className="mt-5"><a href={noApp ? siteUrl('/events#newsletter') : '#newsletter'}>Assinar a newsletter</a></Button>}
+                {!v.botao && <Button asChild variant="outline" size="lg" className="mt-5"><a href={getAppMode() === 'app' ? siteUrl('/events#newsletter') : '#newsletter'}>Assinar a newsletter</a></Button>}
               </div>
             )
           })()
@@ -241,7 +247,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
               <section aria-labelledby="t-destaque" className="relative mt-4 max-w-[360px] lg:sticky lg:top-24">
                 <h2 id="t-destaque" className="mb-3 text-[15px] font-semibold">Em destaque</h2>
                 <Link
-                  to={`/event/${destaque.id}`}
+                  to={`/event/${destaque.slug || destaque.id}`}
                   className="block max-w-[360px] rounded-ev-xl focus-visible:outline-none focus-visible:shadow-ev-foco"
                 >
                   <span className="relative block">
@@ -255,7 +261,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
                   <span className="wide mt-3 block font-display text-2xl font-extrabold leading-7 tracking-[-0.015em]">{destaque.title}</span>
                   <span className="mt-1 block pr-11 text-[13px] leading-[18px] text-muted-foreground">
                     {rotuloDia(destaque.date!, hoje).curto} · {linhaLocal(destaque)}
-                    {rotuloClassificacao(destaque.classificacao) && ` · Classificação ${rotuloClassificacao(destaque.classificacao)}`}
+                    {rotuloClassificacao(destaque.classificacao) && <> · <span className="sr-only">Classificação </span>{rotuloClassificacao(destaque.classificacao)}</>}
                   </span>
                   <span className="mt-1 block pr-11 text-[13px] leading-[18px]"><Preco evento={destaque} /></span>
                 </Link>
@@ -303,7 +309,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
                           <EventoLinha
                             key={e.id}
                             evento={e}
-                            to={`/event/${e.id}`}
+                            to={`/event/${e.slug || e.id}`}
                             linha={linhaLocal(e)}
                             preco={<Preco evento={e} />}
                             className="sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3"

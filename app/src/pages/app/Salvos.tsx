@@ -48,7 +48,7 @@ export default function Salvos() {
           <EventoLinha
             key={eventId}
             evento={e}
-            to={`/event/${e.id}`}
+            to={`/event/${e.slug || e.id}`}
             linha={[e.date && rotuloDia(e.date, hoje).curto, horaCurta(e.time), e.venue_name || e.venue_city].filter(Boolean).join(' · ')}
             preco={e.date && e.date < hoje ? <span className="font-semibold">Evento passado</span> : <Preco evento={e} />}
             className="sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3"
@@ -60,7 +60,7 @@ export default function Salvos() {
               <span className="block text-base font-semibold leading-[22px]">Evento fora do ar</span>
               <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">Este evento não está mais disponível.</span>
             </span>
-            <Button variant="outline" size="sm" onClick={() => definir(eventId, false)}>Remover</Button>
+            <Button variant="outline" size="sm" onClick={() => definir(eventId, false, true)}>Remover</Button>
           </li>
         ))}
       </ul>

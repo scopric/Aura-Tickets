@@ -211,6 +211,17 @@ describe('Explorar (V11b)', () => {
     expect(screen.queryByText(/\+ taxa/)).toBeNull()
   })
 
+  it('atalho de data inexistente volta para /events; ?busca=1 foca o campo no app', async () => {
+    resposta.data = [evento('a')]
+    montar('/events/xyz')
+    expect(await screen.findByRole('heading', { name: '1 evento' })).toBeInTheDocument()
+    expect(screen.getByTestId('local')).toHaveTextContent(/^\/events$/)
+    cleanup()
+    montar('/app/events?busca=1')
+    await screen.findByRole('heading', { name: '1 evento' })
+    expect(screen.getByRole('searchbox')).toHaveFocus()
+  })
+
   it('no app (/app/events): mesma tela, sem a moldura do site; ?q= chega no campo e filtra; a aba Salvos mostra a lista', async () => {
     resposta.data = [evento('a', { title: 'Baile do Sol' }), evento('b', { title: 'Noite de Forró' })]
     montar('/app/events?q=forro')
