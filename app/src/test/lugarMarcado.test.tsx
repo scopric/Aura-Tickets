@@ -332,6 +332,7 @@ describe('Lugar marcado: carga e erros', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Aplicar ao mapa \(2\)/ }))
     expect(screen.queryByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeNull()
+    expect(entradaDaPlanta()).toBeTruthy() // peças recém-aplicadas ficam selecionadas e o campo de arquivo continua montado
     fireEvent.click(salvar)
     await waitFor(() => expect(h.upsert).toHaveBeenCalled())
     const seats = h.upsert.mock.calls[0][0].environments[0].seats
@@ -358,6 +359,24 @@ describe('Lugar marcado: carga e erros', () => {
     expect(await screen.findByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
     expect(screen.queryByRole('button', { name: /clique para desmarcar/ })).toBeNull() // sem painel, sem camada
+  })
+
+  it('trocar a planta durante a leitura descarta a proposta e não reabre o modal', async () => {
+    h.eventos = dois
+    comPlanta()
+    let responde!: (v: unknown) => void
+    h.invoke.mockReturnValue(new Promise(r => { responde = r }))
+    h.reduzir = async () => 'data:image/webp;base64,OUTRA'
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    await act(async () => { fireEvent.change(entradaDaPlanta(), { target: { files: [new File(['x'], 'outra.png', { type: 'image/png' })] } }) })
+    await act(async () => { responde({ data: { ok: true, pecas, descartadas: 0, usage_id: 'u1', restante: 0, custo: 5 }, error: null }) })
+    expect(h.toast.info).toHaveBeenCalledWith(expect.stringMatching(/proposta foi descartada/))
+    expect(screen.queryByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeNull()
+    h.reduzir = null
   })
 
   it('sem crédito: mostra quanto custa e quanto sobra, e não abre proposta', async () => {

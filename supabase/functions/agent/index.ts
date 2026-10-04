@@ -146,7 +146,8 @@ async function gemini(key: string, model: string, body: any, uso: Uso, prazo: nu
         body: JSON.stringify(b),
         signal: ctrl.signal,
       })
-      return { status: r.status, data: await r.json().catch(() => null) }
+      // prazo estourado durante a leitura do corpo: repassa o AbortError (o chamador estima o custo); corpo que não é JSON vira null
+      return { status: r.status, data: await r.json().catch(e => { if (ctrl.signal.aborted) throw e; return null }) }
     } finally {
       clearTimeout(timer)
     }

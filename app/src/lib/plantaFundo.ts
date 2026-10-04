@@ -26,7 +26,8 @@ export async function reduzirPlanta(arquivo: Blob, maxLado = 1600, alvoBytes = 3
 // Build `legacy`: a moderna exige `Math.sumPrecise` (navegador novo) e falha em Safari/Chrome mais velhos.
 // `wasmUrl`: os decodificadores wasm (JBIG2 de PDF escaneado, JPEG 2000, cores ICC) ficam em public/pdfjs-wasm;
 // sem eles o PDF escaneado em JBIG2 sai em branco. ponytail: cópia dos arquivos de node_modules/pdfjs-dist/wasm
-// (versão 6.4.299); recopiar ao atualizar o pdfjs-dist. Só a página 1; sem as fontes padrão, fonte não embutida pode sair trocada.
+// (versão 6.4.299); recopiar ao atualizar o pdfjs-dist. Os *_nowasm_fallback.js ficam ao lado para quando a CSP
+// passar a bloquear wasm: aí é preciso 'wasm-unsafe-eval' na CSP ou depender desses fallbacks. Só a página 1; sem as fontes padrão, fonte não embutida pode sair trocada.
 export async function pdfParaImagem(arquivo: Blob, maxLado = 1600): Promise<Blob> {
   const [pdfjs, worker] = await Promise.all([import('pdfjs-dist/legacy/build/pdf.mjs'), import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')])
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default

@@ -475,6 +475,8 @@ export default function SeatingMap() {
 
   const canvasRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const bgImageRef = useRef(bgImage) // a planta de agora, para a leitura que volta depois de o produtor trocá-la
+  useEffect(() => { bgImageRef.current = bgImage }, [bgImage])
 
   const activeSection = activeEnvObj.sections.find(s => s.id === activeSec) || activeEnvObj.sections[0]
   const seats = activeEnvObj.seats || []
@@ -1520,10 +1522,11 @@ export default function SeatingMap() {
   // A planta de fundo (já reduzida) vai ao Evo; a proposta volta para revisão e não toca no mapa
   const lerPlantaComIA = async () => {
     if (!eventId || !bgImage || lendo) return
+    const imagem = bgImage
     setLendo(true)
     let r: Awaited<ReturnType<typeof chamarEvo>>
     try {
-      r = await chamarEvo({ mode: 'planta', event_id: eventId, imagem: bgImage })
+      r = await chamarEvo({ mode: 'planta', event_id: eventId, imagem })
     } catch {
       r = { ok: false, motivo: 'rede' }
     }
@@ -1539,7 +1542,11 @@ export default function SeatingMap() {
       toast.warning('A leitura não reconheceu nenhuma peça nessa planta. Ela foi cobrada; tente uma imagem mais nítida ou monte o mapa à mão.')
       return
     }
-    setProposta({ imagem: bgImage, pecas: pecas.map((p, i) => ({ ...p, id: `ia-${i}`, marcada: true })), custo: r.custo, restante: r.restante })
+    if (bgImageRef.current !== imagem) {
+      toast.info('A planta mudou durante a leitura; a proposta foi descartada.')
+      return
+    }
+    setProposta({ imagem, pecas: pecas.map((p, i) => ({ ...p, id: `ia-${i}`, marcada: true })), custo: r.custo, restante: r.restante })
     setAiReaderOpen(true) // fechou o modal durante a leitura (já cobrada): reabre no painel de revisão, onde a proposta pode ser aplicada ou descartada
     toast.success(`${pecas.length} peças propostas. Revise por cima da planta antes de aplicar.`)
   }
@@ -4242,13 +4249,6 @@ export default function SeatingMap() {
                         </div>
                       )}
                       
-                      <input 
-                        type="file" 
-                        ref={fileInputRef} 
-                        accept="image/*,application/pdf" 
-                        className="hidden" 
-                        onChange={e => e.target.files?.[0] && uploadBgImage(e.target.files[0])} 
-                      />
                     </div>
                   </div>
                 ) : (
@@ -4435,6 +4435,15 @@ export default function SeatingMap() {
           <span className="text-muted-foreground">Potencial: <strong>R$ {potential.toLocaleString('pt-BR')}</strong></span>
         </div>
       </footer>
+
+      {/* Sempre montado: o botão da lateral e o do leitor de planta clicam nele, em qualquer aba ou seleção */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*,application/pdf"
+        className="hidden"
+        onChange={e => e.target.files?.[0] && uploadBgImage(e.target.files[0])}
+      />
 
       {/* LEITOR DE PLANTA COM IA: 1) escolher a planta e ler; 2) revisar a proposta por cima da planta e aplicar */}
       {aiReaderOpen && !propostaAtual && (
