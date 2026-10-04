@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
-import { Instagram } from 'lucide-react' // sem equivalente na família Evokaa 16
+import { Instagram } from 'lucide-react' // sem equivalente na família Evokaa 16 (o lucide marca Instagram como obsoleto: some no lucide 1.0)
 import * as I from '@/components/icones/evokaa16'
 import { useProducerSettings } from '../../hooks/useProducerSettings'
 import { useTwoFactor } from '../../hooks/useTwoFactor'
@@ -114,7 +114,6 @@ export default function ProducerSettings() {
     }
   }, [data])
 
-  const isSaving = isSavingProfile || isSavingProducerProfile
 
   const handleSaveProfile = async () => {
     try {
@@ -369,11 +368,11 @@ export default function ProducerSettings() {
               </div>
 
               <div data-tour="cfg-salvar" className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <Button variant="outline" onClick={handleSaveCompany} disabled={isSaving} loading={isSavingProducerProfile}>
-                  <I.Salvar aria-hidden="true" />Salvar empresa
+                <Button variant="outline" onClick={handleSaveCompany} disabled={isSavingProfile} loading={isSavingProducerProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar empresa
                 </Button>
-                <Button onClick={handleSaveProfile} disabled={isSaving} loading={isSavingProfile}>
-                  <I.Salvar aria-hidden="true" />Salvar perfil
+                <Button onClick={handleSaveProfile} disabled={isSavingProducerProfile} loading={isSavingProfile}>
+                  <I.Guardar aria-hidden="true" />Salvar perfil
                 </Button>
               </div>
             </section>
@@ -440,7 +439,7 @@ export default function ProducerSettings() {
               </section>
 
               <section className="rounded-[10px] border border-destructive/40 bg-card p-4 sm:p-6">
-                <div className="flex items-center gap-2"><I.Alerta aria-hidden="true" className="size-4 text-destructive" /><SectionTitle>Zona de perigo</SectionTitle></div>
+                <h2 className="flex items-center gap-2 text-[15px] font-semibold leading-5 text-destructive"><I.Alerta aria-hidden="true" className="size-4" />Zona de perigo</h2>
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm text-foreground">Excluir conta</p>
@@ -491,7 +490,7 @@ export default function ProducerSettings() {
               </div>
               <div className="flex justify-end">
                 <Button onClick={handleSavePayment} loading={isSavingProducerProfile}>
-                  <I.Salvar aria-hidden="true" />Salvar
+                  <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>
             </section>
@@ -527,7 +526,7 @@ export default function ProducerSettings() {
 
               <div className="flex justify-end">
                 <Button onClick={handleSaveNotifications} loading={isSavingProducerProfile}>
-                  <I.Salvar aria-hidden="true" />Salvar
+                  <I.Guardar aria-hidden="true" />Salvar
                 </Button>
               </div>
             </section>
