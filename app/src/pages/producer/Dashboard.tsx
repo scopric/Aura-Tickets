@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -9,6 +9,8 @@ import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
 import { siteUrl } from '../../lib/appHost'
 import { situacaoEvento } from '../../lib/eventoProdutor'
+import { soltarConfete } from '../../lib/confete'
+import { corDoEvento, derivarCor } from '../../lib/corEvento'
 import {
   PERIODOS, VENDIDO, ehPeriodo, janelas, resumoDe, serie, rotuloDoBalde, dataPorExtenso, dataDoEvento,
   inteiro, inteiroMais, brlMais, sugestaoDoEvo, type Linha, type Periodo,
@@ -68,6 +70,18 @@ export default function ProducerDashboard() {
   const mudaPeriodo = (v: string) => setBusca((prev: URLSearchParams) => { const n = new URLSearchParams(prev); n.set('periodo', v); return n }, { replace: true })
 
   const eventosQ = useProducerEvents()
+
+  // Decisão 157.1: confete no 1º evento aprovado, uma vez por conta (registro no banco; o ref cobre StrictMode e re-render
+  // enquanto o registro otimista não chega). Com "reduzir movimento" não desenha, mas o registro é gravado igual.
+  const celebrou = useRef(false)
+  const aprovado = eventosQ.data?.find(e => e.approval_status === 'approved')
+  useEffect(() => {
+    if (!aprovado || !carregou || celebrou.current || registrados.has('celebracao:primeiro-evento')) return
+    celebrou.current = true
+    const d = derivarCor(corDoEvento(aprovado))
+    soltarConfete([d.cor, d.duoLuz, '#f2994a'])
+    registrar('celebracao:primeiro-evento')
+  }, [aprovado, carregou, registrados, registrar])
 
   const vendasQ = useQuery({
     queryKey: ['producer-inicio-vendas', user?.id],
