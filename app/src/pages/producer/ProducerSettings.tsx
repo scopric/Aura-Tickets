@@ -85,10 +85,10 @@ export default function ProducerSettings() {
 
   // Sincroniza com o servidor só na 1ª carga: depois de cada salvamento o cache é refeito e o reset
   // apagaria o que foi digitado e ainda não salvo em outra aba/seção.
-  const sincronizado = useRef(false)
+  const sincronizado = useRef<string | null>(null) // id do usuário já sincronizado
   useEffect(() => {
-    if (data && !sincronizado.current) {
-      sincronizado.current = true
+    if (data && sincronizado.current !== data.profile.id) {
+      sincronizado.current = data.profile.id
       setProfile({
         name: data.profile.full_name || '',
         email: data.profile.email || '',
@@ -149,7 +149,6 @@ export default function ProducerSettings() {
       await saveProducerProfile({
         company_name: profile.company.trim(),
         cnpj: profile.cnpj.replace(/\D/g, '') || null, // vazio é null (coluna anulável desde 20261005); a UNIQUE não aceitaria dois ''
-
       })
       toast.success('Dados da empresa atualizados com sucesso!')
     } catch (e) {
