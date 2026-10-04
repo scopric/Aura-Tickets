@@ -59,6 +59,11 @@ export interface DbTicket {
   }
 }
 
+// Colunas lidas de orders e tickets: nunca '*' (customer_cpf, customer_phone e buyer_cpf ficam sem grant de SELECT,
+// docs/sql/20261011_orders_tickets_colunas_pessoais.sql; o teste colunasPessoais.test.ts barra o '*').
+const COLUNAS_PEDIDO = 'id, user_id, event_id, total, status, payment_method, gateway_payment_id, created_at, updated_at'
+const COLUNAS_INGRESSO = 'id, order_id, event_id, ticket_type_id, user_id, qr_code, status, buyer_name, checked_in_at, created_at, updated_at'
+
 export function useCreateOrder() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -93,7 +98,7 @@ export function useCreateOrder() {
           customer_name: user.name || user.full_name || 'Participante',
           customer_email: user.email
         })
-        .select()
+        .select(`${COLUNAS_PEDIDO}, customer_name, customer_email`)
         .single()
 
       if (orderError) throw orderError
@@ -154,7 +159,7 @@ export function useUserOrders() {
       const { data, error } = await supabase
         .from('orders')
         .select(`
-          *,
+          ${COLUNAS_PEDIDO},
           events (
             title,
             cover_image,
@@ -203,7 +208,7 @@ export function useUserTickets() {
       const { data, error } = await supabase
         .from('tickets')
         .select(`
-          *,
+          ${COLUNAS_INGRESSO},
           ticket_types (
             name,
             price,
@@ -254,7 +259,7 @@ export function useOrderTickets(orderId?: string) {
       const { data, error } = await supabase
         .from('tickets')
         .select(`
-          *,
+          ${COLUNAS_INGRESSO},
           ticket_types (
             name,
             price,

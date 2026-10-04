@@ -89,7 +89,7 @@ export default function ProducerCheckIn() {
       const { data, error } = await supabase
         .from('tickets')
         .select(`
-          *,
+          id, buyer_name, buyer_email, qr_code, status, checked_in_at,
           ticket_types (name),
           events (title)
         `)
