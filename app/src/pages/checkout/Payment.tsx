@@ -101,7 +101,7 @@ export default function CheckoutPayment() {
           const nextSeats = (env.seats || []).map((s: any) => {
             const selected = selectedSeats[s.id]
             if (selected) {
-              return { ...s, status: 'sold', occupantName: selected.occupantName }
+              return { ...s, status: 'sold' }
             }
             return s
           })

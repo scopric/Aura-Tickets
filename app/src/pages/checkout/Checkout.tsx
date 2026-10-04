@@ -194,16 +194,6 @@ export default function Checkout() {
       if (data) {
         setSeatingMap(data)
         setChooseViaMap(true)
-      } else {
-        const local = localStorage.getItem(`seating_map_${eventId}`)
-        if (local) {
-          try {
-            setSeatingMap(JSON.parse(local))
-            setChooseViaMap(true)
-          } catch (e) {
-            console.error('Erro ao ler mapa local no checkout', e)
-          }
-        }
       }
       setLoadingMap(false)
     }
@@ -821,12 +811,6 @@ export default function Checkout() {
                                 {(isSelected && selectedSeats[s.id]?.occupantName) && (
                                   <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-stone-850 text-white text-[5px] rounded whitespace-nowrap pointer-events-none font-bold z-10 shadow">
                                     {selectedSeats[s.id].occupantName}
-                                  </div>
-                                )}
-                                
-                                {(!isSelected && s.occupantName) && (
-                                  <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 px-1.5 py-0.2 bg-stone-750 text-white text-[5px] rounded whitespace-nowrap pointer-events-none font-bold z-10 shadow">
-                                    Dono: {s.occupantName}
                                   </div>
                                 )}
                               </div>
