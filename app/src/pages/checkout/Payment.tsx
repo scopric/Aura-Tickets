@@ -285,15 +285,15 @@ export default function CheckoutPayment() {
           <div className="rounded-ev-xl bg-card p-6 shadow-ev-secondary">
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
               <span>Ingressos</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal, 'BRL')}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal)}</span>
             </div>
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5 text-muted-foreground">
               <span>Taxa de serviço</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa, 'BRL')}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa)}</span>
             </div>
             <div className="flex items-baseline justify-between gap-3 pt-3 text-base font-semibold">
               <span>Total a pagar</span>
-              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total, 'BRL')}</span>
+              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total)}</span>
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs leading-4 text-muted-foreground">
               <I.Info size={14} />
