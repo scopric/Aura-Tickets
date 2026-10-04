@@ -51,7 +51,7 @@ export function FeedbackForm({ onDone }: { onDone?: () => void }) {
       }, 2000)
     } catch (err) {
       console.error('[Feedback]', err)
-      toast.error('Erro ao enviar feedback.')
+      toast.error('Erro ao enviar feedback: ' + (err as Error).message)
     }
   }
 
