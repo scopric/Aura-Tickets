@@ -2,8 +2,10 @@ import { Download } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import FiltroEvento from '@/components/producer/FiltroEvento'
 import { brl } from '../../lib/taxa'
-import { toCsv, downloadCsv, csvFilename, fetchAllRows } from '../../lib/exportCsv'
+import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,7 +28,8 @@ const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 export default function ProducerFinance() {
   const { user } = useAuth()
 
-  const { data: pedidos = [], isPending, isError, refetch, isFetching } = useQuery({
+  const [filtroEvento] = useFiltroEvento()
+  const { data: todos = [], isPending, isError, refetch, isFetching } = useQuery({
     queryKey: ['producer-financeiro', user?.id],
     enabled: !!user?.id,
     queryFn: async () => {
@@ -44,6 +47,8 @@ export default function ProducerFinance() {
     },
   })
 
+  const pedidos = doEvento(todos, filtroEvento)
+
   // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
   const bruto = pedidos.reduce((s, p) => s + (Number(p.total) || 0), 0)
   const porEvento = Object.values(pedidos.reduce<Record<string, { id: string; titulo: string; pedidos: number; bruto: number }>>((acc, p) => {
@@ -53,7 +58,7 @@ export default function ProducerFinance() {
     return acc
   }, {})).sort((a, b) => b.bruto - a.bruto)
 
-  const exportar = () => downloadCsv(csvFilename('pedidos-pagos'), toCsv(
+  const exportar = () => downloadCsv(csvFilename(filtroEvento ? `pedidos-pagos-${slugArquivo(pedidos[0]?.events?.title, filtroEvento)}` : 'pedidos-pagos'), toCsv(
     pedidos.map(p => ({ pedido: p.id, data: data(p.created_at), evento: p.events?.title ?? '', forma: forma(p.payment_method), valor_bruto: (Number(p.total) || 0).toFixed(2).replace('.', ',') })),
     ['pedido', 'data', 'evento', 'forma', 'valor_bruto'],
   ))
@@ -109,6 +114,7 @@ export default function ProducerFinance() {
   return (
     <div>
       {header}
+      <FiltroEvento />
       {aviso}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -119,7 +125,7 @@ export default function ProducerFinance() {
 
       {pedidos.length === 0 ? (
         <div className="mt-6">
-          <EmptyState title="Nenhum pedido pago ainda" description="Quando alguém comprar ingresso de um evento seu, a venda aparece aqui." />
+          <EmptyState title={filtroEvento ? 'Nenhum pedido pago neste evento' : 'Nenhum pedido pago ainda'} description="Quando alguém comprar ingresso de um evento seu, a venda aparece aqui." />
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">

@@ -9,6 +9,8 @@ import {
   type DbBudgetBox,
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import FiltroEvento from '@/components/producer/FiltroEvento'
 import { mensagemMovimento } from '../../lib/orcamento'
 import { brl } from '../../lib/taxa'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
@@ -39,7 +41,7 @@ const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground
 const emptyForm = { eventId: '', name: '', target: '', category: 'marketing', notes: '' }
 
 export default function ProducerPiggyBank() {
-  const { data: boxes = [], isPending, isError, refetch, isFetching } = useBudgetBoxes()
+  const { data: todas = [], isPending, isError, refetch, isFetching } = useBudgetBoxes()
   const { data: events = [] } = useProducerEvents()
   const createBox = useCreateBudgetBox()
   const deleteBox = useDeleteBudgetBox()
@@ -51,10 +53,14 @@ export default function ProducerPiggyBank() {
   const [movValor, setMovValor] = useState('')
   const [movTipo, setMovTipo] = useState<'deposit' | 'withdraw'>('deposit')
   const [apagar, setApagar] = useState<DbBudgetBox | null>(null)
+  const [filtroEvento] = useFiltroEvento()
+  const boxes = doEvento(todas, filtroEvento)
 
   const previsto = boxes.reduce((s, b) => s + (b.target || 0), 0)
   const realizado = boxes.reduce((s, b) => s + (b.saved || 0), 0)
   const completos = boxes.filter(b => (b.target || 0) > 0 && (b.saved || 0) >= (b.target || 0)).length
+
+  const abrir = () => { setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
 
   const addBox = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -109,7 +115,7 @@ export default function ProducerPiggyBank() {
     <PageHeader
       title="Orçamento do evento"
       description="Previsto x realizado, por evento e categoria"
-      actions={<Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo item</Button>}
+      actions={<Button onClick={abrir}><Plus aria-hidden="true" />Novo item</Button>}
     />
   )
 
@@ -142,6 +148,7 @@ export default function ProducerPiggyBank() {
   return (
     <div>
       {header}
+      <FiltroEvento />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Previsto" value={brl(previsto)} />
@@ -152,9 +159,9 @@ export default function ProducerPiggyBank() {
       <div className="mt-6">
         {boxes.length === 0 ? (
           <EmptyState
-            title="Nenhum item no orçamento ainda"
-            description="Crie um item para cada gasto previsto (som, decoração, divulgação) e acompanhe quanto já foi separado."
-            action={<Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo item</Button>}
+            title={filtroEvento ? 'Nenhum item neste evento' : 'Nenhum item no orçamento ainda'}
+            description={filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Crie um item para cada gasto previsto (som, decoração, divulgação) e acompanhe quanto já foi separado.'}
+            action={<Button onClick={abrir}><Plus aria-hidden="true" />Novo item</Button>}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">

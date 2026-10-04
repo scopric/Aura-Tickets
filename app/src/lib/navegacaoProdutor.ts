@@ -20,8 +20,8 @@ export interface Tela {
 
 // 27 telas na lista + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO) = as 28 do mapa do estudo.
 // Decisão 143 (desvio do contrato §6.4): Banners, Lista de interesse, Galeria, Tarefas e CRM ficam só no escopo da
-// produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento,
-// mas só passam a filtrar na V4a2 (hoje ignoram o ?eventId=).
+// produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento
+// e filtram pelo ?eventId= (V4a2, useFiltroEvento).
 export const NAV: Tela[] = [
   { tela: 'Início', secao: 'Topo', rota: '/producer/dashboard' },
   { tela: 'Meus eventos', secao: 'Eventos', rota: '/producer/events', rotulo: 'Todos os eventos' },

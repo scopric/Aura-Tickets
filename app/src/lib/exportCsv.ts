@@ -34,6 +34,13 @@ export function csvFilename(table: string): string {
   return `evokaa-${table}-${new Date().toISOString().slice(0, 10)}.csv`
 }
 
+/** Título em slug para nome de arquivo: minúsculas, sem acento, espaço vira hífen, só [a-z0-9-], até 40. Sem título, o id curto */
+export function slugArquivo(titulo: string | null | undefined, id: string): string {
+  const slug = (titulo ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '').slice(0, 40).replace(/^-+|-+$/g, '')
+  return slug || id.replace(/[^\w-]/g, '').slice(0, 8)
+}
+
 /** Busca todas as linhas em blocos de `step` até vir um bloco menor que `step`. Lança o erro real do Supabase. */
 export async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>,

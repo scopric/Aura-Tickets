@@ -9,6 +9,8 @@ import {
   type DbCoupon,
 } from '../../hooks/useProducerTools'
 import { useProducerEvents } from '../../hooks/useEvents'
+import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import FiltroEvento from '@/components/producer/FiltroEvento'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -47,14 +49,20 @@ export default function ProducerCoupons() {
   const [filterStatus, setFilterStatus] = useState('Todos')
   const [filterType, setFilterType] = useState('Todos')
   const [copied, setCopied] = useState<string | null>(null)
+  const [filtroEvento] = useFiltroEvento()
 
-  const filtered = coupons
+  // cupom de "todos os eventos" (event_id nulo) vale no evento também, mas só se o id é de um evento do produtor
+  const lista = filtroEvento ? coupons.filter(c => c.event_id === filtroEvento || (c.event_id === null && events.some(e => e.id === filtroEvento))) : coupons
+  const filtered = lista
     .filter(c => filterStatus === 'Todos' || couponStatus(c) === filterStatus.toLowerCase())
     .filter(c => filterType === 'Todos' || (c.discount_type === 'percent' ? 'Percentual' : 'Valor fixo') === filterType)
 
-  const total = coupons.length
-  const active = coupons.filter(c => couponStatus(c) === 'ativo').length
-  const totalUses = coupons.reduce((s, c) => s + (c.uses || 0), 0)
+  const total = lista.length
+  const active = lista.filter(c => couponStatus(c) === 'ativo').length
+  // no evento, os usos do cupom global não entram: parte deles foi em outros eventos
+  const totalUses = lista.reduce((s, c) => s + (filtroEvento && c.event_id === null ? 0 : c.uses || 0), 0)
+
+  const abrir = () => { setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
 
   const addCoupon = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -126,7 +134,7 @@ export default function ProducerCoupons() {
     <PageHeader
       title="Cupons"
       description="Descontos e promoções dos seus eventos"
-      actions={<Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo cupom</Button>}
+      actions={<Button onClick={abrir}><Plus aria-hidden="true" />Novo cupom</Button>}
     />
   )
 
@@ -159,11 +167,12 @@ export default function ProducerCoupons() {
   return (
     <div>
       {header}
+      <FiltroEvento />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Cupons" value={total} />
         <Stat label="Ativos" value={active} />
-        <Stat label="Utilizações" value={totalUses} />
+        <Stat label="Utilizações" value={totalUses} hint={filtroEvento ? 'Sem os cupons de todos os eventos' : undefined} />
       </div>
 
       <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -182,9 +191,9 @@ export default function ProducerCoupons() {
       <div className="mt-4">
         {filtered.length === 0 ? (
           <EmptyState
-            title={total === 0 ? 'Nenhum cupom ainda' : 'Nenhum cupom com esse filtro'}
-            description={total === 0 ? 'Crie o primeiro cupom de desconto.' : undefined}
-            action={total === 0 ? <Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" />Novo cupom</Button> : undefined}
+            title={total === 0 ? (filtroEvento ? 'Nenhum cupom neste evento' : 'Nenhum cupom ainda') : 'Nenhum cupom com esse filtro'}
+            description={total === 0 ? (filtroEvento ? 'Crie um cupom para este evento ou para todos os eventos.' : 'Crie o primeiro cupom de desconto.') : undefined}
+            action={total === 0 ? <Button onClick={abrir}><Plus aria-hidden="true" />Novo cupom</Button> : undefined}
           />
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
