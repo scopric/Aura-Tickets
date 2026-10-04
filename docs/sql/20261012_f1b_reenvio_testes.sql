@@ -1,6 +1,7 @@
 -- =============================================================================
 -- F1-b PR3a — TESTES de 20261012_f1b_reenvio.sql (o código fica lá; este arquivo não vai para produção).
--- Rodar só em banco descartável, DEPOIS de aplicar 20261009_f1a_tipo_evento.sql e o arquivo de código (duas vezes).
+-- Rodar só em banco descartável, DEPOIS de aplicar 20261009_f1a_tipo_evento.sql e o arquivo de código (duas vezes;
+-- a F1-a NÃO pode ser reaplicada depois da F1-b: o bloco 0 dela aborta).
 -- Um bloco begin … rollback. Cada teste termina com "NOTICE: Tn OK"; falha = ERROR com o valor recebido.
 -- Ambiente usado (04/10/2026): contêiner supabase/postgres:17.6.1.171 (descartável) com o esquema auth/storage/public
 -- (pg_dump -s) do banco local (baseline de supabase/migrations/20260930134600_baseline.sql) e a F1-a aplicada; mesmos papéis e
@@ -17,6 +18,15 @@ end $f$;
 create function pg_temp.erro(q text) returns text language plpgsql as $f$
 begin execute q; return 'ok'; exception when others then return sqlstate; end $f$;
 create function pg_temp.u(n int) returns uuid language sql as $f$ select ('f1b00000-0000-4000-8000-' || lpad(n::text, 12, '0'))::uuid $f$;
+-- updated_at antigo (2020): tr_events_updated_at força now() em todo UPDATE, e now() é fixo dentro da transação
+create function pg_temp.velho(ev int) returns void language plpgsql as $f$
+begin
+  alter table public.events disable trigger tr_events_updated_at;
+  update public.events set updated_at = '2020-01-01' where id = pg_temp.u(ev);
+  alter table public.events enable trigger tr_events_updated_at;
+end $f$;
+create function pg_temp.upd(ev int) returns timestamptz language sql as $f$
+  select updated_at from public.events where id = pg_temp.u(ev) $f$;
 grant execute on all functions in schema pg_temp to anon, authenticated;
 
 -- Contas: 1 produtor, 9 admin (manage_events, 2FA)
@@ -37,6 +47,13 @@ values
   (pg_temp.u(42), pg_temp.u(1), 'Evento 42', 'f1b-evento-42', 'published', 'approved', null, now(), pg_temp.u(9), true),
   (pg_temp.u(43), pg_temp.u(1), 'Evento 43', 'f1b-evento-43', 'draft',     'rejected', 'Faltou o alvará', null, null, false),
   (pg_temp.u(44), pg_temp.u(1), 'Evento 44', 'f1b-evento-44', 'draft',     'approved', null, now(), pg_temp.u(9), true);
+-- 45 publicado e aprovado, com ingresso (50) | 46 com ingressos, para apagar
+insert into public.events (id, producer_id, title, slug, status, approval_status, approved_at, approved_by, featured_carousel)
+values
+  (pg_temp.u(45), pg_temp.u(1), 'Evento 45', 'f1b-evento-45', 'published', 'approved', now(), pg_temp.u(9), false),
+  (pg_temp.u(46), pg_temp.u(1), 'Evento 46', 'f1b-evento-46', 'published', 'approved', now(), pg_temp.u(9), false);
+insert into public.ticket_types (id, event_id, name, price, quantity_total) values
+  (pg_temp.u(50), pg_temp.u(45), 'Pista', 50, 100), (pg_temp.u(51), pg_temp.u(46), 'A', 10, 10), (pg_temp.u(52), pg_temp.u(46), 'B', 20, 10);
 
 do $$
 declare r text; e public.events%rowtype;
@@ -133,6 +150,67 @@ begin
     raise exception 'T7b gatilho não está ligado';
   end if;
   raise notice 'T7 OK';
+
+  -- T8: mudar o conteúdo de um ingresso muda events.updated_at e não mexe na aprovação (nem dá 42501)
+  perform pg_temp.velho(45);
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$update public.ticket_types set price = 60 where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T8a preço: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$update public.ticket_types set inclui_bebida = true where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T8b bebida: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$insert into public.ticket_types (event_id, name, price, quantity_total) values ('f1b00000-0000-4000-8000-000000000045', 'Novo', 5, 5)$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T8c ingresso novo: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.velho(45);
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$delete from public.ticket_types where event_id = 'f1b00000-0000-4000-8000-000000000045' and name = 'Novo'$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or pg_temp.upd(45) < '2021-01-01' then raise exception 'T8d ingresso apagado: % / %', r, pg_temp.upd(45); end if;
+  select * into e from public.events where id = pg_temp.u(45);
+  if e.approval_status <> 'approved' or e.approved_at is null or e.status <> 'published' then
+    raise exception 'T8e aprovação mexeu: % / %', e.approval_status, e.status;
+  end if;
+  raise notice 'T8 OK';
+
+  -- T9: venda (sold, quantity_sold) não muda updated_at do evento; admin mudando ingresso não mexe na aprovação
+  perform pg_temp.velho(45);
+  r := pg_temp.erro($q$update public.ticket_types set sold = sold + 1, quantity_sold = quantity_sold + 1 where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  if r <> 'ok' or pg_temp.upd(45) >= '2021-01-01' then raise exception 'T9a venda mexeu no updated_at: % / %', r, pg_temp.upd(45); end if;
+  perform pg_temp.como(pg_temp.u(9), 'aal2');
+  r := pg_temp.erro($q$update public.ticket_types set price = 70 where id = 'f1b00000-0000-4000-8000-000000000050'$q$);
+  perform pg_temp.como(null);
+  select * into e from public.events where id = pg_temp.u(45);
+  if r <> 'ok' or e.approval_status <> 'approved' then raise exception 'T9b admin muda ingresso: % / %', r, e.approval_status; end if;
+  raise notice 'T9 OK';
+
+  -- T10: apagar evento com ingressos funciona (o DELETE em cascata não falha), como produtor
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$delete from public.events where id = 'f1b00000-0000-4000-8000-000000000046'$q$);
+  perform pg_temp.como(null);
+  if r <> 'ok' or exists (select 1 from public.events where id = pg_temp.u(46))
+     or exists (select 1 from public.ticket_types where event_id = pg_temp.u(46)) then
+    raise exception 'T10 apagar evento com ingressos: %', r;
+  end if;
+  raise notice 'T10 OK';
+
+  -- T11: gatilho de ingresso ligado e funções de gatilho sem EXECUTE para anon/authenticated
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.ticket_types'::regclass
+                 and tgname = 'gf_ticket_types_toca_evento' and tgenabled = 'O') then
+    raise exception 'T11a gatilho de ingresso não está ligado';
+  end if;
+  if has_function_privilege('authenticated', 'public.gf_protect_event_moderation()', 'execute')
+     or has_function_privilege('anon', 'public.gf_protect_event_moderation()', 'execute')
+     or has_function_privilege('authenticated', 'public.gf_ticket_types_toca_evento()', 'execute')
+     or has_function_privilege('anon', 'public.gf_ticket_types_toca_evento()', 'execute') then
+    raise exception 'T11b EXECUTE aberto';
+  end if;
+  raise notice 'T11 OK';
 end $$;
 
 rollback;

@@ -1,6 +1,8 @@
 -- =============================================================================
 -- F1-a — TESTES de 20261009_f1a_tipo_evento.sql (o código fica lá; este arquivo não vai para produção).
 -- Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código. Um bloco begin … rollback.
+-- ATENÇÃO: depois de 20261012_f1b_reenvio.sql aplicado, o arquivo de código da F1-a aborta de propósito (não reaplicar);
+-- estes testes só leem o que ele criou e continuam valendo.
 -- Cada teste termina com "NOTICE: Tn OK"; falha = ERROR com o valor recebido.
 -- Ambiente usado (04/10/2026): contêiner supabase/postgres:17.6.1.171 com o baseline de
 -- supabase/migrations/20260930134600_baseline.sql; stubs fora do repositório: auth.jwt() lendo

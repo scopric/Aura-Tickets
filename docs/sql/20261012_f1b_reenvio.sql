@@ -5,6 +5,13 @@
 -- (o painel mostra o motivo). Fecha a pendência "evento que volta a published sem nova análise".
 --   1. gf_protect_event_moderation recriada a partir da definição de PRODUÇÃO de 04/10/2026 (a da F1-a), mais a regra
 --      nova, depois da regra de conteúdo e antes do `return new` final.
+--   2. ticket_types: mudar o conteúdo de um ingresso (ou criar/apagar) atualiza events.updated_at, para a trava de
+--      aprovação por updated_at (useApproveEvent) cobrir também os ingressos.
+--
+-- DEPOIS DESTE SQL: NÃO RODAR 20261009_f1a_tipo_evento.sql DE NOVO (ele recriaria a função sem a regra do reenvio; o
+-- bloco 0 dele aborta se a F1-b já estiver aplicada). O realinhamento de start_date da F1-a já foi feito em produção.
+-- Quem recriar gf_protect_event_moderation no futuro deve partir da definição que está em PRODUÇÃO
+-- (pg_get_functiondef), nunca de um arquivo antigo do repositório, e manter a regra "voltou a published".
 --
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA pelo TextEdit: erro 17).
 -- Uma transação só; idempotente (pode rodar de novo). NÃO mover para supabase/migrations/.
@@ -24,6 +31,12 @@
 -- 3. Evento publicado e aprovado que o produtor só edita (status continua published) não passa por esta regra:
 --    a regra de conteúdo já devolve para análise quando muda campo de conteúdo.
 -- 4. Evento novo (INSERT) não passa por aqui: já entra pending.
+-- 5. Gatilho em ticket_types: só as colunas de CONTEÚDO (nome, descrição, preço, capacidade, quantidade total, tipo,
+--    ativo, bebida) e INSERT/DELETE. Colunas de venda (sold, quantity_sold) ficam de fora: venda não deve dar "o evento
+--    mudou" ao admin. O UPDATE em events só mexe em updated_at: para a função de moderação (que roda com o papel de
+--    quem chamou) nada de aprovação, data, local, conteúdo ou status muda, então não cai em exceção. No DELETE em
+--    cascata do evento o UPDATE não acha a linha e não faz nada. Capacidade (capacity) entra junto com
+--    quantity_total porque o painel grava as duas.
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -33,7 +46,7 @@ do $$
 declare
   def text;
 begin
-  if to_regclass('public.events') is null
+  if to_regclass('public.events') is null or to_regclass('public.ticket_types') is null
      or to_regprocedure('public.gf_protect_event_moderation()') is null
      or to_regprocedure('public.gf_is_admin()') is null then
     raise exception 'events, gf_protect_event_moderation ou gf_is_admin não existem';
@@ -41,6 +54,10 @@ begin
   if not exists (select 1 from pg_trigger
                  where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_moderation') then
     raise exception 'Falta o gatilho gf_protect_event_moderation (20260930_f0a_moderacao_eventos.sql): aplicar antes';
+  end if;
+  if not exists (select 1 from information_schema.columns where table_schema = 'public'
+                 and table_name = 'ticket_types' and column_name = 'inclui_bebida') then
+    raise exception 'Falta ticket_types.inclui_bebida (20261009_f1a_tipo_evento.sql): aplicar antes';
   end if;
   def := pg_get_functiondef('public.gf_protect_event_moderation'::regproc);
   -- a função é recriada abaixo a partir da definição conferida em 04/10; outra versão = alguém mudou depois.
@@ -117,7 +134,27 @@ begin
 end;
 $$;
 
--- 2. Conferência que aborta (tudo ou nada) ----------------------------------------------------------------------
+-- 2. Ingresso mudado = evento mudado -------------------------------------------------------------------------------
+create or replace function public.gf_ticket_types_toca_evento()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.events set updated_at = now() where id = coalesce(new.event_id, old.event_id);
+  return null;
+end;
+$$;
+revoke all on function public.gf_ticket_types_toca_evento() from public, anon, authenticated;
+
+drop trigger if exists gf_ticket_types_toca_evento on public.ticket_types;
+create trigger gf_ticket_types_toca_evento
+  after insert or delete or update of name, description, price, capacity, quantity_total, type, is_active, inclui_bebida
+  on public.ticket_types
+  for each row execute function public.gf_ticket_types_toca_evento();
+
+-- 3. Conferência que aborta (tudo ou nada) ----------------------------------------------------------------------
 do $$
 declare
   def text := pg_get_functiondef('public.gf_protect_event_moderation'::regproc);
@@ -136,11 +173,23 @@ begin
                    and tgenabled <> 'D') then
     raise exception 'gatilho gf_protect_event_moderation desligado ou ausente em events';
   end if;
+  if has_function_privilege('authenticated', 'public.gf_protect_event_moderation()', 'execute')
+     or has_function_privilege('anon', 'public.gf_protect_event_moderation()', 'execute')
+     or has_function_privilege('authenticated', 'public.gf_ticket_types_toca_evento()', 'execute')
+     or has_function_privilege('anon', 'public.gf_ticket_types_toca_evento()', 'execute') then
+    raise exception 'EXECUTE errado: anon/authenticated executam função de gatilho';
+  end if;
+  if not exists (select 1 from pg_trigger where tgrelid = 'public.ticket_types'::regclass
+                 and tgname = 'gf_ticket_types_toca_evento' and tgenabled <> 'D') then
+    raise exception 'gatilho gf_ticket_types_toca_evento ausente ou desligado em ticket_types';
+  end if;
 end $$;
 
 commit;
 
--- Conferência (só leitura). Esperado: 1 linha, regra_reenvio = true, gatilho ligado.
+-- Conferência (só leitura). Esperado: 1 linha, regra_reenvio = true, gatilho = O, gatilho_ingresso = O.
 select position('voltou a published' in pg_get_functiondef('public.gf_protect_event_moderation'::regproc)) > 0 as regra_reenvio,
        (select tgenabled::text from pg_trigger
-         where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_moderation') as gatilho;
+         where tgrelid = 'public.events'::regclass and tgname = 'gf_protect_event_moderation') as gatilho,
+       (select tgenabled::text from pg_trigger
+         where tgrelid = 'public.ticket_types'::regclass and tgname = 'gf_ticket_types_toca_evento') as gatilho_ingresso;
