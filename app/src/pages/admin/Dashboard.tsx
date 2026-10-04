@@ -4,7 +4,7 @@ import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { PageHeader, SectionTitle, Stat } from '@/components/producer/ui'
 import { painel } from '@/components/admin/ui'
-import { naFilaDeModeracao } from '../../lib/eventoProdutor'
+import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
 import { supabase } from '../../lib/supabase'
 
 type Res<T> = { data: T | null; error: string | null }
@@ -29,7 +29,7 @@ interface EventoRecente { id: string; title: string; created_at: string }
 
 interface Dados {
   roles: Res<string[]>
-  eventos: Res<{ status: string; approval_status: string | null }[]> // situação de cada evento
+  eventos: Res<{ status: string; approval_status: string | null; start_date: string; end_date: string | null; date: string | null; time: string | null }[]> // situação de cada evento
   newsletter: Res<number>
   suporte: Res<number>
   contato: Res<number>
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
     const [roles, eventos, newsletter, suporte, contato, fila, eventosRecentes, contasRecentes] = await Promise.all([
       // ponytail: o PostgREST corta em 1.000 linhas; trocar por count head por papel quando passar de centenas de contas
       tenta(supabase.from('profiles').select('role'), r => (r.data || []).map((p: any) => String(p.role))),
-      tenta(supabase.from('events').select('id, status, approval_status'), r => (r.data || []).map((e: any) => ({ status: String(e.status), approval_status: e.approval_status ?? null }))),
+      tenta(supabase.from('events').select('id, status, approval_status, start_date, end_date, date, time'), r => (r.data || []).map((e: any) => ({ status: String(e.status), approval_status: e.approval_status ?? null, start_date: String(e.start_date), end_date: e.end_date ?? null, date: e.date ?? null, time: e.time ?? null }))),
       tenta(supabase.from('newsletter_subscribers').select('id', { count: 'exact', head: true }).is('unsubscribed_at', null), r => r.count ?? 0),
       tenta(supabase.from('conversations' as never).select('id', { count: 'exact', head: true }).eq('status', 'open'), r => r.count ?? 0),
       tenta(supabase.from('contact_messages').select('id', { count: 'exact', head: true }), r => r.count ?? 0),
@@ -78,7 +78,7 @@ export default function AdminDashboard() {
   const kpis: { label: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
     { label: 'Contas', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
     { label: 'Eventos pendentes', value: ev ? ev.filter(naFilaDeModeracao).length : null, error: dados?.eventos.error },
-    { label: 'Eventos aprovados', value: ev ? ev.filter(e => e.approval_status === 'approved').length : null, error: dados?.eventos.error },
+    { label: 'Eventos no ar', value: ev ? ev.filter(noAr).length : null, sub: ev ? `${ev.filter(e => e.approval_status === 'approved').length} aprovados no total` : null, error: dados?.eventos.error },
     { label: 'Inscritos na newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
     { label: 'Conversas de suporte abertas', value: dados?.suporte.data, error: dados?.suporte.error },
     { label: 'Mensagens de contato', value: dados?.contato.data, error: dados?.contato.error },

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -96,6 +96,17 @@ describe('dataPorVir e confirmacaoArquivar', () => {
     expect(confirmacaoArquivar('Festa', undefined, true)).toMatch(/não pode sair do ar antes da data: fale com o suporte/)
     expect(confirmacaoArquivar('Festa', 0, true)).not.toMatch(/suporte/)
     expect(confirmacaoArquivar('Festa', undefined, false)).not.toMatch(/suporte/)
+  })
+})
+
+describe('noAr (Decisão 163 item 5)', () => {
+  const futuro = { start_date: '2999-01-01T12:00:00Z', end_date: null }
+  const passado = { start_date: '2020-01-01T12:00:00Z', end_date: null }
+  it('só aprovado + publicado + data por vir', () => {
+    expect(noAr({ status: 'published', approval_status: 'approved', ...futuro })).toBe(true)
+    expect(noAr({ status: 'published', approval_status: 'approved', ...passado })).toBe(false)
+    expect(noAr({ status: 'draft', approval_status: 'approved', ...futuro })).toBe(false)
+    expect(noAr({ status: 'published', approval_status: 'pending', ...futuro })).toBe(false)
   })
 })
 

@@ -8,7 +8,7 @@ import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
-import { naFilaDeModeracao } from '../../lib/eventoProdutor'
+import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
 import { rotuloFormato } from '../../lib/tipoEvento'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
@@ -106,7 +106,8 @@ export default function AdminEvents() {
     }
   }
 
-  const approved = allEvents.filter(e => e.status === 'published' && e.approval_status === 'approved')
+  const approved = allEvents.filter(noAr)
+  const aprovadosNoTotal = allEvents.filter(e => e.approval_status === 'approved').length
   const pending = allEvents.filter(naFilaDeModeracao)
   
   const totalRevenue = approved.reduce((s, e) => {
@@ -129,7 +130,7 @@ export default function AdminEvents() {
       {/* Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Total" value={allEvents.length.toString()} />
-        <Stat label="Aprovados" value={approved.length.toString()} />
+        <Stat label="No ar" value={approved.length.toString()} hint={`${aprovadosNoTotal} aprovados no total`} />
         <Stat label="Pendentes" value={pending.length.toString()} />
         <Stat label="Receita" value={`R$ ${(totalRevenue / 1000).toFixed(1)}K`} />
       </div>

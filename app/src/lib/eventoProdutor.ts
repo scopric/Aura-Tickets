@@ -24,6 +24,10 @@ export function situacaoEvento(e: { status: string; approval_status?: string | n
 export const naFilaDeModeracao = (e: { status: string; approval_status?: string | null }): boolean =>
   e.status === 'published' && (e.approval_status === 'pending' || !e.approval_status)
 
+// No ar (Decisão 163 item 5): aprovado, publicado e com data por vir. Igual no Painel e em Eventos.
+export const noAr = (e: { status: string; approval_status?: string | null; start_date: string; end_date: string | null; date?: string | null; time?: string | null }): boolean =>
+  e.status === 'published' && e.approval_status === 'approved' && dataPorVir(e)
+
 // Decisão 129: com ingresso vendido o produtor não tira o evento do ar nem reabre o cancelado até existir reembolso
 // (M12). O banco recusa (gatilho gf_protect_event_cancel, docs/sql/20261006_saldo_e_cancelamento.sql): EV001 ao
 // cancelar; EV002 ao voltar a rascunho ou encerrar antes da data; EV003 ao reabrir um cancelado.
