@@ -136,4 +136,3 @@ export function lerFixados(): string[] {
   } catch { return [] }
 }
 export const ULTIMO_EVENTO = 'ultimoEvento'
-/** Seções abertas ou fechadas à mão (chave `escopo:Seção`); o que não está aqui segue a regra automática */

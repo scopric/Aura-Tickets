@@ -132,7 +132,7 @@ export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: Latera
 
   const secaoAtiva = (s: Secao) => filtra(escopo, s).some(t => ativa(t.rota))
 
-  const onde = `${escopo}|${pathname}${search}`
+  const onde = `${escopo}|${eventId}|${pathname}` // trocar de tela = outro caminho ou outro evento; filtros na URL não contam
   const padrao = secoes.find(secaoAtiva) ?? 'Eventos' // a da tela atual; sem ela, Eventos
   const secaoAberta = escolha?.onde === onde ? escolha.secao : padrao
 
