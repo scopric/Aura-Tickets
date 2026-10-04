@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Search, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import {
   useAcademyCourses,
   useMyCourseProgress,
@@ -81,8 +81,8 @@ export default function EvokaaAcademy() {
         {header}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar os cursos.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
+            Tentar de novo
           </Button>
         </div>
       </div>
@@ -103,7 +103,7 @@ export default function EvokaaAcademy() {
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative sm:max-w-xs sm:flex-1">
-          <Search aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <I.Buscar aria-hidden="true" className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar cursos" aria-label="Buscar cursos" className="pl-9" />
         </div>
         {categories.length > 1 && (
@@ -146,8 +146,8 @@ export default function EvokaaAcademy() {
                       <span id={`curso-${course.id}-aviso`} className="text-xs text-muted-foreground">Matriculado. As aulas ainda não estão publicadas.</span>
                     </>
                   ) : (
-                    <Button size="sm" variant="outline" onClick={() => handleEnroll(course.id)} disabled={enroll.isPending}>
-                      {enroll.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Matriculando…</> : 'Fazer matrícula'}
+                    <Button size="sm" variant="outline" onClick={() => handleEnroll(course.id)} loading={enroll.isPending}>
+                      Fazer matrícula
                     </Button>
                   )}
                 </div>
