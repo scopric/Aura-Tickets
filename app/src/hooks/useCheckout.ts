@@ -1,3 +1,4 @@
+import { guardarIngressos, lerIngressos } from '../lib/ingressosOffline'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
@@ -242,10 +243,15 @@ export function useUserTickets() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
+      if (error) {
+        // sem internet: mostra a cópia da última vez que os ingressos carregaram (D4)
+        const guardados = navigator.onLine === false ? lerIngressos<DbTicket>(user.id) : null
+        if (guardados) return guardados
+        throw error
+      }
 
       // Mapear retorno aninhado para facilitar o consumo no frontend
-      return (data || []).map((t: any) => ({
+      const lista = (data || []).map((t: any) => ({
         ...t,
         code: t.code ?? t.qr_code,
         ticket_types: {
@@ -255,8 +261,11 @@ export function useUserTickets() {
         },
         events: t.ticket_types?.events ?? undefined,
       })) as DbTicket[]
+      guardarIngressos(user.id, lista)
+      return lista
     },
     enabled: !!user?.id,
+    networkMode: 'always', // offline a consulta roda mesmo assim e cai na cópia guardada
   })
 }
 

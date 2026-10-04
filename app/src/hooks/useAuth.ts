@@ -1,3 +1,4 @@
+import { apagarIngressosGuardados } from '../lib/ingressosOffline'
 import { useMemo } from 'react'
 import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -220,6 +221,7 @@ export function useAuth() {
     useAuthStore.getState().setUser(null)
     useAuthStore.getState().setSession(null)
     queryClient.clear()
+    apagarIngressosGuardados()
     // Força reload completo para garantir que nenhum estado persistido ressuscite
     window.location.replace('/')
   }
