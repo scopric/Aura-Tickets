@@ -48,6 +48,19 @@ export function formatCNPJ(value: string): string {
   return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
 }
 
+/** Confere os 14 dígitos e os dois dígitos verificadores do CNPJ (aceita com ou sem máscara). */
+export function cnpjValido(value: string): boolean {
+  const d = value.replace(/\D/g, '')
+  if (d.length !== 14 || /^(\d)\1+$/.test(d)) return false
+  const dv = (n: number) => {
+    let soma = 0, peso = n - 7
+    for (let i = 0; i < n; i++) { soma += Number(d[i]) * peso; peso = peso === 2 ? 9 : peso - 1 }
+    const r = soma % 11
+    return r < 2 ? 0 : 11 - r
+  }
+  return dv(12) === Number(d[12]) && dv(13) === Number(d[13])
+}
+
 /**
  * Formata CPF ou CNPJ de acordo com o comprimento
  */
