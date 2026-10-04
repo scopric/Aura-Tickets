@@ -390,6 +390,32 @@ test.describe('painel do evento: modo guiado "Passo N de 6"', () => {
     await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
     await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=false')
   })
+
+  test('enviar pelo passo 6: Publicar continua aberta em análise e o foco não cai no body', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible()
+    await expect(secao(page, /^Publicar/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('body')).not.toBeFocused()
+  })
+
+  test('passo 6: Voltar sem Próximo, e o link de "falta" troca de passo', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await expect(page.getByText('Passo 6 de 6 · Publicar')).toBeVisible()
+    await expect(voltar(page)).toHaveCount(1)
+    await expect(proximo(page)).toHaveCount(0)
+    await page.locator('[role=region][data-state=open]').getByRole('button', { name: /^Ir para / }).first().click()
+    await expect(page.getByText(/Passo [1-5] de 6/)).toBeVisible()
+    await expect(page.getByText('Passo 6 de 6')).toHaveCount(0)
+  })
 })
 
 test.describe('painel do evento: recusado, em análise, no ar e travado', () => {

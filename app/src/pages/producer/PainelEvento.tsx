@@ -304,7 +304,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   const abrir = (id: string) => {
     if (guiado) setPasso(SECOES.findIndex(s => s.id === id))
-    else setAbertas(a => (a.includes(id) ? a : [...a, id]))
+    setAbertas(a => (a.includes(id) ? a : [...a, id])) // também com o guia: ao sair dele a sanfona não volta a um valor velho
     setTimeout(() => {
       const cab = document.getElementById(`s-${id}`)
       cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
@@ -314,7 +314,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   function verTodas() {
     void registrar(GUIA, { skipped: true })
-    setAbertas([SECOES[passo].id]); setSaiuGuia(true)
+    setSaiuGuia(true)
     abrir(SECOES[passo].id) // o botão some: o foco vai ao título da seção
   }
 
@@ -401,7 +401,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         else if (modo === 'publicado' && !soAceite) await recarregar()
         return
       }
-      if (guiado) void registrar(GUIA, { skipped: false })
+      if (guiado) { void registrar(GUIA, { skipped: false, silencioso: true }); setAbertas(['pub']); abrir('pub') } // o envio já avisa o resultado; abrir devolve o foco (o botão Enviar some)
       await recarregar() // relê evento e último aceite ANTES de fechar: a faixa "Aceite pendente" não pode piscar depois do sucesso
       setDialogo(false); setSoAceite(false)
       toast.success(soAceite ? 'Aceite registrado.' : modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
@@ -581,14 +581,14 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
       {guiado && (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[13px] font-semibold leading-5 text-foreground">Passo {passo + 1} de {SECOES.length} · {SECOES[passo].nome}</span>
+          <span aria-live="polite" className="text-[13px] font-semibold leading-5 text-foreground">Passo {passo + 1} de {SECOES.length} · {SECOES[passo].nome}</span>
           <span aria-hidden="true" className="flex max-w-60 flex-1 gap-1">
             {SECOES.map((s, i) => <span key={s.id} className={cn('h-1 flex-1 rounded-sm', i <= passo ? 'bg-foreground' : 'bg-secondary')} />)}
           </span>
           <Button variant="ghost" size="sm" onClick={verTodas}>Ver todas as seções</Button>
         </div>
       )}
-      {modo !== 'fechado' && !guiado && (
+      {modo !== 'fechado' && !guiado && !(modo === 'rascunho' && !carregou) && (
         <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos} de {lista.length}</span> <span className="text-sm text-muted-foreground">prontos</span></span>
           <span role="progressbar" aria-label="Itens prontos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={prontos} className="h-2 min-w-24 flex-1 overflow-hidden rounded bg-secondary">
@@ -621,10 +621,10 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-6 pt-1">
                 <fieldset disabled={somenteLeitura || enviando} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
-                {guiado && s.id !== 'pub' && (
+                {guiado && (
                   <div className="mt-4 flex justify-end gap-2">
                     {passo > 0 && <Button variant="ghost" onClick={() => abrir(SECOES[passo - 1].id)}>Voltar</Button>}
-                    <Button variant="secondary" onClick={() => abrir(SECOES[passo + 1].id)}>Próximo</Button>
+                    {s.id !== 'pub' && <Button variant="secondary" onClick={() => abrir(SECOES[passo + 1].id)}>Próximo</Button>}
                   </div>
                 )}
               </AccordionContent>
