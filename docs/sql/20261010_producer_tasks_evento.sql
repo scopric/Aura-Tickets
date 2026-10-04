@@ -54,7 +54,7 @@ create policy "Produtor gerencia tasks" on public.producer_tasks as permissive f
   with check (
     producer_id = auth.uid()
     and (event_id is null or exists (
-      select 1 from public.events e where e.id = event_id and e.producer_id = auth.uid()))
+      select 1 from public.events e where e.id = producer_tasks.event_id and e.producer_id = auth.uid()))
   );
 
 drop policy if exists gf_mfa_aal2 on public.producer_tasks;
