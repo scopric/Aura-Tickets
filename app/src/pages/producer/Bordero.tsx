@@ -40,8 +40,8 @@ export default function ProducerBordero() {
             .order('created_at', { ascending: false }).order('id')
             .range(de, ate) as unknown as PromiseLike<{ data: IngressoDoTipo[] | null; error: unknown }>),
       ])
-      // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
-      return { pedidos: [...new Map(pedidos.map(p => [p.id, p])).values()], ingressos }
+      // pedido ou ingresso novo no meio da paginação desloca as páginas e repetiria uma linha: um por id
+      return { pedidos: [...new Map(pedidos.map(p => [p.id, p])).values()], ingressos: [...new Map(ingressos.map(t => [t.id, t])).values()] }
     },
   })
 
@@ -128,8 +128,8 @@ export default function ProducerBordero() {
               <Stat label="Pedidos pagos" value={r.nPedidos.toLocaleString('pt-BR')} />
             </div>
             <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Lista id="bordero-forma" titulo="Por forma de pagamento" itens={r.porForma.map(f => ({ chave: f.forma, nome: f.forma, detalhe: `${f.pedidos} ${f.pedidos === 1 ? 'pedido' : 'pedidos'}`, valor: brl(f.total) }))} />
-              <Lista id="bordero-dia" titulo="Vendas por dia" itens={r.porDia.map(d => ({ chave: d.dia, nome: dataBR(d.dia), detalhe: `${d.pedidos} ${d.pedidos === 1 ? 'pedido' : 'pedidos'}`, valor: brl(d.total) }))} />
+              <Lista id="bordero-forma" titulo="Por forma de pagamento" itens={r.porForma.map(f => ({ chave: f.chave, nome: f.chave, detalhe: `${f.pedidos} ${f.pedidos === 1 ? 'pedido' : 'pedidos'}`, valor: brl(f.total) }))} />
+              <Lista id="bordero-dia" titulo="Vendas por dia" itens={r.porDia.map(d => ({ chave: d.chave, nome: dataBR(d.chave), detalhe: `${d.pedidos} ${d.pedidos === 1 ? 'pedido' : 'pedidos'}`, valor: brl(d.total) }))} />
             </div>
           </>
         )}

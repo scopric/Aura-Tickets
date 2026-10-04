@@ -28,8 +28,9 @@ const baixou = vi.hoisted(() => vi.fn())
 vi.mock('../lib/exportCsv', async orig => ({ ...(await orig<typeof import('../lib/exportCsv')>()), downloadCsv: baixou }))
 
 const pedido = (id: string, total: number, payment_method: string | null, created_at: string) => ({ id, total, payment_method, created_at })
+let n = 0
 const ingresso = (ticket_type_id: string, nome: string, status: string, checked_in_at: string | null = null) =>
-  ({ ticket_type_id, status, checked_in_at, ticket_types: { name: nome } })
+  ({ id: `i${++n}`, ticket_type_id, status, checked_in_at, ticket_types: { name: nome } })
 
 const montar = (url = '/producer/bordero?eventId=e1') =>
   render(
@@ -56,10 +57,10 @@ describe('resumoBordero', () => {
     expect(r.nPedidos).toBe(4)
   })
   it('por dia na hora de Brasília: o pedido da 01h30 UTC cai no dia anterior', () => {
-    expect(r.porDia.map(d => [d.dia, d.pedidos, d.total])).toEqual([['2026-10-04', 2, 165.5], ['2026-10-06', 2, 210]])
+    expect(r.porDia.map(d => [d.chave, d.pedidos, d.total])).toEqual([['2026-10-04', 2, 165.5], ['2026-10-06', 2, 210]])
   })
   it('por forma, com "Não informada" para forma vazia', () => {
-    expect(r.porForma.map(f => [f.forma, f.pedidos, f.total])).toEqual([['Cartão de crédito', 1, 200], ['Pix', 2, 165.5], ['Não informada', 1, 10]])
+    expect(r.porForma.map(f => [f.chave, f.pedidos, f.total])).toEqual([['Cartão de crédito', 1, 200], ['Pix', 2, 165.5], ['Não informada', 1, 10]])
   })
   it('por tipo: só ativo e usado contam; check-in é usado ou checked_in_at', () => {
     expect(r.porTipo).toEqual([{ id: 't1', nome: 'Pista', validos: 3, checkins: 2 }, { id: 't2', nome: 'VIP', validos: 1, checkins: 0 }])
@@ -98,6 +99,13 @@ describe('Borderô (tela)', () => {
     expect(tipo.getByText('1 check-in')).toBeInTheDocument()
     expect(tipo.queryByText(/R\$/)).toBeNull()
     expect(screen.getByText(/taxas da Evokaa e de processamento, reembolsos, repasse, meia-entrada/)).toBeInTheDocument()
+  })
+
+  it('ingresso repetido pela paginação conta uma vez só', async () => {
+    const t = ingresso('t1', 'Pista', 'active')
+    banco.linhas = { orders: [pedido('p1', 10, 'pix', '2026-10-05T15:00:00Z')], tickets: [t, t] }
+    montar()
+    expect(await screen.findByText('1 válido')).toBeInTheDocument()
   })
 
   it('consulta só colunas escolhidas (sem *, CPF ou telefone) e só pedidos pagos do evento', async () => {
