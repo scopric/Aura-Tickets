@@ -9,7 +9,11 @@ const eventos = [
 ]
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: eventos, isLoading: false }) }))
 vi.mock('../lib/supabase', () => ({
-  supabase: { from: () => ({ select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }) }), functions: { invoke: vi.fn() } },
+  supabase: {
+    // consulta encadeável que se resolve vazia (lista e contagens do check-in)
+    from: () => { const q: any = { select: () => q, eq: () => q, in: () => q, order: () => q, range: () => q, then: (ok: any) => Promise.resolve({ data: [], count: 0, error: null }).then(ok) }; return q },
+    functions: { invoke: vi.fn() },
+  },
 }))
 
 const montar = (url: string) => render(<MemoryRouter initialEntries={[url]}><ProducerCheckIn /></MemoryRouter>)

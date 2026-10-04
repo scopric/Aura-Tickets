@@ -13,6 +13,7 @@ import { iniciais } from '../../hooks/useConversas'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
+import { codigoCompleto, EXEMPLO_CODIGO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
 
 interface TicketCheck {
   id: string
@@ -20,7 +21,7 @@ interface TicketCheck {
   email: string
   ticketType: string
   ticketCode: string
-  status: 'pendente' | 'usado' | 'cancelado'
+  status: 'pendente' | 'usado' | 'cancelado' | 'transferido'
   checkInTime: string | null
   seat: string
   eventName: string
@@ -29,10 +30,15 @@ interface TicketCheck {
 
 // Resultado da leitura: texto e fundo seguem o tema (--ev-success e --ev-warning mudam no escuro; text-destructive idem)
 const TOM = {
-  ok: { texto: 'text-[var(--ev-success)]', caixa: 'border-[var(--ev-success)] bg-[color-mix(in_srgb,var(--ev-success)_10%,hsl(var(--card)))]', Icone: I.Liberado, rotulo: 'Acesso Permitido' },
-  aviso: { texto: 'text-[var(--ev-warning)]', caixa: 'border-[var(--ev-warning)] bg-[color-mix(in_srgb,var(--ev-warning)_10%,hsl(var(--card)))]', Icone: I.Alerta, rotulo: 'Duplicado' },
-  erro: { texto: 'text-destructive', caixa: 'border-destructive bg-[color-mix(in_srgb,hsl(var(--destructive))_10%,hsl(var(--card)))]', Icone: I.Negado, rotulo: 'Acesso Negado' },
+  ok: { texto: 'text-[var(--ev-success)]', caixa: 'border-[var(--ev-success)] bg-[color-mix(in_srgb,var(--ev-success)_10%,hsl(var(--card)))]', Icone: I.Liberado },
+  aviso: { texto: 'text-[var(--ev-warning)]', caixa: 'border-[var(--ev-warning)] bg-[color-mix(in_srgb,var(--ev-warning)_10%,hsl(var(--card)))]', Icone: I.Alerta },
+  erro: { texto: 'text-destructive', caixa: 'border-destructive bg-[color-mix(in_srgb,hsl(var(--destructive))_10%,hsl(var(--card)))]', Icone: I.Negado },
 }
+
+// Atualização entre aparelhos: não há canal em tempo real, só nova consulta a cada tanto
+const ATUALIZA_MS = 20_000
+const LIMITE_LISTA = 1000 // a lista traz os mais recentes; os números vêm de contagem no servidor
+const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
 export default function ProducerCheckIn() {
   const { data: events, isLoading: isEventsLoading } = useProducerEvents()
@@ -41,9 +47,13 @@ export default function ProducerCheckIn() {
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
   const [search, setSearch] = useState('')
   const [mode, setMode] = useState<'scanner' | 'list'>('scanner')
-  const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; success: boolean; message: string; falha?: boolean } | null>(null)
-  
+  const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; leitura: Leitura } | null>(null)
+  const [contagem, setContagem] = useState({ total: 0, usados: 0, cancelados: 0, transferidos: 0 })
+  const [atualizadoEm, setAtualizadoEm] = useState('')
+
   const inputRef = useRef<HTMLInputElement>(null)
+  const eventoAtual = useRef('') // descarta resposta de evento que já não está na tela
+  const emVoo = useRef<string | null>(null) // código sendo validado: a mesma leitura não dispara duas vezes
   const cartaoRef = useRef<HTMLDivElement>(null)
 
   // Mapear eventos ativos
@@ -63,6 +73,8 @@ export default function ProducerCheckIn() {
       checkStatus = 'usado'
     } else if (dbTicket.status === 'cancelled' || dbTicket.status === 'refunded') {
       checkStatus = 'cancelado'
+    } else if (dbTicket.status === 'transferred') {
+      checkStatus = 'transferido'
     }
 
     return {
@@ -72,51 +84,63 @@ export default function ProducerCheckIn() {
       ticketType: dbTicket.ticket_types?.name || 'Ingresso Comum',
       ticketCode: dbTicket.qr_code,
       status: checkStatus,
-      checkInTime: dbTicket.checked_in_at
-        ? new Date(dbTicket.checked_in_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-        : null,
+      checkInTime: dbTicket.checked_in_at ? hora(dbTicket.checked_in_at) : null,
       seat: '-',
       eventName: dbTicket.events?.title || 'Evento'
     }
   }
 
-  // Carregar ingressos do evento selecionado
-  const loadTickets = async (eventId: string) => {
+  // Carregar ingressos do evento selecionado. Números: contagem no servidor (a lista é limitada a 1000 linhas);
+  // silencioso = atualização automática (sem esqueleto nem aviso a cada falha).
+  const loadTickets = async (eventId: string, silencioso = false) => {
     if (!eventId) return
-    setLastScan(null) // o último ingresso lido é do evento anterior
-    setIsLoadingTickets(true)
-    try {
-      const { data, error } = await supabase
-        .from('tickets')
-        .select(`
-          id, buyer_name, buyer_email, qr_code, status, checked_in_at,
-          ticket_types (name),
-          events (title)
-        `)
-        .eq('event_id', eventId)
-        .order('created_at', { ascending: false })
-
+    if (!silencioso) setIsLoadingTickets(true)
+    const contar = async (status?: string[]) => {
+      let q = supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', eventId)
+      if (status) q = q.in('status', status)
+      const { count, error } = await q
       if (error) throw error
-
-      setTickets(data.map(mapDbTicketToTicketCheck))
+      return count ?? 0
+    }
+    try {
+      const [lista, total, usados, cancelados, transferidos] = await Promise.all([
+        supabase.from('tickets')
+          .select(`
+            id, buyer_name, buyer_email, qr_code, status, checked_in_at,
+            ticket_types (name),
+            events (title)
+          `)
+          .eq('event_id', eventId)
+          .order('created_at', { ascending: false })
+          .range(0, LIMITE_LISTA - 1),
+        contar(), contar(['used']), contar(['cancelled', 'refunded']), contar(['transferred']),
+      ])
+      if (lista.error) throw lista.error
+      if (eventoAtual.current !== eventId) return
+      setTickets(lista.data.map(mapDbTicketToTicketCheck))
+      setContagem({ total, usados, cancelados, transferidos })
+      setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
     } catch (err: any) {
       console.error('Erro ao carregar ingressos:', err)
-      toast.error('Erro ao carregar ingressos da portaria')
+      if (!silencioso) toast.error('Erro ao carregar ingressos da portaria')
     } finally {
-      setIsLoadingTickets(false)
+      if (!silencioso && eventoAtual.current === eventId) setIsLoadingTickets(false)
     }
   }
 
   useEffect(() => {
-    if (selectedEventId) {
-      loadTickets(selectedEventId)
-    }
+    eventoAtual.current = selectedEventId
+    if (!selectedEventId) return
+    setLastScan(null) // o último ingresso lido é do evento anterior
+    loadTickets(selectedEventId)
+    // ponytail: consulta a cada 20 s com a aba visível; canal Realtime se a latência importar
+    const id = setInterval(() => { if (document.visibilityState === 'visible') loadTickets(selectedEventId, true) }, ATUALIZA_MS)
+    return () => clearInterval(id)
   }, [selectedEventId])
 
-  const total = tickets.length
-  const checked = tickets.filter(t => t.status === 'usado').length
-  const pending = tickets.filter(t => t.status === 'pendente').length
-  const cancelled = tickets.filter(t => t.status === 'cancelado').length
+  const { total, usados: checked, cancelados: cancelled, transferidos } = contagem
+  const pending = Math.max(0, total - checked - cancelled - transferidos)
+  const noServidor = total > tickets.length
   const progress = total > 0 ? (checked / total) * 100 : 0
 
   const filtered = tickets.filter(t =>
@@ -125,93 +149,62 @@ export default function ProducerCheckIn() {
 
   // Escanear/validar ingresso na Edge Function
   const handleScan = async (code: string) => {
-    if (!code.trim() || !selectedEventId) return
+    const codigo = code.trim()
+    if (!codigo || !selectedEventId || emVoo.current === codigo) return
+    emVoo.current = codigo
+    const achado = tickets.find(t => t.ticketCode === codigo)
+    const evento = selectedEventId
 
     try {
       // Chamar a Edge Function check-in-validate
       const { data, error } = await supabase.functions.invoke('check-in-validate', {
-        body: {
-          qrCode: code.trim(),
-          eventId: selectedEventId,
-        }
+        body: { qrCode: codigo, eventId: evento },
       })
+      if (eventoAtual.current !== evento) return
 
+      let leitura: Leitura
+      let dados: { buyerName?: string; ticketType?: string; checkedInAt?: string | null } = data ?? {}
       if (error) {
-        // Em 4xx/5xx o invoke não devolve o JSON: lê a mensagem real da função (sem permissão, 2FA, não encontrado)
-        const body = await (error as { context?: Response }).context?.json?.().catch(() => null)
-        throw new Error(body?.error || body?.message || error.message)
-      }
-
-      // Mapear o resultado do scan
-      if (data.valid) {
-        toast.success(data.message || 'Check-in realizado com sucesso!')
-        
-        // Atualizar lista local
-        setTickets(prev => prev.map(t => 
-          t.ticketCode === code.trim() 
-            ? { ...t, status: 'usado', checkInTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) } 
-            : t
-        ))
-
-        const updatedTicket = tickets.find(t => t.ticketCode === code.trim()) || {
-          id: '',
-          name: data.buyerName,
-          email: '',
-          ticketType: data.ticketType,
-          ticketCode: code.trim(),
-          status: 'usado' as const,
-          checkInTime: 'Agora',
-          seat: '-',
-          eventName: activeEvents.find(e => e.id === selectedEventId)?.title || 'Evento'
-        }
-
-        setLastScan({
-          ticket: { ...updatedTicket, status: 'usado', checkInTime: 'Agora' },
-          success: true,
-          message: data.message
-        })
+        // Em 4xx/5xx o invoke não devolve o JSON: lê o status e a mensagem reais da função (sem permissão, 2FA, não encontrado)
+        const resp = (error as { context?: Response }).context
+        const body = await resp?.json?.().catch(() => null)
+        leitura = motivoLeitura({ http: resp?.status, message: body?.error || body?.message || error.message })
+        dados = body ?? {}
       } else {
-        // Encontrou o ingresso mas é inválido (ex: já usado ou cancelado)
-        toast.warning(data.message)
-        
-        const existingTicket = tickets.find(t => t.ticketCode === code.trim()) || {
-          id: '',
-          name: data.buyerName || 'Ingresso Inválido',
-          email: '',
-          ticketType: '',
-          ticketCode: code.trim(),
-          status: 'cancelado' as const,
-          checkInTime: data.checkedInAt ? new Date(data.checkedInAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : null,
-          seat: '-',
-          eventName: ''
-        }
-
-        setLastScan({
-          ticket: existingTicket,
-          success: false,
-          message: data.message
-        })
+        leitura = motivoLeitura({ http: 200, valid: data.valid, message: data.message, checkedInAt: data.checkedInAt })
       }
-    } catch (err: any) {
-      console.error('Erro ao validar check-in:', err)
-      toast.error(err.message || 'Erro na validação do ingresso!')
-      
+
+      if (leitura.tom === 'ok') toast.success(leitura.mensagem)
+      else toast.warning(leitura.mensagem)
+
+      const nome = leitura.falha ? 'Leitura não concluída' : (achado?.name || dados.buyerName || (leitura.tom === 'ok' ? 'Participante' : 'Ingresso Inválido'))
       setLastScan({
         ticket: {
-          id: '',
-          name: 'Erro na Validação',
+          id: achado?.id ?? '',
+          name: nome,
           email: '',
-          ticketType: '',
-          ticketCode: code,
-          status: 'cancelado',
+          ticketType: achado?.ticketType || dados.ticketType || '',
+          ticketCode: codigo,
+          status: 'pendente',
           checkInTime: null,
-          seat: '',
-          eventName: ''
+          seat: '-',
+          eventName: '',
         },
-        success: false,
-        message: err.message || 'Erro de rede ao conectar com a API de check-in',
-        falha: true
+        leitura,
       })
+      // Conferiu no servidor (entrou ou já tinha entrado): atualiza lista e números
+      if (!leitura.falha) loadTickets(evento, true)
+    } catch (err: any) {
+      console.error('Erro ao validar check-in:', err)
+      if (eventoAtual.current !== evento) return
+      const leitura = motivoLeitura({})
+      toast.error(leitura.mensagem)
+      setLastScan({
+        ticket: { id: '', name: 'Leitura não concluída', email: '', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '', eventName: '' },
+        leitura,
+      })
+    } finally {
+      emVoo.current = null
     }
   }
 
@@ -231,13 +224,13 @@ export default function ProducerCheckIn() {
     cartaoRef.current?.scrollIntoView?.({ block: 'nearest', behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }, [lastScan])
 
-  const resultado = lastScan && TOM[lastScan.success ? 'ok' : lastScan.ticket.status === 'usado' ? 'aviso' : 'erro']
+  const resultado = lastScan && TOM[lastScan.leitura.tom]
 
   return (
     <div>
       <PageHeader
         title="Check-in"
-        description="Validação de ingressos e portaria em tempo real"
+        description="Validação de ingressos e controle da portaria"
         actions={
           <>
             {activeEvents.length > 0 && (
@@ -318,6 +311,9 @@ export default function ProducerCheckIn() {
               </span>
             </div>
             <Progress value={progress} aria-labelledby="progresso-checkin" className="h-2 bg-secondary" />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Atualiza sozinho a cada {ATUALIZA_MS / 1000} s{atualizadoEm && ` · última atualização às ${atualizadoEm}`}
+            </p>
           </div>
 
           {/* Scanner Mode */}
@@ -334,20 +330,19 @@ export default function ProducerCheckIn() {
                   aria-label="Código do ingresso"
                   value={search}
                   onChange={e => {
-                    setSearch(e.target.value)
-                    // Se digitar o código completo ou passar leitor de código de barras/QR (geralmente dispara submit com Enter)
-                    if (e.target.value.length >= 10 && !e.target.value.includes(' ')) {
-                      handleScan(e.target.value)
+                    // Valida sozinho só quando o código tem o formato real (36 caracteres); antes disso, só com Enter
+                    if (codigoCompleto(e.target.value)) {
+                      handleScan(normalizarCodigo(e.target.value))
                       setSearch('')
-                    }
+                    } else setSearch(e.target.value)
                   }}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && search.trim().length >= 3) {
-                      handleScan(search.trim())
+                      handleScan(normalizarCodigo(search))
                       setSearch('')
                     }
                   }}
-                  placeholder="Código do ingresso (ex: AUR-XXXX-001)..."
+                  placeholder={`Código do ingresso (ex: ${EXEMPLO_CODIGO})`}
                   className="mx-auto h-14 max-w-md text-center font-mono text-base tracking-wide md:text-base"
                 />
               </div>
@@ -356,8 +351,8 @@ export default function ProducerCheckIn() {
               {resultado && lastScan && (
                 <div ref={cartaoRef} className={cn('scroll-mb-[calc(var(--barra-cel,0px)+1rem)] rounded-[10px] border p-4 sm:p-5', resultado.caixa)}>
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-3 sm:flex-nowrap">
-                    {!lastScan.falha && <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium text-muted-foreground">{iniciais(lastScan.ticket.name ?? '')}</span>}
-                    <div className={cn('min-w-0 flex-1', lastScan.falha ? 'max-sm:basis-full' : 'max-sm:basis-[calc(100%-4rem)]')}>
+                    {!lastScan.leitura.falha && <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium text-muted-foreground">{iniciais(lastScan.ticket.name ?? '')}</span>}
+                    <div className={cn('min-w-0 flex-1', lastScan.leitura.falha ? 'max-sm:basis-full' : 'max-sm:basis-[calc(100%-4rem)]')}>
                       <div className="flex items-center gap-2">
                         <resultado.Icone size={20} className={cn('shrink-0', resultado.texto)} />
                         <h2 className="truncate text-base font-semibold leading-6 tracking-normal text-foreground">{lastScan.ticket.name}</h2>
@@ -366,11 +361,11 @@ export default function ProducerCheckIn() {
                         {[lastScan.ticket.ticketType, lastScan.ticket.ticketCode].filter(Boolean).join(' · ')}
                       </p>
                       <p className="mt-1 text-xs font-medium text-foreground">
-                        {lastScan.message}
+                        {lastScan.leitura.mensagem}
                       </p>
                     </div>
-                    <div className={cn('whitespace-nowrap rounded-full bg-card px-3 py-1.5 text-xs font-semibold sm:shrink-0', !lastScan.falha && 'max-sm:ml-16', resultado.texto)}>
-                      {resultado.rotulo}
+                    <div className={cn('whitespace-nowrap rounded-full bg-card px-3 py-1.5 text-xs font-semibold sm:shrink-0', !lastScan.leitura.falha && 'max-sm:ml-16', resultado.texto)}>
+                      {lastScan.leitura.rotulo}
                     </div>
                   </div>
                 </div>
@@ -386,6 +381,11 @@ export default function ProducerCheckIn() {
                 <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder="Buscar por participante ou código do ingresso..." className="pl-9" />
               </div>
 
+              {noServidor && (
+                <p className="text-xs text-muted-foreground">
+                  Mostrando os {tickets.length.toLocaleString('pt-BR')} ingressos mais recentes de {total.toLocaleString('pt-BR')}. Os números acima contam todos; para achar um ingresso mais antigo, use o campo do Scanner.
+                </p>
+              )}
               {isLoadingTickets ? (
                 <div aria-busy="true" className="space-y-2">
                   {[1, 2, 3].map(n => (
@@ -410,6 +410,7 @@ export default function ProducerCheckIn() {
                           </div>
                         )}
                         {t.status === 'cancelado' && <div className="text-xs font-medium text-destructive">Cancelado</div>}
+                        {t.status === 'transferido' && <div className="text-xs font-medium text-muted-foreground">Transferido</div>}
                         {t.status === 'pendente' && (
                           <Button size="sm" onClick={() => manualCheckIn(t)}>
                             <I.Raio /> Confirmar Entrada
