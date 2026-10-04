@@ -106,7 +106,7 @@ export default function CheckoutPayment() {
             // Simula sucesso ou chama o processamento
             toast.info('Pedido registrado. A cobrança no cartão ainda não está ativa.')
             sessionStorage.removeItem('aura_pending_checkout')
-            navigate('/checkout/success', {
+            navigate(`/checkout/success?pedido=${order.id}`, {
               state: {
                 orderId: order.id,
                 totalAmount: resumo.total,
@@ -152,7 +152,7 @@ export default function CheckoutPayment() {
                     toast.success('Pagamento via Pix confirmado!')
                     sessionStorage.removeItem('aura_pending_checkout')
                     supabase.removeChannel(orderChannel)
-                    navigate('/checkout/success', {
+                    navigate(`/checkout/success?pedido=${order.id}`, {
                       state: {
                         orderId: order.id,
                         totalAmount: resumo.total,

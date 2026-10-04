@@ -20,7 +20,10 @@ export interface DbOrder {
     date: string | null
     time: string | null
     venue_name: string | null
+    status?: string | null
   }
+  // quantidade e tipo de cada item do pedido (só a lista de compras pede)
+  order_items?: { quantity: number; ticket_types: { name: string } | null }[]
 }
 
 export interface DbTicket {
@@ -166,7 +169,12 @@ export function useUserOrders() {
             cover_image,
             date,
             time,
-            venue_name
+            venue_name,
+            status
+          ),
+          order_items (
+            quantity,
+            ticket_types ( name )
           )
         `)
         .eq('user_id', user.id)
@@ -249,6 +257,19 @@ export function useUserTickets() {
       })) as DbTicket[]
     },
     enabled: !!user?.id,
+  })
+}
+
+// O pedido é do usuário? A RLS de orders só devolve o do dono; null = não é desta conta (ou não existe)
+export function useOrderVisivel(orderId?: string) {
+  return useQuery<{ id: string } | null>({
+    queryKey: ['order-visivel', orderId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('orders').select('id').eq('id', orderId!).maybeSingle()
+      if (error) throw error
+      return data
+    },
+    enabled: !!orderId,
   })
 }
 

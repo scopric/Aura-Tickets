@@ -1,26 +1,20 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
-import { toast } from 'sonner'
-import { siteUrl } from '../../lib/appHost'
 import * as I from '@/components/icones/evokaa16'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { useUserTickets } from '../../hooks/useCheckout'
 import { useAuth } from '../../hooks/useAuth'
-import TicketQRCode from '../../components/TicketQRCode'
+import { Linha, LinhaAnterior, Passe } from '../../components/CartoesIngresso'
+import SemIngressos, { NaoVejoMeuIngresso } from '../../components/SemIngressos'
 import { useEventMenuItems } from '../../hooks/useMenuItems'
-import { motivoSemQr } from '../../lib/ingresso'
+import { agruparPorEvento, ehProximo, motivoEvento, motivoSemQr } from '../../lib/ingresso'
 import Chip from '../../components/Chip'
-import EventoCapa from '../../components/EventoCapa'
 import EventoLinha from '../../components/EventoLinha'
 
 export default function AppHub() {
   const [activeTab, setActiveTab] = useState<'ingressos' | 'eventos' | 'cardapio' | 'chat'>('ingressos')
-  const [showQR, setShowQR] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
   const [menuCategory, setMenuCategory] = useState<string>('Todos')
   
@@ -28,41 +22,18 @@ export default function AppHub() {
   const { data: dbEvents = [], isLoading: isLoadingEvents } = usePublicEvents()
   const { data: dbTickets = [], isLoading: isLoadingTickets } = useUserTickets()
 
-  // Evento ativo para o cardápio (primeiro evento dos ingressos do usuário)
-  const activeEventId = useMemo(() => {
-    const activeTicket = dbTickets.find(t => t.status === 'active')
-    return activeTicket?.events?.id || null
-  }, [dbTickets])
+  // Próximos / Anteriores, em ordem de data (a mesma regra da tela Ingressos)
+  const [agora] = useState(() => Date.now())
+  const proximos = useMemo(() => agruparPorEvento(dbTickets.filter(t => ehProximo(t, agora))), [dbTickets, agora])
+  const anteriores = useMemo(() => agruparPorEvento(dbTickets.filter(t => !ehProximo(t, agora)), true), [dbTickets, agora])
+  const ativos = dbTickets.filter(t => !motivoSemQr(t)).length // vale: ativo, evento não cancelado nem fora do ar nem encerrado
 
-  const activeEventName = useMemo(() => {
-    const activeTicket = dbTickets.find(t => t.status === 'active')
-    return activeTicket?.events?.title || 'Evento'
-  }, [dbTickets])
+  // O cardápio e o chat seguem o evento que vem primeiro por data (e que não está cancelado nem fora do ar), não a compra mais recente
+  const comanda = proximos.find(g => !motivoEvento(g.evento))
+  const activeEventId = comanda?.id ?? null
+  const activeEventName = comanda?.evento?.title || 'Evento'
 
   const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
-
-  // Mapear tickets do DB para o formato do layout
-  const myTickets = (dbTickets || []).map(t => {
-    const eventDate = t.events?.date
-      ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', year: 'numeric' })
-      : 'Data a definir'
-    return {
-      id: t.id,
-      eventId: t.events?.id || t.event_id || '',
-      eventName: t.events?.title || 'Evento',
-      capa: t.events,
-      date: eventDate,
-      time: t.events?.time || '--:--',
-      location: t.events?.venue_name || 'Local a definir',
-      type: t.ticket_types?.name || 'Ingresso',
-      seat: t.seat_info, // o lugar só aparece quando o ingresso traz um (a consulta de ingressos ainda não pede a coluna)
-      price: t.ticket_types?.price || 0,
-      qr: t.code || t.qr_code || '',
-      status: t.status,
-      semQr: motivoSemQr(t), // null = o QR vale
-    }
-  })
-  const ativos = myTickets.filter(t => !t.semQr).length // vale: ativo, evento não cancelado nem encerrado
 
   const tabs = [
     { id: 'ingressos' as const, label: 'Meus Ingressos', count: ativos > 0 ? ativos : undefined },
@@ -99,48 +70,23 @@ export default function AppHub() {
         <div aria-busy="true" className="space-y-3">
           {[1, 2].map(i => <Skeleton key={i} className="h-[132px] w-full rounded-ev-lg" />)}
         </div>
-      ) : myTickets.length === 0 ? (
-        <div className="flex flex-col items-start gap-3 py-4">
-          <I.Ingressos size={40} className="text-muted-foreground" aria-hidden="true" />
-          <p className="text-base font-semibold">Você ainda não tem ingressos.</p>
-          <p className="text-[13px] leading-[18px] text-muted-foreground">Explore eventos e faça sua primeira compra!</p>
-          <Button asChild variant="outline"><Link to="/app/events">Explorar Eventos</Link></Button>
-        </div>
+      ) : proximos.length === 0 ? (
+        <SemIngressos anteriores={anteriores.length} />
       ) : (
-        <ul className="divide-y divide-border">
-          {myTickets.map(ticket => (
-            <li key={ticket.id} className="py-4 first:pt-0 last:pb-0">
-              <div className="flex gap-3">
-                {ticket.capa && <EventoCapa evento={ticket.capa} tamanho="mini" className="!size-14" />}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs leading-4 text-muted-foreground">{ticket.date} · {ticket.time}</p>
-                  <p className="line-clamp-2 font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{ticket.eventName}</p>
-                  <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{ticket.location}</p>
-                </div>
-                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.semQr ? 'text-[var(--ev-warning)]' : 'text-[var(--ev-success)]'}`}>
-                  {ticket.status === 'active' ? (ticket.semQr ?? 'Ativo') : ({ used: 'Usado', cancelled: 'Cancelado', transferred: 'Transferido', refunded: 'Reembolsado' } as Record<string, string>)[ticket.status] ?? ticket.status}
-                </span>
-              </div>
-              <p className="mt-2 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
-                <I.Ingressos size={16} aria-hidden="true" className="flex-none" />
-                <span className="truncate">{ticket.type}{ticket.seat ? ` · ${ticket.seat}` : ''}</span>
-              </p>
-              {/* Actions */}
-              <div className="mt-3 flex items-center gap-2">
-                {ticket.semQr ? (
-                  <p className="flex-1 text-[13px] font-semibold leading-[18px] text-[var(--ev-warning)]">{ticket.semQr}</p>
-                ) : (
-                  <Button className="flex-1" onClick={() => setShowQR(ticket.qr)} aria-label={`Ver QR Code de ${ticket.eventName}`}>
-                    <I.Qr aria-hidden="true" /> Ver QR Code
-                  </Button>
-                )}
-                <Button variant="outline" size="icon" onClick={() => { navigator.clipboard.writeText(siteUrl(`/event/${ticket.eventId}`)); toast.success('Link do evento copiado!') }} aria-label={`Copiar link do evento ${ticket.eventName}`} title="Copiar link do evento">
-                  <I.Compartilhar aria-hidden="true" />
-                </Button>
-              </div>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          <Passe g={proximos[0]} />
+          {proximos.slice(1).map(g => <Linha key={g.id} g={g} />)}
+          <NaoVejoMeuIngresso />
+        </div>
+      )}
+      {!isLoadingTickets && anteriores.length > 0 && (
+        <details className="group">
+          <summary className="flex h-11 cursor-pointer items-center justify-between rounded-ev-md text-sm font-semibold focus-visible:outline-none focus-visible:shadow-ev-foco">
+            <span>Anteriores <span className="font-display tabular-nums text-muted-foreground">{anteriores.length}</span></span>
+            <I.ChevronDireita size={16} aria-hidden="true" className="transition-transform group-open:rotate-90" />
+          </summary>
+          <ul className="mt-2 space-y-3">{anteriores.map(g => <LinhaAnterior key={g.id + g.ingressos[0].id} g={g} />)}</ul>
+        </details>
       )}
     </div>
   )
@@ -334,23 +280,6 @@ export default function AppHub() {
           </div>
         </div>
       </div>
-
-      {/* QR Code Modal */}
-      <Dialog open={!!showQR} onOpenChange={aberto => { if (!aberto) setShowQR(null) }}>
-        <DialogContent showCloseButton={false} className="max-w-xs gap-0 p-8 text-center sm:max-w-xs">
-          <DialogTitle className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</DialogTitle>
-          <DialogDescription className="mb-6 text-[13px] leading-[18px]">Apresente na entrada do evento</DialogDescription>
-          {showQR && (
-            <>
-              <div className="mx-auto mb-4 size-48">
-                <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
-              </div>
-              <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
-            </>
-          )}
-          <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

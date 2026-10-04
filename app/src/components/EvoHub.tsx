@@ -114,9 +114,10 @@ export default function EvoHub() {
     return () => clearTimeout(t)
   }, [balao])
 
+  const [assuntoInicial, setAssuntoInicial] = useState<string | null>(null) // atalho "Não vejo meu ingresso" (evento evo:suporte)
   const mudarAberto = useCallback((a: boolean) => {
     setAberto(a)
-    if (!a) return
+    if (!a) { setAssuntoInicial(null); return }
     gravarConvite((c) => ({ ...c, aberto: true }))
     setBalao(null)
     setNaoLidas(0)
@@ -131,6 +132,17 @@ export default function EvoHub() {
     }
     window.addEventListener('evo:planejar', planejar)
     return () => window.removeEventListener('evo:planejar', planejar)
+  }, [podeEvo, mudarAberto])
+
+  // Atalhos do participante (ex.: "Não vejo meu ingresso") pedem: abrir a janela de suporte já no formulário do assunto
+  useEffect(() => {
+    if (podeEvo) return
+    const suporte = (e: Event) => {
+      setAssuntoInicial((e as CustomEvent<{ assunto?: string }>).detail?.assunto ?? null)
+      mudarAberto(true)
+    }
+    window.addEventListener('evo:suporte', suporte)
+    return () => window.removeEventListener('evo:suporte', suporte)
   }, [podeEvo, mudarAberto])
 
   // o balão sai da tela: se o foco estava nele, volta ao mascote (senão cai no body)
@@ -211,6 +223,7 @@ export default function EvoHub() {
       {!podeEvo && aberto && (
         <JanelaSuporte
           publico={publicoDoPapel(user?.role)}
+          assuntoInicial={assuntoInicial}
           aoFechar={() => {
             mudarAberto(false)
             mascoteRef.current?.focus()

@@ -442,9 +442,17 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   )
 }
 
-function Suporte({ publico, focarAoAbrir = false }: { publico: Publico; focarAoAbrir?: boolean }) {
+function Suporte({ publico, focarAoAbrir = false, assuntoInicial }: { publico: Publico; focarAoAbrir?: boolean; assuntoInicial?: string | null }) {
   const { user } = useAuth()
   const [tela, setTela] = useState<Tela>({ t: 'inicio' })
+  // atalho de fora ("Não vejo meu ingresso"): pula direto para o formulário do assunto pedido, pelo rótulo
+  const { data: assuntos } = useAssuntos(publico, !!assuntoInicial)
+  const [aplicado, setAplicado] = useState<string | null>(null)
+  const alvo = assuntoInicial ? assuntos?.find((x) => x.label === assuntoInicial) : undefined
+  if (alvo && aplicado !== assuntoInicial) { // ajuste durante o render (sem efeito): vale uma vez por pedido
+    setAplicado(assuntoInicial ?? null)
+    setTela({ t: 'form', assunto: alvo })
+  }
   const raiz = useRef<HTMLDivElement>(null)
   const anterior = useRef(tela)
   // A cada troca de tela o foco vai para o título (leitor de tela e teclado); ao abrir o balão, também
@@ -474,7 +482,7 @@ export function SupportChatPanel() {
  * fora não fecha; Esc fecha (quem abriu devolve o foco). Usada pelo balão do site e, para o
  * participante, pelo mascote do Evo. `posicao` traz bottom/right/altura de cada uso.
  */
-export function JanelaSuporte({ publico, aoFechar, posicao }: { publico: Publico; aoFechar: () => void; posicao: string }) {
+export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial }: { publico: Publico; aoFechar: () => void; posicao: string; assuntoInicial?: string | null }) {
   const { user } = useAuth()
   return (
     <div
@@ -492,7 +500,7 @@ export function JanelaSuporte({ publico, aoFechar, posicao }: { publico: Publico
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
-      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir />
+      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir assuntoInicial={assuntoInicial} />
     </div>
   )
 }

@@ -2,14 +2,14 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import * as Dialog from '@radix-ui/react-dialog'
 import { toast } from 'sonner'
-import { Agenda, Atualizar, ChevronDireita, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'
+import { Agenda, Atualizar, Baixar, ChevronDireita, ChevronEsquerda, Compartilhar, Fechar, Info, Local, Mesa, Qr } from './icones/evokaa16'
 import EventoCapa from './EventoCapa'
 import TicketQRCode from './TicketQRCode'
 import { Button } from './ui/button'
 import { useTheme } from '../contexts/ThemeContext'
 import { siteUrl } from '../lib/appHost'
 import { temFoto, varsDoEvento } from '../lib/corEvento'
-import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta } from '../lib/ingresso'
+import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta, salvarQrPng } from '../lib/ingresso'
 import { useFalta } from '../hooks/useFalta'
 import { useTelaAcesa } from '../hooks/useTelaAcesa'
 import type { DbTicket } from '../hooks/useCheckout'
@@ -36,25 +36,36 @@ function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFe
   const acesa = useTelaAcesa(true)
   const devolverFoco = useFocoDeVolta()
   const quando = [dataCurta(evento.date), horaCurta(evento.time)].filter(Boolean).join(' · ')
+  const area = useRef<HTMLDivElement>(null)
+  const salvar = () => {
+    const svg = area.current?.querySelector('svg')
+    if (!svg || !t.code) return
+    salvarQrPng(svg, t.code).then(undefined, () => toast.error('Não consegui salvar a imagem. Tire uma captura de tela do QR.'))
+  }
   return (
     <Dialog.Root open onOpenChange={aberto => { if (!aberto) aoFechar() }}>
       <Dialog.Portal>
         {/* fundo branco puro nos dois temas: é o que dá o maior contraste para o leitor da portaria */}
-        <Dialog.Content onCloseAutoFocus={devolverFoco} className="fixed inset-0 z-[70] flex flex-col items-center overflow-y-auto bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-14 text-center text-[#0b0d12] outline-none">
+        <Dialog.Content onCloseAutoFocus={devolverFoco} className="fixed inset-0 z-[110] flex flex-col items-center overflow-y-auto bg-white px-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-14 text-center text-[#0b0d12] outline-none">
           <p className="text-sm font-medium text-[#5b6472]">{quando}</p>
           <Dialog.Title className="mt-1 font-display text-[22px] font-extrabold leading-6 wide">{evento.title}</Dialog.Title>
-          <TicketQRCode code={t.code} size={320} className="mt-7 h-auto w-full max-w-[320px]" />
+          <div ref={area} className="mt-7 w-full max-w-[320px]"><TicketQRCode code={t.code} size={320} className="h-auto w-full" /></div>
           <p className="mt-3 font-mono text-[17px] leading-6 tracking-[0.08em]">{t.code}</p>
           <p className="mt-4 text-base font-semibold">{[t.buyer_name, t.ticket_types?.name].filter(Boolean).join(' · ')}</p>
           <Dialog.Description className="mt-1 text-[15px] text-[#5b6472]">Mostre na entrada</Dialog.Description>
           {/* a web não controla o brilho: o aviso só aparece no modo escuro, onde ele faz diferença */}
           {acesa && <p className="mt-3 text-[13px] text-[#5b6472]">A tela fica acesa enquanto o código estiver aberto.</p>}
           {temaResolvido === 'dark' && <p className="mt-1 text-[13px] text-[#5b6472]">Aumente o brilho para a leitura na porta.</p>}
+          <div className="mt-auto flex w-full flex-col gap-3 pt-6">
+          <Button size="lg" variant="outline" onClick={salvar} className="border-[rgb(11_13_18/0.20)] bg-white text-[#0b0d12] hover:bg-[#eceef1] hover:text-[#0b0d12]">
+            <Baixar aria-hidden="true" /> Salvar QR como imagem
+          </Button>
           <Dialog.Close asChild>
-            <Button size="lg" className="mt-auto bg-[#f4f5f7] text-[#0b0d12] shadow-[0_0_0_1px_rgb(11_13_18/0.10)] hover:bg-[#eceef1]">
+            <Button size="lg" className="bg-[#f4f5f7] text-[#0b0d12] shadow-[0_0_0_1px_rgb(11_13_18/0.10)] hover:bg-[#eceef1]">
               <Fechar aria-hidden="true" /> Fechar
             </Button>
           </Dialog.Close>
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

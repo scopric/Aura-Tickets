@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type CSSProperties, type PointerEvent, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { getAppMode } from '@/lib/appHost'
+import { getAppMode, siteUrl } from '@/lib/appHost'
 import { QRCodeSVG } from 'qrcode.react'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -224,8 +224,11 @@ export default function AppDownload() {
                   <TabsTrigger value="ios" className="text-[13px]">iPhone</TabsTrigger>
                   <TabsTrigger value="android" className="text-[13px]">Android</TabsTrigger>
                 </TabsList>
-                {sistema === 'outro' && !evento && (
-                  <Nota icone={I.Celular}>Está no computador? Abra esta página no celular para instalar.</Nota>
+                {sistema === 'outro' && (
+                  <div className="mt-4 flex items-center gap-4">
+                    <QRCodeSVG value={siteUrl('/app/download')} size={112} marginSize={2} className="flex-none rounded-ev-md bg-white" title="QR Code para abrir esta página no celular" />
+                    <p className="text-sm leading-5 text-muted-foreground">Está no computador? Aponte a câmera do celular para o QR Code e instale por lá.</p>
+                  </div>
                 )}
 
                 <TabsContent value="ios" className="mt-2">

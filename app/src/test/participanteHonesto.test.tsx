@@ -11,8 +11,9 @@ import { erroDeLogin } from '../hooks/useAuth'
 // P0c: o participante não vê promessa que o sistema não cumpre. Eventos, ingressos e auth simulados.
 let eventos: Record<string, unknown>[] = []
 let ingressos: Record<string, unknown>[] = []
+let pedidos: Record<string, unknown>[] = []
 vi.mock('../hooks/useEvents', () => ({ usePublicEvents: () => ({ data: eventos, isLoading: false, isError: false, refetch: vi.fn() }) }))
-vi.mock('../hooks/useCheckout', () => ({ useUserTickets: () => ({ data: ingressos, isLoading: false }) }))
+vi.mock('../hooks/useCheckout', () => ({ useUserTickets: () => ({ data: ingressos, isLoading: false }), useUserOrders: () => ({ data: pedidos, isLoading: false }) }))
 vi.mock('../hooks/useMenuItems', () => ({ useEventMenuItems: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAuth', async (original) => ({ ...(await original<typeof import('../hooks/useAuth')>()), useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
 vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false, isError: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }), useMarkNotificationRead: () => ({ mutate: vi.fn(), isPending: false }), urlDoAviso: () => null }))
@@ -30,7 +31,7 @@ const evento = (id: string, category: string | null, extra: Record<string, unkno
 const Local = () => { const l = useLocation(); return <p data-testid="local">{l.pathname + l.search}</p> }
 const montar = (ui: React.ReactElement, url = '/') => render(<MemoryRouter initialEntries={[url]}>{ui}<Local /></MemoryRouter>)
 
-beforeEach(() => { cleanup(); eventos = []; ingressos = [] })
+beforeEach(() => { cleanup(); eventos = []; ingressos = []; pedidos = [] })
 
 describe('Início do app (Hub)', () => {
   const ingresso = (id: string, status: string, extra: Record<string, unknown> = {}) => ({
@@ -51,11 +52,10 @@ describe('Início do app (Hub)', () => {
   it('QR só em ingresso ativo; reembolsado diz "Reembolsado"; contador só conta ativos', () => {
     ingressos = [ingresso('t1', 'active'), ingresso('t2', 'refunded', { events: { id: 'e1', title: 'Outro Evento', date: '2099-01-10', status: 'published' } })]
     const { container } = montar(<AppHub />)
-    expect(screen.getAllByRole('button', { name: 'Ver QR Code de Baile do Sol' }).length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Ver QR Code de Outro Evento' })).toBeNull()
+    expect(screen.getAllByRole('link', { name: 'Mostrar o QR de Baile do Sol' }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: 'Mostrar o QR de Outro Evento' })).toBeNull()
     expect(screen.getAllByText('Reembolsado').length).toBeGreaterThan(0)
     expect(screen.queryByText('Transferido')).toBeNull()
-    expect(screen.getAllByText('Ingresso reembolsado').length).toBeGreaterThan(0)
     const ativos = container.querySelector('dl dt')!
     expect(ativos).toHaveTextContent('Ingressos ativos')
     expect(ativos.parentElement!.querySelector('dd')).toHaveTextContent('1')
@@ -64,24 +64,57 @@ describe('Início do app (Hub)', () => {
   it('ingresso ativo de evento cancelado: selo mostra o motivo, sem QR, e não entra em "Ingressos ativos"', () => {
     ingressos = [ingresso('t1', 'active'), ingresso('t2', 'active', { events: { id: 'e2', title: 'Festa Cancelada', date: '2099-01-10', status: 'cancelled' } })]
     const { container } = montar(<AppHub />)
-    expect(screen.getAllByText('Evento cancelado').length).toBeGreaterThan(0)
-    expect(screen.queryByRole('button', { name: 'Ver QR Code de Festa Cancelada' })).toBeNull()
+    expect(screen.getAllByText(/Evento cancelado/).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('link', { name: 'Mostrar o QR de Festa Cancelada' })).toBeNull()
     expect(container.querySelector('dl dd')).toHaveTextContent('1')
   })
 
-  it('QR abre em Dialog (role dialog) e Esc fecha', () => {
-    ingressos = [ingresso('t1', 'active')]
+  it('o próximo evento é o passe: o botão do QR leva à tela do ingresso já virado; anteriores ficam numa lista própria', () => {
+    ingressos = [ingresso('t1', 'active'), ingresso('t2', 'used', { events: { id: 'e9', title: 'Festa Velha', date: '2020-01-10', status: 'published' } })]
     montar(<AppHub />)
-    fireEvent.click(screen.getAllByRole('button', { name: 'Ver QR Code de Baile do Sol' })[0])
-    const janela = screen.getByRole('dialog', { name: 'Ingresso' })
-    expect(janela).toHaveTextContent('COD-t1')
-    fireEvent.keyDown(janela, { key: 'Escape' })
-    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getAllByRole('link', { name: 'Mostrar o QR de Baile do Sol' })[0]).toHaveAttribute('href', '/app/tickets?evento=e1&qr=1')
+    expect(screen.getAllByText('Festa Velha').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Anteriores').length).toBeGreaterThan(0)
   })
 
-  it('"Explorar Eventos" é um link para /app/events', () => {
+  it('"Explorar eventos" é um link para /app/events', () => {
     montar(<AppHub />)
-    expect(screen.getAllByRole('link', { name: 'Explorar Eventos' })[0]).toHaveAttribute('href', '/app/events')
+    expect(screen.getAllByRole('link', { name: 'Explorar eventos' })[0]).toHaveAttribute('href', '/app/events')
+  })
+
+  it('0 ingressos: a tela diz por quê (pedido pendente, pagamento confirmado sem ingresso, só anteriores) e tem "Não vejo meu ingresso"', () => {
+    pedidos = [{ id: 'o1', status: 'pending' }, { id: 'o2', status: 'pending' }]
+    montar(<AppHub />)
+    expect(screen.getAllByText(/2 pedidos aguardando pagamento/).length).toBeGreaterThan(0)
+    expect(screen.getAllByRole('link', { name: 'Ver minhas compras' })[0]).toHaveAttribute('href', '/app/orders')
+    cleanup()
+    pedidos = [{ id: 'o1', status: 'paid' }]
+    montar(<AppHub />)
+    expect(screen.getAllByText(/ingresso ainda não chegou/).length).toBeGreaterThan(0)
+    cleanup()
+    pedidos = []
+    ingressos = [ingresso('t1', 'used', { events: { id: 'e9', title: 'Festa Velha', date: '2020-01-10', status: 'published' } })]
+    montar(<AppHub />)
+    expect(screen.getAllByText(/ficam em Anteriores/).length).toBeGreaterThan(0)
+  })
+
+  it('"Não vejo meu ingresso" pede ao Evo o assunto do chat', () => {
+    const ouvir = vi.fn()
+    window.addEventListener('evo:suporte', ouvir)
+    montar(<AppHub />)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Não vejo meu ingresso' })[0])
+    window.removeEventListener('evo:suporte', ouvir)
+    expect((ouvir.mock.calls[0][0] as CustomEvent).detail).toEqual({ assunto: 'Não recebi ou não acho meu ingresso' })
+  })
+
+  it('o cardápio segue o evento que vem primeiro por data, não a compra mais recente', () => {
+    ingressos = [
+      ingresso('t1', 'active', { events: { id: 'tarde', title: 'Evento Tarde', date: '2099-06-10', status: 'published' } }),
+      ingresso('t2', 'active', { events: { id: 'cedo', title: 'Evento Cedo', date: '2099-02-10', status: 'published' } }),
+    ]
+    montar(<AppHub />)
+    expect(screen.getAllByRole('heading', { name: 'Evento Cedo', level: 3 }).length).toBeGreaterThan(0)
+    expect(screen.queryByRole('heading', { name: 'Evento Tarde', level: 3 })).toBeNull()
   })
 })
 

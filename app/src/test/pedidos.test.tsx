@@ -35,4 +35,24 @@ describe('Compras', () => {
     expect(screen.getByText(/Pedido #ABCDEF12/)).toBeTruthy()
     expect(screen.getByText(/, 12 dez · 22h$/)).toBeTruthy()
   })
+  it('mostra a quantidade e o tipo de cada item do pedido', () => {
+    estado = { isLoading: false, isError: false, data: [{ id: 'abcdef12-0000', event_id: 'e1', status: 'paid', payment_method: 'pix', total_amount: 55, events: { title: 'Noite', status: 'published' }, order_items: [{ quantity: 2, ticket_types: { name: 'Pista' } }, { quantity: 1, ticket_types: { name: 'VIP' } }] }] }
+    tela()
+    expect(screen.getByText('2× Pista, 1× VIP')).toBeTruthy()
+    expect(screen.queryByRole('status')).toBeNull()
+  })
+  it('evento que saiu do ar tem cartão próprio: sem data e local inventados, com o aviso', () => {
+    estado = { isLoading: false, isError: false, data: [{ id: 'abcdef12-0000', event_id: 'e1', status: 'pending', payment_method: 'pix', total_amount: 55, events: null, order_items: [] }] }
+    tela()
+    expect(screen.getByRole('heading', { name: 'Evento indisponível' })).toBeTruthy()
+    expect(screen.getByRole('status').textContent).toContain('Fale com o suporte')
+    expect(screen.queryByText('Data a definir')).toBeNull()
+    expect(screen.queryByText('Local a definir')).toBeNull()
+  })
+  it('evento cancelado (ainda legível) mostra o aviso junto da data', () => {
+    estado = { isLoading: false, isError: false, data: [{ id: 'abcdef12-0000', event_id: 'e1', status: 'paid', payment_method: 'pix', total_amount: 55, events: { title: 'Noite', date: '2030-12-12', status: 'cancelled' } }] }
+    tela()
+    expect(screen.getByRole('status').textContent).toContain('Evento cancelado')
+    expect(screen.getByRole('heading', { name: 'Noite' })).toBeTruthy()
+  })
 })
