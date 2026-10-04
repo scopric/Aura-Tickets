@@ -7,7 +7,6 @@ import * as I from '@/components/icones/evokaa16'
 import { cn } from '@/lib/utils'
 import { useAuth } from '../hooks/useAuth'
 import ThemeToggle from './ThemeToggle'
-import NotificationsTopButton from './NotificationsTopButton'
 import FeedbackTopButton from './FeedbackTopButton'
 import { uploadAvatar } from '../lib/avatarUpload'
 import { supabase } from '../lib/supabase'
@@ -270,7 +269,6 @@ export default function AdminLayout() {
             <img src="/images/logo-evokaa-sm.png" alt="Evokaa" className="h-7 w-auto" />
           </div>
           <div className="pointer-events-auto flex items-center gap-1 lg:rounded-full lg:border lg:border-border lg:bg-card lg:p-0.5">
-            <NotificationsTopButton className={botaoTopo} />
             <FeedbackTopButton className={botaoTopo} />
           </div>
         </div>
