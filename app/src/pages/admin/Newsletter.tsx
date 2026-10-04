@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
-import { 
-  Mail, Users, Send, Plus, Trash2, Loader2, Sparkles, 
-  Search, Calendar, ArrowRight, Eye, Code, Layout, Palette, Gift, Check,
-  CheckCircle, UserMinus
-} from 'lucide-react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import * as I from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { EmptyState, PageHeader, SectionTitle, Stat, chipAviso, chipNeutro, chipOk } from '@/components/producer/ui'
+import { Tabela, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import type { DbEvent } from '../../hooks/useEvents'
 import { rotuloFormato } from '../../lib/tipoEvento'
@@ -546,143 +550,83 @@ export default function AdminNewsletter() {
     .reduce((sum, c) => sum + (c.recipient_count || 0), 0)
   const kpiDescadastros = subscribers.filter(s => s.unsubscribed_at).length
 
+  // Rótulo de campo do construtor
+  const rotulo = 'mb-1 block text-xs font-semibold text-muted-foreground'
+  // Caixa de bloco opcional (cupom, CTA, cores)
+  const bloco = 'space-y-3 rounded-[10px] border border-border bg-secondary/50 p-4'
+  const marca = 'size-4 shrink-0 accent-primary'
+
   return (
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-8">
-        <div>
-          <h1 className="font-serif text-3xl text-espresso">Newsletter Evokaa</h1>
-          <p className="text-sm text-espresso/70 mt-1">Crie campanhas de e-mail profissionais de mercado com construtores visuais e gerencie inscritos.</p>
-        </div>
-        <div className="flex bg-white/60 p-1 border border-white/60 rounded-xl">
-          <button 
-            onClick={() => setActiveTab('campaigns')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === 'campaigns' 
-                ? 'bg-plum text-cream shadow-md' 
-                : 'text-espresso/70 hover:text-espresso'
-            }`}
-          >
-            <Layout className="w-3.5 h-3.5" /> Construtor de Campanhas
-          </button>
-          <button 
-            onClick={() => setActiveTab('subscribers')}
-            className={`px-4 py-2 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeTab === 'subscribers' 
-                ? 'bg-plum text-cream shadow-md' 
-                : 'text-espresso/70 hover:text-espresso'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" /> Base de Inscritos ({subscribers.length})
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Newsletter Evokaa"
+        description="Crie campanhas de e-mail profissionais de mercado com construtores visuais e gerencie inscritos."
+        actions={
+          <div className={trilho} role="group" aria-label="Seções da newsletter">
+            {([
+              ['campaigns', I.Painel, 'Construtor de Campanhas'],
+              ['subscribers', I.Pessoas, `Base de Inscritos (${subscribers.length})`],
+            ] as const).map(([id, Icone, texto]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={activeTab === id}
+                onClick={() => setActiveTab(id)}
+                className={activeTab === id ? segmentoOn : segmentoOff}
+              >
+                <Icone size={16} aria-hidden="true" /> {texto}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {/* KPIs reais — sem estimativa de entrega/bounce/spam (a Resend não tem webhook configurado) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8 anim-fade">
-        {[
-          {
-            label: 'E-mails Enviados',
-            value: `${totalSent}`,
-            detail: 'Soma de todas as campanhas disparadas',
-            icon: CheckCircle,
-            color: 'text-green-600',
-            bg: 'bg-green-50 border-green-100'
-          },
-          {
-            label: 'Assinantes Ativos',
-            value: `${activeSubscriberCount}`,
-            detail: 'Recebem a próxima campanha',
-            icon: Users,
-            color: 'text-plum',
-            bg: 'bg-plum/5 border-plum/10'
-          },
-          {
-            label: 'Descadastros',
-            value: `${kpiDescadastros}`,
-            detail: 'Pelo link no rodapé do e-mail',
-            icon: UserMinus,
-            color: 'text-amber-600',
-            bg: 'bg-amber-50 border-amber-100'
-          },
-        ].map(k => (
-          <div key={k.label} className="p-4 rounded-2xl border border-white bg-white/60 backdrop-blur-sm shadow-sm flex items-center gap-4">
-            <div className={`p-3 rounded-xl ${k.bg} flex-shrink-0`}>
-              <k.icon className={`w-5 h-5 ${k.color}`} />
-            </div>
-            <div>
-              <div className="text-[10px] text-espresso/70 font-bold uppercase tracking-wider leading-none">{k.label}</div>
-              <div className="font-serif text-2xl text-espresso mt-1 leading-none">{k.value}</div>
-              <div className="text-[9px] text-espresso/70 mt-1 leading-none">{k.detail}</div>
-            </div>
-          </div>
-        ))}
+        <Stat label="E-mails Enviados" value={`${totalSent}`} hint="Soma de todas as campanhas disparadas" />
+        <Stat label="Assinantes Ativos" value={`${activeSubscriberCount}`} hint="Recebem a próxima campanha" />
+        <Stat label="Descadastros" value={`${kpiDescadastros}`} hint="Pelo link no rodapé do e-mail" />
       </div>
 
       {activeTab === 'campaigns' ? (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           {/* Main Visual Builder & Settings (Left/Center Col) */}
           <div className="lg:col-span-7 space-y-6">
-            <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-              <div className="flex justify-between items-start mb-6">
+            <div className={`anim-fade ${painel} p-6`}>
+              <div className="mb-6 flex items-start justify-between gap-3">
                 <div>
-                  <h2 className="font-serif text-xl text-espresso">
+                  <SectionTitle>
                     {editingCampaignId ? 'Editar Campanha' : 'Novo E-mail Promocional'}
-                  </h2>
-                  <p className="text-[10px] text-espresso/70 mt-0.5">Monte um layout visual e preencha as variáveis em tempo real.</p>
+                  </SectionTitle>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Monte um layout visual e preencha as variáveis em tempo real.</p>
                 </div>
-                
+
                 {/* Switch visual vs code */}
-                <div className="flex bg-canvas p-0.5 rounded-lg border border-espresso/5">
-                  <button
-                    type="button"
-                    onClick={() => setEditorMode('visual')}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all ${
-                      editorMode === 'visual' ? 'bg-white dark:bg-white/5 text-plum shadow-sm' : 'text-espresso/70 hover:text-espresso'
-                    }`}
-                  >
-                    <Layout className="w-3 h-3" /> Visual
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setEditorMode('code')}
-                    className={`px-2.5 py-1 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-all ${
-                      editorMode === 'code' ? 'bg-white dark:bg-white/5 text-plum shadow-sm' : 'text-espresso/70 hover:text-espresso'
-                    }`}
-                  >
-                    <Code className="w-3 h-3" /> Código
-                  </button>
+                <div className={cn(trilho, 'shrink-0')} role="group" aria-label="Modo do editor">
+                  {([['visual', I.Painel, 'Visual'], ['code', I.Codigo, 'Código']] as const).map(([modo, Icone, texto]) => (
+                    <button
+                      key={modo}
+                      type="button"
+                      aria-pressed={editorMode === modo}
+                      onClick={() => setEditorMode(modo)}
+                      className={editorMode === modo ? segmentoOn : segmentoOff}
+                    >
+                      <Icone size={14} aria-hidden="true" /> {texto}
+                    </button>
+                  ))}
                 </div>
               </div>
 
               {/* Template shortcuts */}
               {editorMode === 'visual' && !editingCampaignId && (
-                <div className="mb-6 p-4 bg-plum/5 rounded-xl border border-plum/10">
-                  <span className="text-[10px] text-plum font-semibold uppercase tracking-wider block mb-2 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 animate-pulse" /> Carregar Template Base da Evokaa:
+                <div className="mb-6 rounded-[10px] border border-border bg-secondary/50 p-4">
+                  <span className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                    <I.Destaque size={14} className="text-primary" aria-hidden="true" /> Carregar Template Base da Evokaa:
                   </span>
                   <div className="flex flex-wrap gap-2">
-                    <button 
-                      type="button"
-                      onClick={() => handleApplyTemplate('destaques')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
-                    >
-                      🎪 Destaques da Semana
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleApplyTemplate('pre-venda')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
-                    >
-                      🚀 Pré-Venda Exclusiva
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => handleApplyTemplate('institucional')}
-                      className="px-3 py-1.5 rounded-lg border border-plum/20 bg-white dark:bg-white/5 hover:bg-plum hover:text-cream text-[11px] font-semibold text-plum transition-all"
-                    >
-                      📣 Informativo Evokaa
-                    </button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('destaques')}>🎪 Destaques da Semana</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('pre-venda')}>🚀 Pré-Venda Exclusiva</Button>
+                    <Button type="button" size="sm" variant="outline" onClick={() => handleApplyTemplate('institucional')}>📣 Informativo Evokaa</Button>
                   </div>
                 </div>
               )}
@@ -690,14 +634,14 @@ export default function AdminNewsletter() {
               {/* Editor Fields */}
               <form onSubmit={handleSaveCampaign} className="space-y-5">
                 <div>
-                  <label htmlFor="email-subject" className="text-xs font-bold text-espresso/70 block mb-1">Assunto da Campanha (Subject)</label>
-                  <input 
+                  <label htmlFor="email-subject" className={rotulo}>Assunto da Campanha (Subject)</label>
+                  <Input
                     id="email-subject"
-                    type="text" 
+                    type="text"
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                     placeholder="Ex: Últimos ingressos para o festival!"
-                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum text-espresso font-semibold"
+                    className="font-semibold"
                     required
                   />
                 </div>
@@ -705,35 +649,38 @@ export default function AdminNewsletter() {
                 {editorMode === 'visual' ? (
                   <>
                     {/* Visual Brand Settings */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-canvas/40 border border-espresso/5 rounded-xl">
+                    <div className="grid grid-cols-1 gap-4 rounded-[10px] border border-border bg-secondary/50 p-4 md:grid-cols-2">
                       <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-espresso/70 uppercase tracking-wider block">Logotipo</label>
+                        <span className={rotulo}>Logotipo</span>
                         <div className="flex items-center gap-3">
-                          <input 
-                            type="checkbox" 
+                          <input
+                            type="checkbox"
                             id="logo-check"
                             checked={includeLogo}
                             onChange={e => setIncludeLogo(e.target.checked)}
-                            className="accent-plum"
+                            className={marca}
                           />
-                          <label htmlFor="logo-check" className="text-xs text-espresso/70 font-semibold cursor-pointer">Incluir Logo Evokaa</label>
+                          <label htmlFor="logo-check" className="cursor-pointer text-xs font-semibold text-foreground">Incluir Logo Evokaa</label>
                         </div>
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-espresso/70 uppercase tracking-wider block">Cor de Destaque (Brand Color)</label>
+                        <span className={rotulo}>Cor de Destaque (Brand Color)</span>
                         <div className="flex gap-2.5">
                           {BRAND_COLORS.map(color => (
+                            // a cor é a do e-mail (vai no HTML), não do tema do painel: por isso não usa token
                             <button
                               key={color.value}
                               type="button"
                               onClick={() => setPrimaryColor(color.value)}
-                              className={`w-6 h-6 rounded-full border transition-all flex items-center justify-center text-cream ${color.cls} ${
-                                primaryColor === color.value ? 'scale-110 border-espresso ring-2 ring-plum/20' : 'border-transparent opacity-80'
+                              aria-label={color.name}
+                              aria-pressed={primaryColor === color.value}
+                              className={`flex size-7 items-center justify-center rounded-full border text-white transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${color.cls} ${
+                                primaryColor === color.value ? 'scale-110 border-foreground ring-2 ring-[var(--ev-brand-soft)]' : 'border-transparent opacity-80'
                               }`}
                               title={color.name}
                             >
-                              {primaryColor === color.value && <Check className="w-3 h-3" />}
+                              {primaryColor === color.value && <I.Check size={14} aria-hidden="true" />}
                             </button>
                           ))}
                         </div>
@@ -744,36 +691,34 @@ export default function AdminNewsletter() {
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label htmlFor="main-heading" className="text-xs font-semibold text-espresso/70 block mb-1">Título do Cabeçalho (Heading)</label>
-                          <input 
+                          <label htmlFor="main-heading" className={rotulo}>Título do Cabeçalho (Heading)</label>
+                          <Input
                             id="main-heading"
                             type="text"
                             value={heading}
                             onChange={e => setHeading(e.target.value)}
-                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                             required
                           />
                         </div>
                         <div>
-                          <label htmlFor="main-subtitle" className="text-xs font-semibold text-espresso/70 block mb-1">Subtítulo (Subtitle)</label>
-                          <input 
+                          <label htmlFor="main-subtitle" className={rotulo}>Subtítulo (Subtitle)</label>
+                          <Input
                             id="main-subtitle"
                             type="text"
                             value={subtitle}
                             onChange={e => setSubtitle(e.target.value)}
-                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum"
                           />
                         </div>
                       </div>
 
                       <div>
-                        <label htmlFor="email-body" className="text-xs font-semibold text-espresso/70 block mb-1">Mensagem de Texto do E-mail</label>
-                        <textarea 
+                        <label htmlFor="email-body" className={rotulo}>Mensagem de Texto do E-mail</label>
+                        <Textarea
                           id="email-body"
                           value={bodyText}
                           onChange={e => setBodyText(e.target.value)}
                           rows={6}
-                          className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs focus:outline-none focus:border-plum leading-relaxed"
+                          className="leading-relaxed"
                           required
                         />
                       </div>
@@ -781,9 +726,9 @@ export default function AdminNewsletter() {
 
                     {/* Select Approved Events */}
                     <div className="space-y-2">
-                      <label className="text-xs font-semibold text-espresso/70 block">Selecionar Eventos Recomendados (Máximo 3)</label>
+                      <span className={rotulo}>Selecionar Eventos Recomendados (Máximo 3)</span>
                       {availableEvents.length === 0 ? (
-                        <div className="text-xs italic text-espresso/70 p-3 bg-canvas/30 rounded-xl border border-dashed border-espresso/10">
+                        <div className="rounded-[10px] border border-dashed border-border p-3 text-xs text-muted-foreground">
                           Nenhum evento publicado/aprovado para selecionar.
                         </div>
                       ) : (
@@ -794,22 +739,20 @@ export default function AdminNewsletter() {
                               <button
                                 key={evt.id}
                                 type="button"
+                                aria-pressed={isSelected}
                                 onClick={() => handleToggleEventSelection(evt.id)}
-                                className={`p-2.5 rounded-xl border transition-all text-left flex items-center gap-3 ${
-                                  isSelected 
-                                    ? 'bg-plum/5 border-plum text-plum' 
-                                    : 'bg-white dark:bg-white/5 border-espresso/5 hover:bg-canvas/50 text-espresso/70'
+                                className={`flex items-center gap-3 rounded-[10px] border p-2.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                                  isSelected
+                                    ? 'border-primary bg-[var(--ev-brand-soft)] text-foreground'
+                                    : 'border-border bg-card text-foreground hover:bg-[var(--ev-tint-hover)]'
                                 }`}
                               >
-                                <input 
-                                  type="checkbox" 
-                                  checked={isSelected}
-                                  readOnly
-                                  className="accent-plum rounded flex-shrink-0"
-                                />
+                                <span aria-hidden="true" className={`flex size-4 shrink-0 items-center justify-center rounded-xs border ${isSelected ? 'border-primary bg-primary text-primary-foreground' : 'border-input'}`}>
+                                  {isSelected && <I.Check size={12} />}
+                                </span>
                                 <div className="min-w-0">
-                                  <div className="text-xs font-bold truncate">{evt.title}</div>
-                                  <div className="text-[10px] opacity-60">
+                                  <div className="truncate text-xs font-semibold">{evt.title}</div>
+                                  <div className="text-[11px] text-muted-foreground">
                                     {evt.date ? new Date(evt.date + 'T00:00:00').toLocaleDateString('pt-BR') : 'Sem data'} • {evt.venue_city || 'Cidade a definir'}
                                   </div>
                                 </div>
@@ -821,50 +764,48 @@ export default function AdminNewsletter() {
                     </div>
 
                     {/* Coupon Alert (Optional) */}
-                    <div className="p-4 bg-canvas/40 border border-espresso/5 rounded-xl space-y-3">
+                    <div className={bloco}>
                       <div className="flex items-center justify-between">
-                        <label htmlFor="coupon-toggle" className="text-xs font-bold text-espresso/70 flex items-center gap-1 cursor-pointer">
-                          <Gift className="w-4 h-4 text-plum" /> Habilitar Bloco de Cupom
+                        <label htmlFor="coupon-toggle" className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <I.Presente size={16} className="text-primary" aria-hidden="true" /> Habilitar Bloco de Cupom
                         </label>
-                        <input 
+                        <input
                           type="checkbox"
                           id="coupon-toggle"
                           checked={includeCoupon}
                           onChange={e => setIncludeCoupon(e.target.checked)}
-                          className="accent-plum"
+                          className={marca}
                         />
                       </div>
-                      
+
                       {includeCoupon && (
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pt-1.5 anim-fade">
                           <div className="md:col-span-1">
-                            <label htmlFor="coupon-code" className="text-[10px] font-semibold text-espresso/70 block mb-1">Código</label>
-                            <input 
+                            <label htmlFor="coupon-code" className={rotulo}>Código</label>
+                            <Input
                               id="coupon-code"
-                              type="text" 
+                              type="text"
                               value={couponCode}
                               onChange={e => setCouponCode(e.target.value.toUpperCase())}
-                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs uppercase"
+                              className="uppercase"
                             />
                           </div>
                           <div className="md:col-span-2">
-                            <label htmlFor="coupon-title" className="text-[10px] font-semibold text-espresso/70 block mb-1">Título do Bloco</label>
-                            <input 
+                            <label htmlFor="coupon-title" className={rotulo}>Título do Bloco</label>
+                            <Input
                               id="coupon-title"
-                              type="text" 
+                              type="text"
                               value={couponTitle}
                               onChange={e => setCouponTitle(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                           <div className="md:col-span-3">
-                            <label htmlFor="coupon-desc" className="text-[10px] font-semibold text-espresso/70 block mb-1">Instruções de Desconto</label>
-                            <input 
+                            <label htmlFor="coupon-desc" className={rotulo}>Instruções de Desconto</label>
+                            <Input
                               id="coupon-desc"
-                              type="text" 
+                              type="text"
                               value={couponDesc}
                               onChange={e => setCouponDesc(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                         </div>
@@ -872,40 +813,38 @@ export default function AdminNewsletter() {
                     </div>
 
                     {/* CTA Button General (Optional) */}
-                    <div className="p-4 bg-canvas/40 border border-espresso/5 rounded-xl space-y-3">
+                    <div className={bloco}>
                       <div className="flex items-center justify-between">
-                        <label htmlFor="cta-toggle" className="text-xs font-bold text-espresso/70 flex items-center gap-1 cursor-pointer">
-                          <ArrowRight className="w-4 h-4 text-plum" /> Habilitar Botão CTA
+                        <label htmlFor="cta-toggle" className="flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-foreground">
+                          <I.SetaDireita size={16} className="text-primary" aria-hidden="true" /> Habilitar Botão CTA
                         </label>
-                        <input 
+                        <input
                           type="checkbox"
                           id="cta-toggle"
                           checked={includeCta}
                           onChange={e => setIncludeCta(e.target.checked)}
-                          className="accent-plum"
+                          className={marca}
                         />
                       </div>
-                      
+
                       {includeCta && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pt-1.5 anim-fade">
                           <div>
-                            <label htmlFor="cta-text" className="text-[10px] font-semibold text-espresso/70 block mb-1">Texto do Botão</label>
-                            <input 
+                            <label htmlFor="cta-text" className={rotulo}>Texto do Botão</label>
+                            <Input
                               id="cta-text"
-                              type="text" 
+                              type="text"
                               value={ctaText}
                               onChange={e => setCtaText(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                           <div>
-                            <label htmlFor="cta-url" className="text-[10px] font-semibold text-espresso/70 block mb-1">Link de Destino (URL)</label>
-                            <input 
+                            <label htmlFor="cta-url" className={rotulo}>Link de Destino (URL)</label>
+                            <Input
                               id="cta-url"
-                              type="text" 
+                              type="text"
                               value={ctaUrl}
                               onChange={e => setCtaUrl(e.target.value)}
-                              className="w-full px-3 py-1.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs"
                             />
                           </div>
                         </div>
@@ -915,43 +854,33 @@ export default function AdminNewsletter() {
                 ) : (
                   /* Custom Code HTML Editor Mode */
                   <div>
-                    <label htmlFor="code-textarea" className="text-xs font-semibold text-espresso/70 block mb-1">Escrever HTML Customizado</label>
-                    <textarea 
+                    <label htmlFor="code-textarea" className={rotulo}>Escrever HTML Customizado</label>
+                    <Textarea
                       id="code-textarea"
                       value={codeContent}
                       onChange={e => setCodeContent(e.target.value)}
                       rows={18}
                       placeholder="<body><p>Conteúdo HTML customizado do e-mail...</p></body>"
-                      className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs font-mono focus:outline-none focus:border-plum"
+                      className="font-mono text-xs"
                       required
                     />
                   </div>
                 )}
 
                 <div className="flex items-center gap-3 pt-2">
-                  <button 
-                    type="submit" 
-                    disabled={isSavingCampaign}
-                    className="px-6 py-2.5 bg-plum text-cream rounded-full text-xs font-bold hover:shadow-glow transition-all flex items-center gap-2 disabled:opacity-50"
-                  >
-                    {isSavingCampaign ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : editingCampaignId ? (
+                  <Button type="submit" loading={isSavingCampaign}>
+                    {editingCampaignId ? (
                       'Salvar Alterações'
                     ) : (
                       <>
-                        <Plus className="w-3.5 h-3.5" /> Criar Rascunho
+                        <I.Criar aria-hidden="true" /> Criar Rascunho
                       </>
                     )}
-                  </button>
+                  </Button>
                   {editingCampaignId && (
-                    <button 
-                      type="button" 
-                      onClick={handleCancelEdit}
-                      className="px-5 py-2.5 bg-transparent border border-espresso/10 text-espresso/70 hover:bg-espresso/5 rounded-full text-xs font-medium transition-all"
-                    >
+                    <Button type="button" variant="outline" onClick={handleCancelEdit}>
                       Cancelar Edição
-                    </button>
+                    </Button>
                   )}
                 </div>
               </form>
@@ -961,22 +890,22 @@ export default function AdminNewsletter() {
           {/* Live Preview & Campaign List (Right Col) */}
           <div className="lg:col-span-5 space-y-6">
             {/* Live Preview Box */}
-            <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-5 backdrop-blur-sm flex flex-col h-[650px] shadow-sm">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="font-serif text-sm text-espresso flex items-center gap-1.5">
-                  <Eye className="w-4 h-4 text-plum animate-pulse" /> Live Preview (Tempo Real)
+            <div className={`anim-fade ${painel} flex h-[650px] flex-col p-5`}>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="flex items-center gap-1.5 text-[15px] font-semibold leading-5 text-foreground">
+                  <I.Olho size={16} className="text-primary" aria-hidden="true" /> Live Preview (Tempo Real)
                 </h3>
-                <span className="text-[9px] text-espresso/70 bg-espresso/5 px-2 py-0.5 rounded-full font-bold">Evokaa Mail</span>
-              </div>
-              
-              {/* Mail client headers mock */}
-              <div className="mb-4 p-3 bg-canvas/30 rounded-xl border border-espresso/5 text-[10px] space-y-1">
-                <div><span className="text-espresso/70">Remetente:</span> <span className="text-espresso font-semibold">Evokaa Eventos &lt;news@evokaa.com.br&gt;</span></div>
-                <div><span className="text-espresso/70">Assunto:</span> <span className="text-espresso font-bold">{title || '(Sem assunto)'}</span></div>
+                <Badge variant="secondary" className={chipNeutro}>Evokaa Mail</Badge>
               </div>
 
-              {/* Iframe for Isolated CSS Rendering */}
-              <div className="flex-1 bg-white border border-espresso/5 rounded-xl overflow-hidden shadow-inner p-1">
+              {/* Mail client headers mock */}
+              <div className="mb-4 space-y-1 rounded-[10px] border border-border bg-secondary/50 p-3 text-xs">
+                <div><span className="text-muted-foreground">Remetente:</span> <span className="font-semibold text-foreground">Evokaa Eventos &lt;news@evokaa.com.br&gt;</span></div>
+                <div><span className="text-muted-foreground">Assunto:</span> <span className="font-bold text-foreground">{title || '(Sem assunto)'}</span></div>
+              </div>
+
+              {/* Iframe for Isolated CSS Rendering (fundo branco de propósito: é a caixa de entrada do assinante, não o tema do painel) */}
+              <div className="flex-1 overflow-hidden rounded-[10px] border border-border bg-white p-1">
                 <iframe
                   srcDoc={liveHtml || '<p style="text-align:center;padding-top:100px;color:#888;font-family:sans-serif;font-size:12px;">Seu e-mail aparecerá aqui</p>'}
                   title="Newsletter Preview"
@@ -989,51 +918,45 @@ export default function AdminNewsletter() {
             </div>
 
             {/* Existing Campaigns List */}
-            <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-5 backdrop-blur-sm">
-              <h2 className="font-serif text-sm text-espresso mb-3">Campanhas Salvas</h2>
+            <div className={`anim-fade ${painel} p-5`}>
+              <div className="mb-3"><SectionTitle>Campanhas Salvas</SectionTitle></div>
 
               {campaignsError && (
-                <div role="alert" className="mb-3 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">
+                <div role="alert" className={cn(alertaErro, 'mb-3 p-3 text-xs')}>
                   Não foi possível carregar as campanhas: {campaignsError}
                 </div>
               )}
 
               {isLoadingCampaigns ? (
                 <div className="flex justify-center py-8">
-                  <Loader2 className="w-5 h-5 text-plum animate-spin" />
+                  <Spinner className="size-5 text-primary" aria-label="Carregando" />
                 </div>
               ) : campaigns.length === 0 ? (
-                <div className="text-center py-8 text-espresso/70 text-xs italic">
-                  Nenhuma campanha criada ainda.
-                </div>
+                <EmptyState title="Nenhuma campanha criada ainda." />
               ) : (
                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                   {campaigns.map(camp => (
-                    <div 
-                      key={camp.id} 
-                      className="p-3.5 rounded-xl border border-white bg-white/40 hover:bg-white/70 dark:hover:bg-white/10 dark:bg-white/5 transition-all flex flex-col justify-between gap-3 shadow-sm"
+                    <div
+                      key={camp.id}
+                      className="flex flex-col justify-between gap-3 rounded-[10px] border border-border bg-card p-3.5 hover:bg-[var(--ev-tint-hover)]"
                     >
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-semibold uppercase tracking-wider border ${
-                            camp.status === 'sent' 
-                              ? 'bg-green-50 text-green-700 border-green-100' 
-                              : 'bg-amber-50 text-amber-700 border-amber-100'
-                          }`}>
+                        <div className="mb-1 flex items-center justify-between">
+                          <Badge variant="secondary" className={camp.status === 'sent' ? chipOk : chipAviso}>
                             {camp.status === 'sent' ? 'Enviada' : 'Rascunho'}
-                          </span>
-                          <span className="text-[9px] text-espresso/70 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
+                          </Badge>
+                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <I.Eventos size={12} aria-hidden="true" />
                             {new Date(camp.created_at).toLocaleDateString('pt-BR')}
                           </span>
                         </div>
-                        <h3 className="text-xs font-bold text-espresso line-clamp-1">{camp.title}</h3>
+                        <h3 className="line-clamp-1 text-[13px] font-semibold text-foreground">{camp.title}</h3>
                       </div>
 
                       {camp.status === 'sent' ? (
-                        <div className="text-[9px] text-espresso/70 border-t border-espresso/5 pt-2 flex items-center justify-between">
+                        <div className="flex items-center justify-between gap-2 border-t border-border pt-2 text-[11px] text-muted-foreground">
                           {camp.recipient_count == null ? (
-                            <span className="text-amber-600">Envio em andamento ou interrompido — confira antes de reenviar</span>
+                            <span className="text-[var(--ev-warning)]">Envio em andamento ou interrompido — confira antes de reenviar</span>
                           ) : (
                             <span>Disparado para: <strong>{camp.recipient_count}</strong> destinatários</span>
                           )}
@@ -1042,35 +965,31 @@ export default function AdminNewsletter() {
                           )}
                         </div>
                       ) : (
-                        <div className="border-t border-espresso/5 pt-2 flex items-center justify-between gap-2">
+                        <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
                           <div className="flex gap-1">
-                            <button 
-                              onClick={() => handleEditCampaign(camp)}
-                              className="px-2.5 py-1 bg-canvas hover:bg-espresso/5 text-espresso/70 hover:text-espresso rounded-lg text-[9px] font-medium transition-all"
-                            >
+                            <Button type="button" size="xs" variant="outline" onClick={() => handleEditCampaign(camp)}>
                               Carregar
-                            </button>
-                            <button 
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon-sm"
+                              variant="ghost"
                               onClick={() => handleDeleteCampaign(camp.id)}
-                              className="p-1 text-espresso/70 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
                               title="Excluir"
+                              aria-label={`Excluir campanha ${camp.title}`}
                             >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
+                              <I.Lixeira aria-hidden="true" />
+                            </Button>
                           </div>
-                          <button 
+                          <Button
+                            type="button"
+                            size="xs"
                             onClick={() => handleSendCampaign(camp)}
                             disabled={isSendingId !== null}
-                            className="px-2.5 py-1 bg-plum text-cream hover:shadow-glow rounded-lg text-[9px] font-bold transition-all flex items-center gap-1 disabled:opacity-50"
+                            loading={isSendingId === camp.id}
                           >
-                            {isSendingId === camp.id ? (
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Send className="w-3 h-3" /> Enviar
-                              </>
-                            )}
-                          </button>
+                            <I.Enviar aria-hidden="true" /> Enviar
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -1085,127 +1004,117 @@ export default function AdminNewsletter() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Add Manual Subscriber Form */}
           <div className="space-y-6">
-            <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-              <h2 className="font-serif text-xl text-espresso mb-4">Inscrição Manual</h2>
+            <div className={`anim-fade ${painel} p-6`}>
+              <div className="mb-4"><SectionTitle>Inscrição Manual</SectionTitle></div>
               <form onSubmit={handleAddSubscriber} className="space-y-4">
                 <div>
-                  <label htmlFor="new-sub-email" className="text-xs font-semibold text-espresso/70 block mb-1">E-mail do Assinante</label>
-                  <input 
+                  <label htmlFor="new-sub-email" className={rotulo}>E-mail do Assinante</label>
+                  <Input
                     id="new-sub-email"
-                    type="email" 
+                    type="email"
                     value={newEmail}
                     onChange={e => setNewEmail(e.target.value)}
                     placeholder="Ex: participante@email.com"
-                    className="w-full px-4 py-2.5 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm focus:outline-none focus:border-plum"
                     required
                   />
                 </div>
-                <button 
-                  type="submit" 
-                  disabled={isAddingSub}
-                  className="w-full py-2.5 bg-plum text-cream rounded-full text-xs font-bold hover:shadow-glow transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isAddingSub ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" /> Adicionar Assinante
-                    </>
-                  )}
-                </button>
+                <Button type="submit" className="w-full" loading={isAddingSub}>
+                  <I.Criar aria-hidden="true" /> Adicionar Assinante
+                </Button>
               </form>
 
               {/* Stats Box */}
-              <div className="mt-8 p-4 rounded-xl bg-plum/5 border border-plum/10 text-center">
-                <span className="text-[10px] text-plum font-semibold uppercase tracking-wider block mb-1">Base Ativa de Newsletter</span>
-                <span className="font-serif text-3xl text-espresso">{activeSubscriberCount}</span>
-                <p className="text-[10px] text-espresso/70 mt-1">E-mails que receberão as próximas campanhas ({subscribers.length} cadastrados no total).</p>
+              <div className="mt-8 rounded-[10px] border border-border bg-secondary/50 p-4 text-center">
+                <span className="mb-1 block text-xs font-semibold text-muted-foreground">Base Ativa de Newsletter</span>
+                <span className="font-display text-[28px] font-semibold leading-8 tabular-nums text-foreground">{activeSubscriberCount}</span>
+                <p className="mt-1 text-xs text-muted-foreground">E-mails que receberão as próximas campanhas ({subscribers.length} cadastrados no total).</p>
               </div>
             </div>
           </div>
 
           {/* Subscribers List */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="anim-fade bg-white/60 border border-white/60 rounded-2xl p-6 backdrop-blur-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                <h2 className="font-serif text-xl text-espresso">Lista de Assinantes</h2>
-                
+            <div className={`anim-fade ${painel} p-6`}>
+              <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                <SectionTitle>Lista de Assinantes</SectionTitle>
+
                 {/* Search Bar */}
                 <div className="relative max-w-xs w-full">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
-                  <input 
-                    type="text" 
+                  <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    type="text"
                     value={subSearch}
                     onChange={e => setSubSearch(e.target.value)}
-                    placeholder="Buscar e-mail..." 
-                    className="w-full pl-10 pr-4 py-2 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-xs text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30" 
+                    placeholder="Buscar e-mail..."
+                    aria-label="Buscar e-mail"
+                    className="pl-9"
                   />
                 </div>
               </div>
 
               {subscribersError && (
-                <div role="alert" className="mb-4 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-700">
+                <div role="alert" className={cn(alertaErro, 'mb-4 p-3 text-xs')}>
                   Não foi possível carregar os assinantes: {subscribersError}
                 </div>
               )}
 
               {isLoadingSubscribers ? (
                 <div className="flex justify-center py-20">
-                  <Loader2 className="w-8 h-8 text-plum animate-spin" />
+                  <Spinner className="size-8 text-primary" aria-label="Carregando" />
                 </div>
               ) : filteredSubscribers.length === 0 ? (
-                <div className="text-center py-20 text-espresso/70 italic text-sm">
-                  Nenhum assinante encontrado.
-                </div>
+                <EmptyState title="Nenhum assinante encontrado." />
               ) : (
-                <div className="overflow-hidden border border-espresso/5 rounded-xl bg-white/40">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-espresso/5 bg-white/40">
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase">E-mail</th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase hidden sm:table-cell">Data de Inscrição</th>
-                          <th className="px-4 py-3 text-[10px] font-semibold text-espresso/70 uppercase text-right">Ações</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {filteredSubscribers.map(sub => (
-                          <tr key={sub.id} className="border-b border-espresso/5 last:border-0 hover:bg-white/40 transition-colors">
-                            <td className="px-4 py-3 flex items-center gap-2">
-                              <Mail className="w-3.5 h-3.5 text-espresso/30" />
-                              <span className="text-xs font-medium text-espresso">{sub.email}</span>
+                <div className="overflow-hidden rounded-[10px] border border-border">
+                  <Tabela label="Lista de assinantes">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary/50">
+                        <th className={cn(th, 'px-3 sm:px-4')}>E-mail</th>
+                        <th className={cn(th, 'hidden sm:table-cell')}>Data de Inscrição</th>
+                        <th className={cn(th, 'px-3 text-right sm:px-4')}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredSubscribers.map(sub => (
+                        <tr key={sub.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
+                          <td className="px-3 py-3 sm:px-4">
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <I.Email size={14} className="shrink-0 text-muted-foreground" aria-hidden="true" />
+                              <span className="break-all text-xs font-medium text-foreground">{sub.email}</span>
                               {sub.unsubscribed_at && (
-                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-espresso/5 text-espresso/70 border border-espresso/10">Descadastrado</span>
+                                <Badge variant="secondary" className={chipNeutro}>Descadastrado</Badge>
                               )}
-                            </td>
-                            <td className="px-4 py-3 text-xs text-espresso/70 hidden sm:table-cell">
-                              {new Date(sub.created_at).toLocaleDateString('pt-BR', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              {/* quem descadastrou fica na base como prova do opt-out (LGPD); apagar
-                                  a linha também deixaria o e-mail ser reinscrito pelo rodapé */}
-                              {!sub.unsubscribed_at && (
-                                <button
-                                  onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
-                                  className="p-1.5 text-espresso/70 hover:text-red-500 rounded-lg hover:bg-red-50 transition-all"
-                                  title="Remover assinante"
-                                  aria-label={`Remover ${sub.email}`}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                            </div>
+                          </td>
+                          <td className="hidden px-4 py-3 text-xs text-muted-foreground sm:table-cell">
+                            {new Date(sub.created_at).toLocaleDateString('pt-BR', {
+                              day: 'numeric',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </td>
+                          <td className="px-3 py-3 text-right sm:px-4">
+                            {/* quem descadastrou fica na base como prova do opt-out (LGPD); apagar
+                                a linha também deixaria o e-mail ser reinscrito pelo rodapé */}
+                            {!sub.unsubscribed_at && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => handleDeleteSubscriber(sub.id, sub.email)}
+                                title="Remover assinante"
+                                aria-label={`Remover ${sub.email}`}
+                              >
+                                <I.Lixeira aria-hidden="true" />
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </Tabela>
                 </div>
               )}
             </div>

@@ -1,9 +1,14 @@
 import { useState, useEffect, useRef, useId } from 'react'
-import {
-  Users, Activity, Globe, Eye, BarChart3, Clock, Loader2, ExternalLink, RefreshCw,
-  Monitor, Smartphone, Tablet, Tv, HelpCircle, MousePointerClick, Search, Link2, Radio, UserCheck, Info,
-  X, ArrowUpRight, ArrowDownRight, Filter, Ticket, Download, Megaphone
-} from 'lucide-react'
+import * as I from '@/components/icones/evokaa16'
+import type { IconeEvokaa } from '@/components/icones/evokaa16'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Spinner } from '@/components/ui/spinner'
+import { Segmented } from '@/components/ui/toggle-group'
+import { EmptyState, PageHeader, SectionTitle, chipInfo, chipNeutro } from '@/components/producer/ui'
+import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
+import { cn } from '@/lib/utils'
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -115,16 +120,16 @@ const bandeira = (iso: string) =>
   /^[A-Za-z]{2}$/.test(iso) ? String.fromCodePoint(...[...iso.toUpperCase()].map(c => 0x1f1e6 + c.charCodeAt(0) - 65)) : null
 
 const iconeAparelho = (n: string) => {
-  const Icone = ({ desktop: Monitor, mobile: Smartphone, tablet: Tablet, 'smart tv': Tv } as Record<string, typeof Monitor>)[n] ?? HelpCircle
-  return <Icone className="w-4 h-4 text-muted-foreground" />
+  const Icone = ({ desktop: I.Tela, mobile: I.Celular, tablet: I.Tablet, 'smart tv': I.Tv } as Record<string, IconeEvokaa>)[n] ?? I.Ajuda
+  return <Icone size={16} className="text-muted-foreground" />
 }
 const iconeOrigem = (n: string) => {
-  const Icone = !n ? MousePointerClick : /google|bing|duckduckgo|yahoo/i.test(n) ? Search : Link2
-  return <Icone className="w-4 h-4 text-muted-foreground" />
+  const Icone = !n ? I.Clique : /google|bing|duckduckgo|yahoo/i.test(n) ? I.Buscar : I.Link
+  return <Icone size={16} className="text-muted-foreground" />
 }
 const iconePais = (n: string) => {
   const b = bandeira(n)
-  return b ? <span className="text-base leading-none" aria-hidden>{b}</span> : <Globe className="w-4 h-4 text-muted-foreground" />
+  return b ? <span className="text-base leading-none" aria-hidden>{b}</span> : <I.Globo size={16} className="text-muted-foreground" />
 }
 
 // Variação contra o período anterior (dias completos); seta e texto, não só cor
@@ -134,26 +139,26 @@ function Variacao({ atual, anterior, dias }: { atual: number; anterior: number; 
   const contra = <span className="text-muted-foreground">vs {dias} {dias === 1 ? 'dia anterior' : 'dias anteriores'} (dias completos)</span>
   if (pct === 0) return <div className="text-xs mt-1 text-muted-foreground">estável {contra}</div>
   const sobe = atual > anterior
-  const Seta = sobe ? ArrowUpRight : ArrowDownRight
+  const Seta = sobe ? I.SetaDiagonalCima : I.SetaDiagonalBaixo
   return (
-    <div className={`text-xs mt-1 flex flex-wrap items-center gap-1 ${sobe ? 'text-emerald-600' : 'text-red-600'}`}>
-      <Seta className="w-3.5 h-3.5" aria-hidden />
+    <div className={`text-xs mt-1 flex flex-wrap items-center gap-1 ${sobe ? 'text-[var(--ev-success)]' : 'text-destructive'}`}>
+      <Seta size={14} aria-hidden />
       <span>{sobe ? '+' : ''}{pct}%</span>
       {contra}
     </div>
   )
 }
 
-function Numero({ icone: Icone, rotulo, valor, apoio, destaque, variacao }: { icone: typeof Users; rotulo: string; valor: string; apoio?: string; destaque?: boolean; variacao?: React.ReactNode }) {
+function Numero({ icone: Icone, rotulo, valor, apoio, destaque, variacao }: { icone: IconeEvokaa; rotulo: string; valor: string; apoio?: string; destaque?: boolean; variacao?: React.ReactNode }) {
   return (
-    <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
-      <div className="flex items-center gap-3">
-        <span className={`w-9 h-9 rounded-xl flex items-center justify-center ${destaque ? 'bg-emerald-500/10 text-emerald-600' : 'bg-primary/10 text-primary'}`}>
-          <Icone className="w-4 h-4" />
+    <div className={`${painel} p-4`}>
+      <div className="flex items-center gap-2">
+        <span className={`flex size-8 items-center justify-center rounded-md ${destaque ? 'bg-[color-mix(in_srgb,var(--ev-success)_14%,transparent)] text-[var(--ev-success)]' : 'bg-primary/10 text-primary'}`}>
+          <Icone size={16} aria-hidden />
         </span>
-        <span className="text-sm text-muted-foreground">{rotulo}</span>
+        <span className="text-[13px] font-medium text-muted-foreground">{rotulo}</span>
       </div>
-      <div className="font-serif text-3xl text-foreground mt-4 tabular-nums">{valor}</div>
+      <div className="mt-3 font-display text-[28px] font-semibold leading-8 tracking-[-0.01em] tabular-nums text-foreground">{valor}</div>
       {apoio && <div className="text-xs text-muted-foreground mt-1">{apoio}</div>}
       {variacao}
     </div>
@@ -234,7 +239,7 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
   extras?: [string, number][]
 }) {
   const { dados, erro, carregando, hora, carregar } = fonte
-  const icones = [Users, Eye, Activity, Radio]
+  const icones = [I.Pessoas, I.Olho, I.Atividade, I.AoVivo]
   // um filtro por campo: clicar noutro país troca o país; no máximo os 4 campos
   const filtrar = (campo: Campo, valor: string, rotulo: string, tirar?: boolean) =>
     onFiltros([...filtros.filter(f => f.campo !== campo), ...(tirar ? [] : [{ campo, valor, rotulo }])])
@@ -265,55 +270,49 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">{legenda}</span>
-          <h2 className="font-serif text-2xl text-foreground mt-1">{titulo}</h2>
+          <h2 className="mt-1 text-xl font-semibold leading-7 tracking-normal text-foreground">{titulo}</h2>
           <p className="text-xs text-muted-foreground mt-1">
             {personalizado && dados?.de && dados?.ate ? `De ${dados.de.split('-').reverse().join('/')} a ${dados.ate.split('-').reverse().join('/')}` : periodoTexto}
             {dados && hora && ` · atualizado às ${hora.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={carregar}
-            disabled={carregando}
-            className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${carregando ? 'animate-spin' : ''}`} /> Atualizar
-          </button>
-          <button
-            onClick={baixarCsv}
-            disabled={!dados}
-            className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
-          >
-            <Download className="w-3.5 h-3.5" /> CSV
-          </button>
-          <a href={linkPainel} target="_blank" rel="noreferrer" className="py-2 px-3 text-primary hover:underline text-xs font-semibold flex items-center gap-1.5">
-            Painel completo <ExternalLink className="w-3.5 h-3.5" />
-          </a>
+          <Button variant="outline" size="sm" onClick={carregar} loading={carregando}>
+            <I.Atualizar aria-hidden="true" /> Atualizar
+          </Button>
+          <Button variant="outline" size="sm" onClick={baixarCsv} disabled={!dados}>
+            <I.Baixar aria-hidden="true" /> CSV
+          </Button>
+          <Button asChild variant="link" size="sm">
+            <a href={linkPainel} target="_blank" rel="noreferrer">
+              Painel completo <I.AbrirExterno aria-hidden="true" />
+            </a>
+          </Button>
         </div>
       </div>
 
       {filtros.length > 0 && (
         <div className="flex flex-wrap items-center gap-2" aria-label="Filtros ativos">
-          <Filter className="w-3.5 h-3.5 text-muted-foreground" aria-hidden />
+          <I.Filtro size={14} className="text-muted-foreground" aria-hidden />
           {filtros.map(f => (
-            <span key={f.campo} className="inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+            <Badge key={f.campo} variant="secondary" className={cn(chipInfo, 'gap-1.5 py-1 pl-3 pr-1.5')}>
               {NOME_CAMPO[f.campo]}: {f.rotulo}
-              <button onClick={() => onFiltros(filtros.filter(x => x.campo !== f.campo))} aria-label={`Tirar o filtro ${NOME_CAMPO[f.campo]}: ${f.rotulo}`} className="p-0.5 rounded-full hover:bg-primary/20">
-                <X className="w-3 h-3" />
+              <button type="button" onClick={() => onFiltros(filtros.filter(x => x.campo !== f.campo))} aria-label={`Tirar o filtro ${NOME_CAMPO[f.campo]}: ${f.rotulo}`} className="rounded-full p-0.5 hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <I.Fechar size={12} aria-hidden />
               </button>
-            </span>
+            </Badge>
           ))}
-          <button onClick={() => onFiltros([])} className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2">Limpar filtros</button>
+          <button type="button" onClick={() => onFiltros([])} className="rounded-xs text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">Limpar filtros</button>
         </div>
       )}
 
       {erro ? (
-        <div role="alert" className="p-4 rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className={alertaErro}>
           Não foi possível carregar os dados {deQuem}: {erro}
         </div>
       ) : !dados ? (
-        <div className="flex items-center justify-center py-16 rounded-2xl bg-card border border-border">
-          <Loader2 className="w-6 h-6 text-primary animate-spin" />
+        <div className={`${painel} flex items-center justify-center py-16`}>
+          <Spinner className="size-6 text-primary" aria-label="Carregando" />
         </div>
       ) : (
         <>
@@ -321,7 +320,7 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
             {([[pessoas, dados.totais.visitantes], ['Páginas vistas', dados.totais.paginas], ...extras] as [string, number][]).map(([l, v], i) => (
               <Numero
                 key={l}
-                icone={icones[i] ?? Activity}
+                icone={icones[i] ?? I.Atividade}
                 rotulo={l}
                 valor={fmtNum(v)}
                 destaque={l.startsWith('Agora')}
@@ -335,9 +334,9 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
             ))}
           </div>
 
-          <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+          <div className={`${painel} p-5 sm:p-6`}>
             {dados.totais.paginas === 0 ? (
-              <p className="text-sm text-muted-foreground italic py-10 text-center">Nenhuma visita no período.</p>
+              <EmptyState title="Nenhuma visita no período." />
             ) : (
               <GraficoDias dados={dados} pessoas={pessoas} nota={hojeNoGrafico ? `${nota} O último dia é hoje, ainda em andamento: a queda no fim é isso.` : nota} />
             )}
@@ -353,35 +352,33 @@ function PainelTrafego({ fonte, legenda, titulo, deQuem, periodoTexto, personali
           )}
 
           {dados.campanhas !== undefined && (
-            <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm space-y-3">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Megaphone className="w-4 h-4 text-muted-foreground" /> Campanhas</h3>
+            <div className={`${painel} space-y-3 p-5 sm:p-6`}>
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground"><I.Divulgacao size={16} className="text-muted-foreground" aria-hidden /> Campanhas</h3>
               {dados.campanhas === null ? (
                 <p className="text-sm text-muted-foreground">Não foi possível carregar as campanhas agora. Tente atualizar.</p>
               ) : dados.campanhas.length === 0 ? (
-                <p className="text-sm text-muted-foreground italic">Nenhuma visita com campanha no período. Links com <span className="font-mono not-italic">utm_campaign</span> e anúncios do Google aparecem aqui.</p>
+                <p className="text-sm text-muted-foreground">Nenhuma visita com campanha no período. Links com <span className="font-mono">utm_campaign</span> e anúncios do Google aparecem aqui.</p>
               ) : (
-                <div className="overflow-x-auto -mx-2">
-                  <table className="w-full text-left text-sm">
-                    <thead>
-                      <tr className="text-[11px] text-muted-foreground border-b border-border">
-                        <th className="px-2 py-2 font-semibold">Campanha</th>
-                        <th className="px-2 py-2 font-semibold">Origem / meio</th>
-                        <th className="px-2 py-2 font-semibold text-right">{pessoas}</th>
-                        <th className="px-2 py-2 font-semibold text-right">Sessões</th>
+                <Tabela label="Campanhas">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className={th}>Campanha</th>
+                      <th className={th}>Origem / meio</th>
+                      <th className={cn(th, 'text-right')}>{pessoas}</th>
+                      <th className={cn(th, 'text-right')}>Sessões</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {dados.campanhas.map((c, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-3 text-sm text-foreground">{c.campanha}</td>
+                        <td className="px-4 py-3 text-sm text-muted-foreground">{c.origem || '—'} / {c.meio || '—'}</td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtNum(c.visitantes)}</td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums">{fmtNum(c.sessoes)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      {dados.campanhas.map((c, i) => (
-                        <tr key={i}>
-                          <td className="px-2 py-3 text-foreground">{c.campanha}</td>
-                          <td className="px-2 py-3 text-muted-foreground">{c.origem || '—'} / {c.meio || '—'}</td>
-                          <td className="px-2 py-3 text-right tabular-nums">{fmtNum(c.visitantes)}</td>
-                          <td className="px-2 py-3 text-right tabular-nums">{fmtNum(c.sessoes)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </Tabela>
               )}
               <p className="text-[11px] text-muted-foreground">Conta só quem aceitou os cookies de análise. Quem aceita depois de trocar de página perde a campanha, então o número pode sair menor que o real.</p>
             </div>
@@ -477,37 +474,37 @@ function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtros
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Vercel + pedidos do banco · todos os visitantes</span>
-          <h2 className="font-serif text-2xl text-foreground mt-1">Eventos</h2>
+          <h2 className="mt-1 text-xl font-semibold leading-7 tracking-normal text-foreground">Eventos</h2>
           <p className="text-xs text-muted-foreground mt-1">Visitas às páginas de evento no mesmo período, cruzadas com os pedidos. Clique num evento para ver o funil.</p>
         </div>
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => ordenadas && downloadCsv(csvFilename('analytics-eventos'), toCsv(ordenadas.map(l => ({ ...l, de: dados.de, ate: dados.ate, conversao: fmtPct(l.conversao), receita: l.receita.toFixed(2) })), ['de', 'ate', 'titulo', 'visitantes', 'paginas', 'pedidos', 'pagos', 'conversao', ...(verReceita ? ['receita'] : [])]))}
           disabled={!ordenadas?.length}
-          className="py-2 px-3 bg-card border border-border text-foreground hover:border-primary/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
         >
-          <Download className="w-3.5 h-3.5" /> CSV
-        </button>
+          <I.Baixar aria-hidden="true" /> CSV
+        </Button>
       </div>
 
-      <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm space-y-4">
+      <div className={`${painel} space-y-4 p-5 sm:p-6`}>
         {dados.eventos == null ? (
           <p className="text-sm text-muted-foreground">Não foi possível carregar as visitas aos eventos agora. Tente atualizar.</p>
         ) : erro ? (
-          <p role="alert" className="text-sm text-red-700 dark:text-red-300">Não foi possível montar a tabela: {erro}</p>
+          <p role="alert" className="text-sm text-destructive">Não foi possível montar a tabela: {erro}</p>
         ) : !linhas ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 text-primary animate-spin" /></div>
+          <div className="flex justify-center py-8"><Spinner className="size-5 text-primary" aria-label="Carregando" /></div>
         ) : linhas.length === 0 ? (
-          <p className="text-sm text-muted-foreground italic py-6 text-center">Nenhuma visita a páginas de evento nem pedido no período.</p>
+          <EmptyState title="Nenhuma visita a páginas de evento nem pedido no período." />
         ) : (
           <>
-            <div className="overflow-x-auto -mx-2">
-              <table className="w-full text-left text-sm">
+            <Tabela label="Eventos: visitas e pedidos">
                 <thead>
-                  <tr className="text-[11px] text-muted-foreground border-b border-border">
-                    <th className="px-2 py-2 font-semibold">Evento</th>
+                  <tr className="border-b border-border">
+                    <th className={th}>Evento</th>
                     {colunas.map(c => (
-                      <th key={c.k} aria-sort={ordem === c.k ? 'descending' : undefined} className={`px-2 py-2 font-semibold text-right ${c.cls ?? ''}`}>
-                        <button type="button" onClick={() => setOrdem(c.k)} className={ordem === c.k ? 'text-foreground' : 'hover:text-foreground'}>
+                      <th key={c.k} aria-sort={ordem === c.k ? 'descending' : undefined} className={cn(th, 'text-right', c.cls)}>
+                        <button type="button" onClick={() => setOrdem(c.k)} className={cn('rounded-xs uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring', ordem === c.k ? 'text-foreground' : 'hover:text-foreground')}>
                           {c.rotulo}{ordem === c.k ? ' ↓' : ''}
                         </button>
                       </th>
@@ -518,25 +515,24 @@ function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtros
                   {ordenadas!.map(l => {
                     const chave = l.id ?? l.titulo
                     return (
-                      <tr key={chave} className={chave === escolhido ? 'bg-primary/10' : 'hover:bg-muted/40'}>
-                        <td className="px-2 py-3">
-                          <button type="button" aria-pressed={chave === escolhido} onClick={() => setEscolhido(chave === escolhido ? null : chave)} className="text-left text-foreground hover:text-primary flex items-center gap-2">
-                            <Ticket className="w-4 h-4 text-muted-foreground shrink-0" />
+                      <tr key={chave} className={chave === escolhido ? 'bg-primary/10' : 'hover:bg-[var(--ev-tint-hover)]'}>
+                        <td className="px-4 py-3 text-sm">
+                          <button type="button" aria-pressed={chave === escolhido} onClick={() => setEscolhido(chave === escolhido ? null : chave)} className="flex items-center gap-2 rounded-xs text-left text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                            <I.Ingressos size={16} className="shrink-0 text-muted-foreground" aria-hidden />
                             <span className={l.id ? '' : 'font-mono text-xs text-muted-foreground'}>{l.titulo}</span>
                           </button>
                         </td>
-                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.visitantes)}</td>
-                        <td className="px-2 py-3 text-right tabular-nums hidden sm:table-cell">{fmtNum(l.paginas)}</td>
-                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.pedidos)}</td>
-                        <td className="px-2 py-3 text-right tabular-nums">{fmtNum(l.pagos)}</td>
-                        <td className="px-2 py-3 text-right tabular-nums">{fmtPct(l.conversao)}</td>
-                        {verReceita && <td className="px-2 py-3 text-right tabular-nums hidden md:table-cell">{fmtReais(l.receita)}</td>}
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">{fmtNum(l.visitantes)}</td>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums hidden sm:table-cell">{fmtNum(l.paginas)}</td>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">{fmtNum(l.pedidos)}</td>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">{fmtNum(l.pagos)}</td>
+                        <td className="px-4 py-3 text-sm text-right tabular-nums">{fmtPct(l.conversao)}</td>
+                        {verReceita && <td className="px-4 py-3 text-sm text-right tabular-nums hidden md:table-cell">{fmtReais(l.receita)}</td>}
                       </tr>
                     )
                   })}
                 </tbody>
-              </table>
-            </div>
+            </Tabela>
             {sel && (
               <div className="pt-4 border-t border-border">
                 <h3 className="text-sm font-semibold text-foreground mb-4">Funil · {sel.titulo}</h3>
@@ -548,7 +544,7 @@ function SecaoEventos({ dados, filtrosAtivos }: { dados: Trafego | null; filtros
         <div className="text-[11px] text-muted-foreground space-y-0.5">
           <p>* Conversão aproximada: pedidos pagos ÷ visitantes da página. A Vercel conta o visitante uma vez por dia, então numa janela longa a mesma pessoa pode contar mais de uma vez.</p>
           <p>Pagos: pedidos com status pago hoje (reembolsados não entram). Pedidos: todos os criados, pagos ou não.</p>
-          {parcial && <p className="text-amber-700 dark:text-amber-300">Lista parcial: a busca chegou ao limite de 1000 pedidos ou eventos, e o que passou disso ficou de fora da conta.</p>}
+          {parcial && <p className="text-[var(--ev-warning)]">Lista parcial: a busca chegou ao limite de 1000 pedidos ou eventos, e o que passou disso ficou de fora da conta.</p>}
           {linhas && totalPedidos === 0 && <p>Nenhum pedido no período: as colunas de pedidos ficam zeradas até haver vendas.</p>}
           {filtrosAtivos && <p>Os filtros da Vercel (país, aparelho, origem, página) valem para as visitas, não para os pedidos.</p>}
         </div>
@@ -573,13 +569,13 @@ function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, o
   const ordem = [...itens].sort((a, b) => Number(a.nome === 'Outros') - Number(b.nome === 'Outros') || b.visitantes - a.visitantes)
   const maior = Math.max(1, ...itens.map(i => i.visitantes))
   return (
-    <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
+    <div className={`${painel} p-5 sm:p-6`}>
       <div className="flex items-baseline justify-between mb-4">
         <h3 className="text-sm font-semibold text-foreground">{titulo}</h3>
         <span className="text-[11px] text-muted-foreground">clique para filtrar · {abrev} · páginas vistas</span>
       </div>
       {itens.length === 0 ? (
-        <p className="text-xs text-muted-foreground italic">Sem dados no período.</p>
+        <p className="text-xs text-muted-foreground">Sem dados no período.</p>
       ) : (
         <ul className="space-y-3.5">
           {ordem.map(i => {
@@ -597,7 +593,7 @@ function ListaTop({ titulo, campo, itens, rotulo, icone, abrev, mono, filtros, o
                   onClick: () => (ativo ? onFiltrar(campo, '', '', true) : onFiltrar(campo, i.valor as string, rotulo(i.nome))),
                   title: ativo ? 'Tirar este filtro' : `Filtrar por ${rotulo(i.nome)}`,
                 } : {})}
-                className={`block w-full text-left rounded-lg -mx-2 px-2 py-1 transition-colors ${filtravel ? 'hover:bg-muted/60 cursor-pointer' : ''} ${ativo ? 'bg-primary/10' : ''}`}
+                className={`block w-full text-left rounded-md -mx-2 px-2 py-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${filtravel ? 'hover:bg-[var(--ev-tint-hover)] cursor-pointer' : ''} ${ativo ? 'bg-primary/10' : ''}`}
               >
               <span className="flex items-center gap-3 text-sm">
                 {icone && <span className="w-5 flex justify-center shrink-0">{icone(i.nome)}</span>}
@@ -795,9 +791,9 @@ export default function AdminAnalytics() {
   }, [isLoading, activeSubTab])
 
   const abas = [
-    { id: 'overview' as const, rotulo: 'Visão geral', icone: BarChart3 },
-    { id: 'users_engagement' as const, rotulo: 'Atividades recentes', icone: Users },
-    { id: 'traffic' as const, rotulo: 'Tráfego e audiência', icone: Globe },
+    { id: 'overview' as const, rotulo: 'Visão geral', icone: I.Relatorio },
+    { id: 'users_engagement' as const, rotulo: 'Atividades recentes', icone: I.Pessoas },
+    { id: 'traffic' as const, rotulo: 'Tráfego e audiência', icone: I.Globo },
   ]
   const periodos = [
     { id: '7d' as const, rotulo: '7 dias' },
@@ -808,86 +804,76 @@ export default function AdminAnalytics() {
   return (
     <div ref={containerRef} className="p-6 lg:p-10 max-w-7xl space-y-8">
       <header className="space-y-5">
-        <div>
-          <h1 className="font-serif text-3xl text-foreground">Analytics</h1>
-          <p className="text-sm text-muted-foreground mt-1">Tráfego, audiência e registros de atividade da plataforma.</p>
-        </div>
+        <PageHeader title="Analytics" description="Tráfego, audiência e registros de atividade da plataforma." />
 
         <div className="space-y-3">
-          <div role="group" aria-label="Seções do Analytics" className="inline-flex flex-wrap gap-1 p-1 bg-card border border-border rounded-2xl">
+          <div role="group" aria-label="Seções do Analytics" className={cn(trilho, 'w-fit max-w-full')}>
             {abas.map(a => (
               <button
                 key={a.id}
+                type="button"
                 aria-pressed={activeSubTab === a.id}
                 onClick={() => {
                   setActiveSubTab(a.id)
                   if (a.id !== 'traffic' && period === 'custom') setPeriod('7d') // o personalizado é só do Tráfego
                 }}
-                className={`px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-colors ${
-                  activeSubTab === a.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/60'
-                }`}
+                className={activeSubTab === a.id ? segmentoOn : segmentoOff}
               >
-                <a.icone className="w-4 h-4" /> {a.rotulo}
+                <a.icone size={16} aria-hidden /> {a.rotulo}
               </button>
             ))}
           </div>
 
           {activeSubTab !== 'users_engagement' && (
-            <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
-              <span className="text-xs text-muted-foreground mr-1">Período</span>
-              {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
-                <button
-                  key={p.id}
-                  aria-pressed={period === p.id}
-                  onClick={() => {
-                    if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
-                    setPeriod(p.id)
-                  }}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors ${
-                    period === p.id ? 'bg-foreground text-background border-foreground' : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-primary/40'
-                  }`}
-                >
-                  {p.rotulo}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-1 text-xs text-muted-foreground">Período</span>
+              <Segmented
+                label="Período"
+                // no celular (4 colunas estreitas) "Todo período" e "Personalizado" não cabem: viram "Tudo" e "Outro"
+                items={[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => ({ value: p.id, label: p.id === 'all' ? <><span className="sm:hidden">Tudo</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.id === 'custom' ? <><span className="sm:hidden">Outro</span><span className="hidden sm:inline">{p.rotulo}</span></> : p.rotulo }))}
+                value={period}
+                onValueChange={v => {
+                  if (v === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
+                  setPeriod(v as typeof period)
+                }}
+                className={activeSubTab === 'traffic' ? 'w-full sm:w-[30rem]' : 'w-full sm:w-80'}
+              />
             </div>
           )}
 
           {activeSubTab === 'traffic' && period === 'custom' && (
             <form
-              className="flex flex-wrap items-end gap-3 p-3 rounded-2xl bg-card border border-border w-fit"
+              className={`${painel} flex w-fit max-w-full flex-wrap items-end gap-3 p-3`}
               onSubmit={e => {
                 e.preventDefault()
                 if (rascunho.de && rascunho.ate && rascunho.de <= rascunho.ate) setPersonalizado({ ...rascunho })
               }}
             >
-              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 De
-                <input type="date" required max={rascunho.ate || hojeIso} value={rascunho.de} onChange={e => setRascunho(r => ({ ...r, de: e.target.value }))}
-                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+                <Input type="date" required max={rascunho.ate || hojeIso} value={rascunho.de} onChange={e => setRascunho(r => ({ ...r, de: e.target.value }))} className="w-auto" />
               </label>
-              <label className="text-xs text-muted-foreground flex flex-col gap-1">
+              <label className="flex flex-col gap-1 text-xs text-muted-foreground">
                 Até
-                <input type="date" required min={rascunho.de || undefined} max={hojeIso} value={rascunho.ate} onChange={e => setRascunho(r => ({ ...r, ate: e.target.value }))}
-                  className="px-3 py-1.5 rounded-lg bg-background border border-border text-foreground text-sm" />
+                <Input type="date" required min={rascunho.de || undefined} max={hojeIso} value={rascunho.ate} onChange={e => setRascunho(r => ({ ...r, ate: e.target.value }))} className="w-auto" />
               </label>
-              <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-semibold">Aplicar</button>
-              <span className="text-[11px] text-muted-foreground basis-full">A Vercel guarda só os últimos 30 dias; o Google, desde 27/09/2026.</span>
+              <Button type="submit">Aplicar</Button>
+              <span className="basis-full text-[11px] text-muted-foreground">A Vercel guarda só os últimos 30 dias; o Google, desde 27/09/2026.</span>
             </form>
           )}
         </div>
       </header>
 
       {loadError && activeSubTab === 'overview' && (
-        <div role="alert" className="p-4 rounded-2xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 text-sm text-red-700 dark:text-red-300">
+        <div role="alert" className={alertaErro}>
           Não foi possível carregar todos os dados de analytics: {loadError}. Os números abaixo podem estar incompletos.
         </div>
       )}
 
       {activeSubTab === 'traffic' ? (
         <div className="space-y-10">
-          <div className="flex items-start gap-3 p-4 rounded-2xl bg-muted/30 border border-border text-xs text-muted-foreground">
-            <Info className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+          <div className={alertaAviso}>
+            <I.Info size={16} className="text-primary" aria-hidden />
             <span>A Vercel conta todos os acessos, sem cookies; o Google conta só quem aceitou os cookies. Os dois medem coisas diferentes e os números não se comparam.</span>
           </div>
           <PainelTrafego
@@ -923,38 +909,38 @@ export default function AdminAnalytics() {
         </div>
       ) : isLoading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+          <Spinner className="size-8 text-primary" aria-label="Carregando" />
         </div>
       ) : activeSubTab === 'overview' ? (
         <div className="space-y-6">
           <div className="an-anim grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
-            <Numero icone={Users} rotulo="Contas" valor={totalUsers === null ? '—' : fmtNum(totalUsers)} apoio="Perfis registrados (total)" />
-            <Numero icone={Activity} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período · só de quem aceitou cookies" />
-            <Numero icone={Eye} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período · só de quem aceitou cookies" />
-            <Numero icone={Clock} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período · com senha e cookies aceitos (login pelo Google não conta)" />
+            <Numero icone={I.Pessoas} rotulo="Contas" valor={totalUsers === null ? '—' : fmtNum(totalUsers)} apoio="Perfis registrados (total)" />
+            <Numero icone={I.Atividade} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={I.Olho} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={I.Horario} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período · com senha e cookies aceitos (login pelo Google não conta)" />
           </div>
 
-          <div className="an-anim p-5 sm:p-6 rounded-2xl bg-card border border-border shadow-sm">
-            <h2 className="text-sm font-semibold text-foreground">Métricas de Engajamento Real</h2>
+          <div className={`an-anim ${painel} p-5 sm:p-6`}>
+            <SectionTitle>Métricas de Engajamento Real</SectionTitle>
             <p className="text-xs text-muted-foreground mt-1 mb-5">Métricas calculadas dinamicamente pela função analítica interna do Supabase.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { icone: UserCheck, rotulo: 'Contas ativas no período', valor: fmtNum(activityStats.contas_ativas), apoio: 'Usuários únicos com ações registradas' },
-                { icone: Eye, rotulo: 'Páginas por sessão', valor: activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1).replace('.', ',') : '—', apoio: 'Média de páginas vistas' },
-                { icone: Clock, rotulo: 'Logins por conta', valor: activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1).replace('.', ',') : '—', apoio: 'Média de entradas por conta ativa' },
+                { icone: I.PessoaCheck, rotulo: 'Contas ativas no período', valor: fmtNum(activityStats.contas_ativas), apoio: 'Usuários únicos com ações registradas' },
+                { icone: I.Olho, rotulo: 'Páginas por sessão', valor: activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1).replace('.', ',') : '—', apoio: 'Média de páginas vistas' },
+                { icone: I.Horario, rotulo: 'Logins por conta', valor: activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1).replace('.', ',') : '—', apoio: 'Média de entradas por conta ativa' },
               ].map(m => (
-                <div key={m.rotulo} className="p-4 rounded-xl bg-muted/40 border border-border">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><m.icone className="w-3.5 h-3.5" />{m.rotulo}</div>
-                  <div className="font-serif text-2xl text-foreground mt-2 tabular-nums">{m.valor}</div>
+                <div key={m.rotulo} className="rounded-[10px] border border-border bg-secondary/50 p-4">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground"><m.icone size={14} aria-hidden />{m.rotulo}</div>
+                  <div className="mt-2 font-display text-2xl font-semibold tabular-nums text-foreground">{m.valor}</div>
                   <div className="text-[11px] text-muted-foreground mt-1">{m.apoio}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="an-anim p-5 rounded-2xl bg-muted/30 border border-border flex items-start gap-3">
-            <Globe className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-            <div className="text-xs text-muted-foreground space-y-1">
+          <div className={`an-anim ${alertaAviso} p-5`}>
+            <I.Globo size={16} className="text-primary" aria-hidden />
+            <div className="space-y-1">
               <span className="font-semibold text-foreground block">Telemetria e Privacidade (LGPD):</span>
               <span>
                 A plataforma utiliza uma política rigorosa de consentimento. O tráfego geral sem cookies é medido pelo <strong className="text-foreground font-medium">Vercel Web Analytics</strong>. Eventos detalhados e dados do Google Analytics 4 são gravados apenas após consentimento expresso do visitante no banner de cookies.
@@ -963,49 +949,43 @@ export default function AdminAnalytics() {
           </div>
         </div>
       ) : (
-        <div className="an-anim bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
+        <div className={`an-anim ${painel} overflow-hidden`}>
           <div className="p-5 sm:p-6 border-b border-border">
-            <h2 className="text-sm font-semibold text-foreground">Registro de acessos recentes</h2>
+            <SectionTitle>Registro de acessos recentes</SectionTitle>
             <p className="text-xs text-muted-foreground mt-1">As últimas 20 ações registradas no histórico de atividades.</p>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
+          {recentLogs.length === 0 ? (
+            <div className="p-4"><EmptyState title="Nenhuma atividade registrada ainda." /></div>
+          ) : (
+            <Tabela label="Registro de acessos recentes">
               <thead>
-                <tr className="border-b border-border bg-muted/30">
-                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground">Usuário</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground">Ação</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground hidden sm:table-cell">Dispositivo</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-muted-foreground hidden md:table-cell">Papel</th>
-                  <th className="px-5 py-3 text-right text-[11px] font-semibold text-muted-foreground">Quando</th>
+                <tr className="border-b border-border">
+                  <th className={th}>Usuário</th>
+                  <th className={th}>Ação</th>
+                  <th className={cn(th, 'hidden sm:table-cell')}>Dispositivo</th>
+                  <th className={cn(th, 'hidden md:table-cell')}>Papel</th>
+                  <th className={cn(th, 'text-right')}>Quando</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {recentLogs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-16 text-center text-sm text-muted-foreground italic">
-                      Nenhuma atividade registrada ainda.
+                {recentLogs.map(log => (
+                  <tr key={log.id} className="hover:bg-[var(--ev-tint-hover)]">
+                    <td className="px-4 py-3">
+                      <div className="text-sm font-medium text-foreground">{log.name}</div>
+                      <div className="text-xs text-muted-foreground">{log.email}</div>
                     </td>
+                    <td className="px-4 py-3 text-sm text-foreground">{log.action}</td>
+                    <td className="hidden px-4 py-3 text-xs text-muted-foreground sm:table-cell">{log.device}</td>
+                    <td className="hidden px-4 py-3 md:table-cell">
+                      <Badge variant="secondary" className={chipNeutro}>{log.role}</Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-muted-foreground">{log.time}</td>
                   </tr>
-                ) : (
-                  recentLogs.map(log => (
-                    <tr key={log.id} className="hover:bg-muted/40 transition-colors">
-                      <td className="px-5 py-4">
-                        <div className="text-sm font-medium text-foreground">{log.name}</div>
-                        <div className="text-xs text-muted-foreground">{log.email}</div>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-foreground">{log.action}</td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground hidden sm:table-cell">{log.device}</td>
-                      <td className="px-5 py-4 hidden md:table-cell">
-                        <span className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted text-muted-foreground border border-border">{log.role}</span>
-                      </td>
-                      <td className="px-5 py-4 text-right text-xs text-muted-foreground whitespace-nowrap">{log.time}</td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
-            </table>
-          </div>
+            </Tabela>
+          )}
         </div>
       )}
     </div>

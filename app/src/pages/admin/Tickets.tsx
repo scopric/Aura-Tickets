@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState, PageHeader, Stat, selectNativo, chipErro, chipInfo, chipNeutro, chipOk } from '@/components/producer/ui'
-import { Tabela, alertaAviso, alertaErro, painel, th } from '@/components/admin/ui'
+import { Tabela, alertaAviso, alertaErro, painel, segmentoOn, segmentoOff, th, trilho } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { supabase } from '../../lib/supabase'
 import { useAdminTickets } from '../../hooks/useEvents'
@@ -140,17 +140,14 @@ export default function AdminTickets() {
         title="Ingressos"
         description="Gestão de bilheteria geral, controle de check-in nos eventos e moderação de ingressos."
         actions={
-          <div className="flex flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
+          <div className={trilho} role="group" aria-label="Seções de ingressos">
             {abas.map(a => (
               <button
                 key={a.id}
                 type="button"
                 onClick={() => setActiveSubTab(a.id)}
                 aria-pressed={activeSubTab === a.id}
-                className={cn(
-                  'flex h-8 items-center gap-1.5 rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-4',
-                  activeSubTab === a.id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
-                )}
+                className={activeSubTab === a.id ? segmentoOn : segmentoOff}
               >
                 <a.icon aria-hidden="true" /> {a.label}
               </button>
