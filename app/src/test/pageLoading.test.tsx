@@ -9,5 +9,6 @@ describe('PageLoading', () => {
     const img = container.querySelector('img')
     expect(img?.getAttribute('src')).toBe('/evo/evo-cabeca.webp')
     expect(img?.className).toContain('evo-girando')
+    expect(img).toHaveClass('motion-reduce:[animation-duration:3s]') // reduzir movimento: gira mais devagar
   })
 })

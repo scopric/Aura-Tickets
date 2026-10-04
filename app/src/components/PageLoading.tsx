@@ -1,5 +1,6 @@
-// Carregando de tela: a cabeça do Evo girando. Com "reduzir movimento" continua girando, mais devagar:
-// é informação, não enfeite (contrato §5.3, igual ao Spinner dos botões, que continuam com o círculo).
+// Carregando de tela: a cabeça do Evo girando (os botões continuam com o Spinner). Com "reduzir movimento"
+// continua girando, mais devagar (contrato §5.3): 3 s por volta, porque o 1,6 s do Spinner quase não
+// desacelera um giro que já é de 1,4 s.
 export default function PageLoading() {
   return (
     <div role="status" className="flex min-h-[60vh] flex-col items-center justify-center gap-4">
