@@ -17,10 +17,13 @@ vi.mock('../hooks/useTwoFactor', () => ({ useTwoFactor: () => ({ loading: false,
 vi.mock('../hooks/useMatchmaking', () => ({ useMatchmakingProfile: () => ({ profile: null }), consentimentoVigente: () => false }))
 vi.mock('../hooks/useUserTickets', () => ({ useUserTickets: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useUserOrders', () => ({ useUserOrders: () => ({ data: [], isLoading: false }) }))
+const pedidoLido = vi.hoisted(() => vi.fn())
+const pedido = vi.hoisted(() => ({ vazio: false, meu: false }))
 vi.mock('../hooks/useCheckout', () => ({
-  useOrderTickets: () => ({
+  useOrderVisivel: () => ({ data: pedido.meu ? { id: 'x' } : null, isLoading: false }),
+  useOrderTickets: (id?: string) => (pedidoLido(id), {
     isLoading: false,
-    data: [{ id: 't1', status: 'cancelled', code: 'EVK-1', ticket_types: { name: 'Pista', price: 10, type: 'individual' }, events: { id: 'e1', title: 'Noite', date: '2026-12-12', time: '20:00:00' } }],
+    data: pedido.vazio ? [] : [{ id: 't1', status: 'cancelled', code: 'EVK-1', ticket_types: { name: 'Pista', price: 10, type: 'individual' }, events: { id: 'e1', title: 'Noite', date: '2026-12-12', time: '20:00:00' } }],
   }),
 }))
 vi.mock('../hooks/useEvents', () => ({ usePublicEvent: () => ({ data: undefined, isLoading: false }) }))
@@ -65,5 +68,31 @@ describe('Confirmação da compra', () => {
     expect(screen.getByText(/R\$\s13,00/)).toBeTruthy()
     expect(screen.queryByText(/20:00:00/)).toBeNull()
     expect(screen.getAllByText(/20h/).length).toBeGreaterThan(0)
+  })
+  it('lê o pedido pelo link (?pedido=), sem o estado da navegação (outra aba, recarregar)', () => {
+    const id = '0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d'
+    render(<MemoryRouter initialEntries={[`/checkout/success?pedido=${id}`]}><Success /></MemoryRouter>)
+    expect(pedidoLido).toHaveBeenLastCalledWith(id)
+    expect(screen.getByRole('link', { name: /Instalar a Evokaa no celular/ })).toHaveAttribute('href', '/app/download')
+  })
+  it('?pedido= que não é um código de pedido é ignorado: vale o estado, se houver', () => {
+    render(<MemoryRouter initialEntries={[{ pathname: '/checkout/success', search: '?pedido=lixo', state: { orderId: 'o1' } }]}><Success /></MemoryRouter>)
+    expect(pedidoLido).toHaveBeenLastCalledWith('o1')
+  })
+  it('pedido só pelo link e sem ingresso visível nesta conta: diz que não achou, sem "Pedido registrado"', () => {
+    pedido.vazio = true
+    render(<MemoryRouter initialEntries={['/checkout/success?pedido=0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d']}><Success /></MemoryRouter>)
+    pedido.vazio = false
+    expect(screen.getByRole('heading', { name: /Não encontramos este pedido/ })).toBeTruthy()
+    expect(screen.queryByText(/Pedido registrado/)).toBeNull()
+  })
+  it('pedido próprio sem ingresso (nasce pendente), aberto só pelo link: "Pedido registrado", não "não encontramos"', () => {
+    pedido.vazio = true
+    pedido.meu = true
+    render(<MemoryRouter initialEntries={['/checkout/success?pedido=0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d']}><Success /></MemoryRouter>)
+    pedido.vazio = false
+    pedido.meu = false
+    expect(screen.getByRole('heading', { name: /Pedido registrado/ })).toBeTruthy()
+    expect(screen.queryByText(/Não encontramos este pedido/)).toBeNull()
   })
 })

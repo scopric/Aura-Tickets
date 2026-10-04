@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { publicoDoPapel, validarTelefoneBR, type MensagemChat } from '../hooks/useConversas'
 import ChatThread from '../components/chat/ChatThread'
-import SupportChatWidget, { SupportChatPanel } from '../components/SupportChatWidget'
+import SupportChatWidget, { JanelaSuporte, SupportChatPanel } from '../components/SupportChatWidget'
 import Atendimento from '../pages/admin/Atendimento'
 import AdminLayout from '../components/AdminLayout'
 
@@ -101,6 +101,21 @@ describe('chat: assuntos por público', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Enviar mensagem/ }))
     await screen.findByText('Assunto de teste')
     expect(filtroDePublico()).toBe('site')
+  })
+})
+
+describe('chat: atalho "Não vejo meu ingresso"', () => {
+  it('a janela do participante abre direto no formulário do assunto pedido (pelo rótulo)', async () => {
+    role = 'user'
+    montar(<JanelaSuporte publico="participant_evokaa" posicao="" aoFechar={() => {}} assuntoInicial="Assunto de teste" />)
+    expect(await screen.findByLabelText('Mensagem')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Assunto de teste' })).toBeInTheDocument()
+  })
+  it('rótulo que não existe mais não quebra: fica na tela inicial', async () => {
+    role = 'user'
+    montar(<JanelaSuporte publico="participant_evokaa" posicao="" aoFechar={() => {}} assuntoInicial="Assunto que sumiu" />)
+    expect(await screen.findByRole('button', { name: /Enviar mensagem/ })).toBeInTheDocument()
+    expect(screen.queryByLabelText('Mensagem')).toBeNull()
   })
 })
 

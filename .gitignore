@@ -36,3 +36,4 @@ app/.vite/
 app/scratch/
 **/supabase/.temp/
 **/supabase/.branches/
+qa-p3/

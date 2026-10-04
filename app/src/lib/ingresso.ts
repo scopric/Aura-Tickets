@@ -74,12 +74,17 @@ export function ehProximo(t: DbTicket, agora = Date.now()): boolean {
 // Por que o QR deste ingresso não vale (null = vale): ingresso que não está ativo, evento cancelado ou já encerrado.
 // "Encerrado" só vale com end_date (o cadastro do evento não tem esse campo): sem ele o QR fica e o servidor valida na portaria,
 // senão o evento de vários dias perderia o QR no 2º dia.
+// Aviso do evento em si: cancelado ou tirado do ar (rascunho). A leitura do evento segue liberada a quem tem ingresso (RLS "Quem tem ingresso lê o evento").
+export function motivoEvento(e?: { status?: string | null } | null): string | null {
+  return e?.status === 'cancelled' ? 'Evento cancelado' : e?.status === 'draft' ? 'Evento fora do ar' : null
+}
 const MOTIVO_STATUS: Record<string, string> = {
   used: 'Ingresso já usado', cancelled: 'Ingresso cancelado', transferred: 'Ingresso transferido', refunded: 'Ingresso reembolsado',
 }
 export function motivoSemQr(t: DbTicket, agora = Date.now()): string | null {
   if (t.status !== 'active') return MOTIVO_STATUS[t.status] ?? 'Ingresso indisponível'
-  if (t.events?.status === 'cancelled') return 'Evento cancelado'
+  const aviso = motivoEvento(t.events)
+  if (aviso) return aviso
   return t.events?.end_date && agora >= Date.parse(t.events.end_date) ? 'Evento encerrado' : null
 }
 
@@ -144,18 +149,51 @@ export function gerarIcs(d: DadosAgenda, agora = new Date()): string | null {
     'BEGIN:VEVENT', `UID:${d.id}@evokaa`, `DTSTAMP:${utc(agora)}`, ...quando,
     `SUMMARY:${escapar(d.titulo)}`,
     ...(d.local ? [`LOCATION:${escapar(d.local)}`] : []),
+    // lembrete 2 h antes (só com hora: evento de dia inteiro não tem "antes" que valha)
+    ...(inicio ? ['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT2H', `DESCRIPTION:${escapar(`${d.titulo} começa em 2 horas`)}`, 'END:VALARM'] : []),
     'END:VEVENT', 'END:VCALENDAR',
   ].map(dobrar).join('\r\n') + '\r\n'
 }
 
-// Baixa o .ics pelo navegador (Blob). No iPhone o Safari oferece abrir no Calendário.
-export function baixarIcs(ics: string, nome: string) {
-  const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar;charset=utf-8' }))
+// Baixa um arquivo pelo navegador (Blob). No iPhone o Safari oferece abrir no Calendário (.ics) ou salvar a imagem (.png).
+function baixarBlob(blob: Blob, nome: string, ext: string) {
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'evento'}.ics`
+  a.download = `${nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^\w]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'evento'}.${ext}`
   document.body.appendChild(a)
   a.click()
   a.remove()
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
+
+export const baixarIcs = (ics: string, nome: string) => baixarBlob(new Blob([ics], { type: 'text/calendar;charset=utf-8' }), nome, 'ics')
+
+// ---- Salvar o QR como imagem ---------------------------------------------------------------------------------------
+// Desenha o <svg> do QR que já está na tela num PNG de 640 px com fundo branco. Com compartilhamento de arquivo (iPhone e
+// Android) abre a folha "Salvar imagem"; sem ele, baixa o arquivo. Cancelar a folha não é erro.
+export async function salvarQrPng(svg: SVGSVGElement, nome: string) {
+  const px = 640
+  const img = new Image()
+  img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(new XMLSerializer().serializeToString(svg))}`
+  await img.decode()
+  const c = document.createElement('canvas')
+  c.width = c.height = px
+  const g = c.getContext('2d')
+  if (!g) throw new Error('canvas')
+  g.fillStyle = '#fff'
+  g.fillRect(0, 0, px, px)
+  g.drawImage(img, 0, 0, px, px)
+  const blob = await new Promise<Blob | null>(r => c.toBlob(r, 'image/png'))
+  if (!blob) throw new Error('png')
+  const arquivo = new File([blob], `${nome}.png`, { type: 'image/png' })
+  if (navigator.canShare?.({ files: [arquivo] })) {
+    try { await navigator.share({ files: [arquivo] }); return } catch (e) { if ((e as Error).name === 'AbortError') return }
+  }
+  baixarBlob(blob, nome, 'png')
+}
+
+// ---- "Não vejo meu ingresso" ---------------------------------------------------------------------------------------
+export const ASSUNTO_INGRESSO = 'Não recebi ou não acho meu ingresso' // rótulo do assunto do chat (docs/sql/20261001_chat.sql)
+// Pede ao Evo (EvoHub escuta `evo:suporte`) que abra a janela de suporte já no formulário desse assunto
+export const abrirAjudaIngresso = () => window.dispatchEvent(new CustomEvent('evo:suporte', { detail: { assunto: ASSUNTO_INGRESSO } }))

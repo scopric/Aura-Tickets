@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import IngressosDoEvento from '../components/Ingresso'
 import Tickets from '../pages/app/Tickets'
 import { ThemeProvider } from '../contexts/ThemeContext'
-import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa, motivoSemQr } from '../lib/ingresso'
+import { agruparPorEvento, baixarIcs, diasAte, ehProximo, formatarFalta, gerarIcs, hojeISO, inicioDoEvento, leituraFalta, linkMapa, motivoEvento, motivoSemQr, salvarQrPng } from '../lib/ingresso'
 import type { DbTicket } from '../hooks/useCheckout'
 
 const evento = {
@@ -63,6 +63,51 @@ describe('.ics', () => {
     baixarIcs('BEGIN:VCALENDAR', 'Noite de Forró')
     const blob = (criar.mock.calls[0] as unknown[])[0] as Blob
     expect(blob.type).toBe('text/calendar;charset=utf-8')
+  })
+})
+
+describe('alarme e QR como imagem', () => {
+  it('.ics com hora traz o alarme 2 h antes; dia inteiro não', () => {
+    const base = { id: 'e1', titulo: 'Noite de Forró', data: '2026-12-12' }
+    const linhas = gerarIcs({ ...base, hora: '22:00' })!.split('\r\n')
+    expect(linhas).toEqual(expect.arrayContaining(['BEGIN:VALARM', 'ACTION:DISPLAY', 'TRIGGER:-PT2H', 'DESCRIPTION:Noite de Forró começa em 2 horas', 'END:VALARM']))
+    expect(linhas.indexOf('END:VALARM')).toBeLessThan(linhas.indexOf('END:VEVENT')) // o alarme fica dentro do VEVENT
+    expect(gerarIcs(base)).not.toContain('VALARM')
+  })
+  it('evento cancelado ou fora do ar (rascunho) tira o QR e diz o motivo', () => {
+    expect(motivoEvento({ status: 'cancelled' })).toBe('Evento cancelado')
+    expect(motivoEvento({ status: 'draft' })).toBe('Evento fora do ar')
+    expect(motivoEvento({ status: 'published' })).toBeNull()
+    expect(motivoEvento(undefined)).toBeNull()
+    expect(motivoSemQr(ticket(1, { events: { ...evento, status: 'draft' } }))).toBe('Evento fora do ar')
+  })
+  it('salvarQrPng: abre a folha de compartilhar com o PNG; cancelar não é erro; sem compartilhar, baixa o arquivo', async () => {
+    vi.stubGlobal('Image', class { src = ''; decode() { return Promise.resolve() } })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ fillRect() {}, drawImage() {}, fillStyle: '' } as never)
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(cb => cb(new Blob(['x'], { type: 'image/png' })))
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    const share = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { canShare: () => true, share })
+    await salvarQrPng(svg, 'EVK-0001')
+    const arquivo = share.mock.calls[0][0].files[0] as File
+    expect([arquivo.name, arquivo.type]).toEqual(['EVK-0001.png', 'image/png'])
+    share.mockRejectedValueOnce(Object.assign(new Error('cancelou'), { name: 'AbortError' }))
+    await expect(salvarQrPng(svg, 'EVK-0001')).resolves.toBeUndefined()
+    const baixar = vi.fn()
+    URL.createObjectURL = () => 'blob:x'
+    URL.revokeObjectURL = () => {}
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(baixar)
+    Object.assign(navigator, { canShare: undefined })
+    await salvarQrPng(svg, 'EVK-0001')
+    expect(baixar).toHaveBeenCalledOnce()
+    vi.unstubAllGlobals()
+    delete (navigator as { share?: unknown }).share
+    delete (navigator as { canShare?: unknown }).canShare
+  })
+  it('o QR ampliado tem "Salvar QR como imagem"', () => {
+    render(tela(1, { abrirNoQr: true }))
+    fireEvent.click(screen.getByRole('button', { name: /Ampliar o QR/ }))
+    expect(screen.getByRole('button', { name: /Salvar QR como imagem/ })).toBeTruthy()
   })
 })
 

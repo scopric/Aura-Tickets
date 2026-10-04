@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import EventoCapa from '../../components/EventoCapa'
 import { useUserOrders } from '../../hooks/useCheckout'
-import { dataCurta, horaCurta } from '../../lib/ingresso'
+import { dataCurta, horaCurta, motivoEvento } from '../../lib/ingresso'
 
 const methodLabels: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
@@ -68,6 +68,10 @@ export default function AppOrders() {
           {orders.map((order) => {
             const status = statusLabels[order.status] || { label: order.status, color: 'text-muted-foreground' }
             const MethodIcon = methodIcons[order.payment_method] || I.Cartao
+            // evento que saiu do ar: a leitura dele só segue para quem tem ingresso, então num pedido sem ingresso ele vem vazio
+            const foraDoAr = !order.events
+            const aviso = foraDoAr ? 'Evento indisponível' : motivoEvento(order.events)
+            const itens = (order.order_items ?? []).map(i => `${i.quantity}× ${i.ticket_types?.name ?? 'Ingresso'}`).join(', ')
 
             return (
               <li key={order.id} className="py-5 first:pt-0">
@@ -77,9 +81,11 @@ export default function AppOrders() {
                     <EventoCapa evento={{ ...order.events, id: order.event_id, title: order.events?.title || 'Evento' }} tamanho="mini" className="!size-14" />
                     <div className="min-w-0">
                       <h2 className="truncate font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">
-                        {order.events?.title || 'Evento'}
+                        {foraDoAr ? 'Evento indisponível' : order.events?.title || 'Evento'}
                       </h2>
-                      <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs leading-4 text-muted-foreground">
+                      {itens && <p className="mt-1 text-[13px] font-medium leading-[18px]">{itens}</p>}
+                      {aviso && <p role="status" className="mt-1 text-[13px] font-semibold leading-[18px] text-[var(--ev-warning)]">{aviso}. Fale com o suporte sobre este pedido.</p>}
+                      {!foraDoAr && <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs leading-4 text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <I.Eventos size={16} aria-hidden="true" />
                           {[dataDoEvento(order.events?.date), horaCurta(order.events?.time)].filter(Boolean).join(' · ') || 'Data a definir'}
@@ -88,7 +94,7 @@ export default function AppOrders() {
                           <I.Local size={16} aria-hidden="true" />
                           {order.events?.venue_name || 'Local a definir'}
                         </span>
-                      </p>
+                      </p>}
                       <p className="mt-1 text-xs leading-4 text-muted-foreground">
                         Pedido #{order.id.slice(0, 8).toUpperCase()}
                         {order.created_at && ` · comprado em ${new Date(order.created_at).toLocaleDateString('pt-BR')}`}

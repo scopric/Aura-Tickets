@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -6,13 +6,16 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import YourTable from '../../components/YourTable'
 import EventoCapa from '../../components/EventoCapa'
-import { useOrderTickets } from '../../hooks/useCheckout'
+import { useOrderTickets, useOrderVisivel } from '../../hooks/useCheckout'
 import { usePublicEvent } from '../../hooks/useEvents'
 import TicketQRCode from '../../components/TicketQRCode'
 import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
+import { jaInstalado } from '../../lib/instalar'
 import { horaCurta } from '../../lib/ingresso'
 import { brl, calcularTaxa } from '../../lib/taxa'
 import { soltarConfete } from '../../lib/confete'
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function Confete({ cor }: { cor: string }) {
   useEffect(() => {
@@ -26,13 +29,19 @@ export default function CheckoutSuccess() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const { orderId, totalAmount } = (location.state || {}) as {
+  const [params] = useSearchParams()
+  const { orderId: orderIdState, totalAmount } = (location.state || {}) as {
     orderId?: string
     totalAmount?: number
   }
+  // O pedido vem do link (?pedido=), que abre em outra aba e depois de recarregar; o estado da navegação fica de reserva.
+  // Só UUID segue para a consulta; a leitura de tickets já é restrita ao dono (RLS).
+  const doLink = params.get('pedido')
+  const orderId = (doLink && UUID.test(doLink) ? doLink : undefined) ?? orderIdState
 
   const [showTable, setShowTable] = useState(false)
   const { data: tickets = [], isLoading } = useOrderTickets(orderId)
+  const { data: pedidoDaConta, isLoading: carregandoPedido } = useOrderVisivel(orderId)
 
   useEffect(() => {
     if (!orderId) {
@@ -43,15 +52,26 @@ export default function CheckoutSuccess() {
 
   const firstTicket = tickets[0]
   const event = firstTicket?.events
+  const pedidoDeOutraConta = !isLoading && !carregandoPedido && !orderIdState && tickets.length === 0 && !pedidoDaConta // veio só pelo link e a conta não enxerga o pedido (decide pela posse, não por haver ingresso)
   // A cor do evento vem do evento inteiro (os ingressos só trazem a capa); sem ela, o mesmo sorteio do restante do site
   const { data: eventoCompleto, isLoading: carregandoEvento } = usePublicEvent(event?.id)
   const corEv = ehHex(eventoCompleto?.accent_color) ? eventoCompleto.accent_color : corSorteada(event?.id ?? orderId ?? 'evento')
 
-  if (isLoading) {
+  if (isLoading || carregandoPedido) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background text-foreground">
         <Spinner className="mb-4 size-8" />
         <p className="text-sm text-muted-foreground">Carregando confirmação de compra...</p>
+      </div>
+    )
+  }
+
+  if (pedidoDeOutraConta) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background px-6 text-center text-foreground">
+        <h1 className="text-2xl font-semibold">Não encontramos este pedido nesta conta</h1>
+        <p className="max-w-sm text-sm text-muted-foreground">Entre com a conta que fez a compra. Seus pedidos ficam em Compras.</p>
+        <Button asChild size="lg" className="rounded-full"><Link to="/app/orders">Ver minhas compras</Link></Button>
       </div>
     )
   }
@@ -97,7 +117,7 @@ export default function CheckoutSuccess() {
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
         {/* O ingresso sobe em cima do topo colorido (cartão escuro nos dois temas, texto branco sobre a cor do evento) */}
         {event && (
-          <div className={`relative -mt-14 mx-auto max-w-md overflow-hidden rounded-ev-2xl bg-[var(--evento-fundo-e)] text-white shadow-ev-2 ${entra}`}>
+          <div className={`relative -mt-14 mx-auto max-w-md overflow-hidden rounded-ev-2xl bg-[var(--evento-fundo-e)] text-[#fff] shadow-ev-2 ${entra}`}>
             <div className="relative h-[132px] overflow-hidden">
               <EventoCapa evento={{ ...event, ...eventoCompleto, id: event.id }} tamanho="faixa" />
             </div>
@@ -206,6 +226,11 @@ export default function CheckoutSuccess() {
               {event && (
                 <Button asChild variant="ghost" size="lg" className="w-full rounded-full">
                   <Link to={`/event/${event.id}`}>Voltar ao evento</Link>
+                </Button>
+              )}
+              {!jaInstalado() && (
+                <Button asChild variant="outline" size="lg" className="w-full rounded-full">
+                  <Link to="/app/download"><I.Celular size={16} />Instalar a Evokaa no celular</Link>
                 </Button>
               )}
             </div>

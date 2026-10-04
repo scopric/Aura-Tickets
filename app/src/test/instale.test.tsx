@@ -79,11 +79,12 @@ describe('Instale o app', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument()
   })
 
-  it('no computador a nota "abra no celular" some quando há botão Instalar', () => {
+  it('no computador há um QR Code para abrir a página no celular, com ou sem botão Instalar', () => {
     montar()
     expect(screen.getByText(/Está no computador\?/)).toBeInTheDocument()
+    expect(screen.getByTitle('QR Code para abrir esta página no celular')).toBeInTheDocument()
     chegaOAviso()
-    expect(screen.queryByText(/Está no computador\?/)).toBeNull()
+    expect(screen.getByTitle('QR Code para abrir esta página no celular')).toBeInTheDocument()
   })
 
   it('aba Android desenha o furo da câmera; aba iPhone, a ilha', () => {
