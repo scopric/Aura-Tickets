@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/((?!assets/|images/|videos/).*)", "destination": "/index.html" }
+    { "source": "/((?!assets/|images/|videos/|evo/).*)", "destination": "/index.html" }
   ],
   "headers": [
     {
@@ -16,13 +16,13 @@
       ]
     },
     {
-      "source": "/(images|videos)/(.*)",
+      "source": "/(images|videos|evo)/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
       ]
     },
     {
-      "source": "/((?!assets/|images/|videos/).*)",
+      "source": "/((?!assets/|images/|videos/|evo/).*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
