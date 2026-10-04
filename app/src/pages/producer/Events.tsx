@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
-import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
+import { useProducerEvents, useDeleteEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
+import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { abreEvento } from '../../lib/navegacaoProdutor'
 import EventoCapa from '../../components/EventoCapa'
@@ -31,7 +32,7 @@ export default function ProducerEvents() {
   const { data: events = [], isLoading, isError, refetch, isFetching } = useProducerEvents()
   const { data: vendidos } = useVendidosPorEvento()
   const deleteMutation = useDeleteEvent()
-  const createEvent = useCreateEvent()
+  const { duplicar, duplicando } = useDuplicarEvento()
   const updateEvent = useUpdateEvent()
 
   // undefined = não se sabe (contagem não carregou ou veio cortada)
@@ -61,14 +62,8 @@ export default function ProducerEvents() {
     }
   }
 
-  const handleDuplicate = async (event: DbEvent) => {
-    if (!window.confirm(`Duplicar "${event.title}"? A cópia nasce como rascunho, com os mesmos ingressos.`)) return
-    try {
-      await createEvent.mutateAsync(copiaDoEvento(event))
-      toast.success('Evento duplicado como rascunho.')
-    } catch {
-      toast.error('Não foi possível duplicar o evento.')
-    }
+  const handleDuplicate = (event: DbEvent) => {
+    if (window.confirm(confirmacaoDuplicar(event.title))) void duplicar(event)
   }
 
   const termo = search.trim().toLowerCase()
@@ -179,7 +174,7 @@ export default function ProducerEvents() {
                         <I.Editar aria-hidden="true" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDuplicate(event)} disabled={createEvent.isPending} aria-label={`Duplicar ${event.title}`}>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDuplicate(event)} disabled={duplicando} aria-label={`Duplicar ${event.title}`}>
                       <I.Copiar aria-hidden="true" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>

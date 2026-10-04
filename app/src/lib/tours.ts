@@ -36,7 +36,7 @@ export const TOURS: Record<string, Tour> = {
     nome: 'Eventos',
     rota: '/producer/events',
     passos: [
-      { alvo: 'eventos-criar', titulo: 'Novo evento', texto: 'Cria um evento do zero, em cinco passos.' },
+      { alvo: 'eventos-criar', titulo: 'Novo evento', texto: 'Cria um evento em um minuto: só o nome é obrigatório, o resto você completa no painel do evento.' },
       { alvo: 'eventos-busca', titulo: 'Buscar pelo nome', texto: 'Digite parte do nome para achar um evento na lista.' },
       { alvo: 'eventos-filtros', titulo: 'Filtrar por situação', texto: 'Escolha Todos, Publicado, Em análise, Rascunho, Recusado, Encerrado ou Cancelado.' },
       { alvo: 'eventos-lista', titulo: 'Seus eventos', texto: 'Cada linha mostra data, local e vendas. Os ícones à direita visualizam, editam, duplicam ou excluem.' },

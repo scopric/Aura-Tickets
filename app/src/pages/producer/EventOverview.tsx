@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { useCreateEvent, useProducerEvents, type DbEvent } from '../../hooks/useEvents'
+import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
+import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { useFixados } from '../../hooks/useFixados'
 import { siteUrl } from '../../lib/appHost'
 import { corSorteada, ehHex, temFoto, varsDoEvento } from '../../lib/corEvento'
-import { copiaDoEvento, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { confirmacaoDuplicar, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
 import { colunas, dataComSemana, dataCurta, diaBR, diaDoEvento, diasEntre, horaCurta, inicioDaSerie, serieDiaria, type Serie } from '../../lib/visaoEvento'
@@ -168,7 +169,7 @@ export default function EventOverview() {
 
 function Visao({ e }: { e: DbEvent }) {
   const [fixados, alternaFixo] = useFixados()
-  const criar = useCreateEvent()
+  const { duplicar: duplicarEv, duplicando } = useDuplicarEvento()
   const [agora] = useState(() => Date.now()) // fixo na montagem: "hoje" e "abre em" partem do mesmo instante
   const hoje = diaBR(agora)
   const diaEv = diaDoEvento(e) // null: evento sem data
@@ -207,14 +208,8 @@ function Visao({ e }: { e: DbEvent }) {
     }
   }
 
-  const duplicar = async () => {
-    if (!window.confirm(`Duplicar "${e.title}"? A cópia nasce como rascunho, com os mesmos ingressos.`)) return
-    try {
-      await criar.mutateAsync(copiaDoEvento(e))
-      toast.success('Evento duplicado como rascunho.')
-    } catch {
-      toast.error('Não foi possível duplicar o evento.')
-    }
+  const duplicar = () => {
+    if (window.confirm(confirmacaoDuplicar(e.title))) void duplicarEv(e)
   }
 
   // botão do grupo de vidro: texto só no computador, no celular só o ícone (o texto fica para leitor de tela)
@@ -264,7 +259,7 @@ function Visao({ e }: { e: DbEvent }) {
                 <Button variant="ghost" size="icon-sm" className={bv} aria-label="Mais ações do evento"><I.Mais size={16} aria-hidden="true" /></Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={duplicar} disabled={criar.isPending}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
+                <DropdownMenuItem onSelect={duplicar} disabled={duplicando}><I.Copiar size={16} aria-hidden="true" />Duplicar</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
