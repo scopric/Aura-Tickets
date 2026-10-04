@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
@@ -13,7 +13,7 @@ import { useTourLog } from '../hooks/useTourLog'
 import { JanelaSuporte, SupportChatPanel } from './SupportChatWidget'
 import { BotaoSom } from './chat/ChatThread'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
-import type { CamposPlanejar } from './evo/EvoPlanejar'
+import { FORM_PLANEJAR_VAZIO, type CamposPlanejar } from './evo/EvoPlanejar'
 
 // O modal segue o tema do app (classe .dark no <html>): vidro .glass-panel/.glass-backdrop em
 // index.css e pares claro/escuro nas classes de dentro.
@@ -114,13 +114,24 @@ export default function EvoHub() {
     return () => clearTimeout(t)
   }, [balao])
 
-  const mudarAberto = (a: boolean) => {
+  const mudarAberto = useCallback((a: boolean) => {
     setAberto(a)
     if (!a) return
     gravarConvite((c) => ({ ...c, aberto: true }))
     setBalao(null)
     setNaoLidas(0)
-  }
+  }, [])
+
+  // "Montar com o Evo" do começo rápido (ComecoRapido) pede: abrir o painel já no modo "planejar evento"
+  useEffect(() => {
+    if (!podeEvo) return
+    const planejar = () => {
+      setFormPlanejar(FORM_PLANEJAR_VAZIO)
+      mudarAberto(true)
+    }
+    window.addEventListener('evo:planejar', planejar)
+    return () => window.removeEventListener('evo:planejar', planejar)
+  }, [podeEvo, mudarAberto])
 
   // o balão sai da tela: se o foco estava nele, volta ao mascote (senão cai no body)
   const devolverFoco = () => {

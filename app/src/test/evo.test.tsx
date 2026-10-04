@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { EvoMarkdown, type Mensagem } from '../components/evo/EvoChat'
 import { conversaParaMarkdown, nomeArquivoConversa } from '../lib/evoConversa'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
@@ -327,6 +327,21 @@ describe('EvoHub: painel, chat e rascunho', () => {
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
     fireEvent.click(screen.getByRole('button', { name: 'Falar com o Evo' }))
     expect(await screen.findByLabelText('Cidade')).toHaveValue('Caruaru')
+  })
+
+  it('evo:planejar (começo rápido): abre o painel já no formulário de planejar; participante ignora', async () => {
+    role = 'producer'
+    montar()
+    expect(screen.queryByRole('dialog')).toBeNull()
+    act(() => { window.dispatchEvent(new Event('evo:planejar')) })
+    expect(await screen.findByLabelText('Formato do evento')).toBeInTheDocument()
+    expect(screen.getByRole('dialog', { name: 'Central do Evo' })).toBeInTheDocument()
+    cleanup()
+    role = 'user'
+    montar()
+    act(() => { window.dispatchEvent(new Event('evo:planejar')) })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    role = 'producer'
   })
 
   it('função fora do ar não culpa a conexão (404, 5xx, CORS) e offline sim', async () => {
