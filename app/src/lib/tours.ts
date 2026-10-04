@@ -29,7 +29,7 @@ export const TOURS: Record<string, Tour> = {
     passos: [
       { alvo: 'comeco-zero', titulo: 'Do zero', texto: 'Só o nome é obrigatório. Formato, data, hora e cidade são opcionais. Criar rascunho leva ao painel do evento, que salva sozinho.' },
       { alvo: 'comeco-evo', titulo: 'Montar com o Evo', texto: 'Conte em poucas palavras como é o evento. O Evo propõe nome, formato, data e ingressos, e você confere antes de virar rascunho.' },
-      { alvo: 'comeco-copia', titulo: 'Copiar de um evento anterior', texto: 'Copia tudo, menos datas, vendas e aprovação. A foto e os ingressos vão junto. Nada vai ao ar antes de você enviar e a equipe aprovar.' },
+      { alvo: 'comeco-copia', titulo: 'Copiar de um evento anterior', texto: 'Copia tudo, menos datas, vendas, aprovação e destaque. A foto e os ingressos vão junto. Nada vai ao ar antes de você enviar e a equipe aprovar.' },
     ],
   },
   eventos: {
