@@ -319,7 +319,7 @@ export function useCreateEvent() {
           type: t.type || 'individual',
           perks: t.perks || [],
           is_active: t.is_active ?? true,
-          inclui_bebida: t.inclui_bebida || undefined,
+          inclui_bebida: !!t.inclui_bebida, // sempre booleano: em lote, chave undefined vira coluna listada e NULL (23502)
           // sem lot_number: a coluna não existe em ticket_types (Decisão 20: o código se adapta ao banco)
         }))
 
@@ -449,7 +449,7 @@ export function useUpdateEvent() {
           if (error) throw error
           if (data?.length !== 1) throw new Error('Não foi possível salvar um dos ingressos') // RLS que barra devolve 0 linhas sem erro
         } else {
-          novos.push({ ...campos, perks: t.perks || [], event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
+          novos.push({ ...campos, perks: t.perks || [], inclui_bebida: !!t.inclui_bebida, event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
         }
       }
 
