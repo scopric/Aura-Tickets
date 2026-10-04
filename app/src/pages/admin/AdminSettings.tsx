@@ -153,12 +153,13 @@ export default function AdminSettingsPage() {
         return
       }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('platform_settings')
         .upsert({ key, value: payload, updated_at: new Date().toISOString() }, { onConflict: 'key' }) // a chave única é `key`, não o id
         .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Nada foi gravado: sua conta não tem permissão para esta configuração.')
 
       toast.success('Configurações salvas com sucesso!', { id: toastId })
     } catch (err: any) {
