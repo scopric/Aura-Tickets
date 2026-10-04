@@ -496,6 +496,17 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     expect(screen.getByRole('button', { name: 'Falar com o Evo' })).toHaveFocus()
   })
 
+  it.each(['user', 'admin'])('%s: sem tour, não lê onboarding_logs e vale o convite normal', async (papel) => {
+    role = papel
+    delete mem['evo-convite-v1']
+    vi.mocked(supabase.from).mockClear() // as chamadas de outros casos ficam no mock
+    montarTour('/producer/events')
+    expect(await screen.findByText(papel === 'admin' ? CONVITE : 'Oi! Sou o Evo 👋 Precisa de ajuda?', {}, { timeout: 4000 })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
+    expect(vi.mocked(supabase.from).mock.calls.map((c) => c[0])).not.toContain('onboarding_logs')
+    role = 'producer'
+  })
+
   it('com tour:<id> gravado: convite normal', async () => {
     semConvitePrevio()
     montarTour('/producer/events', ['tour:eventos'])

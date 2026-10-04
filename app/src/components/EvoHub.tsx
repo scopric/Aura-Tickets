@@ -70,9 +70,11 @@ export default function EvoHub() {
   const camada = useCamada()
   const conviteDisparado = useRef(false) // nesta carga o convite vale uma vez, mesmo se a camada sair e voltar a null
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
-  // Tour da tela (só área do produtor): o Evo oferece se a pessoa ainda não fez nem dispensou. O tour nunca abre sozinho.
-  const { feitos, registrar, carregou } = useTourLog()
-  const tour = podeEvo ? tourDoCaminho(pathname) : null
+  // Tour da tela: o Evo oferece se a pessoa ainda não fez nem dispensou. O tour nunca abre sozinho.
+  // Só o produtor tem tour (V9c traz o do participante): os outros papéis nem leem o registro
+  const temTour = user?.role === 'producer'
+  const { feitos, registrar, carregou } = useTourLog({ ativo: temTour })
+  const tour = temTour ? tourDoCaminho(pathname) : null
   const tourAberto = new URLSearchParams(search).has('tour')
   const oferecer = !!tour && !tourAberto && !feitos.has(`tour:${tour.id}`) && !feitos.has(`dica:${tour.id}`)
   const oferecerRef = useRef(oferecer)
@@ -225,14 +227,14 @@ export default function EvoHub() {
                   <button
                     type="button"
                     onClick={mostrarTour}
-                    className="rounded-full bg-plum px-3 py-1.5 text-xs font-semibold text-[#fff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 dark:focus-visible:ring-violet-300"
+                    className="min-h-10 rounded-full bg-plum px-3 text-xs font-semibold text-[#fff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 dark:focus-visible:ring-violet-300"
                   >
                     Mostrar
                   </button>
                   <button
                     type="button"
                     onClick={agoraNao}
-                    className="rounded-full border border-slate-900/20 px-3 py-1.5 text-xs text-slate-800 hover:bg-slate-900/5 dark:border-white/15 dark:text-slate-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
+                    className="min-h-10 rounded-full border border-slate-900/20 px-3 text-xs text-slate-800 hover:bg-slate-900/5 dark:border-white/15 dark:text-slate-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
                   >
                     Agora não
                   </button>
@@ -256,7 +258,7 @@ export default function EvoHub() {
               type="button"
               onClick={fecharBalao}
               aria-label="Fechar aviso do Evo"
-              className="shrink-0 rounded-md p-0.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
+              className="-my-2 -mr-1 grid size-10 shrink-0 place-items-center rounded-md text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
