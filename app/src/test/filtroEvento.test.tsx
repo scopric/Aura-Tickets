@@ -57,17 +57,30 @@ vi.mock('../hooks/useMenuItems', () => ({
   useCreateMenuItem: () => ({ mutateAsync: banco.item, isPending: false }), useUpdateMenuItem: () => parado, useDeleteMenuItem: () => parado,
 }))
 const afiliado = (id: string, event_id: string) => ({ id, email_mascarado: `${id}***@x.com`, commission_percent: 10, status: 'active', event_id, evento: 'Ev', sales: 0, total_earned: 0, created_at: '2026-01-01' })
+// RPC de vendas pagas (L6): o filtro de evento chega como p_event_id; e2 tem 2 pedidos, e1 tem 1
+const vendas = (id: string | null) => {
+  const por = [{ event_id: 'e1', titulo: 'Festa Um', pedidos: 1, total: 10 }, { event_id: 'e2', titulo: 'Festa Dois', pedidos: 2, total: 20 }].filter(e => !id || e.event_id === id)
+  const n = por.reduce((a, e) => a + e.pedidos, 0)
+  return { total: n * 10, pedidos: n, reembolsados: { pedidos: 0, total: 0 }, por_evento: por, por_dia: [], por_forma: [] }
+}
+const lista = { then: (ok: (r: unknown) => unknown) => ok({ data: [], error: null }) } as Record<string, unknown>
+for (const m of ['select', 'eq', 'gte', 'order', 'limit', 'range']) lista[m] = () => lista
 vi.mock('../lib/supabase', () => ({
-  supabase: { rpc: (nome: string, args?: unknown) => nome === 'listar_afiliados'
-    ? Promise.resolve({ data: [afiliado('af1', 'e1'), afiliado('af2', 'e2')], error: null })
-    : banco.rpc(nome, args) },
+  supabase: {
+    from: () => lista,
+    rpc: (nome: string, args?: { p_event_id?: string | null }) => nome === 'listar_afiliados'
+      ? Promise.resolve({ data: [afiliado('af1', 'e1'), afiliado('af2', 'e2')], error: null })
+      : nome === 'produtor_vendas_pagas' ? Promise.resolve({ data: vendas(args?.p_event_id ?? null), error: null })
+      : banco.rpc(nome, args),
+  },
 }))
 const pedido = (id: string, event_id: string) => ({ id, event_id, total: 10, payment_method: 'pix', created_at: '2026-01-01T00:00:00Z', events: { title: event_id === 'e1' ? 'Festa Um' : 'Festa Dois' } })
 const baixou = vi.hoisted(() => vi.fn())
 vi.mock('../lib/exportCsv', async orig => ({
   ...(await orig<typeof import('../lib/exportCsv')>()),
   downloadCsv: baixou,
-  fetchAllRows: () => Promise.resolve([pedido('p1', 'e1'), pedido('p2', 'e2'), pedido('p3', 'e2')]),
+  // o filtro de evento agora é do banco: a busca do CSV já volta só com o evento da URL (e2 nestes testes)
+  fetchAllRows: () => Promise.resolve([pedido('p2', 'e2'), pedido('p3', 'e2')]),
 }))
 
 const Busca = () => <output data-testid="busca">{useLocation().search}</output>
@@ -210,6 +223,7 @@ describe('Filtro por ?eventId=', () => {
     montar(<ProducerFinance />, '/producer/finance?eventId=e2')
     await screen.findByText('Pedidos pagos')
     fireEvent.click(screen.getByRole('button', { name: /Exportar|CSV/i }))
+    await waitFor(() => expect(baixou).toHaveBeenCalled())
     expect(baixou.mock.calls[0][0]).toMatch(/^evokaa-pedidos-pagos-festa-dois-\d{4}-\d{2}-\d{2}\.csv$/)
   })
 
