@@ -18,7 +18,7 @@ export default function PrivacyPage() {
         </div>
 
         <div className="prose prose-sm max-w-none text-espresso/70 space-y-6">
-          <p className="text-xs text-espresso/70">Última atualização: 4 de outubro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
+          <p className="text-xs text-espresso/70">Última atualização: 5 de outubro de 2026 — Compatível com LGPD (Lei 13.709/2018)</p>
 
           <section>
             <h2 className="text-lg font-medium text-espresso mb-2">1. Introdução</h2>
