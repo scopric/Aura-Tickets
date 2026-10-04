@@ -19,7 +19,7 @@ export interface ProducerSettingsData {
   producer_profile: {
     id: string
     company_name: string
-    cnpj: string | null
+    cnpj: string | null // vazio é null (a UNIQUE não deixa dois '')
     bank_account: {
       bankName?: string
       accountType?: string
@@ -75,7 +75,7 @@ export function useProducerSettings() {
           .insert({
             id: user.id,
             company_name: profile.full_name || 'Minha Empresa',
-            cnpj: `PENDENTE-${user.id}`, // coluna NOT NULL; mesmo marcador do cadastro pelo admin
+            cnpj: null,
             bank_account: {},
             pix_key: '',
             notification_settings: {},

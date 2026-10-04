@@ -43,11 +43,10 @@ const clicar = () => fireEvent.click(screen.getByRole('button', { name: /Salvar 
 describe('Salvar empresa', () => {
   beforeEach(() => { useReal = false; m.salvar.mockReset(); m.erro.mockReset() })
 
-  it('CNPJ vazio: não envia cnpj no payload (coluna NOT NULL)', async () => {
+  it('CNPJ vazio: envia cnpj null', async () => {
     m.salvar.mockResolvedValue(undefined)
     montar(); clicar()
-    await waitFor(() => expect(m.salvar).toHaveBeenCalledWith({ company_name: 'Paula Eventos' }))
-    expect(m.salvar.mock.calls[0][0]).not.toHaveProperty('cnpj')
+    await waitFor(() => expect(m.salvar).toHaveBeenCalledWith({ company_name: 'Paula Eventos', cnpj: null }))
   })
 
   it('CNPJ inválido: não salva', () => {
