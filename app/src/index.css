@@ -266,8 +266,11 @@
   .wide { font-stretch: 112%; }
 
   /* Área de toque de 44 px (Apple HIG), invisível e centrada no controle. Só em tela de toque: com mouse ela
-     invadiria os vizinhos em fileiras de ícones. O controle precisa de position: relative. */
+     invadiria os vizinhos em fileiras de ícones. O relative fica aqui: sem ele a área cresce até o ancestral
+     posicionado e cobre os vizinhos (chips do painel cobriam "Ver no celular"); absolute/fixed/sticky
+     (camada utilities) continuam vencendo. */
   @media (pointer: coarse) {
+    .alvo-44 { position: relative; }
     .alvo-44::before {
       content: "";
       position: absolute;

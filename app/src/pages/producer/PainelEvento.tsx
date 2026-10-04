@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
+import { PreviaFolha, PreviaMoldura } from '../../components/producer/PreviaCelular'
 import SecaoIngressos from '../../components/producer/painel/SecaoIngressos'
 import SecaoOQueE from '../../components/producer/painel/SecaoOQueE'
 import SecaoPublicar, { type Falta } from '../../components/producer/painel/SecaoPublicar'
@@ -30,7 +31,7 @@ import { confirmacaoDuplicar, erroAoExcluir } from '../../lib/eventoProdutor'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -454,6 +455,10 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const classificacaoNova = CLASSIFICACOES.find(c => c.valor === classAceite)
   const aceiteTrava = !esporte && !form.classificacao
 
+  // Prévia: o que está na tela (não salvo), sem travar a digitação. Só memória: nada vai ao navegador nem ao banco.
+  const capaPrevia = capa?.previewUrl ?? (removida ? null : urlAtual)
+  const previaEvento = useDeferredValue(useMemo(() => ({ ...eventoDaPrevia(form, ings, { evento, capaUrl: capaPrevia }), accent_color: cor }), [form, ings, evento, capaPrevia, cor]))
+
   const corpo = (id: string) => {
     switch (id) {
       case 'oque': return <SecaoOQueE f={form} set={set} erroNome={erroNome} />
@@ -486,7 +491,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[minmax(0,1fr)_316px] min-[1180px]:gap-10">
+      <div className="min-w-0">
       <PageHeader
         title={nome}
         description={
@@ -521,6 +527,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           </>
         }
       />
+
+      <PreviaFolha evento={previaEvento} />
 
       <div className="mb-4 grid gap-3 empty:hidden">
         {modo === 'recusado' && (
@@ -652,6 +660,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
+      <PreviaMoldura evento={previaEvento} />
     </div>
   )
 }
