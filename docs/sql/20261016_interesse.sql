@@ -25,12 +25,12 @@
 -- 1. Consentimento: consentimento_em é gravado pelo BANCO (default now(), fora do grant de INSERT: a pessoa não
 --    forja a data) e consentimento_versao é obrigatório na inscrição (a regra de INSERT exige). Linhas antigas ficam
 --    com consentimento_em nulo: o produtor as vê só como contagem, sem nome nem e-mail, e elas não recebem aviso.
--- 2. Quem escreve: o dono insere (user_id = auth.uid(), só em evento publicado e aprovado, tipo de ingresso do
---    próprio evento), lê e apaga. UPDATE não existe para a API: notified e as colunas do e-mail só mudam pelo cron e
+-- 2. Quem escreve: o dono só LÊ a própria linha; entrar e sair são as funções interesse_entrar e interesse_sair (só
+--    em evento publicado e aprovado, tipo de ingresso do próprio evento). Sem INSERT, UPDATE nem DELETE para a API: notified e as colunas do e-mail só mudam pelo cron e
 --    pelas funções de serviço. `anon` perde tudo. service_role mantém o que o baseline dá.
 -- 3. Produtor: função interesse_lista (SECURITY DEFINER, search_path vazio, gf_mfa_ok() exigido, dono do evento
 --    conferido no corpo). Não há regra de SELECT para o produtor na tabela: ler nome e e-mail exige juntar com
---    profiles, que a RLS dele esconde. O e-mail vem de profiles.email (o produtor só vê o de quem consentiu).
+--    profiles e auth.users, que a RLS dele esconde. O e-mail vem de auth.users (o produtor só vê o de quem consentiu).
 -- 4. E-mail do aviso: sai para auth.users.email (e-mail do login), nunca para texto vindo do cliente. Reserva de
 --    2 min em interesse_email_due contra envio duplicado; 5 falhas tiram a linha da fila; sucesso grava
 --    email_enviado_em. O aviso do sino não depende do e-mail.
@@ -40,6 +40,16 @@
 -- 6. CRM: o lead nasce sem etapa (a tela do CRM já mostra "Sem etapa") e só se não houver lead do mesmo produtor com
 --    o mesmo e-mail (sem diferença de caixa). Apagar a inscrição NÃO apaga o lead (o produtor já pode ter trabalhado
 --    nele); apagar o lead NÃO apaga a inscrição.
+-- 8. Sair NÃO apaga (anti-loop de e-mail): o participante não tem DELETE; interesse_sair marca removido_em e
+--    interesse_entrar reativa a MESMA linha sem zerar notified nem email_enviado_em. Sem isso, entrar e sair
+--    repetidamente geraria um aviso (e um e-mail) novo a cada ciclo. O cron, a fila de e-mail e a lista do produtor
+--    ignoram removidos. Só o produtor apaga a linha (interesse_remover): reinscrição depois disso é linha nova.
+-- 9. E-mail e lead do CRM só para conta com e-mail CONFIRMADO (auth.users.email_confirmed_at). O e-mail usado é
+--    sempre o de auth.users (lista do produtor, CRM e fila), nunca profiles.email (o próprio usuário o edita).
+-- 10. consentimento_versao: lista fechada (CHECK). Aprovado o texto, a versão nova entra aqui por SQL.
+-- 11. crm_leads ganha índice único (producer_id, lower(email)): o lead do CRM nunca duplica por e-mail. Efeito: criar à
+--    mão no CRM um lead com e-mail já existente passa a dar 23505 (antes duplicava). O arquivo ABORTA se já houver
+--    duplicata, dizendo quais produtores; limpar antes de aplicar.
 -- 7. Fica de fora: lista de espera para ingresso esgotado (M5); preferência de e-mail por conta (decisão 5 da fila);
 --    contador de demanda aberto ao público (o produtor vê o total na própria lista).
 -- =============================================================================
@@ -68,45 +78,86 @@ alter table public.interest_lists add column if not exists notified_at timestamp
 alter table public.interest_lists add column if not exists email_enviado_em timestamptz;
 alter table public.interest_lists add column if not exists email_falhas int not null default 0;
 alter table public.interest_lists add column if not exists email_reservado_ate timestamptz;
-do $$
-begin
-  if not exists (select 1 from pg_constraint where conname = 'interest_lists_versao_chk') then
-    alter table public.interest_lists add constraint interest_lists_versao_chk
-      check (consentimento_versao is null or char_length(consentimento_versao) between 1 and 40);
-  end if;
-end $$;
+alter table public.interest_lists add column if not exists removido_em timestamptz;
+alter table public.interest_lists drop constraint if exists interest_lists_versao_chk;
+alter table public.interest_lists add constraint interest_lists_versao_chk
+  check (consentimento_versao is null or consentimento_versao in ('p4-rascunho-1'));
 create index if not exists interest_lists_event_idx on public.interest_lists (event_id);
 create index if not exists interest_lists_user_idx on public.interest_lists (user_id);
-create index if not exists interest_lists_pendentes_idx on public.interest_lists (created_at) where not notified;
+create index if not exists interest_lists_pendentes_idx on public.interest_lists (created_at) where not notified and removido_em is null;
+
+-- CRM sem duplicata por e-mail (decisão 11): aborta com erro claro se já houver
+do $$
+declare v text;
+begin
+  select string_agg(producer_id::text || ' (' || n || 'x ' || e || ')', '; ') into v
+  from (select producer_id, lower(email) e, count(*) n from public.crm_leads where email is not null
+        group by 1, 2 having count(*) > 1 limit 20) d;
+  if v is not null then
+    raise exception 'crm_leads tem e-mail duplicado por produtor; limpar antes de aplicar a P4: %', v;
+  end if;
+end $$;
+create unique index if not exists crm_leads_producer_email_uq on public.crm_leads (producer_id, lower(email));
 
 -- 2. Privilégios e regras (RLS): só o dono. gf_mfa_aal2 (RESTRICTIVE, 2FA) fica intacta --------------------------------
 revoke all on table public.interest_lists from anon, authenticated;
-grant select, delete on table public.interest_lists to authenticated;
-grant insert (user_id, event_id, ticket_type_id, consentimento_versao) on table public.interest_lists to authenticated;
+grant select on table public.interest_lists to authenticated;
 alter table public.interest_lists enable row level security;
 
 drop policy if exists gf_interesse_select_dono on public.interest_lists;
 create policy gf_interesse_select_dono on public.interest_lists
   as permissive for select to authenticated
   using ((select auth.uid()) = user_id);
-
 drop policy if exists gf_interesse_insert_dono on public.interest_lists;
-create policy gf_interesse_insert_dono on public.interest_lists
-  as permissive for insert to authenticated
-  with check (
-    (select auth.uid()) = user_id
-    and consentimento_versao is not null
-    and exists (select 1 from public.events e
-                where e.id = interest_lists.event_id and e.status = 'published' and e.approval_status = 'approved')
-    and (ticket_type_id is null
-         or exists (select 1 from public.ticket_types t
-                    where t.id = interest_lists.ticket_type_id and t.event_id = interest_lists.event_id))
-  );
-
 drop policy if exists gf_interesse_delete_dono on public.interest_lists;
-create policy gf_interesse_delete_dono on public.interest_lists
-  as permissive for delete to authenticated
-  using ((select auth.uid()) = user_id);
+
+-- Entrar (cria ou reativa a mesma linha) e sair (marca removido_em). notified e email_enviado_em nunca zeram.
+create or replace function public.interesse_entrar(p_event_id uuid, p_ticket_type_id uuid, p_versao text)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare v_uid uuid := (select auth.uid());
+begin
+  if v_uid is null or not (select public.gf_mfa_ok()) then
+    raise exception 'sem permissão' using errcode = '42501';
+  end if;
+  if p_versao is null or not exists (select 1 from public.events e
+       where e.id = p_event_id and e.status = 'published' and e.approval_status = 'approved') then
+    raise exception 'sem permissão' using errcode = '42501';
+  end if;
+  if p_ticket_type_id is not null and not exists (select 1 from public.ticket_types t
+       where t.id = p_ticket_type_id and t.event_id = p_event_id) then
+    raise exception 'sem permissão' using errcode = '42501';
+  end if;
+  insert into public.interest_lists (user_id, event_id, ticket_type_id, consentimento_versao)
+  values (v_uid, p_event_id, p_ticket_type_id, p_versao)
+  on conflict (event_id, user_id) do update
+    set removido_em = null, consentimento_em = now(), consentimento_versao = excluded.consentimento_versao,
+        ticket_type_id = excluded.ticket_type_id
+    where public.interest_lists.removido_em is not null;
+  return true;
+end;
+$$;
+
+create or replace function public.interesse_sair(p_event_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare n int;
+begin
+  if (select auth.uid()) is null or not (select public.gf_mfa_ok()) then
+    raise exception 'sem permissão' using errcode = '42501';
+  end if;
+  update public.interest_lists set removido_em = now()
+   where user_id = (select auth.uid()) and event_id = p_event_id and removido_em is null;
+  get diagnostics n = row_count;
+  return n = 1;
+end;
+$$;
 
 -- 3. Produtor: lista do próprio evento e remoção da inscrição ----------------------------------------------------------
 create or replace function public.interesse_lista(p_event_id uuid default null)
@@ -121,13 +172,15 @@ set search_path = ''
 as $$
   select i.id, i.event_id, e.title::text,
          case when i.consentimento_em is not null then p.full_name end,
-         case when i.consentimento_em is not null then p.email end,
+         case when i.consentimento_em is not null then u.email::text end,
          case when i.consentimento_em is not null then p.city end,
          i.notified, i.notified_at, i.consentimento_em is not null, i.created_at
   from public.interest_lists i
   join public.events e on e.id = i.event_id
   left join public.profiles p on p.id = i.user_id
+  left join auth.users u on u.id = i.user_id
   where e.producer_id = (select auth.uid())
+    and i.removido_em is null
     and (select public.gf_mfa_ok())
     and (p_event_id is null or i.event_id = p_event_id)
   order by i.created_at desc
@@ -159,22 +212,21 @@ security definer
 set search_path = ''
 as $$
 begin
-  if new.consentimento_em is null then return null; end if;
+  if new.consentimento_em is null or new.removido_em is not null then return null; end if;
   insert into public.crm_leads (producer_id, full_name, email, city, source, event_interest)
   select e.producer_id, left(coalesce(nullif(btrim(p.full_name), ''), 'Participante'), 200), u.email::text, p.city,
          'lista_interesse', left(e.title, 200)
   from public.events e
   join public.profiles p on p.id = new.user_id
   join auth.users u on u.id = new.user_id
-  where e.id = new.event_id and u.email is not null
-    and not exists (select 1 from public.crm_leads l
-                    where l.producer_id = e.producer_id and lower(l.email) = lower(u.email));
+  where e.id = new.event_id and u.email is not null and u.email_confirmed_at is not null
+  on conflict do nothing;
   return null;
 end;
 $$;
 drop trigger if exists gf_interesse_para_crm on public.interest_lists;
 create trigger gf_interesse_para_crm
-  after insert on public.interest_lists
+  after insert or update of removido_em on public.interest_lists
   for each row execute function public.gf_interesse_para_crm();
 
 -- 5. Cron 1: venda abriu -> aviso no sino (P1) e marca notified ----------------------------------------------------------
@@ -190,7 +242,7 @@ begin
     select i.id, i.user_id, i.event_id, left(e.title, 120) as titulo
     from public.interest_lists i
     join public.events e on e.id = i.event_id
-    where not i.notified and i.consentimento_em is not null
+    where not i.notified and i.consentimento_em is not null and i.removido_em is null
       and e.status = 'published' and e.approval_status = 'approved'
       and exists (select 1 from public.ticket_types t
                   where t.event_id = e.id and t.is_active
@@ -244,10 +296,10 @@ as $$
     select i.id
     from public.interest_lists i
     join auth.users u on u.id = i.user_id
-    where i.notified and i.email_enviado_em is null and i.email_falhas < 5
+    where i.notified and i.removido_em is null and i.email_enviado_em is null and i.email_falhas < 5
       and i.notified_at > now() - interval '48 hours'
       and (i.email_reservado_ate is null or i.email_reservado_ate < now())
-      and u.email is not null and u.deleted_at is null
+      and u.email is not null and u.email_confirmed_at is not null and u.deleted_at is null
     order by i.notified_at
     limit 50
     for update of i skip locked
@@ -284,8 +336,10 @@ end;
 $$;
 
 -- 7. Quem executa o quê (o Supabase dá EXECUTE a anon/authenticated por padrão) ----------------------------------------
-revoke all on function public.interesse_lista(uuid), public.interesse_remover(uuid) from public, anon, authenticated, service_role;
-grant execute on function public.interesse_lista(uuid), public.interesse_remover(uuid) to authenticated;
+revoke all on function public.interesse_lista(uuid), public.interesse_remover(uuid),
+  public.interesse_entrar(uuid, uuid, text), public.interesse_sair(uuid) from public, anon, authenticated, service_role;
+grant execute on function public.interesse_lista(uuid), public.interesse_remover(uuid),
+  public.interesse_entrar(uuid, uuid, text), public.interesse_sair(uuid) to authenticated;
 revoke all on function public.gf_interesse_para_crm(), public.gf_interesse_avisar() from public, anon, authenticated, service_role;
 revoke all on function public.interesse_notify_secret(), public.interesse_email_due(), public.interesse_email_mark(uuid[], boolean)
   from public, anon, authenticated, service_role;
@@ -326,7 +380,7 @@ declare
 begin
   select string_agg(policyname, ',' order by policyname) into v_pol
   from pg_policies where schemaname = 'public' and tablename = 'interest_lists' and permissive = 'PERMISSIVE';
-  if v_pol is distinct from 'gf_interesse_delete_dono,gf_interesse_insert_dono,gf_interesse_select_dono' then
+  if v_pol is distinct from 'gf_interesse_select_dono' then
     raise exception 'interest_lists: regras permissivas inesperadas (%)', v_pol;
   end if;
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'interest_lists'
@@ -336,11 +390,8 @@ begin
   if has_table_privilege('anon', 'public.interest_lists', 'select, insert, update, delete, truncate') then
     raise exception 'interest_lists: anon ainda tem privilégio';
   end if;
-  if has_table_privilege('authenticated', 'public.interest_lists', 'update')
-     or has_table_privilege('authenticated', 'public.interest_lists', 'truncate')
-     or has_column_privilege('authenticated', 'public.interest_lists', 'consentimento_em', 'insert')
-     or has_column_privilege('authenticated', 'public.interest_lists', 'notified', 'insert')
-     or not has_column_privilege('authenticated', 'public.interest_lists', 'consentimento_versao', 'insert') then
+  if has_table_privilege('authenticated', 'public.interest_lists', 'insert, update, delete, truncate')
+     or has_any_column_privilege('authenticated', 'public.interest_lists', 'insert, update') then
     raise exception 'interest_lists: privilégio de authenticated fora do desenhado';
   end if;
   if (select count(*) from cron.job where jobname in ('interesse_avisar', 'interesse_email')) <> 2 then
@@ -352,9 +403,25 @@ begin
   end if;
   if has_function_privilege('authenticated', 'public.interesse_email_due()', 'execute')
      or has_function_privilege('anon', 'public.interesse_lista(uuid)', 'execute')
+     or has_function_privilege('anon', 'public.interesse_entrar(uuid, uuid, text)', 'execute')
      or has_function_privilege('authenticated', 'public.gf_interesse_avisar()', 'execute') then
     raise exception 'funções do interesse com EXECUTE a quem não deve';
   end if;
 end $$;
 
 commit;
+
+-- Desfazer (rodar à parte; os avisos já gravados em notifications ficam):
+-- begin;
+-- select cron.unschedule('interesse_avisar') where exists (select 1 from cron.job where jobname = 'interesse_avisar');
+-- select cron.unschedule('interesse_email') where exists (select 1 from cron.job where jobname = 'interesse_email');
+-- drop trigger if exists gf_interesse_para_crm on public.interest_lists;
+-- drop function if exists public.gf_interesse_para_crm(), public.gf_interesse_avisar(), public.interesse_lista(uuid),
+--   public.interesse_remover(uuid), public.interesse_entrar(uuid, uuid, text), public.interesse_sair(uuid),
+--   public.interesse_notify_secret(), public.interesse_email_due(), public.interesse_email_mark(uuid[], boolean);
+-- drop policy if exists gf_interesse_select_dono on public.interest_lists;
+-- drop index if exists public.crm_leads_producer_email_uq;
+-- alter table public.interest_lists drop constraint if exists interest_lists_versao_chk;
+-- (colunas novas e o segredo do Vault interesse_notify_secret ficam)
+-- Depois de desfazer, interest_lists volta a só ter a regra de 2FA (ninguém lê pela API), como antes da P4.
+-- commit;

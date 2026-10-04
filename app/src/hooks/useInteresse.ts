@@ -19,9 +19,10 @@ export function useInteresse(eventId: string) {
   const { data: inscrito = false } = useQuery<boolean>({
     queryKey: chave,
     queryFn: async () => {
-      const { data, error } = await supabase.from('interest_lists').select('id').eq('user_id', userId!).eq('event_id', eventId).maybeSingle()
+      const { data, error } = await supabase.from('interest_lists').select('id, removido_em').eq('user_id', userId!).eq('event_id', eventId).maybeSingle()
       if (error) throw error
-      return !!data
+      const l = data as { removido_em: string | null } | null // tipo gerado defasado
+      return !!l && !l.removido_em
     },
     enabled: !!userId,
   })
@@ -34,8 +35,9 @@ export function useInteresse(eventId: string) {
 
   const entrar = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('interest_lists').insert({ user_id: userId!, event_id: eventId, consentimento_versao: CONSENTIMENTO_VERSAO } as never) // `as never`: os tipos gerados de insert estão defasados (como em useFavoritos)
-      if (error && error.code !== '23505') throw error // 23505: já estava inscrito (outra aba)
+      // entrar cria ou reativa a mesma linha (sair só marca removido_em: sair e entrar não gera segundo aviso)
+      const { error } = await supabase.rpc('interesse_entrar' as never, { p_event_id: eventId, p_ticket_type_id: null, p_versao: CONSENTIMENTO_VERSAO } as never)
+      if (error) throw error
     },
     onSuccess: () => { queryClient.setQueryData(chave, true); toast.success('Pronto! Avisaremos você quando as vendas abrirem.') },
     onError: falhou('ativar o aviso'),
@@ -43,7 +45,7 @@ export function useInteresse(eventId: string) {
 
   const sair = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('interest_lists').delete().eq('user_id', userId!).eq('event_id', eventId)
+      const { error } = await supabase.rpc('interesse_sair' as never, { p_event_id: eventId } as never)
       if (error) throw error
     },
     onSuccess: () => { queryClient.setQueryData(chave, false); toast.success('Aviso removido.') },

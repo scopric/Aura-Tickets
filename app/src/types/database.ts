@@ -508,6 +508,7 @@ export interface Database {
           email_enviado_em: string | null
           email_falhas: number
           email_reservado_ate: string | null
+          removido_em: string | null
         }
         Insert: {
           id?: string | null

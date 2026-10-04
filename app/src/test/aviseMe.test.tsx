@@ -12,15 +12,18 @@ import { CONSENTIMENTO_VERSAO, fimDasVendas } from '../lib/interesse'
 let inscrito: boolean
 let resposta: { error: { code: string } | null }
 let lista: Record<string, unknown>[]
-const insert = vi.fn((_l: unknown) => { if (!resposta.error) inscrito = true; return Promise.resolve(resposta) })
-const apagar = vi.fn(() => { if (!resposta.error) inscrito = false; return Promise.resolve(resposta) })
-const rpc = vi.fn((nome: string) => Promise.resolve(nome === 'interesse_lista' ? { data: lista, error: null } : { data: true, error: null }))
+const rpc = vi.fn((nome: string) => {
+  if (nome === 'interesse_lista') return Promise.resolve({ data: lista, error: null })
+  if (nome === 'interesse_entrar' || nome === 'interesse_sair') {
+    if (!resposta.error) inscrito = nome === 'interesse_entrar'
+    return Promise.resolve({ data: true, error: resposta.error })
+  }
+  return Promise.resolve({ data: true, error: null })
+})
 vi.mock('../lib/supabase', () => ({
   supabase: {
     from: () => ({
-      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: inscrito ? { id: 'x' } : null, error: null }) }) }) }),
-      insert,
-      delete: () => ({ eq: () => ({ eq: apagar }) }),
+      select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: () => Promise.resolve({ data: { id: 'x', removido_em: inscrito ? null : '2026-10-01T00:00:00Z' }, error: null }) }) }) }),
     }),
     rpc: (nome: string, args: unknown) => rpc(nome, args),
   },
@@ -71,7 +74,7 @@ describe('AviseMe', () => {
     expect(confirmar).toBeDisabled()
     fireEvent.click(screen.getByRole('checkbox'))
     fireEvent.click(confirmar)
-    await waitFor(() => expect(insert).toHaveBeenCalledWith({ user_id: 'u-1', event_id: 'e1', consentimento_versao: CONSENTIMENTO_VERSAO }))
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('interesse_entrar', { p_event_id: 'e1', p_ticket_type_id: null, p_versao: CONSENTIMENTO_VERSAO }))
     await waitFor(() => expect(toast.success).toHaveBeenCalled())
     expect(await screen.findByRole('button', { name: 'Remover aviso' })).toBeInTheDocument()
   })
@@ -92,7 +95,7 @@ describe('AviseMe', () => {
     inscrito = true
     render(wrapper(<AviseMe eventId="e1" />))
     fireEvent.click(await screen.findByRole('button', { name: 'Remover aviso' }))
-    await waitFor(() => expect(apagar).toHaveBeenCalled())
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('interesse_sair', { p_event_id: 'e1' }))
     expect(await screen.findByRole('button', { name: 'Avise-me quando abrir' })).toBeInTheDocument()
   })
 
