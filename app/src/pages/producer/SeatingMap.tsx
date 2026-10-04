@@ -1,6 +1,9 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { useProducerEvents } from '../../hooks/useEvents'
+import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
+import { reduzirPlanta } from '../../lib/plantaFundo'
 import {
   ArrowLeft, Save, ZoomIn, ZoomOut, RotateCcw, Grid3X3,
   Square, Circle as CircleIcon, Type, Trash2, Copy,
@@ -313,22 +316,32 @@ const TOOL_CATEGORIES = [
   { id: 'facilities', name: 'Paredes & Acessos', tools: ['wall', 'door', 'emergency_exit', 'portico', 'ticket_office', 'chemical_toilet', 'accessible_toilet', 'container_toilet', 'restroom', 'extinguisher'] as ToolType[] }
 ]
 
+const novosPavimentos = (): Environment[] => [
+  {
+    id: 'terreo',
+    name: 'Térreo (Principal)',
+    seats: [],
+    sections: JSON.parse(JSON.stringify(defaultSections)),
+    walls: [],
+    pixelsPerMeter: 40
+  },
+]
+
+// O que vai para o banco e o que conta como "alterado": pavimentos + planta de fundo (zoom e pan não contam)
+const fundoPadrao = { scale: 1.0, offset: { x: 150, y: 100 }, opacity: 0.4 }
+const montarFundo = (image: string | null, scale: number, offset: { x: number; y: number }, opacity: number) =>
+  image ? { image, scale, offset, opacity } : null
+const instantaneo = (envs: Environment[], fundo: ReturnType<typeof montarFundo>) => JSON.stringify({ envs, fundo })
+
 export default function SeatingMap() {
-  const [searchParams] = useSearchParams()
-  const eventIdParam = searchParams.get('eventId')
-  const [eventId, setEventId] = useState<string | null>(eventIdParam)
+  const { data: eventos = [], isLoading: carregandoEventos } = useProducerEvents()
+  const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
+  // Mapa carregado do evento escolhido e salvo por último (para o aviso de alterações não salvas)
+  const [pronto, setPronto] = useState(false)
+  const [salvo, setSalvo] = useState<string | null>(null)
 
   // Environments (múltiplos espaços)
-  const [environments, setEnvironments] = useState<Environment[]>([
-    { 
-      id: 'terreo', 
-      name: 'Térreo (Principal)', 
-      seats: [], 
-      sections: JSON.parse(JSON.stringify(defaultSections)), 
-      walls: [], 
-      pixelsPerMeter: 40 
-    },
-  ])
+  const [environments, setEnvironments] = useState<Environment[]>(novosPavimentos)
   const [activeEnv, setActiveEnv] = useState(0)
 
   // Escala ativa em pixels por metro
@@ -539,157 +552,134 @@ export default function SeatingMap() {
     toast.success(`${typeLabels[type]} adicionado ao centro do salão!`)
   }
 
-  // Carregar do Supabase
+  // Carregar do Supabase: roda ao montar e a cada troca de evento (zera o mapa, o desfazer e a planta antes de ler)
   useEffect(() => {
+    let cancelado = false
+    const iniciais = novosPavimentos()
+    setPronto(false)
+    setSalvo(null)
+    setEnvironments(iniciais)
+    setActiveEnv(0)
+    setActiveSec(iniciais[0].sections[0].id)
+    setSelected([])
+    setSelectedWallId(null)
+    setHistory({ 0: [{ seats: [], walls: [] }] })
+    setHistIdx({ 0: 0 })
+    setBgImage(null)
+    setBgScale(fundoPadrao.scale)
+    setBgOffset(fundoPadrao.offset)
+    setBgOpacity(fundoPadrao.opacity)
+    if (!eventId) return
+
     const fetchMap = async () => {
-      let activeEventId = eventId
-      
-      if (!activeEventId) {
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const { data: firstEvent } = await supabase
-            .from('events')
-            .select('id')
-            .eq('producer_id', user.id)
-            .limit(1)
-            .maybeSingle()
-            
-          if (firstEvent) {
-            activeEventId = firstEvent.id
-            setEventId(firstEvent.id)
-          }
-        }
+      const { data: mapa, error } = await supabase
+        .from('seating_maps')
+        .select('*')
+        .eq('event_id', eventId)
+        .maybeSingle()
+      const data: any = mapa // a tabela não está nos tipos gerados
+      if (cancelado) return
+
+      // Com erro de leitura o mapa não fica pronto: Salvar fica travado para não gravar um mapa vazio por cima do real
+      if (error) {
+        toast.error(`Erro ao carregar mapa: ${error.message}`)
+        return
       }
 
-      if (activeEventId) {
-        const { data, error } = await supabase
-          .from('seating_maps')
-          .select('*')
-          .eq('event_id', activeEventId)
-          .maybeSingle()
+      if (data?.environments && Array.isArray(data.environments)) {
+        const loadedEnvs = (data.environments as Environment[]).map(env => ({
+          ...env,
+          walls: env.walls || [],
+          pixelsPerMeter: env.pixelsPerMeter || 40,
+          seats: (env.seats || []).map(s => ({
+            ...s,
+            widthMeter: s.widthMeter || (toolDefaults[s.type]?.wMeter || 0.5),
+            heightMeter: s.heightMeter || (toolDefaults[s.type]?.hMeter || 0.5),
+            tableShape: s.tableShape || 'circle',
+            seatsCount: s.seatsCount || (s.capacity > 0 ? s.capacity : 6)
+          }))
+        }))
 
-        let loadedMapData: any = null
+        setEnvironments(loadedEnvs)
+        if (loadedEnvs[0]?.sections?.[0]) setActiveSec(loadedEnvs[0].sections[0].id)
 
-        if (error) {
-          console.warn(`Erro no banco: ${error.message}. Tentando recuperar do armazenamento local...`)
-          const localData = localStorage.getItem(`seating_map_${activeEventId}`)
-          if (localData) {
-            try {
-              loadedMapData = JSON.parse(localData)
-              toast.info('Recuperado mapa do armazenamento local do navegador.')
-            } catch (e) {
-              console.error(e)
-            }
-          }
-          if (!loadedMapData) {
-            toast.error(`Erro ao carregar mapa: ${error.message}`)
-          }
-        } else if (data) {
-          loadedMapData = data
-        } else {
-          // Nenhum mapa no banco, tenta local
-          const localData = localStorage.getItem(`seating_map_${activeEventId}`)
-          if (localData) {
-            try {
-              loadedMapData = JSON.parse(localData)
-              toast.info('Recuperado mapa do armazenamento local.')
-            } catch (e) {
-              console.error(e)
-            }
-          }
-        }
+        const initialHistory: Record<number, { seats: SeatNode[]; walls: WallNode[] }[]> = {}
+        const initialHistIdx: Record<number, number> = {}
+        loadedEnvs.forEach((env, index) => {
+          initialHistory[index] = [{ seats: env.seats, walls: env.walls || [] }]
+          initialHistIdx[index] = 0
+        })
+        setHistory(initialHistory)
+        setHistIdx(initialHistIdx)
 
-        if (loadedMapData) {
-          if (loadedMapData.environments && Array.isArray(loadedMapData.environments)) {
-            const loadedEnvs = (loadedMapData.environments as Environment[]).map(env => ({
-              ...env,
-              walls: env.walls || [],
-              pixelsPerMeter: env.pixelsPerMeter || 40,
-              seats: (env.seats || []).map(s => ({
-                ...s,
-                widthMeter: s.widthMeter || (toolDefaults[s.type]?.wMeter || 0.5),
-                heightMeter: s.heightMeter || (toolDefaults[s.type]?.hMeter || 0.5),
-                tableShape: s.tableShape || 'circle',
-                seatsCount: s.seatsCount || (s.capacity > 0 ? s.capacity : 6)
-              }))
-            }))
-            
-            setEnvironments(loadedEnvs)
-            
-            const initialHistory: Record<number, { seats: SeatNode[]; walls: WallNode[] }[]> = {}
-            const initialHistIdx: Record<number, number> = {}
-            loadedEnvs.forEach((env, index) => {
-              initialHistory[index] = [{ seats: env.seats, walls: env.walls || [] }]
-              initialHistIdx[index] = 0
-            })
-            setHistory(initialHistory)
-            setHistIdx(initialHistIdx)
-
-            if (loadedMapData.config && typeof loadedMapData.config === 'object') {
-              const cfg = loadedMapData.config as any
-              if (cfg.zoom) setZoom(cfg.zoom)
-              if (cfg.pan) setPan(cfg.pan)
-            } else {
-              setTimeout(centerPavilion, 200)
-            }
-            toast.success('Mapa de assentos carregado com sucesso!')
+        let fundo: ReturnType<typeof montarFundo> = null
+        if (data.config && typeof data.config === 'object') {
+          const cfg = data.config as any
+          if (cfg.zoom) setZoom(cfg.zoom)
+          if (cfg.pan) setPan(cfg.pan)
+          if (typeof cfg.background?.image === 'string') {
+            const bg = cfg.background
+            fundo = montarFundo(bg.image, bg.scale ?? fundoPadrao.scale, bg.offset ?? fundoPadrao.offset, bg.opacity ?? fundoPadrao.opacity)
+            setBgImage(fundo!.image)
+            setBgScale(fundo!.scale)
+            setBgOffset(fundo!.offset)
+            setBgOpacity(fundo!.opacity)
           }
         } else {
-          // Mapa novo, centraliza no boot
           setTimeout(centerPavilion, 200)
         }
+        setSalvo(instantaneo(loadedEnvs, fundo))
+        toast.success('Mapa de assentos carregado com sucesso!')
+      } else {
+        // Mapa novo, centraliza no boot
+        setSalvo(instantaneo(iniciais, null))
+        setTimeout(centerPavilion, 200)
       }
+      setPronto(true)
     }
-    
+
     fetchMap()
-  }, [])
+    return () => { cancelado = true }
+  }, [eventId])
+
+  const fundoAtual = montarFundo(bgImage, bgScale, bgOffset, bgOpacity)
+  // Alterado desde o último mapa carregado ou salvo (JSON do mapa inteiro, recalculado só quando ele muda)
+  const sujo = useMemo(
+    () => pronto && salvo !== null && instantaneo(environments, fundoAtual) !== salvo,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pronto, salvo, environments, bgImage, bgScale, bgOffset, bgOpacity]
+  )
+
+  useEffect(() => {
+    if (!sujo) return
+    const avisar = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', avisar)
+    return () => window.removeEventListener('beforeunload', avisar)
+  }, [sujo])
+
+  const confirmarSaida = () => !sujo || window.confirm('Há alterações não salvas neste mapa. Sair mesmo assim?')
 
   const handleSaveMap = async () => {
-    let activeEventId = eventId
-
-    if (!activeEventId) {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: firstEvent } = await supabase
-          .from('events')
-          .select('id')
-          .eq('producer_id', user.id)
-          .limit(1)
-          .maybeSingle()
-          
-        if (firstEvent) {
-          activeEventId = firstEvent.id
-          setEventId(firstEvent.id)
-        }
-      }
-    }
-
-    if (!activeEventId) {
-      toast.error('Crie um evento antes de salvar o mapa.')
+    if (!eventId || !pronto) {
+      toast.error('Escolha um evento e espere o mapa carregar antes de salvar.')
       return
     }
 
-    // Salvar no localStorage como garantia/fallback imediato
-    localStorage.setItem(`seating_map_${activeEventId}`, JSON.stringify({
-      event_id: activeEventId,
-      name: environments[activeEnv]?.name || 'Principal',
-      config: { zoom, pan },
-      environments: environments
-    }))
-
+    const fundo = fundoAtual
     const { error } = await supabase
       .from('seating_maps')
       .upsert({
-        event_id: activeEventId,
+        event_id: eventId,
         name: environments[activeEnv]?.name || 'Principal',
-        config: { zoom, pan },
+        config: { zoom, pan, background: fundo },
         environments: environments
       }, { onConflict: 'event_id' })
 
     if (error) {
-      toast.warning(`Salvo localmente no navegador! (Nota: O banco retornou erro: ${error.message})`, { duration: 6500 })
+      toast.error(`Não foi possível salvar o mapa: ${error.message}`, { duration: 6500 })
     } else {
-      toast.success('Mapa de assentos salvo com sucesso no banco e localmente!')
+      setSalvo(instantaneo(environments, fundo))
+      toast.success('Mapa de assentos salvo!')
     }
   }
 
@@ -1476,9 +1466,7 @@ export default function SeatingMap() {
   }
 
   const uploadBgImage = (file: File) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const resultStr = String(reader.result)
+    reduzirPlanta(file).then(resultStr => {
       setBgImage(resultStr)
       setBgScale(1.0)
       setBgOffset({ x: 100, y: 80 })
@@ -1489,8 +1477,7 @@ export default function SeatingMap() {
         runAiMapReader(resultStr)
         setShouldAutoScan(false)
       }
-    }
-    reader.readAsDataURL(file)
+    }).catch(() => toast.error('Não consegui ler essa imagem. Use PNG, JPG ou WebP.'))
   }
 
   const triggerImageUpload = () => {
@@ -2376,6 +2363,33 @@ export default function SeatingMap() {
     reader.readAsText(file)
   }
 
+  const voltarPara = `/producer/dashboard${eventId ? `?eventId=${eventId}` : ''}`
+  const seletorEvento = (
+    <select
+      value={eventId ?? ''}
+      onChange={e => { if (e.target.value !== eventId && confirmarSaida()) trocarEvento(e.target.value || null) }}
+      aria-label="Evento do mapa"
+      className="h-8 max-w-48 rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
+      {!eventId && <option value="">Escolha um evento</option>}
+      {eventos.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+    </select>
+  )
+
+  // Sem evento escolhido a tela não edita nada: pede para escolher
+  if (!eventId) {
+    return (
+      <div className="painel-produtor flex h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center text-foreground">
+        <h1 className="text-base font-semibold">Editor de mapa</h1>
+        <p className="text-sm text-muted-foreground">
+          {carregandoEventos ? 'Carregando seus eventos…' : eventos.length ? 'Escolha o evento cujo mapa você quer editar.' : 'Crie um evento antes de montar o mapa.'}
+        </p>
+        {eventos.length > 0 && seletorEvento}
+        <Link to={voltarPara} className="text-sm text-primary underline">Voltar ao painel</Link>
+      </div>
+    )
+  }
+
   // Moldura no estilo do painel (Decisão 112): tokens de .painel-produtor só no cabeçalho e na barra de pavimentos.
   // O miolo do editor (barras laterais, planta e janelas) fica como está; text-espresso na raiz é a cor que ele herda.
   const btnIcone = 'inline-flex items-center justify-center rounded-md border border-border bg-card p-2 text-muted-foreground transition-colors hover:bg-foreground/5 hover:text-foreground disabled:opacity-40 disabled:hover:bg-card flex-shrink-0'
@@ -2386,7 +2400,7 @@ export default function SeatingMap() {
       {/* CABEÇALHO */}
       <header className="w-full max-w-full flex items-center justify-between px-3 py-2 md:px-6 md:py-3 border-b border-border bg-card text-foreground z-30 flex-nowrap gap-2 md:gap-4 overflow-hidden min-w-0 flex-shrink-0">
         <div className="flex items-center gap-3 flex-shrink-0">
-          <Link to="/producer/dashboard" className={btnIcone} aria-label="Voltar ao painel">
+          <Link to={voltarPara} onClick={(e: ReactMouseEvent) => { if (!confirmarSaida()) e.preventDefault() }} className={btnIcone} aria-label="Voltar ao painel">
             <ArrowLeft className="w-4 h-4" aria-hidden="true" />
           </Link>
           <div className="flex flex-col min-w-0">
@@ -2396,9 +2410,11 @@ export default function SeatingMap() {
             </h1>
             <p className="hidden xl:block text-[11px] text-muted-foreground mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">Segure Espaço e arraste para navegar · role o mouse para dar zoom</p>
           </div>
+          {seletorEvento}
           <button
             onClick={handleSaveMap}
-            className="ml-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 flex-shrink-0 whitespace-nowrap"
+            disabled={!pronto}
+            className="ml-2 inline-flex h-8 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40 flex-shrink-0 whitespace-nowrap"
           >
             <Save className="w-3.5 h-3.5" aria-hidden="true" /> Salvar
           </button>
@@ -3571,13 +3587,6 @@ export default function SeatingMap() {
                       </div>
                     )}
 
-                    {/* Dono / Ocupante */}
-                    {s.occupantName && (
-                      <div className="absolute -bottom-8.5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 bg-stone-850 text-white text-[7px] rounded whitespace-nowrap pointer-events-none shadow border border-stone-700 font-bold z-10">
-                        Dono: {s.occupantName}
-                      </div>
-                    )}
-
                     {/* Lock */}
                     {s.locked && (
                       <div className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-amber-500 rounded-full flex items-center justify-center shadow border border-white z-10">
@@ -3676,7 +3685,7 @@ export default function SeatingMap() {
                 <Info className="w-5 h-5 text-plum flex-shrink-0 mt-0.5" />
                 <div className="text-xs text-espresso/70 leading-relaxed space-y-1">
                   <h4 className="font-bold text-espresso">Navegação e Customização:</h4>
-                  <p><strong>Navegar:</strong> Rolar rodinha para **Zoom** · Segurar **Espaço + mouse drag** para movimentar (Pan) ou clicar com a rodinha do mouse.</p>
+                  <p><strong>Navegar:</strong> Rolar rodinha para <strong>Zoom</strong> · Segurar <strong>Espaço + mouse drag</strong> para movimentar (Pan) ou clicar com a rodinha do mouse.</p>
                   <p><strong>Redimensionar:</strong> Selecione o elemento e arraste o quadradinho roxo no canto inferior dele.</p>
                   <p><strong>Muros:</strong> Clique consecutivos. ESC para finalizar. Shift alinha muros em linha reta.</p>
                 </div>
@@ -4072,20 +4081,6 @@ export default function SeatingMap() {
                           </select>
                         </div>
                       </div>
-
-                      {(node.status === 'sold' || node.status === 'reserved' || node.status === 'contact') && (
-                        <div className="space-y-1">
-                          <label htmlFor="occupant-inp" className="block text-[9px] text-espresso/70 uppercase font-bold">Dono / Ocupante</label>
-                          <input 
-                            id="occupant-inp"
-                            type="text"
-                            value={node.occupantName || ''} 
-                            onChange={e => updateNode(node.id, { occupantName: e.target.value })}
-                            placeholder="Nome do ocupante"
-                            className="w-full px-3 py-2 bg-white dark:bg-white/5 border border-stone-200 rounded-xl text-espresso focus:outline-none focus:border-plum/50 shadow-xs font-bold text-xs"
-                          />
-                        </div>
-                      )}
 
                       {node.capacity > 0 && node.type !== 'table' && (
                         <div className="p-3 bg-stone-50 rounded-xl border border-stone-200/80 shadow-xs">
