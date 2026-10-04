@@ -24,6 +24,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { gravarEvento, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTicketType } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
+import { useTourLog } from '../../hooks/useTourLog'
 import { siteUrl } from '../../lib/appHost'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
 import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
@@ -51,6 +52,7 @@ const NOME_SECAO = Object.fromEntries(SECOES.map(s => [s.id, s.nome])) as Record
 type UltimoAceite = { classificacao: string | null; tem_bebida: boolean; versao: string; texto_hash: string }
 const PONTO: Record<ModoPainel, string> = { rascunho: 'bg-muted-foreground', recusado: 'bg-destructive', analise: 'bg-[var(--ev-warning)]', publicado: 'bg-[var(--ev-success)]', fechado: 'bg-muted-foreground' }
 const ATIVO = ['rascunho', 'recusado', 'analise']
+const GUIA = 'guia:painel-evento' // registro em onboarding_logs (V9): sem ele, o rascunho abre no modo guiado
 
 const porCriacao = (l: DbTicketType[]) => [...l].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
 const semCentavos = (v: number) => brl(v).replace(',00', '')
@@ -184,6 +186,11 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
   const [abertas, setAbertas] = useState<string[]>(['oque'])
+  // Modo guiado (decisão 164.1): todo produtor, em rascunho, até concluir ou pular. Leitura com erro = painel normal.
+  const { feitos, registrar, carregou, erro: erroGuia } = useTourLog({ ativo: modo === 'rascunho' })
+  const [passo, setPasso] = useState(0)
+  const [saiuGuia, setSaiuGuia] = useState(false)
+  const guiado = modo === 'rascunho' && carregou && !erroGuia && !feitos.has(GUIA) && !saiuGuia
 
   const set = useCallback((p: Partial<Form>) => setForm(f => ({ ...f, ...p })), [])
   const snap = useMemo(() => snapDoForm(form), [form])
@@ -296,12 +303,19 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const resumoFalta = (id: string) => !pronta(id) && !(id === 'pub' && modo !== 'rascunho' && modo !== 'recusado')
 
   const abrir = (id: string) => {
-    setAbertas(a => (a.includes(id) ? a : [...a, id]))
+    if (guiado) setPasso(SECOES.findIndex(s => s.id === id))
+    else setAbertas(a => (a.includes(id) ? a : [...a, id]))
     setTimeout(() => {
       const cab = document.getElementById(`s-${id}`)
       cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
       cab?.focus({ preventScroll: true })
     }, 50)
+  }
+
+  function verTodas() {
+    void registrar(GUIA, { skipped: true })
+    setAbertas([SECOES[passo].id]); setSaiuGuia(true)
+    abrir(SECOES[passo].id) // o botão some: o foco vai ao título da seção
   }
 
   // ---- ingressos: gravação própria ----
@@ -387,6 +401,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         else if (modo === 'publicado' && !soAceite) await recarregar()
         return
       }
+      if (guiado) void registrar(GUIA, { skipped: false })
       await recarregar() // relê evento e último aceite ANTES de fechar: a faixa "Aceite pendente" não pode piscar depois do sucesso
       setDialogo(false); setSoAceite(false)
       toast.success(soAceite ? 'Aceite registrado.' : modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
@@ -564,7 +579,16 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         )}
       </div>
 
-      {modo !== 'fechado' && (
+      {guiado && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span className="text-[13px] font-semibold leading-5 text-foreground">Passo {passo + 1} de {SECOES.length} · {SECOES[passo].nome}</span>
+          <span aria-hidden="true" className="flex max-w-60 flex-1 gap-1">
+            {SECOES.map((s, i) => <span key={s.id} className={cn('h-1 flex-1 rounded-sm', i <= passo ? 'bg-foreground' : 'bg-secondary')} />)}
+          </span>
+          <Button variant="ghost" size="sm" onClick={verTodas}>Ver todas as seções</Button>
+        </div>
+      )}
+      {modo !== 'fechado' && !guiado && (
         <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos} de {lista.length}</span> <span className="text-sm text-muted-foreground">prontos</span></span>
           <span role="progressbar" aria-label="Itens prontos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={prontos} className="h-2 min-w-24 flex-1 overflow-hidden rounded bg-secondary">
@@ -576,7 +600,10 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         </div>
       )}
 
-      <Accordion type="multiple" value={abertas} onValueChange={setAbertas} className="border-t border-border">
+      <Accordion
+        type="multiple" value={guiado ? [SECOES[passo].id] : abertas}
+        onValueChange={guiado ? v => { const n = v.find(i => i !== SECOES[passo].id); if (n) abrir(n) } : setAbertas} className="border-t border-border"
+      >
         {SECOES.map(s => {
           const ok = pronta(s.id)
           const falta = resumoFalta(s.id)
@@ -594,6 +621,12 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-6 pt-1">
                 <fieldset disabled={somenteLeitura || enviando} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
+                {guiado && s.id !== 'pub' && (
+                  <div className="mt-4 flex justify-end gap-2">
+                    {passo > 0 && <Button variant="ghost" onClick={() => abrir(SECOES[passo - 1].id)}>Voltar</Button>}
+                    <Button variant="secondary" onClick={() => abrir(SECOES[passo + 1].id)}>Próximo</Button>
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
           )
