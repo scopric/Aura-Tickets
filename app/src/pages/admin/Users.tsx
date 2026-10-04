@@ -306,6 +306,29 @@ export default function AdminUsers() {
     }
   }, [selectedProfile])
 
+  // Painel modal: Esc fecha, Tab fica dentro do painel, a página de fundo não rola e o foco volta ao "Gerenciar" que abriu
+  const openerRef = useRef<HTMLElement | null>(null)
+  const painelRef = useRef<HTMLDivElement>(null)
+  const abertoId = selectedProfile?.id
+  useEffect(() => {
+    if (!abertoId) return
+    const opener = openerRef.current
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') { setSelectedProfile(null); return }
+      if (ev.key !== 'Tab' || !painelRef.current) return
+      const itens = [...painelRef.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(el => !(el as HTMLButtonElement).disabled && el.offsetParent !== null)
+      if (!itens.length) return
+      const primeiro = itens[0], ultimo = itens[itens.length - 1]
+      if (!painelRef.current.contains(document.activeElement)) { ev.preventDefault(); primeiro.focus() }
+      else if (ev.shiftKey && document.activeElement === primeiro) { ev.preventDefault(); ultimo.focus() }
+      else if (!ev.shiftKey && document.activeElement === ultimo) { ev.preventDefault(); primeiro.focus() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = prevOverflow; opener?.focus?.() }
+  }, [abertoId])
+
   useEffect(() => {
     if (selectedProfile && drawerTab === 'history') {
       loadUserHistory(selectedProfile.id)
@@ -601,7 +624,7 @@ export default function AdminUsers() {
                       <span className="text-xs text-muted-foreground" title="Data do cadastro">{new Date(p.created_at).toLocaleDateString('pt-BR')}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <Button variant="outline" size="sm" onClick={() => handleOpenEdit(p)}>
+                      <Button variant="outline" size="sm" onClick={ev => { openerRef.current = ev.currentTarget; handleOpenEdit(p) }}>
                         <I.Editar aria-hidden="true" />
                         Gerenciar
                       </Button>
@@ -618,7 +641,7 @@ export default function AdminUsers() {
       {selectedProfile && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 glass-backdrop" onClick={() => setSelectedProfile(null)} />
-          <div role="dialog" aria-modal="true" aria-label={`Gerenciar ${selectedProfile.full_name || selectedProfile.email}`} className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0 text-foreground">
+          <div ref={painelRef} role="dialog" aria-modal="true" aria-label={`Gerenciar ${selectedProfile.full_name || selectedProfile.email}`} className="glass-panel relative w-full max-w-lg h-full flex flex-col justify-between overflow-y-auto rounded-r-none border-y-0 border-r-0 text-foreground">
             {/* Top Header */}
             <div className="p-6 border-b border-border flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
@@ -634,13 +657,12 @@ export default function AdminUsers() {
             </div>
 
             {/* Tabs Selector */}
-            <div role="tablist" aria-label="Seções do usuário" className="px-6 border-b border-border flex gap-4">
+            <div role="group" aria-label="Seções do usuário" className="px-6 border-b border-border flex gap-4">
               {([['config', 'Configurações RLS'], ['history', 'Histórico & Comportamento']] as const).map(([id, rotuloAba]) => (
                 <button
                   key={id}
                   type="button"
-                  role="tab"
-                  aria-selected={drawerTab === id}
+                  aria-pressed={drawerTab === id}
                   onClick={() => setDrawerTab(id)}
                   className={cn(
                     '-mb-px border-b-2 py-3 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',

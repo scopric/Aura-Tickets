@@ -829,20 +829,25 @@ export default function AdminAnalytics() {
           {activeSubTab !== 'users_engagement' && (
             <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Período">
               <span className="mr-1 text-xs text-muted-foreground">Período</span>
-              {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
-                <Button
-                  key={p.id}
-                  size="sm"
-                  variant={period === p.id ? 'secondary' : 'ghost'}
-                  aria-pressed={period === p.id}
-                  onClick={() => {
-                    if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
-                    setPeriod(p.id)
-                  }}
-                >
-                  {p.rotulo}
-                </Button>
-              ))}
+              <div className="flex flex-wrap gap-1 rounded-ev-lg bg-secondary p-0.5">
+                {[...periodos, ...(activeSubTab === 'traffic' ? [{ id: 'custom' as const, rotulo: 'Personalizado' }] : [])].map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={period === p.id}
+                    onClick={() => {
+                      if (p.id === 'custom') setRascunho(personalizado ?? { de: '', ate: hojeIso })
+                      setPeriod(p.id)
+                    }}
+                    className={cn(
+                      'flex h-8 items-center rounded-ev-md px-3 text-[13px] font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      period === p.id ? 'bg-card text-foreground shadow-ev-seg' : 'text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    {p.rotulo}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
