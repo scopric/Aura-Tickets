@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -96,6 +96,25 @@ describe('dataPorVir e confirmacaoArquivar', () => {
     expect(confirmacaoArquivar('Festa', undefined, true)).toMatch(/não pode sair do ar antes da data: fale com o suporte/)
     expect(confirmacaoArquivar('Festa', 0, true)).not.toMatch(/suporte/)
     expect(confirmacaoArquivar('Festa', undefined, false)).not.toMatch(/suporte/)
+  })
+})
+
+describe('noAr (Decisão 163 item 5)', () => {
+  // agora = 01/10 12:00 UTC = 09:00 em Brasília
+  const agora = Date.parse('2026-10-01T12:00:00Z')
+  const ok = { status: 'published', approval_status: 'approved' }
+  const sem = { start_date: '2026-09-01T12:00:00Z', end_date: null }
+  it('evento de hoje que começou há 1 h, sem fim, continua no ar', () => {
+    expect(noAr({ ...ok, ...sem, date: '2026-10-01', time: '08:00:00' }, agora)).toBe(true)
+  })
+  it('evento de ontem não; só start_date futuro sim', () => {
+    expect(noAr({ ...ok, ...sem, date: '2026-09-30', time: '10:00:00' }, agora)).toBe(false)
+    expect(noAr({ ...ok, start_date: '2026-10-05T20:00:00Z', end_date: null }, agora)).toBe(true)
+  })
+  it('exige publicado e aprovado', () => {
+    const futuro = { start_date: '2999-01-01T12:00:00Z', end_date: null }
+    expect(noAr({ status: 'draft', approval_status: 'approved', ...futuro }, agora)).toBe(false)
+    expect(noAr({ status: 'published', approval_status: 'pending', ...futuro }, agora)).toBe(false)
   })
 })
 

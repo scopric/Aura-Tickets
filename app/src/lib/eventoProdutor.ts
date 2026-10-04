@@ -83,6 +83,11 @@ export function instanteLocal(data: string, hora = '00:00:00'): number {
 export const diaInteiro = (e: DbEvent) => !!e.date && !e.time
 export const inicioDe = (e: DbEvent) => (e.date ? instanteLocal(e.date, e.time || '00:00:00') : new Date(e.start_date).getTime())
 export const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime() : inicioDe(e) + (diaInteiro(e) ? DIA : DURACAO_PADRAO))
+// No ar (Decisão 163 item 5): aprovado, publicado e ainda visível ao comprador: o evento não terminou (fim = end_date
+// ou início + 12 h, o mesmo do "ao vivo"), então evento em andamento conta. Igual no Painel e em Eventos.
+export const noAr = (e: { status: string; approval_status?: string | null; start_date: string; end_date: string | null; date?: string | null; time?: string | null }, agora = Date.now()): boolean =>
+  e.status === 'published' && e.approval_status === 'approved' && fimDe(e as DbEvent) > agora
+
 // Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
 export function confirmacaoArquivar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
   const base = `Arquivar "${titulo}"? A situação passa a ser Encerrado.`

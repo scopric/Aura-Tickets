@@ -644,7 +644,7 @@ export default function AdminAnalytics() {
     visualizacoes: number
     logins: number
     contas_ativas: number
-  }>({
+  } | null>({
     sessoes: 0,
     visualizacoes: 0,
     logins: 0,
@@ -652,6 +652,7 @@ export default function AdminAnalytics() {
   })
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [lidoEm, setLidoEm] = useState<Date | null>(null) // última leitura completa sem erro
 
   const loadAnalyticsData = async () => {
     setIsLoading(true)
@@ -679,6 +680,7 @@ export default function AdminAnalytics() {
 
       if (logsError) {
         console.warn('Erro ao carregar logs:', logsError)
+        setLoadError(prev => prev || logsError.message)
       } else if (logs) {
         const formattedLogs: ActivityLog[] = logs.map((l: any) => {
           const userProfile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles
@@ -745,8 +747,8 @@ export default function AdminAnalytics() {
       if (statsError) {
         console.warn('Erro ao chamar RPC admin_activity_stats:', statsError)
         setLoadError(prev => prev || statsError.message)
-        // não deixa o número do período anterior parecer válido para o período novo
-        setActivityStats({ sessoes: 0, visualizacoes: 0, logins: 0, contas_ativas: 0 })
+        // não deixa o número do período anterior parecer válido nem vira zero: sem dado
+        setActivityStats(null)
       } else if (statsData && statsData.length > 0) {
         const row = statsData[0]
         setActivityStats({
@@ -755,10 +757,12 @@ export default function AdminAnalytics() {
           logins: Number(row.logins || 0),
           contas_ativas: Number(row.contas_ativas || 0),
         })
+        if (!logsError && !profilesError) setLidoEm(new Date())
       }
     } catch (err) {
       console.error('[Analytics] Erro geral:', err)
       setLoadError(err instanceof Error ? err.message : 'erro desconhecido')
+      setActivityStats(null)
     } finally {
       setIsLoading(false)
     }
@@ -861,9 +865,9 @@ export default function AdminAnalytics() {
         </div>
       </header>
 
-      {loadError && activeSubTab === 'overview' && (
+      {loadError && activeSubTab !== 'traffic' && (
         <div role="alert" className={alertaErro}>
-          Não foi possível carregar todos os dados de analytics: {loadError}. Os números abaixo podem estar incompletos.
+          <span title={loadError}>Não foi possível ler os dados agora{lidoEm ? ` (última leitura às ${lidoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})` : ''}.</span> Os números abaixo podem estar incompletos.
         </div>
       )}
 
@@ -912,9 +916,9 @@ export default function AdminAnalytics() {
         <div className="space-y-6">
           <div className="an-anim grid grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-5">
             <Numero icone={I.Pessoas} rotulo="Contas" valor={totalUsers === null ? '—' : fmtNum(totalUsers)} apoio="Perfis registrados (total)" />
-            <Numero icone={I.Atividade} rotulo="Sessões" valor={fmtNum(activityStats.sessoes)} apoio="No período · só de quem aceitou cookies" />
-            <Numero icone={I.Olho} rotulo="Páginas vistas" valor={fmtNum(activityStats.visualizacoes)} apoio="No período · só de quem aceitou cookies" />
-            <Numero icone={I.Horario} rotulo="Logins" valor={fmtNum(activityStats.logins)} apoio="No período · com senha e cookies aceitos (login pelo Google não conta)" />
+            <Numero icone={I.Atividade} rotulo="Sessões" valor={activityStats ? fmtNum(activityStats.sessoes) : '—'} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={I.Olho} rotulo="Páginas vistas" valor={activityStats ? fmtNum(activityStats.visualizacoes) : '—'} apoio="No período · só de quem aceitou cookies" />
+            <Numero icone={I.Horario} rotulo="Logins" valor={activityStats ? fmtNum(activityStats.logins) : '—'} apoio="No período · com senha e cookies aceitos (login pelo Google não conta)" />
           </div>
 
           <div className={`an-anim ${painel} p-5 sm:p-6`}>
@@ -922,9 +926,9 @@ export default function AdminAnalytics() {
             <p className="text-xs text-muted-foreground mt-1 mb-5">Métricas calculadas dinamicamente pela função analítica interna do Supabase.</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { icone: I.PessoaCheck, rotulo: 'Contas ativas no período', valor: fmtNum(activityStats.contas_ativas), apoio: 'Usuários únicos com ações registradas' },
-                { icone: I.Olho, rotulo: 'Páginas por sessão', valor: activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1).replace('.', ',') : '—', apoio: 'Média de páginas vistas' },
-                { icone: I.Horario, rotulo: 'Logins por conta', valor: activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1).replace('.', ',') : '—', apoio: 'Média de entradas por conta ativa' },
+                { icone: I.PessoaCheck, rotulo: 'Contas ativas no período', valor: activityStats ? fmtNum(activityStats.contas_ativas) : '—', apoio: 'Usuários únicos com ações registradas' },
+                { icone: I.Olho, rotulo: 'Páginas por sessão', valor: activityStats && activityStats.sessoes > 0 ? (activityStats.visualizacoes / activityStats.sessoes).toFixed(1).replace('.', ',') : '—', apoio: 'Média de páginas vistas' },
+                { icone: I.Horario, rotulo: 'Logins por conta', valor: activityStats && activityStats.contas_ativas > 0 ? (activityStats.logins / activityStats.contas_ativas).toFixed(1).replace('.', ',') : '—', apoio: 'Média de entradas por conta ativa' },
               ].map(m => (
                 <div key={m.rotulo} className="rounded-[10px] border border-border bg-secondary/50 p-4">
                   <div className="flex items-center gap-2 text-xs text-muted-foreground"><m.icone size={14} aria-hidden />{m.rotulo}</div>
@@ -953,7 +957,7 @@ export default function AdminAnalytics() {
           </div>
 
           {recentLogs.length === 0 ? (
-            <div className="p-4"><EmptyState title="Nenhuma atividade registrada ainda." /></div>
+            <div className="p-4"><EmptyState title={loadError ? 'Atividades indisponíveis (erro acima).' : 'Nenhuma atividade registrada ainda.'} /></div>
           ) : (
             <Tabela label="Registro de acessos recentes">
               <thead>

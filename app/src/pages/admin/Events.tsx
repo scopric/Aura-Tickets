@@ -8,7 +8,7 @@ import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
-import { naFilaDeModeracao } from '../../lib/eventoProdutor'
+import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
 import { rotuloFormato } from '../../lib/tipoEvento'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
@@ -106,21 +106,17 @@ export default function AdminEvents() {
     }
   }
 
-  const approved = allEvents.filter(e => e.status === 'published' && e.approval_status === 'approved')
+  const approved = allEvents.filter(e => noAr(e))
+  const aprovadosNoTotal = allEvents.filter(e => e.approval_status === 'approved').length
   const pending = allEvents.filter(naFilaDeModeracao)
   
-  const totalRevenue = approved.reduce((s, e) => {
-    const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
-    return s + eventRevenue
-  }, 0)
-
   const filteredEvents = allEvents.filter(e => {
     if (activeTab === 'all') return true
     if (activeTab === 'pending') return naFilaDeModeracao(e)
     return (e.approval_status || 'pending') === activeTab
   })
 
-  const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados'], ['rejected', 'Rejeitados']] as const
+  const filtros = [['all', 'Todos'], ['pending', 'Pendentes'], ['approved', 'Aprovados (todos)'], ['rejected', 'Rejeitados']] as const
 
   return (
     <div className="p-6 lg:p-10 max-w-7xl">
@@ -129,9 +125,10 @@ export default function AdminEvents() {
       {/* Stats */}
       <div className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Total" value={allEvents.length.toString()} />
-        <Stat label="Aprovados" value={approved.length.toString()} />
+        <Stat label="No ar" value={approved.length.toString()} hint={`${aprovadosNoTotal} aprovados no total`} />
         <Stat label="Pendentes" value={pending.length.toString()} />
-        <Stat label="Receita" value={`R$ ${(totalRevenue / 1000).toFixed(1)}K`} />
+        {/* ponytail: '—' até a Fase 4; usar vendas reais (useVendidosPorEvento), não ticket_types.sold */}
+        <Stat label="Receita" value="—" hint="sem venda confirmada (Fase 4)" />
       </div>
 
       {/* Abas de filtro */}
@@ -179,13 +176,11 @@ export default function AdminEvents() {
                 <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Publicação</th>
                 <th className={cn(th, 'hidden px-2 sm:table-cell sm:px-4')}>Moderação</th>
                 <th className={cn(th, 'px-2 text-center sm:px-4')}>Destaque</th>
-                <th className={cn(th, 'hidden px-2 text-right sm:px-4 lg:table-cell')}>Receita</th>
                 <th className="px-2 py-3 sm:px-4"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
               {filteredEvents.map(e => {
-                const eventRevenue = (e.ticket_types || []).reduce((sum, t) => sum + (Number(t.price) || 0) * (Number(t.sold) || 0), 0)
                 const pubStatus = statusCfg[e.status] || { label: e.status, cls: chipNeutro }
                 const appStatus = approvalStatusCfg[e.approval_status || 'pending']
                 const formattedDate = e.date
@@ -235,11 +230,6 @@ export default function AdminEvents() {
                       >
                         <I.Estrela ativo={!!e.featured_carousel} />
                       </Button>
-                    </td>
-                    <td className="hidden px-2 py-3 text-right sm:px-4 lg:table-cell">
-                      <div className="font-display text-sm tabular-nums text-foreground">
-                        {eventRevenue > 0 ? `R$ ${eventRevenue.toLocaleString()}` : '-'}
-                      </div>
                     </td>
                     <td className="px-2 py-3 text-right sm:px-4">
                       <div className="flex flex-wrap items-center justify-end gap-1">
@@ -383,7 +373,6 @@ export default function AdminEvents() {
                           <th className="py-1 pr-2 font-medium">Nome</th>
                           <th className="py-1 pr-2 font-medium">Preço</th>
                           <th className="py-1 pr-2 font-medium">Qtd.</th>
-                          <th className="py-1 pr-2 font-medium">Vendidos</th>
                           <th className="py-1 font-medium">Ativo</th>
                         </tr>
                       </thead>
@@ -393,7 +382,6 @@ export default function AdminEvents() {
                             <td className="py-1.5 pr-2 text-foreground">{t.name}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{Number(t.price).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
                             <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.quantity_total ?? t.capacity ?? '—'}</td>
-                            <td className="py-1.5 pr-2 tabular-nums text-foreground">{t.sold ?? 0}</td>
                             <td className="py-1.5 text-foreground">{t.is_active ? 'Sim' : 'Não'}</td>
                           </tr>
                         ))}
