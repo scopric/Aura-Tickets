@@ -43,7 +43,8 @@
 -- 8. Sair NÃO apaga (anti-loop de e-mail): o participante não tem DELETE; interesse_sair marca removido_em e
 --    interesse_entrar reativa a MESMA linha sem zerar notified nem email_enviado_em. Sem isso, entrar e sair
 --    repetidamente geraria um aviso (e um e-mail) novo a cada ciclo. O cron, a fila de e-mail e a lista do produtor
---    ignoram removidos. Só o produtor apaga a linha (interesse_remover): reinscrição depois disso é linha nova.
+--    ignoram removidos. interesse_remover (produtor) também só marca removido_em: nada é apagado, então a
+--    reinscrição depois da remoção também não gera segundo aviso nem e-mail.
 -- 9. E-mail e lead do CRM só para conta com e-mail CONFIRMADO (auth.users.email_confirmed_at). O e-mail usado é
 --    sempre o de auth.users (lista do produtor, CRM e fila), nunca profiles.email (o próprio usuário o edita).
 -- 10. consentimento_versao: lista fechada (CHECK). Aprovado o texto, a versão nova entra aqui por SQL.
@@ -196,9 +197,9 @@ as $$
 declare n int;
 begin
   if (select auth.uid()) is null or not (select public.gf_mfa_ok()) then return false; end if;
-  delete from public.interest_lists i
-  using public.events e
-  where i.id = p_id and e.id = i.event_id and e.producer_id = (select auth.uid());
+  update public.interest_lists i set removido_em = now()
+  from public.events e
+  where i.id = p_id and i.removido_em is null and e.id = i.event_id and e.producer_id = (select auth.uid());
   get diagnostics n = row_count;
   return n = 1;
 end;

@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(60);
+select plan(66);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -124,7 +124,7 @@ select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000008');
 select is(public.interesse_remover((select i.id from public.interest_lists i where i.event_id = 'ab000000-0000-4000-8000-0000000000e1' limit 1)), false,
   'Q (sem ver nada) não remove inscrição do evento de P');
 select pg_temp.como('postgres');
-select is((select count(*) from public.interest_lists where event_id = 'ab000000-0000-4000-8000-0000000000e1'), 1::bigint, 'a inscrição de C continua');
+select is((select count(*) from public.interest_lists where event_id = 'ab000000-0000-4000-8000-0000000000e1' and removido_em is null), 1::bigint, 'a inscrição de C continua (a de A só ficou marcada como removida)');
 -- 2FA: produtor com fator verificado e token aal1 não lê nada
 insert into auth.mfa_factors (user_id, status) values ('ab000000-0000-4000-8000-000000000009', 'verified');
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000009', 'aal1');
@@ -135,8 +135,9 @@ select pg_temp.como('postgres');
 delete from auth.mfa_factors;
 
 -- Cron: aviso -------------------------------------------------------------------------------------------------------
-insert into public.interest_lists (id, event_id, user_id, ticket_type_id, consentimento_versao) values
-  ('ab000000-0000-4000-8000-0000000000a1', 'ab000000-0000-4000-8000-0000000000e1', 'ab000000-0000-4000-8000-00000000000a', 'ab000000-0000-4000-8000-0000000000f1', 'p4-rascunho-1');
+-- a linha de A (removida pelo produtor acima) volta a valer, com ticket_type e id conhecidos
+update public.interest_lists set id = 'ab000000-0000-4000-8000-0000000000a1', ticket_type_id = 'ab000000-0000-4000-8000-0000000000f1', removido_em = null
+  where user_id = 'ab000000-0000-4000-8000-00000000000a' and event_id = 'ab000000-0000-4000-8000-0000000000e1';
 select is(public.gf_interesse_avisar(), 0::int, 'venda ainda não abriu: ninguém é avisado');
 update public.ticket_types set sale_start = now() - interval '1 minute' where id = 'ab000000-0000-4000-8000-0000000000f1';
 select is(public.gf_interesse_avisar(), 1::int, 'venda abriu: A é avisada (C, sem consentimento, não)');
@@ -164,6 +165,18 @@ select ok((select notified and email_enviado_em is not null from public.interest
 select is(public.gf_interesse_avisar(), 0::int, 'sair e reentrar: nenhum segundo aviso');
 select is((select count(*) from public.notifications where user_id = 'ab000000-0000-4000-8000-00000000000a'), 1::bigint, 'A tem um aviso só');
 select is((select count(*) from public.interesse_email_due()), 0::bigint, 'e nenhum segundo e-mail na fila');
+
+-- Produtor remove e a pessoa reinscreve: também sem segundo aviso nem e-mail --------------------------------------------
+select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000009');
+select is(public.interesse_remover('ab000000-0000-4000-8000-0000000000a1'), true, 'P remove A (só marca removido_em)');
+select is(public.interesse_remover('ab000000-0000-4000-8000-0000000000a1'), false, 'remover de novo: nada');
+select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-00000000000a');
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$, 'A reinscreve depois da remoção pelo produtor');
+select pg_temp.como('postgres');
+select ok((select notified and email_enviado_em is not null and removido_em is null from public.interest_lists where id = 'ab000000-0000-4000-8000-0000000000a1'),
+  'a mesma linha, ainda avisada e com e-mail enviado');
+select is(public.gf_interesse_avisar(), 0::int, 'sem segundo aviso depois da remoção do produtor');
+select is((select count(*) from public.interesse_email_due()), 0::bigint, 'nem segundo e-mail');
 
 -- Conta sem e-mail confirmado: o sino sai, e-mail e lead não -------------------------------------------------------------
 update public.ticket_types set sale_start = now() - interval '1 minute' where id = 'ab000000-0000-4000-8000-0000000000f3';
