@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { Dialog, DialogClose, DialogDescription, DialogOverlay, DialogPortal, DialogTitle, DialogTrigger } from './ui/dialog'
@@ -8,6 +8,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip'
 import { useAuth } from '../hooks/useAuth'
 import { publicoDoPapel, useMinhasConversas } from '../hooks/useConversas'
 import { useCamada } from '../lib/camadas'
+import { tourDoCaminho } from '../lib/tours'
+import { useTourLog } from '../hooks/useTourLog'
 import { JanelaSuporte, SupportChatPanel } from './SupportChatWidget'
 import { BotaoSom } from './chat/ChatThread'
 import EvoChat, { type Mensagem } from './evo/EvoChat'
@@ -38,7 +40,8 @@ function gravarConvite(mudar: (c: Convite) => Convite) {
   }
 }
 
-type Balao = 'convite' | 'resposta' | 'aviso' | null
+// 'pergunta' = convite que oferece o tour da tela (V9b); só existe em tela com tour ainda não feito nem dispensado
+type Balao = 'convite' | 'pergunta' | 'resposta' | 'aviso' | null
 
 /**
  * Evo flutuante de corpo inteiro no canto inferior direito (áreas do produtor e do participante)
@@ -61,27 +64,47 @@ export default function EvoHub() {
   const [pulando, setPulando] = useState(false)
   const abertoRef = useRef(aberto)
   const mascoteRef = useRef<HTMLButtonElement>(null)
-  const { pathname } = useLocation()
+  const balaoRef = useRef<HTMLDivElement>(null)
+  const { pathname, search } = useLocation()
+  const navigate = useNavigate()
   const camada = useCamada()
   const conviteDisparado = useRef(false) // nesta carga o convite vale uma vez, mesmo se a camada sair e voltar a null
   const podeEvo = user?.role === 'producer' || user?.role === 'admin'
+  // Tour da tela: o Evo oferece se a pessoa ainda não fez nem dispensou. O tour nunca abre sozinho.
+  // Só o produtor tem tour (V9c traz o do participante): os outros papéis nem leem o registro
+  const temTour = user?.role === 'producer'
+  const { feitos, registrar, carregou } = useTourLog({ ativo: temTour })
+  const tour = temTour ? tourDoCaminho(pathname) : null
+  const tourAberto = new URLSearchParams(search).has('tour')
+  const oferecer = !!tour && !tourAberto && !feitos.has(`tour:${tour.id}`) && !feitos.has(`dica:${tour.id}`)
+  const oferecerRef = useRef(oferecer)
+  const tourAbertoRef = useRef(tourAberto)
+  // decidir só com o registro lido: senão o convite comum piscaria antes da pergunta
+  const aguardandoLog = !!tour && !carregou
   // Respostas da equipe não lidas (a aba "Falar com a Evokaa"); o canal do Realtime fica aqui porque o EvoHub não desmonta
   const { naoLidas: naoLidasSuporte } = useMinhasConversas(true)
 
   useEffect(() => {
     abertoRef.current = aberto
   }, [aberto])
+  useEffect(() => {
+    oferecerRef.current = oferecer
+    tourAbertoRef.current = tourAberto
+  }, [oferecer, tourAberto])
 
   // Convite ~2 s depois de carregar; o relógio só começa com cookies e Política resolvidos (uma camada por vez)
   useEffect(() => {
-    if (camada !== null || conviteDisparado.current) return
+    if (camada !== null || aguardandoLog || conviteDisparado.current) return
     const t = setTimeout(() => {
       conviteDisparado.current = true
+      if (abertoRef.current || tourAbertoRef.current) return // com o tour aberto o balão não cobre o tour
+      // a pergunta da tela tem memória própria (tour:/dica:), não depende do histórico do convite comum
+      if (oferecerRef.current) return setBalao((b) => b ?? 'pergunta')
       const c = lerConvite()
-      if (!abertoRef.current && (!c || (!c.aberto && c.fechados < 3))) setBalao((b) => b ?? 'convite')
+      if (!c || (!c.aberto && c.fechados < 3)) setBalao((b) => b ?? 'convite')
     }, 2000)
     return () => clearTimeout(t)
-  }, [camada])
+  }, [camada, aguardandoLog])
 
   // O aviso de resposta some sozinho em 8 s (o selo fica)
   useEffect(() => {
@@ -98,8 +121,31 @@ export default function EvoHub() {
     setNaoLidas(0)
   }
 
+  // o balão sai da tela: se o foco estava nele, volta ao mascote (senão cai no body)
+  const devolverFoco = () => {
+    if (balaoRef.current?.contains(document.activeElement)) mascoteRef.current?.focus()
+  }
+
   const fecharBalao = () => {
+    if (balao === 'pergunta') return agoraNao() // fechar é escolha do usuário: vale como "Agora não"
     if (balao === 'convite') gravarConvite((c) => ({ ...c, fechados: c.fechados + 1 }))
+    devolverFoco()
+    setBalao(null)
+  }
+
+  // Ver o tour da tela: só navegação para ?tour= (o ProducerLayout abre); o registro vem ao fim do tour
+  const mostrarTour = () => {
+    if (!tour) return
+    devolverFoco()
+    setBalao(null)
+    setAberto(false)
+    const q = new URLSearchParams(search) // mantém os outros parâmetros da tela (ex.: ?eventId=)
+    q.set('tour', tour.id)
+    navigate({ pathname, search: `?${q}` })
+  }
+  const agoraNao = () => {
+    if (tour) void registrar(`dica:${tour.id}`)
+    devolverFoco()
     setBalao(null)
   }
 
@@ -125,9 +171,16 @@ export default function EvoHub() {
     setVisto({ pathname, dono: user?.id })
   }
 
+  // A pergunta só vale enquanto a tela oferece o tour (navegou para tela sem tour ou já feito/dispensado,
+  // ou o tour abriu por outro caminho): sai da tela e o estado é limpo (não volta quando o tour fechar)
+  if (balao === 'pergunta' && !oferecer) setBalao(null)
+  const balaoAtivo = balao === 'pergunta' && !oferecer ? null : balao
   // Derivado do selo; o número muda a cada resposta porque o leitor de tela não reanuncia um
   // aria-live com o mesmo texto
-  const anuncio = naoLidas === 0 ? '' : naoLidas === 1 ? 'Nova resposta do Evo' : `Nova resposta do Evo (${naoLidas})`
+  // A pergunta do tour também entra aqui: a região ao vivo já existe na página, então o leitor de tela a anuncia
+  const anuncio = naoLidas === 0
+    ? (balaoAtivo === 'pergunta' && tour && !aberto ? `Primeira vez em ${tour.nome}? Quer ver em ${tour.passos} passos?` : '')
+    : naoLidas === 1 ? 'Nova resposta do Evo' : `Nova resposta do Evo (${naoLidas})`
   const pensandoFechado = pensando && !aberto
   const selo = naoLidas + naoLidasSuporte
   const rotulo = pensandoFechado
@@ -157,28 +210,55 @@ export default function EvoHub() {
       <div data-tour="evo" className="fixed bottom-[calc(1.5rem+var(--barra-cel,0px))] right-6 z-50">
         <p className="sr-only" role="status" aria-live="polite">{anuncio}</p>
 
-        {balao && !aberto && (
-          // < 380 px o balão cobriria o conteúdo: não aparece (o selo e o anúncio continuam)
+        {balaoAtivo && !aberto && (
+          // < 380 px o balão cobriria o conteúdo: some (o selo e o anúncio continuam); a pergunta do tour
+          // tem versão compacta (texto curto, botões lado a lado) que cabe em 360 px
           <div
-            className="glass-panel absolute bottom-14 right-full mr-3 flex w-max max-w-[min(260px,calc(100vw-7.5rem))] items-start gap-0.5 py-2 pl-3.5 pr-1 text-sm leading-snug max-[379px]:hidden rounded-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2"
+            ref={balaoRef}
+            className={`glass-panel absolute bottom-14 right-full mr-3 flex w-max max-w-[min(260px,calc(100vw-7.5rem))] items-start gap-0.5 py-2 pl-3.5 pr-1 text-sm leading-snug rounded-[18px] motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2 ${balaoAtivo === 'pergunta' ? '' : 'max-[379px]:hidden'}`}
           >
-            <button
-              type="button"
-              onClick={() => mudarAberto(true)}
-              className="rounded-md text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
-            >
-              {balao === 'convite' ? (
-                <>
-                  <span className="sm:hidden">Oi! Sou o Evo 👋</span>
-                  <span className="hidden sm:inline">{textoBalao.convite}</span>
-                </>
-              ) : textoBalao[balao]}
-            </button>
+            {balaoAtivo === 'pergunta' ? (
+              tour && <div>
+                <p className="font-medium">
+                  <span className="min-[380px]:hidden">Ver esta tela em {tour.passos} passos?</span>
+                  <span className="hidden min-[380px]:inline">Primeira vez em {tour.nome}? Quer ver em {tour.passos} passos?</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={mostrarTour}
+                    className="min-h-10 rounded-full bg-plum px-3 text-xs font-semibold text-[#fff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 focus-visible:ring-offset-2 dark:focus-visible:ring-violet-300"
+                  >
+                    Mostrar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={agoraNao}
+                    className="min-h-10 rounded-full border border-slate-900/20 px-3 text-xs text-slate-800 hover:bg-slate-900/5 dark:border-white/15 dark:text-slate-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
+                  >
+                    Agora não
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => mudarAberto(true)}
+                className="rounded-md text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
+              >
+                {balaoAtivo === 'convite' ? (
+                  <>
+                    <span className="sm:hidden">Oi! Sou o Evo 👋</span>
+                    <span className="hidden sm:inline">{textoBalao.convite}</span>
+                  </>
+                ) : textoBalao[balaoAtivo]}
+              </button>
+            )}
             <button
               type="button"
               onClick={fecharBalao}
               aria-label="Fechar aviso do Evo"
-              className="shrink-0 rounded-md p-0.5 text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
+              className="-my-2 -mr-1 grid size-10 shrink-0 place-items-center rounded-md text-slate-700 hover:bg-slate-900/5 dark:text-slate-300 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -240,7 +320,7 @@ export default function EvoHub() {
               </DialogTrigger>
             </TooltipTrigger>
             {/* com o balão na tela o rótulo repetiria o convite por cima dele */}
-            {!(balao && !aberto) && <TooltipContent side="left">Falar com o Evo</TooltipContent>}
+            {!(balaoAtivo && !aberto) && <TooltipContent side="left">Falar com o Evo</TooltipContent>}
           </Tooltip>
         </div>
       </div>
@@ -282,6 +362,7 @@ export default function EvoHub() {
                   formPlanejar={formPlanejar}
                   setFormPlanejar={setFormPlanejar}
                   onResposta={aoResponder}
+                  tourDaTela={tour ? { mostrar: mostrarTour } : null}
                 />
               </TabsContent>
               <TabsContent value="suporte" className="min-h-0 flex-col border-t border-slate-900/10 dark:border-white/10 data-[state=active]:flex data-[state=inactive]:hidden">

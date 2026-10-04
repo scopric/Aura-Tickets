@@ -1,10 +1,11 @@
 // Catálogo fechado dos tours do produtor. O alvo é o valor de data-tour no elemento da tela.
 // Se o alvo não existir na tela (lista vazia, menu recolhido), o balão aparece centralizado.
 export type PassoTour = { alvo: string; titulo: string; texto: string }
-export type Tour = { rota: string; passos: PassoTour[] }
+export type Tour = { nome: string; rota: string; passos: PassoTour[] }
 
 export const TOURS: Record<string, Tour> = {
   inicio: {
+    nome: 'Início',
     rota: '/producer/dashboard',
     passos: [
       { alvo: 'inicio-numeros', titulo: 'Seus números', texto: 'Receita bruta e ingressos vendidos do período, comparados com o período anterior. Contam só pedidos pagos e incluem a taxa do comprador.' },
@@ -14,6 +15,7 @@ export const TOURS: Record<string, Tour> = {
     ],
   },
   'criar-evento': {
+    nome: 'Criar evento',
     rota: '/producer/planner',
     passos: [
       { alvo: 'planner-passos', titulo: 'Cinco passos', texto: 'Tipo do evento, informações, lotes de ingresso, custos e resumo. O passo atual fica destacado.' },
@@ -22,6 +24,7 @@ export const TOURS: Record<string, Tour> = {
     ],
   },
   eventos: {
+    nome: 'Eventos',
     rota: '/producer/events',
     passos: [
       { alvo: 'eventos-criar', titulo: 'Novo evento', texto: 'Cria um evento do zero, em cinco passos.' },
@@ -31,6 +34,7 @@ export const TOURS: Record<string, Tour> = {
     ],
   },
   configuracoes: {
+    nome: 'Configurações',
     rota: '/producer/settings',
     passos: [
       { alvo: 'cfg-secoes', titulo: 'Seções', texto: 'Perfil, conta, pagamento e outras preferências ficam em abas separadas.' },
@@ -39,6 +43,7 @@ export const TOURS: Record<string, Tour> = {
     ],
   },
   checkin: {
+    nome: 'Check-in',
     rota: '/producer/checkin',
     passos: [
       { alvo: 'checkin-evento', titulo: 'Escolha o evento', texto: 'Selecione qual evento publicado você vai validar na portaria. Sem evento publicado, o seletor aparece aqui depois da aprovação.' },
@@ -49,12 +54,22 @@ export const TOURS: Record<string, Tour> = {
   },
 }
 
+// sem barra final; /producer e /producer/dashboard são a mesma tela
+function rotaLimpa(pathname: string) {
+  const limpo = pathname.replace(/\/+$/, '')
+  return limpo === '/producer' ? '/producer/dashboard' : limpo
+}
+
 // Só devolve o tour se o id existir e a tela atual for a dele
 export function tourDaRota(id: string | null, pathname: string): Tour | null {
   const t = id && Object.hasOwn(TOURS, id) ? TOURS[id] : null
   if (!t) return null
-  // sem barra final; /producer e /producer/dashboard são a mesma tela
-  const limpo = pathname.replace(/\/+$/, '')
-  const atual = limpo === '/producer' ? '/producer/dashboard' : limpo
-  return atual === t.rota ? t : null
+  return rotaLimpa(pathname) === t.rota ? t : null
+}
+
+// O tour da tela em que a pessoa está (para o Evo oferecer), ou null se a tela não tem tour
+export function tourDoCaminho(pathname: string): { id: string; nome: string; passos: number } | null {
+  const atual = rotaLimpa(pathname)
+  const achado = Object.entries(TOURS).find(([, t]) => t.rota === atual)
+  return achado ? { id: achado[0], nome: achado[1].nome, passos: achado[1].passos.length } : null
 }

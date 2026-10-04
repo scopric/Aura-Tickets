@@ -134,7 +134,7 @@ const creditos = (n: number) => (n === 1 ? '1 crédito' : `${n} créditos`)
  * Aba Evo: saldo, atalhos, conversa e o formulário de planejamento. Mensagens, texto digitado e
  * "pensando" vêm do EvoHub: fechar e reabrir o painel não perde o texto nem permite envio duplo.
  */
-export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pensando, setPensando, formPlanejar, setFormPlanejar, onResposta }: {
+export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pensando, setPensando, formPlanejar, setFormPlanejar, onResposta, tourDaTela }: {
   mensagens: Mensagem[]
   setMensagens: React.Dispatch<React.SetStateAction<Mensagem[]>>
   texto: string
@@ -146,6 +146,8 @@ export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pens
   setFormPlanejar: (f: CamposPlanejar | null) => void
   /** Avisa o EvoHub que a resposta (ou recusa, aviso = true) chegou; ele decide se mostra o selo */
   onResposta?: (aviso: boolean) => void
+  /** A tela atual tem tour: o atalho só navega para ?tour= (o EvoHub fecha o painel); não envia pergunta, não grava nada */
+  tourDaTela?: { mostrar: () => void } | null
 }) {
   const { user } = useAuth()
   const queryClient = useQueryClient()
@@ -298,6 +300,11 @@ export default function EvoChat({ mensagens, setMensagens, texto, setTexto, pens
             <button type="button" onClick={() => setFormPlanejar(FORM_PLANEJAR_VAZIO)} disabled={bloqueado} className="rounded-full border border-violet-600/40 bg-violet-500/10 px-3 py-1.5 text-xs font-medium text-violet-900 hover:bg-violet-500/20 dark:border-violet-300/40 dark:bg-violet-400/15 dark:text-violet-100 dark:hover:bg-violet-400/25 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300">
               Planejar meu primeiro evento
             </button>
+            {tourDaTela && (
+              <button type="button" onClick={tourDaTela.mostrar} className="rounded-full border border-slate-900/20 px-3 py-1.5 text-xs text-slate-800 hover:bg-slate-900/5 dark:border-white/15 dark:text-slate-100 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300">
+                Mostrar esta tela
+              </button>
+            )}
             {ATALHOS.map((a) => (
               <button key={a.rotulo} type="button" onClick={() => enviar(a.pergunta)} disabled={bloqueado} className="rounded-full border border-slate-900/20 px-3 py-1.5 text-xs text-slate-800 hover:bg-slate-900/5 dark:border-white/15 dark:text-slate-100 dark:hover:bg-white/10 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-600 dark:focus-visible:ring-violet-300">
                 {a.rotulo}

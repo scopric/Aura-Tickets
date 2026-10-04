@@ -24,13 +24,13 @@ export function useRegistrarTour() {
   }
 }
 
-// Lê o que o usuário já concluiu, pulou ou dispensou
-export function useTourLog() {
+// Lê o que o usuário já concluiu, pulou ou dispensou. `ativo` false desliga a consulta (quem não tem tour não lê o banco)
+export function useTourLog({ ativo = true } = {}) {
   const { user } = useAuth()
   const registrar = useRegistrarTour()
   const { data } = useQuery({
     queryKey: chave(user?.id),
-    enabled: !!user?.id,
+    enabled: !!user?.id && ativo,
     queryFn: async () => {
       const { data, error } = await logs().select('step_name').eq('user_id', user!.id)
       // leitura que falha = nada dispensado (checklist e sugestões seguem); `erro` deixa quem não pode agir às cegas esperar
