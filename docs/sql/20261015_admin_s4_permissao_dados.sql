@@ -17,10 +17,13 @@
 --      customers, event_banners, event_budget_boxes, event_photos, event_surveys, event_timeline_items, event_zones,
 --      piggy_transactions, tasks, academy_courses: o ramo "admin" vira super_admin (nenhuma tela de admin usa); o ramo do
 --                      dono e as regras do produtor ficam
+--      orders          SELECT admin [manage_finance, view_analytics] (tira manage_support: o Atendimento usa a RPC; recriada a
+--                      partir da regra da S3)
 --   2. admin_activity_stats pede view_analytics (e vira STABLE); gf_protect_event_cancel pede manage_events.
 --   3. RPC nova chat_cliente_contexto(p_user): o painel do cliente em Atendimento (papel, plano, últimos ingressos e
 --      pedidos) sem abrir tickets, orders, producer_subscriptions e profiles ao suporte. Remove a regra provisória
---      gf_producer_subscriptions_support_select da S3.
+--      gf_producer_subscriptions_support_select da S3 e tira manage_support de orders (nenhuma outra tela de
+--      manage_support lê orders: Conhecimento e Atendimento só; grep em app/src, 04/10).
 -- FICA DE FORA: support_messages e support_sessions (a sessão do participante é a dona), gf_protect_event_moderation (F1),
 -- colaboradores_resumo (qualquer admin, Decisão 163 item 8), a RESTRICTIVE gf_mfa_aal2 de cada tabela, RPC admin_painel do
 -- Dashboard e de agregado de Analytics (fases próprias).
@@ -31,7 +34,7 @@
 -- NÃO mover para supabase/migrations/ (motivo no cabeçalho de 20260927_security_hardening.sql).
 -- Teste: supabase/tests/admin_s4_permissao_dados.test.sql (pgTAP; banco descartável, nunca produção).
 --
--- PASSO 0 (só leitura; o bloco 0 também confere e aborta). Esperado em produção em 04/10/2026:
+-- PASSO 0 (só leitura; o bloco 0 também confere e aborta). Esperado em produção em 04/10/2026 (a 2ª aplicação aceita também o md5 da versão S4 gravado no bloco 0):
 --   select 'admin_activity_stats' f, md5(pg_get_functiondef('public.admin_activity_stats(timestamptz)'::regprocedure))
 --   union all select 'gf_protect_event_cancel', md5(pg_get_functiondef('public.gf_protect_event_cancel()'::regprocedure));
 --   admin_activity_stats fed37226a310506ee5fa8d5f0a89b8b2 | gf_protect_event_cancel 3c42b43723e092d45ffd579e42bfd377
@@ -60,10 +63,10 @@ do $$
 declare
   t text;
   f text;
-  def text;
+  -- [md5 de produção em 04/10, md5 da versão S4 deste arquivo]
   funcoes jsonb := jsonb_build_object(
-    'admin_activity_stats(timestamptz)', 'fed37226a310506ee5fa8d5f0a89b8b2',
-    'gf_protect_event_cancel()', '3c42b43723e092d45ffd579e42bfd377');
+    'admin_activity_stats(timestamptz)', jsonb_build_array('fed37226a310506ee5fa8d5f0a89b8b2', 'dbfe8c212d48f96fa2fc6c3c6c19e22d'),
+    'gf_protect_event_cancel()', jsonb_build_array('3c42b43723e092d45ffd579e42bfd377', 'f8ecd6aaaf780e9048d4ddf53f45f100'));
 begin
   if to_regprocedure('public.gf_admin_can_any(text[])') is null then
     raise exception 'falta public.gf_admin_can_any(text[]): aplique antes o 20261014_admin_s3_permissao_dinheiro.sql';
@@ -84,14 +87,18 @@ begin
       raise exception 'public.% sem a regra RESTRICTIVE gf_mfa_aal2', t;
     end if;
   end loop;
-  -- recriadas aqui: ou a de produção ou já a deste arquivo (2ª aplicação)
+  -- recriadas aqui: ou exatamente a de produção ou exatamente a deste arquivo (2ª aplicação); nada de aceitar "parecida"
   for f in select jsonb_object_keys(funcoes) loop
     if to_regprocedure('public.' || f) is null then raise exception 'falta public.%', f; end if;
-    def := pg_get_functiondef(('public.' || f)::regprocedure);
-    if md5(def) <> funcoes ->> f and position('Decisão 163' in def) = 0 then
-      raise exception 'public.% mudou desde 04/10 (md5 diferente): refazer o bloco a partir da definição atual', f;
+    if md5(pg_get_functiondef(('public.' || f)::regprocedure)) not in (funcoes -> f ->> 0, funcoes -> f ->> 1) then
+      raise exception 'public.% mudou desde 04/10 (md5 diferente da produção e da S4): refazer o bloco a partir da definição atual', f;
     end if;
   end loop;
+  -- RPC nova: não existe ainda ou é exatamente a deste arquivo
+  if to_regprocedure('public.chat_cliente_contexto(uuid)') is not null
+     and md5(pg_get_functiondef(to_regprocedure('public.chat_cliente_contexto(uuid)'))) <> '3f82c6ba17fd88b1d866652056c261db' then
+    raise exception 'public.chat_cliente_contexto(uuid) já existe e não é a versão da S4 (md5 diferente)';
+  end if;
   if not exists (select 1 from pg_trigger where tgrelid = 'public.events'::regclass
       and tgname = 'gf_protect_event_cancel' and tgenabled = 'O') then
     raise exception 'gatilho gf_protect_event_cancel de public.events ausente ou desligado';
@@ -200,6 +207,11 @@ create policy gf_tasks_owner on public.tasks as permissive for all to public
 drop policy if exists gf_academy_admin_write on public.academy_courses;
 create policy gf_academy_admin_write on public.academy_courses as permissive for all to public
   using ((select public.gf_admin_can('super_admin'))) with check ((select public.gf_admin_can('super_admin')));
+
+-- orders: a regra da S3 era [manage_finance, view_analytics, manage_support]; o suporte passa pela RPC
+drop policy if exists gf_orders_admin_select on public.orders;
+create policy gf_orders_admin_select on public.orders as permissive for select to authenticated
+  using ((select public.gf_admin_can_any(array['manage_finance', 'view_analytics'])));
 
 -- a regra provisória da S3 sai: o Atendimento passa a usar chat_cliente_contexto
 drop policy if exists gf_producer_subscriptions_support_select on public.producer_subscriptions;
@@ -333,6 +345,10 @@ begin
       and policyname = 'gf_producer_subscriptions_support_select') then
     raise exception 'gf_producer_subscriptions_support_select ainda existe';
   end if;
+  if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'orders'
+      and policyname = 'gf_orders_admin_select' and qual like '%view_analytics%' and qual not like '%manage_support%') then
+    raise exception 'orders: a regra de admin não é [manage_finance, view_analytics]';
+  end if;
   if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'event_budget_boxes'
       and policyname = 'Produtor gerencia budget boxes') then
     raise exception 'event_budget_boxes: a regra do produtor sumiu';
@@ -377,6 +393,8 @@ order by 1, 2;
 -- Desfazer (volta ao estado de produção de 04/10/2026; as regras e funções abaixo são as lidas na época. A regra
 -- gf_producer_subscriptions_support_select NÃO volta: era da S3 e este arquivo a removeu):
 -- begin;
+-- drop policy if exists gf_orders_admin_select on public.orders;
+-- create policy gf_orders_admin_select on public.orders for select to authenticated using ((select public.gf_is_admin()));
 -- drop policy if exists gf_profiles_select_own_or_admin on public.profiles;
 -- create policy gf_profiles_select_own_or_admin on public.profiles for select to authenticated
 --   using (id = (select auth.uid()) or (select public.gf_is_admin()));

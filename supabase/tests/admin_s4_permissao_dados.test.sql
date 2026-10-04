@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(518);
+select plan(538);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -104,8 +104,8 @@ insert into public.tasks (id, event_id, title) values ('d6000000-0000-4000-9000-
 insert into public.academy_courses (id, title) values ('d6000000-0000-4000-9000-000000000021', 'curso');
 insert into public.conversations (id, user_id) values ('d6000000-0000-4000-9000-000000000022', 'd6000000-0000-4000-8000-000000000020');
 insert into public.producer_subscriptions (producer_id, plan) values ('d6000000-0000-4000-8000-000000000017', 'free');
-select is((select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses') and (coalesce(qual, '') || coalesce(with_check, '')) like '%gf_is_admin%'), 0::bigint, 'nenhuma regra permissiva das 20 tabelas usa gf_is_admin');
-select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses')), 20::bigint, 'gf_mfa_aal2 RESTRICTIVE continua nas 20 tabelas');
+select is((select count(*) from pg_policies where schemaname = 'public' and permissive = 'PERMISSIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'orders', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses') and (coalesce(qual, '') || coalesce(with_check, '')) like '%gf_is_admin%'), 0::bigint, 'nenhuma regra permissiva das tabelas da S4 usa gf_is_admin');
+select is((select count(*) from pg_policies where schemaname = 'public' and policyname = 'gf_mfa_aal2' and permissive = 'RESTRICTIVE' and tablename in ('profiles', 'events', 'ticket_types', 'tickets', 'orders', 'check_ins', 'user_activities', 'feedback', 'contact_messages', 'evento_aceites', 'evento_privado', 'customers', 'event_banners', 'event_budget_boxes', 'event_photos', 'event_surveys', 'event_timeline_items', 'event_zones', 'piggy_transactions', 'tasks', 'academy_courses')), 21::bigint, 'gf_mfa_aal2 RESTRICTIVE continua nas 21 tabelas');
 select policies_are('public', 'contact_messages', array['gf_mfa_aal2', 'gf_contact_messages_admin_all'], 'contact_messages: uma regra de admin e o 2FA');
 select ok(not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'producer_subscriptions' and policyname = 'gf_producer_subscriptions_support_select'), 'regra provisória do suporte em producer_subscriptions removida');
 select ok(has_function_privilege('authenticated', 'public.chat_cliente_contexto(uuid)', 'execute') and not has_function_privilege('anon', 'public.chat_cliente_contexto(uuid)', 'execute'), 'chat_cliente_contexto: authenticated executa, anon não');
@@ -270,6 +270,46 @@ select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000019', 'aa
 select is(pg_temp.n($$select count(*) from public.tickets where id = 'd6000000-0000-4000-9000-000000000005'$$), 1::bigint, 'tickets: comprador lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000020', 'aal1');
 select is(pg_temp.n($$select count(*) from public.tickets where id = 'd6000000-0000-4000-9000-000000000005'$$), 0::bigint, 'tickets: comum lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000001', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_users lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000002', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_team lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000003', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_affiliates lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000004', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_events lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000005', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 1::bigint, 'orders: adm_manage_finance lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000006', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_tickets lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000007', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_coupons lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000008', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_support lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000009', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 1::bigint, 'orders: adm_view_analytics lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000010', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_settings lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000011', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_feedback lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000012', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_manage_newsletter lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000013', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_moderate_mesa lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000014', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 1::bigint, 'orders: super lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000015', 'aal2');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_none lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000016', 'aal1');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: adm_aal1 lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000017', 'aal1');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 1::bigint, 'orders: p1 lê 1');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000018', 'aal1');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: p2 lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000019', 'aal1');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 0::bigint, 'orders: comprador lê 0');
+select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000020', 'aal1');
+select is(pg_temp.n($$select count(*) from public.orders where id = 'd6000000-0000-4000-9000-000000000004'$$), 1::bigint, 'orders: comum lê 1');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000001', 'aal2');
 select is(pg_temp.n($$select count(*) from public.check_ins where id = 'd6000000-0000-4000-9000-000000000007'$$), 0::bigint, 'check_ins: adm_manage_users lê 0');
 select pg_temp.como('authenticated', 'd6000000-0000-4000-8000-000000000002', 'aal2');
