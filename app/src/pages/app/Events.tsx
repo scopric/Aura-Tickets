@@ -10,7 +10,7 @@ import EventoLinha from '../../components/EventoLinha'
 import BotaoSalvar from '../../components/BotaoSalvar'
 import { usePublicEvents } from '../../hooks/useEvents'
 import { temFoto } from '../../lib/corEvento'
-import { categoriasDoCatalogo, chaveDe, rotuloDia } from '../../lib/explorar'
+import { categoriasDoCatalogo, chaveDe, rotuloDia, semAcento } from '../../lib/explorar'
 import { calcularTaxa, brl } from '../../lib/taxa'
 import { rotuloFormato } from '../../lib/tipoEvento'
 import { diaBR } from '../../lib/visaoEvento'
@@ -58,12 +58,11 @@ export default function AppEvents() {
   const categories = useMemo(() => categoriasDoCatalogo(events), [events])
 
   const filtered = useMemo(() => {
+    const busca = semAcento(search.trim())
     return events.filter((e) => {
       const matchesSearch =
-        !search ||
-        e.title.toLowerCase().includes(search.toLowerCase()) ||
-        (e.venue_city || '').toLowerCase().includes(search.toLowerCase()) ||
-        rotuloFormato(e.category).toLowerCase().includes(search.toLowerCase())
+        !busca ||
+        [e.title, e.venue_city, rotuloFormato(e.category)].some((t) => semAcento(t || '').includes(busca))
       const matchesCategory = !activeCategory || chaveDe(rotuloFormato(e.category)) === activeCategory
       return matchesSearch && matchesCategory
     })

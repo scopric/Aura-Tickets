@@ -7,6 +7,7 @@ import AppChat from '../pages/app/Chat'
 import ParticipantSettings from '../pages/app/Settings'
 import Register from '../pages/auth/Register'
 import AppLayout from '../components/AppLayout'
+import { erroDeLogin } from '../hooks/useAuth'
 
 // P0c: o participante não vê promessa que o sistema não cumpre. Eventos, ingressos e auth simulados.
 let eventos: Record<string, unknown>[] = []
@@ -14,7 +15,7 @@ let ingressos: Record<string, unknown>[] = []
 vi.mock('../hooks/useEvents', () => ({ usePublicEvents: () => ({ data: eventos, isLoading: false, isError: false, refetch: vi.fn() }) }))
 vi.mock('../hooks/useCheckout', () => ({ useUserTickets: () => ({ data: ingressos, isLoading: false }) }))
 vi.mock('../hooks/useMenuItems', () => ({ useEventMenuItems: () => ({ data: [], isLoading: false }) }))
-vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
+vi.mock('../hooks/useAuth', async (original) => ({ ...(await original<typeof import('../hooks/useAuth')>()), useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
 vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }) }))
 vi.mock('../components/BotaoSalvar', () => ({ default: ({ eventId }: { eventId: string }) => <button type="button" aria-label="Salvar evento" data-evento={eventId} /> }))
 vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => vi.fn() }))
@@ -44,6 +45,12 @@ describe('Explorar do app (/app/events)', () => {
     expect(screen.getByText('1 evento')).toBeInTheDocument()
     fireEvent.click(filtros.getByRole('button', { name: 'Festa' }))
     expect(screen.getByText('4 eventos')).toBeInTheDocument()
+  })
+
+  it('a busca ignora acento: "forro" acha "Noite de Forró"', () => {
+    eventos = [evento('a', 'show', { title: 'Baile do Sol' }), evento('b', 'show', { title: 'Noite de Forró' })]
+    montar(<AppEvents />, '/app/events?q=forro')
+    expect(screen.getByText('1 evento')).toBeInTheDocument()
   })
 
   it('sem eventos: sem chips; cada evento (destaque e lista) tem o coração Salvar evento', () => {
@@ -92,6 +99,24 @@ describe('Início do app (Hub)', () => {
     expect(ativos.parentElement!.querySelector('dd')).toHaveTextContent('1')
   })
 
+  it('ingresso ativo de evento cancelado: selo mostra o motivo, sem QR, e não entra em "Ingressos ativos"', () => {
+    ingressos = [ingresso('t1', 'active'), ingresso('t2', 'active', { events: { id: 'e2', title: 'Festa Cancelada', date: '2099-01-10', status: 'cancelled' } })]
+    const { container } = montar(<AppHub />)
+    expect(screen.getAllByText('Evento cancelado').length).toBeGreaterThan(0)
+    expect(screen.queryByRole('button', { name: 'Ver QR Code de Festa Cancelada' })).toBeNull()
+    expect(container.querySelector('dl dd')).toHaveTextContent('1')
+  })
+
+  it('QR abre em Dialog (role dialog) e Esc fecha', () => {
+    ingressos = [ingresso('t1', 'active')]
+    montar(<AppHub />)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Ver QR Code de Baile do Sol' })[0])
+    const janela = screen.getByRole('dialog', { name: 'Ingresso' })
+    expect(janela).toHaveTextContent('COD-t1')
+    fireEvent.keyDown(janela, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('"Explorar Eventos" é um link para /app/events', () => {
     montar(<AppHub />)
     expect(screen.getAllByRole('link', { name: 'Explorar Eventos' })[0]).toHaveAttribute('href', '/app/events')
@@ -109,12 +134,15 @@ describe('Chat do app', () => {
 
 describe('Configurações: exclusão de conta', () => {
   it('o texto diz o que a função faz (anonimiza; nome e CPF ficam em pedidos e ingressos), sem "permanentemente"', () => {
-    const { container } = montar(<ParticipantSettings />)
+    montar(<ParticipantSettings />)
     fireEvent.click(screen.getByRole('button', { name: 'Excluir conta' }))
     const janela = screen.getByRole('dialog', { name: 'Excluir conta' })
     expect(janela).toHaveTextContent(/anonimizado/)
     expect(janela).toHaveTextContent(/nome e CPF/)
-    expect(container.textContent).not.toMatch(/permanente/i)
+    expect(janela).toHaveTextContent(/ainda vão acontecer deixam de aparecer/)
+    expect(document.body.textContent).not.toMatch(/permanente/i)
+    fireEvent.keyDown(janela, { key: 'Escape' }) // Dialog do projeto: Esc fecha
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 
@@ -154,5 +182,15 @@ describe('Menu do app (AppLayout)', () => {
     fireEvent.change(campo, { target: { value: 'forró' } })
     fireEvent.submit(campo.closest('form')!)
     expect(screen.getByTestId('local')).toHaveTextContent('/app/events?q=forr%C3%B3')
+  })
+})
+
+describe('Erros do login em português', () => {
+  it('traduz os comuns do Supabase e deixa passar o resto', () => {
+    expect(erroDeLogin('Invalid login credentials')).toBe('E-mail ou senha incorretos')
+    expect(erroDeLogin('Email not confirmed')).toMatch(/Confirme seu e-mail/)
+    expect(erroDeLogin('Email rate limit exceeded')).toMatch(/Muitas tentativas/)
+    expect(erroDeLogin('Algo novo')).toBe('Algo novo')
+    expect(erroDeLogin('')).toBe('Erro ao realizar login')
   })
 })

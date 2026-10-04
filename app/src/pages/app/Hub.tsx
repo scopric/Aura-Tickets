@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { siteUrl } from '../../lib/appHost'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Spinner } from '@/components/ui/spinner'
 import { usePublicEvents } from '../../hooks/useEvents'
@@ -40,14 +41,6 @@ export default function AppHub() {
 
   const { data: dbMenuItems = [], isLoading: isLoadingMenu } = useEventMenuItems(activeEventId || undefined)
 
-  // Esc fecha o QR (o fundo e o botão Fechar já fechavam)
-  useEffect(() => {
-    if (!showQR) return
-    const fechar = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowQR(null) }
-    window.addEventListener('keydown', fechar)
-    return () => window.removeEventListener('keydown', fechar)
-  }, [showQR])
-
   // Mapear tickets do DB para o formato do layout
   const myTickets = (dbTickets || []).map(t => {
     const eventDate = t.events?.date
@@ -69,7 +62,7 @@ export default function AppHub() {
       semQr: motivoSemQr(t), // null = o QR vale
     }
   })
-  const ativos = myTickets.filter(t => t.status === 'active').length
+  const ativos = myTickets.filter(t => !t.semQr).length // vale: ativo, evento não cancelado nem encerrado
 
   const tabs = [
     { id: 'ingressos' as const, label: 'Meus Ingressos', count: ativos > 0 ? ativos : undefined },
@@ -124,8 +117,8 @@ export default function AppHub() {
                   <p className="line-clamp-2 font-display text-lg font-extrabold leading-[22px] tracking-[-0.01em] wide">{ticket.eventName}</p>
                   <p className="truncate text-[13px] leading-[18px] text-muted-foreground">{ticket.location}</p>
                 </div>
-                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.status === 'active' ? 'text-[var(--ev-success)]' : 'text-[var(--ev-warning)]'}`}>
-                  {({ active: 'Ativo', used: 'Usado', cancelled: 'Cancelado', transferred: 'Transferido', refunded: 'Reembolsado' } as Record<string, string>)[ticket.status] ?? ticket.status}
+                <span className={`flex-none text-xs font-semibold leading-4 ${ticket.semQr ? 'text-[var(--ev-warning)]' : 'text-[var(--ev-success)]'}`}>
+                  {ticket.status === 'active' ? (ticket.semQr ?? 'Ativo') : ({ used: 'Usado', cancelled: 'Cancelado', transferred: 'Transferido', refunded: 'Reembolsado' } as Record<string, string>)[ticket.status] ?? ticket.status}
                 </span>
               </div>
               <p className="mt-2 flex items-center gap-1.5 text-[13px] leading-[18px] text-muted-foreground">
@@ -343,19 +336,21 @@ export default function AppHub() {
       </div>
 
       {/* QR Code Modal */}
-      {showQR && (
-        <div role="dialog" aria-modal="true" aria-label="QR Code do ingresso" className="fixed inset-0 z-50 flex items-center justify-center p-4 glass-backdrop" onClick={() => setShowQR(null)}>
-          <div className="w-full max-w-xs rounded-ev-xl border border-border bg-card p-8 text-center text-card-foreground shadow-ev-2" onClick={e => e.stopPropagation()}>
-            <h3 className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</h3>
-            <p className="mb-6 text-[13px] leading-[18px] text-muted-foreground">Apresente na entrada do evento</p>
-            <div className="mx-auto mb-4 size-48">
-              <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
-            </div>
-            <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
-            <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
-          </div>
-        </div>
-      )}
+      <Dialog open={!!showQR} onOpenChange={aberto => { if (!aberto) setShowQR(null) }}>
+        <DialogContent showCloseButton={false} className="max-w-xs gap-0 p-8 text-center sm:max-w-xs">
+          <DialogTitle className="mb-2 text-xl font-semibold tracking-[-0.015em]">Ingresso</DialogTitle>
+          <DialogDescription className="mb-6 text-[13px] leading-[18px]">Apresente na entrada do evento</DialogDescription>
+          {showQR && (
+            <>
+              <div className="mx-auto mb-4 size-48">
+                <TicketQRCode code={showQR} size={192} className="rounded-ev-lg" />
+              </div>
+              <p className="break-all font-mono text-xs text-muted-foreground">{showQR}</p>
+            </>
+          )}
+          <Button variant="outline" className="mt-6 w-full" onClick={() => setShowQR(null)}>Fechar</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
