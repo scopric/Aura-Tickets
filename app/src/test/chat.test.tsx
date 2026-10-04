@@ -259,6 +259,42 @@ describe('chat: caixa de entrada do admin', () => {
   })
 })
 
+describe('chat: painel do cliente no Atendimento (Decisão 163)', () => {
+  const inbox = { data: [{ id: 'c1', user_id: 'cli1', status: 'open', priority: 'normal', assignee_id: null, department_name: 'Geral', topic_label: 'Outros', mediation: false,
+    contact_name: 'Carla Dias', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'preciso de ajuda', last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: false }], error: null }
+  const conversa = { id: 'c1', user_id: 'cli1', status: 'open', priority: 'normal', assignee_id: null, department_id: null, customer_last_read_at: null,
+    agent_last_read_at: null, last_customer_message_at: null, created_at: '2026-09-30T12:00:00Z', rating: null,
+    chat_topics: { label: 'Outros', mediation: false }, chat_contacts: { name: 'Carla Dias', email: 'carla@exemplo.com', phone: null, origin: 'app', marketing_opt_in: false } }
+  const abrir = async () => {
+    role = 'admin'
+    respostas.conversations = conversa
+    montar(<Atendimento />)
+    fireEvent.click(await screen.findByRole('button', { name: /Carla Dias/ }))
+  }
+
+  it('ingressos, pedidos e plano vêm de chat_cliente_contexto, sem ler tickets, orders, producer_subscriptions nem profiles', async () => {
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox' ? inbox
+      : nome === 'chat_cliente_contexto'
+        ? { data: { papel: 'producer', plano: { plan: 'pro', is_active: true, expires_at: null },
+            ingressos: [{ id: 't1', status: 'active', created_at: '2026-09-30T12:00:00Z', ticket_types: { name: 'Pista', events: { title: 'Festa do Teste' } } }],
+            pedidos: [{ id: 'o1', total: 50, status: 'paid', created_at: '2026-09-30T12:00:00Z', events: { title: 'Festa do Teste' } }] }, error: null }
+        : { data: { ok: true }, error: null }))
+    await abrir()
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith('chat_cliente_contexto', { p_user: 'cli1' }))
+    expect(await screen.findByText('Festa do Teste')).toBeInTheDocument() // ingresso
+    expect(await screen.findByText(/Festa do Teste · /)).toBeInTheDocument() // pedido
+    expect(await screen.findByText('pro')).toBeInTheDocument()
+    for (const tabela of ['tickets', 'orders', 'producer_subscriptions', 'profiles']) expect(chamadas.some((c) => c.tabela === tabela && c.metodo === 'eq' && c.args[1] === 'cli1')).toBe(false)
+  })
+
+  it('RPC com erro ou vazia mostra o aviso, não um histórico vazio', async () => {
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox' ? inbox
+      : nome === 'chat_cliente_contexto' ? { data: null, error: { message: 'acesso negado' } } : { data: { ok: true }, error: null }))
+    await abrir()
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o histórico da conta')
+  })
+})
+
 describe('chat: nome de quem atende', () => {
   const conversa = (assignee_name: string | null) => ({
     id: 'c9', status: 'open', priority: 'normal', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'oi', last_reply_at: null,
