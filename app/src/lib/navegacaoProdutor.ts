@@ -76,6 +76,19 @@ export function filtra(escopo: Escopo, secao: Secao): Tela[] {
 
 export const textoDaTela = (t: Tela, escopo: Escopo) => (escopo === 'evento' ? t.noEvento : t.rotulo) ?? t.tela
 
+/** Nome da seção na lateral e na busca: no escopo do evento, "Eventos" vira "Evento" */
+export const rotuloSecao = (escopo: Escopo, s: Secao) => (escopo === 'evento' && s === 'Eventos' ? 'Evento' : s)
+
+/** No evento, "Conta" não tem telas por evento: mostra as da produtora (senão o celular e a busca não chegariam em Configurações) */
+export const telasDe = (escopo: Escopo, s: Secao) => { const t = filtra(escopo, s); return t.length || s !== 'Conta' ? t : filtra('produtora', s) }
+
+/** Minúscula e sem acento: o filtro da folha Menu e o da busca ⌘K */
+export const normaliza = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+/** ⌘K no Mac (e iPhone/iPad), Ctrl K nos demais: o rótulo e a tecla que a busca captura */
+export const noMac = () => /Mac|iPhone|iPad/.test(navigator.userAgent)
+export const atalhoBusca = () => (noMac() ? '⌘K' : 'Ctrl K')
+
 /** Link da tela: `:eventId` na rota é trocado pelo id; sem `:eventId`, o id vai em `?eventId=` */
 export function hrefDaTela(rota: string, eventId?: string | null): string {
   if (!eventId) return rota

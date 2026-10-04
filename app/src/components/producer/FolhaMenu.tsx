@@ -10,7 +10,7 @@ import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, hrefDaTela, rotaAtiva, textoDaTela,
+  ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, hrefDaTela, normaliza, rotaAtiva, telasDe, textoDaTela,
   type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
@@ -23,8 +23,6 @@ import { ICONE, dataCurta, eventosDaLista } from './lateralComum'
 const foco = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const item = cn('flex min-h-12 w-full items-center gap-3 rounded-ev-lg px-3 text-left text-[15px] font-medium transition-colors duration-rapido motion-reduce:transition-none hover:bg-[var(--ev-tint-hover)]', foco)
 const ativoCls = 'bg-[var(--ev-tint-ativo)] font-semibold'
-
-const normaliza = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 interface FolhaProps {
   aberta: boolean
@@ -62,9 +60,6 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
     logout()
   }
 
-  // No evento, "Conta" não tem telas por evento: mostra as da produtora (senão o celular não teria como chegar em Configurações)
-  const telasDe = (s: Secao) => { const t = filtra(escopo, s); return t.length || s !== 'Conta' ? t : filtra('produtora', s) }
-
   const linkTela = (t: Tela) => {
     const ativo = rotaAtiva(t.rota, pathname)
     return (
@@ -93,7 +88,7 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
   }
 
   const itensDe = (s: Secao): ReactNode[] => {
-    const telas = telasDe(s)
+    const telas = telasDe(escopo, s)
     if (escopo === 'produtora' && s === 'Eventos') {
       return [
         ...telas.slice(0, 1).filter(t => bate(textoDaTela(t, escopo))).map(linkTela),

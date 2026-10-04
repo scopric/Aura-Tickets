@@ -12,8 +12,8 @@ import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerSecoes,
-  rotaAtiva, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
+  INICIO, ROTA_CRIAR_EVENTO, SECOES, abreEvento, atalhoBusca, eventoDaUrl, filtra, gravarNav, hrefDaTela, lerSecoes,
+  rotaAtiva, rotuloSecao, textoDaTela, trocaEvento, ULTIMO_EVENTO, type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
 import { ICONE, dataCurta, eventosDaLista } from './lateralComum'
@@ -35,7 +35,8 @@ function Capa({ evento, className }: { evento: DbEvent; className?: string }) {
   return <EventoCapa evento={evento} tamanho="mini-p" className={cn('shrink-0', className)} />
 }
 
-/** Dica à direita só no trilho (atraso e "pula atraso" no TooltipProvider da lateral); aberta, o próprio texto basta */
+/** Dica à direita (atraso e "pula atraso" no TooltipProvider da lateral). Só com `rail`: na lateral aberta o próprio texto basta,
+ *  exceto no botão só de ícone ("+", prancha `dicaLat`), que passa `rail` sempre */
 function Dica({ rail, texto, atalho, children }: { rail: boolean; texto: string; atalho?: string; children: ReactNode }) {
   if (!rail) return <>{children}</>
   return (
@@ -52,9 +53,11 @@ interface LateralProps {
   /** Fecha a gaveta do celular */
   onNavega: () => void
   onRecolher: () => void
+  /** Abre a busca rápida ⌘K (BuscaRapida, carregada pelo ProducerLayout) */
+  onBuscar: () => void
 }
 
-export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
+export default function Lateral({ rail, onNavega, onRecolher, onBuscar }: LateralProps) {
   const { pathname, search } = useLocation()
   const { user, logout } = useAuth()
   const { data: eventos = [], isLoading } = useProducerEvents()
@@ -116,7 +119,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
 
   // ---- seções (cada área na sua seção; no evento, só as telas dele) ----
   const secoes = SECOES.filter(s => s !== 'Topo' && filtra(escopo, s).length > 0)
-  const rotuloSecao = (s: Secao) => (escopo === 'evento' && s === 'Eventos' ? 'Evento' : s)
+  const rotulo = (s: Secao) => rotuloSecao(escopo, s)
 
   const conteudoSecao = (s: Secao) => {
     const telas = filtra(escopo, s)
@@ -148,16 +151,16 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
           className={cn(itemBase, secaoAtiva(s) ? 'text-foreground' : 'text-muted-foreground hover:bg-[var(--ev-tint-hover)] hover:text-foreground')}
         >
           <Icone size={16} />
-          <span className="flex-1 truncate">{rotuloSecao(s)}</span>
+          <span className="flex-1 truncate">{rotulo(s)}</span>
           <I.ChevronDireita size={16} className={cn('transition-transform duration-rapido motion-reduce:transition-none', aberta && 'rotate-90')} />
         </button>
-        {aberta && <div id={id} role="group" aria-label={rotuloSecao(s)} className="mt-0.5 flex flex-col gap-0.5">{conteudoSecao(s)}</div>}
+        {aberta && <div id={id} role="group" aria-label={rotulo(s)} className="mt-0.5 flex flex-col gap-0.5">{conteudoSecao(s)}</div>}
       </div>
     )
   }
 
   // ---- trilho: área vira ícone com popover; eventos viram quadradinhos ----
-  const areaTrilho = (s: Secao) => <AreaTrilho key={s} rotulo={rotuloSecao(s)} icone={ICONE[s]} ativo={secaoAtiva(s)}>{conteudoSecao(s)}</AreaTrilho>
+  const areaTrilho = (s: Secao) => <AreaTrilho key={s} rotulo={rotulo(s)} icone={ICONE[s]} ativo={secaoAtiva(s)}>{conteudoSecao(s)}</AreaTrilho>
 
   const botaoIcone = 'relative flex size-10 items-center justify-center rounded-ev-md transition-colors duration-rapido motion-reduce:transition-none ' + foco
 
@@ -201,17 +204,35 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
     </Popover>
   )
 
-  // ponytail: o botão "Buscar… ⌘K" volta na V4c (BuscaRapida), acima do "+" e, no trilho, entre a produtora e o "+"
+  // Prancha 6.2: na lateral aberta, "Buscar… ⌘K" e o "+" lado a lado; no trilho, um sobre o outro
+  const atalho = atalhoBusca()
+  const buscar = (
+    <Dica rail={rail} texto="Buscar" atalho={atalho}>
+      <button
+        type="button"
+        onClick={onBuscar}
+        aria-label={`Buscar telas, eventos e ações (${atalho})`}
+        aria-haspopup="dialog"
+        className={cn(
+          'flex items-center rounded-ev-md bg-card text-[13px] text-muted-foreground shadow-[0_0_0_1px_hsl(var(--border))] hover:bg-[var(--ev-tint-hover)] hover:text-foreground',
+          foco, toque, rail ? 'size-10 justify-center' : 'h-8 min-w-0 flex-1 gap-2 pl-2.5 pr-1.5',
+        )}
+      >
+        <I.Buscar size={16} />
+        {!rail && <><span className="flex-1 text-left">Buscar…</span><kbd className="rounded-ev-xs px-[5px] font-sans text-[11px] font-medium leading-4 shadow-[0_0_0_1px_hsl(var(--border))]">{atalho}</kbd></>}
+      </button>
+    </Dica>
+  )
 
   const criar = (
-    <Dica rail={rail} texto="Criar evento">
+    <Dica rail texto="Criar evento">
       <Link
         to={ROTA_CRIAR_EVENTO}
         onClick={onNavega}
         aria-label="Criar evento"
-        className={cn('flex items-center justify-center gap-2 rounded-ev-md bg-card text-[13px] font-medium text-foreground shadow-ev-secondary hover:bg-[var(--ev-sec-hover)]', foco, toque, rail ? 'size-10' : 'h-8 w-full')}
+        className={cn('flex shrink-0 items-center justify-center rounded-ev-md bg-card text-foreground shadow-ev-secondary hover:bg-[var(--ev-sec-hover)]', foco, toque, '[@media(pointer:coarse)]:min-w-11', rail ? 'size-10' : 'size-8')}
       >
-        <I.Criar size={16} />{!rail && 'Criar evento'}
+        <I.Criar size={16} />
       </Link>
     </Dica>
   )
@@ -340,7 +361,7 @@ export default function Lateral({ rail, onNavega, onRecolher }: LateralProps) {
       <div className={cn('flex shrink-0 flex-col gap-2 px-2 pb-2 pt-2', rail && 'items-center')}>
         {escopo === 'produtora' ? seletorProdutora : null}
         {blocoEvento}
-        {criar}
+        <div className={cn('flex gap-2', rail ? 'flex-col items-center' : 'w-full')}>{buscar}{criar}</div>
       </div>
 
       <nav aria-label="Menu do produtor" className={cn('flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 pb-2 pt-0.5 sidebar-dark-scroll', rail && 'items-center')}>
