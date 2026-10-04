@@ -1,6 +1,7 @@
 import { useState, useEffect, type ReactNode } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { brl } from '../../lib/taxa'
+import { precificar, projetar, type Origem } from '../../lib/calculadoras'
 import { PageHeader, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,60 +38,35 @@ function Linha({ label, valor, forte }: { label: string; valor: ReactNode; forte
 }
 
 // ─── Markup Calculator ───
+// O campo que o produtor digitou por último manda; os outros dois são recalculados a cada tecla.
+const fmt = (n: number | null) => (n === null ? '' : String(n))
+
 function MarkupCalc() {
   const [cost, setCost] = useState('')
-  const [markup, setMarkup] = useState('')
-  const [margin, setMargin] = useState('')
-  const [price, setPrice] = useState('')
+  const [origem, setOrigem] = useState<Origem>('markup')
+  const [digitado, setDigitado] = useState('')
 
-  // Calculate from cost + markup
-  const calcFromMarkup = () => {
-    const c = Number(cost)
-    const m = Number(markup)
-    if (c > 0 && m > 0) {
-      const p = c * (1 + m / 100)
-      setPrice(p.toFixed(2))
-      setMargin((((p - c) / p) * 100).toFixed(1))
-    }
-  }
+  const r = digitado.trim() === '' ? null : precificar(Number(cost), origem, Number(digitado))
+  const mostra = (campo: Origem) => (campo === origem ? digitado : r ? fmt(campo === 'preco' ? r.preco : campo === 'markup' ? r.markup : r.margem) : '')
+  const edita = (campo: Origem) => (e: React.ChangeEvent<HTMLInputElement>) => { setOrigem(campo); setDigitado(e.target.value) }
 
-  // Calculate from cost + margin
-  const calcFromMargin = () => {
-    const c = Number(cost)
-    const mar = Number(margin)
-    if (c > 0 && mar > 0 && mar < 100) {
-      const p = c / (1 - mar / 100)
-      setPrice(p.toFixed(2))
-      setMarkup((((p - c) / c) * 100).toFixed(1))
-    }
-  }
-
-  // Calculate from price + cost
-  const calcFromPrice = () => {
-    const c = Number(cost)
-    const p = Number(price)
-    if (c > 0 && p > c) {
-      setMarkup((((p - c) / c) * 100).toFixed(1))
-      setMargin((((p - c) / p) * 100).toFixed(1))
-    }
-  }
-
-  const reset = () => { setCost(''); setMarkup(''); setMargin(''); setPrice('') }
+  const reset = () => { setCost(''); setDigitado('') }
 
   return (
     <Cartao titulo="Precificação" descricao="Calcule markup, margem e preço de venda">
-      <Campo id="calc-custo" label="Custo (R$)" value={cost} onChange={e => setCost(e.target.value)} placeholder="0,00" />
+      <Campo id="calc-custo" label="Custo (R$)" min={0} value={cost} onChange={e => setCost(e.target.value)} placeholder="0,00" />
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="calc-markup" label="Markup (%)" value={markup} onChange={e => setMarkup(e.target.value)} onBlur={calcFromMarkup} placeholder="0" />
-        <Campo id="calc-margem" label="Margem (%)" value={margin} onChange={e => setMargin(e.target.value)} onBlur={calcFromMargin} placeholder="0" />
+        <Campo id="calc-markup" label="Markup (%)" value={mostra('markup')} onChange={edita('markup')} placeholder="0" />
+        <Campo id="calc-margem" label="Margem (%)" value={mostra('margem')} onChange={edita('margem')} placeholder="0" />
       </div>
-      <Campo id="calc-preco" label="Preço de venda (R$)" value={price} onChange={e => setPrice(e.target.value)} onBlur={calcFromPrice} placeholder="0,00" />
+      <Campo id="calc-preco" label="Preço de venda (R$)" min={0} value={mostra('preco')} onChange={edita('preco')} placeholder="0,00" />
 
-      {price && cost && (
+      {r && (
         <div className="space-y-1 rounded-md border border-border p-3">
-          <Linha label="Lucro unitário" valor={brl(Number(price) - Number(cost))} />
-          <Linha label="Markup" valor={pct(markup)} />
-          <Linha label="Margem" valor={pct(margin)} />
+          <Linha label="Lucro unitário" valor={<span className={r.preco < Number(cost) ? 'text-destructive' : undefined}>{brl(r.preco - Number(cost))}</span>} />
+          <Linha label="Markup" valor={pct(r.markup ?? 0)} />
+          <Linha label="Margem" valor={r.margem === null ? '—' : pct(r.margem)} />
+          {r.preco < Number(cost) && <p className="pt-1 text-xs text-destructive">Venda no prejuízo: o preço está abaixo do custo.</p>}
         </div>
       )}
 
@@ -108,7 +84,7 @@ function SplitCalc() {
   const [tip, setTip] = useState('10')
   const [names, setNames] = useState<string[]>(['', ''])
 
-  const pCount = Math.max(2, Number(people) || 2)
+  const pCount = Math.min(500, Math.max(2, Math.floor(Number(people)) || 2))
   const subtotal = Number(total) || 0
   const tipAmount = subtotal * (Number(tip) || 0) / 100
   const grandTotal = subtotal + tipAmount
@@ -174,39 +150,48 @@ function ProjectionCalc() {
   const [price, setPrice] = useState('')
   const [costs, setCosts] = useState('')
   const [capacity, setCapacity] = useState('')
+  const [seCobrasse, setSeCobrasse] = useState('')
 
-  const totalRevenue = (Number(tickets) || 0) * (Number(price) || 0)
-  const totalCosts = Number(costs) || 0
-  const profit = totalRevenue - totalCosts
-  const profitMargin = totalRevenue > 0 ? ((profit / totalRevenue) * 100).toFixed(1) : '0'
-  const cap = Number(capacity) || 0
-  const occupancy = cap > 0 ? ((Number(tickets) || 0) / cap * 100).toFixed(0) : '0'
-  const breakeven = Number(price) > 0 ? Math.ceil(totalCosts / Number(price)) : 0
+  const p = projetar(Number(tickets), Number(price), Number(costs), Number(capacity))
+  const alt = seCobrasse.trim() === '' ? null : projetar(Number(tickets), Number(seCobrasse), Number(costs), Number(capacity))
+  const neg = (n: number) => (n < 0 ? 'text-destructive' : undefined)
 
   return (
     <Cartao titulo="Projeção do evento" descricao="Estime receita, lucro e ponto de equilíbrio">
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="proj-ingressos" label="Ingressos vendidos" inputMode="numeric" value={tickets} onChange={e => setTickets(e.target.value)} placeholder="0" />
-        <Campo id="proj-capacidade" label="Capacidade" inputMode="numeric" value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="0" />
+        <Campo id="proj-ingressos" label="Ingressos vendidos" inputMode="numeric" min={0} step={1} value={tickets} onChange={e => setTickets(e.target.value)} placeholder="0" />
+        <Campo id="proj-capacidade" label="Capacidade" inputMode="numeric" min={0} step={1} value={capacity} onChange={e => setCapacity(e.target.value)} placeholder="0" />
       </div>
       <div className="grid grid-cols-2 gap-3">
-        <Campo id="proj-preco" label="Preço médio (R$)" value={price} onChange={e => setPrice(e.target.value)} placeholder="0,00" />
-        <Campo id="proj-custos" label="Custos totais (R$)" value={costs} onChange={e => setCosts(e.target.value)} placeholder="0,00" />
+        <Campo id="proj-preco" label="Preço médio (R$)" min={0} value={price} onChange={e => setPrice(e.target.value)} placeholder="0,00" />
+        <Campo id="proj-custos" label="Custos totais (R$)" min={0} value={costs} onChange={e => setCosts(e.target.value)} placeholder="0,00" />
       </div>
 
-      {totalRevenue > 0 && (
+      {p.receita > 0 && (
         <div className="space-y-1 rounded-md border border-border p-3">
-          <Linha label="Receita estimada" valor={brl(totalRevenue)} />
-          <Linha label="Lucro estimado" valor={<span className={profit < 0 ? 'text-destructive' : undefined}>{brl(profit)}</span>} />
-          <Linha label="Margem" valor={pct(profitMargin)} />
-          <Linha label="Ocupação" valor={`${occupancy}%`} />
+          <Linha label="Receita estimada" valor={brl(p.receita)} />
+          <Linha label="Lucro estimado" valor={<span className={neg(p.lucro)}>{brl(p.lucro)}</span>} />
+          <Linha label="Margem" valor={<span className={neg(p.margem)}>{pct(p.margem)}</span>} />
+          <Linha label="Ocupação" valor={<span className={p.ocupacao > 100 ? 'text-destructive' : undefined}>{p.ocupacao}%</span>} />
+          {p.ocupacao > 100 && <p className="pt-1 text-xs text-destructive">Mais ingressos do que a capacidade.</p>}
         </div>
       )}
 
-      {breakeven > 0 && (
+      {p.equilibrio > 0 && (
         <p className="rounded-md border border-border p-3 text-sm text-muted-foreground">
-          Ponto de equilíbrio: você precisa vender <strong className="font-semibold text-foreground">{breakeven.toLocaleString('pt-BR')} {breakeven === 1 ? 'ingresso' : 'ingressos'}</strong> para cobrir os custos.
+          Ponto de equilíbrio: você precisa vender <strong className="font-semibold text-foreground">{p.equilibrio.toLocaleString('pt-BR')} {p.equilibrio === 1 ? 'ingresso' : 'ingressos'}</strong> para cobrir os custos.
+          {p.equilibrioAcimaDaCapacidade && <span role="alert" className="mt-1 block font-medium text-destructive">Isso passa da capacidade ({Number(capacity).toLocaleString('pt-BR')}): com esse preço o evento não se paga lotado.</span>}
         </p>
+      )}
+
+      <Campo id="proj-se" label="E se eu cobrasse (R$)?" min={0} value={seCobrasse} onChange={e => setSeCobrasse(e.target.value)} placeholder="0,00" />
+      {alt && (
+        <div className="space-y-1 rounded-md border border-border p-3">
+          <Linha label="Receita" valor={brl(alt.receita)} />
+          <Linha label="Lucro" valor={<span className={neg(alt.lucro)}>{brl(alt.lucro)}</span>} />
+          <Linha label="Margem" valor={<span className={neg(alt.margem)}>{pct(alt.margem)}</span>} />
+          <Linha label="Equilíbrio" valor={`${alt.equilibrio.toLocaleString('pt-BR')} ingressos`} />
+        </div>
       )}
     </Cartao>
   )

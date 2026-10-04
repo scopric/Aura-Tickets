@@ -123,7 +123,7 @@ export default function AdvancePayment() {
               className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${selectedEventId === e.id ? 'bg-plum/5 border border-plum/20' : 'bg-white/40 border border-white/60 hover:bg-white/60'}`}>
               <div className="text-left">
                 <div className="text-sm font-medium text-espresso">{e.title}</div>
-                <div className="text-xs text-espresso/70">{e.date ? new Date(e.date).toLocaleDateString('pt-BR') : 'Sem data'}</div>
+                <div className="text-xs text-espresso/70">{e.date ? new Date(`${e.date.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR') : 'Sem data'}</div>
               </div>
               <div className="text-right">
                 <div className="text-sm font-medium text-espresso">R$ {eventRevenue.revenue.toLocaleString('pt-BR')}</div>
