@@ -223,6 +223,20 @@ export function errosDeIngresso(i: Ing): ErrosIng {
 
 export const temErro = (e: object) => Object.keys(e).length > 0
 
+// ---- prévia no celular (PR3d-1) -----------------------------------------------------------------------------------
+/** O evento como a página pública o mostraria com o que está na tela (sem gravar). Só ingressos ativos: o banco só mostra esses ao público. */
+export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { evento: DbEvent; capaUrl: string | null }): DbEvent {
+  return {
+    ...evento, ...snapDoForm(form),
+    cover_image: capaUrl, image_url: capaUrl,
+    ticket_types: ings.filter(i => i.ativo).map(i => ({
+      id: i.id, event_id: evento.id, name: i.nome.trim() || 'Ingresso sem nome', description: null, price: precoDe(i.preco) ?? 0,
+      capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: i.vendidos, type: i.tipo as DbTicketType['type'],
+      perks: [], is_active: true, inclui_bebida: i.bebida, sale_start: null, sale_end: null, created_at: '', updated_at: '',
+    })),
+  } as DbEvent
+}
+
 // ---- pendências ------------------------------------------------------------------------------------------------------
 // Seção do painel de cada um dos 8 itens da barra
 export const SECAO_DA_PENDENCIA: Record<Pendencia['id'], string> = {
