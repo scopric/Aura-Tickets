@@ -6,11 +6,17 @@ export interface DbNotification {
   id: string
   user_id: string
   title: string
-  message: string | null
+  body: string | null
   type: string
   is_read: boolean
-  data: any
+  metadata: { url?: string; [k: string]: unknown } | null
   created_at: string
+}
+
+/** Caminho interno do aviso (metadata.url), ou null. Só aceita "/algo": nunca endereço de fora, "//" nem "/\\". */
+export function urlDoAviso(n: Pick<DbNotification, 'metadata'>): string | null {
+  const url = n.metadata?.url
+  return typeof url === 'string' && /^\/(?![\/\\])/.test(url) ? url : null
 }
 
 export function useUserNotifications() {
@@ -23,14 +29,16 @@ export function useUserNotifications() {
 
       const { data, error } = await supabase
         .from('notifications')
-        .select('*')
+        .select('id, user_id, title, body, type, is_read, metadata, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+        .limit(50)
 
       if (error) throw error
       return (data || []) as DbNotification[]
     },
     enabled: !!user?.id,
+    refetchOnWindowFocus: true, // voltar para a aba traz os avisos novos
   })
 }
 
@@ -40,13 +48,15 @@ export function useMarkNotificationRead() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .update({ is_read: true })
         .eq('id', notificationId)
         .eq('user_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Aviso não encontrado') // a RLS esconde sem erro: 0 linhas = não gravou
       return true
     },
     onSuccess: () => {
@@ -82,13 +92,15 @@ export function useDeleteNotification() {
 
   return useMutation({
     mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
         .delete()
         .eq('id', notificationId)
         .eq('user_id', user?.id)
+        .select('id')
 
       if (error) throw error
+      if (!data?.length) throw new Error('Aviso não encontrado')
       return true
     },
     onSuccess: () => {

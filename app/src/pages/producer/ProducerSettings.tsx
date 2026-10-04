@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { passwordError, PASSWORD_HINT } from '../../lib/password'
 import { Instagram } from 'lucide-react' // sem equivalente na família Evokaa 16 (o lucide marca Instagram como obsoleto: some no lucide 1.0)
@@ -35,6 +35,13 @@ export default function ProducerSettings() {
   } = useProducerSettings()
 
   const [section, setSection] = useState<Section>('perfil')
+  // /producer/settings?secao=notificacoes (link do sino) abre direto na aba Notificações
+  const [busca, setBusca] = useSearchParams()
+  useEffect(() => {
+    if (busca.get('secao') !== 'notificacoes') return
+    setSection('notificacoes')
+    setBusca((p: URLSearchParams) => { p.delete('secao'); return p }, { replace: true }) // senão voltaria para esta aba a cada troca
+  }, [busca, setBusca])
   // Confirmação da exclusão num modal da página: window.confirm pode ser bloqueado pelo
   // navegador e devolver false sem mostrar nada (foi o que aconteceu no teste de 27/09).
   const [showDelete, setShowDelete] = useState(false)

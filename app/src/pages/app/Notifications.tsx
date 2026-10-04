@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,7 @@ import {
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
   useDeleteNotification,
+  urlDoAviso,
 } from '../../hooks/useNotifications'
 
 // Cor pelo significado (contrato 2.1): venda e pagamento verdes, sistema e alerta vermelhos, o resto neutro
@@ -41,7 +43,7 @@ function formatTimeAgo(dateStr: string): string {
 
 export default function ParticipantNotifications() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
-  const { data: notifications = [], isLoading } = useUserNotifications()
+  const { data: notifications = [], isLoading, isError, refetch } = useUserNotifications()
   const markAsRead = useMarkNotificationRead()
   const markAllRead = useMarkAllNotificationsRead()
   const deleteNotification = useDeleteNotification()
@@ -80,6 +82,16 @@ export default function ParticipantNotifications() {
       <div className="max-w-3xl py-20 text-center text-foreground">
         <Spinner className="mx-auto size-6" />
         <p className="mt-4 text-sm text-muted-foreground">Carregando notificações...</p>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div role="alert" className="max-w-sm py-8 text-foreground">
+        <p className="text-lg font-semibold">Não foi possível carregar as notificações.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Confira sua conexão e tente de novo.</p>
+        <Button variant="outline" className="mt-4 rounded-ev-pill" onClick={() => refetch()}>Tentar de novo</Button>
       </div>
     )
   }
@@ -132,10 +144,18 @@ export default function ParticipantNotifications() {
                       </h2>
                       <span className="flex-none text-xs leading-5 text-muted-foreground">{formatTimeAgo(n.created_at)}</span>
                     </div>
-                    {n.message && (
-                      <p className="mt-1 text-sm leading-5 text-muted-foreground">{n.message}</p>
+                    {n.body && (
+                      <p className="mt-1 text-sm leading-5 text-muted-foreground">{n.body}</p>
                     )}
                     <div className="-ml-3 mt-2 flex items-center gap-1">
+                      {urlDoAviso(n) && (
+                        <Button asChild variant="ghost" size="sm" className="text-primary hover:text-primary">
+                          <Link to={urlDoAviso(n)!} onClick={() => !n.is_read && markAsRead.mutate(n.id)}>
+                            <I.Eventos aria-hidden="true" />
+                            <span>Abrir</span>
+                          </Link>
+                        </Button>
+                      )}
                       {!n.is_read && (
                         <Button variant="ghost" size="sm" className="text-primary hover:text-primary" onClick={() => handleMarkRead(n.id)} disabled={markAsRead.isPending}>
                           <I.Check aria-hidden="true" />

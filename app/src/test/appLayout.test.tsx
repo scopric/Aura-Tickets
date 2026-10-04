@@ -7,7 +7,7 @@ import { COOKIE_CONSENT_KEY, COOKIE_CONSENT_VERSION } from '../lib/tracking'
 
 const registrar = vi.fn()
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role: 'user', name: 'Ana', email: 'a@x.com' }, logout: vi.fn() }) }))
-vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }) }))
+vi.mock('../hooks/useNotifications', () => ({ useUserNotifications: () => ({ data: [], isLoading: false, isError: false }), useMarkAllNotificationsRead: () => ({ mutate: vi.fn(), isPending: false }), useMarkNotificationRead: () => ({ mutate: vi.fn(), isPending: false }), urlDoAviso: () => null }))
 vi.mock('../hooks/useTourLog', () => ({ useRegistrarTour: () => registrar }))
 vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
 vi.mock('../components/EvoHub', () => ({ default: () => <div data-tour="evo" /> }))
