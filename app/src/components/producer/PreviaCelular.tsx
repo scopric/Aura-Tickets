@@ -38,7 +38,7 @@ export function PreviaFolha({ evento }: { evento: DbEvent }) {
           <Button variant="outline"><I.Celular aria-hidden="true" />Ver no celular</Button>
         </DrawerTrigger>
         <DrawerContent className="h-[88dvh] max-h-[88dvh] mx-auto max-w-xl">
-          <DrawerHeader className="flex-row items-center justify-between text-left">
+          <DrawerHeader className="flex-row items-center justify-between group-data-[vaul-drawer-direction=bottom]/drawer-content:text-left">
             <div>
               <DrawerTitle>Ver no celular · prévia</DrawerTitle>
               <DrawerDescription>Do jeito que o público vê. Na prévia a compra fica desligada.</DrawerDescription>
