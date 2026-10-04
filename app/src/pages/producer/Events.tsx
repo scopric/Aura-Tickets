@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Plus, Search, Pencil, Trash2, Eye, Copy } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents, useDeleteEvent, useCreateEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
@@ -79,7 +79,7 @@ export default function ProducerEvents() {
     <PageHeader
       title="Meus eventos"
       description="Todos os seus eventos, do rascunho ao encerrado"
-      actions={<Button asChild data-tour="eventos-criar"><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+      actions={<Button asChild data-tour="eventos-criar"><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
     />
   )
 
@@ -87,7 +87,7 @@ export default function ProducerEvents() {
     return (
       <div aria-busy="true">
         {header}
-        <Skeleton className="h-9 w-full max-w-md rounded-md bg-muted" />
+        <Skeleton className="h-10 w-full max-w-md rounded-md bg-muted" />
         <div className="mt-4 space-y-2">
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[72px] rounded-[10px] bg-muted" />)}
         </div>
@@ -101,8 +101,8 @@ export default function ProducerEvents() {
         {header}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar seus eventos.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
+          <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>
+            Tentar de novo
           </Button>
         </div>
       </div>
@@ -116,7 +116,7 @@ export default function ProducerEvents() {
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div data-tour="eventos-busca" className="relative w-full lg:max-w-sm">
           <label htmlFor="busca-eventos" className="sr-only">Buscar eventos</label>
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+          <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
           <Input id="busca-eventos" type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar pelo nome" className="pl-9" />
         </div>
         <div data-tour="eventos-filtros" role="group" aria-label="Filtrar por situação" className="flex flex-wrap gap-1 lg:ml-auto">
@@ -132,7 +132,7 @@ export default function ProducerEvents() {
             <EmptyState
               title="Você ainda não tem eventos"
               description="Crie o primeiro e acompanhe tudo por aqui."
-              action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+              action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
             />
           ) : (
             <EmptyState title="Nenhum evento com essa busca ou filtro" />
@@ -164,26 +164,26 @@ export default function ProducerEvents() {
                     {st === 'Publicado' ? (
                       <Button asChild variant="ghost" size="icon-sm" className={icone}>
                         <a href={siteUrl(`/event/${event.id}`)} target="_blank" rel="noopener noreferrer" aria-label={`Ver a página pública de ${event.title} (abre em nova aba)`}>
-                          <Eye aria-hidden="true" />
+                          <I.Olho aria-hidden="true" />
                         </a>
                       </Button>
                     ) : (
                       <Button asChild variant="ghost" size="icon-sm" className={icone}>
                         <Link to={abreEvento(event.id)} aria-label={`Ver ${event.title} (ainda não está no ar)`}>
-                          <Eye aria-hidden="true" />
+                          <I.Olho aria-hidden="true" />
                         </Link>
                       </Button>
                     )}
                     <Button asChild variant="ghost" size="icon-sm" className={icone}>
                       <Link to={`/producer/events/${event.id}/edit`} title="Editar" aria-label={`Editar ${event.title}`}>
-                        <Pencil aria-hidden="true" />
+                        <I.Editar aria-hidden="true" />
                       </Link>
                     </Button>
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDuplicate(event)} disabled={createEvent.isPending} aria-label={`Duplicar ${event.title}`}>
-                      <Copy aria-hidden="true" />
+                      <I.Copiar aria-hidden="true" />
                     </Button>
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
-                      <Trash2 aria-hidden="true" />
+                      <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>
                 </li>
