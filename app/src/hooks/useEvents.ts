@@ -4,6 +4,7 @@ import { useAuth } from './useAuth'
 import { useAuthStore } from '../stores/authStore'
 import { isDemoAccount } from '../lib/demo'
 import { diaBR } from '../lib/visaoEvento'
+import { hashConfere } from '../lib/moderacaoEvento'
 
 // dados de exemplo só para conta de demonstração em desenvolvimento (lib/demo.ts)
 const demoAtual = () => isDemoAccount(useAuthStore.getState().user?.id)
@@ -71,6 +72,7 @@ export interface DbEvent {
   approved_by?: string | null
   rejection_reason?: string | null
   featured_carousel?: boolean
+  ingressos_alterados_em?: string | null // S8: preço, quantidade ou tipo novo de ingresso depois da aprovação (aviso ao admin)
   accent_color?: string | null // cor do evento, #rrggbb (V6a)
   ticket_types?: DbTicketType[]
 }
@@ -593,6 +595,29 @@ export function useAdminEvents() {
   })
 }
 
+// Detalhe do evento na moderação: link da transmissão (evento_privado) e último aceite do produtor (evento_aceites).
+// O admin lê as duas pela RLS (manage_events); o hash é conferido aqui, no navegador.
+export function useEventoModeracao(eventId: string | null) {
+  return useQuery({
+    queryKey: ['admin-evento-moderacao', eventId],
+    enabled: !!eventId,
+    queryFn: async () => {
+      const [priv, ace] = await Promise.all([
+        supabase.from('evento_privado' as never).select('online_url').eq('event_id', eventId!).maybeSingle(),
+        supabase.from('evento_aceites' as never).select('versao, aceito_em, texto, texto_hash').eq('event_id', eventId!).order('aceito_em', { ascending: false }).limit(1).maybeSingle(),
+      ])
+      if (priv.error) throw priv.error
+      if (ace.error) throw ace.error
+      const p = priv.data as { online_url: string | null } | null
+      const a = ace.data as { versao: string; aceito_em: string; texto: string; texto_hash: string } | null
+      return {
+        onlineUrl: p?.online_url ?? null,
+        aceite: a ? { versao: a.versao, aceitoEm: a.aceito_em, hashConfere: await hashConfere(a.texto, a.texto_hash) } : null,
+      }
+    },
+  })
+}
+
 export interface AdminTicketType extends DbTicketType {
   event_title: string
   event_status: string
@@ -713,43 +738,17 @@ export function useFeaturedEvents() {
 export function useApproveEvent() {
   const queryClient = useQueryClient()
   return useMutation({
-    // 'pending' = suspender: devolve o evento à fila de moderação (usado para revogar uma aprovação já concedida)
+    // 'pending' = revogar: tira o evento do ar e o devolve à moderação. Tudo vai em UM UPDATE no banco (admin_evento_decidir).
     // updatedAt: o updated_at lido, como texto do banco (sem Date: perderia os microssegundos). Se o produtor mexeu
-    // no evento depois da leitura, o update não acha a linha e a decisão não vale sobre conteúdo que o admin não viu.
+    // no evento depois da leitura, o banco responde P0002 e a decisão não vale sobre conteúdo que o admin não viu.
     mutationFn: async ({ eventId, status, rejectionReason, updatedAt }: { eventId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string; updatedAt?: string }) => {
-      const { data: session } = await supabase.auth.getSession()
-      const adminId = session.session?.user.id
-
-      const updatePayload: any = {
-        approval_status: status,
-        approved_at: status === 'approved' ? new Date().toISOString() : null,
-        approved_by: status === 'approved' ? adminId : null,
-        rejection_reason: status === 'rejected' ? rejectionReason || null : null
-      }
-      // qualquer decisão que não seja aprovação tira o evento dos destaques
-      if (status !== 'approved') updatePayload.featured_carousel = false
-
-      let atualizar = supabase.from('events').update(updatePayload).eq('id', eventId)
-      if (updatedAt) atualizar = atualizar.eq('updated_at', updatedAt)
-      const { data, error } = await atualizar.select().maybeSingle()
-
+      const { data, error } = await supabase.rpc('admin_evento_decidir' as never, {
+        p_id: eventId,
+        p_decisao: status === 'approved' ? 'aprovar' : status === 'rejected' ? 'recusar' : 'revogar',
+        p_motivo: status === 'rejected' ? rejectionReason || null : null,
+        p_versao: updatedAt,
+      } as never)
       if (error) throw error
-      if (!data) throw new Error('O evento mudou ou você não tem permissão para esta ação: recarregue a página.')
-
-      // só despublica o que ESTIVER 'published' no momento do update (condição no WHERE, sem
-      // janela de leitura-e-grava): 'cancelled'/'ended' são decisão do produtor e não se perdem
-      if (status !== 'approved') {
-        const { data: despublicado, error: despublicarErro } = await supabase
-          .from('events')
-          .update({ status: 'draft' })
-          .eq('id', eventId)
-          .eq('status', 'published')
-          .select()
-          .maybeSingle()
-        if (despublicarErro) throw despublicarErro
-        if (despublicado) return despublicado
-      }
-
       return data
     },
     onSuccess: () => {

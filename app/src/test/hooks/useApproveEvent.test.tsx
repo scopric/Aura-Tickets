@@ -10,76 +10,44 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
   <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
 )
 
-// Simula o update de aprovação: guarda os .eq() e devolve `linha` no maybeSingle.
-function simula(linha: unknown) {
-  const eqs: [string, unknown][] = []
-  const builder = {
-    eq: (col: string, val: unknown) => { eqs.push([col, val]); return builder },
-    select: () => ({ maybeSingle: () => Promise.resolve({ data: linha, error: null }) }),
-  }
-  vi.mocked(supabase.from).mockReturnValue({ update: () => builder } as never)
-  return eqs
-}
-
-const aprovar = (updatedAt?: string) => {
+// S8: a decisão vai por admin_evento_decidir (um UPDATE só no banco), sempre com a versão (updated_at) lida.
+const rpc = vi.fn()
+;(supabase as unknown as { rpc: typeof rpc }).rpc = rpc
+const bruto = '2026-10-04T12:00:00.123456+00:00'
+const decidir = (args: Parameters<ReturnType<typeof useApproveEvent>['mutateAsync']>[0]) => {
   const { result } = renderHook(() => useApproveEvent(), { wrapper })
-  return result.current.mutateAsync({ eventId: 'e1', status: 'approved', updatedAt })
+  return result.current.mutateAsync(args)
 }
 
-describe('useApproveEvent com o updated_at lido', () => {
-  beforeEach(() => vi.clearAllMocks())
+describe('useApproveEvent chama admin_evento_decidir', () => {
+  beforeEach(() => { vi.clearAllMocks(); rpc.mockResolvedValue({ data: { id: 'e1' }, error: null }) })
 
-  it('com updatedAt manda .eq("updated_at") com o texto bruto, sem passar por Date', async () => {
-    const eqs = simula({ id: 'e1' })
-    const bruto = '2026-10-04T12:00:00.123456+00:00'
-    await aprovar(bruto)
-    expect(eqs).toEqual([['id', 'e1'], ['updated_at', bruto]])
+  it('aprovar: p_versao é o texto bruto do updated_at, sem passar por Date', async () => {
+    await expect(decidir({ eventId: 'e1', status: 'approved', updatedAt: bruto })).resolves.toEqual({ id: 'e1' })
+    expect(rpc).toHaveBeenCalledWith('admin_evento_decidir', { p_id: 'e1', p_decisao: 'aprovar', p_motivo: null, p_versao: bruto })
   })
 
-  it('linha que não casa (null) lança o erro de evento mudado', async () => {
-    simula(null)
-    await expect(aprovar('2026-10-04T12:00:00.123456+00:00')).rejects.toThrow('O evento mudou ou você não tem permissão para esta ação: recarregue a página.')
+  it('recusar manda o motivo; revogar (status pending) manda "revogar" sem motivo', async () => {
+    await decidir({ eventId: 'e1', status: 'rejected', rejectionReason: 'Faltou o alvará', updatedAt: bruto })
+    expect(rpc).toHaveBeenLastCalledWith('admin_evento_decidir', { p_id: 'e1', p_decisao: 'recusar', p_motivo: 'Faltou o alvará', p_versao: bruto })
+    await decidir({ eventId: 'e1', status: 'pending', updatedAt: bruto })
+    expect(rpc).toHaveBeenLastCalledWith('admin_evento_decidir', { p_id: 'e1', p_decisao: 'revogar', p_motivo: null, p_versao: bruto })
   })
 
-  it('sem updatedAt continua como antes: só o id, e devolve a linha', async () => {
-    const eqs = simula({ id: 'e1' })
-    await expect(aprovar()).resolves.toEqual({ id: 'e1' })
-    expect(eqs).toEqual([['id', 'e1']])
-  })
-
-  it('recusar com updatedAt: o 1º update filtra updated_at; o 2º (rascunho) continua filtrando status published', async () => {
-    const eqs1: [string, unknown][] = []
-    const eqs2: [string, unknown][] = []
-    const payloads: unknown[] = []
-    const montar = (eqs: [string, unknown][], linha: unknown) => {
-      const b = {
-        eq: (c: string, v: unknown) => { eqs.push([c, v]); return b },
-        select: () => ({ maybeSingle: () => Promise.resolve({ data: linha, error: null }) }),
-      }
-      return b
-    }
-    const builders = [montar(eqs1, { id: 'e1', approval_status: 'rejected' }), montar(eqs2, { id: 'e1', status: 'draft' })]
-    vi.mocked(supabase.from).mockReturnValue({ update: (p: unknown) => { payloads.push(p); return builders.shift() } } as never)
-    const bruto = '2026-10-04T12:00:00.123456+00:00'
-    const { result } = renderHook(() => useApproveEvent(), { wrapper })
-    await expect(result.current.mutateAsync({ eventId: 'e1', status: 'rejected', rejectionReason: 'Faltou o alvará', updatedAt: bruto }))
-      .resolves.toEqual({ id: 'e1', status: 'draft' })
-    expect(eqs1).toEqual([['id', 'e1'], ['updated_at', bruto]])
-    expect(eqs2).toEqual([['id', 'e1'], ['status', 'published']])
-    expect(payloads[0]).toMatchObject({ approval_status: 'rejected', rejection_reason: 'Faltou o alvará', featured_carousel: false })
-    expect(payloads[1]).toEqual({ status: 'draft' })
-  })
-
-  it('recusar com updatedAt que não casa: erro e o 2º update (rascunho) não roda', async () => {
+  it('só uma chamada ao banco por decisão (nada de segundo UPDATE para despublicar)', async () => {
     const from = vi.mocked(supabase.from)
-    simula(null)
-    const { result } = renderHook(() => useApproveEvent(), { wrapper })
-    await expect(result.current.mutateAsync({ eventId: 'e1', status: 'rejected', rejectionReason: 'x', updatedAt: 'a' })).rejects.toThrow('O evento mudou')
-    expect(from).toHaveBeenCalledTimes(1)
+    await decidir({ eventId: 'e1', status: 'rejected', rejectionReason: 'x', updatedAt: bruto })
+    expect(rpc).toHaveBeenCalledTimes(1)
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('P0002 do banco ("o evento mudou") sobe com a mensagem do banco', async () => {
+    rpc.mockResolvedValue({ data: null, error: Object.assign(new Error('O evento mudou desde que você abriu; recarregue.'), { code: 'P0002' }) })
+    await expect(decidir({ eventId: 'e1', status: 'approved', updatedAt: bruto })).rejects.toThrow('O evento mudou desde que você abriu; recarregue.')
   })
 
   it('a lista do admin é recarregada também quando falha (onSettled)', async () => {
-    simula(null)
+    rpc.mockResolvedValue({ data: null, error: new Error('falha') })
     const client = new QueryClient()
     const invalida = vi.spyOn(client, 'invalidateQueries')
     const { result } = renderHook(() => useApproveEvent(), {
