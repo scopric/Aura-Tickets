@@ -16,6 +16,8 @@ export type Leitura = { ok: true; pecas: Peca[]; descartadas: number } | { ok: f
 
 export const MAX_PECAS = 200
 export const MAX_BYTES = 1_500_000 // depois de decodificar o base64; a planta chega reduzida (cerca de 300 KB)
+export const MAX_CORPO_BYTES = Math.ceil((MAX_BYTES * 4) / 3) + 10_000 // Content-Length máximo do pedido ao agent: a imagem em base64 mais a folga do JSON
+export const MAX_SAIDA_TOKENS = 16384 // teto de saída do Gemini (inclui raciocínio); também o custo estimado quando a chamada aborta
 export const MAX_ROTULO = 24
 const ROTULO_RE = /^[\p{L}\p{N} .\-/]{1,24}$/u
 
@@ -61,7 +63,7 @@ export function corpoGemini(arquivo: { mime: string; b64: string }) {
       parts: [{ inlineData: { mimeType: arquivo.mime, data: arquivo.b64 } }, { text: 'Leia esta planta e liste as peças.' }],
     }],
     generationConfig: {
-      maxOutputTokens: 16384,
+      maxOutputTokens: MAX_SAIDA_TOKENS,
       thinkingConfig: { thinkingLevel: 'low' },
       responseMimeType: 'application/json',
       responseSchema: {
@@ -100,6 +102,7 @@ export function conferirArquivo(dataUrl: unknown): { mime: string; b64: string }
   const m = /^data:image\/(?:webp|jpeg|png);base64,/.exec(dataUrl)
   if (!m) return null
   const b64 = dataUrl.slice(m[0].length)
+  if (b64.length > MAX_CORPO_BYTES) return null // tamanho antes da regex
   if (b64.length < 16 || b64.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(b64)) return null
   if (b64.length * 0.75 - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0) > MAX_BYTES) return null
   let inicio: Uint8Array

@@ -23,11 +23,14 @@ export async function reduzirPlanta(arquivo: Blob, maxLado = 1600, alvoBytes = 3
 
 // PDF da planta: a página 1 vira imagem aqui no navegador e segue o mesmo caminho da imagem (reduzirPlanta).
 // O pdf.js e o worker só são baixados quando o arquivo é PDF (import dinâmico: chunk separado, fora da entrada).
-// ponytail: só a página 1; sem as fontes padrão do pdf.js, texto de fonte não embutida pode sair trocado.
+// Build `legacy`: a moderna exige `Math.sumPrecise` (navegador novo) e falha em Safari/Chrome mais velhos.
+// `wasmUrl`: os decodificadores wasm (JBIG2 de PDF escaneado, JPEG 2000, cores ICC) ficam em public/pdfjs-wasm;
+// sem eles o PDF escaneado em JBIG2 sai em branco. ponytail: cópia dos arquivos de node_modules/pdfjs-dist/wasm
+// (versão 6.4.299); recopiar ao atualizar o pdfjs-dist. Só a página 1; sem as fontes padrão, fonte não embutida pode sair trocada.
 export async function pdfParaImagem(arquivo: Blob, maxLado = 1600): Promise<Blob> {
-  const [pdfjs, worker] = await Promise.all([import('pdfjs-dist'), import('pdfjs-dist/build/pdf.worker.min.mjs?url')])
+  const [pdfjs, worker] = await Promise.all([import('pdfjs-dist/legacy/build/pdf.mjs'), import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')])
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-  const tarefa = pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()) })
+  const tarefa = pdfjs.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), wasmUrl: '/pdfjs-wasm/' })
   try {
     const pagina = await (await tarefa.promise).getPage(1)
     const base = pagina.getViewport({ scale: 1 })

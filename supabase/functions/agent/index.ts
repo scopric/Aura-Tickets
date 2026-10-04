@@ -15,7 +15,7 @@ import { resumir } from '../_shared/mascara.ts'
 import { FORMATOS, TEMAS, ESTILOS, MAX_TEMAS, MAX_ESTILOS } from '../_shared/tipoEvento.ts'
 import { adminCan, mfaOk } from '../_shared/mfa.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { conferirArquivo, corpoGemini as corpoPlanta, interpretar as interpretarPlanta } from '../_shared/planta.ts'
+import { conferirArquivo, corpoGemini as corpoPlanta, interpretar as interpretarPlanta, MAX_CORPO_BYTES, MAX_SAIDA_TOKENS } from '../_shared/planta.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -311,6 +311,8 @@ async function atender(req: Request): Promise<Response> {
   const role = perfil?.role
   if (role !== 'producer' && role !== 'admin') return recusa('nao_autorizado')
 
+  // Content-Length antes de ler o corpo (pedido sem o cabeçalho, em pedaços, passa; o limite do gateway da Supabase cobre esse caso)
+  if (Number(req.headers.get('content-length') ?? 0) > MAX_CORPO_BYTES) return recusa('entrada_invalida')
   let corpo
   try {
     corpo = validarCorpo(await req.json())
@@ -333,8 +335,10 @@ async function atender(req: Request): Promise<Response> {
     arquivo = conferirArquivo(imagem)
     if (!arquivo) return recusa('arquivo_invalido')
     if (role !== 'admin') {
-      const { data: ev } = await admin.from('events').select('producer_id').eq('id', eventId!).maybeSingle()
-      if (ev?.producer_id !== caller.id) return recusa('nao_autorizado')
+      const { data: ev, error: evError } = await admin.from('events').select('producer_id').eq('id', eventId!).maybeSingle()
+      if (evError) console.error('[agent] events (planta) ilegível:', evError.message)
+      // falha do banco ou evento de outro produtor: "o Evo não conseguiu" (nao_autorizado diria "só para produtores", o que não é verdade)
+      if (evError || ev?.producer_id !== caller.id) return recusa('erro_ia')
     }
   }
 
@@ -603,6 +607,9 @@ async function lerPlanta(c: {
     return json(200, { ok: true, pecas: leitura.pecas, descartadas: leitura.descartadas, usage_id: reserva.id, restante: reserva.restante, custo: reserva.custo })
   } catch (e) {
     console.error('[agent] falha na leitura de planta:', e instanceof Error ? e.message : 'desconhecida')
+    // Chamada abortada (prazo): o Google pode ter cobrado e não devolveu usageMetadata. Sem tokens o custo ficaria 0
+    // e o teto diário não contaria; registra o pior caso (saída no máximo) só para o teto. O crédito do produtor segue sem cobrança.
+    if (uso.called && !uso.in && !uso.out && (e as Error)?.name === 'AbortError') { uso.in = 1500; uso.out = MAX_SAIDA_TOKENS }
     await finalizar('erro', 'planta: erro')
     return recusa('erro_ia')
   }

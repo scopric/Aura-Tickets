@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import SeatingMap from '../pages/producer/SeatingMap'
 import { reduzirPlanta } from '../lib/plantaFundo'
@@ -340,6 +340,24 @@ describe('Lugar marcado: carga e erros', () => {
     const palco = seats.find((x: { type: string }) => x.type === 'stage')
     expect(palco.widthMeter).toBe(7.5)
     expect(palco.heightMeter).toBe(1.25)
+  })
+
+  it('fechar o modal durante a leitura: a proposta não fica órfã sobre a planta, e a leitura (já cobrada) reabre no painel de revisão', async () => {
+    h.eventos = dois
+    comPlanta()
+    let responde!: (v: unknown) => void
+    h.invoke.mockReturnValue(new Promise(r => { responde = r }))
+    montar('/producer/seating?eventId=e1')
+    await waitFor(() => expect((screen.getByRole('button', { name: /Salvar/ }) as HTMLButtonElement).disabled).toBe(false))
+    await carregarPlanta()
+    fireEvent.click(screen.getByLabelText('Leitor de mapa com IA'))
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /Ler com IA/ })) })
+    fireEvent.click(within(screen.getByRole('dialog', { name: 'Leitor de planta com IA' })).getByRole('button', { name: 'Fechar' })) // fecha o modal com a leitura em andamento
+    expect(screen.queryByRole('dialog', { name: 'Leitor de planta com IA' })).toBeNull()
+    await act(async () => { responde({ data: { ok: true, pecas, descartadas: 0, usage_id: 'u1', restante: 0, custo: 5 }, error: null }) })
+    expect(await screen.findByRole('dialog', { name: 'Revisar a proposta da IA' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Descartar' }))
+    expect(screen.queryByRole('button', { name: /clique para desmarcar/ })).toBeNull() // sem painel, sem camada
   })
 
   it('sem crédito: mostra quanto custa e quanto sobra, e não abre proposta', async () => {

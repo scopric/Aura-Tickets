@@ -5,7 +5,7 @@ import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { reduzirPlanta, pdfParaImagem } from '../../lib/plantaFundo'
 import * as I from '@/components/icones/evokaa16'
-import { chamarEvo, RECUSAS, creditos } from '../../components/evo/EvoChat'
+import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
 import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -1540,6 +1540,7 @@ export default function SeatingMap() {
       return
     }
     setProposta({ imagem: bgImage, pecas: pecas.map((p, i) => ({ ...p, id: `ia-${i}`, marcada: true })), custo: r.custo, restante: r.restante })
+    setAiReaderOpen(true) // fechou o modal durante a leitura (já cobrada): reabre no painel de revisão, onde a proposta pode ser aplicada ou descartada
     toast.success(`${pecas.length} peças propostas. Revise por cima da planta antes de aplicar.`)
   }
 
@@ -2709,7 +2710,7 @@ export default function SeatingMap() {
             )}
 
             {/* Proposta do leitor de planta com IA: por cima da planta, clique desmarca a peça. Nada entra no mapa antes de "Aplicar". */}
-            {propostaAtual && bgNatural && (
+            {aiReaderOpen && propostaAtual && bgNatural && (
               <div
                 className="absolute z-40 pointer-events-none"
                 style={{ left: bgOffset.x, top: bgOffset.y, width: bgScale * LARGURA_BASE_PX, height: (bgScale * LARGURA_BASE_PX * bgNatural.h) / bgNatural.w }}

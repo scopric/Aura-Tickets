@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TIPOS, MAX_PECAS, conferirArquivo, corpoGemini, interpretar } from '../../../supabase/functions/_shared/planta'
+import { TIPOS, MAX_PECAS, MAX_CORPO_BYTES, conferirArquivo, corpoGemini, interpretar } from '../../../supabase/functions/_shared/planta'
 import { alternarTipo, contarPorTipo, emMetros, nosDaProposta, pecasValidas, type PecaProposta, type Quadro } from '../lib/plantaIA'
 
 const resposta = (obj: unknown, finishReason = 'STOP') => ({
@@ -74,6 +74,7 @@ describe('conferirArquivo', () => {
     expect(conferirArquivo('data:image/png;base64,@@@@@@@@@@@@@@@@@@@@')).toBeNull()
     expect(conferirArquivo(123)).toBeNull()
     expect(conferirArquivo('data:image/png;base64,')).toBeNull()
+    expect(conferirArquivo(`data:image/png;base64,${'A'.repeat(MAX_CORPO_BYTES + 4)}`)).toBeNull() // grande demais: recusa antes da regex
   })
 
   it('recusa acima de 1,5 MB depois de decodificar', () => {
