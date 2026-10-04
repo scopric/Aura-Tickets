@@ -55,7 +55,7 @@ export default function AdminDashboard() {
   const carregar = useCallback(async () => {
     setLoading(true)
     // sem permissão a consulta nem é feita (vira "sem dado", não erro)
-    const tenta = <T,>(p: string, q: () => PromiseLike<any>, pick: (r: { data: any; count?: number | null }) => T): Promise<Res<T>> =>
+    const tenta = <T,>(p: string, q: () => Parameters<typeof tentaConsulta<T>>[0], pick: Parameters<typeof tentaConsulta<T>>[1]): Promise<Res<T>> =>
       pode(p) ? tentaConsulta(q(), pick) : Promise.resolve({ data: null, error: null })
     const [roles, eventos, newsletter, suporte, contato, fila, eventosRecentes, contasRecentes] = await Promise.all([
       // ponytail: o PostgREST corta em 1.000 linhas; trocar por count head por papel quando passar de centenas de contas
@@ -87,7 +87,7 @@ export default function AdminDashboard() {
   const kpis: { label: string; perm: string; value: number | null | undefined; sub?: string | null; error?: string | null }[] = [
     { label: 'Contas', perm: 'manage_users', value: contas?.total, sub: contas ? `${contas.participantes} participantes · ${contas.produtores} produtores · ${contas.admins} admins` : null, error: dados?.roles.error },
     { label: 'Eventos pendentes', perm: 'manage_events', value: ev ? ev.filter(naFilaDeModeracao).length : null, error: dados?.eventos.error },
-    { label: 'Eventos no ar', perm: 'manage_events', value: ev ? ev.filter(noAr).length : null, sub: ev ? `${ev.filter(e => e.approval_status === 'approved').length} aprovados no total` : null, error: dados?.eventos.error },
+    { label: 'Eventos no ar', perm: 'manage_events', value: ev ? ev.filter(e => noAr(e)).length : null, sub: ev ? `${ev.filter(e => e.approval_status === 'approved').length} aprovados no total` : null, error: dados?.eventos.error },
     { label: 'Inscritos na newsletter', perm: 'manage_newsletter', value: dados?.newsletter.data, error: dados?.newsletter.error },
     { label: 'Conversas abertas com a equipe', perm: 'manage_support', value: dados?.suporte.data, error: dados?.suporte.error },
     { label: 'Mensagens de contato', perm: 'manage_feedback', value: dados?.contato.data, error: dados?.contato.error },

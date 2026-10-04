@@ -33,6 +33,22 @@ describe('Admin: Painel com permissão', () => {
   })
 })
 
+describe('Admin: Painel, eventos no ar', () => {
+  it('conta só o evento por vir e mostra os aprovados no total no hint', async () => {
+    const ev = (id: string, start: string) => ({ id, title: id, status: 'published', approval_status: 'approved', start_date: start, end_date: null, date: null, time: null, created_at: '2026-01-01T10:00:00Z' })
+    from.mockImplementation(() => {
+      const r = Promise.resolve({ data: [ev('passado', '2020-01-01T12:00:00Z'), ev('futuro', '2999-01-01T12:00:00Z')], error: null, count: 0 })
+      const q: any = { select: () => q, order: () => q, limit: () => r, or: () => q, eq: () => q, is: () => r, then: r.then.bind(r) }
+      return q
+    })
+    render(<MemoryRouter><AdminDashboard /></MemoryRouter>)
+    await waitFor(() => expect(screen.getByText(/Atualizado em/)).toBeInTheDocument())
+    const card = screen.getByText('Eventos no ar').parentElement
+    expect(card?.textContent).toContain('1')
+    expect(card?.textContent).toContain('2 aprovados no total')
+  })
+})
+
 describe('Admin: Cupons', () => {
   it('falha ao ler os pedidos mostra alerta, não "Nenhum pedido", e o contador vira —', async () => {
     from.mockImplementation((t: string) => {

@@ -100,13 +100,21 @@ describe('dataPorVir e confirmacaoArquivar', () => {
 })
 
 describe('noAr (Decisão 163 item 5)', () => {
-  const futuro = { start_date: '2999-01-01T12:00:00Z', end_date: null }
-  const passado = { start_date: '2020-01-01T12:00:00Z', end_date: null }
-  it('só aprovado + publicado + data por vir', () => {
-    expect(noAr({ status: 'published', approval_status: 'approved', ...futuro })).toBe(true)
-    expect(noAr({ status: 'published', approval_status: 'approved', ...passado })).toBe(false)
-    expect(noAr({ status: 'draft', approval_status: 'approved', ...futuro })).toBe(false)
-    expect(noAr({ status: 'published', approval_status: 'pending', ...futuro })).toBe(false)
+  // agora = 01/10 12:00 UTC = 09:00 em Brasília
+  const agora = Date.parse('2026-10-01T12:00:00Z')
+  const ok = { status: 'published', approval_status: 'approved' }
+  const sem = { start_date: '2026-09-01T12:00:00Z', end_date: null }
+  it('evento de hoje que começou há 1 h, sem fim, continua no ar', () => {
+    expect(noAr({ ...ok, ...sem, date: '2026-10-01', time: '08:00:00' }, agora)).toBe(true)
+  })
+  it('evento de ontem não; só start_date futuro sim', () => {
+    expect(noAr({ ...ok, ...sem, date: '2026-09-30', time: '10:00:00' }, agora)).toBe(false)
+    expect(noAr({ ...ok, start_date: '2026-10-05T20:00:00Z', end_date: null }, agora)).toBe(true)
+  })
+  it('exige publicado e aprovado', () => {
+    const futuro = { start_date: '2999-01-01T12:00:00Z', end_date: null }
+    expect(noAr({ status: 'draft', approval_status: 'approved', ...futuro }, agora)).toBe(false)
+    expect(noAr({ status: 'published', approval_status: 'pending', ...futuro }, agora)).toBe(false)
   })
 })
 
