@@ -45,8 +45,8 @@ export function vendidosDe(vendidos: { porEvento: Record<string, number>; cortad
   return n > 0 ? n : vendidos.cortado ? undefined : 0
 }
 
-// A maior data conhecida do evento ainda não passou (favorece o bloqueio): o mesmo critério do gatilho. NewEvent e
-// EventPlanner gravam só date e time, e start_date fica com a hora da criação; por isso entra date + time (sem
+// A maior data conhecida do evento ainda não passou (favorece o bloqueio): o mesmo critério do gatilho. O começo
+// rápido e o Evo gravam só date e time, e start_date fica com a hora da criação; por isso entra date + time (sem
 // hora = 23:59:59), na hora de Brasília.
 // ponytail: fuso fixo -03:00 (Brasil sem horário de verão desde 2019); o banco usa 'America/Sao_Paulo'.
 export function dataPorVir(

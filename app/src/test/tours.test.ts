@@ -29,7 +29,7 @@ describe('catálogo de tours', () => {
   it('tourDoCaminho acha o tour pela rota da tela e devolve nome e número de passos', () => {
     expect(tourDoCaminho('/producer/events')).toEqual({ id: 'eventos', nome: 'Eventos', passos: TOURS.eventos.passos.length })
     expect(tourDoCaminho('/producer/events/')).toMatchObject({ id: 'eventos' })
-    expect(tourDoCaminho('/producer/planner')).toMatchObject({ id: 'criar-evento', passos: 3 })
+    expect(tourDoCaminho('/producer/events/new')).toMatchObject({ id: 'criar-evento', passos: 3 })
     expect(tourDoCaminho('/producer')).toMatchObject({ id: 'inicio', passos: 4 })
     expect(tourDoCaminho('/producer/dashboard')).toMatchObject({ id: 'inicio' })
     expect(tourDoCaminho('/app/hub')).toEqual({ id: 'app-inicio', nome: 'Início', passos: 3 })
@@ -39,7 +39,7 @@ describe('catálogo de tours', () => {
 
   it('tourDoCaminho é null em tela sem tour', () => {
     expect(tourDoCaminho('/producer/finance')).toBeNull()
-    expect(tourDoCaminho('/producer/events/new')).toBeNull()
+    expect(tourDoCaminho('/producer/planner')).toBeNull()
     expect(tourDoCaminho('/producer/events/abc/edit')).toBeNull()
     expect(tourDoCaminho('/app/tickets')).toBeNull()
     expect(tourDoCaminho('/')).toBeNull()

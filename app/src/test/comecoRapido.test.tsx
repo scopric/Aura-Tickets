@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ComecoRapido from '../pages/producer/ComecoRapido'
 import type { DbEvent } from '../hooks/useEvents'
+import { TOURS } from '../lib/tours'
 
 let role = 'producer'
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', role } }) }))
@@ -117,6 +118,11 @@ describe('ComecoRapido: do zero', () => {
 })
 
 describe('ComecoRapido: Evo e cópia', () => {
+  it('o tour criar-evento tem onde apontar: cada passo acha seu data-tour na tela', () => {
+    const { container } = montar()
+    for (const p of TOURS['criar-evento'].passos) expect(container.querySelector(`[data-tour="${p.alvo}"]`), p.alvo).not.toBeNull()
+  })
+
   it('"Abrir o Evo" dispara evo:planejar; sem Evo (participante) a opção não aparece', () => {
     const ouviu = vi.fn()
     window.addEventListener('evo:planejar', ouviu)

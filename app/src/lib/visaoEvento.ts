@@ -23,7 +23,7 @@ export function horaCurta(time?: string | null): string | null {
   return m ? `${+m[1]}h${m[2] === '00' ? '' : m[2]}` : null
 }
 
-/** Dia do evento (AAAA-MM-DD). Só `date`: start_date de evento criado pelo planejador é a hora da criação, não a do evento */
+/** Dia do evento (AAAA-MM-DD). Só `date`: start_date de evento criado pelo começo rápido ou pelo Evo é a hora da criação, não a do evento */
 export const diaDoEvento = (e: { date?: string | null }): string | null => e.date || null
 
 export const diaMais = (dia: string, n: number): string => new Date(Date.parse(dia) + n * 86400000).toISOString().slice(0, 10)

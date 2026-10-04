@@ -18,30 +18,6 @@ test.describe('Fluxo do Produtor', () => {
     await expect(page.getByText('Festival de Verão 2025')).toBeVisible()
   })
 
-  test('deve editar um evento existente', async ({ page }) => {
-    await page.goto('/producer/events')
-
-    // Clicar no ícone de editar do primeiro evento
-    const editButton = page.getByRole('link', { name: /^Editar / }).first()
-    await editButton.click()
-
-    // Verificar que entrou na página de edição
-    await expect(page.getByText('Editar Evento')).toBeVisible()
-
-    // Alterar título
-    const titleInput = page.getByPlaceholder('Ex: Noite Eletro 2025')
-    await titleInput.fill('Festival de Verão 2025 - Editado')
-
-    // Avançar até a revisão e salvar
-    await page.getByRole('button', { name: 'Próximo' }).click()
-    await page.getByRole('button', { name: 'Próximo' }).click()
-    await page.getByRole('button', { name: 'Próximo' }).click()
-    await page.getByRole('button', { name: 'Salvar Alterações' }).click()
-
-    // Verificar redirecionamento
-    await expect(page).toHaveURL(/.*\/producer\/events/)
-  })
-
   test('deve acessar configurações do produtor', async ({ page }) => {
     // Com a conta demo (401) a tela mostra "Não foi possível carregar as configurações" e não abre as abas
     test.skip(true, 'conta demo não lê o banco; rodar com E2E_PRODUCER_* real')

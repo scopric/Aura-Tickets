@@ -82,7 +82,7 @@ export default function ComecoRapido() {
       />
 
       <div className="grid grid-cols-[minmax(0,1fr)] gap-10 min-[1100px]:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] min-[1100px]:gap-12">
-        <form onSubmit={enviar} noValidate aria-labelledby="t-zero" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5">
+        <form onSubmit={enviar} noValidate aria-labelledby="t-zero" data-tour="comeco-zero" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start gap-5">
           <SectionTitle id="t-zero">Do zero</SectionTitle>
 
           <div>
@@ -135,7 +135,7 @@ export default function ComecoRapido() {
 
         <div aria-label="Outros jeitos de começar" className="grid min-w-0 grid-cols-[minmax(0,1fr)] content-start border-t border-border">
           {podeEvo && (
-            <section aria-labelledby="t-evo" className="grid grid-cols-[48px_minmax(0,1fr)] gap-4 border-b border-border py-5">
+            <section aria-labelledby="t-evo" data-tour="comeco-evo" className="grid grid-cols-[48px_minmax(0,1fr)] gap-4 border-b border-border py-5">
               <img src="/evo/evo-corpo-acenando.webp" alt="" width={48} height={64} className="h-16 w-12 object-contain" />
               <div className="grid justify-items-start gap-2">
                 <SectionTitle id="t-evo">Montar com o Evo</SectionTitle>
@@ -145,7 +145,7 @@ export default function ComecoRapido() {
             </section>
           )}
 
-          <section aria-labelledby="t-copia" className="border-b border-border py-5">
+          <section aria-labelledby="t-copia" data-tour="comeco-copia" className="border-b border-border py-5">
             <SectionTitle id="t-copia">Copiar de um evento anterior</SectionTitle>
             <p className="mt-1 text-sm text-muted-foreground">Copia tudo, menos datas, vendas, aprovação e destaque. A foto e os ingressos vão junto.</p>
             {isLoading ? (

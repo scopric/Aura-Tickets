@@ -198,7 +198,7 @@ export default function ProducerDashboard() {
   const passosDados = passosQ.data
   const vendidosTotal = v?.ingressos.length ?? 0
   const passos = passosDados ? [
-    { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/planner?tour=criar-evento' },
+    { feito: eventos.length > 0, texto: 'Criar o primeiro evento', to: '/producer/events/new?tour=criar-evento' },
     {
       // publicado (em análise, aprovado ou recusado) ou já encerrado: foi enviado
       feito: eventos.some(e => e.status === 'published' || e.status === 'ended'),

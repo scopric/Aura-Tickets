@@ -166,7 +166,7 @@ export function TabelaEventos({ eventos, linhas, vendidos, receita, receitaCorta
         <EmptyState
           title="Você ainda não tem eventos"
           description="Crie o primeiro e acompanhe as vendas por aqui."
-          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/events/new"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </section>
     )

@@ -312,7 +312,6 @@ Evokaa Tickets/
 ├── supabase_schema.sql            # Schema antigo (tabela 'profiles')
 ├── *.tsx (AdminSettings, Analytics, Dashboard, etc.)  # Páginas antigas
 ├── mockData.ts                    # Dados mock antigos
-├── eventManagerData.ts            # Dados mock antigos
 ├── use-mobile.ts                  # Hook antigo
 ├── utils.ts                       # Utilitários antigos
 ├── 404.html                       # Página 404 antiga
