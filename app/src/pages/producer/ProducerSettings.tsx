@@ -13,7 +13,7 @@ import { supabase } from '../../lib/supabase'
 import { uploadAvatar } from '../../lib/avatarUpload'
 import PhoneInput from '../../components/ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
-import { PageHeader } from '@/components/producer/ui'
+import { PageHeader, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,7 +24,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe'
 
-const select = 'h-10 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)] dark:bg-input/30'
 
 export default function ProducerSettings() {
   const {
@@ -467,13 +466,13 @@ export default function ProducerSettings() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="grid gap-1.5">
                   <Label htmlFor="cfg-banco">Banco</Label>
-                  <select id="cfg-banco" value={payment.bankName} onChange={e => setPayment({ ...payment, bankName: e.target.value })} className={select}>
+                  <select id="cfg-banco" value={payment.bankName} onChange={e => setPayment({ ...payment, bankName: e.target.value })} className={selectNativo}>
                     <option value="Itau">Itaú</option><option>Bradesco</option><option>Nubank</option><option>Santander</option><option>Inter</option>
                   </select>
                 </div>
                 <div className="grid gap-1.5">
                   <Label htmlFor="cfg-tipo-conta">Tipo de conta</Label>
-                  <select id="cfg-tipo-conta" value={payment.accountType} onChange={e => setPayment({ ...payment, accountType: e.target.value })} className={select}>
+                  <select id="cfg-tipo-conta" value={payment.accountType} onChange={e => setPayment({ ...payment, accountType: e.target.value })} className={selectNativo}>
                     <option value="corrente">Conta corrente</option><option value="poupanca">Poupança</option>
                   </select>
                 </div>

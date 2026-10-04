@@ -1,11 +1,11 @@
-import { useState } from 'react'
-import { Phone, Mail, Search, Calendar, Plus, Trash2, Copy, MessageCircle } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
 import { iniciais } from '../../hooks/useConversas'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,7 +53,6 @@ function quandoFoi(iso: string) {
 
 const dinheiro = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 const ORIGENS = ['Instagram', 'LinkedIn', 'Google Ads', 'Facebook', 'Indicação', 'Afiliado', 'Orgânico']
 
@@ -67,6 +66,7 @@ export default function ProducerCRM() {
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dragOverCol, setDragOverCol] = useState<string | null>(null)
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
+  const origemNovoLead = useRef<HTMLElement | null>(null)
   const [novo, setNovo] = useState(leadVazio)
   const [isSubmittingLead, setIsSubmittingLead] = useState(false)
   const [criandoEtapas, setCriandoEtapas] = useState(false)
@@ -233,7 +233,7 @@ export default function ProducerCRM() {
     <PageHeader
       title="CRM"
       description="Funil de leads e histórico de contatos"
-      actions={<Button onClick={() => setIsAddModalOpen(true)}><Plus aria-hidden="true" />Novo lead</Button>}
+      actions={<Button onClick={() => { origemNovoLead.current = document.activeElement as HTMLElement | null; setIsAddModalOpen(true) }}><I.Criar aria-hidden="true" />Novo lead</Button>}
     />
   )
 
@@ -286,7 +286,7 @@ export default function ProducerCRM() {
       {colunas.length > 0 && (
         <>
           <div className="relative mt-6 w-full sm:max-w-xs">
-            <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <I.Buscar size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar leads" aria-label="Buscar leads" className="pl-9" />
           </div>
 
@@ -323,7 +323,7 @@ export default function ProducerCRM() {
                           </span>
                         </button>
                         <Button variant="ghost" size="icon-sm" className={`absolute right-1.5 top-1.5 ${icone}`} onClick={() => handleDeleteLead(l.id, l.full_name)} aria-label={`Excluir lead ${l.full_name}`}>
-                          <Trash2 aria-hidden="true" />
+                          <I.Lixeira aria-hidden="true" />
                         </Button>
                       </li>
                     ))}
@@ -341,7 +341,7 @@ export default function ProducerCRM() {
       )}
 
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] overflow-y-auto" onCloseAutoFocus={e => { e.preventDefault(); const o = origemNovoLead.current; setTimeout(() => o?.focus()) }}>
           <DialogHeader>
             <DialogTitle>Novo lead</DialogTitle>
             <DialogDescription>{etapas[0] ? `Entra na etapa "${etapas[0].name}".` : 'Entra sem etapa até você criar as etapas do funil.'}</DialogDescription>
@@ -364,7 +364,7 @@ export default function ProducerCRM() {
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="grid gap-1.5">
                 <Label htmlFor="lead-origem">Origem</Label>
-                <select id="lead-origem" value={novo.source} onChange={e => setNovo({ ...novo, source: e.target.value })} className={select}>
+                <select id="lead-origem" value={novo.source} onChange={e => setNovo({ ...novo, source: e.target.value })} className={selectNativo}>
                   {ORIGENS.map(o => <option key={o} value={o}>{o}</option>)}
                 </select>
               </div>
@@ -394,14 +394,14 @@ export default function ProducerCRM() {
           {selected && (
             <>
               <SheetHeader>
-                <SheetTitle>{selected.full_name}</SheetTitle>
+                <SheetTitle className="text-lg leading-none tracking-normal">{selected.full_name}</SheetTitle>
                 <SheetDescription>{selected.source} · desde {new Date(selected.created_at).toLocaleDateString('pt-BR')}</SheetDescription>
               </SheetHeader>
               <div className="grid gap-5 px-4 pb-6">
                 {etapas.length > 0 && (
                   <div className="grid gap-1.5">
                     <Label htmlFor="lead-etapa">Etapa</Label>
-                    <select id="lead-etapa" value={etapas.some(e => e.id === selected.stage_id) ? selected.stage_id ?? '' : ''} onChange={e => moverLead(selected.id, e.target.value)} className={select}>
+                    <select id="lead-etapa" value={etapas.some(e => e.id === selected.stage_id) ? selected.stage_id ?? '' : ''} onChange={e => moverLead(selected.id, e.target.value)} className={selectNativo}>
                       {!etapas.some(e => e.id === selected.stage_id) && <option value="" disabled>Sem etapa</option>}
                       {etapas.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                     </select>
@@ -409,9 +409,9 @@ export default function ProducerCRM() {
                 )}
 
                 <dl className="grid gap-2 text-sm">
-                  <div className="flex items-center gap-2 text-muted-foreground"><Mail aria-hidden="true" className="size-4" /><dt className="sr-only">E-mail</dt><dd className="min-w-0 truncate text-foreground">{selected.email || 'Sem e-mail'}</dd></div>
-                  <div className="flex items-center gap-2 text-muted-foreground"><Phone aria-hidden="true" className="size-4" /><dt className="sr-only">Telefone</dt><dd className="text-foreground">{selected.phone || 'Sem telefone'}</dd></div>
-                  <div className="flex items-center gap-2 text-muted-foreground"><Calendar aria-hidden="true" className="size-4" /><dt>Último contato:</dt><dd className="text-foreground">{ultimoContato(selected) ? quandoFoi(ultimoContato(selected)!.created_at) : 'nenhum'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><I.Email size={16} aria-hidden="true" /><dt className="sr-only">E-mail</dt><dd className="min-w-0 truncate text-foreground">{selected.email || 'Sem e-mail'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><I.Telefone size={16} aria-hidden="true" /><dt className="sr-only">Telefone</dt><dd className="text-foreground">{selected.phone || 'Sem telefone'}</dd></div>
+                  <div className="flex items-center gap-2 text-muted-foreground"><I.Eventos size={16} aria-hidden="true" /><dt>Último contato:</dt><dd className="text-foreground">{ultimoContato(selected) ? quandoFoi(ultimoContato(selected)!.created_at) : 'nenhum'}</dd></div>
                   <div className="flex items-center gap-2 text-muted-foreground"><dt>Valor estimado:</dt><dd className="tabular-nums text-foreground">{dinheiro(selected.potential_value)}</dd></div>
                   {selected.event_interest && <div className="flex items-center gap-2 text-muted-foreground"><dt>Evento de interesse:</dt><dd className="min-w-0 truncate text-foreground">{selected.event_interest}</dd></div>}
                 </dl>
@@ -425,10 +425,10 @@ export default function ProducerCRM() {
 
                 <div className="flex gap-2">
                   <Button variant="outline" size="sm" className="flex-1" disabled={!selected.email} onClick={() => { navigator.clipboard.writeText(selected.email ?? ''); toast.success('E-mail copiado.') }}>
-                    <Copy aria-hidden="true" />Copiar e-mail
+                    <I.Copiar aria-hidden="true" />Copiar e-mail
                   </Button>
                   <Button variant="outline" size="sm" className="flex-1" disabled={!selected.phone} onClick={() => window.open(`https://wa.me/55${(selected.phone ?? '').replace(/\D/g, '')}`, '_blank', 'noopener')}>
-                    <MessageCircle aria-hidden="true" />WhatsApp
+                    <I.Conversa aria-hidden="true" />WhatsApp
                   </Button>
                 </div>
 

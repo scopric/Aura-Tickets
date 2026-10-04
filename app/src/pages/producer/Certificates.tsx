@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Palette, Plus, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import {
@@ -11,13 +11,12 @@ import {
   useEmitirCertificados,
   useRevogarCertificado,
 } from '../../hooks/useProducerTools'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 // Avatar com as iniciais, sem serviço externo (LGPD)
@@ -63,7 +62,7 @@ export default function Certificates() {
     <PageHeader
       title="Certificados"
       description="Emita certificados para quem participou dos seus eventos"
-      actions={events.length > 0 && <Button asChild variant="outline"><Link to={editorUrl}><Palette aria-hidden="true" />Editor de modelos</Link></Button>}
+      actions={events.length > 0 && <Button asChild variant="outline"><Link to={editorUrl}><I.Paleta aria-hidden="true" />Editor de modelos</Link></Button>}
     />
   )
 
@@ -88,7 +87,7 @@ export default function Certificates() {
         <EmptyState
           title="Você ainda não tem eventos"
           description="O certificado é emitido por evento, para quem tem ingresso."
-          action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )
@@ -135,7 +134,7 @@ export default function Certificates() {
 
       <div className="grid gap-1.5 sm:max-w-sm">
         <Label htmlFor="cert-evento">Evento</Label>
-        <select id="cert-evento" value={selectedEventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={select}>
+        <select id="cert-evento" value={selectedEventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={selectNativo}>
           {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
       </div>
@@ -153,7 +152,7 @@ export default function Certificates() {
           <EmptyState
             title="Este evento ainda não tem modelo de certificado"
             description="Monte o modelo no editor; depois você emite aqui para quem participou."
-            action={<Button asChild><Link to={editorUrl}><Palette aria-hidden="true" />Criar modelo</Link></Button>}
+            action={<Button asChild><Link to={editorUrl}><I.Paleta aria-hidden="true" />Criar modelo</Link></Button>}
           />
         ) : (
           <>
@@ -178,8 +177,8 @@ export default function Certificates() {
 
             <div className="mt-6 mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-base font-semibold text-foreground">Participantes</h2>
-              <Button onClick={emitirTodos} disabled={pendentes.length === 0 || emitir.isPending}>
-                {emitir.isPending ? <><Loader2 className="animate-spin" aria-hidden="true" />Emitindo…</> : `Emitir para todos (${pendentes.length})`}
+              <Button onClick={emitirTodos} disabled={pendentes.length === 0} loading={emitir.isPending}>
+                Emitir para todos ({pendentes.length})
               </Button>
             </div>
 

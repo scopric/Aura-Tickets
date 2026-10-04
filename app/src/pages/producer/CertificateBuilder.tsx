@@ -1,15 +1,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowLeft, Upload, Type, Image, Signature,
-  QrCode, Trash2, Copy, Save, Loader2,
-  Calendar as CalendarDays, Plus
-} from 'lucide-react'
 import { toast } from 'sonner'
+import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
-import { PageHeader, EmptyState } from '@/components/producer/ui'
+import { PageHeader, EmptyState, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -62,7 +58,6 @@ const defaultFields: CertField[] = [
 ]
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
-const select = 'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30'
 const painel = 'rounded-[10px] border border-border bg-card p-4'
 
 export default function CertificateBuilder() {
@@ -191,7 +186,8 @@ export default function CertificateBuilder() {
   }
 
   const selected = fields.find(f => f.id === selectedField)
-  const podeSalvar = !!eventId && carregadoPara === eventId && !salvando
+  // com `loading` o botão não fica `disabled` (senão cinza e sem spinner); o loading já bloqueia o clique
+  const podeSalvar = !!eventId && carregadoPara === eventId
 
   const header = (
     <PageHeader
@@ -199,11 +195,10 @@ export default function CertificateBuilder() {
       description="Monte o modelo do certificado de cada evento, com seu logo e assinatura"
       actions={
         <>
-          <Button asChild variant="outline"><Link to="/producer/certificados"><ArrowLeft aria-hidden="true" />Certificados</Link></Button>
+          <Button asChild variant="outline"><Link to="/producer/certificados"><I.SetaEsquerda aria-hidden="true" />Certificados</Link></Button>
           {events.length > 0 && (
-            <Button onClick={handleSave} disabled={!podeSalvar}>
-              {salvando ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
-              {salvando ? 'Salvando…' : 'Salvar modelo'}
+            <Button onClick={handleSave} disabled={!podeSalvar} loading={salvando}>
+              <I.Guardar aria-hidden="true" />Salvar modelo
             </Button>
           )}
         </>
@@ -240,7 +235,7 @@ export default function CertificateBuilder() {
         <EmptyState
           title="Crie um evento antes do certificado"
           description="O modelo de certificado é salvo para um evento."
-          action={<Button asChild><Link to="/producer/planner"><Plus aria-hidden="true" />Criar evento</Link></Button>}
+          action={<Button asChild><Link to="/producer/planner"><I.Criar aria-hidden="true" />Criar evento</Link></Button>}
         />
       </div>
     )
@@ -252,7 +247,7 @@ export default function CertificateBuilder() {
 
       <div className="grid gap-1.5 sm:max-w-sm">
         <Label htmlFor="editor-evento">Modelo do evento</Label>
-        <select id="editor-evento" value={eventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={select}>
+        <select id="editor-evento" value={eventId ?? ''} onChange={e => setPickedEventId(e.target.value || null)} className={selectNativo}>
           {events.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
       </div>
@@ -283,14 +278,14 @@ export default function CertificateBuilder() {
                 <Label htmlFor="upload-logo-input" className="mb-1.5 text-xs text-muted-foreground">Logo do evento</Label>
                 <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => fileInputRef.current?.click()}>
-                  {logoUrl ? <img src={logoUrl} alt="Logo do evento" className="h-8 object-contain" /> : <><Upload aria-hidden="true" />Enviar</>}
+                  {logoUrl ? <img src={logoUrl} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
                 </Button>
               </div>
               <div>
                 <Label htmlFor="upload-sig-input" className="mb-1.5 text-xs text-muted-foreground">Assinatura</Label>
                 <input id="upload-sig-input" ref={sigInputRef} type="file" accept="image/*" className="sr-only" onChange={e => handleFileChange(e, 'sig')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => sigInputRef.current?.click()}>
-                  {sigUrl ? <img src={sigUrl} alt="Assinatura do produtor" className="h-8 object-contain" /> : <><Signature aria-hidden="true" />Enviar</>}
+                  {sigUrl ? <img src={sigUrl} alt="Assinatura do produtor" className="h-8 object-contain" /> : <><I.Assinatura aria-hidden="true" />Enviar</>}
                 </Button>
               </div>
             </div>
@@ -325,8 +320,8 @@ export default function CertificateBuilder() {
             <div className="mb-3 flex items-center justify-between">
               <h2 id="campos" className="text-sm font-medium text-foreground">Campos ({fields.length})</h2>
               <div className="flex gap-1">
-                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('text')} aria-label="Adicionar campo de texto"><Type aria-hidden="true" /></Button>
-                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('qrcode')} aria-label="Adicionar QR Code"><QrCode aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('text')} aria-label="Adicionar campo de texto"><I.Texto aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" className={icone} onClick={() => addField('qrcode')} aria-label="Adicionar QR Code"><I.Qr aria-hidden="true" /></Button>
               </div>
             </div>
             <ul className="max-h-48 space-y-1 overflow-y-auto pr-1">
@@ -334,15 +329,15 @@ export default function CertificateBuilder() {
                 <li key={f.id} className={`flex items-center gap-1 rounded-md text-xs ${selectedField === f.id ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'}`}>
                   <button type="button" aria-pressed={selectedField === f.id} onClick={() => setSelectedField(f.id === selectedField ? null : f.id)}
                     className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-3 py-2 text-left hover:bg-foreground/5">
-                    {f.type === 'text' && <Type className="size-3.5" aria-hidden="true" />}
-                    {f.type === 'logo' && <Image className="size-3.5" aria-hidden="true" />}
-                    {f.type === 'signature' && <Signature className="size-3.5" aria-hidden="true" />}
-                    {f.type === 'qrcode' && <QrCode className="size-3.5" aria-hidden="true" />}
-                    {f.type === 'date' && <CalendarDays className="size-3.5" aria-hidden="true" />}
+                    {f.type === 'text' && <I.Texto size={14} aria-hidden="true" />}
+                    {f.type === 'logo' && <I.Imagem size={14} aria-hidden="true" />}
+                    {f.type === 'signature' && <I.Assinatura size={14} aria-hidden="true" />}
+                    {f.type === 'qrcode' && <I.Qr size={14} aria-hidden="true" />}
+                    {f.type === 'date' && <I.Eventos size={14} aria-hidden="true" />}
                     <span className="truncate">{f.label}</span>
                   </button>
                   <Button variant="ghost" size="icon-sm" className={icone} onClick={() => removeField(f.id)} aria-label={`Remover o campo ${f.label}`}>
-                    <Trash2 aria-hidden="true" />
+                    <I.Lixeira aria-hidden="true" />
                   </Button>
                 </li>
               ))}
@@ -429,7 +424,7 @@ export default function CertificateBuilder() {
                   {field.type === 'logo' && !logoUrl && <div className="text-xs text-neutral-500">LOGO</div>}
                   {field.type === 'signature' && sigUrl && <img src={sigUrl} alt="Assinatura do produtor no certificado" className="mx-auto max-h-10 object-contain" />}
                   {field.type === 'signature' && !sigUrl && <div className="text-lg" style={{ color: field.color }}>_________________</div>}
-                  {field.type === 'qrcode' && <QrCode className="size-12 text-white" aria-hidden="true" />}
+                  {field.type === 'qrcode' && <I.Qr size={48} className="text-white" aria-hidden="true" />}
                   {field.type === 'text' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color, fontWeight: field.fontSize > 20 ? 600 : 400 }}>{resolveValue(field)}</div>}
                   {field.type === 'date' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
                   {field.type === 'hours' && <div style={{ fontSize: `${field.fontSize}px`, color: field.color }}>{resolveValue(field)}</div>}
@@ -443,7 +438,7 @@ export default function CertificateBuilder() {
               <div className="flex flex-wrap gap-2">
                 {['{{NOME}}', '{{EVENTO}}', '{{DATA}}', '{{HORAS}}', '{{ASSINATURA}}', '{{DATA_EMISSAO}}'].map(v => (
                   <Button key={v} variant="secondary" size="sm" className="h-7 font-mono text-[11px]" onClick={() => { navigator.clipboard.writeText(v); toast.success('Variável copiada.') }} aria-label={`Copiar ${v}`}>
-                    <Copy aria-hidden="true" /> {v}
+                    <I.Copiar aria-hidden="true" /> {v}
                   </Button>
                 ))}
               </div>
