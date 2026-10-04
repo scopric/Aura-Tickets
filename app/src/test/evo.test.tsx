@@ -43,6 +43,7 @@ const Local = () => {
       <p data-testid="local">{l.pathname + l.search}</p>
       <button onClick={() => nav('/producer/dashboard')}>ir para o início</button>
       <button onClick={() => nav('/producer/events?tour=eventos')}>abrir tour por outro caminho</button>
+      <button onClick={() => nav('/producer/events')}>fechar o tour</button>
     </>
   )
 }
@@ -469,6 +470,30 @@ describe('EvoHub: pergunta do tour da tela (V9b)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'abrir tour por outro caminho' }))
     expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
+    fireEvent.click(screen.getByRole('button', { name: 'fechar o tour' })) // tour termina: URL sem ?tour=
+    expect(screen.getByTestId('local')).toHaveTextContent(/^\/producer\/events$/)
+    expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
+    expect(screen.getByRole('status')).toBeEmptyDOMElement()
+  })
+
+  it('?tour= na URL antes dos 2 s: nenhum balão (nem o convite comum por baixo do tour)', async () => {
+    semConvitePrevio()
+    montarTour('/producer/finance?tour=eventos')
+    await new Promise((r) => setTimeout(r, 2500))
+    expect(screen.queryByText(CONVITE)).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Mostrar' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Fechar aviso do Evo' })).toBeNull()
+  })
+
+  it('o X do convite comum devolve o foco ao mascote', async () => {
+    semConvitePrevio()
+    montarTour('/producer/finance')
+    await screen.findByText(CONVITE, {}, { timeout: 4000 })
+    const x = screen.getByRole('button', { name: 'Fechar aviso do Evo' })
+    x.focus()
+    fireEvent.click(x)
+    expect(screen.queryByText(CONVITE)).toBeNull()
+    expect(screen.getByRole('button', { name: 'Falar com o Evo' })).toHaveFocus()
   })
 
   it('com tour:<id> gravado: convite normal', async () => {

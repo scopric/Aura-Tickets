@@ -76,6 +76,7 @@ export default function EvoHub() {
   const tourAberto = new URLSearchParams(search).has('tour')
   const oferecer = !!tour && !tourAberto && !feitos.has(`tour:${tour.id}`) && !feitos.has(`dica:${tour.id}`)
   const oferecerRef = useRef(oferecer)
+  const tourAbertoRef = useRef(tourAberto)
   // decidir só com o registro lido: senão o convite comum piscaria antes da pergunta
   const aguardandoLog = !!tour && !carregou
   // Respostas da equipe não lidas (a aba "Falar com a Evokaa"); o canal do Realtime fica aqui porque o EvoHub não desmonta
@@ -86,14 +87,15 @@ export default function EvoHub() {
   }, [aberto])
   useEffect(() => {
     oferecerRef.current = oferecer
-  }, [oferecer])
+    tourAbertoRef.current = tourAberto
+  }, [oferecer, tourAberto])
 
   // Convite ~2 s depois de carregar; o relógio só começa com cookies e Política resolvidos (uma camada por vez)
   useEffect(() => {
     if (camada !== null || aguardandoLog || conviteDisparado.current) return
     const t = setTimeout(() => {
       conviteDisparado.current = true
-      if (abertoRef.current) return
+      if (abertoRef.current || tourAbertoRef.current) return // com o tour aberto o balão não cobre o tour
       // a pergunta da tela tem memória própria (tour:/dica:), não depende do histórico do convite comum
       if (oferecerRef.current) return setBalao((b) => b ?? 'pergunta')
       const c = lerConvite()
@@ -125,6 +127,7 @@ export default function EvoHub() {
   const fecharBalao = () => {
     if (balao === 'pergunta') return agoraNao() // fechar é escolha do usuário: vale como "Agora não"
     if (balao === 'convite') gravarConvite((c) => ({ ...c, fechados: c.fechados + 1 }))
+    devolverFoco()
     setBalao(null)
   }
 
