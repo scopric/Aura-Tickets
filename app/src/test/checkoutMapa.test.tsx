@@ -46,7 +46,9 @@ describe('Checkout com mapa de assentos (E7a)', () => {
     montar()
     fireEvent.click(await screen.findByRole('button', { name: 'Ver o mapa do salão' }))
     await screen.findByRole('note')
-    fireEvent.click(document.querySelector('div.absolute.origin-center') as HTMLElement) // o assento A1
+    const assento = document.querySelector('div.absolute.origin-center') as HTMLElement // o assento A1
+    expect(assento.className).not.toContain('cursor-pointer') // livre não parece clicável
+    fireEvent.click(assento)
     expect(screen.queryByRole('textbox')).toBeNull() // sem modal do nome do ocupante
     expect(screen.queryByText(/assento\(s\)/)).toBeNull()
     expect(screen.getAllByText(/100,00/).length).toBeGreaterThan(0) // carrinho segue só com a seleção rápida

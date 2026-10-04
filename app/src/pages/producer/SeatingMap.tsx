@@ -548,8 +548,10 @@ export default function SeatingMap() {
 
   // Ingressos do evento escolhido para ligar a um setor (coletiva não tem lugar marcado; inativo não vende)
   const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number }[]>([])
+  const [tiposCarregados, setTiposCarregados] = useState(false) // falso enquanto carrega e se a leitura falhar
   useEffect(() => {
     setTiposIngresso([])
+    setTiposCarregados(false)
     if (!eventId) return
     let cancelado = false
     supabase
@@ -560,6 +562,7 @@ export default function SeatingMap() {
         if (cancelado) return
         if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
         const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean }[] // ticket_types não está nos tipos gerados
+        setTiposCarregados(true)
         setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(({ id, name, price }) => ({ id, name, price })))
       })
     return () => { cancelado = true }
@@ -4554,7 +4557,10 @@ export default function SeatingMap() {
                                       className="w-full px-1.5 py-1 bg-card border border-input rounded-lg text-xs text-foreground focus:outline-none focus-visible:border-[var(--ev-focus-field)] focus-visible:ring-[3px] focus-visible:ring-[var(--ev-brand-soft)]"
                                     >
                                       <option value="">Não vende (sem ingresso ligado)</option>
-                                      {s.ticketTypeId && !tiposIngresso.some(t => t.id === s.ticketTypeId) && (
+                                      {!tiposCarregados && s.ticketTypeId && (
+                                        <option value={s.ticketTypeId}>Ingresso ligado (lista ainda não carregada)</option>
+                                      )}
+                                      {tiposCarregados && s.ticketTypeId && !tiposIngresso.some(t => t.id === s.ticketTypeId) && (
                                         <option value={s.ticketTypeId}>Ingresso indisponível (inativo, coletiva ou removido)</option>
                                       )}
                                       {tiposIngresso.map(t => <option key={t.id} value={t.id}>{t.name} (R$ {t.price})</option>)}
