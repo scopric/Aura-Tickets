@@ -121,21 +121,22 @@ function useExtra(userId: string | null, conversaId: string | null) {
     enabled: !!userId,
     queryFn: async () => {
       const uid = userId!
-      const [anteriores, ingressos, pedidos, perfil, plano] = await Promise.all([
+      // papel, plano, ingressos e pedidos vêm de chat_cliente_contexto (security definer, só manage_support, só de quem tem
+      // conversa): o suporte não lê tickets, orders nem producer_subscriptions direto (Decisão 163)
+      const [anteriores, contexto] = await Promise.all([
         supabase.from('conversations' as never).select('id, status, created_at, last_message_preview, chat_topics(label)').eq('user_id', uid).neq('id', conversaId!).order('created_at', { ascending: false }).limit(8),
-        supabase.from('tickets').select('id, status, created_at, ticket_types(name, events(title))').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
-        supabase.from('orders').select('id, total, status, created_at, events(title)').eq('user_id', uid).order('created_at', { ascending: false }).limit(5),
-        supabase.from('profiles').select('role').eq('id', uid).maybeSingle(),
-        supabase.from('producer_subscriptions').select('plan, is_active, expires_at').eq('producer_id', uid).maybeSingle(),
+        supabase.rpc('chat_cliente_contexto' as never, { p_user: uid } as never),
       ])
-      const erro = anteriores.error || ingressos.error || pedidos.error || perfil.error || plano.error
+      const erro = anteriores.error || contexto.error
       if (erro) throw erro
+      const ctx = contexto.data as unknown as Pick<Extra, 'ingressos' | 'pedidos' | 'papel' | 'plano'> | null
+      if (!ctx) throw new Error('O banco não devolveu o histórico desta conta.')
       return {
         anteriores: (anteriores.data ?? []) as unknown as Extra['anteriores'],
-        ingressos: (ingressos.data ?? []) as unknown as Extra['ingressos'],
-        pedidos: (pedidos.data ?? []) as unknown as Extra['pedidos'],
-        papel: (perfil.data as { role?: string } | null)?.role ?? null,
-        plano: plano.data as unknown as Extra['plano'],
+        ingressos: ctx.ingressos ?? [],
+        pedidos: ctx.pedidos ?? [],
+        papel: ctx.papel ?? null,
+        plano: ctx.plano ?? null,
       }
     },
   })
