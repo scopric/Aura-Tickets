@@ -898,5 +898,20 @@ test.describe('painel do evento: prévia no celular', () => {
       await expect(dlg).toBeHidden()
       await expect(botao).toBeFocused()
     })
+
+    test.describe('tela de toque', () => {
+      test.use({ hasTouch: true })
+      test('tocar em "Ver no celular" com os chips abertos abre a folha (a área de 44 px dos chips não cobre o botão)', async ({ page }) => {
+        await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+        await entrarProdutor(page)
+        await abrirPainel(page)
+        await abre(page, /^O que é/)
+        expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+        const marcados = await page.locator('[aria-pressed="true"]').count()
+        await page.getByRole('button', { name: 'Ver no celular' }).tap()
+        await expect(page.getByRole('dialog', { name: 'Ver no celular · prévia' })).toBeVisible()
+        await expect(page.locator('[aria-pressed="true"]')).toHaveCount(marcados) // nenhum chip trocou
+      })
+    })
   })
 })
