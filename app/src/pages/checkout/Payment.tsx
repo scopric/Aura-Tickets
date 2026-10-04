@@ -201,7 +201,7 @@ export default function CheckoutPayment() {
             }
 
             // Simula sucesso ou chama o processamento
-            toast.success('Pagamento com cartão processado com sucesso!')
+            toast.info('Pedido registrado. A cobrança no cartão ainda não está ativa.')
             await updateSeatingMapStatus()
             sessionStorage.removeItem('aura_pending_checkout')
             navigate('/checkout/success', {
@@ -310,7 +310,7 @@ export default function CheckoutPayment() {
                 <span className={radio} aria-hidden="true" />
                 <span className="flex-1">
                   <span className="block text-[15px] font-semibold leading-5">Cartão de Crédito</span>
-                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Pagamento seguro com formulário genérico</span>
+                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Cobrança ainda não ativa (ambiente de teste)</span>
                 </span>
                 <I.Cartao size={20} className="shrink-0 text-muted-foreground" />
               </button>
@@ -318,7 +318,7 @@ export default function CheckoutPayment() {
                 <span className={radio} aria-hidden="true" />
                 <span className="flex-1">
                   <span className="block text-[15px] font-semibold leading-5">Pagar com Pix</span>
-                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Aprovação em segundos</span>
+                  <span className="block text-[13px] leading-[18px] text-muted-foreground">Cobrança ainda não ativa (ambiente de teste)</span>
                 </span>
               </button>
             </div>
@@ -349,7 +349,7 @@ export default function CheckoutPayment() {
 
           {!pixData && paymentMethod === 'pix' && (
             <p className="px-1 text-[13px] leading-5 text-muted-foreground">
-              Ao clicar em "Pagar Agora", geraremos o código Pix Copia e Cola. O pedido será confirmado instantaneamente após o pagamento.
+              Ao clicar em "Pagar Agora", tentaremos gerar o código Pix Copia e Cola.
             </p>
           )}
 
@@ -395,8 +395,8 @@ export default function CheckoutPayment() {
               <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total, currency)}</span>
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs leading-4 text-muted-foreground">
-              <I.Escudo size={14} />
-              Pagamento seguro e criptografado
+              <I.Info size={14} />
+              Ambiente de teste: a cobrança ainda não está ativa e nenhum valor é debitado.
             </p>
             {!pixData && (
               <Button type="button" size="lg" className="mt-4 w-full rounded-full" onClick={handlePay} loading={ocupado}>

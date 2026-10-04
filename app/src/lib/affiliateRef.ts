@@ -68,8 +68,9 @@ export function affiliateRefQuery(): string {
 
 // Endereço do cadastro no app levando o código do afiliado, quando houver
 export function registerUrl(appUrlFn: (path: string) => string): string {
-  const q = affiliateRefQuery()
-  return appUrlFn(`/auth/register${q ? `?${q}` : ''}`)
+  const q = new URLSearchParams(affiliateRefQuery())
+  q.set('tipo', 'produtor') // os botões do site são para quem cria evento; o cadastro abre em Participante sem isso
+  return appUrlFn(`/auth/register?${q}`)
 }
 
 export function clearAffiliateRef() {

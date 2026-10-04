@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, ArrowLeft, User, Building, Loader2 } from 'lucide-react'
 import { useAuth } from '../../hooks/useAuth'
 import type { Role } from '../../types/auth'
@@ -10,13 +10,16 @@ import AuthAcquisitionSelector from '../../components/AuthAcquisitionSelector'
 import AuthPasswordStrength from '../../components/AuthPasswordStrength'
 import { captureAffiliateRef, getAffiliateRef } from '../../lib/affiliateRef'
 import { consumirVolta } from '../../lib/voltaEvento'
+import { useAuthStore } from '../../stores/authStore'
 
 export default function AuthRegister() {
   const navigate = useNavigate()
   const { register, isAuthenticated, role: currentRoleContext } = useAuth()
   const [step, setStep] = useState(1)
   const [showPassword, setShowPassword] = useState(false)
-  const [type, setType] = useState<Role>('producer')
+  const [params] = useSearchParams()
+  // Padrão Participante (como o login). Produtor só quando o link pede: ?tipo=produtor, ?plano= (preços) ou ?ref= (afiliado, que indica produtores)
+  const [type, setType] = useState<Role>(() => params.get('tipo') === 'produtor' || params.has('plano') || params.has('ref') ? 'producer' : 'user')
   const [name, setName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
@@ -56,7 +59,8 @@ export default function AuthRegister() {
       if (currentRoleContext === 'admin' || currentRoleContext === 'producer') {
         consumirVolta(currentRoleContext, null) // só limpa: produtor e admin não voltam ao evento
         navigate(currentRoleContext === 'admin' ? '/admin/dashboard' : '/producer/dashboard')
-      } else navigate(consumirVolta(currentRoleContext, null) ?? '/app/hub')
+      } else if (sessionStorage.getItem('aura_pending_checkout')) navigate('/checkout') // compra em andamento: volta a ela, como o Login
+      else navigate(consumirVolta(currentRoleContext, null) ?? '/app/hub')
     }
   }, [isAuthenticated, currentRoleContext, navigate])
 
@@ -120,7 +124,7 @@ export default function AuthRegister() {
     if (success) {
       toast.success('Conta criada com sucesso!')
       setTimeout(() => {
-        if (!isAuthenticated) {
+        if (!useAuthStore.getState().isAuthenticated) { // o valor do render ficava velho: sempre mandava ao login, mesmo logado
           navigate('/auth/login')
         }
       }, 1500)

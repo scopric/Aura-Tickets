@@ -62,6 +62,36 @@ describe('página do evento (V11a)', () => {
     expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument()
   })
 
+  it('evento já realizado: "Comprar" desligado com o motivo e sem contador', () => {
+    evento = base({ date: '2020-01-01' })
+    montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Evento encerrado').length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByRole('button', { name: /^Adicionar um / })).toBeNull()
+  })
+
+  it('janela de venda: vencida e futura desligam a compra com o motivo', () => {
+    evento = base({ ticket_types: [ingresso({ sale_end: '2020-01-01T00:00:00Z' })] })
+    const { unmount } = montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Vendas encerradas').length).toBeGreaterThanOrEqual(1)
+    unmount()
+    evento = base({ ticket_types: [ingresso({ sale_start: '2099-03-05T12:00:00Z' })] })
+    montar()
+    expect(screen.getByRole('button', { name: 'Comprar' })).toBeDisabled()
+    expect(screen.getAllByText('Vendas começam em 05/03').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('classificação: mostra a do banco; vazia, diz que o produtor não informou', () => {
+    evento = base({ classificacao: 'A16' })
+    const { unmount } = montar()
+    expect(screen.getByText('Classificação: 16 anos')).toBeInTheDocument()
+    unmount()
+    evento = base()
+    montar()
+    expect(screen.getByText('Classificação não informada pelo produtor')).toBeInTheDocument()
+  })
+
   it('Salvar (VF) e Compartilhar existem na barra de topo', () => {
     montar()
     expect(screen.getByRole('button', { name: 'Salvar evento' })).toHaveAttribute('aria-pressed', 'false')
