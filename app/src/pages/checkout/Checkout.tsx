@@ -47,9 +47,8 @@ export default function Checkout() {
   // Estados do Mapa de Assentos
   const [seatingMap, setSeatingMap] = useState<any | null>(null)
   const [loadingMap, setLoadingMap] = useState(false)
-  const [selectedSeats, setSelectedSeats] = useState<Record<string, { seatId: string; label: string; price: number; ticketTypeId: string; occupantName: string }>>(
-    pendingCheckout?.selectedSeats || {}
-  )
+  // ponytail: o mapa é só visualização até o M5.1 (venda por assento); por isso nada é restaurado do sessionStorage e nenhum assento entra no pedido
+  const [selectedSeats, setSelectedSeats] = useState<Record<string, { seatId: string; label: string; price: number; ticketTypeId: string; occupantName: string }>>({})
   const [chooseViaMap, setChooseViaMap] = useState(false)
   const [occupantModal, setOccupantModal] = useState<{
     open: boolean
@@ -192,26 +191,13 @@ export default function Checkout() {
         .maybeSingle()
         
       if (data) {
-        setSeatingMap(data)
-        // começa na seleção rápida (o carrinho da página do evento); o mapa só abre de cara se já havia assento escolhido
-        if (Object.keys(pendingCheckout?.selectedSeats || {}).length > 0) setChooseViaMap(true)
+        setSeatingMap(data) // abre na seleção rápida: o carrinho da página do evento fica como veio
       }
       setLoadingMap(false)
     }
     
     loadSeatingMap()
   }, [eventId])
-
-  // Sincronizar carrinho com os assentos escolhidos no mapa (só no modo mapa: a seleção rápida mantém o carrinho)
-  useEffect(() => {
-    if (seatingMap && chooseViaMap) {
-      const newCart: Record<string, number> = {}
-      Object.values(selectedSeats).forEach(s => {
-        newCart[s.ticketTypeId] = (newCart[s.ticketTypeId] || 0) + 1
-      })
-      setCart(newCart)
-    }
-  }, [selectedSeats, seatingMap, chooseViaMap])
 
   const ticketTypes = event?.ticket_types || []
 
@@ -246,26 +232,7 @@ export default function Checkout() {
       toast.info(`Para comprar o(a) ${seat.label}, entre em contato com o organizador do evento pelo WhatsApp ou e-mail de suporte.`, { duration: 6000 })
       return
     }
-    if (seat.status !== 'free') return
-    
-    if (selectedSeats[seat.id]) {
-      setSelectedSeats(prev => {
-        const next = { ...prev }
-        delete next[seat.id]
-        return next
-      })
-      return
-    }
-    
-    setOccupantModal({
-      open: true,
-      seatId: seat.id,
-      label: seat.label,
-      // setor ligado a um ingresso real no editor (E7a); mapas antigos seguem usando o id do setor
-      ticketTypeId: seatingMap?.environments?.[0]?.sections?.find((x: any) => x.id === seat.sectionId)?.ticketTypeId || seat.sectionId,
-      price: seat.price
-    })
-    setTempOccupantName('')
+    // sem reserva de assento ainda (M5.1): clicar em lugar livre não faz nada
   }
 
   const handleConfirmSeat = () => {
@@ -433,7 +400,7 @@ export default function Checkout() {
                     onClick={() => setChooseViaMap(!chooseViaMap)}
                     className="text-[13px] font-semibold text-primary underline underline-offset-4"
                   >
-                    {chooseViaMap ? 'Seleção rápida de ingressos' : 'Escolher assentos no mapa'}
+                    {chooseViaMap ? 'Esconder o mapa do salão' : 'Ver o mapa do salão'}
                   </button>
                 )}
               </div>
@@ -447,19 +414,13 @@ export default function Checkout() {
                         <div className="text-base font-medium leading-6">{ticket.name}</div>
                         <div className="text-[13px] leading-5 text-muted-foreground">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
                       </div>
-                      {chooseViaMap ? (
-                        <div className="rounded-full bg-secondary px-2.5 py-1 font-display text-xs font-semibold tabular-nums">
-                          {qty} assento(s)
-                        </div>
-                      ) : (
-                        <ContadorIngresso
-                          nome={ticket.name}
-                          qtd={qty}
-                          onMenos={() => updateQty(ticket.id, -1)}
-                          onMais={() => updateQty(ticket.id, 1)}
-                          maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
-                        />
-                      )}
+                      <ContadorIngresso
+                        nome={ticket.name}
+                        qtd={qty}
+                        onMenos={() => updateQty(ticket.id, -1)}
+                        onMais={() => updateQty(ticket.id, 1)}
+                        maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
+                      />
                     </div>
                   )
                 })
@@ -502,11 +463,11 @@ export default function Checkout() {
               <div className={`${cartao} space-y-4`}>
                 <div className="flex items-center gap-2">
                   <I.Lugar size={20} className="text-muted-foreground" />
-                  <h3 className="text-[15px] font-semibold leading-5">Mapa do Salão - Seleção de Poltronas/Mesas</h3>
+                  <h3 className="text-[15px] font-semibold leading-5">Mapa do Salão</h3>
                 </div>
 
-                <p className="text-[13px] leading-5 text-muted-foreground">
-                  Clique nos assentos/mesas livres (em verde/cores do setor) para reservá-los digitando o nome do ocupante. Assentos azuis requerem contato.
+                <p role="note" className="text-[13px] leading-5 text-muted-foreground">
+                  A escolha de lugar no mapa ainda não reserva o assento. Por enquanto, compre pela Seleção rápida.
                 </p>
 
                 {/* Legenda de Status */}

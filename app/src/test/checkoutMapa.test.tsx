@@ -33,21 +33,22 @@ describe('Checkout com mapa de assentos (E7a)', () => {
     }
   })
 
-  it('na seleção rápida o carrinho da página do evento não é zerado; no mapa, passa a vir dos assentos', async () => {
+  it('abre na seleção rápida e o carrinho da página do evento não é zerado, com ou sem o mapa na tela', async () => {
     montar()
-    const alternar = await screen.findByRole('button', { name: 'Escolher assentos no mapa' })
+    const alternar = await screen.findByRole('button', { name: 'Ver o mapa do salão' })
     await waitFor(() => expect(screen.getAllByText(/100,00/).length).toBeGreaterThan(0)) // 2 x R$ 50
     fireEvent.click(alternar)
-    expect(await screen.findByText('0 assento(s)')).toBeTruthy() // modo mapa: carrinho vem dos assentos (nenhum)
+    expect((await screen.findByRole('note')).textContent).toMatch(/ainda não reserva o assento/)
+    expect(screen.getAllByText(/100,00/).length).toBeGreaterThan(0) // continua 2 x R$ 50
   })
 
-  it('o assento escolhido usa o ingresso ligado ao setor (ticketTypeId), não o id do setor', async () => {
+  it('o mapa é só visualização: clicar num assento livre não abre pedido de ocupante nem põe item no carrinho', async () => {
     montar()
-    fireEvent.click(await screen.findByRole('button', { name: 'Escolher assentos no mapa' }))
-    await screen.findByText('0 assento(s)')
+    fireEvent.click(await screen.findByRole('button', { name: 'Ver o mapa do salão' }))
+    await screen.findByRole('note')
     fireEvent.click(document.querySelector('div.absolute.origin-center') as HTMLElement) // o assento A1
-    fireEvent.change(await screen.findByRole('textbox'), { target: { value: 'Maria' } })
-    fireEvent.click(screen.getByRole('button', { name: /Confirmar/ }))
-    expect(await screen.findByText('1 assento(s)')).toBeTruthy() // somou no ingresso tt1 (existe no evento); com o id 'vip' não acharia o tipo
+    expect(screen.queryByRole('textbox')).toBeNull() // sem modal do nome do ocupante
+    expect(screen.queryByText(/assento\(s\)/)).toBeNull()
+    expect(screen.getAllByText(/100,00/).length).toBeGreaterThan(0) // carrinho segue só com a seleção rápida
   })
 })

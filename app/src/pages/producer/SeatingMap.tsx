@@ -559,7 +559,7 @@ export default function SeatingMap() {
       .then(({ data, error }) => {
         if (cancelado) return
         if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
-        const tipos: any[] = data || [] // ticket_types não está nos tipos gerados
+        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean }[] // ticket_types não está nos tipos gerados
         setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(({ id, name, price }) => ({ id, name, price })))
       })
     return () => { cancelado = true }
