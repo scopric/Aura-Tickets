@@ -58,8 +58,9 @@ Deno.serve(async (req) => {
     const texto = textoAceite({ titulo: evento.title, formato: evento.category, classificacao: evento.classificacao, temBebida })
     const { ip, forwarded_for } = clientIp(req.headers)
     const linha = {
-      event_id: eventId, producer_id: user.id, versao, texto_hash: await sha256(texto),
-      classificacao: evento.classificacao, tem_bebida: temBebida,
+      event_id: eventId, producer_id: user.id, versao, texto, texto_hash: await sha256(texto),
+      // esporte não é classificado (variante 2b do texto): nada de classificação contraditória no registro
+      classificacao: evento.category === 'esporte' ? null : evento.classificacao, tem_bebida: temBebida,
       ip, forwarded_for, user_agent: (req.headers.get('user-agent') ?? '').slice(0, 300),
     }
     const { data: gravado, error: gravarError } = await admin.from('evento_aceites').insert(linha)
@@ -68,7 +69,7 @@ Deno.serve(async (req) => {
       console.error('[aceite-evento]', eventId, gravarError.message)
       return json(500, { error: 'Não foi possível registrar o aceite' })
     }
-    return json(200, { ok: true, ...gravado, versao, classificacao: evento.classificacao, tem_bebida: linha.tem_bebida })
+    return json(200, { ok: true, ...gravado, versao, classificacao: linha.classificacao, tem_bebida: linha.tem_bebida })
   } catch (e) {
     console.error('[aceite-evento]', e instanceof Error ? e.message : e)
     return json(500, { error: 'Erro inesperado' })

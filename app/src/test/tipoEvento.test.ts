@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import * as front from '../lib/tipoEvento'
 import * as shared from '../../../supabase/functions/_shared/tipoEvento'
@@ -159,7 +160,7 @@ describe('textoAceite', () => {
     const t = textoAceite(base)
     expect(t).toContain('Ao enviar o evento "Noite de Forró" para aprovação')
     expect(t).toContain('Autoclassifiquei o evento como A16 (16 anos)')
-    expect(t).toContain('quem vende e serve a bebida alcoólica')
+    expect(t).toContain('quem vende e serve a bebida, e não')
     expect(t).toContain(`Versão ${ACEITE_VERSAO}.`)
     expect(t.split('\n')).toHaveLength(9)
   })
@@ -168,6 +169,13 @@ describe('textoAceite', () => {
     const esporte = textoAceite({ ...base, formato: 'esporte', classificacao: null })
     expect(esporte).toContain('não é objeto de classificação indicativa')
     expect(esporte).not.toContain('Autoclassifiquei')
+  })
+  // O texto da versão em vigor é prova (hash gravado em cada aceite). Este hash falhou? Então o texto mudou:
+  // versão nova em ACEITE_VERSAO (aqui e no _shared) e SQL novo com aceite_evento_versao() (Decisão 6).
+  it('texto da versão 2026-10-04 fixado', () => {
+    const h = createHash('sha256').update(textoAceite(base)).digest('hex')
+    expect(ACEITE_VERSAO).toBe('2026-10-04')
+    expect(h).toBe('2c9ab1448261e75336c331c729a5c28dabe73560650af21c39fbf75c2f8e5c5b')
   })
   it('muda quando muda o que foi declarado (o hash muda junto)', () => {
     expect(textoAceite(base)).not.toBe(textoAceite({ ...base, classificacao: 'A18' }))

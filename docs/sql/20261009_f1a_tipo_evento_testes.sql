@@ -166,13 +166,17 @@ begin
 
   -- T7: evento_aceites só pela chave de serviço; dono lê o próprio, outro não
   perform pg_temp.como(pg_temp.u(1));
-  r := pg_temp.erro($q$insert into public.evento_aceites (event_id, producer_id, versao, texto_hash, tem_bebida)
-                       values ('f1000000-0000-4000-8000-000000000010', 'f1000000-0000-4000-8000-000000000001', 'v', repeat('a', 64), false)$q$);
+  r := pg_temp.erro($q$insert into public.evento_aceites (event_id, producer_id, versao, texto, texto_hash, tem_bebida)
+                       values ('f1000000-0000-4000-8000-000000000010', 'f1000000-0000-4000-8000-000000000001', 'v', 'termo', repeat('a', 64), false)$q$);
   if r <> '42501' then raise exception 'T7a produtor grava aceite: %', r; end if;
   perform pg_temp.como(null);
   perform set_config('role', 'service_role', true);
-  insert into public.evento_aceites (event_id, producer_id, versao, texto_hash, classificacao, tem_bebida, ip)
-  values (pg_temp.u(10), pg_temp.u(1), public.aceite_evento_versao(), repeat('a', 64), 'A18', true, '203.0.113.7');
+  insert into public.evento_aceites (event_id, producer_id, versao, texto, texto_hash, classificacao, tem_bebida, ip)
+  values (pg_temp.u(10), pg_temp.u(1), public.aceite_evento_versao(), 'Termo do produtor…', repeat('a', 64), 'A18', true, '203.0.113.7');
+  -- sem o texto lido, não grava
+  r := pg_temp.erro($q$insert into public.evento_aceites (event_id, producer_id, versao, texto_hash, tem_bebida)
+                       values ('f1000000-0000-4000-8000-000000000010', 'f1000000-0000-4000-8000-000000000001', 'v', repeat('a', 64), false)$q$);
+  if r <> '23502' then raise exception 'T7g aceite sem texto: %', r; end if;
   perform set_config('role', 'postgres', true);
   perform pg_temp.como(pg_temp.u(1));
   select count(*) into n from public.evento_aceites;

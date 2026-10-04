@@ -48,7 +48,7 @@
 --    Admin que muda o link não devolve para análise (a F0a deixa o admin passar). No DELETE em cascata do
 --    próprio evento o UPDATE não acha a linha e não faz nada.
 -- 6. evento_aceites sem nenhuma regra de escrita: authenticated não grava, troca nem apaga. Só a função
---    aceite-evento (service_role) grava, com IP, navegador, hash do texto calculado no servidor e
+--    aceite-evento (service_role) grava, com IP, navegador, o texto lido e o hash dele calculados no servidor e
 --    aceito_em = now() do banco. event_id on delete set null: o aceite é prova e sobrevive ao evento.
 --    tem_bebida é calculado pela função a partir de ticket_types.inclui_bebida, não vem do navegador.
 -- 7. aceite_evento_versao(): constante, no molde de mesa_termo_versao() (20261003_mesa_coletiva.sql). Texto novo
@@ -194,6 +194,7 @@ create table if not exists public.evento_aceites (
   event_id uuid references public.events (id) on delete set null,
   producer_id uuid not null,
   versao text not null,
+  texto text not null check (char_length(texto) between 1 and 5000),
   texto_hash text not null check (texto_hash ~ '^[0-9a-f]{64}$'),
   classificacao text check (classificacao = any (array['AL', 'A6', 'A10', 'A12', 'A14', 'A16', 'A18']::text[])),
   tem_bebida boolean not null,
@@ -202,6 +203,9 @@ create table if not exists public.evento_aceites (
   user_agent text check (char_length(user_agent) <= 500),
   aceito_em timestamptz not null default now()
 );
+-- o texto lido fica gravado (o hash sozinho não se recompõe se o título mudar ou o evento for apagado). Tabela vazia
+-- em produção em 04/10 (conferido): a coluna obrigatória entra sem valor padrão.
+alter table public.evento_aceites add column if not exists texto text not null check (char_length(texto) between 1 and 5000);
 create index if not exists evento_aceites_event_id_idx on public.evento_aceites (event_id, aceito_em desc);
 alter table public.evento_aceites enable row level security;
 
