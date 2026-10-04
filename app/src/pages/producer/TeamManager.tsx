@@ -177,13 +177,10 @@ export default function TeamManager() {
   // Bloquear/desbloquear membro
   const updateStatus = async (memberId: string, status: 'active' | 'pending' | 'blocked') => {
     try {
-      // Bloqueio em blocked_at (o cargo não muda); accepted_at nulo já barra o check-in
+      // Só blocked_at: o cargo e o aceite (accepted_at) não são do produtor
       const { data, error } = await supabase
         .from('team_members')
-        .update({
-          blocked_at: status === 'blocked' ? new Date().toISOString() : null,
-          accepted_at: status === 'active' ? new Date().toISOString() : null
-        })
+        .update({ blocked_at: status === 'blocked' ? new Date().toISOString() : null })
         .eq('id', memberId)
         .select('id')
 

@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   if (!pode) {
     const { data: membro, error: membroError } = await admin.from('team_members').select('id')
       .eq('producer_id', evento.producer_id).eq('user_id', user.id)
-      .in('role', ['admin', 'editor']).not('accepted_at', 'is', null).limit(1)
+      .in('role', ['admin', 'editor']).not('accepted_at', 'is', null).is('blocked_at', null).limit(1)
     if (membroError) return falhou('equipe', membroError.message)
     pode = !!membro?.length
   }
