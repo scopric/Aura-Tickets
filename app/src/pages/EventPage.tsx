@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useSEO } from '../hooks/useSEO'
 import { usePublicEvent } from '../hooks/useEvents'
 import { useSalvarPendente } from '../hooks/useFavoritos'
+import AviseMe from '../components/AviseMe'
 import BotaoSalvar from '../components/BotaoSalvar'
 import CollectiveTableCard from '../components/CollectiveTableCard'
 import ContadorIngresso from '../components/ContadorIngresso'
@@ -19,6 +20,7 @@ import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from 
 import { esgotado, lotacao, noLimite } from '../lib/lotacao'
 import { CLASSIFICACOES } from '../lib/tipoEvento'
 import { fimDe } from '../lib/eventoProdutor'
+import { fimDasVendas } from '../lib/interesse'
 
 const maiuscula = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -175,6 +177,8 @@ export default function EventPage() {
   const aVenda = encerrado ? [] : ticketTypes.filter((t) => !esgotado(t) && !janela(t))
   const motivos = ticketTypes.filter((t) => !esgotado(t)).map(janela).filter(Boolean) as string[]
   const motivoSemVenda = encerrado ? 'Evento encerrado' : motivos.find((m) => m.startsWith('Vendas começam')) ?? motivos[0] ?? null
+  const semVendaAinda = !encerrado && aVenda.length === 0 && !!motivoSemVenda?.startsWith('Vendas começam') // "Avise-me"
+  const fimVendas = fimDasVendas(aVenda.map((t) => t.sale_end))
   const menorTotal = aVenda.length ? Math.min(...aVenda.map((t) => calcularTaxa(t.price).total)) : 0
 
   const dataEvento = event.date ? new Date(event.date + 'T00:00:00') : null
@@ -256,6 +260,9 @@ export default function EventPage() {
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" aria-labelledby="h-ingressos" className="scroll-mt-20 border-t border-border px-5 pb-2 pt-6">
           <h2 id="h-ingressos" className="text-[15px] font-semibold leading-5">Ingressos</h2>
+          {fimVendas && <p className="mt-1 text-sm font-medium leading-5 text-primary">{fimVendas}</p>}
+
+          {semVendaAinda && <AviseMe eventId={event.id} />}
 
           {ticketTypes.length === 0 && (
             <p className="py-4 text-sm text-muted-foreground">Nenhum ingresso disponível no momento.</p>

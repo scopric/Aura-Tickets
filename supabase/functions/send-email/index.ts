@@ -230,6 +230,15 @@ function getTicketDeliveryHtml(recipientName: string, eventTitle: string, ticket
 // `unsubscribe` não mandam e-mail.
 const MANDA_EMAIL = ["welcome", "signup_notification", "newsletter", "order_confirmation", "ticket_delivery"];
 
+// Comparação em tempo constante (SHA-256 dos dois lados, byte a byte): mesma do chat-notify.
+async function mesmoSegredo(a: string, b: string) {
+  const hash = async (v: string) => new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(v)));
+  const [x, y] = await Promise.all([hash(a), hash(b)]);
+  let d = 0;
+  for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i];
+  return d === 0;
+}
+
 serve(async (req) => {
   const cors = corsHeaders(req);
   const json = (body: unknown, status = 200) =>
@@ -268,6 +277,42 @@ serve(async (req) => {
     for (const p of partes) { bytes.set(p, pos); pos += p.length; }
     let payload;
     try { payload = JSON.parse(new TextDecoder().decode(bytes)); } catch { return json({ error: "Requisição inválida." }, 400); }
+    // AVISO "AVISE-ME" (tipo interesse_aviso, P4): chamado só pelo pg_cron (docs/sql/20261016_interesse.sql, job
+    // "interesse_email"), com o cabeçalho x-interesse-secret lido do Vault. Publicar com --no-verify-jwt. Não recebe
+    // destinatário nem texto: a fila (interesse_email_due) e o e-mail do login vêm do banco. Responde só contagens.
+    if (payload?.tipo === "interesse_aviso") {
+      const recebido = req.headers.get("x-interesse-secret") ?? "";
+      if (!recebido) return json({ ok: false }, 401);
+      const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      const { data: segredo, error: segredoError } = await admin.rpc("interesse_notify_secret");
+      if (segredoError) { console.error("[interesse] segredo:", segredoError.message); return json({ ok: false }, 500); }
+      if (typeof segredo !== "string" || !segredo || !(await mesmoSegredo(recebido, segredo))) return json({ ok: false }, 401);
+      if (!RESEND_API_KEY) return json({ ok: false, motivo: "sem_chave" }, 503); // a fila espera
+      const { data: fila, error: filaError } = await admin.rpc("interesse_email_due");
+      if (filaError) { console.error("[interesse] fila:", filaError.message); return json({ ok: false }, 500); }
+      let enviados = 0;
+      let falhas = 0;
+      for (const a of (fila ?? []) as { id: string; email: string; nome: string; evento: string; event_id: string }[]) {
+        let ok = true;
+        try {
+          const html = emailShell(
+            "As vendas abriram",
+            `Olá, ${escapeHtml(a.nome)}! Você pediu para ser avisado: as vendas de <strong>${escapeHtml(a.evento)}</strong> abriram.`,
+            `<p style="line-height: 1.6; font-size: 14px; color: ${colors.textMuted};">Você recebe este e-mail porque se inscreveu no "Avise-me" deste evento. Para sair da lista, abra o evento e toque em "Remover aviso".</p>`,
+            "Ver o evento",
+            `${APP_URL}/event/${encodeURIComponent(a.event_id)}`,
+          );
+          await sendMail(a.email, `As vendas abriram: ${a.evento.replace(/[\r\n\t]+/g, " ").slice(0, 100)}`, html, "Evokaa <contato@evokaa.com.br>");
+        } catch {
+          ok = false; // sem o texto do erro no log: a Resend costuma repetir o e-mail
+        }
+        const { error } = await admin.rpc("interesse_email_mark", { p_ids: [a.id], p_ok: ok });
+        if (error) console.error("[interesse] mark falhou:", a.id, error.message);
+        if (ok) enviados++; else falhas++;
+      }
+      return json({ ok: true, enviados, falhas });
+    }
+
     // `from` nunca vem do chamador — só o roteamento abaixo, por `emailType`, decide o
     // remetente. Aceitar `from` do corpo permitiria assinar e-mail como qualquer endereço.
     let { orderId, emailType } = payload;

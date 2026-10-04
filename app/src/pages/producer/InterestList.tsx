@@ -1,42 +1,25 @@
 import { useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
-import {
-  useProducerLeads,
-  useNotifyLead,
-  useNotifyAllLeads,
-  useDeleteLead,
-} from '../../hooks/useProducerTools'
+import { useInteressados, useRemoverInteressado } from '../../hooks/useInteresse'
 import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
+const celula = (v: string | null) => `"${(v ?? '').replace(/"/g, '""').replace(/^([=+\-@\t\r])/, "'$1")}"` // aspas duplicadas; fórmula de planilha neutralizada
 
 export default function ProducerInterestList() {
-  const { data: leads = [], isLoading, isError, refetch, isFetching } = useProducerLeads()
-  const notifyLead = useNotifyLead()
-  const notifyAll = useNotifyAllLeads()
-  const deleteLead = useDeleteLead()
+  const { data: lista = [], isLoading, isError, refetch, isFetching } = useInteressados()
+  const remover = useRemoverInteressado()
+  const [evento, setEvento] = useState('')
 
-  const [filter, setFilter] = useState<'all' | 'notified' | 'pending'>('all')
-  const [showNotifyModal, setShowNotifyModal] = useState(false)
+  const eventos = [...new Map(lista.map(i => [i.event_id, i.event_title])).entries()]
+  const filtrada = evento ? lista.filter(i => i.event_id === evento) : lista
+  const avisados = filtrada.filter(i => i.notified).length
+  const emails = [...new Set(filtrada.map(i => i.email?.trim()).filter(Boolean))] as string[]
 
-  const filtered = leads.filter(i => {
-    if (filter === 'notified') return i.notified
-    if (filter === 'pending') return !i.notified
-    return true
-  })
-
-  const total = leads.length
-  const notifiedCount = leads.filter(i => i.notified).length
-  const pendingCount = leads.filter(i => !i.notified).length
-  const emails = [...new Set(filtered.map(i => i.email?.trim()).filter(Boolean))] as string[]
-
-  // "Avisado" só marca na lista: o e-mail em massa chega com o módulo de Comunicação (M6). Até lá, o produtor copia
-  // os e-mails e avisa por conta própria.
   const copiarEmails = async () => {
     try {
       await navigator.clipboard.writeText(emails.join(', '))
@@ -46,48 +29,34 @@ export default function ProducerInterestList() {
     }
   }
 
-  const handleNotify = async () => {
-    try {
-      const result = await notifyAll.mutateAsync()
-      setShowNotifyModal(false)
-      toast.success(`${result?.length || 0} marcados como avisados.`)
-    } catch {
-      toast.error('Não foi possível marcar como avisados.')
-    }
+  const baixarCsv = () => {
+    const linhas = [['Nome', 'E-mail', 'Cidade', 'Evento', 'Inscrição', 'Avisado em'],
+      ...filtrada.map(i => [i.full_name, i.email, i.city, i.event_title, i.created_at.slice(0, 10), i.notified_at?.slice(0, 10) ?? ''])]
+    const url = URL.createObjectURL(new Blob(['﻿' + linhas.map(l => l.map(c => celula(c)).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }))
+    const a = Object.assign(document.createElement('a'), { href: url, download: 'lista-de-interesse.csv' })
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
-  const handleNotifyOne = async (id: string) => {
+  // tira só da lista: o lead que a inscrição criou no CRM continua lá
+  const handleRemove = async (id: string, nome: string) => {
+    if (!window.confirm(`Remover ${nome} da lista? O lead continua no CRM.`)) return
     try {
-      await notifyLead.mutateAsync(id)
-      toast.success('Marcado como avisado.')
+      await remover.mutateAsync(id)
+      toast.success('Removido da lista. O lead continua no CRM.')
     } catch {
-      toast.error('Não foi possível marcar como avisado.')
-    }
-  }
-
-  // a lista lê crm_leads: remover aqui apaga o lead do CRM também
-  const handleDelete = async (id: string, nome: string) => {
-    if (!window.confirm(`Remover ${nome}? O lead também sai do CRM.`)) return
-    try {
-      await deleteLead.mutateAsync(id)
-      toast.success('Removido da lista.')
-    } catch {
-      toast.error('Não foi possível remover.')
+      toast.error('Não foi possível remover. Tente de novo.')
     }
   }
 
   const header = (
     <PageHeader
       title="Lista de interesse"
-      description="Pessoas interessadas antes das vendas abrirem"
+      description="Pessoas que pediram para ser avisadas quando as vendas abrirem"
       actions={
         <>
-          {emails.length > 0 && (
-            <Button variant="outline" onClick={copiarEmails}><I.Copiar aria-hidden="true" />Copiar e-mails</Button>
-          )}
-          {pendingCount > 0 && (
-            <Button onClick={() => setShowNotifyModal(true)}><I.Check aria-hidden="true" />Marcar {pendingCount} como avisados</Button>
-          )}
+          {emails.length > 0 && <Button variant="outline" onClick={copiarEmails}><I.Copiar aria-hidden="true" />Copiar e-mails</Button>}
+          {filtrada.length > 0 && <Button variant="outline" onClick={baixarCsv}>Baixar CSV</Button>}
         </>
       }
     />
@@ -124,76 +93,56 @@ export default function ProducerInterestList() {
       {header}
 
       <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        "Marcar como avisado" só registra aqui; nenhum e-mail é enviado. O e-mail em massa chega com o módulo de Comunicação.
-        {emails.length > 0 && ' Até lá, copie os e-mails e avise por conta própria.'}
+        Quando a venda abre, cada pessoa é avisada sozinha, no aplicativo e por e-mail. Quem se inscreve também entra no seu CRM. Nome, e-mail e cidade só aparecem de quem deu o consentimento.
       </p>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Interessados" value={total} />
-        <Stat label="Avisados" value={notifiedCount} />
-        <Stat label="Pendentes" value={pendingCount} />
+        <Stat label="Interessados" value={filtrada.length} />
+        <Stat label="Avisados" value={avisados} />
+        <Stat label="Aguardando a venda" value={filtrada.length - avisados} />
       </div>
 
-      <div role="group" aria-label="Filtrar" className="mt-6 flex flex-wrap gap-1">
-        {(['all', 'pending', 'notified'] as const).map(f => (
-          <Button key={f} size="sm" variant={filter === f ? 'secondary' : 'ghost'} aria-pressed={filter === f} onClick={() => setFilter(f)} className={filter === f ? '' : icone}>
-            {f === 'all' ? 'Todos' : f === 'pending' ? `Pendentes (${pendingCount})` : `Avisados (${notifiedCount})`}
-          </Button>
-        ))}
-      </div>
+      {eventos.length > 1 && (
+        <div className="mt-6">
+          <label htmlFor="filtro-evento" className="mb-1 block text-sm font-medium">Evento</label>
+          <select id="filtro-evento" value={evento} onChange={e => setEvento(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
+            <option value="">Todos os eventos</option>
+            {eventos.map(([id, titulo]) => <option key={id} value={id}>{titulo}</option>)}
+          </select>
+        </div>
+      )}
 
       <div className="mt-4">
-        {filtered.length === 0 ? (
+        {filtrada.length === 0 ? (
           <EmptyState
-            title={total === 0 ? 'Ninguém na lista ainda' : 'Ninguém com esse filtro'}
-            description={total === 0 ? 'A lista é preenchida conforme as pessoas se cadastram.' : undefined}
+            title="Ninguém na lista ainda"
+            description="O botão “Avise-me quando abrir” aparece na página do evento enquanto a venda não começou. Se você usa verificação em dois fatores e a lista deveria ter gente, confirme o código e recarregue."
           />
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
-            {filtered.map(item => (
-              <li key={item.id} className="flex items-start gap-3 p-3 sm:items-center">
-                <div className="min-w-0 flex-1">
-                  <p className="flex min-w-0 items-center gap-2">
-                    <span className="truncate text-sm font-medium text-foreground">{item.full_name}</span>
-                    {item.notified && <Badge variant="secondary">Avisado</Badge>}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">{item.email || 'Sem e-mail'}</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {[item.phone, item.city, item.source, new Date(item.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  {!item.notified && (
-                    <Button variant="outline" size="sm" onClick={() => handleNotifyOne(item.id)} aria-label={`Marcar ${item.full_name} como avisado`}>
-                      <I.Check aria-hidden="true" /><span className="hidden sm:inline">Marcar como avisado</span>
-                    </Button>
-                  )}
-                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item.id, item.full_name)} aria-label={`Remover ${item.full_name}`}>
+            {filtrada.map(item => {
+              const nome = item.full_name || 'Inscrição sem consentimento registrado'
+              return (
+                <li key={item.id} className="flex items-start gap-3 p-3 sm:items-center">
+                  <div className="min-w-0 flex-1">
+                    <p className="flex min-w-0 items-center gap-2">
+                      <span className="truncate text-sm font-medium text-foreground">{nome}</span>
+                      {item.notified && <Badge variant="secondary">Avisado</Badge>}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">{item.email || 'Sem e-mail (sem consentimento)'}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {[item.event_title, item.city, new Date(item.created_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short' })].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleRemove(item.id, nome)} aria-label={`Remover ${nome} da lista`}>
                     <I.Lixeira aria-hidden="true" />
                   </Button>
-                </div>
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ul>
         )}
       </div>
-
-      <Dialog open={showNotifyModal} onOpenChange={setShowNotifyModal}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Marcar como avisados</DialogTitle>
-            <DialogDescription>
-              {pendingCount} pessoas serão marcadas como avisadas. Nenhum e-mail é enviado: o envio em massa chega com o módulo de Comunicação.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNotifyModal(false)}>Cancelar</Button>
-            <Button onClick={handleNotify} loading={notifyAll.isPending}>
-              Marcar como avisados
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

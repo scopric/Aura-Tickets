@@ -502,6 +502,12 @@ export interface Database {
           ticket_type_id: string | null
           notified: boolean
           created_at: string
+          consentimento_em: string | null
+          consentimento_versao: string | null
+          notified_at: string | null
+          email_enviado_em: string | null
+          email_falhas: number
+          email_reservado_ate: string | null
         }
         Insert: {
           id?: string | null
@@ -510,6 +516,7 @@ export interface Database {
           ticket_type_id?: string | null
           notified?: boolean
           created_at?: string
+          consentimento_versao?: string | null
         }
         Update: {
           id?: string | null
