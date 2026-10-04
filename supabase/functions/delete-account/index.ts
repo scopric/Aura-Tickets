@@ -128,7 +128,10 @@ Deno.serve(async (req) => {
     // ponytail: pergunta ao Evo nos segundos da exclusão ainda pode gravar 1 linha (ai_log); fechar exige barrar no SQL
     ...['user_activities', 'user_preferences', 'user_profiles_ext', 'user_custom_features',
         'user_course_progress', 'onboarding_logs', 'notifications', 'interest_lists',
-        'ai_usage', 'ai_credit_grants', 'staff_profiles', 'staff_profiles_historico_pagamento']
+        'ai_usage', 'ai_credit_grants', 'staff_profiles', 'staff_profiles_historico_pagamento',
+        // Favoritos (VF): a exclusão é suave (deleteUser(uid, true)), a cascata do banco não dispara. Requer
+        // docs/sql/20261008_favoritos.sql aplicado: sem a tabela este passo dá erro 500 em toda exclusão.
+        'favoritos']
       .map((t): [string, () => PromiseLike<{ error: { message: string } | null }>] =>
         [t, () => admin.from(t).delete().eq('user_id', uid)]),
   ]

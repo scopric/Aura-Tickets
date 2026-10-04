@@ -34,7 +34,7 @@ beforeEach(() => {
 })
 
 describe('Explorar (V11b)', () => {
-  it('lista por dia: Hoje, Amanhã e data; destaque; preço com taxa; nada de coração nem "N pessoas vão"', async () => {
+  it('lista por dia: Hoje, Amanhã e data; destaque; preço com taxa; coração em cada evento (VF); nada de "N pessoas vão"', async () => {
     resposta.data = [
       evento('a', { title: 'Baile do Sol' }),
       evento('b', { title: 'Pagode na Laje', date: diaMais(hoje, 1), time: '16:00:00', venue_name: 'Laje do Alto' }),
@@ -58,7 +58,8 @@ describe('Explorar (V11b)', () => {
     expect(screen.getAllByText(/R\$\s?55,00/).length).toBeGreaterThan(0)
     expect(screen.getAllByText('Gratuito').length).toBeGreaterThan(0)
 
-    expect(screen.queryByRole('button', { name: /salvar|favorit|coração/i })).not.toBeInTheDocument()
+    // visitante: um "Salvar evento" por linha da lista (o destaque também está na lista)
+    expect(screen.getAllByRole('button', { name: 'Salvar evento' })).toHaveLength(3)
     expect(screen.queryByText(/pessoas vão/i)).not.toBeInTheDocument()
   })
 

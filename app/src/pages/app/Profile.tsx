@@ -381,6 +381,11 @@ export default function ParticipantProfile() {
         </div>
       </div>
 
+      {/* Eventos salvos (VF): sem item na barra do celular (a prancha tem só Explorar, Ingressos e Conta) */}
+      <Link to="/app/salvos" className="mt-6 flex items-center justify-between px-1 py-2 text-sm font-semibold text-cream transition-colors hover:text-plum-light">
+        Eventos salvos <span aria-hidden="true">→</span>
+      </Link>
+
       {/* Aparência: o seletor de tema também mora na Conta (Decisão 143) */}
       <div className="mt-6 p-6 rounded-2xl bg-white/[0.02] border border-white/[0.06] backdrop-blur-md">
         <h3 className="text-sm font-semibold text-cream mb-3">Aparência</h3>

@@ -62,9 +62,9 @@ describe('página do evento (V11a)', () => {
     expect(screen.getByRole('button', { name: 'Finalizar' })).toBeInTheDocument()
   })
 
-  it('sem botão Salvar até a fase de Favoritos; Compartilhar existe', () => {
+  it('Salvar (VF) e Compartilhar existem na barra de topo', () => {
     montar()
-    expect(screen.queryByRole('button', { name: /Salvar/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Salvar evento' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByRole('button', { name: 'Compartilhar' })).toBeInTheDocument()
   })
 })

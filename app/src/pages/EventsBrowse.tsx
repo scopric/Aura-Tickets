@@ -6,6 +6,7 @@ import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import BotaoSalvar from '../components/BotaoSalvar'
 import EventoCapa from '../components/EventoCapa'
 import { temFoto } from '../lib/corEvento'
 import { rotuloFormato } from '../lib/tipoEvento'
@@ -270,18 +271,19 @@ export default function EventsBrowse() {
                       <h4 id={`dia-${g.data}`} className="sr-only">{g.rotulo.cabecalho}</h4>
                       <ul className="divide-y divide-border sm:grid sm:grid-cols-2 sm:gap-3 sm:divide-y-0">
                         {g.eventos.map(e => (
-                          <li key={e.id} className="py-4 first:pt-0 last:pb-0 sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3">
+                          <li key={e.id} className="relative py-4 first:pt-0 last:pb-0 sm:rounded-ev-xl sm:border sm:border-border sm:p-3 sm:first:p-3 sm:last:p-3">
                             <Link to={`/event/${e.id}`} className="group flex gap-3 rounded-ev-lg focus-visible:outline-none focus-visible:shadow-ev-foco">
                               <span aria-hidden="true" className="block w-24 flex-none transition-transform duration-micro ease-sai group-active:scale-[.98] motion-reduce:transform-none">
                                 <EventoCapa evento={e} tamanho="cartao" />
                               </span>
-                              <span className="min-w-0 flex-1">
+                              <span className="min-w-0 flex-1 pr-11">
                                 {e.category && <span className="block text-xs font-medium leading-4 text-muted-foreground">{rotuloFormato(e.category)}</span>}
                                 <span className="mt-0.5 line-clamp-2 block text-base font-semibold leading-[22px]">{e.title}</span>
                                 <span className="mt-1 block text-[13px] leading-[18px] text-muted-foreground">{linhaLocal(e)}</span>
                                 <span className="mt-1 block text-[13px] leading-[18px]"><Preco evento={e} /></span>
                               </span>
                             </Link>
+                            <BotaoSalvar eventId={e.id} className="absolute bottom-2 right-0 size-11 text-muted-foreground sm:bottom-1 sm:right-1" />
                           </li>
                         ))}
                       </ul>

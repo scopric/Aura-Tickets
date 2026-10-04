@@ -5,7 +5,7 @@ import { PRIVACY_VERSION } from '../lib/legal'
 
 // Aviso da mudança da Política de Privacidade (a própria política, seção 9, promete avisar).
 // Some ao fechar e volta sozinho quando PRIVACY_VERSION mudar.
-// ponytail: o texto fala da mudança de 29/09/2026 (Evo); trocar junto com a próxima versão.
+// ponytail: o texto fala da mudança de 04/10/2026 (favoritos); trocar junto com a próxima versão.
 const CHAVE = `aviso-politica-${PRIVACY_VERSION}`
 const DATA = new Date(`${PRIVACY_VERSION}T12:00:00`).toLocaleDateString('pt-BR')
 
@@ -42,7 +42,7 @@ export default function AvisoPolitica() {
         <Link to="/privacidade" className="font-semibold underline underline-offset-2">
           Política de Privacidade
         </Link>{' '}
-        em {DATA}: ela agora explica o Evo, o assistente de inteligência artificial para produtores, e o uso do Google para processar as conversas com ele.
+        em {DATA}: ela agora descreve os eventos que você salva (favoritos).
       </p>
       <button
         type="button"

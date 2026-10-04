@@ -7,6 +7,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { trackEvent } from '../../lib/tracking'
 import { getAppMode } from '../../lib/appHost'
+import { consumirVolta, guardarVolta, voltaValida } from '../../lib/voltaEvento'
 
 type UserRole = 'user' | 'producer' | 'admin'
 type OAuthProvider = 'google' | 'apple' | 'azure'
@@ -15,7 +16,10 @@ const OAUTH_LABEL: Record<OAuthProvider, string> = { google: 'Google', apple: 'A
 const isAdminMode = getAppMode() === 'admin'
 
 // Destino pelo papel real (profiles.role); a aba escolhida no formulário é só visual
-function panelFor(role: string) {
+// `daUrl`: ?volta= do coração "Salvar" (VF); só o participante volta para lá (consumirVolta também lê e limpa a guardada)
+function panelFor(role: string, daUrl: string | null) {
+  const volta = consumirVolta(role, daUrl)
+  if (volta) return volta
   if (role === 'admin') return '/admin/dashboard'
   if (role === 'producer' || role === 'editor') return '/producer/dashboard'
   return '/app/hub'
@@ -53,6 +57,8 @@ export default function AuthLogin() {
 
   // Verificar se veio do checkout com carrinho pendente
   const fromCheckout = location.state?.from === '/checkout'
+  // ?volta=/event/<id>: só caminho de evento, nunca endereço de fora (lib/voltaEvento). Google e cadastro a levam pelo sessionStorage.
+  const volta = voltaValida(new URLSearchParams(location.search).get('volta'))
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -112,6 +118,7 @@ export default function AuthLogin() {
     }
     setIsSubmitting(true)
     setError('')
+    guardarVolta(volta)
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -150,11 +157,11 @@ export default function AuthLogin() {
           navigate('/checkout')
           return
         }
-        navigate(panelFor(currentRoleContext))
+        navigate(panelFor(currentRoleContext, volta))
       })()
       return () => { cancelado = true }
     }
-  }, [isAuthenticated, currentRoleContext, navigate, step, isSubmitting, location.state])
+  }, [isAuthenticated, currentRoleContext, navigate, step, isSubmitting, location.state, volta])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -189,7 +196,7 @@ export default function AuthLogin() {
         toast.success(`Bem-vindo de volta!`)
         // Se veio do checkout, redirecionar para lá após login bem-sucedido; senão, painel do papel real
         const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
-        const target = fromCheckout && pendingCheckout ? '/checkout' : realRole && panelFor(realRole)
+        const target = fromCheckout && pendingCheckout ? '/checkout' : realRole && panelFor(realRole, volta)
         if (target) {
           redirected = true
           navigate(target)
@@ -249,7 +256,7 @@ export default function AuthLogin() {
       }
 
       // Redireciona pelo papel do perfil (profiles.role), nunca por user_metadata (editável pelo usuário)
-      navigate(panelFor(realRole!)) // papel nulo já foi barrado acima (blocked)
+      navigate(panelFor(realRole!, volta)) // papel nulo já foi barrado acima (blocked)
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
       setError(err.message || 'Erro ao verificar código de 2FA')
@@ -500,7 +507,7 @@ export default function AuthLogin() {
         {!isAdminMode && (<>
         <p className="text-center text-xs text-espresso/70 mt-6">
           Não tem conta?{' '}
-          <Link to="/auth/register" className="text-plum hover:underline">Criar conta</Link>
+          <Link to="/auth/register" onClick={() => guardarVolta(volta)} className="text-plum hover:underline">Criar conta</Link>
         </p>
 
         {/* App download hint */}

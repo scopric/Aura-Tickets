@@ -6,6 +6,7 @@ import { PASSWORD_HINT } from '../lib/password'
 import { useAuthStore, type User } from '../stores/authStore'
 import { toast } from 'sonner'
 import { clearAffiliateRef } from '../lib/affiliateRef'
+import { VOLTA, SALVAR } from '../lib/voltaEvento'
 
 export interface ExtendedUser extends User {
   name?: string
@@ -203,6 +204,9 @@ export function useAuth() {
         sessionStorage.removeItem(key)
       }
     })
+    // Volta ao evento e favorito pendente (VF) não sobrevivem ao logout
+    sessionStorage.removeItem(VOLTA)
+    sessionStorage.removeItem(SALVAR)
     useAuthStore.getState().setUser(null)
     useAuthStore.getState().setSession(null)
     queryClient.clear()

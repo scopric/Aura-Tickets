@@ -114,6 +114,7 @@ const EventsBrowse = lazy(() => import('./pages/EventsBrowse'))
 // App pages (lazy loaded)
 const AppHub = lazy(() => import('./pages/app/Hub'))
 const AppTickets = lazy(() => import('./pages/app/Tickets'))
+const AppSalvos = lazy(() => import('./pages/app/Salvos'))
 const AppEvents = lazy(() => import('./pages/app/Events'))
 const AppOrders = lazy(() => import('./pages/app/Orders'))
 const AppChat = lazy(() => import('./pages/app/Chat'))
@@ -440,6 +441,7 @@ function Layout() {
               <Route path="/app/hub" element={<AppHub />} />
               <Route path="/app/tickets" element={<AppTickets />} />
               <Route path="/app/events" element={<AppEvents />} />
+              <Route path="/app/salvos" element={<AppSalvos />} />
               <Route path="/app/orders" element={<AppOrders />} />
               <Route path="/app/chat" element={<AppChat />} />
               <Route path="/app/notifications" element={<AppNotifications />} />
