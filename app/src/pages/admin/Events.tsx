@@ -10,7 +10,7 @@ import { useAdminEvents, useApproveEvent, useEventoModeracao, useToggleFeaturedC
 import { toast } from 'sonner'
 import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
 import { CLASSIFICACOES, ESTILOS, LOCAL_MODOS, TEMAS, rotuloFormato } from '../../lib/tipoEvento'
-import { dominioDaTransmissao, seloIngressosAlterados } from '../../lib/moderacaoEvento'
+import { dominioDaTransmissao, imagemSegura, seloIngressosAlterados } from '../../lib/moderacaoEvento'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
 // lib/appHost.ts só tem appUrl() (app.*); a Fase 2 do front está criando siteUrl() lá — trocar por ela quando estiver no main.
@@ -54,7 +54,7 @@ export default function AdminEvents() {
   const openerRef = useRef<HTMLElement | null>(null) // botão que abriu o painel: recebe o foco de volta ao fechar
   const detail: AdminEvent | null = detailId ? allEvents.find(e => e.id === detailId) ?? null : null
   const extras = useEventoModeracao(detail?.id ?? null)
-  const galeria: string[] = Array.isArray(detail?.gallery) ? detail.gallery.filter((g: unknown): g is string => typeof g === 'string' && !!g) : []
+  const galeria: string[] = Array.isArray(detail?.gallery) ? detail.gallery.filter(imagemSegura) : []
 
   useEffect(() => {
     if (!detailId) return
@@ -383,7 +383,7 @@ export default function AdminEvents() {
                 <div>
                   <h4 className="mb-2 text-[15px] font-semibold leading-5 text-foreground">Galeria</h4>
                   <div className="grid grid-cols-3 gap-2">
-                    {galeria.map((img, i) => <img key={i} src={img} alt="" loading="lazy" className="aspect-square w-full rounded-lg bg-muted object-cover" />)}
+                    {galeria.map((img, i) => <img key={i} src={img} alt="" loading="lazy" referrerPolicy="no-referrer" className="aspect-square w-full rounded-lg bg-muted object-cover" />)}
                   </div>
                 </div>
               )}

@@ -7,7 +7,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(47);
+select plan(53);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -40,6 +40,7 @@ update public.profiles set role = 'admin', admin_permissions = array['manage_fin
 -- Eventos do produtor 1: 10 aprovado (ingressos) | 11 aprovado em destaque (revogar) | 12 aprovado (recusar)
 -- 13 pending com marca antiga (aprovar) | 14 pending (ingresso não marca) | 15 cancelado aprovado (revogar) | 16 aprovado (versão)
 -- 17 aprovado (decisão inválida e motivo) | 18 aprovado com marca (recusar mantém a marca)
+-- 19 aprovado (revogar com versão velha) | 20 pending (aprovar com versão velha) | 21 do admin adm_fin (admin de outra área), com marca
 insert into public.events (id, producer_id, title, slug, status, approval_status, approved_at, approved_by, featured_carousel) values
   (pg_temp.u(10), pg_temp.u(1), 'E10', 's8-e10', 'published', 'approved', now(), pg_temp.u(9), false),
   (pg_temp.u(11), pg_temp.u(1), 'E11', 's8-e11', 'published', 'approved', now(), pg_temp.u(9), true),
@@ -49,8 +50,11 @@ insert into public.events (id, producer_id, title, slug, status, approval_status
   (pg_temp.u(15), pg_temp.u(1), 'E15', 's8-e15', 'cancelled', 'approved', now(), pg_temp.u(9), true),
   (pg_temp.u(16), pg_temp.u(1), 'E16', 's8-e16', 'published', 'approved', now(), pg_temp.u(9), false),
   (pg_temp.u(17), pg_temp.u(1), 'E17', 's8-e17', 'published', 'approved', now(), pg_temp.u(9), false),
-  (pg_temp.u(18), pg_temp.u(1), 'E18', 's8-e18', 'published', 'approved', now(), pg_temp.u(9), false);
-update public.events set ingressos_alterados_em = '2026-01-01' where id in (pg_temp.u(13), pg_temp.u(18));
+  (pg_temp.u(18), pg_temp.u(1), 'E18', 's8-e18', 'published', 'approved', now(), pg_temp.u(9), false),
+  (pg_temp.u(19), pg_temp.u(1), 'E19', 's8-e19', 'published', 'approved', now(), pg_temp.u(9), false),
+  (pg_temp.u(20), pg_temp.u(1), 'E20', 's8-e20', 'published', 'pending', null, null, false),
+  (pg_temp.u(21), pg_temp.u(8), 'E21', 's8-e21', 'published', 'approved', now(), pg_temp.u(9), false);
+update public.events set ingressos_alterados_em = '2026-01-01' where id in (pg_temp.u(13), pg_temp.u(18), pg_temp.u(21));
 insert into public.ticket_types (id, event_id, name, price, quantity_total) values
   (pg_temp.u(50), pg_temp.u(10), 'Pista', 50, 100), (pg_temp.u(51), pg_temp.u(14), 'Pista', 50, 100);
 select pg_temp.limpa(10);  -- o INSERT acima já gravou a marca (evento 10 aprovado): zera para os testes partirem de null
@@ -138,8 +142,10 @@ select is((select approval_status from public.events where id = pg_temp.u(11)), 
 
 -- E. Trava de versão ---------------------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', pg_temp.u(9), 'aal2');
-select throws_ok($$select public.admin_evento_decidir('d8000000-0000-4000-8000-000000000016', 'revogar', null, '2020-01-01')$$, 'P0002',
-  'O evento mudou desde que você abriu; recarregue.', 'versão velha: P0002');
+select throws_ok($$select public.admin_evento_decidir('d8000000-0000-4000-8000-000000000016', 'aprovar', null, '2020-01-01')$$, 'P0002',
+  'O evento mudou desde que você abriu; recarregue.', 'aprovar com versão velha: P0002');
+select throws_ok($$select public.admin_evento_decidir('d8000000-0000-4000-8000-000000000020', 'aprovar', null, '2020-01-01')$$, 'P0002', null, 'aprovar evento pending com versão velha: P0002');
+select throws_ok($$select public.admin_evento_decidir('d8000000-0000-4000-8000-000000000016', 'recusar', 'x', '2020-01-01')$$, 'P0002', null, 'recusar com versão velha: P0002');
 select pg_temp.como('postgres');
 select ok((select approval_status = 'approved' and status = 'published' and approved_at is not null from public.events where id = pg_temp.u(16))
   and pg_temp.avisos(16) = 0, '... e nada muda (nem aviso ao produtor)');
@@ -195,6 +201,18 @@ select lives_ok(format($q$select public.admin_evento_decidir('d8000000-0000-4000
 select pg_temp.como('postgres');
 select is(pg_temp.marca(18), '2026-01-01'::timestamptz, 'recusar não apaga a marca');
 select is(pg_temp.avisos(18), 1::bigint, '... e dispara 1 aviso');
+
+-- revogar ignora a versão (o produtor não impede a revogação mexendo no evento sem parar)
+select pg_temp.como('authenticated', pg_temp.u(9), 'aal2');
+select lives_ok($$select public.admin_evento_decidir('d8000000-0000-4000-8000-000000000019', 'revogar', null, '2020-01-01')$$, 'revogar com versão velha funciona');
+select pg_temp.como('postgres');
+select ok((select approval_status = 'pending' and status = 'draft' from public.events where id = pg_temp.u(19)), '... e o evento foi revogado');
+
+-- admin de outra área (sem manage_events), dono do evento, não apaga a marca
+select pg_temp.como('authenticated', pg_temp.u(8), 'aal2');
+select throws_ok($$update public.events set ingressos_alterados_em = null where id = 'd8000000-0000-4000-8000-000000000021'$$, '42501', 'ingressos_alterados_em é gravado só pelo banco', 'admin sem manage_events, dono do evento, apaga a marca: 42501');
+select pg_temp.como('postgres');
+select is(pg_temp.marca(21), '2026-01-01'::timestamptz, '... e a marca segue intacta');
 
 select * from finish();
 rollback;

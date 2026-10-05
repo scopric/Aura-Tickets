@@ -740,7 +740,7 @@ export function useApproveEvent() {
   return useMutation({
     // 'pending' = revogar: tira o evento do ar e o devolve à moderação. Tudo vai em UM UPDATE no banco (admin_evento_decidir).
     // updatedAt: o updated_at lido, como texto do banco (sem Date: perderia os microssegundos). Se o produtor mexeu
-    // no evento depois da leitura, o banco responde P0002 e a decisão não vale sobre conteúdo que o admin não viu.
+    // no evento depois da leitura, o banco responde P0002 e a decisão não vale sobre conteúdo que o admin não viu. Revogar não usa a versão (o banco a ignora): é a saída de emergência.
     mutationFn: async ({ eventId, status, rejectionReason, updatedAt }: { eventId: string; status: 'pending' | 'approved' | 'rejected'; rejectionReason?: string; updatedAt?: string }) => {
       const { data, error } = await supabase.rpc('admin_evento_decidir' as never, {
         p_id: eventId,

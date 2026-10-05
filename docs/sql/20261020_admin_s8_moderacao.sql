@@ -22,19 +22,22 @@
 --   Esperado: 3c030a882acc57d4df25b4b3e05286b7 e 31a06e7ddda4f033c8859a33fa67b725 (o bloco 0 também confere e aborta).
 --
 -- DECISÕES
--- 1. "Material" = INSERT, DELETE, ou UPDATE em event_id, price, quantity_total, capacity, type, name, description,
+-- 1. ATENÇÃO: a lista de colunas "materiais" de ticket_types é FECHADA. Coluna nova que mude o que o comprador paga ou recebe
+--    (ex.: taxa) precisa entrar à mão em gf_ticket_types_toca_evento (nos dois lados da comparação).
+--    "Material" = INSERT, DELETE, ou UPDATE em event_id, price, quantity_total, capacity, type, name, description,
 --    inclui_bebida, perks, perks_array. Não contam: is_active (pausar), sort_order, datas de venda, min/max por pedido,
 --    validade, sold e quantity_sold (venda).
 -- 2. A marca não está na lista de conteúdo de gf_protect_event_moderation: gravá-la não muda approval_status (provado
 --    nos testes). O UPDATE do gatilho de ingresso roda como dono da função (security definer): current_user deixa de ser
 --    authenticated, e é isso que o gatilho do item 3 usa para deixar só ele gravar.
 -- 3. O gatilho do item 3 é SECURITY INVOKER de propósito (precisa ver o current_user de quem grava). Sem ele o produtor
---    apagaria a marca do próprio evento (UPDATE ... = null) e esconderia o aviso do admin. Admin (gf_is_admin) pode,
---    porque a aprovação zera a marca.
+--    apagaria a marca do próprio evento (UPDATE ... = null) e esconderia o aviso do admin. Só quem tem manage_events (gf_admin_can)
+--    pode, porque a aprovação zera a marca; admin de outra área, mesmo dono do evento, não.
 -- 4. admin_evento_decidir é SECURITY INVOKER: a RLS de events (gf_events_admin_write) e os gatilhos valem como sempre.
 --    Um UPDATE só dispara um aviso ao produtor (gf_notificar_evento) e uma linha de trilha (audit_events_upd).
 --    Recusar e revogar tiram o destaque; revogar e recusar despublicam (published -> draft); cancelled/ended ficam.
---    A marca só zera ao aprovar. Sem linha (updated_at mudou ou id inexistente): P0002.
+--    A marca só zera ao aprovar. Sem linha (updated_at mudou ou id inexistente): P0002. REVOGAR IGNORA p_versao (o
+--    produtor, mexendo no evento sem parar, impediria toda revogação); aprovar e recusar continuam com a trava.
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -117,7 +120,7 @@ as $$
 begin
   if new.ingressos_alterados_em is distinct from (case when tg_op = 'UPDATE' then old.ingressos_alterados_em end)
      and current_user in ('authenticated', 'anon')
-     and not public.gf_is_admin() then
+     and not public.gf_admin_can('manage_events') then
     raise exception 'ingressos_alterados_em é gravado só pelo banco' using errcode = '42501';
   end if;
   return new;
@@ -161,7 +164,8 @@ begin
     -- só o que está no ar sai do ar: cancelled e ended são decisão do produtor
     status = case when not v_aprova and status = 'published' then 'draft' else status end,
     ingressos_alterados_em = case when v_aprova then null else ingressos_alterados_em end
-  where id = p_id and updated_at = p_versao
+  -- revogar ignora a versão: é a saída de emergência, e o produtor não pode impedi-la mexendo no evento sem parar
+  where id = p_id and (p_decisao = 'revogar' or updated_at = p_versao)
   returning * into v_ev;
 
   if not found then
