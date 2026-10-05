@@ -1,5 +1,5 @@
--- pgTAP da S4b do admin (docs/sql/20261018_admin_s4b_profiles_colunas.sql, Decisão 163 itens 3 e 11): profiles mínimo.
--- Só em banco descartável: baseline + docs/sql até o estado de produção + S3 (20261014) + S4 (20261015) + S4b, e rodar
+-- pgTAP da S4b do admin (docs/sql/20261018a_admin_s4b_funcoes.sql e 20261018b_admin_s4b_colunas.sql, Decisão 163 itens 3 e 11): profiles mínimo.
+-- Só em banco descartável: baseline + docs/sql até o estado de produção + S3 (20261014) + S4 (20261015) + S4b (partes A e B), e rodar
 -- este arquivo (psql -f ou `supabase test db`). Tudo em begin ... rollback. Nunca contra produção.
 -- pg_temp.como() troca papel e claims do JWT como o PostgREST; pg_temp.n(sql) = primeira coluna bigint do select;
 -- pg_temp.t(sql) = primeira coluna text; pg_temp.upd(sql) = linhas afetadas por update.
@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(67);
+select plan(69);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -189,6 +189,15 @@ update public.profiles set admin_permissions = array['manage_users']::text[], ro
   where role = 'admin' and 'super_admin' = any(admin_permissions) and id <> 'd8000000-0000-4000-8000-000000000005';
 select throws_ok($$update public.profiles set role = 'user' where id = 'd8000000-0000-4000-8000-000000000005'$$, '42501', 'A plataforma precisa de pelo menos um super_admin',
   'o último super_admin não sai (nem pelo dono do banco)');
+
+-- 10. Só com a parte A (antes do corte de colunas) o front atual segue lendo: select * da própria linha -----------------
+select pg_temp.como('postgres');
+grant select on public.profiles to authenticated; -- estado da parte A: nada revogado (volta no rollback)
+select pg_temp.como('authenticated', 'd8000000-0000-4000-8000-000000000008');
+select is(pg_temp.n($$select count(*) from (select * from public.profiles where id = 'd8000000-0000-4000-8000-000000000008') x$$), 1::bigint,
+  'só com a parte A: select * da própria linha funciona para authenticated');
+select is(pg_temp.t($$select (select phone from public.profiles where id = 'd8000000-0000-4000-8000-000000000008')$$), '11888880008',
+  'só com a parte A: o telefone da própria linha ainda é lido pela tabela');
 
 select * from finish();
 rollback;

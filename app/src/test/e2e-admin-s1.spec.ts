@@ -107,7 +107,7 @@ for (const v of VARIANTES) {
 
     test('5 usuários: gerenciar produtor', async ({ page }) => {
       await simular(page, {
-        '**/rest/v1/profiles?*': (r) => json(r, 200, [{ id: 'p1', email: 'um@teste.invalid', full_name: 'Produtor Um', role: 'producer', avatar_url: null, created_at: '2026-09-01T10:00:00Z', producer_profiles: { company_name: 'Empresa Um', cnpj: null, is_verified: false, commission_rate: null } }]),
+        '**/rest/v1/rpc/admin_usuarios_lista': (r) => json(r, 200, [{ id: 'p1', email: 'um@teste.invalid', full_name: 'Produtor Um', role: 'producer', avatar_url: null, created_at: '2026-09-01T10:00:00Z', producer_profiles: { company_name: 'Empresa Um', cnpj: null, is_verified: false, commission_rate: null } }]),
       })
       await entrar(page, v, '/admin/users')
       await page.getByRole('button', { name: /Gerenciar Produtor Um/ }).click()

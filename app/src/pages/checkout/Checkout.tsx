@@ -234,11 +234,11 @@ export default function Checkout() {
     }
     setSalvandoNascimento(true)
     try {
-      // birth_date não é filtrável pela API (42501, docs/sql/20261018_admin_s4b_profiles_colunas.sql): a conferência "só se
+      // birth_date não é filtrável pela API (42501, docs/sql/20261018b_admin_s4b_colunas.sql): a conferência "só se
       // estiver vazia" é no cliente; perfil ainda não carregado (undefined) é relido antes.
-      // ponytail: se a releitura falhar (ou na conta de demonstração) birth_date segue indefinido e a data digitada é gravada;
-      // o teto é um ato explícito do usuário, e o RLS só deixa gravar no próprio perfil
+      // Se depois da releitura continuar indefinido (perfil provisório, rede, 2FA sem código), NÃO grava: poderia sobrescrever
       if (useAuthStore.getState().user?.birth_date === undefined) await useAuthStore.getState().fetchProfile({ force: true })
+      if (useAuthStore.getState().user?.birth_date === undefined) { toast.error('Aguarde o perfil terminar de carregar e tente de novo'); return }
       if (useAuthStore.getState().user?.birth_date) { toast.info('Seu Perfil já tinha data de nascimento: vale a que está lá.'); return }
       const { data, error } = await supabase
         .from('profiles')

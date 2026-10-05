@@ -5,7 +5,7 @@ import { join, relative, resolve } from 'node:path'
 // E4: authenticated não tem SELECT em orders.customer_cpf, orders.customer_phone e tickets.buyer_cpf
 // (docs/sql/20261011_orders_tickets_colunas_pessoais.sql). Com isso, '*' ou .select() vazio em orders/tickets dá 42501
 // na tela inteira. Este teste barra esses padrões no app/src; coluna nova nessas tabelas precisa de grant novo no banco.
-// S4b: o mesmo vale para profiles (docs/sql/20261018_admin_s4b_profiles_colunas.sql): além de '*' e .select() vazio, barra
+// S4b: o mesmo vale para profiles (docs/sql/20261018b_admin_s4b_colunas.sql): além de '*' e .select() vazio, barra
 // nomear qualquer das 17 colunas retidas (telefone, cpf, nascimento...). O próprio perfil vem de meu_perfil(); a equipe, o
 // Atendimento e a lista de Usuários vêm de RPCs.
 // ponytail: regex, não parser; select com variável (ex.: select(colunas)) não é conferido.

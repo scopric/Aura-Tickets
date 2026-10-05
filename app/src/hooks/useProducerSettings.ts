@@ -50,7 +50,7 @@ export function useProducerSettings() {
       if (!user?.id) return null
 
       // 1. Carregar perfil base
-      // meu_perfil() (docs/sql/20261018_admin_s4b_profiles_colunas.sql): a tabela não entrega mais telefone, cidade e bio por select
+      // meu_perfil() (docs/sql/20261018a_admin_s4b_funcoes.sql): a tabela não entrega mais telefone, cidade e bio por select
       const { data: perfil, error: profileError } = await supabase.rpc('meu_perfil' as never)
 
       if (profileError) throw profileError

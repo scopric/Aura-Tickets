@@ -132,7 +132,7 @@ export default function AdminUsers() {
     setLoadError(null)
     try {
       // Uma consulta só: se falhar, o erro aparece na tela (nada de lista parcial sem aviso).
-      // admin_usuarios_lista() (docs/sql/20261018_admin_s4b_profiles_colunas.sql): manage_users; o telefone continua na lista
+      // admin_usuarios_lista() (docs/sql/20261018a_admin_s4b_funcoes.sql): manage_users; o telefone continua na lista
       // (Decisão 163 item 11), a tabela não o entrega mais por select. Mesma forma de antes: assinatura e recursos embutidos.
       const { data, error } = await supabase.rpc('admin_usuarios_lista' as never)
 
