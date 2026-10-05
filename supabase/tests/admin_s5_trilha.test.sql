@@ -16,7 +16,10 @@ language plpgsql as $f$
 begin
   perform set_config('request.headers', '', true);
   perform set_config('request.jwt.claims', case when p_role = 'postgres' then '' else json_strip_nulls(json_build_object(
-    'role', p_role, 'sub', p, 'aal', case when p is not null then p_aal end))::text end, true);
+    'role', p_role, 'sub', p, 'aal', case when p is not null then p_aal end,
+    -- S9: em aal2 o código do aplicativo foi digitado agora (as travas de dinheiro pedem um TOTP dos últimos 300 s)
+    'amr', case when p is not null and p_aal = 'aal2' then json_build_array(json_build_object('method', 'totp',
+      'timestamp', extract(epoch from now())::bigint)) end))::text end, true);
   perform set_config('role', case when p_role = 'postgres' then 'none' else p_role end, true);
 end $f$;
 create function pg_temp.hdr(p text) returns void language plpgsql as $f$
@@ -234,7 +237,8 @@ update public.producer_subscriptions set plan = 'pro' where id = 'd7000000-0000-
 select is(pg_temp.nlog($$tabela = 'producer_subscriptions'$$), 1::bigint, 'plano do produtor mudado: grava');
 
 -- H. withdrawals.processed_by passa pela proteção da S3 ---------------------------------------------------------------------
-select is((select array_agg(tgname::text order by tgname collate "C") from pg_trigger
+-- (a S9 acrescenta withdrawals_reauth_dinheiro depois destes dois: só os dois primeiros contam aqui)
+select is((select (array_agg(tgname::text order by tgname collate "C"))[1:2] from pg_trigger
   where tgrelid = 'public.withdrawals'::regclass and not tgisinternal and (tgtype & 2) = 2),
   array['gf_protect_withdrawals', 'withdrawals_quem_processou'], 'ordem dos BEFORE de withdrawals: a proteção da S3 primeiro');
 select pg_temp.marca();

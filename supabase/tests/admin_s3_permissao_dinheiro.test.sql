@@ -14,7 +14,10 @@ create function pg_temp.como(p_role text, p uuid default null, p_aal text defaul
 language plpgsql as $f$
 begin
   perform set_config('request.jwt.claims', case when p_role = 'postgres' then '' else json_strip_nulls(json_build_object(
-    'role', p_role, 'sub', p, 'aal', case when p is not null then p_aal end))::text end, true);
+    'role', p_role, 'sub', p, 'aal', case when p is not null then p_aal end,
+    -- S9: em aal2 o código do aplicativo foi digitado agora (as travas de dinheiro pedem um TOTP dos últimos 300 s)
+    'amr', case when p is not null and p_aal = 'aal2' then json_build_array(json_build_object('method', 'totp',
+      'timestamp', extract(epoch from now())::bigint)) end))::text end, true);
   perform set_config('role', case when p_role = 'postgres' then 'none' else p_role end, true);
 end $f$;
 create function pg_temp.n(p text) returns bigint language plpgsql as $f$
