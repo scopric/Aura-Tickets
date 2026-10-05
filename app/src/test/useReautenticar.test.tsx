@@ -6,6 +6,7 @@ import { useReautenticar } from '../hooks/useReautenticar'
 const mfa = vi.hoisted(() => ({ listFactors: vi.fn(), challengeAndVerify: vi.fn() }))
 vi.mock('../lib/supabase', () => ({ supabase: { auth: { mfa } } }))
 
+const ERRADO = { code: 'mfa_verification_failed', status: 400, message: 'Invalid TOTP code entered' }
 const PEDE = { code: '42501', hint: 'reautenticar', message: 'Confirme o código da verificação em duas etapas para continuar.' }
 
 // A tela de teste: um botão que roda a ação e mostra o que o hook devolveu
@@ -71,7 +72,7 @@ describe('useReautenticar', () => {
   })
 
   it('código errado: mostra o erro, mantém a janela e não repete a ação', async () => {
-    mfa.challengeAndVerify.mockResolvedValue({ data: null, error: { message: 'Invalid TOTP code entered' } })
+    mfa.challengeAndVerify.mockResolvedValue({ data: null, error: ERRADO })
     const acao = vi.fn().mockResolvedValue({ error: PEDE })
     render(<Tela acao={acao} />)
     salvar()
@@ -157,5 +158,62 @@ describe('useReautenticar', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
     await waitFor(() => expect(acao).toHaveBeenCalledTimes(2))
     expect(envio).not.toHaveBeenCalled()
+  })
+
+  it('dois fatores TOTP: tenta cada um até algum aceitar o código', async () => {
+    mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: 'f1' }, { id: 'f2' }] }, error: null })
+    mfa.challengeAndVerify.mockResolvedValueOnce({ data: null, error: ERRADO }).mockResolvedValueOnce({ data: {}, error: null })
+    const acao = vi.fn().mockResolvedValueOnce({ error: PEDE }).mockResolvedValueOnce({ error: null, data: 'gravou' })
+    render(<Tela acao={acao} />)
+    salvar()
+    await screen.findByRole('dialog')
+    digitar('123456')
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('gravou'))
+    expect(mfa.challengeAndVerify.mock.calls.map(c => c[0].factorId)).toEqual(['f1', 'f2'])
+    expect(acao).toHaveBeenCalledTimes(2)
+  })
+
+  it('dois fatores e nenhum aceita: "Código inválido" e a ação não repete', async () => {
+    mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: 'f1' }, { id: 'f2' }] }, error: null })
+    mfa.challengeAndVerify.mockResolvedValue({ data: null, error: ERRADO })
+    const acao = vi.fn().mockResolvedValue({ error: PEDE })
+    render(<Tela acao={acao} />)
+    salvar()
+    await screen.findByRole('dialog')
+    digitar('123456')
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Código inválido ou expirado')
+    expect(mfa.challengeAndVerify).toHaveBeenCalledTimes(2)
+    expect(acao).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['erro de rede', { name: 'AuthRetryableFetchError', status: 0, message: 'Failed to fetch' }, 'Não foi possível confirmar agora'],
+    ['limite de tentativas (429)', { code: 'over_request_rate_limit', status: 429, message: 'rate limit' }, 'Muitas tentativas'],
+  ])('%s: mensagem própria, sem "Código inválido", e para no primeiro fator', async (_n, erro, texto) => {
+    mfa.listFactors.mockResolvedValue({ data: { totp: [{ id: 'f1' }, { id: 'f2' }] }, error: null })
+    mfa.challengeAndVerify.mockResolvedValue({ data: null, error: erro })
+    const acao = vi.fn().mockResolvedValue({ error: PEDE })
+    render(<Tela acao={acao} />)
+    salvar()
+    await screen.findByRole('dialog')
+    digitar('123456')
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    const alerta = await screen.findByRole('alert')
+    expect(alerta).toHaveTextContent(texto)
+    expect(alerta).not.toHaveTextContent('Código inválido')
+    expect(mfa.challengeAndVerify).toHaveBeenCalledTimes(1)
+    expect(acao).toHaveBeenCalledTimes(1)
+  })
+
+  it('falha ao listar os fatores (rede): mensagem própria', async () => {
+    mfa.listFactors.mockResolvedValue({ data: null, error: { name: 'AuthRetryableFetchError', status: 0, message: 'Failed to fetch' } })
+    render(<Tela acao={vi.fn().mockResolvedValue({ error: PEDE })} />)
+    salvar()
+    await screen.findByRole('dialog')
+    digitar('123456')
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível confirmar agora')
   })
 })

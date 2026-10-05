@@ -64,14 +64,20 @@ export function useReautenticar() {
     try {
       const { data, error: listaErro } = await supabase.auth.mfa.listFactors()
       if (listaErro) throw listaErro
-      const fator = data.totp[0] // listFactors só devolve em `totp` os confirmados
-      if (!fator) { setErro('Esta conta não tem a verificação em duas etapas ativa.'); return }
-      const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: fator.id, code: codigo })
-      if (error) throw error
-      fechar(true)
+      if (!data.totp.length) { setErro('Esta conta não tem a verificação em duas etapas ativa.'); return } // `totp` só traz os confirmados
+      // Conta com mais de um aplicativo: o código vale para um só; tenta cada um até algum aceitar
+      for (const fator of data.totp) {
+        const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: fator.id, code: codigo })
+        if (!error) { fechar(true); return }
+        if (error.code !== 'mfa_verification_failed') throw error // rede, limite de tentativas ou outro erro: não é "código errado"
+      }
+      setErro('Código inválido ou expirado. Confira o aplicativo e tente de novo.')
     } catch (err) {
       console.error('[reautenticar] Erro ao confirmar o código:', err)
-      setErro('Código inválido ou expirado. Confira o aplicativo e tente de novo.')
+      const e = err as { status?: number; code?: string }
+      setErro(e.status === 429 || e.code === 'over_request_rate_limit'
+        ? 'Muitas tentativas. Aguarde um pouco e tente de novo.'
+        : 'Não foi possível confirmar agora. Confira a conexão e tente de novo.')
     } finally {
       setVerificando(false)
     }
