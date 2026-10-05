@@ -16,23 +16,28 @@ export const OPCOES_VISIBILIDADE = [
 
 // Seção Publicar: quem pode ver e comprar. Vale na hora e não volta o evento para análise (Decisão 165, D3).
 // UPDATE sem .select() passa calado quando a regra não deixa gravar (erro 11): por isso o .select('id').single().
-export default function VisibilidadeEvento({ eventoId, slug, visibilidade, onSalvo }: {
-  eventoId: string; slug: string | null; visibilidade: string; onSalvo: () => void
+// Fora de 'public' o link é sempre /event/<id>: evento_publico só abre por slug evento público (slug é chutável).
+export default function VisibilidadeEvento({ eventoId, slug, visibilidade, noAr, onSalvo }: {
+  eventoId: string; slug: string | null; visibilidade: string; noAr: boolean; onSalvo: () => void
 }) {
   const [salvando, setSalvando] = useState(false)
-  const atual = OPCOES_VISIBILIDADE.find(o => o.valor === visibilidade)
+  // a escolha gravada vale na tela até a releitura chegar; se a releitura falhar, a tela não volta à opção antiga
+  const [gravada, setGravada] = useState<string | null>(null)
+  if (gravada !== null && gravada === visibilidade) setGravada(null)
+  const valorAtual = gravada ?? visibilidade
   const escolher = async (valor: string) => {
-    if (valor === visibilidade || salvando) return
+    if (valor === valorAtual || salvando) return
     setSalvando(true)
     const { error } = await supabase.from('events').update({ visibility: valor } as never).eq('id', eventoId).select('id').single()
     setSalvando(false)
     if (error) { toast.error('Não foi possível mudar quem vê o evento. Tente de novo.'); return }
+    setGravada(valor)
     toast.success('Visibilidade atualizada.')
     onSalvo()
   }
   const copiar = async () => {
     try {
-      await navigator.clipboard.writeText(siteUrl(`/event/${slug || eventoId}`))
+      await navigator.clipboard.writeText(siteUrl(`/event/${valorAtual === 'public' ? slug || eventoId : eventoId}`))
       toast.success('Link do evento copiado.')
     } catch {
       toast.error('Não foi possível copiar o link.')
@@ -44,7 +49,7 @@ export default function VisibilidadeEvento({ eventoId, slug, visibilidade, onSal
         <span id="v-grupo" className="text-sm font-medium text-foreground">Quem pode ver o evento</span>
         <span className="text-xs text-muted-foreground">Vale na hora e não manda o evento para nova análise.</span>
       </div>
-      <RadioGroup aria-labelledby="v-grupo" value={visibilidade} onValueChange={v => void escolher(v)} disabled={salvando} className="gap-2">
+      <RadioGroup aria-labelledby="v-grupo" value={valorAtual} onValueChange={v => void escolher(v)} aria-busy={salvando} className="gap-2">
         {OPCOES_VISIBILIDADE.map(o => {
           const breve = 'breve' in o && o.breve
           return (
@@ -58,12 +63,12 @@ export default function VisibilidadeEvento({ eventoId, slug, visibilidade, onSal
           )
         })}
       </RadioGroup>
-      {visibilidade !== 'private' && (
+      {valorAtual !== 'private' && (noAr ? (
         <div className="flex flex-wrap items-center gap-3">
           <Button type="button" variant="outline" size="sm" onClick={() => void copiar()}><I.Copiar aria-hidden="true" />Copiar link</Button>
-          <span className="text-xs text-muted-foreground">{atual?.valor === 'unlisted' ? 'Mande este link a quem pode comprar.' : 'O endereço da página do evento.'}</span>
+          <span className="text-xs text-muted-foreground">{valorAtual === 'unlisted' ? 'Mande este link a quem pode comprar.' : 'O endereço da página do evento.'}</span>
         </div>
-      )}
+      ) : <p className="text-xs text-muted-foreground">O link funciona depois que a equipe aprovar.</p>)}
     </div>
   )
 }

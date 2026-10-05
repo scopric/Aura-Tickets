@@ -499,7 +499,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
       default: return (
         <div className="grid gap-6">
-        <VisibilidadeEvento eventoId={evento.id} slug={evento.slug} visibilidade={evento.visibility} onSalvo={() => { for (const k of ['painel-evento', 'public-event', 'public-events', 'explorar-eventos', 'featured-events']) void qc.invalidateQueries({ queryKey: [k] }) }} />
+        <VisibilidadeEvento eventoId={evento.id} slug={evento.slug} visibilidade={evento.visibility} noAr={evento.status === 'published' && evento.approval_status === 'approved'} onSalvo={() => { for (const k of ['painel-evento', 'public-event', 'public-events', 'explorar-eventos', 'featured-events']) void qc.invalidateQueries({ queryKey: [k] }) }} />
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
           onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}

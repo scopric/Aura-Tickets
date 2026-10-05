@@ -173,7 +173,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           <button type="button" onClick={handleShare} aria-label="Compartilhar" className={cn(circulo, circuloFundo)}>
             <I.Compartilhar size={20} />
           </button>
-          <BotaoSalvar eventId={event.id} className={cn(circulo, circuloFundo)} />
+          {event.visibility === 'public' && <BotaoSalvar eventId={event.id} className={cn(circulo, circuloFundo)} />}
         </div>
       </header>}
 

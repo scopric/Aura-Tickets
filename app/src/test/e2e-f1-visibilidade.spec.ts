@@ -37,7 +37,9 @@ async function montarBanco(page: Page) {
     const { p_ref } = route.request().postDataJSON() as { p_ref: string }
     db.rpc.push(p_ref)
     const acesso = db.evento.visibility === 'public' ? 'aberto' : db.evento.visibility === 'unlisted' ? 'link' : null
-    return route.fulfill({ json: acesso && (p_ref === EVENTO || p_ref === db.evento.slug) ? { acesso, evento: db.evento, ingressos: [ingresso] } : null })
+    // como o banco: uuid abre por id; slug só abre evento público
+    const achou = p_ref === EVENTO || (p_ref === db.evento.slug && db.evento.visibility === 'public')
+    return route.fulfill({ json: acesso && achou ? { acesso, evento: db.evento, ingressos: [ingresso] } : null })
   })
   await page.route(/\/rest\/v1\/ticket_types(\?|$)/, route => route.fulfill({ json: [ingresso] }))
   await page.route(/\/rest\/v1\/tickets(\?|$)/, route => route.fulfill({ headers: { 'content-range': '*/0', 'access-control-expose-headers': 'content-range' }, json: [] }))
@@ -56,7 +58,7 @@ async function entrarProdutor(page: Page) {
   await expect(page).toHaveURL(/\/producer\/dashboard/)
 }
 
-test('"Só com link" no painel grava, o evento some de /events e abre pelo link', async ({ page, context }) => {
+test('"Só com link" no painel grava, o evento some de /events e abre pelo link com o id', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   const db = await montarBanco(page)
   await entrarProdutor(page)
@@ -79,15 +81,16 @@ test('"Só com link" no painel grava, o evento some de /events e abre pelo link'
   await expect(grupo.getByRole('radio', { name: /Só com link/ })).toBeChecked()
 
   await page.getByRole('button', { name: 'Copiar link' }).click()
-  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(/\/event\/noite-de-teste$/)
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toMatch(new RegExp(`/event/${EVENTO}$`))
 
   await page.goto('/events')
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   await expect(page.getByText('Noite de teste')).toHaveCount(0)
 
-  await page.goto('/event/noite-de-teste')
+  await page.goto(`/event/${EVENTO}`)
   await expect(page.getByRole('heading', { level: 1, name: 'Noite de teste' })).toBeVisible()
   await expect(page.locator('meta[name="robots"]')).toHaveAttribute('content', 'noindex, nofollow')
+  await expect(page.getByRole('button', { name: 'Salvar evento' })).toHaveCount(0)
 })
 
 test('evento público continua indexável', async ({ page }) => {
