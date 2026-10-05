@@ -48,11 +48,12 @@ async function simularSupabase(page: Page, mudar: Partial<Estado> = {}) {
 
   // o resto do PostgREST (painel depois do convite): vazio
   await page.route('**/rest/v1/**', (r) => json(r, []))
-  await page.route('**/rest/v1/profiles?*', (r) => json(r, { id: UID, email: EMAIL, full_name: 'Clara Teste', role: e.papel, admin_permissions: e.papel === 'admin' ? ['manage_support'] : [] }))
   await page.route('**/rest/v1/rpc/**', (r) => {
     const nome = new URL(r.request().url()).pathname.split('/rpc/')[1]
     e.chamadas.push({ onde: nome, body: corpo(r) })
     if (nome === 'convite_conferir') return json(r, e.conferir)
+    // meu_perfil() (S4b): o próprio perfil não sai mais de select em profiles
+    if (nome === 'meu_perfil') return json(r, { id: UID, email: EMAIL, full_name: 'Clara Teste', role: e.papel, admin_permissions: e.papel === 'admin' ? ['manage_support'] : [] })
     return json(r, [])
   })
   await page.route('**/functions/v1/**', (r) => {
@@ -311,9 +312,9 @@ test.describe('tela Equipe — convidar colaborador', () => {
       { id: 'conv-3', email: 'usado@teste.invalid', cargo: 'Eventos', permissions: [], status: 'usado', expires_at: '2026-09-20T12:00:00Z', used_at: '2026-09-25T12:00:00Z', nome: 'Davi Usado', aviso_em: null },
     ]
     await page.route('**/rest/v1/**', (r) => r.fulfill({ json: [] }))
-    await page.route('**/rest/v1/profiles?*', (r) => r.fulfill({ json: [
-      { id: ADMIN_DEMO, email: 'admin@aura.teste', full_name: 'Admin Teste', avatar_url: null, role: 'admin', admin_permissions: ['super_admin'], updated_at: null },
-      { id: CLARA, email: 'clara@teste.invalid', full_name: 'Clara Teste', avatar_url: null, role: 'admin', admin_permissions: ['manage_support'], updated_at: null },
+    await page.route('**/rest/v1/rpc/admin_equipe', (r) => r.fulfill({ json: [ // admin_equipe() (S4b)
+      { id: ADMIN_DEMO, email: 'admin@aura.teste', full_name: 'Admin Teste', avatar_url: null, admin_permissions: ['super_admin'] },
+      { id: CLARA, email: 'clara@teste.invalid', full_name: 'Clara Teste', avatar_url: null, admin_permissions: ['manage_support'] },
     ] }))
     await page.route('**/rest/v1/rpc/colaboradores_resumo', (r) => r.fulfill({ json: [{ user_id: CLARA, nome: 'Clara Teste da Silva', cargo: 'Atendimento', email: 'clara@teste.invalid' }] }))
     await page.route('**/rest/v1/rpc/colaborador_dados', (r) => {

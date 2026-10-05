@@ -29,7 +29,7 @@ async function entrar(page: Page, v: typeof VARIANTES[number], rota: string, per
   await page.route('**/functions/v1/**', (r) => json(r, 200, {}))
   await page.route('**/rest/v1/**', (r) => json(r, 200, []))
   await page.route('**/rest/v1/rpc/**', (r) => json(r, 200, {}))
-  await page.route('**/rest/v1/profiles?*id=eq.' + UID + '*', (r) => json(r, 200, { id: UID, full_name: 'Admin Teste S2', role: 'admin', admin_permissions: permissoes, email: 'admin@teste.invalid', is_authorized: true }))
+  await page.route('**/rest/v1/rpc/meu_perfil', (r) => json(r, 200, { id: UID, full_name: 'Admin Teste S2', role: 'admin', admin_permissions: permissoes, email: 'admin@teste.invalid', is_authorized: true }))
   for (const [padrao, fn] of Object.entries(mocks)) await page.route(padrao, (r) => fn(r))
   await page.goto(`${ALPHA}${rota}`)
 }
@@ -170,7 +170,7 @@ for (const v of VARIANTES) {
       const colega = { id: '22222222-2222-4222-8222-222222222222', full_name: 'Colega Admin', email: 'colega@teste.invalid', role: 'admin', admin_permissions: ['manage_events'], avatar_url: null, created_at: iso(-dia) }
       let rpcFicha: (r: Route) => unknown = falha
       await entrar(page, v, '/admin/team', SUPER, {
-        '**/rest/v1/profiles?*role=eq.admin*': (r) => json(r, 200, [colega]),
+        '**/rest/v1/rpc/admin_equipe': (r) => json(r, 200, [colega]),
         '**/rest/v1/rpc/colaborador_dados': (r) => rpcFicha(r),
       })
       await page.getByText('Colega Admin').first().click()

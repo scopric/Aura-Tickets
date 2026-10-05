@@ -157,12 +157,8 @@ function useOpcoes() {
     staleTime: 10 * 60_000,
     queryFn: async () => {
       // mesma regra do chat_update: admin com manage_support ou super_admin
-      const { data: d, error } = await supabase
-        .from('profiles' as never)
-        .select('id, full_name, email')
-        .eq('role', 'admin')
-        .overlaps('admin_permissions', ['super_admin', 'manage_support'])
-        .order('full_name')
+      // chat_atendentes() (docs/sql/20261018_admin_s4b_profiles_colunas.sql): manage_support; a tabela não entrega admin_permissions
+      const { data: d, error } = await supabase.rpc('chat_atendentes' as never)
       if (error) throw error
       return (d ?? []) as unknown as { id: string; full_name: string | null; email: string }[]
     },

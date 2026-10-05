@@ -131,22 +131,13 @@ export default function AdminUsers() {
     setIsLoading(true)
     setLoadError(null)
     try {
-      // Uma consulta só: se falhar, o erro aparece na tela (nada de lista parcial sem aviso)
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id, email, full_name, phone, role, created_at, avatar_url,
-          producer_subscriptions (
-            plan, expires_at, is_active
-          ),
-          user_custom_features (
-            feature_key, expires_at
-          )
-        `)
-        .order('created_at', { ascending: false })
+      // Uma consulta só: se falhar, o erro aparece na tela (nada de lista parcial sem aviso).
+      // admin_usuarios_lista() (docs/sql/20261018_admin_s4b_profiles_colunas.sql): manage_users; o telefone continua na lista
+      // (Decisão 163 item 11), a tabela não o entrega mais por select. Mesma forma de antes: assinatura e recursos embutidos.
+      const { data, error } = await supabase.rpc('admin_usuarios_lista' as never)
 
       if (error) throw error
-      const formattedProfiles: Profile[] = (data || []).map((p: any) => ({
+      const formattedProfiles: Profile[] = ((data || []) as unknown as any[]).map((p: any) => ({
         ...p,
         producer_subscriptions: p.producer_subscriptions?.[0] || p.producer_subscriptions || null
       }))

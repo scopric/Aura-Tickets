@@ -29,6 +29,8 @@ vi.mock('@/lib/supabase', () => ({
       delete: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ error: null })) })),
       upsert: vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn(() => Promise.resolve({ data: null, error: null })) })) })),
     })),
+    // meu_perfil() do authStore (S4b): sem perfil por padrão
+    rpc: vi.fn(() => Promise.resolve({ data: null, error: null })),
     functions: {
       invoke: vi.fn(),
     },

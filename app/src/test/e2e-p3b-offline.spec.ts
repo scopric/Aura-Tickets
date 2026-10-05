@@ -16,7 +16,7 @@ test('Ingressos já vistos abrem sem internet e o resto do app não é intercept
   await page.addInitScript((s) => { if (!localStorage.getItem('sb-placeholder-auth-token')) localStorage.setItem('sb-placeholder-auth-token', JSON.stringify(s)) }, sess)
   await page.route('**/auth/v1/**', (r) => json(r, sess.user))
   await page.route('**/rest/v1/**', (r) => json(r, []))
-  await page.route('**/rest/v1/profiles?*', (r) => json(r, { id: UID, full_name: 'Teste', role: 'participant', email: 'p@teste.invalid', is_authorized: true }))
+  await page.route('**/rest/v1/rpc/meu_perfil', (r) => json(r, { id: UID, full_name: 'Teste', role: 'participant', email: 'p@teste.invalid', is_authorized: true }))
   await page.route('**/rest/v1/tickets?*', (r) => json(r, [ingresso]))
 
   await page.goto('/app/tickets')
@@ -52,7 +52,7 @@ test('Token vencido e rede falhando: ingressos aparecem da cópia, com aviso; sa
   await page.addInitScript((s) => { if (!sessionStorage.getItem('semeado')) { sessionStorage.setItem('semeado', '1'); localStorage.setItem('sb-placeholder-auth-token', JSON.stringify(s)) } }, valida) // só na 1ª carga
   await page.route('**/auth/v1/**', (r) => json(r, valida.user))
   await page.route('**/rest/v1/**', (r) => json(r, []))
-  await page.route('**/rest/v1/profiles?*', (r) => json(r, { id: UID, full_name: 'Teste', role: 'participant', email: 'p@teste.invalid', is_authorized: true }))
+  await page.route('**/rest/v1/rpc/meu_perfil', (r) => json(r, { id: UID, full_name: 'Teste', role: 'participant', email: 'p@teste.invalid', is_authorized: true }))
   await page.route('**/rest/v1/tickets?*', (r) => json(r, [ingresso]))
   const link = page.getByRole('link', { name: 'Mostrar o QR de Show Offline Teste' })
   await page.goto('/app/tickets')

@@ -141,11 +141,9 @@ export const useAuthStore = create<AuthState>()(
             let profileError: any = null
             try {
               // Busca o perfil com um timeout de 7 segundos para evitar travamento
-              const getProfilePromise = supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authUser.id)
-                .single()
+              // meu_perfil() (docs/sql/20261018_admin_s4b_profiles_colunas.sql): a tabela não entrega mais telefone, cidade, bio
+              // nem nascimento por select; o jsonb vem sem cpf e stripe_customer_id e nulo se não houver perfil
+              const getProfilePromise = supabase.rpc('meu_perfil' as never)
               
               const timeoutError = new Error('Timeout ao buscar perfil na tabela profiles')
               const result = await Promise.race([

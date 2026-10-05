@@ -216,7 +216,7 @@ describe('chat: caixa de entrada do admin', () => {
     role = 'admin'
     vi.mocked(supabase.channel).mockClear()
     vi.mocked(supabase.removeChannel).mockClear()
-    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox'
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_atendentes' ? { data: [], error: null } : nome === 'chat_inbox'
       ? { data: [{ id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_name: 'Geral', topic_label: 'Outros', mediation: false,
           contact_name: 'Carla Dias', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'preciso de ajuda', last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: true }], error: null }
       : { data: { ok: true }, error: null }))
@@ -234,7 +234,7 @@ describe('chat: caixa de entrada do admin', () => {
 
   it('escolher filtro pelo menu muda a consulta; painel de detalhes abre e fecha com Esc', async () => {
     role = 'admin'
-    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox'
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_atendentes' ? { data: [], error: null } : nome === 'chat_inbox'
       ? { data: [{ id: 'c1', user_id: null, status: 'open', priority: 'normal', assignee_id: null, department_name: 'Geral', topic_label: 'Outros', mediation: false,
           contact_name: 'Carla Dias', last_message_at: '2026-09-30T12:00:00Z', last_message_preview: 'preciso de ajuda', last_customer_message_at: '2026-09-30T12:00:00Z', last_reply_at: null, nao_lida: false }], error: null }
       : { data: { ok: true }, error: null }))
@@ -273,7 +273,7 @@ describe('chat: painel do cliente no Atendimento (Decisão 163)', () => {
   }
 
   it('ingressos, pedidos e plano vêm de chat_cliente_contexto, sem ler tickets, orders, producer_subscriptions nem profiles', async () => {
-    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox' ? inbox
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_atendentes' ? { data: [], error: null } : nome === 'chat_inbox' ? inbox
       : nome === 'chat_cliente_contexto'
         ? { data: { papel: 'producer', plano: { plan: 'pro', is_active: true, expires_at: null },
             ingressos: [{ id: 't1', status: 'active', created_at: '2026-09-30T12:00:00Z', ticket_types: { name: 'Pista', events: { title: 'Festa do Teste' } } }],
@@ -288,7 +288,7 @@ describe('chat: painel do cliente no Atendimento (Decisão 163)', () => {
   })
 
   it('RPC com erro ou vazia mostra o aviso, não um histórico vazio', async () => {
-    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_inbox' ? inbox
+    rpc.mockImplementation((nome: string) => Promise.resolve(nome === 'chat_atendentes' ? { data: [], error: null } : nome === 'chat_inbox' ? inbox
       : nome === 'chat_cliente_contexto' ? { data: null, error: { message: 'acesso negado' } } : { data: { ok: true }, error: null }))
     await abrir()
     expect(await screen.findByRole('alert')).toHaveTextContent('Não foi possível carregar o histórico da conta')
