@@ -31,6 +31,7 @@
 --   drop function public.evento_publico(text), public.pode_comprar(uuid, uuid), public.evento_acesso(uuid);
 -- =============================================================================
 begin;
+set local lock_timeout = '5s'; -- trava exclusiva em events/ticket_types/orders/order_items: não fica em fila atrás de transação longa
 
 -- 1) Função central -----------------------------------------------------------------------------------------------
 create or replace function public.evento_acesso(p_event uuid) returns text

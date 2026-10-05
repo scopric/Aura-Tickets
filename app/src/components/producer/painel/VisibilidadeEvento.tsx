@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { RadioGroup } from '@/components/ui/radio-group'
 import { supabase } from '../../../lib/supabase'
 import { siteUrl } from '../../../lib/appHost'
+import { refDoEvento } from '../../../lib/eventoProdutor'
 
 export const OPCOES_VISIBILIDADE = [
   { valor: 'public', nome: 'Pública', texto: 'Aparece em Explorar e na busca. Qualquer pessoa abre e compra.' },
@@ -37,7 +38,7 @@ export default function VisibilidadeEvento({ eventoId, slug, visibilidade, noAr,
   }
   const copiar = async () => {
     try {
-      await navigator.clipboard.writeText(siteUrl(`/event/${valorAtual === 'public' ? slug || eventoId : eventoId}`))
+      await navigator.clipboard.writeText(siteUrl(`/event/${refDoEvento({ id: eventoId, slug, visibility: valorAtual })}`))
       toast.success('Link do evento copiado.')
     } catch {
       toast.error('Não foi possível copiar o link.')

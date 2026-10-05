@@ -9,7 +9,7 @@ import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
 import { vendasPagas, type VendasPagas } from '../../lib/vendasPagas'
 import { siteUrl } from '../../lib/appHost'
-import { situacaoEvento } from '../../lib/eventoProdutor'
+import { refDoEvento, situacaoEvento } from '../../lib/eventoProdutor'
 import { soltarConfete } from '../../lib/confete'
 import { corDoEvento, derivarCor } from '../../lib/corEvento'
 import {
@@ -319,7 +319,7 @@ export default function ProducerDashboard() {
 
   const copiarLink = async (endereco?: string) => {
     const e = proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0]
-    const alvo = endereco ?? (e && (e.slug || e.id))
+    const alvo = endereco ?? (e && refDoEvento(e))
     if (!alvo) return
     try {
       await navigator.clipboard.writeText(siteUrl(`/event/${alvo}`))
