@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { mensagemDeErro } from '@/hooks/useConversas'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -137,7 +138,7 @@ export default function AdminUsers() {
       const { data, error } = await supabase.rpc('admin_usuarios_lista' as never)
 
       if (error) throw error
-      const formattedProfiles: Profile[] = ((data || []) as unknown as any[]).map((p: any) => ({
+      const formattedProfiles: Profile[] = (Array.isArray(data) ? (data as unknown as any[]) : []).map((p: any) => ({
         ...p,
         producer_subscriptions: p.producer_subscriptions?.[0] || p.producer_subscriptions || null
       }))
@@ -146,7 +147,7 @@ export default function AdminUsers() {
       // Nunca mostrar usuários inventados: lista vazia e o erro real na tela.
       console.error('Erro ao carregar usuários:', err)
       setProfiles([])
-      setLoadError(err?.message || 'Erro desconhecido')
+      setLoadError(mensagemDeErro(err, 'Você não tem permissão para ver esta lista.'))
     } finally {
       setIsLoading(false)
     }
@@ -541,7 +542,7 @@ export default function AdminUsers() {
             <div key={n} className="h-16 rounded-[10px] bg-muted animate-pulse" />
           ))}
         </div>
-      ) : filteredProfiles.length === 0 ? (
+      ) : loadError ? null : filteredProfiles.length === 0 ? (
         <EmptyState title="Nenhum usuário encontrado com as configurações de busca." />
       ) : (
         <div className={`${painel} overflow-hidden`}>

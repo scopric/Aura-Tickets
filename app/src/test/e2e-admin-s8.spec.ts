@@ -28,6 +28,8 @@ async function entrar(page: Page, rpcs: unknown[], hashOk: boolean) {
   await page.route('**/functions/v1/**', (r) => json(r, 200, {}))
   await page.route('**/rest/v1/**', (r) => json(r, 200, []))
   await page.route('**/rest/v1/profiles?*id=eq.' + UID + '*', (r) => json(r, 200, { id: UID, full_name: 'Admin S8', role: 'admin', admin_permissions: ['manage_events'], email: 'admin@teste.invalid', is_authorized: true }))
+  // S4b: o perfil próprio vem por rpc('meu_perfil')
+  await page.route('**/rest/v1/rpc/meu_perfil*', (r) => json(r, 200, { id: UID, full_name: 'Admin S8', role: 'admin', admin_permissions: ['manage_events'], email: 'admin@teste.invalid', is_authorized: true }))
   await page.route('**/rest/v1/events?*', (r) => json(r, 200, [EVENTO]))
   await page.route('**/rest/v1/evento_privado?*', (r) => json(r, 200, [{ online_url: 'https://live.exemplo.com.br/sala?token=segredo' }]))
   await page.route('**/rest/v1/evento_aceites?*', (r) => json(r, 200, [{ versao: '2026-10-04', aceito_em: '2026-10-05T12:00:00+00:00', texto: TEXTO, texto_hash: hash }]))

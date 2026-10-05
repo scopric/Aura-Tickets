@@ -484,7 +484,7 @@ export default function Atendimento() {
                   )}
                   {atendentes.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.id === user?.id ? ' (você)' : ''}</option>)}
                 </select>
-                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes)}</p>}
+                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes, 'Você não tem permissão para ver esta lista.')}</p>}
               </div>
               <div>
                 <label htmlFor="atendimento-setor" className="text-xs text-muted-foreground">Setor</label>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { mensagemDeErro } from '@/hooks/useConversas'
 import { toast } from 'sonner'
 import gsap from 'gsap'
 import * as I from '@/components/icones/evokaa16'
@@ -115,7 +116,7 @@ export default function AdminTeamManager() {
     } catch (err: any) {
       console.error('Erro ao buscar equipe admin:', err)
       setAdmins([])
-      setLoadError(err.message || 'Erro ao buscar a equipe')
+      setLoadError(mensagemDeErro(err, 'Você não tem permissão para ver esta lista.'))
     } finally {
       setIsLoading(false)
     }
