@@ -16,10 +16,19 @@ function Tela({ evento, previa, className }: { evento: DbEvent; previa: 'moldura
   )
 }
 
+// Selo só quando a página não é pública: avisa que ela não aparece em Explorar (visibilidade do evento, PR3e)
+const ROTULO_VISIBILIDADE: Record<string, string> = { unlisted: 'Só com link', password: 'Com senha', private: 'Só para convidados' }
+function SeloVisibilidade({ visibilidade }: { visibilidade: string }) {
+  const r = ROTULO_VISIBILIDADE[visibilidade]
+  if (!r) return null
+  return <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs font-medium text-foreground"><I.Cadeado size={12} aria-hidden="true" />{r}</p>
+}
+
 /** Moldura de celular ao lado do formulário (a partir de 1180 px) */
 export const PreviaMoldura = memo(function PreviaMoldura({ evento }: { evento: DbEvent }) {
   return (
     <aside aria-label="Prévia no celular" className="sticky top-5 hidden self-start min-[1180px]:grid">
+      <div className="justify-self-center"><SeloVisibilidade visibilidade={evento.visibility} /></div>
       <div className="w-[300px] justify-self-center overflow-hidden rounded-[36px] border-[6px] border-foreground bg-background">
         <Tela evento={evento} previa="moldura" className="h-[608px] overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))]" />
       </div>
@@ -45,6 +54,7 @@ export const PreviaFolha = memo(function PreviaFolha({ evento }: { evento: DbEve
             </div>
             <DrawerClose asChild><Button variant="ghost">Fechar</Button></DrawerClose>
           </DrawerHeader>
+          <div className="px-4"><SeloVisibilidade visibilidade={evento.visibility} /></div>
           {/* ponytail: a moldura (escondida abaixo de 1180 px) e a folha repetem ids da página; ninguém lê id nos dois ao mesmo tempo */}
           <Tela evento={evento} previa="folha" className="min-h-0 flex-1 overflow-y-auto overscroll-contain focus-visible:outline-none focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))]" />
         </DrawerContent>

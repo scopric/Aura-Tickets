@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
+import { refDoEvento, situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -161,5 +161,13 @@ describe('confirmacaoCancelar', () => {
   it('sem saber se há venda, avisa que o banco recusa se houver e manda falar com o suporte', () => {
     expect(confirmacaoCancelar('Festa', undefined)).toMatch(/cancelamento é recusado: fale com o suporte da Evokaa/)
     expect(confirmacaoCancelar('Festa', 0)).not.toMatch(/suporte/)
+  })
+})
+
+describe('refDoEvento (link público, PR3e)', () => {
+  it('público usa o slug; fora de público, só o uuid (o slug é chutável e evento_publico não abre por ele)', () => {
+    expect(refDoEvento({ id: 'u1', slug: 'festa', visibility: 'public' })).toBe('festa')
+    expect(refDoEvento({ id: 'u1', slug: null, visibility: 'public' })).toBe('u1')
+    for (const v of ['unlisted', 'password', 'private', undefined]) expect(refDoEvento({ id: 'u1', slug: 'festa', visibility: v })).toBe('u1')
   })
 })

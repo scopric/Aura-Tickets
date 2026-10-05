@@ -17,7 +17,7 @@ vi.mock('../components/CollectiveTableCard', () => ({
 const ingresso = (o: Record<string, unknown>) => ({ id: 't1', name: 'Pista', price: 25, type: 'individual', sold: 0, perks: [], ...o })
 const base = (o: Record<string, unknown> = {}) => ({
   id: 'e1', title: 'Noite de Forró', date: '2026-12-12', time: '22:00:00', venue_name: 'Espaço Torres', cover_image: null,
-  accent_color: '#a55c65', ticket_types: [ingresso({})], ...o,
+  accent_color: '#a55c65', visibility: 'public', ticket_types: [ingresso({})], ...o,
 })
 
 function montar() {
@@ -132,6 +132,13 @@ describe('página do evento (V11a)', () => {
   it('Salvar (VF) e Compartilhar existem na barra de topo', () => {
     montar()
     expect(screen.getByRole('button', { name: 'Salvar evento' })).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Compartilhar' })).toBeInTheDocument()
+  })
+
+  it('evento "Só com link" não mostra o Salvar (favoritos_insert só aceita evento público)', () => {
+    evento = base({ visibility: 'unlisted' })
+    montar()
+    expect(screen.queryByRole('button', { name: 'Salvar evento' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Compartilhar' })).toBeInTheDocument()
   })
 })

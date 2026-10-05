@@ -14,7 +14,7 @@ import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { useFixados } from '../../hooks/useFixados'
 import { siteUrl } from '../../lib/appHost'
 import { corSorteada, ehHex, temFoto, varsDoEvento } from '../../lib/corEvento'
-import { confirmacaoDuplicar, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { confirmacaoDuplicar, refDoEvento, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
 import { supabase } from '../../lib/supabase'
 import { brl } from '../../lib/taxa'
 import { colunas, dataComSemana, dataCurta, diaBR, diaDoEvento, diasEntre, horaCurta, inicioDaSerie, serieDiaria, type Serie } from '../../lib/visaoEvento'
@@ -182,7 +182,7 @@ function Visao({ e }: { e: DbEvent }) {
   const cor = ehHex(e.accent_color) ? e.accent_color : corSorteada(e.id)
   const cap = (e.ticket_types ?? []).reduce((s, t) => s + (t.quantity_total || t.capacity || 0), 0) || e.capacity || 0
   const fixado = fixados.includes(e.id)
-  const link = siteUrl(`/event/${e.slug || e.id}`)
+  const link = siteUrl(`/event/${refDoEvento(e)}`)
   // mesma regra do EventoCapa: foto válida que carrega = texto branco; sem foto (ou foto que falhou) = cartaz, texto na tinta dele
   const foto = [e.cover_image, e.image_url].find(temFoto)
   const [falhou, setFalhou] = useState<string>()

@@ -519,22 +519,11 @@ export function usePublicEvent(eventIdOrSlug: string | undefined) {
     queryFn: async () => {
       if (!eventIdOrSlug) return null
 
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(eventIdOrSlug)
-
-      let query = supabase
-        .from('events')
-        .select(`*, ticket_types (*)`)
-
-      if (isUuid) {
-        query = query.eq('id', eventIdOrSlug)
-      } else {
-        query = query.eq('slug', eventIdOrSlug)
-      }
-
-      const { data, error } = await query.maybeSingle()
-
+      // evento_publico (PR3e): uuid ou slug exato; respeita a visibilidade (Pública e Só com link abrem; o resto vem null)
+      const { data, error } = await supabase.rpc('evento_publico' as never, { p_ref: eventIdOrSlug } as never)
       if (error) throw error
-      if (data) return normalizeEventTicketTypes(data)
+      const r = data as { evento?: DbEvent; ingressos?: DbTicketType[] } | null
+      if (r?.evento) return normalizeEventTicketTypes({ ...r.evento, ticket_types: r.ingressos ?? [] })
 
       if (!demoAtual()) return null
       return MOCK_EVENTS.find(e => e.id === eventIdOrSlug || e.slug === eventIdOrSlug) || null
@@ -553,6 +542,7 @@ export function usePublicEvents() {
         .select(`*, ticket_types (*)`)
         .eq('status', 'published')
         .eq('approval_status', 'approved')
+        .eq('visibility', 'public')
         .gte('date', todayStr)
         .order('date', { ascending: true })
 
@@ -649,6 +639,7 @@ export function useFeaturedEvents() {
           .select(`*, ticket_types (*)`)
           .eq('status', 'published')
           .eq('approval_status', 'approved')
+          .eq('visibility', 'public')
           .eq('featured_carousel', true)
           .gte('date', todayStr)
           .order('date', { ascending: true })
@@ -671,6 +662,7 @@ export function useFeaturedEvents() {
           .select(`*, ticket_types (*)`)
           .eq('status', 'published')
           .eq('approval_status', 'approved')
+          .eq('visibility', 'public')
           .gte('date', todayStr)
 
         if (excludeIds.length > 0) {
