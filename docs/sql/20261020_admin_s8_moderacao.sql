@@ -37,7 +37,8 @@
 --    Um UPDATE só dispara um aviso ao produtor (gf_notificar_evento) e uma linha de trilha (audit_events_upd).
 --    Recusar e revogar tiram o destaque; revogar e recusar despublicam (published -> draft); cancelled/ended ficam.
 --    A marca só zera ao aprovar. Sem linha (updated_at mudou ou id inexistente): P0002. REVOGAR IGNORA p_versao (o
---    produtor, mexendo no evento sem parar, impediria toda revogação); aprovar e recusar continuam com a trava.
+--    produtor, mexendo no evento sem parar, impediria toda revogação) mas só vale em evento approved (senão P0002);
+--    aprovar e recusar continuam com a trava.
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -67,7 +68,8 @@ begin
   end if;
   -- gf_ticket_types_toca_evento: recriada abaixo a partir da definição de 04/10. Na 2ª aplicação já é a deste arquivo.
   def := pg_get_functiondef('public.gf_ticket_types_toca_evento'::regproc);
-  if md5(def) <> '3c030a882acc57d4df25b4b3e05286b7' and position('ingressos_alterados_em' in def) = 0 then
+  -- md5 de produção, ou a versão exata deste arquivo (reaplicação)
+  if md5(def) not in ('3c030a882acc57d4df25b4b3e05286b7', '940ab1f11cded50e076158e5292fdcc1') then
     raise exception 'gf_ticket_types_toca_evento mudou desde 04/10 (md5 diferente): refazer o bloco 2 a partir dela';
   end if;
 end $$;
@@ -164,8 +166,10 @@ begin
     -- só o que está no ar sai do ar: cancelled e ended são decisão do produtor
     status = case when not v_aprova and status = 'published' then 'draft' else status end,
     ingressos_alterados_em = case when v_aprova then null else ingressos_alterados_em end
-  -- revogar ignora a versão: é a saída de emergência, e o produtor não pode impedi-la mexendo no evento sem parar
-  where id = p_id and (p_decisao = 'revogar' or updated_at = p_versao)
+  -- revogar ignora a versão (o produtor não pode impedi-la mexendo no evento sem parar), mas só vale sobre evento ainda
+  -- approved: revogar um rejected apagaria a recusa e o motivo (tela velha do admin)
+  where id = p_id
+    and case when p_decisao = 'revogar' then approval_status = 'approved' else updated_at = p_versao end
   returning * into v_ev;
 
   if not found then
@@ -220,22 +224,33 @@ select exists (select 1 from information_schema.columns where table_name = 'even
        md5(pg_get_functiondef('public.gf_protect_event_moderation'::regproc)) = '31a06e7ddda4f033c8859a33fa67b725' as moderacao_intacta,
        to_regprocedure('public.admin_evento_decidir(uuid,text,text,timestamptz)') is not null as rpc;
 
--- DESFAZER (só se precisar; colar à parte). Volta a função de ingresso à de 04/10 (md5 3c030a88…) e tira o resto:
+-- DESFAZER (só se precisar; colar à parte, tirando o "-- " do começo de cada linha). Volta a função de ingresso à de
+-- 04/10 (corpo copiado byte a byte de 20261012_f1b_reenvio.sql; md5 3c030a88…, conferido no ensaio) e tira o resto:
 --   begin;
 --   drop function if exists public.admin_evento_decidir(uuid, text, text, timestamptz);
 --   drop trigger if exists gf_events_ingressos_marca on public.events;
 --   drop function if exists public.gf_events_ingressos_marca();
---   create or replace function public.gf_ticket_types_toca_evento() returns trigger language plpgsql security definer
---     set search_path = '' as $f$
---   declare antigo uuid; novo uuid;
---   begin
---     if tg_op = 'UPDATE' and (to_jsonb(old) - array['sold', 'quantity_sold', 'updated_at'])
---          is not distinct from (to_jsonb(new) - array['sold', 'quantity_sold', 'updated_at']) then return null; end if;
---     if tg_op <> 'INSERT' then antigo := old.event_id; end if;
---     if tg_op <> 'DELETE' then novo := new.event_id; end if;
---     update public.events set updated_at = now() where id in (antigo, novo);
---     return null;
---   end; $f$;
+-- create or replace function public.gf_ticket_types_toca_evento()
+-- returns trigger
+-- language plpgsql
+-- security definer
+-- set search_path = ''
+-- as $$
+-- declare
+--   antigo uuid;
+--   novo uuid;
+-- begin
+--   if tg_op = 'UPDATE'
+--      and (to_jsonb(old) - array['sold', 'quantity_sold', 'updated_at'])
+--          is not distinct from (to_jsonb(new) - array['sold', 'quantity_sold', 'updated_at']) then
+--     return null; -- só venda (ou nada): não é mudança do evento
+--   end if;
+--   if tg_op <> 'INSERT' then antigo := old.event_id; end if;
+--   if tg_op <> 'DELETE' then novo := new.event_id; end if;
+--   update public.events set updated_at = now() where id in (antigo, novo);
+--   return null;
+-- end;
+-- $$;
 --   revoke all on function public.gf_ticket_types_toca_evento() from public, anon, authenticated;
 --   alter table public.events drop column if exists ingressos_alterados_em;
 --   commit;

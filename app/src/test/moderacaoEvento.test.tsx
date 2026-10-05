@@ -16,7 +16,7 @@ vi.mock('../lib/supabase', () => {
 const evento = {
   id: 'e1', producer_id: 'p1', title: 'Festa X', subtitle: null, slug: 'festa-x', description: 'd', status: 'published', approval_status: 'approved',
   featured_carousel: false, category: 'festa', classificacao: 'A16', temas: ['musica'], estilos: ['funk', 'rock'], local_modo: 'hibrido',
-  gallery: ['https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/capas-eventos/a.webp', '/images/b.jpg', 'https://rastreio.exemplo/pixel.gif', '//rastreio.exemplo/p.gif', 'https://rwaezeqyuhxrssntcxdv.supabase.co.rastreio.exemplo/storage/v1/object/public/x.jpg'], ticket_types: [], profiles: { full_name: 'Paula', email: 'p@x.local' },
+  gallery: ['https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/capas-eventos/a.webp', '/images/b.jpg', 'https://rastreio.exemplo/pixel.gif', '//rastreio.exemplo/p.gif', '/\\rastreio.exemplo/p.gif', 'https://rwaezeqyuhxrssntcxdv.supabase.co.rastreio.exemplo/storage/v1/object/public/x.jpg'], ticket_types: [], profiles: { full_name: 'Paula', email: 'p@x.local' },
   updated_at: '2026-10-05T10:00:00.123456+00:00', created_at: '2026-10-01T10:00:00+00:00', date: null, time: null, start_date: '2026-11-01T20:00:00+00:00', end_date: null,
   venue_name: 'Casa', venue_address: null, venue_city: 'SP', venue_state: 'SP', cover_image: null, ingressos_alterados_em: '2026-10-05T17:30:00+00:00',
 }
