@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup, within } from '@testing-library/rea
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import AdminEvents from '../pages/admin/Events'
-import { dominioDaTransmissao, hashConfere, seloIngressosAlterados } from '../lib/moderacaoEvento'
+import { dominioDaTransmissao, hashConfere, imagemSegura, seloIngressosAlterados } from '../lib/moderacaoEvento'
 
 // S8: detalhe do evento na moderação. Banco simulado por tabela; a lista vem de um useAdminEvents simulado.
 const TEXTO = 'Aceito os termos do evento X'
@@ -34,6 +34,13 @@ const abrir = async () => {
 }
 
 describe('lib/moderacaoEvento', () => {
+  it('imagemSegura: só o próprio site ou o Storage do projeto, mesmo com tab, quebra de linha ou barra invertida', () => {
+    expect(imagemSegura('/images/capa.webp')).toBe(true)
+    expect(imagemSegura('https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/capas-eventos/a.webp')).toBe(true)
+    for (const ruim of ['https://evil.com/p.gif', '//evil.com/p.gif', '/\\evil.com/p.gif', '/\t/evil.com/p.gif', '/\n/evil.com/p.gif', '/\r\\evil.com/p.gif', 'javascript:alert(1)', 'https://rwaezeqyuhxrssntcxdv.supabase.co.evil.com/storage/v1/object/public/x', 42])
+      expect(imagemSegura(ruim)).toBe(false)
+  })
+
   it('dominioDaTransmissao devolve só o host e "link inválido" quando não é URL', () => {
     expect(dominioDaTransmissao('https://live.exemplo.com.br/sala?token=segredo#x')).toBe('live.exemplo.com.br')
     expect(dominioDaTransmissao('não é um link')).toBe('link inválido')

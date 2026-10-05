@@ -21,8 +21,19 @@ export async function hashConfere(texto: string, hash: string): Promise<boolean 
 
 // Imagem que o admin pode carregar: o mesmo critério do CHECK de events.cover_image (https do Storage do próprio projeto
 // ou caminho do site). Outro site viraria pixel de rastreio do admin.
-export const imagemSegura = (u: unknown): u is string =>
-  typeof u === 'string' && (u.startsWith('https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/') || /^\/(?![\/\\])/.test(u))
+const STORAGE_PUBLICO = 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/'
+// Decide pela URL já interpretada (o navegador apaga tab/LF/CR e troca \ por /: "/\t/evil.com" vira evil.com),
+// não pelo texto: só o próprio site ou o Storage público do projeto.
+export const imagemSegura = (u: unknown): u is string => {
+  if (typeof u !== 'string') return false
+  try {
+    const origem = typeof window !== 'undefined' ? window.location.origin : 'https://app.evokaa.com.br'
+    const url = new URL(u, origem)
+    return url.origin === origem || (url.protocol === 'https:' && url.href.startsWith(STORAGE_PUBLICO))
+  } catch {
+    return false
+  }
+}
 
 // "Ingressos alterados em 05/10 14:30 (depois da aprovação)": só em evento aprovado que tem a marca
 export function seloIngressosAlterados(e: { approval_status?: string | null; ingressos_alterados_em?: string | null }): string | null {
