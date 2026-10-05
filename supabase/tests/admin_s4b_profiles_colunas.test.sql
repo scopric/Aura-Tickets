@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(66);
+select plan(67);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -143,6 +143,7 @@ select throws_ok($$select * from public.chat_atendentes()$$, '42501', 'acesso ne
 select pg_temp.como('authenticated', 'd8000000-0000-4000-8000-000000000008');
 select throws_ok($$select * from public.admin_equipe()$$, '42501', null, 'comum: admin_equipe dá 42501');
 select throws_ok($$select * from public.chat_atendentes()$$, '42501', null, 'comum: chat_atendentes dá 42501');
+select throws_ok($$select public.gf_ha_outro_super_admin('d8000000-0000-4000-8000-000000000005')$$, '42501', 'uso interno', 'comum: gf_ha_outro_super_admin chamada direto dá 42501 (não vira oráculo)');
 select throws_ok($$select public.admin_usuarios_lista()$$, '42501', null, 'comum: admin_usuarios_lista dá 42501');
 select pg_temp.como('authenticated', 'd8000000-0000-4000-8000-000000000007', 'aal1');
 select throws_ok($$select * from public.admin_equipe()$$, '42501', null, 'admin com as permissões mas token aal1: admin_equipe dá 42501');

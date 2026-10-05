@@ -105,13 +105,19 @@ grant select (id, email, full_name, avatar_url, role, created_at, avatar_moderac
 -- 3a. Trava "nunca zero super_admin" do gatilho sem depender do SELECT em admin_permissions ----------------------------
 create or replace function public.gf_ha_outro_super_admin(p_id uuid)
 returns boolean
-language sql
+language plpgsql
 stable
 security definer
 set search_path = ''
 as $$
-  select exists (select 1 from public.profiles p
+begin
+  -- só de dentro do gatilho: chamada direta pela API viraria oráculo de "quem é o único super_admin"
+  if pg_trigger_depth() = 0 then
+    raise exception 'uso interno' using errcode = '42501';
+  end if;
+  return exists (select 1 from public.profiles p
                  where p.id <> p_id and p.role = 'admin' and 'super_admin' = any(p.admin_permissions));
+end;
 $$;
 alter function public.gf_ha_outro_super_admin(uuid) owner to postgres;
 revoke all on function public.gf_ha_outro_super_admin(uuid) from public, anon;
@@ -272,7 +278,8 @@ begin
     raise exception 'profiles: authenticated perdeu INSERT ou UPDATE';
   end if;
   foreach f in array array['public.meu_perfil()'::regprocedure, 'public.admin_equipe()'::regprocedure,
-      'public.chat_atendentes()'::regprocedure, 'public.admin_usuarios_lista()'::regprocedure] loop
+      'public.chat_atendentes()'::regprocedure, 'public.admin_usuarios_lista()'::regprocedure,
+      'public.gf_ha_outro_super_admin(uuid)'::regprocedure] loop
     if has_function_privilege('anon', f, 'execute') or not has_function_privilege('authenticated', f, 'execute') then
       raise exception '%: anon executa ou authenticated não executa', f;
     end if;
@@ -308,6 +315,9 @@ group by 1 order by 1;
 --   execute replace(pg_get_functiondef('public.gf_protect_profile_privileges()'::regprocedure),
 --     E'     and not public.gf_ha_outro_super_admin(old.id) then',
 --     E'     and not exists (select 1 from public.profiles p\n                     where p.id <> old.id and p.role = ''admin'' and ''super_admin'' = any(p.admin_permissions)) then');
+--   if position('gf_ha_outro_super_admin' in pg_get_functiondef('public.gf_protect_profile_privileges()'::regprocedure)) > 0 then
+--     raise exception 'o gatilho ainda chama gf_ha_outro_super_admin: não apagar a função (todo UPDATE em profiles quebraria)';
+--   end if;
 -- end $$;
 -- drop function if exists public.gf_ha_outro_super_admin(uuid), public.meu_perfil(), public.admin_equipe(),
 --   public.chat_atendentes(), public.admin_usuarios_lista();
