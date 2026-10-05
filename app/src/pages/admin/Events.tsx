@@ -6,10 +6,11 @@ import { Spinner } from '@/components/ui/spinner'
 import { EmptyState, PageHeader, Stat, chipAviso, chipErro, chipNeutro, chipOk } from '@/components/producer/ui'
 import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
-import { useAdminEvents, useApproveEvent, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
+import { useAdminEvents, useApproveEvent, useEventoModeracao, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
 import { naFilaDeModeracao, noAr } from '../../lib/eventoProdutor'
-import { rotuloFormato } from '../../lib/tipoEvento'
+import { CLASSIFICACOES, ESTILOS, LOCAL_MODOS, TEMAS, rotuloFormato } from '../../lib/tipoEvento'
+import { dominioDaTransmissao, imagemSegura, seloIngressosAlterados } from '../../lib/moderacaoEvento'
 
 // A página pública do evento fica no site (www); o alpha não tem a rota /event.
 // lib/appHost.ts só tem appUrl() (app.*); a Fase 2 do front está criando siteUrl() lá — trocar por ela quando estiver no main.
@@ -38,6 +39,9 @@ const acaoOk = 'text-[var(--ev-success)] hover:text-[var(--ev-success)]'
 const acaoAviso = 'text-[var(--ev-warning)] hover:text-[var(--ev-warning)]'
 const acaoErro = 'text-destructive hover:text-destructive'
 
+const rotulos = (valores: string[] | null | undefined, lista: readonly { valor: string; rotulo: string }[]) =>
+  valores?.length ? valores.map(v => lista.find(i => i.valor === v)?.rotulo ?? v).join(', ') : null
+
 const fmtDateTime = (s?: string | null) => { if (!s) return null; const d = new Date(s); return isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) }
 
 export default function AdminEvents() {
@@ -49,6 +53,8 @@ export default function AdminEvents() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const openerRef = useRef<HTMLElement | null>(null) // botão que abriu o painel: recebe o foco de volta ao fechar
   const detail: AdminEvent | null = detailId ? allEvents.find(e => e.id === detailId) ?? null : null
+  const extras = useEventoModeracao(detail?.id ?? null)
+  const galeria: string[] = Array.isArray(detail?.gallery) ? detail.gallery.filter(imagemSegura) : []
 
   useEffect(() => {
     if (!detailId) return
@@ -86,11 +92,11 @@ export default function AdminEvents() {
     }
   }
 
-  const handleSuspend = async (eventId: string, title: string) => {
+  const handleSuspend = async (eventId: string, title: string, updatedAt: string) => {
     if (!window.confirm(`Revogar a aprovação de "${title}"?\n\nO evento sai do ar e dos destaques e volta a rascunho até o produtor reenviá-lo para aprovação. A aprovação não coloca o evento no ar sozinha.`)) return
 
     try {
-      await approveMutation.mutateAsync({ eventId, status: 'pending' })
+      await approveMutation.mutateAsync({ eventId, status: 'pending', updatedAt })
       toast.success('Aprovação revogada. O evento voltou a rascunho até o produtor reenviar.')
     } catch (err: any) {
       toast.error('Erro ao revogar aprovação: ' + err.message)
@@ -198,6 +204,9 @@ export default function AdminEvents() {
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground">{e.title}</div>
                           <div className="text-xs text-muted-foreground">{e.venue_city || e.venue_name || 'Local a definir'}</div>
+                          {seloIngressosAlterados(e) && (
+                            <Badge variant="secondary" className={cn(chipAviso, 'mt-1 whitespace-normal')}>{seloIngressosAlterados(e)}</Badge>
+                          )}
                           <div className="mt-1 flex flex-wrap gap-1 sm:hidden">
                             <Badge variant="secondary" className={pubStatus.cls}>{pubStatus.label}</Badge>
                             <Badge variant="secondary" className={appStatus.cls}>{appStatus.label}</Badge>
@@ -259,7 +268,7 @@ export default function AdminEvents() {
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            onClick={() => handleSuspend(e.id, e.title)}
+                            onClick={() => handleSuspend(e.id, e.title, e.updated_at)}
                             disabled={approveMutation.isPending}
                             className={acaoAviso}
                             title="Revogar aprovação (suspender)"
@@ -334,6 +343,7 @@ export default function AdminEvents() {
                   Moderação: {approvalStatusCfg[detail.approval_status || 'pending'].label}
                 </Badge>
                 {detail.featured_carousel && <Badge variant="secondary" className={chipAviso}>Em destaque</Badge>}
+                {seloIngressosAlterados(detail) && <Badge variant="secondary" className={cn(chipAviso, 'whitespace-normal')}>{seloIngressosAlterados(detail)}</Badge>}
               </div>
 
               {detail.description && <p className="text-muted-foreground whitespace-pre-line">{detail.description}</p>}
@@ -341,6 +351,10 @@ export default function AdminEvents() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
                 {([
                   ['Categoria', rotuloFormato(detail.category) || null],
+                  ['Classificação', CLASSIFICACOES.find(c => c.valor === detail.classificacao)?.rotulo ?? detail.classificacao],
+                  ['Temas', rotulos(detail.temas, TEMAS)],
+                  ['Estilos', rotulos(detail.estilos, ESTILOS)],
+                  ['Modo do local', LOCAL_MODOS.find(m => m.valor === detail.local_modo)?.rotulo ?? detail.local_modo],
                   ['Data', detail.date ? new Date(detail.date + 'T00:00:00').toLocaleDateString('pt-BR') : null],
                   ['Horário', detail.time?.slice(0, 5)],
                   ['Início', fmtDateTime(detail.start_date)],
@@ -353,6 +367,10 @@ export default function AdminEvents() {
                   ['Aprovado em', fmtDateTime(detail.approved_at)],
                   ['Motivo da rejeição', detail.rejection_reason],
                   ['Criado em', fmtDateTime(detail.created_at)],
+                  ['Transmissão (domínio)', extras.data?.onlineUrl ? dominioDaTransmissao(extras.data.onlineUrl) : null],
+                  ['Último aceite do produtor', extras.isError ? 'não foi possível ler'
+                    : extras.data?.aceite ? `versão ${extras.data.aceite.versao}, em ${fmtDateTime(extras.data.aceite.aceitoEm)} — ${extras.data.aceite.hashConfere === null ? 'hash não conferido' : extras.data.aceite.hashConfere ? 'hash confere' : 'hash não confere'}`
+                    : extras.isLoading ? 'carregando…' : null],
                 ] as [string, string | number | null | undefined][]).map(([l, v]) => (
                   <div key={l}>
                     <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{l}</dt>
@@ -360,6 +378,15 @@ export default function AdminEvents() {
                   </div>
                 ))}
               </dl>
+
+              {galeria.length > 0 && (
+                <div>
+                  <h4 className="mb-2 text-[15px] font-semibold leading-5 text-foreground">Galeria</h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    {galeria.map((img, i) => <img key={i} src={img} alt="" loading="lazy" referrerPolicy="no-referrer" className="aspect-square w-full rounded-lg bg-muted object-cover" />)}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h4 className="mb-2 text-[15px] font-semibold leading-5 text-foreground">Ingressos</h4>
@@ -398,7 +425,7 @@ export default function AdminEvents() {
                   </Button>
                 )}
                 {detail.approval_status === 'approved' && (
-                  <Button size="sm" variant="outline" onClick={() => handleSuspend(detail.id, detail.title)} disabled={approveMutation.isPending}>
+                  <Button size="sm" variant="outline" onClick={() => handleSuspend(detail.id, detail.title, detail.updated_at)} disabled={approveMutation.isPending}>
                     <I.Desfazer /> Revogar aprovação
                   </Button>
                 )}
