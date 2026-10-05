@@ -9,7 +9,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(71);
+select plan(79);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1', p_idade int default null,
   p_metodo text default 'totp') returns void language plpgsql as $f$
@@ -229,7 +229,44 @@ select is((select count(*) from public.staff_profiles_historico_pagamento where 
 select pg_temp.como('service_role');
 select is(pg_temp.passa($$update public.staff_profiles set pix_chave = 'svc@teste-s9.local' where user_id = 'd9000000-0000-4000-8000-000000000005'$$), 'ok', 'ficha: service_role passa sem amr');
 
--- G. Estrutura ---------------------------------------------------------------------------------------------------------------
+-- G. Caminho SECURITY DEFINER e reconvite (convite_aceitar roda com o JWT de quem aceita) --------------------------------------
+select pg_temp.como('postgres');
+insert into public.admin_invites (id, email, cargo, token_hash, status) values
+  ('d9000000-0000-4000-8000-0000000000a1', 'col@teste-s9.local', 'Analista', repeat('a', 64), 'usado'),
+  ('d9000000-0000-4000-8000-0000000000a2', 'col@teste-s9.local', 'Analista', repeat('b', 64), 'pendente');
+update public.staff_profiles set invite_id = 'd9000000-0000-4000-8000-0000000000a1' where user_id = 'd9000000-0000-4000-8000-000000000005';
+create function public.s9_teste_so_pix(p text) returns void language sql security definer set search_path = '' as
+  $f$ update public.staff_profiles set pix_chave = p where user_id = 'd9000000-0000-4000-8000-000000000005' $f$;
+-- imita o insert … on conflict do update de convite_aceitar (invite_id novo, Pix novo)
+create function public.s9_teste_reconvite(p text) returns void language sql security definer set search_path = '' as
+  $f$ insert into public.staff_profiles (user_id, invite_id, email, cargo, nome_completo, cpf, rg, data_nascimento, cep, rua, numero, bairro, cidade, uf,
+        email_secundario, telefone, whatsapp, emergencia_nome, emergencia_parentesco, emergencia_telefone, pix_tipo, pix_chave)
+      values ('d9000000-0000-4000-8000-000000000005', 'd9000000-0000-4000-8000-0000000000a2', 'col@teste-s9.local', 'Analista', 'Clara Teste', '52998224725',
+        '123456789', '1990-01-01', '01001000', 'Rua A', '1', 'Centro', 'São Paulo', 'SP', 'col2@teste-s9.local', '+5511900000000', '+5511900000000',
+        'Pai Teste', 'Pai', '+5511900000001', 'email', p)
+      on conflict (user_id) do update set invite_id = excluded.invite_id, pix_tipo = excluded.pix_tipo, pix_chave = excluded.pix_chave, updated_at = now() $f$;
+create function public.s9_teste_fees(p jsonb) returns void language sql security definer set search_path = '' as
+  $f$ insert into public.platform_settings (key, value) values ('fees', p) on conflict (key) do update set value = excluded.value $f$;
+grant execute on function public.s9_teste_so_pix(text), public.s9_teste_reconvite(text), public.s9_teste_fees(jsonb) to authenticated;
+insert into public.platform_settings (key, value) values ('fees', '{"taxa":10}');
+
+select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aal2', 3600);
+select ok(pg_temp.recusa($$select public.s9_teste_so_pix('definer@teste-s9.local')$$), 'definer: função security definer mudando o Pix com o JWT authenticated sem código recente é recusada (42501, reautenticar)');
+select is(pg_temp.passa($$select public.s9_teste_reconvite('reconvite@teste-s9.local')$$), 'ok', 'reconvite: aceite que troca o invite_id e o Pix passa sem código recente');
+select pg_temp.como('postgres');
+select ok((select invite_id = 'd9000000-0000-4000-8000-0000000000a2' and pix_chave = 'reconvite@teste-s9.local' from public.staff_profiles
+  where user_id = 'd9000000-0000-4000-8000-000000000005'), 'reconvite: invite_id novo e Pix novo gravados');
+select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000005', 'aal2', 3600);
+select ok(pg_temp.recusa($$select public.s9_teste_so_pix('depois@teste-s9.local')$$), 'depois do reconvite, trocar o Pix fora do aceite (mesmo invite_id) volta a pedir o código');
+select alike(pg_temp.passa($$update public.staff_profiles set invite_id = 'd9000000-0000-4000-8000-0000000000a1' where user_id = 'd9000000-0000-4000-8000-000000000005'$$),
+  '42501%', 'o site não consegue trocar o invite_id (UPDATE sem privilégio na coluna): a brecha do WHEN não é alcançável pelo navegador');
+select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000001', 'aal2', 3600);
+select ok(pg_temp.recusa($$select public.s9_teste_fees('{"taxa":1}')$$), 'taxa: upsert (insert … on conflict do update) pela função definer sem código recente é recusado');
+select is((select value from public.platform_settings where key = 'fees'), '{"taxa":10}'::jsonb, 'taxa: o upsert recusado não gravou');
+select pg_temp.como('authenticated', 'd9000000-0000-4000-8000-000000000001', 'aal2', 10);
+select is(pg_temp.passa($$select public.s9_teste_fees('{"taxa":1}')$$), 'ok', 'taxa: upsert com TOTP recente passa');
+
+-- H. Estrutura ---------------------------------------------------------------------------------------------------------------
 select pg_temp.como('postgres');
 select is((select count(*) from pg_trigger where tgfoid = 'public.gf_reauth_dinheiro()'::regprocedure and not tgisinternal and tgenabled = 'O'), 7::bigint,
   'sete gatilhos de reautenticação ligados (saque, comissão x2, taxa x3, ficha)');

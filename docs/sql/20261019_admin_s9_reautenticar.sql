@@ -12,7 +12,8 @@
 --        withdrawals         withdrawals_reauth_dinheiro            quando `status` muda
 --        producer_profiles   gf_reauth_dinheiro_upd / _ins          quando `commission_rate` muda (insert: fora de 10.00, o padrão)
 --        platform_settings   platform_settings_reauth_dinheiro_ins / _upd / _del   key = 'fees' (insert, update, delete)
---        staff_profiles      staff_profiles_reauth_dinheiro         quando muda banco, agencia, conta, pix_tipo ou pix_chave
+--        staff_profiles      staff_profiles_reauth_dinheiro         quando muda banco, agencia, conta, pix_tipo ou pix_chave,
+--                            salvo no aceite de convite (muda o invite_id; decisão 7)
 --   3. gf_is_admin, gf_admin_can, gf_admin_can_any e gf_tem_2fa passam a exigir fator factor_type = 'totp' (hoje só
 --      status 'verified'): admin só com fator de aplicativo. Corpo = o de produção + uma condição.
 --
@@ -55,6 +56,15 @@
 --    rodar, reaplicar este arquivo em seguida (aceita o md5 de produção e o da versão S9).
 -- 6. FICA DE FORA: comissão, taxa e saque ainda não têm tela no admin (Fase 4); o gatilho já protege o dia em que tiverem.
 --    Gatilho não existe em auth.mfa_factors (dono supabase_auth_admin; não verificado se é permitido): o reset do 2FA é o PR3.
+-- 7. Reconvite: convite_aceitar faz insert … on conflict do update em staff_profiles com o JWT de quem aceita (security
+--    definer, mas o JWT segue authenticated). Ex-colaborador com Pix ou banco diferente que levasse mais de 5 minutos na
+--    ficha receberia 42501 e a tela do convite (Convite.tsx) não pede código. Por isso o WHEN do gatilho de staff_profiles
+--    exige `old.invite_id is not distinct from new.invite_id`: o aceite troca o invite_id (o convite novo tem outro id) e o
+--    site nunca consegue trocá-lo (UPDATE de invite_id não é concedido a authenticated). O aceite já exige 2FA e aal2.
+-- 8. FICA DE FORA, REGISTRADO: (a) convite_aceitar (20261002) ainda aceita QUALQUER fator verificado (status = 'verified',
+--    sem factor_type): corrigir com factor_type = 'totp' num PR futuro, partindo do md5 de produção da função no dia.
+--    (b) Pix e conta do PRODUTOR (producer_profiles.pix_key e bank_account) não pedem código:
+--    fora da Decisão 163 item 12 (só comissão, taxa, status de saque e Pix do colaborador).
 -- =============================================================================
 begin;
 set local lock_timeout = '5s';
@@ -245,9 +255,10 @@ create trigger platform_settings_reauth_dinheiro_del before delete on public.pla
 
 drop trigger if exists staff_profiles_reauth_dinheiro on public.staff_profiles;
 create trigger staff_profiles_reauth_dinheiro before update on public.staff_profiles
-  for each row when (old.banco is distinct from new.banco or old.agencia is distinct from new.agencia
-    or old.conta is distinct from new.conta or old.pix_tipo is distinct from new.pix_tipo
-    or old.pix_chave is distinct from new.pix_chave) execute function public.gf_reauth_dinheiro();
+  for each row when (old.invite_id is not distinct from new.invite_id
+    and (old.banco is distinct from new.banco or old.agencia is distinct from new.agencia
+      or old.conta is distinct from new.conta or old.pix_tipo is distinct from new.pix_tipo
+      or old.pix_chave is distinct from new.pix_chave)) execute function public.gf_reauth_dinheiro();
 
 -- Conferência final: nada é gravado se falhar ------------------------------------------------------------------------
 do $$
