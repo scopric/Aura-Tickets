@@ -28,10 +28,10 @@
 -- se a conferência do fim falhar, nada é gravado. Idempotente. lock_timeout de 5s. NÃO mover para supabase/migrations/.
 -- Teste: supabase/tests/admin_s4b_profiles_colunas.test.sql (pgTAP; supõe A e B aplicadas; banco local descartável).
 --
--- Funções que o bloco 0 confere (md5 de produção em 04/10/2026; a S4b não as recria, só depende delas):
+-- Funções que o bloco 0 confere (md5 de produção em 05/10/2026, já com a S9 aplicada; a S4b não as recria, só depende delas):
 --   select 'gf_admin_can' f, md5(pg_get_functiondef('public.gf_admin_can(text)'::regprocedure))
 --   union all select 'gf_admin_can_any', md5(pg_get_functiondef('public.gf_admin_can_any(text[])'::regprocedure));
---   gf_admin_can be37ff87aa0f00c5f35a7e489ae4c18e | gf_admin_can_any b6284b43f339ea138177b772fbd44013
+--   gf_admin_can 0f661e18944891e6da7dadf94b1b2505 | gf_admin_can_any 3f943162f9953d4860accc0e7c3e7a4b
 -- As funções mesa_* (INVOKER) leem birth_date de dentro de funções SECURITY DEFINER (dono postgres) e authenticated não as
 -- executa: não são afetadas pela parte B. Edge Functions leem profiles com a chave de serviço.
 -- =============================================================================
@@ -42,8 +42,8 @@ set local lock_timeout = '5s';
 do $$
 declare
   funcoes jsonb := jsonb_build_object(
-    'gf_admin_can(text)', 'be37ff87aa0f00c5f35a7e489ae4c18e',
-    'gf_admin_can_any(text[])', 'b6284b43f339ea138177b772fbd44013');
+    'gf_admin_can(text)', '0f661e18944891e6da7dadf94b1b2505',
+    'gf_admin_can_any(text[])', '3f943162f9953d4860accc0e7c3e7a4b');
   f text;
 begin
   if to_regclass('public.profiles') is null then raise exception 'falta a tabela public.profiles'; end if;
