@@ -238,6 +238,9 @@ commit;
 -- Desfazer da PARTE A (SÓ DEPOIS de desfazer a parte B; a ordem inversa da publicação). Restaura o gatilho e tira as funções:
 -- begin;
 -- do $$ begin
+--   if not has_column_privilege('authenticated', 'public.profiles', 'admin_permissions', 'select') then
+--     raise exception 'desfaça antes a parte B (20261018b): sem ela, o gatilho volta a ler admin_permissions e dá permission denied';
+--   end if;
 --   execute replace(pg_get_functiondef('public.gf_protect_profile_privileges()'::regprocedure),
 --     E'     and not public.gf_ha_outro_super_admin(old.id) then',
 --     E'     and not exists (select 1 from public.profiles p\n                     where p.id <> old.id and p.role = ''admin'' and ''super_admin'' = any(p.admin_permissions)) then');
