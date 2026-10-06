@@ -4,6 +4,9 @@
 -- Contrato: pedido com status 'pending' há mais de p_minutos (padrão 30) vira 'cancelled'.
 -- O cliente não tem UPDATE em orders (RLS); só esta função (service_role/cron) cancela.
 -- 'cancelled' já existe no CHECK de orders. Idempotente: pode rodar de novo.
+-- piso de 5 min: p_minutos pequeno ou negativo não cancela pedido recém-criado.
+-- RISCO Fase 4 (gateway): boleto vence em dias e Pix pode ser pago depois de 30 min. Antes de ligar o gateway, esta função
+-- terá de excluir boleto (ou usar o vencimento do gateway) e o webhook terá de tratar pedido já 'cancelled'.
 -- Pré-requisito: pg_cron ligado (como em 20261001_chat.sql).
 -- =============================================================================
 begin;
@@ -20,7 +23,7 @@ begin
   update public.orders
      set status = 'cancelled'
    where status = 'pending'
-     and created_at < now() - make_interval(mins => p_minutos);
+     and created_at < now() - make_interval(mins => greatest(p_minutos, 5));
   get diagnostics n = row_count;
   return n;
 end $$;

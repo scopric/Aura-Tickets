@@ -94,16 +94,18 @@ export function useCreateOrder() {
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email, order_items ( ticket_type_id, quantity )`)
         .eq('user_id', user.id).eq('event_id', event_id).eq('status', 'pending')
       if (pendError) throw pendError
-      // Preço de cada tipo vem do banco, não do navegador
-      const { data: tipos, error: tiposError } = await supabase
-        .from('ticket_types').select('id, price').in('id', items.map(i => i.ticket_type_id))
-      if (tiposError) throw tiposError
-      const precos = Object.fromEntries((tipos || []).map(t => [t.id, Number(t.price) || 0]))
+      // Preço de cada tipo vem do banco, pela mesma fonte da página do evento (evento_publico): a RLS de ticket_types
+      // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
+      const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
+      if (pubError) throw pubError
+      const ingressos = (pub as { ingressos?: { id: string; price: number | string | null }[] } | null)?.ingressos ?? []
+      const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
       const ped = itensDoPedido(items, precos)
       // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.
       // ponytail: duplo clique rápido ainda pode criar dois pedidos (sem trava nem índice único); resolvido na Fase 4 com o gateway.
-      const igual = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
-      const o = igual && (pendentes as unknown as { id: string; total: number; gateway_payment_id: string }[]).find(p => p.id === igual.id)
+      // ponytail: Fase 4 — boleto vence em dias e Pix pode ser pago após 30 min; o cron (pedidos_pendentes_expirar) terá de excluir boleto
+      // ou usar o vencimento do gateway, e o webhook tratar pedido já 'cancelled'.
+      const o = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
       if (o && Number(o.total) === ped.total) {
         return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
       }
