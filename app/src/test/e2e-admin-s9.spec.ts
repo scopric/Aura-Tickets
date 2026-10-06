@@ -36,6 +36,8 @@ async function simular(page: Page, o: Opcoes) {
   await page.route('**/rest/v1/**', (r) => json(r, 200, []))
   // com sessão do supabase-js o app relê o papel em profiles (.single() espera objeto)
   await page.route('**/rest/v1/profiles?*', (r) => json(r, 200, { id: ADMIN_DEMO, email: 'admin@aura.teste', full_name: 'Admin Demo', avatar_url: null, role: 'admin', is_authorized: true }))
+  // S4b: o perfil próprio vem por rpc('meu_perfil'), não pela tabela
+  await page.route('**/rest/v1/rpc/meu_perfil*', (r) => json(r, 200, { id: ADMIN_DEMO, email: 'admin@aura.teste', full_name: 'Admin Demo', avatar_url: null, role: 'admin', is_authorized: true, admin_permissions: [] }))
   await page.route('**/rest/v1/staff_profiles?*', (r) => {
     const req = r.request()
     if (req.method() === 'GET') return json(r, 200, [FICHA])

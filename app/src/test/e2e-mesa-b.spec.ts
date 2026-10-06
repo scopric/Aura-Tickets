@@ -310,7 +310,7 @@ test('checkout de Match de Mesa: quantidade fixa em 1 e data de nascimento (18+)
   await expect(page.getByText('Data de nascimento salva no seu Perfil.')).toBeVisible()
   expect(gravadas).toHaveLength(1)
   expect(gravadas[0].body).toEqual({ birth_date: '1995-06-15' })
-  expect(String(gravadas[0].url)).toContain('birth_date=is.null') // só preenche data vazia
+  expect(String(gravadas[0].url)).not.toContain('birth_date=') // filtrar por birth_date dá 42501 (S4b): a conferência de data vazia é no cliente
 
   await page.getByRole('button', { name: 'Continuar para Pagamento' }).click()
   await expect(page).toHaveURL(/\/checkout\/payment$/)

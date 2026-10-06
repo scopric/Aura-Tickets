@@ -225,7 +225,7 @@ export default function Checkout() {
     // sem reserva de assento ainda (M5.1): clicar em lugar livre não faz nada
   }
 
-  // Grava em profiles.birth_date só se estiver vazia: com o perfil ainda carregando, nunca sobrescreve
+  // Grava em profiles.birth_date só se estiver vazia (conferido no cliente): com o perfil ainda carregando, nunca sobrescreve
   const salvarNascimento = async () => {
     if (!user?.id || !nascimento) return
     if (!maiorDe18(nascimento)) {
@@ -234,12 +234,17 @@ export default function Checkout() {
     }
     setSalvandoNascimento(true)
     try {
+      // birth_date não é filtrável pela API (42501, docs/sql/20261018b_admin_s4b_colunas.sql): a conferência "só se
+      // estiver vazia" é no cliente; perfil ainda não carregado (undefined) é relido antes.
+      // Se depois da releitura continuar indefinido (perfil provisório, rede, 2FA sem código), NÃO grava: poderia sobrescrever
+      if (useAuthStore.getState().user?.birth_date === undefined) await useAuthStore.getState().fetchProfile({ force: true })
+      if (useAuthStore.getState().user?.birth_date === undefined) { toast.error('Aguarde o perfil terminar de carregar e tente de novo'); return }
+      if (useAuthStore.getState().user?.birth_date) { toast.info('Seu Perfil já tinha data de nascimento: vale a que está lá.'); return }
       const { data, error } = await supabase
         .from('profiles')
         // ponytail: `as never` até regenerar os tipos do Supabase (mesmo erro em Profile.tsx)
         .update({ birth_date: nascimento } as never)
         .eq('id', user.id)
-        .is('birth_date', null)
         .select('id')
       if (error) throw error
       if (!data?.length) {

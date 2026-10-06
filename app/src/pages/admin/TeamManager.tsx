@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { mensagemDeErro } from '@/hooks/useConversas'
 import { toast } from 'sonner'
 import gsap from 'gsap'
 import * as I from '@/components/icones/evokaa16'
@@ -21,7 +22,6 @@ interface AdminProfile {
   avatar_url: string | null
   role: 'user' | 'producer' | 'admin'
   admin_permissions: string[]
-  updated_at: string | null
 }
 
 const PERMISSIONS = [
@@ -107,19 +107,16 @@ export default function AdminTeamManager() {
   const fetchAdmins = async () => {
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'admin')
-        .order('full_name', { ascending: true })
+      // admin_equipe() (docs/sql/20261018a_admin_s4b_funcoes.sql): manage_team; a tabela não entrega admin_permissions
+      const { data, error } = await supabase.rpc('admin_equipe' as never)
 
       if (error) throw error
-      setAdmins(data || [])
+      setAdmins(Array.isArray(data) ? (data as unknown as AdminProfile[]) : [])
       setLoadError('')
     } catch (err: any) {
       console.error('Erro ao buscar equipe admin:', err)
       setAdmins([])
-      setLoadError(err.message || 'Erro ao buscar a equipe')
+      setLoadError(mensagemDeErro(err, 'Você não tem permissão para ver esta lista.'))
     } finally {
       setIsLoading(false)
     }

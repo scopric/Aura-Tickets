@@ -94,6 +94,7 @@ export const useAuthStore = create<AuthState>()(
                 full_name: name,
                 avatar_url: null,
                 role,
+                birth_date: null, // demo sem data: o Checkout só grava quando sabe que está vazia
                 admin_permissions: role === 'admin' 
                   ? ['manage_users', 'manage_events', 'manage_finance', 'manage_tickets', 'manage_feedback', 'manage_support', 'manage_settings', 'manage_newsletter', 'view_dashboard', 'view_analytics'] 
                   : [],
@@ -141,11 +142,9 @@ export const useAuthStore = create<AuthState>()(
             let profileError: any = null
             try {
               // Busca o perfil com um timeout de 7 segundos para evitar travamento
-              const getProfilePromise = supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', authUser.id)
-                .single()
+              // meu_perfil() (docs/sql/20261018a_admin_s4b_funcoes.sql): a tabela não entrega mais telefone, cidade, bio
+              // nem nascimento por select; o jsonb vem sem cpf e stripe_customer_id e nulo se não houver perfil
+              const getProfilePromise = supabase.rpc('meu_perfil' as never)
               
               const timeoutError = new Error('Timeout ao buscar perfil na tabela profiles')
               const result = await Promise.race([

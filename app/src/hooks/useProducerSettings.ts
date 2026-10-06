@@ -50,13 +50,12 @@ export function useProducerSettings() {
       if (!user?.id) return null
 
       // 1. Carregar perfil base
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, phone, avatar_url, bio, city, website, instagram, tiktok, linkedin')
-        .eq('id', user.id)
-        .single()
+      // meu_perfil() (docs/sql/20261018a_admin_s4b_funcoes.sql): a tabela não entrega mais telefone, cidade e bio por select
+      const { data: perfil, error: profileError } = await supabase.rpc('meu_perfil' as never)
 
       if (profileError) throw profileError
+      if (!perfil) throw new Error('Perfil não encontrado')
+      const profile = perfil as unknown as ProducerSettingsData['profile']
 
       // 2. Carregar producer_profile
       const { data: producerProfile, error: producerError } = await supabase
