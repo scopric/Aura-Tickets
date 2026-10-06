@@ -94,18 +94,19 @@ export function useCreateOrder() {
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email, order_items ( ticket_type_id, quantity )`)
         .eq('user_id', user.id).eq('event_id', event_id).eq('status', 'pending')
       if (pendError) throw pendError
-      const igual = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
-      if (igual) {
-        const o = (pendentes as unknown as { id: string; total: number; gateway_payment_id: string }[]).find(p => p.id === igual.id)!
-        return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
-      }
-
       // Preço de cada tipo vem do banco, não do navegador
       const { data: tipos, error: tiposError } = await supabase
         .from('ticket_types').select('id, price').in('id', items.map(i => i.ticket_type_id))
       if (tiposError) throw tiposError
       const precos = Object.fromEntries((tipos || []).map(t => [t.id, Number(t.price) || 0]))
       const ped = itensDoPedido(items, precos)
+      // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.
+      // ponytail: duplo clique rápido ainda pode criar dois pedidos (sem trava nem índice único); resolvido na Fase 4 com o gateway.
+      const igual = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
+      const o = igual && (pendentes as unknown as { id: string; total: number; gateway_payment_id: string }[]).find(p => p.id === igual.id)
+      if (o && Number(o.total) === ped.total) {
+        return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
+      }
 
       // 1. Criar o registro do pedido na tabela 'orders'
       const { data: order, error: orderError } = await supabase
@@ -122,7 +123,7 @@ export function useCreateOrder() {
           status: 'pending',
           payment_method,
           gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          customer_name: user.name || user.full_name || user.email,
+          customer_name: user.name || user.full_name || null,
           customer_email: user.email
         })
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email`)

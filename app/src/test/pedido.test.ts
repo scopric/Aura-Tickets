@@ -12,6 +12,9 @@ describe('itensDoPedido', () => {
     expect(r.service_fee).toBe(13) // 2 x 5 + 1 x 3
     expect(r.total).toBe(123)
   })
+  it('falha se algum tipo não tem preço no banco', () => {
+    expect(() => itensDoPedido([{ ticket_type_id: 'x', quantity: 1 }], {})).toThrow('sem preço')
+  })
 })
 
 describe('pedidoReaproveitavel', () => {

@@ -91,7 +91,7 @@ export default function CheckoutPayment() {
             const result = await processPayment({
               orderId: order.id,
               method: 'credit_card',
-              amount: resumo.total,
+              amount: Number(order.total),
               customerEmail: order.customer_email || user?.email || '',
               customerName: order.customer_name || user?.full_name || '',
               customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
@@ -107,7 +107,7 @@ export default function CheckoutPayment() {
             navigate(`/checkout/success?pedido=${order.id}`, {
               state: {
                 orderId: order.id,
-                totalAmount: resumo.total,
+                totalAmount: Number(order.total),
                 paymentMethod
               }
             })
@@ -117,7 +117,7 @@ export default function CheckoutPayment() {
             const result = await processPayment({
               orderId: order.id,
               method: 'pix',
-              amount: resumo.total,
+              amount: Number(order.total),
               customerEmail: order.customer_email || user?.email || '',
               customerName: order.customer_name || user?.full_name || '',
               customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
@@ -153,7 +153,7 @@ export default function CheckoutPayment() {
                     navigate(`/checkout/success?pedido=${order.id}`, {
                       state: {
                         orderId: order.id,
-                        totalAmount: resumo.total,
+                        totalAmount: Number(order.total),
                         paymentMethod: 'pix'
                       }
                     })
