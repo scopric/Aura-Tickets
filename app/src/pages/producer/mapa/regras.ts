@@ -1,4 +1,4 @@
-import { defaultSections, normalizarEnvs, type Environment, type SeatNode } from './modelo'
+import { defaultSections, normalizarEnvs, typeLabels, type Environment, type SeatNode, type SeatStatus } from './modelo'
 import { caixaDosElementos, ORIGEM_SALA } from './geometria'
 import { ESTRUTURA } from './paleta'
 
@@ -152,4 +152,17 @@ export function lerImportacao(texto: string, atual: Environment[]): { envs?: Env
     for (const x of e.sections) if (!obj(x) || typeof x.id !== 'string' || typeof x.name !== 'string' || !num(x.price) || (x.price as number) < 0) return { erro: `Arquivo de mapa inválido: lote com id, nome ou preço inválido em "${e.name}".` }
   }
   return { envs: normalizarEnvs(lista as Environment[]) }
+}
+
+// ---- Busca por rótulo ou tipo (sem acento, sem diferenciar maiúsculas); devolve o primeiro ----
+const plano = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+export function buscarNo(nos: SeatNode[], termo: string): SeatNode | undefined {
+  const t = plano(termo.trim())
+  return t ? nos.find(n => plano(n.label || '').includes(t) || plano(typeLabels[n.type] || String(n.type)).includes(t)) : undefined
+}
+
+// ---- Status: só Livre ⇄ Bloqueado; vendido/reservado (do sistema) e contato nunca mudam por aqui ----
+export const statusEditavel = (n: Pick<SeatNode, 'sold' | 'status'>) => !vendido(n as SeatNode) && n.status !== 'contact'
+export function alternarStatus(n: SeatNode, novo: SeatStatus): SeatNode {
+  return statusEditavel(n) && (novo === 'free' || novo === 'blocked') ? { ...n, status: novo } : n
 }

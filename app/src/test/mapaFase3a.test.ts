@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
-import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento, lerImportacao } from '../pages/producer/mapa/regras'
+import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento, lerImportacao, buscarNo, alternarStatus, statusEditavel } from '../pages/producer/mapa/regras'
 
 const no = (o: Partial<SeatNode>): SeatNode => ({
   id: 'n', x: 12, y: 12, label: 'X', type: 'seat', color: '#111111', price: 10, rotation: 0, sold: 0, capacity: 1,
@@ -113,5 +113,27 @@ describe('importação', () => {
   it('bloqueada se o mapa atual tem venda ou reserva', () => {
     expect(lerImportacao(arq(bom()), [mapa([no({ sold: 1 })])]).erro).toMatch(/vendidos/)
     expect(lerImportacao(arq(bom()), [mapa([no({ status: 'reserved' })])]).erro).toMatch(/vendidos/)
+  })
+})
+
+describe('busca e status', () => {
+  it('busca por rótulo ou tipo, sem acento, primeiro resultado', () => {
+    const nos = [no({ id: '1', label: 'Mesa 1', type: 'table' }), no({ id: '2', label: 'Palco Principal', type: 'stage' }), no({ id: '3', label: 'Mesa 2', type: 'table' })]
+    expect(buscarNo(nos, 'mesa')?.id).toBe('1')
+    expect(buscarNo(nos, 'PALCO')?.id).toBe('2')
+    expect(buscarNo(nos, 'Mesa Inteligente')?.id).toBe('1')
+    expect(buscarNo(nos, 'zzz')).toBeUndefined()
+    expect(buscarNo(nos, '  ')).toBeUndefined()
+  })
+  it('alterna Livre e Bloqueado; vendido, reservado e contato não mudam', () => {
+    const l = no({})
+    expect(alternarStatus(l, 'blocked').status).toBe('blocked')
+    expect(alternarStatus(alternarStatus(l, 'blocked'), 'free').status).toBe('free')
+    for (const x of [no({ sold: 1 }), no({ status: 'sold' }), no({ status: 'reserved' }), no({ status: 'contact' })]) {
+      expect(statusEditavel(x)).toBe(false)
+      expect(alternarStatus(x, 'free')).toBe(x)
+    }
+    expect(alternarStatus(l, 'sold')).toBe(l)
+    expect(alternarStatus(l, 'reserved')).toBe(l)
   })
 })

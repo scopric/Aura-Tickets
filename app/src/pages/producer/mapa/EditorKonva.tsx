@@ -7,13 +7,13 @@ import { useProducerEvents } from '../../../hooks/useEvents'
 import { useEventoDaUrl } from '../../../hooks/useEventoDaUrl'
 import { Button } from '@/components/ui/button'
 import { limites, ajustarTela, zoomNoCursor, snap, ORIGEM_SALA, type Vista } from './geometria'
-import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNode } from './modelo'
+import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNode, type SeatStatus } from './modelo'
 import { useMapa } from './usarMapa'
 import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
 import { useIngressos } from './usarIngressos'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
@@ -353,6 +353,18 @@ export default function EditorKonva() {
     setAtivo(0)
     setReenquadrar(v => v + 1)
   }
+  const [busca, setBusca] = useState('')
+  const [buscaVazia, setBuscaVazia] = useState(false)
+  const buscar = () => {
+    const n = buscarNo(env.seats, busca)
+    setBuscaVazia(!n && busca.trim() !== '')
+    if (!n) return
+    setSel({ tipo: 'no', id: n.id })
+    setVista(v => {
+      const z = ppm * v.zoom
+      return { ...v, pan: { x: tamRef.current.w / 2 - n.x * z, y: tamRef.current.h / 2 - n.y * z } }
+    })
+  }
   const trazerParaDentro = () => {
     const r = encaixarNaSala(env)
     setAvisoFora(r.motivo || '')
@@ -485,6 +497,15 @@ export default function EditorKonva() {
         <div className="min-h-0 flex-1"><BarraPaleta ferramenta={ferr} onEscolher={id => { setFerr(id); setGaveta('') }} /></div>
       </div>
       <div ref={caixaRef} className="relative min-h-0 min-w-0 flex-1 bg-muted/40" style={{ cursor: criando ? 'crosshair' : ferr === 'pan' ? 'grab' : undefined }}>
+        <div className="absolute left-2 top-2 z-10 flex items-center gap-2">
+          <input
+            type="search" aria-label="Buscar elemento no mapa" placeholder="Buscar elemento (nome ou tipo)" value={busca}
+            onChange={e => { setBusca(e.target.value); setBuscaVazia(false) }}
+            onKeyDown={e => { if (e.key === 'Enter') buscar() }}
+            className="h-8 w-52 max-w-[60vw] rounded-md border border-input bg-card px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 max-lg:h-10"
+          />
+          {buscaVazia && <span role="status" className="rounded bg-card px-1.5 py-0.5 text-xs text-destructive">Nada encontrado</span>}
+        </div>
         {tam.w > 0 && (
           <Stage
             width={tam.w} height={tam.h}
@@ -537,7 +558,7 @@ export default function EditorKonva() {
       moverNo(n.id, { x: g.x(), y: g.y(), rotation: g.rotation(), widthMeter: w * (redondo ? k : sx), heightMeter: redondo ? w * k : h * sy })
                     }}
                   >
-                    <Forma s={n} />
+                    <Group opacity={n.status === 'blocked' || n.status === 'contact' ? 0.5 : 1}><Forma s={n} /></Group>
                     {fora.has(n.id) && <Rect x={-medidas(n).w / 2} y={-medidas(n).h / 2} width={medidas(n).w} height={medidas(n).h} stroke="#ef4444" strokeWidth={0.1} dash={[0.3, 0.2]} listening={false} />}
                   </Group>
                 ))}
@@ -615,6 +636,17 @@ export default function EditorKonva() {
                 className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               />
               <Cores valor={noSel.color || toolDefaults[noSel.type]?.color || '#94a3b8'} onChange={c => corNo(noSel.id, c)} />
+              {statusEditavel(noSel) ? (
+                <label className="block text-xs text-muted-foreground">Status
+                  <select value={noSel.status} onChange={e => mudar(a => ({ ...a, seats: a.seats.map(n => (n.id === noSel.id ? alternarStatus(n, e.target.value as SeatStatus) : n)) }))}
+                    className="mt-0.5 h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground">
+                    <option value="free">Livre</option>
+                    <option value="blocked">Bloqueado</option>
+                  </select>
+                </label>
+              ) : (
+                <p className="text-xs text-muted-foreground">Status: {noSel.status === 'contact' ? 'Entrar em contato (só leitura)' : noSel.status === 'sold' || noSel.sold > 0 ? 'Vendido (definido pelo sistema)' : 'Reservado (definido pelo sistema)'}</p>
+              )}
             </>
           ) : (
             <p className="text-xs text-muted-foreground">{sel?.tipo === 'parede' ? 'Parede selecionada.' : 'Clique em um elemento para mudar só a cor dele.'}</p>
