@@ -494,6 +494,25 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     expect(db.ingressos[0]).toMatchObject({ price: 90 })
   })
 
+  test('publicado: máximo por pedido grava e vazio limpa o teto', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    const grupo = page.getByRole('group', { name: 'Ingresso Pista' })
+    await grupo.getByLabel('Máximo por pedido').fill('4')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ min_per_order: 1, max_per_order: 4 })
+    await page.reload()
+    await abre(page, /^Ingressos/)
+    await expect(page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Máximo por pedido')).toHaveValue('4')
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Máximo por pedido').fill('')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ max_per_order: null })
+  })
+
   test('publicado: sem mudar classificação nem bebida, enviar não refaz o aceite', async ({ page }) => {
     const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
     await entrarProdutor(page)

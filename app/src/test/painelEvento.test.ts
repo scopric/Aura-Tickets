@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
-  diffCampos, dominioDoLink, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
+  diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
   precoDe, quantidadeDe, semNomeVazio, erroDosIngressos, ERRO_NOME, rotuloDoModo, rotulosDoDiff, snapDoForm, eventoDaPrevia, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
 import { supabase } from '../lib/supabase'
-import type { DbEvent } from '../hooks/useEvents'
+import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 const evento = (o: Partial<DbEvent> = {}) => ({
   id: 'e1', producer_id: 'u1', title: 'Noite de Forró', subtitle: null, description: 'Baile de forró no Espaço Torres, em Curitiba.', category: 'festa_encontro',
@@ -15,7 +15,7 @@ const evento = (o: Partial<DbEvent> = {}) => ({
 }) as DbEvent
 
 const form = (o: Partial<Form> = {}): Form => ({ ...formDoEvento(evento(), ''), ...o })
-const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, ...o })
+const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', ...o })
 
 describe('formulário ↔ banco', () => {
   it('lê o evento: hora sem segundos, fim em Brasília, endereço separado', () => {
@@ -69,8 +69,8 @@ describe('prévia no celular', () => {
 
 describe('prévia: ingresso salvo', () => {
   const salvo = (o: object) => evento({ ticket_types: [{ id: 'i1', description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', sold: 7, name: 'Antigo', ...o }] } as Partial<DbEvent>)
-  it('preserva descrição, benefícios e fim da venda do banco; o formulário vale para nome e preço; sold vem do banco', () => {
-    const t = eventoDaPrevia(form(), [ing({ nome: 'Novo', vendidos: 99 })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]
+  it('preserva benefícios e fim da venda do banco; o formulário vale para nome e preço; sold vem do banco', () => {
+    const t = eventoDaPrevia(form(), [ing({ nome: 'Novo', vendidos: 99, descricao: 'Open bar' })], { evento: salvo({}), capaUrl: null }).ticket_types?.[0]
     expect(t).toMatchObject({ description: 'Open bar', perks: ['Fila rápida'], sale_end: '2026-12-01T00:00:00Z', name: 'Novo', price: 80, sold: 7 })
   })
   it('perks que não é lista vira []; ingresso novo (fora do banco) tem sold 0', () => {
@@ -166,6 +166,12 @@ describe('ingressos', () => {
     expect(errosDeIngresso(ing())).toEqual({})
     expect(Object.keys(errosDeIngresso(ing({ nome: ' ', preco: 'x', qtd: '0' })))).toEqual(['nome', 'preco', 'qtd'])
     expect(errosDeIngresso(ing({ qtd: '5', vendidos: 8 })).qtd).toMatch(/8/)
+    expect(errosDeIngresso(ing({ minPed: '0' })).pedido).toMatch(/Mínimo/)
+    expect(errosDeIngresso(ing({ minPed: '5', maxPed: '3' })).pedido).toMatch(/menor que o mínimo/)
+    expect(errosDeIngresso(ing({ maxPed: '201' })).pedido).toMatch(/passar da quantidade/)
+    expect(errosDeIngresso(ing({ maxPed: '0' })).pedido).toMatch(/Máximo/)
+    expect(errosDeIngresso(ing({ maxPed: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ minPed: '2', maxPed: '200' }))).toEqual({})
   })
   it('datas de venda: fim depois do início e não depois do fim do evento', () => {
     const fimEv = Date.parse('2026-12-13T04:00:00-03:00')
@@ -431,5 +437,17 @@ describe('Enviar para aprovação', () => {
     update.mockImplementation(() => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '42501' } }) }) }) }))
     const r = await enviarEvento(base())
     expect(r).toMatchObject({ ok: false, erro: 'Refaça o aceite: a classificação ou a bebida mudou.' })
+  })
+})
+
+describe('limites por pedido', () => {
+  const t = (o: object) => ({ id: 't1', name: 'Pista', price: 80, quantity_total: 200, type: 'individual', is_active: true, ...o }) as DbTicketType
+  it('ingDoBanco lê descrição, mínimo e máximo; máximo nulo vira vazio', () => {
+    expect(ingDoBanco(t({ description: 'Entrada geral', min_per_order: 2, max_per_order: 4 }), 0)).toMatchObject({ descricao: 'Entrada geral', minPed: '2', maxPed: '4' })
+    expect(ingDoBanco(t({ description: null, max_per_order: null }), 0)).toMatchObject({ descricao: '', minPed: '1', maxPed: '' })
+  })
+  it('para o banco: vazio vira null, número vira número', () => {
+    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null })
+    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4 })
   })
 })
