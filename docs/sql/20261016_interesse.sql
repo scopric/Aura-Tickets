@@ -82,7 +82,7 @@ alter table public.interest_lists add column if not exists email_reservado_ate t
 alter table public.interest_lists add column if not exists removido_em timestamptz;
 alter table public.interest_lists drop constraint if exists interest_lists_versao_chk;
 alter table public.interest_lists add constraint interest_lists_versao_chk
-  check (consentimento_versao is null or consentimento_versao in ('p4-rascunho-1'));
+  check (consentimento_versao is null or consentimento_versao in ('p4-v1-2026-10-07'));
 create index if not exists interest_lists_event_idx on public.interest_lists (event_id);
 create index if not exists interest_lists_user_idx on public.interest_lists (user_id);
 create index if not exists interest_lists_pendentes_idx on public.interest_lists (created_at) where not notified and removido_em is null;

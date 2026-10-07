@@ -58,19 +58,19 @@ select ok(not has_function_privilege('authenticated', 'public.interesse_email_du
 
 -- Participante ------------------------------------------------------------------------------------------------------
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-00000000000a');
-select throws_ok($$insert into public.interest_lists (event_id, user_id, consentimento_versao) values ('ab000000-0000-4000-8000-0000000000e1', 'ab000000-0000-4000-8000-00000000000a', 'p4-rascunho-1')$$,
+select throws_ok($$insert into public.interest_lists (event_id, user_id, consentimento_versao) values ('ab000000-0000-4000-8000-0000000000e1', 'ab000000-0000-4000-8000-00000000000a', 'p4-v1-2026-10-07')$$,
   '42501', null, 'A não insere direto na tabela (só pela função)');
 select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, null)$$,
   '42501', null, 'A não entra sem a versão do consentimento');
 select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'v-inventada')$$,
   '23514', null, 'versão do consentimento fora da lista fechada: recusada pelo CHECK');
-select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e2', null, 'p4-rascunho-1')$$,
+select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e2', null, 'p4-v1-2026-10-07')$$,
   '42501', null, 'A não entra em evento em análise');
-select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', 'ab000000-0000-4000-8000-0000000000f3', 'p4-rascunho-1')$$,
+select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', 'ab000000-0000-4000-8000-0000000000f3', 'p4-v1-2026-10-07')$$,
   '42501', null, 'A não usa tipo de ingresso de outro evento');
-select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$,
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$,
   'A entra no e1 com a versão do consentimento');
-select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$,
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$,
   'entrar de novo é inofensivo (sem erro, sem segunda linha)');
 select ok((select consentimento_em from public.interest_lists where user_id = 'ab000000-0000-4000-8000-00000000000a') is not null,
   'o banco gravou a data do consentimento');
@@ -82,14 +82,14 @@ select throws_ok($$delete from public.interest_lists where user_id = 'ab000000-0
 select is(public.interesse_sair('ab000000-0000-4000-8000-0000000000e1'), true, 'A sai');
 select is(public.interesse_sair('ab000000-0000-4000-8000-0000000000e1'), false, 'sair de novo não muda nada');
 select ok((select removido_em is not null from public.interest_lists where user_id = 'ab000000-0000-4000-8000-00000000000a'), 'a linha continua, marcada como removida');
-select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$, 'A reentra');
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$, 'A reentra');
 select is((select count(*) from public.interest_lists), 1::bigint, 'reentrar reativa a mesma linha');
 select ok((select removido_em is null from public.interest_lists where user_id = 'ab000000-0000-4000-8000-00000000000a'), 'removido_em zerado');
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-00000000000b');
 select is(public.interesse_sair('ab000000-0000-4000-8000-0000000000e1'), false, 'B sair do e1 (onde não está): nada');
 select pg_temp.como('anon');
 select throws_ok($$select * from public.interest_lists$$, '42501', null, 'visitante não lê');
-select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$,
+select throws_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$,
   '42501', null, 'visitante não entra');
 
 -- CRM ---------------------------------------------------------------------------------------------------------------
@@ -99,8 +99,8 @@ select results_eq($$select email, city, source, event_interest from public.crm_l
   'a inscrição de A virou lead no CRM de P (e a de C, sem consentimento, não)');
 insert into public.crm_leads (producer_id, full_name, email) values ('ab000000-0000-4000-8000-000000000008', 'Já era lead', 'B@TESTE-p4.local');
 insert into public.interest_lists (event_id, user_id, consentimento_versao) values
-  ('ab000000-0000-4000-8000-0000000000e3', 'ab000000-0000-4000-8000-00000000000b', 'p4-rascunho-1'),
-  ('ab000000-0000-4000-8000-0000000000e3', 'ab000000-0000-4000-8000-00000000000d', 'p4-rascunho-1');
+  ('ab000000-0000-4000-8000-0000000000e3', 'ab000000-0000-4000-8000-00000000000b', 'p4-v1-2026-10-07'),
+  ('ab000000-0000-4000-8000-0000000000e3', 'ab000000-0000-4000-8000-00000000000d', 'p4-v1-2026-10-07');
 select is((select count(*) from public.crm_leads where producer_id = 'ab000000-0000-4000-8000-000000000008'), 1::bigint,
   'lead com o mesmo e-mail (outra caixa) não duplica; conta D sem e-mail confirmado não vira lead');
 select throws_ok($$insert into public.crm_leads (producer_id, full_name, email) values ('ab000000-0000-4000-8000-000000000008', 'X', 'b@teste-p4.LOCAL')$$,
@@ -158,7 +158,7 @@ select is((select count(*) from public.interesse_email_due()), 0::bigint, 'envia
 -- Sair e reentrar depois do aviso não gera segundo aviso nem segundo e-mail --------------------------------------------
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-00000000000a');
 select is(public.interesse_sair('ab000000-0000-4000-8000-0000000000e1'), true, 'A sai depois de avisada');
-select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$, 'A reentra');
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$, 'A reentra');
 select pg_temp.como('postgres');
 select ok((select notified and email_enviado_em is not null from public.interest_lists where id = 'ab000000-0000-4000-8000-0000000000a1'),
   'reentrar não zera notified nem email_enviado_em');
@@ -171,7 +171,7 @@ select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-000000000009');
 select is(public.interesse_remover('ab000000-0000-4000-8000-0000000000a1'), true, 'P remove A (só marca removido_em)');
 select is(public.interesse_remover('ab000000-0000-4000-8000-0000000000a1'), false, 'remover de novo: nada');
 select pg_temp.como('authenticated', 'ab000000-0000-4000-8000-00000000000a');
-select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-rascunho-1')$$, 'A reinscreve depois da remoção pelo produtor');
+select lives_ok($$select public.interesse_entrar('ab000000-0000-4000-8000-0000000000e1', null, 'p4-v1-2026-10-07')$$, 'A reinscreve depois da remoção pelo produtor');
 select pg_temp.como('postgres');
 select ok((select notified and email_enviado_em is not null and removido_em is null from public.interest_lists where id = 'ab000000-0000-4000-8000-0000000000a1'),
   'a mesma linha, ainda avisada e com e-mail enviado');

@@ -48,7 +48,7 @@ export default function PrivacyPage() {
               <li>Criar e gerenciar sua conta</li>
               <li>Processar compras e emissão de ingressos</li>
               <li>Lembrar os eventos que você salvou, a seu pedido (base legal: execução do serviço a seu pedido, LGPD, art. 7º, V). A lista fica até você remover o evento dela ou excluir a conta. Se um evento salvo sair do ar, ele continua na tela Salvos como "fora do ar" e você pode removê-lo; a exclusão da conta apaga toda a lista</li>
-              <li>Avisar você, no aplicativo e por e-mail, quando as vendas de um evento abrirem, a seu pedido (base legal: consentimento, LGPD, art. 7º, I). Você retira o aviso a qualquer momento em "Remover aviso" na página do evento; a conta excluída apaga a inscrição</li>
+              <li>Avisar você, no aplicativo e por e-mail, quando as vendas de um evento abrirem, a seu pedido (base legal: consentimento, LGPD, art. 7º, I). Você retira o aviso a qualquer momento em "Remover aviso" na página do evento; a conta excluída apaga a inscrição. Os dados já compartilhados com o produtor ficam com ele, que passa a ser o controlador: o pedido de exclusão é feito ao produtor</li>
               <li>Enviar comunicações sobre eventos e atualizações (com seu consentimento)</li>
               <li>Oferecer o Evo, o assistente de inteligência artificial que ajuda o produtor a planejar e criar eventos (seção 8)</li>
               <li>Melhorar a plataforma e prevenir fraudes</li>
