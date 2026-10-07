@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
-import { apagarLote, definirPreco, ligarIngresso, lotesDe } from '../pages/producer/mapa/regras'
+import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas } from '../pages/producer/mapa/regras'
 
 const no = (o: Partial<SeatNode>): SeatNode => ({
   id: 'n', x: 12, y: 12, label: 'X', type: 'seat', color: '#111111', price: 10, rotation: 0, sold: 0, capacity: 1,
@@ -51,4 +51,17 @@ describe('lotes', () => {
     expect(apagarLote(um, 'a').erro).toMatch(/pelo menos um/)
     expect(apagarLote(mapa([]), 'estrutura').erro).toBeTruthy()
   })
+})
+
+describe('metricas', () => {
+  it('mesmas fórmulas do editor antigo', () => {
+    const e = mapa([
+      no({ id: '1', capacity: 1, price: 10, sold: 1 }),
+      no({ id: '2', type: 'table', capacity: 6, price: 20, sold: 2, status: 'reserved' }),
+      no({ id: '3', type: 'stage', capacity: 0, price: 0 }),
+    ])
+    e.walls = [{ id: 'w', x1: 0, y1: 0, x2: 1, y2: 1, thickness: 0.15, color: '#000', locked: false }]
+    expect(metricas(e)).toEqual({ assentos: 7, mesas: 1, muros: 1, vendido: 3, reservados: 1, receita: 10 + 40, potencial: 10 + 120 })
+  })
+  it('mapa vazio', () => expect(metricas(mapa([]))).toEqual({ assentos: 0, mesas: 0, muros: 0, vendido: 0, reservados: 0, receita: 0, potencial: 0 }))
 })

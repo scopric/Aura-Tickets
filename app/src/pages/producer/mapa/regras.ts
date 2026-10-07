@@ -95,3 +95,18 @@ export function apagarLote(env: Environment, id: string): { env: Environment; de
   const apagado = noLote(env, id, {}, { sectionId: destino.id, price: destino.price, color: destino.color })
   return { env: { ...apagado, sections: apagado.sections.filter(x => x.id !== id) }, destino: destino.name }
 }
+
+// ---- Rodapé: mesmas fórmulas do editor antigo, sobre o pavimento ativo ----
+export function metricas(env: Environment) {
+  const nos = env.seats || []
+  const soma = (f: (n: SeatNode) => number) => nos.reduce((t, n) => t + f(n), 0)
+  return {
+    assentos: soma(n => n.capacity || 0),
+    mesas: nos.filter(n => n.type === 'table').length,
+    muros: (env.walls || []).length,
+    vendido: soma(n => n.sold || 0),
+    reservados: nos.filter(n => n.status === 'reserved').length,
+    receita: soma(n => n.price * (n.sold || 0)),
+    potencial: soma(n => n.price * (n.capacity || 0)),
+  }
+}

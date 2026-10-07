@@ -13,7 +13,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
 import { useIngressos } from './usarIngressos'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
@@ -400,6 +400,7 @@ export default function EditorKonva() {
     )
   }
 
+  const m = metricas(env)
   const escala = ppm * vista.zoom
   const passo = PASSOS_REGUA.find(n => n * escala >= 70) ?? PASSOS_REGUA[PASSOS_REGUA.length - 1]
   const sala = { x: ORIGEM_SALA, y: ORIGEM_SALA, w: env.roomWidth || 40, h: env.roomHeight || 40 }
@@ -574,6 +575,15 @@ export default function EditorKonva() {
         </section>
       </aside>
       </div>
+      <footer aria-label="Totais do pavimento" className="flex flex-shrink-0 items-center gap-5 overflow-x-auto whitespace-nowrap border-t border-border bg-card px-3 py-2 text-xs text-muted-foreground">
+        <span>Assentos totais: <strong className="text-foreground">{m.assentos}</strong></span>
+        <span>Mesas: <strong className="text-foreground">{m.mesas}</strong></span>
+        <span>Muros: <strong className="text-foreground">{m.muros}</strong></span>
+        <span>Vendido: <strong className="text-foreground">{m.vendido} / {m.assentos}</strong></span>
+        <span>Reservado: <strong className="text-foreground">{m.reservados}</strong></span>
+        <span className="ml-auto">Receita: <strong className="text-foreground">{reais(m.receita)}</strong></span>
+        <span>Potencial: <strong className="text-foreground">{reais(m.potencial)}</strong></span>
+      </footer>
       <SeletorTemplates aberto={abrirTemplates} onFechar={() => setAbrirTemplates(false)} onEscolher={escolherTemplate} />
     </div>
   )
