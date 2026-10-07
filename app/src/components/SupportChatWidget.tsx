@@ -187,8 +187,9 @@ function Assuntos({ publico, ir }: { publico: Publico; ir: (t: Tela) => void }) 
 
 type Campos = { nome: string; telefone: string; novidades: boolean; texto: string }
 
-function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }) {
+function Formulario({ assunto, ir, textoInicial = '' }: { assunto: Assunto; ir: (t: Tela) => void; textoInicial?: string }) {
   const { user } = useAuth()
+  const config = useChatConfig()
   const contato = useMeuContato()
   const telPerfil = validarTelefoneBR(user?.phone) ? `+${(user?.phone ?? '').replace(/\D/g, '')}` : ''
   return (
@@ -212,11 +213,12 @@ function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }
             nome: contato.data?.name ?? user?.full_name ?? '',
             telefone: contato.data?.phone ? `+${contato.data.phone}` : telPerfil,
             novidades: contato.data?.marketing_opt_in ?? false,
-            texto: '',
+            texto: textoInicial,
           }}
         />
         </>
       )}
+      {config.data && <p className={`px-4 pb-3 text-xs ${suave}`}>{config.data.prazo}</p>}
     </>
   )
 }
@@ -442,7 +444,7 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   )
 }
 
-function Suporte({ publico, focarAoAbrir = false, assuntoInicial }: { publico: Publico; focarAoAbrir?: boolean; assuntoInicial?: string | null }) {
+function Suporte({ publico, focarAoAbrir = false, assuntoInicial, textoInicial }: { publico: Publico; focarAoAbrir?: boolean; assuntoInicial?: string | null; textoInicial?: string }) {
   const { user } = useAuth()
   const [tela, setTela] = useState<Tela>({ t: 'inicio' })
   // atalho de fora ("Não vejo meu ingresso"): pula direto para o formulário do assunto pedido, pelo rótulo
@@ -465,7 +467,7 @@ function Suporte({ publico, focarAoAbrir = false, assuntoInicial }: { publico: P
       {!user && <SemLogin />}
       {user && tela.t === 'inicio' && <Inicio ir={setTela} />}
       {user && tela.t === 'assuntos' && <Assuntos publico={publico} ir={setTela} />}
-      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} />}
+      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} textoInicial={textoInicial} />}
       {user && tela.t === 'conversa' && <TelaConversa id={tela.id} ir={setTela} />}
     </div>
   )
@@ -482,7 +484,7 @@ export function SupportChatPanel() {
  * fora não fecha; Esc fecha (quem abriu devolve o foco). Usada pelo balão do site e, para o
  * participante, pelo mascote do Evo. `posicao` traz bottom/right/altura de cada uso.
  */
-export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial }: { publico: Publico; aoFechar: () => void; posicao: string; assuntoInicial?: string | null }) {
+export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial, textoInicial }: { publico: Publico; aoFechar: () => void; posicao: string; assuntoInicial?: string | null; textoInicial?: string }) {
   const { user } = useAuth()
   return (
     <div
@@ -500,7 +502,7 @@ export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial }: { 
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
-      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir assuntoInicial={assuntoInicial} />
+      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir assuntoInicial={assuntoInicial} textoInicial={textoInicial} />
     </div>
   )
 }

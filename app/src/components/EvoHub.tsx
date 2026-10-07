@@ -114,10 +114,11 @@ export default function EvoHub() {
     return () => clearTimeout(t)
   }, [balao])
 
+  const [textoInicial, setTextoInicial] = useState<string | undefined>() // texto já preenchido (ex.: número do pedido)
   const [assuntoInicial, setAssuntoInicial] = useState<string | null>(null) // atalho "Não vejo meu ingresso" (evento evo:suporte)
   const mudarAberto = useCallback((a: boolean) => {
     setAberto(a)
-    if (!a) { setAssuntoInicial(null); return }
+    if (!a) { setAssuntoInicial(null); setTextoInicial(undefined); return }
     gravarConvite((c) => ({ ...c, aberto: true }))
     setBalao(null)
     setNaoLidas(0)
@@ -138,7 +139,9 @@ export default function EvoHub() {
   useEffect(() => {
     if (podeEvo) return
     const suporte = (e: Event) => {
-      setAssuntoInicial((e as CustomEvent<{ assunto?: string }>).detail?.assunto ?? null)
+      const d = (e as CustomEvent<{ assunto?: string; texto?: string }>).detail
+      setAssuntoInicial(d?.assunto ?? null)
+      setTextoInicial(d?.texto)
       mudarAberto(true)
     }
     window.addEventListener('evo:suporte', suporte)
@@ -224,6 +227,7 @@ export default function EvoHub() {
         <JanelaSuporte
           publico={publicoDoPapel(user?.role)}
           assuntoInicial={assuntoInicial}
+          textoInicial={textoInicial}
           aoFechar={() => {
             mudarAberto(false)
             mascoteRef.current?.focus()

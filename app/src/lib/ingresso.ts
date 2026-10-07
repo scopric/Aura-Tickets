@@ -197,3 +197,9 @@ export async function salvarQrPng(svg: SVGSVGElement, nome: string) {
 export const ASSUNTO_INGRESSO = 'Não recebi ou não acho meu ingresso' // rótulo do assunto do chat (docs/sql/20261001_chat.sql)
 // Pede ao Evo (EvoHub escuta `evo:suporte`) que abra a janela de suporte já no formulário desse assunto
 export const abrirAjudaIngresso = () => window.dispatchEvent(new CustomEvent('evo:suporte', { detail: { assunto: ASSUNTO_INGRESSO } }))
+
+// Suporte sobre um pedido: abre o formulário já com o número do pedido na mensagem
+export const ASSUNTO_PAGAMENTO = 'Pagamento: cobrança, Pix ou cartão' // docs/sql/20261001_chat.sql
+export const abrirAjudaPedido = (pedidoId: string, pago: boolean) => window.dispatchEvent(new CustomEvent('evo:suporte', {
+  detail: { assunto: pago ? ASSUNTO_INGRESSO : ASSUNTO_PAGAMENTO, texto: `Pedido #${pedidoId.slice(0, 8).toUpperCase()} (código completo: ${pedidoId}): ` },
+}))
