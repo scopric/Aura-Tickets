@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 import ProducerMenu from '../pages/producer/Menu'
 
 const criar = vi.fn()
+const atualizar = vi.fn()
 const apagar = vi.fn()
 const enviar = vi.fn()
 const preparar = vi.fn()
@@ -14,7 +15,7 @@ vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../hooks/useMenuItems', () => ({
   useProducerMenuItems: () => ({ ...consulta, refetch: vi.fn(), isFetching: false }),
   useCreateMenuItem: () => ({ mutateAsync: criar, isPending: false }),
-  useUpdateMenuItem: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateMenuItem: () => ({ mutateAsync: atualizar, isPending: false }),
   useDeleteMenuItem: () => ({ mutateAsync: apagar, isPending: false }),
 }))
 vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [], isPending: false }) }))
@@ -29,7 +30,7 @@ const item = { id: 'm1', name: 'Gin', description: '', category: 'bebida', price
 const montar = () => render(<MemoryRouter><ProducerMenu /></MemoryRouter>)
 
 beforeEach(() => {
-  for (const f of [criar, apagar, enviar, preparar]) f.mockReset()
+  for (const f of [criar, atualizar, apagar, enviar, preparar]) f.mockReset()
   vi.mocked(toast.error).mockClear()
   consulta = { data: [item], isLoading: false, isError: false }
   vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:previa', revokeObjectURL: () => {} }))
@@ -81,5 +82,31 @@ describe('Cardápio do produtor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Excluir Gin' }))
     fireEvent.click(screen.getByRole('button', { name: 'Excluir' }))
     await waitFor(() => expect(apagar).toHaveBeenCalledWith('m1'))
+  })
+
+  it('salvamento falha depois do envio: a nova tentativa reaproveita a foto já enviada', async () => {
+    preparar.mockResolvedValue({ blob: new Blob(['x'], { type: 'image/webp' }), previewUrl: 'blob:p' })
+    enviar.mockResolvedValue('https://x/cardapio-itens/u1/abc.webp')
+    criar.mockRejectedValueOnce(new Error('falhou')).mockResolvedValue({})
+    montar()
+    novoComNome('Gin')
+    escolher(new File(['x'], 'a.png', { type: 'image/png' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar item' }))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('falhou'))
+    fireEvent.click(screen.getByRole('button', { name: 'Cadastrar item' }))
+    await waitFor(() => expect(criar).toHaveBeenCalledTimes(2))
+    expect(enviar).toHaveBeenCalledTimes(1)
+    expect(criar.mock.calls[1][0].image_url).toBe('https://x/cardapio-itens/u1/abc.webp')
+  })
+
+  it('remover foto de item salvo manda image_url vazio ao hook de atualização', async () => {
+    consulta = { data: [{ ...item, image_url: 'https://x/a.webp' }], isLoading: false, isError: false }
+    atualizar.mockResolvedValue({})
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Gin' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remover foto' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar alterações' }))
+    await waitFor(() => expect(atualizar).toHaveBeenCalledTimes(1))
+    expect(atualizar.mock.calls[0][0].image_url).toBe('')
   })
 })

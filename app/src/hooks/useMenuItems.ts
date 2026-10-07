@@ -134,7 +134,7 @@ export function useUpdateMenuItem() {
           description: item.description,
           price: item.price !== undefined ? Number(item.price) : undefined,
           category: item.category,
-          image_url: item.image_url,
+          image_url: item.image_url === undefined ? undefined : item.image_url || null, // vazio vira NULL; ausente não mexe
           is_available: item.is_available,
           stock: item.stock,
         })

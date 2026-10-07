@@ -59,6 +59,7 @@ export default function ProducerMenu() {
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [form, setForm] = useState<MenuForm>(emptyForm)
   const [foto, setFoto] = useState<File | null>(null) // escolhida, ainda não enviada
+  const [enviada, setEnviada] = useState<string | null>(null) // URL da foto escolhida já enviada (reaproveitada se o salvamento falhar)
   const [previa, setPrevia] = useState<string | null>(null) // blob: local da foto escolhida
   const [excluindo, setExcluindo] = useState<{ id: string; name: string } | null>(null)
   const [enviando, setEnviando] = useState(false)
@@ -70,6 +71,7 @@ export default function ProducerMenu() {
   const limparFoto = () => {
     if (previa) URL.revokeObjectURL(previa)
     setFoto(null)
+    setEnviada(null)
     setPrevia(null)
   }
 
@@ -78,6 +80,7 @@ export default function ProducerMenu() {
     if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { toast.error('Use uma foto JPG, PNG ou WebP.'); return }
     if (previa) URL.revokeObjectURL(previa)
     setFoto(file)
+    setEnviada(null)
     setPrevia(URL.createObjectURL(file))
   }
 
@@ -91,9 +94,15 @@ export default function ProducerMenu() {
       if (foto) {
         if (!user?.id) throw new Error('Entre na sua conta para enviar a foto.')
         setEnviando(true)
-        const pronta = await prepararCapa(foto, form.name)
-        URL.revokeObjectURL(pronta.previewUrl)
-        dados = { ...form, image_url: await enviarFotoItem(pronta.blob, user.id) }
+        let url = enviada
+        if (!url) {
+          // ponytail: reduz ao padrão da capa; aceitar lado máximo menor quando o cardápio público mostrar a foto
+          const pronta = await prepararCapa(foto, form.name)
+          URL.revokeObjectURL(pronta.previewUrl)
+          url = await enviarFotoItem(pronta.blob, user.id)
+          setEnviada(url)
+        }
+        dados = { ...form, image_url: url }
       }
       if (editingId) {
         await updateItem.mutateAsync({ id: editingId, ...dados })
