@@ -17,11 +17,11 @@ import { soltarConfete } from '../../lib/confete'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function Confete({ cor }: { cor: string }) {
+function Confete({ cor, intensidade }: { cor: string; intensidade: number }) {
   useEffect(() => {
-    const d = derivarCor(cor)
+    const d = derivarCor(cor, intensidade)
     return soltarConfete([d.cor, d.duoLuz, '#f2994a']) // cores do evento + acento quente
-  }, [cor])
+  }, [cor, intensidade])
   return null
 }
 
@@ -93,7 +93,7 @@ export default function CheckoutSuccess() {
   return (
     <div className="evento-cor min-h-screen bg-background pb-16 text-foreground" style={varsDoEvento(corEv, false, eventoCompleto?.accent_intensity ?? 100)}>
       {/* Só celebra quando o pagamento está confirmado (um pedido pendente não é festa) */}
-      {ticketsActive && !carregandoEvento && <Confete cor={corEv} />}
+      {ticketsActive && !carregandoEvento && <Confete cor={corEv} intensidade={eventoCompleto?.accent_intensity ?? 100} />}
 
       {/* Topo na cor do evento */}
       <div className="bg-[var(--evento-fundo)] px-5 pb-20 pt-6 text-center">
