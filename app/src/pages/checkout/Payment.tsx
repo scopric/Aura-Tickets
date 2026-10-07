@@ -58,9 +58,12 @@ export default function CheckoutPayment() {
   const [cardCvv, setCardCvv] = useState('')
   // CPF do comprador: só quando algum ingresso do carrinho tem limite por CPF (LGPD: minimização). Fica só neste estado,
   // nunca em storage, URL, log ou toast; o banco grava só o hash.
-  const exigeCpf = !orderIdLugar && (itemsSummary || []).some((i: { max_por_cpf?: number | null }) => i.max_por_cpf != null)
+  // O carrinho pode estar velho (limite ligado depois, ou volta do login): o banco também pode exigir (exigeCpfServidor).
+  const [exigeCpfServidor, setExigeCpfServidor] = useState(false)
+  const exigeCpf = !orderIdLugar && (exigeCpfServidor || (itemsSummary || []).some((i: { max_por_cpf?: number | null }) => i.max_por_cpf != null))
   const [cpf, setCpf] = useState('')
   const [erroCpf, setErroCpf] = useState<string | null>(null)
+  useEffect(() => { if (erroCpf) document.getElementById('comprador-cpf')?.focus() }, [erroCpf])
   // Contagem regressiva da reserva do lugar (só pedido com lugar)
   const [restante, setRestante] = useState(() => (locationState.venceEm ? Math.max(0, Math.ceil((locationState.venceEm - Date.now()) / 1000)) : null))
   useEffect(() => {
@@ -217,6 +220,11 @@ export default function CheckoutPayment() {
     }, {
       onSuccess: seguir,
       onError: (err) => {
+        const e = err as { code?: string; message?: string }
+        if (e.code === '22023' && /^Informe o CPF do comprador/.test(e.message ?? '')) {
+          setExigeCpfServidor(true); setErroCpf('Informe o CPF para continuar'); setProcessing(false)
+          return
+        }
         // 22023: regra do Match de Mesa no banco (menor de idade, 1 por conta, quantidade 1)
         toast.error((err as { code?: string }).code === '22023' ? mesaErro(err) : `Erro ao criar pedido: ${err.message}`, { duration: 7000 })
         setProcessing(false)

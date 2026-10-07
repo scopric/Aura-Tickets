@@ -99,7 +99,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
                 <Label htmlFor={`${id}-cpf`} className="text-xs text-muted-foreground">Limite por CPF</Label>
                 <Input id={`${id}-cpf`} inputMode="numeric" className="min-h-11" value={g.maxCpf} aria-invalid={!!e.cpf} aria-describedby={e.cpf ? `${id}-cpf-erro` : undefined} onChange={ev => muda(g.id, { maxCpf: ev.target.value })} />
               </div>
-              <p className="self-end text-xs text-muted-foreground">Vazio = sem limite. Com limite, o comprador informa o CPF no pagamento e o sistema guarda só um código (hash), nunca o CPF.</p>
+              <p className="self-end text-xs text-muted-foreground">Vazio = sem limite. Com limite, o comprador informa o CPF no pagamento e o sistema guarda só um código (hash), nunca o CPF. Não vale para ingresso de lugar marcado (mapa de assentos).</p>
             </div>
 
             {[
