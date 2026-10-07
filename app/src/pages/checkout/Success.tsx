@@ -191,7 +191,7 @@ export default function CheckoutSuccess() {
               </div>
             )}
 
-            {pedidoDaConta && pedidoDaConta.total != null && (
+            {pedidoDaConta && pedidoDaConta.total != null && pedidoDaConta.subtotal != null && (
               <div className={cartao}>
                 <div className="flex justify-between gap-3 py-1.5 text-sm leading-5">
                   <span className="text-muted-foreground">Ingresso</span>

@@ -50,10 +50,10 @@ describe('textoPreco', () => {
 })
 
 describe('brlOuGratis', () => {
-  it('zero, nulo e indefinido viram "Grátis"; valor positivo vira reais', () => {
-    expect(brlOuGratis(0)).toBe('Grátis')
-    expect(brlOuGratis(null)).toBe('Grátis')
-    expect(brlOuGratis(undefined)).toBe('Grátis')
+  it('zero, nulo e indefinido viram "Gratuito"; valor positivo vira reais', () => {
+    expect(brlOuGratis(0)).toBe('Gratuito')
+    expect(brlOuGratis(null)).toBe('Gratuito')
+    expect(brlOuGratis(undefined)).toBe('Gratuito')
     expect(brlOuGratis(13)).toMatch(/R\$\s13,00/)
   })
 })
