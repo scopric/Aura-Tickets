@@ -486,3 +486,14 @@ describe('mapa pendência → seção e campo (o que falta no campo)', () => {
     }
   })
 })
+
+describe('campo do ingresso pendente', () => {
+  it('com mudança não salva o alvo é o botão Salvar (nunca um campo já correto)', () => {
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A' })], true)).toBe('ing-salvar')
+    expect(campoDaPendencia('ingresso', form(), [], true)).toBe('ing-salvar')
+  })
+  it('sem mudança: o preço do primeiro ingresso ATIVO (senão o primeiro)', () => {
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false }), ing({ id: 'B' })])).toBe('ing-B-preco')
+    expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false })])).toBe('ing-A-preco')
+  })
+})

@@ -188,7 +188,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
   const [mostrarFaltas, setMostrarFaltas] = useState(false) // depois de "Enviar" / "Ver o que falta": cada campo pendente mostra o erro
-  const [destaque, setDestaque] = useState<number | null>(null) // índice do passo do destaque (null = fechado)
+  const [destaque, setDestaque] = useState<{ i: number; k: number } | null>(null) // passo do destaque (null = fechado); k muda a cada abertura e refaz a lista congelada
   const [abertas, setAbertas] = useState<string[]>(['oque'])
   // Modo guiado (decisão 164.1): todo produtor, em rascunho, até concluir ou pular. Leitura com erro = painel normal.
   const { feitos, registrar, carregou, erro: erroGuia } = useTourLog({ ativo: modo === 'rascunho' })
@@ -268,7 +268,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const lista = pendenciasDoPainel(form, ingsSalvos, aceiteMarcado || modo === 'publicado' || modo === 'analise')
   const prontos = lista.filter(p => p.pronto).length
   const faltas: Falta[] = [
-    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]], campo: campoDaPendencia(p.id, form, ings), msg: MSG_PENDENCIA[p.id] })),
+    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]], campo: campoDaPendencia(p.id, form, ings, ingSujo), msg: MSG_PENDENCIA[p.id] })),
     ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos', campo: 'ing-salvar', msg: 'Salve os ingressos.' }] : []),
     ...(erroNome ? [{ rotulo: 'Escrever o nome do evento', secao: 'oque', nomeSecao: 'O que é', campo: 'f-nome', msg: MSG_PENDENCIA.nome }] : []),
     ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde', campo: erros.inicio ? 'f-inicio' : 'f-fim', msg: 'Corrija as datas.' }] : []),
@@ -325,7 +325,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   // abre a seção do passo e deixa o DestaqueCampo rolar e focar (ele espera o campo existir)
   const irAoPasso = (i: number) => {
     if (!alvos[i]) return
-    setMostrarFaltas(true); setDestaque(i); abrir(alvos[i].secao, false)
+    setMostrarFaltas(true); setDestaque(d => ({ i, k: (d?.k ?? 0) + 1 })); abrir(alvos[i].secao, false)
   }
   const fechaDestaque = useCallback(() => setDestaque(null), [])
 
@@ -604,9 +604,9 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       </div>
 
       {mostrarFaltas && alvos.length > 0 && !guiado && (
-        <Faixa tom="atencao" className="mb-4" titulo={`Faltam ${alvos.length} ${alvos.length === 1 ? 'item' : 'itens'}`} acoes={<Button size="sm" onClick={() => irAoPasso(destaque === null ? 0 : (destaque + 1) % alvos.length)}>Ir ao próximo</Button>} />
+        <Faixa tom="atencao" className="mb-4" titulo={`Faltam ${alvos.length} ${alvos.length === 1 ? 'item' : 'itens'}`} acoes={<Button size="sm" onClick={() => irAoPasso(0)}>Ir ao próximo</Button>} />
       )}
-      {destaque !== null && alvos.length > 0 && <DestaqueCampo alvos={alvos} indice={destaque} onIndice={irAoPasso} onFechar={fechaDestaque} />}
+      {destaque !== null && alvos.length > 0 && <DestaqueCampo key={destaque.k} alvos={alvos} indice={destaque.i} onIndice={(i, a) => { setDestaque(d => d && { ...d, i }); abrir(a.secao, false) }} onFechar={fechaDestaque} />}
 
       {guiado && (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">

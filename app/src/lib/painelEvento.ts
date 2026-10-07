@@ -281,8 +281,8 @@ export const MSG_PENDENCIA: Record<Pendencia['id'], string> = {
   classificacao: 'Escolha a classificação indicativa.', aceite: 'Marque o aceite do produtor.',
 }
 
-/** Id do campo que resolve a pendência. Ingresso: o primeiro salvo sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
-export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[]): string {
+/** Id do campo que resolve a pendência. Ingresso: com mudança não salva, o botão "Salvar" (é o que falta); senão o primeiro sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
+export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[], ingSujo = false): string {
   switch (id) {
     case 'nome': return 'f-nome'
     case 'formato': return 'f-formato'
@@ -292,8 +292,11 @@ export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[]): str
       if (f.local_modo === 'online') return 'f-link'
       return !f.venue_name.trim() ? 'f-lnome' : !f.venue_city.trim() ? 'f-cep' : 'f-link'
     case 'ingresso': {
+      if (ingSujo) return 'ing-salvar'
       const g = ings.find(i => i.ativo && (!i.nome.trim() || !quantidadeDe(i.qtd)))
-      return g ? `ing-${g.id}-${!g.nome.trim() ? 'nome' : 'qtd'}` : ings[0] ? `ing-${ings[0].id}-preco` : 'ing-novo'
+      if (g) return `ing-${g.id}-${!g.nome.trim() ? 'nome' : 'qtd'}`
+      const alvo = ings.find(i => i.ativo) ?? ings[0]
+      return alvo ? `ing-${alvo.id}-preco` : 'ing-novo'
     }
     case 'classificacao': return 'f-class'
     case 'aceite': return 'f-aceite'
