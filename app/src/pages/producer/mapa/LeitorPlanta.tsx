@@ -81,7 +81,11 @@ export default function PainelLeitor({ leitor, naoCalibrada, onLer, onAplicar, o
     const antes = document.activeElement as HTMLElement | null
     return () => antes?.focus?.()
   }, [])
-  useEffect(() => { raiz.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus() }, [!!prop])
+  // um quadro depois: a gaveta que acabou de fechar devolve o foco ao botão dela no mesmo instante
+  useEffect(() => {
+    const q = requestAnimationFrame(() => raiz.current?.querySelector<HTMLElement>('button:not(:disabled)')?.focus())
+    return () => cancelAnimationFrame(q)
+  }, [!!prop])
   const descartar = () => { leitor.descartar(); onFechar() }
   const teclas = (e: TeclaReact) => {
     if (e.key === 'Escape') { e.stopPropagation(); if (prop) descartar(); else onFechar() }
@@ -166,7 +170,7 @@ export default function PainelLeitor({ leitor, naoCalibrada, onLer, onAplicar, o
           A escala ainda não foi calibrada. Calibre antes de aplicar (<strong>Calibrar escala</strong>, em Planta de fundo): calibrar depois muda os metros e desalinha as peças da planta.
         </p>
       )}
-      <div className="flex gap-2 pt-1">
+      <div className="sticky bottom-0 -mb-4 flex gap-2 bg-card pb-4 pt-2">
         <Button variant="outline" className="flex-1 max-lg:h-10" onClick={descartar}>Descartar</Button>
         <Button className="flex-1 max-lg:h-10" disabled={marcadas === 0} onClick={onAplicar}>Aplicar ao mapa ({marcadas})</Button>
       </div>

@@ -233,6 +233,13 @@ export default function EditorKonva() {
   const quadro: Quadro | null = fundo && planta.img
     ? { offset: fundo.offset, scale: fundo.scale, naturalWidth: planta.img.naturalWidth, naturalHeight: planta.img.naturalHeight, pixelsPerMeter: ppm }
     : null
+  // Ao chegar a proposta, enquadra a planta inteira na metade de cima da tela (o painel de revisão ocupa a de baixo)
+  const temProposta = !!leitor.propostaAtual
+  useEffect(() => {
+    if (!temProposta || !quadro || !tam.h) return
+    const l = quadro.scale * LARGURA_BASE_PX
+    setVista(ajustarTela({ x: quadro.offset.x / ppm, y: quadro.offset.y / ppm, w: l / ppm, h: (l * quadro.naturalHeight) / quadro.naturalWidth / ppm }, tam.w, tam.h * 0.5, ppm))
+  }, [temProposta]) // eslint-disable-line react-hooks/exhaustive-deps
   // Só as peças marcadas, num único passo do desfazer; nós que já existem não são tocados
   const aplicarLeitura = () => {
     const p = leitor.propostaAtual
@@ -741,7 +748,7 @@ export default function EditorKonva() {
             <p className="text-xs text-muted-foreground">{sel?.tipo === 'parede' ? 'Parede selecionada.' : 'Clique em um elemento para mudar só a cor dele.'}</p>
           )}
         </section>
-        <PlantaFundo key={eventId} envsCount={envs.length} eventId={eventId} fundo={fundo} onFundo={setFundo} modo={modoPlanta} onModo={escolherModo} erroImagem={!!planta.erro} onLerIA={() => setLeitorAberto(true)} />
+        <PlantaFundo key={eventId} envsCount={envs.length} eventId={eventId} fundo={fundo} onFundo={setFundo} modo={modoPlanta} onModo={escolherModo} erroImagem={!!planta.erro} onLerIA={() => { setGaveta(''); setLeitorAberto(true) }} />
       </aside>
       </div>
       <footer aria-label="Totais do pavimento" className="flex flex-shrink-0 items-center gap-5 overflow-x-auto whitespace-nowrap border-t border-border bg-card px-3 py-2 text-xs text-muted-foreground">
