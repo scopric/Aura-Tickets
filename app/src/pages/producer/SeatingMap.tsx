@@ -340,6 +340,7 @@ export default function SeatingMap() {
   // Mapa carregado do evento escolhido e salvo por último (para o aviso de alterações não salvas)
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState(false)
+  const [ativo, setAtivo] = useState(false) // seating_maps.is_active: o comprador só vê o mapa se o produtor ligar (grava junto com Salvar)
   const [salvo, setSalvo] = useState<string | null>(null)
 
   // Environments (múltiplos espaços)
@@ -581,6 +582,7 @@ export default function SeatingMap() {
     const iniciais = novosPavimentos()
     setPronto(false)
     setErroMapa(false)
+    setAtivo(false)
     setSalvo(null)
     setEnvironments(iniciais)
     setActiveEnv(0)
@@ -611,6 +613,7 @@ export default function SeatingMap() {
         return
       }
 
+      setAtivo(data?.is_active === true)
       if (data?.environments && Array.isArray(data.environments)) {
         const loadedEnvs = (data.environments as Environment[]).map(env => ({
           ...env,
@@ -702,7 +705,8 @@ export default function SeatingMap() {
         event_id: eventId,
         name: environments[activeEnv]?.name || 'Principal',
         config: { zoom, pan, background: fundo },
-        environments: environments
+        environments: environments,
+        is_active: ativo
       }, { onConflict: 'event_id' })
 
     if (error) {
@@ -2219,6 +2223,19 @@ export default function SeatingMap() {
           {seletorEvento}
           <Button size="sm" onClick={handleSaveMap} disabled={!pronto} className="ml-2">
             <I.Guardar aria-hidden="true" /> Salvar
+          </Button>
+          <Button
+            size="sm"
+            variant={ativo ? 'default' : 'outline'}
+            aria-pressed={ativo}
+            disabled={!pronto}
+            onClick={() => {
+              setAtivo(a => !a)
+              if (!ativo) toast.warning('Com o mapa ligado o comprador escolhe o lugar, que fica reservado por 10 minutos. Mudar ou apagar um lugar já vendido não altera o ingresso emitido. Clique em Salvar para valer.', { duration: 9000 })
+              else toast.info('Mapa desligado: clique em Salvar para o comprador deixar de ver.')
+            }}
+          >
+            <I.Lugar aria-hidden="true" /> {ativo ? 'Mapa visível para o comprador' : 'Mostrar mapa para o comprador'}
           </Button>
         </div>
 

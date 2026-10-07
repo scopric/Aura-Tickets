@@ -24,6 +24,8 @@ export default function CheckoutPayment() {
     cart?: Record<string, number>
     totalAmount?: number
     itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number }[]
+    orderId?: string // pedido de lugar marcado, já criado (e reservado por 10 min) pelo banco em reservar_assentos
+    venceEm?: number // fim da reserva no relógio deste aparelho (Date.now)
   }
   const pendingCheckout = (() => {
     try {
@@ -40,6 +42,7 @@ export default function CheckoutPayment() {
   // Recalcula aqui: o totalAmount do sessionStorage pode ter a taxa antiga de 5%.
   const resumo = resumoCarrinho((itemsSummary || []).map((i: { price: number; quantity: number }) => ({ preco: i.price, qtd: i.quantity })))
 
+  const orderIdLugar = locationState.orderId
   const gratis = resumo.total === 0 && (itemsSummary?.length ?? 0) > 0
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card')
   const [pixData, setPixData] = useState<{ qrCodeData: string; qrCodeImageUrl: string } | null>(null)
@@ -53,6 +56,15 @@ export default function CheckoutPayment() {
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
+  // Contagem regressiva da reserva do lugar (só pedido com lugar)
+  const [restante, setRestante] = useState(() => (locationState.venceEm ? Math.max(0, Math.ceil((locationState.venceEm - Date.now()) / 1000)) : null))
+  useEffect(() => {
+    const fim = locationState.venceEm
+    if (!orderIdLugar || !fim) return
+    const t = setInterval(() => setRestante(Math.max(0, Math.ceil((fim - Date.now()) / 1000))), 1000)
+    return () => clearInterval(t)
+  }, [orderIdLugar, locationState.venceEm])
+  const esgotado = !!orderIdLugar && restante === 0
   const [qrAberto, setQrAberto] = useState(false)
   const [pixCopiado, setPixCopiado] = useState(false)
 
@@ -63,28 +75,8 @@ export default function CheckoutPayment() {
     }
   }, [eventId, itemsSummary, navigate])
 
-  const handlePay = async () => {
-    if (!eventId || !cart || !itemsSummary) {
-      toast.error('Detalhes do pedido inválidos.')
-      return
-    }
-
-    if (!gratis && paymentMethod === 'credit_card') {
-      if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
-        toast.error('Por favor, preencha todos os campos do cartão.')
-        return
-      }
-    }
-
-    setProcessing(true)
-
-    // 1. Criar o pedido (Order) no banco via Supabase
-    createOrderMutation.mutate({
-      event_id: eventId,
-      items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
-      payment_method: gratis ? null : paymentMethod,
-    }, {
-      onSuccess: async (order) => {
+  // Depois do pedido pronto: grátis confirma no banco; cartão e Pix pedem a cobrança
+  const seguir = async (order: { id: string; total: number | string; customer_name?: string | null; customer_email?: string | null }) => {
         try {
           // Quem decide é o total devolvido pelo banco, não o que a tela mostrava (sessionStorage pode estar velho)
           if (Number(order.total) === 0) {
@@ -176,7 +168,44 @@ export default function CheckoutPayment() {
           toast.error(err.message || 'Falha ao processar pagamento.')
           setProcessing(false)
         }
-      },
+  }
+
+  const handlePay = async () => {
+    if (!eventId || !cart || !itemsSummary) {
+      toast.error('Detalhes do pedido inválidos.')
+      return
+    }
+
+    if (esgotado) return
+    if (!gratis && paymentMethod === 'credit_card') {
+      if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
+        toast.error('Por favor, preencha todos os campos do cartão.')
+        return
+      }
+    }
+
+    setProcessing(true)
+
+    // 1. Criar o pedido (Order) no banco via Supabase (pedido de lugar: o banco já criou em reservar_assentos, só lê)
+    if (orderIdLugar) {
+      const { data, error } = await supabase.from('orders')
+        .select('id, total, status, customer_name, customer_email').eq('id', orderIdLugar).maybeSingle()
+      const pedido = data as unknown as { id: string; total: number; status: string; customer_name: string | null; customer_email: string | null } | null
+      if (error || !pedido || pedido.status !== 'pending') {
+        toast.error('O tempo da reserva acabou. Escolha os lugares de novo.')
+        setRestante(0)
+        setProcessing(false)
+        return
+      }
+      await seguir(pedido)
+      return
+    }
+    createOrderMutation.mutate({
+      event_id: eventId,
+      items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
+      payment_method: gratis ? null : paymentMethod,
+    }, {
+      onSuccess: seguir,
       onError: (err) => {
         // 22023: regra do Match de Mesa no banco (menor de idade, 1 por conta, quantidade 1)
         toast.error((err as { code?: string }).code === '22023' ? mesaErro(err) : `Erro ao criar pedido: ${err.message}`, { duration: 7000 })
@@ -212,6 +241,21 @@ export default function CheckoutPayment() {
         </div>
 
         <div className="space-y-4">
+          {esgotado ? (
+            <div role="alert" className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
+              <h2 className="text-lg font-semibold leading-7">Tempo esgotado</h2>
+              <p className="text-sm leading-5 text-muted-foreground">Os lugares voltaram a ficar livres. Escolha de novo no mapa.</p>
+              <Button type="button" size="lg" className="w-full rounded-full" onClick={() => navigate('/checkout', { replace: true, state: { eventId, cart: {}, abrirMapa: true } })}>
+                Voltar ao mapa
+              </Button>
+            </div>
+          ) : restante !== null && orderIdLugar && (
+            <p role="timer" className="flex items-center gap-2 rounded-ev-xl bg-secondary px-4 py-3 text-sm font-semibold leading-5">
+              <I.Lugar size={16} aria-hidden="true" />
+              Seu lugar fica reservado por {String(Math.floor(restante / 60)).padStart(2, '0')}:{String(restante % 60).padStart(2, '0')}
+            </p>
+          )}
+
           {/* Forma de pagamento */}
           {!pixData && !gratis && (
             <div role="radiogroup" aria-label="Forma de pagamento" className="grid gap-2">
@@ -307,7 +351,7 @@ export default function CheckoutPayment() {
               <I.Info size={14} />
               Ambiente de teste: a cobrança ainda não está ativa e nenhum valor é debitado.
             </p>
-            {!pixData && (
+            {!pixData && !esgotado && (
               <Button type="button" size="lg" className="mt-4 w-full rounded-full" onClick={handlePay} loading={ocupado}>
                 {!gratis && <I.Cadeado size={16} />}
                 {gratis ? 'Garantir ingresso grátis' : 'Pagar Agora'}

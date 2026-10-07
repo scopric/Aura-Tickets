@@ -82,6 +82,23 @@ describe('Lugar marcado: salvar', () => {
     await waitFor(() => expect(h.toast.success).toHaveBeenCalledWith('Mapa de assentos salvo!'))
   })
 
+  it('o mapa só aparece ao comprador se o produtor ligar: Salvar grava is_active (desligado por padrão) e o botão avisa', async () => {
+    montar('/producer/seating?eventId=e2')
+    const salvar = await screen.findByRole('button', { name: /Salvar/ })
+    await waitFor(() => expect((salvar as HTMLButtonElement).disabled).toBe(false))
+    fireEvent.click(salvar)
+    await waitFor(() => expect(h.upsert).toHaveBeenCalledTimes(1))
+    expect(h.upsert.mock.calls[0][0].is_active).toBe(false)
+    const ligar = screen.getByRole('button', { name: /Mostrar mapa para o comprador/ })
+    expect(ligar.getAttribute('aria-pressed')).toBe('false')
+    fireEvent.click(ligar)
+    expect(h.toast.warning).toHaveBeenCalledWith(expect.stringMatching(/reservado por 10 minutos.*já vendido/), expect.anything())
+    expect(screen.getByRole('button', { name: /Mapa visível para o comprador/ }).getAttribute('aria-pressed')).toBe('true')
+    fireEvent.click(salvar)
+    await waitFor(() => expect(h.upsert).toHaveBeenCalledTimes(2))
+    expect(h.upsert.mock.calls[1][0].is_active).toBe(true)
+  })
+
   it('erro do banco aparece como erro, não como "salvo localmente"', async () => {
     h.upsert.mockResolvedValue({ error: { message: 'permission denied' } })
     montar('/producer/seating?eventId=e1')

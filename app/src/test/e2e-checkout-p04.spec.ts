@@ -7,8 +7,12 @@ type Tipo = Record<string, unknown>
 const tipo = (o: Tipo): Tipo => ({ id: 'tt-1', name: 'Pista', price: 50, type: 'individual', is_active: true, quantity_total: null, sold: 0, sale_start: null, sale_end: null, max_per_order: null, ...o })
 const EVENTO = { id: 'evt-001', title: 'Festa Teste', status: 'published', approval_status: 'approved', start_date: iso(48 * H), end_date: iso(52 * H), date: null, time: null }
 type Cap = { orders: any[]; rpcs: { nome: string; body: any }[]; fn: any[] }
+const ASSENTOS = [
+  { id: 's1', type: 'seat', label: 'A1', x: 2, y: 2, sectionId: 'vip', status: 'free', price: 50, color: '#000' },
+  { id: 's2', type: 'seat', label: 'A2', x: 4, y: 2, sectionId: 'vip', status: 'free', price: 50, color: '#000' },
+]
 
-async function preparar(page: Page, o: { ingressos: Tipo[]; evento?: Record<string, unknown>; cart?: Record<string, number>; mapa?: boolean; destino?: string }): Promise<Cap> {
+async function preparar(page: Page, o: { ingressos: Tipo[]; evento?: Record<string, unknown>; cart?: Record<string, number>; mapa?: boolean; destino?: string; vencePorSeg?: number }): Promise<Cap> {
   const cap: Cap = { orders: [], rpcs: [], fn: [] }
   const evento = { ...EVENTO, ...o.evento }
   const cart = o.cart ?? {}
@@ -16,14 +20,21 @@ async function preparar(page: Page, o: { ingressos: Tipo[]; evento?: Record<stri
   await page.route('**/rest/v1/rpc/evento_publico*', (r) => r.fulfill({ json: { evento, ingressos: o.ingressos } }))
   await page.route('**/rest/v1/rpc/confirmar_pedido_gratis*', (r) => { cap.rpcs.push({ nome: 'confirmar_pedido_gratis', body: r.request().postDataJSON() }); return r.fulfill({ json: null }) })
   await page.route('**/rest/v1/seating_maps*', (r) => r.fulfill({ json: o.mapa
-    ? { environments: [{ id: 'terreo', name: 'Térreo', sections: [{ id: 'vip', name: 'VIP', color: '#000', price: 50, ticketTypeId: 'tt-1' }], seats: [{ id: 's1', type: 'seat', label: 'A1', x: 2, y: 2, sectionId: 'vip', status: 'free', price: 50, color: '#000' }] }] }
+    ? { environments: [{ id: 'terreo', name: 'Térreo', sections: [{ id: 'vip', name: 'VIP', color: '#000', price: 50, ticketTypeId: 'tt-1' }], seats: ASSENTOS }] }
     : null }))
+  // lugar marcado: A2 já vendido; a reserva devolve o pedido e o prazo (o banco real faz isso em reservar_assentos)
+  await page.route('**/rest/v1/rpc/assentos_ocupados*', (r) => r.fulfill({ json: [{ seat_key: 'terreo:s2', estado: 'vendido' }] }))
+  await page.route('**/rest/v1/rpc/reservar_assentos*', (r) => {
+    cap.rpcs.push({ nome: 'reservar_assentos', body: r.request().postDataJSON() })
+    return r.fulfill({ json: { order_id: 'ord-seat', expira_em: iso((o.vencePorSeg ?? 600) * 1000), agora: iso(0) } })
+  })
   await page.route('**/rest/v1/orders*', (r) => {
     const req = r.request()
     if (req.method() === 'POST') {
       const b = req.postDataJSON(); cap.orders.push(b)
       return r.fulfill({ status: 201, json: { id: 'ord-new', total: b.total, gateway_payment_id: null, customer_name: 'Maria', customer_email: 'user@aura.teste', status: 'pending', payment_method: b.payment_method } })
     }
+    if (req.url().includes('ord-seat')) return r.fulfill({ json: { id: 'ord-seat', total: 55, status: 'pending', customer_name: 'Maria', customer_email: 'user@aura.teste' } })
     return r.fulfill({ json: [] })
   })
   await page.route('**/rest/v1/order_items*', (r) => r.fulfill(r.request().method() === 'POST' ? { status: 201, json: [] } : { json: [] }))
@@ -119,6 +130,34 @@ test.describe('Checkout P04', () => {
     expect(await qtd(page, 'Pista')).toBe(2)
     await expect(page.getByText(/100,00/).first()).toBeVisible()
     await page.screenshot({ path: 'test-results/p04-mapa.png', fullPage: true })
+  })
+
+  test('5b. lugar marcado: escolhe A1, A2 vendido não clica, reserva, vai ao pagamento com a contagem e o pedido do banco', async ({ page }) => {
+    const cap = await preparar(page, { ingressos: [tipo({})], mapa: true })
+    await page.getByRole('button', { name: 'Ver o mapa do salão' }).click()
+    await expect(page.getByRole('button', { name: 'A2' })).toHaveCount(0) // vendido: não é botão
+    await page.getByRole('button', { name: 'A1' }).click()
+    await expect(page.getByText('1 lugar escolhido')).toBeVisible()
+    await page.screenshot({ path: 'test-results/p03-lugar-escolhido.png', fullPage: true })
+    await page.getByRole('button', { name: /Continuar para Pagamento/ }).click()
+    await expect(page).toHaveURL(/checkout\/payment/)
+    expect(cap.rpcs).toEqual([{ nome: 'reservar_assentos', body: { p_event: 'evt-001', p_seats: ['terreo:s1'] } }])
+    await expect(page.getByRole('timer')).toContainText(/Seu lugar fica reservado por 09:5\d|Seu lugar fica reservado por 10:00/)
+    expect(cap.orders).toHaveLength(0) // o pedido veio da reserva: o navegador não cria outro
+    await page.screenshot({ path: 'test-results/p03-pagamento-contagem.png', fullPage: true })
+  })
+
+  test('5c. lugar marcado: a contagem zera, mostra "Tempo esgotado" e volta ao mapa', async ({ page }) => {
+    await preparar(page, { ingressos: [tipo({})], mapa: true, vencePorSeg: 3 })
+    await page.getByRole('button', { name: 'Ver o mapa do salão' }).click()
+    await page.getByRole('button', { name: 'A1' }).click()
+    await page.getByRole('button', { name: /Continuar para Pagamento/ }).click()
+    await expect(page.getByRole('alert')).toContainText('Tempo esgotado', { timeout: 8000 })
+    await expect(page.getByRole('button', { name: /Pagar Agora/ })).toHaveCount(0)
+    await page.screenshot({ path: 'test-results/p03-tempo-esgotado.png', fullPage: true })
+    await page.getByRole('button', { name: 'Voltar ao mapa' }).click()
+    await expect(page).toHaveURL(/\/checkout$/)
+    await expect(page.getByRole('button', { name: 'A1' })).toBeVisible()
   })
 
   test('6. fluxo pago (Pix): amount = total do pedido', async ({ page }) => {
