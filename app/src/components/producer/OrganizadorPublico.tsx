@@ -65,7 +65,7 @@ export function validar(f: Form): Erros {
     const erroRede = erroUrl(url)
     if (erroRede) { e.redes = erroRede; break }
   }
-  if (!e.redes && JSON.stringify(f.redes.filter(r => r.rotulo.trim() || r.url.trim())).length > 950) e.redes = 'Encurte os endereços das redes'
+  if (!e.redes && JSON.stringify(f.redes.map(r => ({ rotulo: r.rotulo.trim(), url: normalizaUrl(r.url) })).filter(r => r.rotulo || r.url)).length > 950) e.redes = 'Encurte os endereços das redes'
   return e
 }
 
@@ -172,7 +172,7 @@ export default function OrganizadorPublico() {
         <PhoneInput id={p.id} aria-describedby={p.describedby} aria-invalid={!!erros.whatsapp} apenasBrasil value={f.whatsapp} onChange={v => set({ whatsapp: v.replace(/\D/g, '').length <= 2 ? '' : v })} />
       ))}
       {campo('instagram', 'Instagram', 'Só o nome de usuário, com ou sem @.', erros.instagram, p => texto('instagram', p, { maxLength: 31, autoCapitalize: 'none' }))}
-      {campo('site', 'Site', 'Pode digitar só www.seusite.com.br: o https:// entra sozinho.', erros.site, p => texto('site', p, { inputMode: 'url', placeholder: 'www.seusite.com.br', onBlur: () => set({ site: normalizaUrl(f.site) }) }))}
+      {campo('site', 'Site', 'Pode digitar só www.seusite.com.br: o https:// entra sozinho.', erros.site, p => texto('site', p, { inputMode: 'url', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false, placeholder: 'www.seusite.com.br', onBlur: () => set({ site: normalizaUrl(f.site) }) }))}
       {campo('email', 'E-mail de contato', null, erros.email, p => texto('email', p, { type: 'email', autoComplete: 'email' }))}
 
       {campo('outras_redes', 'Outras redes', `Até ${MAX_REDES}. Nome da rede e endereço. Pode digitar só www.seusite.com.br: o https:// entra sozinho.`, erros.redes, p => (
@@ -181,7 +181,7 @@ export default function OrganizadorPublico() {
             <div key={i} className="flex flex-col gap-2 sm:flex-row">
               <Input aria-label={`Nome da rede ${i + 1}`} placeholder="Nome (ex.: TikTok)" maxLength={30} value={r.rotulo}
                 onChange={e => set({ redes: f.redes.map((x, j) => j === i ? { ...x, rotulo: e.target.value } : x) })} className="sm:w-1/3" />
-              <Input aria-label={`Endereço da rede ${i + 1}`} placeholder="www.seusite.com.br" inputMode="url" value={r.url}
+              <Input aria-label={`Endereço da rede ${i + 1}`} placeholder="www.seusite.com.br" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={r.url}
                 onBlur={() => set({ redes: f.redes.map((x, j) => j === i ? { ...x, url: normalizaUrl(x.url) } : x) })}
                 onChange={e => set({ redes: f.redes.map((x, j) => j === i ? { ...x, url: e.target.value } : x) })} />
               <Button type="button" variant="outline" aria-label={`Remover rede ${i + 1}`} onClick={() => set({ redes: f.redes.filter((_, j) => j !== i) })}>

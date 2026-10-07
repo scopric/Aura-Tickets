@@ -104,6 +104,25 @@ describe('OrganizadorPublico', () => {
     }))
   })
 
+  it('site e rede vazios vão como null e são descartados', async () => {
+    montar({ ...linha, site: null, outras_redes: null })
+    fireEvent.change(await screen.findByLabelText('Instagram'), { target: { value: 'paula' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    expect(rpc).toHaveBeenCalledWith('salvar_organizador_publico', expect.objectContaining({ p_site: null, p_outras_redes: null }))
+  })
+
+  it('o limite das redes conta o https:// que entra sozinho', async () => {
+    const redes = Array.from({ length: 5 }, (_, i) => ({ rotulo: `R${i}`, url: `a.com/${'x'.repeat(155)}` }))
+    expect(JSON.stringify(redes).length).toBeLessThanOrEqual(950)
+    montar({ ...linha, outras_redes: redes.map(r => ({ ...r, url: 'https://a.com' })) })
+    fireEvent.change(await screen.findByLabelText('Endereço da rede 1'), { target: { value: redes[0].url } })
+    for (let i = 2; i <= 5; i++) fireEvent.change(screen.getByLabelText(`Endereço da rede ${i}`), { target: { value: redes[i - 1].url } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(await screen.findByText('Encurte os endereços das redes')).toBeInTheDocument()
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
   it('site com a marca mostra o motivo da marca', async () => {
     montar(linha)
     fireEvent.change(await screen.findByLabelText('Site'), { target: { value: 'www.evokaa.com.br' } })

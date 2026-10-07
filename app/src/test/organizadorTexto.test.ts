@@ -20,6 +20,8 @@ describe('organizadorTexto', () => {
     expect(normalizaUrl('www.x.com.br')).toBe('https://www.x.com.br')
     expect(normalizaUrl('http://x.com')).toBe('https://x.com')
     expect(normalizaUrl('HTTP://x.com')).toBe('https://x.com')
+    expect(normalizaUrl('HTTPS://a.com')).toBe('https://a.com')
+    expect(normalizaUrl('Https://a.com')).toBe('https://a.com')
     expect(normalizaUrl(' x.com ')).toBe('https://x.com')
     expect(normalizaUrl('   ')).toBe('')
     for (const u of ['javascript:alert(1)', 'ftp://x.com', 'data:text/html,x']) expect(normalizaUrl(u)).toBe(u)

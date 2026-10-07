@@ -23,7 +23,7 @@ export const hostOk = (url: string) => {
 export const normalizaUrl = (s: string) => {
   const t = s.trim()
   if (!t) return ''
-  if (/^http:\/\//i.test(t)) return t.replace(/^http/i, 'https')
+  if (/^https?:\/\//i.test(t)) return t.replace(/^https?:\/\//i, 'https://')
   return /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`
 }
 
