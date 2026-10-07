@@ -11,39 +11,39 @@ export const REFERENCIAS: Record<string, Referencia> = {
   table: d('lugar', 'Mesa com cadeiras em volta. Você define quantos lugares ela tem.'),
   buffet_table: d('vapor', 'Mesa comprida onde a comida fica exposta para o público se servir. Não vende ingresso.'),
   round_buffet: d('vapor', 'Mesa de buffet redonda, onde a comida fica exposta para o público se servir. Não vende ingresso.'),
-  bistro: d('lugar', 'Mesa alta e pequena, sem cadeiras, onde o público fica em pé para conversar e apoiar a bebida.'),
+  bistro: d('lugar', 'Mesa alta e pequena, em geral com banquetas ou sem assento, para o público apoiar a bebida em pé.'),
   couch: d('lugar', 'Sofá para uma área de descanso e conversa, como num espaço lounge.'),
   vip_lounge: d('lugar', 'Área reservada e mais confortável para convidados ou público VIP, com sofás e mesas.'),
   bleacher: d('lugar', 'Arquibancada: fileiras de degraus onde o público assiste sentado, mais alto que o chão.'),
   poltrona: d('lugar', 'Assento estofado e fixo, como o de teatro e de cinema.'),
-  cadeira_pne: d('lugar', 'Lugar reservado a pessoa com deficiência ou mobilidade reduzida, com espaço extra ao redor.'),
+  cadeira_pne: d('lugar', 'Lugar reservado a pessoa com deficiência ou mobilidade reduzida.'),
   espaco_cadeirante: d('lugar', 'Espaço livre no piso para quem usa cadeira de rodas assistir ao evento.'),
   banco_corrido: d('lugar', 'Banco comprido em que várias pessoas sentam lado a lado.'),
-  camarote: d('lugar', 'Pequena área separada, com mesa e lugares para um grupo, em geral com vista privilegiada. Frisa é o nome do camarote nos teatros.'),
+  camarote: d('lugar', 'Pequena área separada, com mesa e lugares para um grupo, em geral com vista privilegiada. Nos teatros, frisa é o camarote no nível da plateia.'), // ponytail: confirmar
   mesa_oval: d('lugar', 'Mesa de formato oval, com cadeiras em volta.'),
   mesa_quadrada4: d('lugar', 'Mesa quadrada para quatro pessoas.'),
 
   // Estruturas de evento
   stage: d('pisca', 'Plataforma elevada onde acontecem as apresentações, vista por todo o público.'),
   runway_stage: d('pisca', 'Palco comprido e estreito por onde os modelos desfilam.'),
-  dj_deck: d('pisca', 'Plataforma baixa onde fica o DJ, para ser visto pela pista.'),
+  dj_deck: d('pisca', 'Praticável (plataforma modular baixa) onde fica o DJ, para ser visto pela pista.'),
   ledscreen: d('luz', 'Tela grande de LED que mostra imagens e vídeos, ou o show ao vivo, para quem está longe do palco.'),
-  truss: d('luz', 'Estrutura de tubos de metal onde se penduram luzes, caixas de som e cenário.'),
+  truss: d('luz', 'Treliça de alumínio (truss) onde se penduram luzes, caixas de som e cenário.'),
   dancefloor: d('pisca', 'Área livre em frente ao palco ou ao DJ, onde o público fica em pé e dança.'),
   barricade: d('fluxo', 'Grade de metal na frente do palco que separa o público da área de trabalho e protege contra empurra-empurra.'),
   unifila_barrier: d('fluxo', 'Grades que formam um corredor estreito para organizar o público em uma fila só, por exemplo na entrada ou no bar.'),
   backdrop: d('pisca', 'Painel decorado com a marca do evento, usado como fundo para fotos.'),
   stage_large: d('pisca', 'Palco de grande porte para shows com muitos artistas ou muita estrutura.'),
   stage_round: d('pisca', 'Palco redondo, que pode ser visto de todos os lados.'),
-  stage_ramp: d('carga', 'Plano inclinado que liga o chão ao palco, para subir equipamentos ou cadeira de rodas.'),
+  stage_ramp: d('carga', 'Plano inclinado que liga o chão ao palco, para subir equipamentos e cases.'),
   vip_area: d('lugar', 'Área separada do restante, reservada ao público VIP.'),
   box_elevated: d('lugar', 'Camarote em nível mais alto que o chão, com vista privilegiada do palco.'),
   walkway: d('fluxo', 'Faixa estreita de circulação para o público ou a equipe atravessarem uma área.'),
   broadcast_booth: d('onda', 'Espaço da equipe que transmite o evento ao vivo, por rádio, TV ou internet.'),
 
   // Área técnica
-  soundhouse: d('mesa', 'House Mix é a mixagem da casa: o som que a plateia escuta. Aqui fica a posição onde o técnico ajusta o volume e o equilíbrio das caixas voltadas ao público.'),
-  foh_desk: d('mesa', 'FOH (Front of House) é a mesa de som principal, posicionada na plateia. O técnico que mixa o som para o público trabalha aqui.'),
+  soundhouse: d('mesa', 'Posição na plateia onde ficam as mesas de som e, muitas vezes, a de luz, de onde a equipe técnica controla o que o público ouve e vê.'), // ponytail: confirmar com técnico de som
+  foh_desk: d('mesa', 'Posição na plateia onde ficam as mesas de som e, muitas vezes, a de luz, de onde a equipe técnica controla o que o público ouve e vê.'), // ponytail: confirmar com técnico de som
   generator: d('energia', 'Máquina que produz energia elétrica quando não há tomada suficiente no local, ou como reserva se a luz cair.'),
   dressing_room: d('lugar', 'Área reservada aos artistas e à equipe, perto do palco, para se preparar e descansar.'),
   area: d('sombra', 'Espaço delimitado que você nomeia como quiser, por exemplo depósito ou zona de descanso.'),
@@ -52,7 +52,7 @@ export const REFERENCIAS: Record<string, Referencia> = {
   pa_array: d('onda', 'P.A. / Line Array é o sistema principal de caixas de som que leva o som ao público. Line array é o conjunto de caixas penduradas ou empilhadas em coluna.'),
   light_tower: d('luz', 'Torre com refletores que iluminam o palco, a pista ou o entorno.'),
   stage_return: d('onda', 'Retorno de palco: caixa voltada para os músicos, para que eles se ouçam durante a apresentação.'),
-  monitor: d('onda', 'Monitor de palco. Side fill são caixas grandes nas laterais do palco, voltadas para os músicos, para que se ouçam.'),
+  monitor: d('onda', 'Side fill: caixas grandes nas laterais do palco, voltadas para os músicos, para todos se ouvirem no palco inteiro.'),
   backline: d('amp', 'Amplificadores, bateria e instrumentos do palco que ficam à disposição das bandas.'),
   dj_booth: d('mesa', 'Bancada com os equipamentos do DJ, como mesa de mixagem e controladoras.'),
   power_center: d('energia', 'Ponto onde a energia chega e é distribuída para som, luz e estruturas do evento.'),
@@ -64,7 +64,7 @@ export const REFERENCIAS: Record<string, Referencia> = {
   l_bar: d('vapor', 'Bar com balcão em formato de L, que atende mais gente ao mesmo tempo.'),
   u_bar: d('vapor', 'Bar com balcão em formato de U, que atende mais gente ao mesmo tempo.'),
   food_court: d('vapor', 'Espaço com várias barracas de comida e mesas onde o público come.'),
-  service: d('fluxo', 'Balcão de atendimento ao público.'), // ponytail: confirmar
+  service: d('fluxo', 'Balcão de atendimento ao público, como SAC, trocas ou dúvidas sobre o ingresso.'),
   stand: d('sombra', 'Espaço de exposição de uma marca ou produto, onde o expositor atende o público.'),
   tent: d('sombra', 'Cobertura de lona montada sobre estrutura leve, que dá sombra e abrigo da chuva.'),
   large_tent: d('sombra', 'Tenda grande, de teto em ponta, que cobre uma área ampla.'),
@@ -98,10 +98,10 @@ export const REFERENCIAS: Record<string, Referencia> = {
   ambulance: d('cruz', 'Veículo de emergência que fica no evento para transportar quem precisar de atendimento.'),
   fire_post: d('cruz', 'Ponto da equipe de bombeiros ou brigada de incêndio, que cuida da prevenção e do combate ao fogo.'),
   security_post: d('cruz', 'Ponto da equipe de segurança, para vigilância e ajuda ao público.'),
-  double_exit: d('fluxo', 'Saída de emergência mais larga, para sair mais gente ao mesmo tempo.'), // ponytail: confirmar
+  double_exit: d('fluxo', 'Saída de emergência com porta de duas folhas, mais larga, por onde sai mais gente ao mesmo tempo. Deve ficar sempre livre.'),
   escape_route: d('fluxo', 'Caminho marcado que leva o público para fora, em caso de emergência. Deve ficar livre.'),
   wc_female: d('gota', 'Banheiro de uso feminino para o público.'),
   wc_male: d('gota', 'Banheiro de uso masculino para o público.'),
-  meeting_point: d('fluxo', 'Local combinado onde as pessoas se reúnem, por exemplo após uma evacuação ou para se reencontrar.'), // ponytail: confirmar
+  meeting_point: d('fluxo', 'Local sinalizado onde o público e a equipe se reúnem depois de uma evacuação.'),
   parking: d('carga', 'Área onde o público e a equipe estacionam os veículos.'),
 }

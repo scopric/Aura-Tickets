@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { createPortal } from 'react-dom'
 import { Armchair, ChevronDown, DoorOpen, Hand, Info, MousePointer2, Search, Theater, Type, UtensilsCrossed, Wrench, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -36,14 +36,14 @@ function Miniatura({ i }: { i: ItemCatalogo }) {
 
 const LARG_DICA = 288
 // Popover "O que é": fica fora da barra (portal) para não ser cortado pela rolagem nem pela gaveta; à direita do cartão se couber, senão sobre a tela
-function Dica({ item, ancora }: { item: ItemCatalogo; ancora: DOMRect }) {
+function Dica({ item, ancora, onEntrar, onSair }: { item: ItemCatalogo; ancora: DOMRect; onEntrar: () => void; onSair: () => void }) {
   const ref = REFERENCIAS[item.id]
   const lado = window.innerWidth - ancora.right >= LARG_DICA + 16
   const left = lado ? ancora.right + 8 : Math.max(8, (window.innerWidth - LARG_DICA) / 2)
   const top = Math.max(8, Math.min(lado ? ancora.top : ancora.bottom + 8, window.innerHeight - 300))
   return createPortal(
-    <div id="mapa-dica" role="tooltip" data-dica style={{ left, top, width: Math.min(LARG_DICA, window.innerWidth - 16) }}
-      className="viva fixed z-[80] rounded-lg border border-border bg-card p-3 text-sm text-foreground shadow-lg">
+    <div id="mapa-dica" role="tooltip" data-dica onMouseEnter={onEntrar} onMouseLeave={onSair} style={{ left, top, width: Math.min(LARG_DICA, window.innerWidth - 16) }}
+      className="mapa-viva fixed z-[80] rounded-lg border border-border bg-card p-3 text-sm text-foreground shadow-lg">
       <div className="flex items-center gap-3">
         <Ilustracao familia={ref.ilustracao} cor={item.cor || '#94a3b8'} tamanho={64} className="flex-shrink-0 rounded-md bg-foreground/5 p-1" />
         <div className="min-w-0">
@@ -67,13 +67,17 @@ export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: st
 
   useEffect(() => {
     if (!dica) return
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setDica(null) } }
+    // Esc só é "engolido" quando a dica está fixa (senão chega ao editor); rolagem e redimensionar fecham, pois a âncora mudou de lugar
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { if (dica.fixa) e.stopPropagation(); setDica(null) } }
+    const fecha = () => setDica(null)
     const fora = (e: PointerEvent) => { if (!(e.target as Element).closest?.('[data-dica]')) setDica(null) }
-    window.addEventListener('keydown', esc, true); document.addEventListener('pointerdown', fora)
-    return () => { window.removeEventListener('keydown', esc, true); document.removeEventListener('pointerdown', fora) }
+    window.addEventListener('keydown', esc, true); document.addEventListener('pointerdown', fora); window.addEventListener('scroll', fecha, true); window.addEventListener('resize', fecha)
+    return () => { window.removeEventListener('keydown', esc, true); document.removeEventListener('pointerdown', fora); window.removeEventListener('scroll', fecha, true); window.removeEventListener('resize', fecha) }
   }, [dica])
-  const abrir = (id: string, el: Element, fixa = false) => setDica(d => (d?.fixa && !fixa ? d : { id, ancora: el.getBoundingClientRect(), fixa }))
-  const fechar = () => setDica(d => (d?.fixa ? d : null))
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const cancelar = () => clearTimeout(timer.current)
+  const abrir = (id: string, el: Element, fixa = false) => { cancelar(); setDica(d => (d?.fixa && !fixa ? d : { id, ancora: el.getBoundingClientRect(), fixa })) }
+  const fechar = () => { cancelar(); timer.current = setTimeout(() => setDica(d => (d?.fixa ? d : null)), 150) } // atraso: o ponteiro pode ir do cartão ao popover (WCAG 1.4.13)
   const itemDica = dica ? CATEGORIAS.flatMap(c => c.itens).find(i => i.id === dica.id) : undefined
 
   return (
@@ -126,7 +130,7 @@ export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: st
                             {i.w > 0 && <span className="text-xs leading-none text-muted-foreground">{fmt(i.w)} × {fmt(i.h)} m</span>}
                           </button>
                           <button type="button" aria-label={`O que é: ${i.nome}`} aria-expanded={dica?.id === i.id} onClick={e => (dica?.id === i.id && dica.fixa ? setDica(null) : abrir(i.id, e.currentTarget.parentElement!, true))}
-                            className="mapa-anim absolute left-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:h-9 max-lg:w-9">
+                            className="mapa-anim absolute left-0.5 top-0.5 flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-lg:h-10 max-lg:w-10">
                             <Info className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </li>
@@ -138,7 +142,7 @@ export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: st
             </section>
           )
         })}
-        {dica && itemDica && REFERENCIAS[itemDica.id] && <Dica item={itemDica} ancora={dica.ancora} />}
+        {dica && itemDica && REFERENCIAS[itemDica.id] && <Dica item={itemDica} ancora={dica.ancora} onEntrar={cancelar} onSair={fechar} />}
         {!cats.length && <p className="p-2 text-sm text-muted-foreground">Nenhum elemento com “{busca}”.</p>}
       </div>
     </nav>

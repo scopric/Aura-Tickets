@@ -1361,11 +1361,12 @@ body {
 .mapa-mini circle { fill: none; }
 :root:not(.dark) .mapa-mini * { fill: color-mix(in srgb, var(--c) 85%, white); stroke: color-mix(in srgb, var(--c) 70%, black); }
 :root:not(.dark) .mapa-mini circle { fill: none; }
-/* ilustrações "O que é" da paleta: traço plano; só animam no hover/foco/ativo do cartão (ou em .viva, no popover) e nunca com prefers-reduced-motion */
+/* ilustrações "O que é" da paleta: traço plano; só animam no hover/foco/ativo do cartão (ou em .mapa-viva, no popover) e nunca com prefers-reduced-motion */
 .mapa-ilu * { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transform-box: fill-box; transform-origin: center; }
 .mapa-ilu { color: color-mix(in srgb, var(--c) 55%, white); }
 :root:not(.dark) .mapa-ilu { color: color-mix(in srgb, var(--c) 80%, black); }
 .mapa-ilu [fill="currentColor"] { fill: currentColor; }
+.mapa-ilu [stroke="none"] { stroke: none; }
 @keyframes ilu-pisca { 50% { opacity: 0.2; } }
 @keyframes ilu-pulsa { 50% { transform: scale(1.14); } }
 @keyframes ilu-fader { 50% { transform: translateY(10px); } }
@@ -1374,14 +1375,14 @@ body {
 @keyframes ilu-desliza { 100% { transform: translateX(8px); opacity: 0.3; } }
 @keyframes ilu-balanca { 50% { transform: translateX(5px); } }
 @media (prefers-reduced-motion: no-preference) {
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu :is(.i-pisca, .i-pulsa, .i-fader, .i-cai, .i-sobe, .i-desliza, .i-balanca) { animation: 1.8s ease-in-out infinite var(--d, 0s); }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-pisca { animation-name: ilu-pisca; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-pulsa { animation-name: ilu-pulsa; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-fader { animation-name: ilu-fader; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-cai { animation-name: ilu-cai; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-sobe { animation-name: ilu-sobe; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-desliza { animation-name: ilu-desliza; }
-  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .viva) .mapa-ilu .i-balanca { animation-name: ilu-balanca; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu :is(.i-pisca, .i-pulsa, .i-fader, .i-cai, .i-sobe, .i-desliza, .i-balanca) { animation: 1.8s ease-in-out infinite var(--d, 0s); }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-pisca { animation-name: ilu-pisca; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-pulsa { animation-name: ilu-pulsa; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-fader { animation-name: ilu-fader; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-cai { animation-name: ilu-cai; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-sobe { animation-name: ilu-sobe; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-desliza { animation-name: ilu-desliza; }
+  :is(.mapa-cartao:hover, .mapa-cartao:focus-visible, .mapa-cartao[aria-pressed="true"], .mapa-viva) .mapa-ilu .i-balanca { animation-name: ilu-balanca; }
 }
 /* a regra global "button { transition: all }" faria os botões da gaveta herdarem visibility:hidden por 0,2 s ao abrir (foco falharia) */
 .mapa-gaveta button, .mapa-gaveta input { transition-property: transform, border-color, background-color, color, box-shadow; }

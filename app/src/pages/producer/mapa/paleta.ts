@@ -56,7 +56,7 @@ const DA_SECAO = new Set<ToolType>(['seat', 'table', 'dancefloor', 'vip_lounge',
 export const daSecao = (t: ToolType) => DA_SECAO.has(t)
 
 // Seção dos itens que não vendem (mesma dos templates): não entra na contagem nem no potencial de venda
-export const ESTRUTURA: Section = { id: 'estrutura', name: 'Estrutura', color: '#475569', price: 0 }
+export const ESTRUTURA: Section = Object.freeze({ id: 'estrutura', name: 'Estrutura', color: '#475569', price: 0 })
 
 export const formaDe = (t: string): 'r' | 'c' => (NOVOS.find(n => n[1] === t)?.[7] === 'c' ? 'c' : 'r')
 

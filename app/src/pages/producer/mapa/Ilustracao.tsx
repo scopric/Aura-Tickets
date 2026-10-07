@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react'
 import type { Familia } from './referencias'
 
-// Ilustração plana 2D (traço de 1,6 px, sem 3D). Anima só dentro de .mapa-cartao:hover/foco/ativo ou de .viva (ver index.css).
+// Ilustração plana 2D (traço de 1,6 px, sem 3D). Anima só dentro de .mapa-cartao:hover/foco/ativo ou de .mapa-viva (ver index.css).
 // Cada peça móvel leva uma classe i-* e um atraso --d.
 const dl = (s: number) => ({ '--d': `${s}s` }) as CSSProperties
 const FORMAS: Record<Familia, ReactNode> = {

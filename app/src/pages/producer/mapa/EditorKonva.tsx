@@ -173,7 +173,7 @@ export default function EditorKonva() {
     // o que não vende vai para a seção "Estrutura" (criada se faltar), sem inflar a contagem da seção ativa
     const destino = daSecao(it.tipo) ? sec : ESTRUTURA
     const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), destino, { label: rotulo })
-    mudar(e => ({ ...e, sections: (e.sections || []).some(s => s.id === destino.id) ? e.sections : [...(e.sections || []), destino], seats: [...e.seats, no] }))
+    mudar(e => ({ ...e, sections: (e.sections || []).some(s => s.id === destino.id || s.name === destino.name) ? e.sections : [...(e.sections || []), destino], seats: [...e.seats, no] }))
     setSel({ tipo: 'no', id: no.id })
     setFerr('select')
   }
