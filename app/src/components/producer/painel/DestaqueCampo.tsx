@@ -58,7 +58,8 @@ export default function DestaqueCampo({ alvos: alvosVivos, indice, onIndice, onF
 
   if (!alvo) return null
   const ultimo = indice >= alvos.length - 1
-  const embaixo = !caixa || caixa.bottom + 16 + altura <= window.innerHeight - 8
+  const limite = window.innerHeight - (window.innerWidth < 1024 ? 84 : 8) // abaixo de lg a barra de navegação fixa (56 px) ocupa o pé da tela
+  const embaixo = !caixa || caixa.bottom + 16 + altura <= limite
   return (
     <>
       {caixa && (
@@ -70,7 +71,7 @@ export default function DestaqueCampo({ alvos: alvosVivos, indice, onIndice, onF
       )}
       <div
         ref={balao}
-        className="fixed inset-x-4 z-40 mx-auto grid max-w-80 gap-2 rounded-[10px] bg-card p-3 text-sm shadow-lg ring-1 ring-border"
+        className="fixed inset-x-4 z-40 mx-auto grid max-w-80 max-lg:left-3 max-lg:right-[76px] max-lg:mx-0 max-lg:max-w-none gap-2 rounded-[10px] bg-card p-3 text-sm shadow-lg ring-1 ring-border"
         style={embaixo ? { top: (caixa?.bottom ?? 80) + 16 } : { top: Math.max(8, (caixa?.top ?? 0) - altura - 16) }}
       >
         <p aria-live="polite" className="text-foreground"><span className="font-semibold tabular-nums">{Math.min(indice, alvos.length - 1) + 1} de {alvos.length}</span> · {alvo.msg}</p>
