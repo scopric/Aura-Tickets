@@ -328,6 +328,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
     setMostrarFaltas(true); setDestaque(d => ({ i, k: (d?.k ?? 0) + 1 })); abrir(alvos[i].secao, false)
   }
   const fechaDestaque = useCallback(() => setDestaque(null), [])
+  if (destaque !== null && alvos.length === 0) setDestaque(null) // sem pendência o destaque fecha: não volta sozinho se outra aparecer
 
   function verTodas() {
     void registrar(GUIA, { skipped: true })

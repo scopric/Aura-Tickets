@@ -42,7 +42,7 @@ export default function DestaqueCampo({ alvos: alvosVivos, indice, onIndice, onF
 
   useEffect(() => {
     // Esc de diálogo ou lista aberta (Radix) é deles, não do destaque
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[role=dialog][data-state=open],[role=listbox][data-state=open]')) onFechar() }
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('[role=dialog][data-state=open],[role=alertdialog][data-state=open],[role=listbox][data-state=open],[role=menu][data-state=open]')) onFechar() }
     const edita = (e: Event) => {
       const el = campo ? document.getElementById(campo) : null
       if (!el || !(e.target instanceof Node) || !el.contains(e.target)) return
