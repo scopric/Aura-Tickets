@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { errosDeIngresso, precoDe, type Ing } from '../../../lib/painelEvento'
 import { brl, calcularTaxa } from '../../../lib/taxa'
 import { Faixa, SegmentadoComSetas } from './campos'
@@ -74,8 +75,25 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
               </div>
             </div>
 
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${id}-desc`} className="text-xs text-muted-foreground">Descrição (opcional)</Label>
+              <Textarea id={`${id}-desc`} rows={2} maxLength={500} value={g.descricao} onChange={ev => muda(g.id, { descricao: ev.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[9rem_9rem_minmax(0,1fr)]">
+              <div className="grid gap-1.5">
+                <Label htmlFor={`${id}-min`} className="text-xs text-muted-foreground">Mínimo por pedido</Label>
+                <Input id={`${id}-min`} inputMode="numeric" className="min-h-11" value={g.minPed} aria-invalid={!!e.pedido} aria-describedby={e.pedido ? `${id}-pedido-erro` : undefined} onChange={ev => muda(g.id, { minPed: ev.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor={`${id}-max`} className="text-xs text-muted-foreground">Máximo por pedido</Label>
+                <Input id={`${id}-max`} inputMode="numeric" className="min-h-11" value={g.maxPed} aria-invalid={!!e.pedido} aria-describedby={e.pedido ? `${id}-pedido-erro` : undefined} onChange={ev => muda(g.id, { maxPed: ev.target.value })} />
+              </div>
+              <p className="col-span-2 self-end text-xs text-muted-foreground sm:col-span-1">Vazio = sem limite; em ingresso grátis o limite padrão é 10.</p>
+            </div>
+
             {[
-              [e.venda, 'venda'], [tentou && e.nome, 'nome'], [verPreco && e.preco, 'preco'], [verQtd && e.qtd, 'qtd'],
+              [e.venda, 'venda'], [e.pedido, 'pedido'], [tentou && e.nome, 'nome'], [verPreco && e.preco, 'preco'], [verQtd && e.qtd, 'qtd'],
             ].map(([msg, campo]) => msg && (
               <p key={campo as string} id={`${id}-${campo}-erro`} role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{msg}</p>
             ))}
@@ -119,7 +137,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <Button
           type="button" variant="ghost"
-          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '' }])}
+          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '' }])}
         >
           <I.Criar aria-hidden="true" />Adicionar ingresso
         </Button>

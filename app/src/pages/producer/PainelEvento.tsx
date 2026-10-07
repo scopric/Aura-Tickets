@@ -33,7 +33,7 @@ import { confirmacaoDuplicar, erroAoExcluir, instanteLocal } from '../../lib/eve
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, vendaParaBanco, modoPainel,
+  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, pedidoParaBanco, vendaParaBanco, modoPainel,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -338,6 +338,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         tickets: ings.map(i => ({
           id: i.novo ? undefined : i.id, name: i.nome.trim(), price: precoDe(i.preco) ?? 0, capacity: quantidadeDe(i.qtd) ?? 0,
           inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'], sale_start: vendaParaBanco(i.inicioVenda), sale_end: vendaParaBanco(i.fimVenda),
+          description: i.descricao.trim().slice(0, 500) || null, ...pedidoParaBanco(i),
         })),
       })
       const { data, error } = await supabase.from('ticket_types').select('*').eq('event_id', evento.id)
