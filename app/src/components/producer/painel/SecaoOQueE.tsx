@@ -11,9 +11,12 @@ const MAX_TAGS = 10
 const alterna = (lista: string[], v: string) => (lista.includes(v) ? lista.filter(x => x !== v) : [...lista, v])
 
 // Seção "O que é": nome, subtítulo, formato, temas, estilos (só com o tema Música), etiquetas e descrição.
-export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome: string }) {
+export default function SecaoOQueE({ f, set, erroNome, faltam }: PropsSecao & { erroNome: string }) {
   const [tag, setTag] = useState('')
   const formato = formatoDe(f.category) // texto fora da lista mostra "Escolha"
+  const eNome = erroNome || faltam?.['f-nome'] || ''
+  const eFormato = faltam?.['f-formato']
+  const eDesc = faltam?.['f-desc']
 
   const poeTag = () => {
     const v = tag.trim()
@@ -23,14 +26,14 @@ export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome
 
   return (
     <div className="grid gap-4">
-      <Campo id="f-nome" rotulo="Nome do evento" erro={erroNome || undefined}>
-        <Input id="f-nome" aria-invalid={!!erroNome} aria-describedby={erroNome ? 'f-nome-erro' : undefined} value={f.title} onChange={e => set({ title: e.target.value })} maxLength={80} autoComplete="off" />
+      <Campo id="f-nome" rotulo="Nome do evento" erro={eNome || undefined}>
+        <Input id="f-nome" aria-invalid={!!eNome} aria-describedby={eNome ? 'f-nome-erro' : undefined} value={f.title} onChange={e => set({ title: e.target.value })} maxLength={80} autoComplete="off" />
       </Campo>
       <Campo id="f-sub" rotulo="Subtítulo" opc="(opcional)">
         <Input id="f-sub" value={f.subtitle} onChange={e => set({ subtitle: e.target.value })} maxLength={120} placeholder="Uma linha que aparece abaixo do nome" />
       </Campo>
-      <Campo id="f-formato" rotulo="Formato" ajuda="Um só. Ele decide os modelos prontos e o filtro do Explorar.">
-        <select id="f-formato" aria-describedby="f-formato-ajuda" className={selectNativo} value={formato?.valor ?? ''} onChange={e => set({ category: e.target.value })}>
+      <Campo id="f-formato" rotulo="Formato" erro={eFormato} ajuda="Um só. Ele decide os modelos prontos e o filtro do Explorar.">
+        <select id="f-formato" aria-invalid={!!eFormato} aria-describedby={eFormato ? 'f-formato-erro' : 'f-formato-ajuda'} className={selectNativo} value={formato?.valor ?? ''} onChange={e => set({ category: e.target.value })}>
           <option value="">Escolha o formato</option>
           {FORMATOS.map(x => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
         </select>
@@ -74,8 +77,8 @@ export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome
           />
         </div>
       </Campo>
-      <Campo id="f-desc" rotulo="Descrição" ajuda="Pelo menos 20 caracteres. Aparece na página do evento.">
-        <Textarea id="f-desc" rows={4} value={f.description} onChange={e => set({ description: e.target.value })} aria-describedby="f-desc-ajuda" />
+      <Campo id="f-desc" rotulo="Descrição" erro={eDesc} ajuda="Pelo menos 20 caracteres. Aparece na página do evento.">
+        <Textarea id="f-desc" rows={4} value={f.description} onChange={e => set({ description: e.target.value })} aria-invalid={!!eDesc} aria-describedby={eDesc ? 'f-desc-erro' : 'f-desc-ajuda'} />
       </Campo>
     </div>
   )

@@ -12,6 +12,7 @@ import SecaoPublicar, { type Falta } from '../../components/producer/painel/Seca
 import VisibilidadeEvento from '../../components/producer/painel/VisibilidadeEvento'
 import SecaoQuandoOnde from '../../components/producer/painel/SecaoQuandoOnde'
 import SecaoRegras from '../../components/producer/painel/SecaoRegras'
+import DestaqueCampo from '../../components/producer/painel/DestaqueCampo'
 import { Faixa } from '../../components/producer/painel/campos'
 import { useAutoSave } from '../../components/producer/painel/useAutoSave'
 import { EmptyState, PageHeader } from '@/components/producer/ui'
@@ -33,7 +34,7 @@ import { confirmacaoDuplicar, erroAoExcluir, instanteLocal } from '../../lib/eve
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, pedidoParaBanco, vendaParaBanco, modoPainel,
+  ERRO_NOME, MSG_PENDENCIA, SECAO_DA_PENDENCIA, campoDaPendencia, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, pedidoParaBanco, vendaParaBanco, modoPainel,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -186,6 +187,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const [dialogo, setDialogo] = useState(false)
   const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
+  const [mostrarFaltas, setMostrarFaltas] = useState(false) // depois de "Enviar" / "Ver o que falta": cada campo pendente mostra o erro
+  const [destaque, setDestaque] = useState<{ i: number; k: number } | null>(null) // passo do destaque (null = fechado); k muda a cada abertura e refaz a lista congelada
   const [abertas, setAbertas] = useState<string[]>(['oque'])
   // Modo guiado (decisão 164.1): todo produtor, em rascunho, até concluir ou pular. Leitura com erro = painel normal.
   const { feitos, registrar, carregou, erro: erroGuia } = useTourLog({ ativo: modo === 'rascunho' })
@@ -265,12 +268,16 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const lista = pendenciasDoPainel(form, ingsSalvos, aceiteMarcado || modo === 'publicado' || modo === 'analise')
   const prontos = lista.filter(p => p.pronto).length
   const faltas: Falta[] = [
-    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]] })),
-    ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos' }] : []),
-    ...(erroNome ? [{ rotulo: 'Escrever o nome do evento', secao: 'oque', nomeSecao: 'O que é' }] : []),
-    ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
-    ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde' }] : []),
+    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]], campo: campoDaPendencia(p.id, form, ings, ingSujo), msg: MSG_PENDENCIA[p.id] })),
+    ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos', campo: 'ing-salvar', msg: 'Salve os ingressos.' }] : []),
+    ...(erroNome ? [{ rotulo: 'Escrever o nome do evento', secao: 'oque', nomeSecao: 'O que é', campo: 'f-nome', msg: MSG_PENDENCIA.nome }] : []),
+    ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde', campo: erros.inicio ? 'f-inicio' : 'f-fim', msg: 'Corrija as datas.' }] : []),
+    ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde', campo: 'f-link', msg: 'Corrija o link da transmissão.' }] : []),
   ]
+  // um passo por campo (nome sem texto e "escrever o nome" são o mesmo campo); só rascunho e recusado enviam
+  const alvos = (modo === 'rascunho' || modo === 'recusado') ? faltas.filter((x, i) => faltas.findIndex(y => y.campo === x.campo) === i) : []
+  const faltam = mostrarFaltas ? Object.fromEntries(alvos.map(a => [a.campo, a.msg])) : undefined
+  const faltasDaSecao = (id: string) => (mostrarFaltas ? alvos.filter(a => a.secao === id).length : 0)
   // evento no ar: só o conteúdo moderado vai para a faixa "Alterações não enviadas" (a cor salva sozinha)
   const moderado = modo === 'publicado' && mudouConteudo(diff, capaPendente)
   const alteracoes = moderado ? [...rotulosDoDiff(diff), ...(capaPendente ? ['capa'] : [])] : []
@@ -304,16 +311,24 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   }
   const resumoFalta = (id: string) => !pronta(id) && !(id === 'pub' && modo !== 'rascunho' && modo !== 'recusado')
 
-  const abrir = (id: string) => {
+  const abrir = (id: string, focaCabecalho = true) => {
     if (guiado) setPasso(SECOES.findIndex(s => s.id === id))
     // com o guia, só a seção do passo (ao sair dele fica só ela, não um valor velho nem as já visitadas)
     setAbertas(a => (guiado ? [id] : a.includes(id) ? a : [...a, id]))
-    setTimeout(() => {
+    if (focaCabecalho) setTimeout(() => {
       const cab = document.getElementById(`s-${id}`)
       cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
       cab?.focus({ preventScroll: true })
     }, 50)
   }
+
+  // abre a seção do passo e deixa o DestaqueCampo rolar e focar (ele espera o campo existir)
+  const irAoPasso = (i: number) => {
+    if (!alvos[i]) return
+    setMostrarFaltas(true); setDestaque(d => ({ i, k: (d?.k ?? 0) + 1 })); abrir(alvos[i].secao, false)
+  }
+  const fechaDestaque = useCallback(() => setDestaque(null), [])
+  if (destaque !== null && alvos.length === 0) setDestaque(null) // sem pendência o destaque fecha: não volta sozinho se outra aparecer
 
   function verTodas() {
     void registrar(GUIA, { skipped: true })
@@ -480,8 +495,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
   const corpo = (id: string) => {
     switch (id) {
-      case 'oque': return <SecaoOQueE f={form} set={set} erroNome={erroNome} />
-      case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} erros={erros} />
+      case 'oque': return <SecaoOQueE f={form} set={set} erroNome={erroNome} faltam={faltam} />
+      case 'quando': return <SecaoQuandoOnde f={form} set={set} travado={travado} erros={erros} faltam={faltam} />
       case 'img': return (
         <CapaEventoCampo
           evento={{ id: evento.id, title: form.title, date: form.inicioD }}
@@ -495,18 +510,18 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       )
       case 'ing': return (
         <SecaoIngressos
-          ings={ings} setIngs={setIngs} sujo={ingSujo} salvando={salvandoIng} tentou={tentouIng} onSalvar={() => void salvarIngressos()}
+          ings={ings} setIngs={setIngs} sujo={ingSujo} salvando={salvandoIng} tentou={tentouIng || mostrarFaltas} faltam={faltam} onSalvar={() => void salvarIngressos()}
           onRemover={g => { if (!g.novo) setRemovidos(r => [...r, g.id]); setIngs(l => l.filter(i => i.id !== g.id)) }}
           onAlternar={g => void alternarIngresso(g)} alternando={alternando} classificacao={form.classificacao} aDefinir={form.local_modo === 'a_definir'} fimEvento={fimEvento}
         />
       )
-      case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
+      case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} faltam={faltam} />
       default: return (
         <div className="grid gap-6">
         <VisibilidadeEvento eventoId={evento.id} slug={evento.slug} visibilidade={evento.visibility} noAr={evento.status === 'published' && evento.approval_status === 'approved'} onSalvo={() => { for (const k of ['painel-evento', 'public-event', 'public-events', 'explorar-eventos', 'featured-events']) void qc.invalidateQueries({ queryKey: [k] }) }} />
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
-          onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
+          onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} onFaltas={() => irAoPasso(0)} erroAceite={faltam?.['f-aceite']} enviando={enviando} erroEnvio={erroEnvio}
           hrefOrcamento={hrefDaTela('/producer/caixinha', evento.id)}
           noArDesde={evento.approved_at ? new Date(evento.approved_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', timeZone: 'America/Sao_Paulo' }) : undefined}
         />
@@ -589,6 +604,11 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         )}
       </div>
 
+      {mostrarFaltas && alvos.length > 0 && !guiado && (
+        <Faixa tom="atencao" className="mb-4" titulo={`Faltam ${alvos.length} ${alvos.length === 1 ? 'item' : 'itens'}`} acoes={<Button size="sm" onClick={() => irAoPasso(0)}>Ir ao próximo</Button>} />
+      )}
+      {destaque !== null && alvos.length > 0 && <DestaqueCampo key={destaque.k} alvos={alvos} indice={destaque.i} onIndice={(i, a) => { setDestaque(d => d && { ...d, i }); abrir(a.secao, false) }} onFechar={fechaDestaque} />}
+
       {guiado && (
         <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
           <span aria-live="polite" className="text-[13px] font-semibold leading-5 text-foreground">Passo {passo + 1} de {SECOES.length} · {SECOES[passo].nome}</span>
@@ -605,7 +625,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
             <span className="block h-full origin-left rounded bg-foreground transition-transform motion-reduce:transition-none" style={{ transform: `scaleX(${prontos / lista.length})` }} />
           </span>
           {prontos < lista.length
-            ? <Button variant="link" size="sm" onClick={() => abrir(SECAO_DA_PENDENCIA[lista.find(p => !p.pronto)!.id])}>Ver o que falta</Button>
+            ? <Button variant="link" size="sm" onClick={() => irAoPasso(0)}>Ver o que falta</Button>
             : <span className="text-[13px] text-muted-foreground">Tudo pronto</span>}
         </div>
       )}
@@ -627,6 +647,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
                   <span className="block text-[15px] font-semibold leading-5 text-foreground">{s.nome}<span className="sr-only">{ok ? ', pronto' : falta ? ', falta algo' : ''}</span></span>
                   <span className={cn('block truncate text-[13px] font-normal leading-5', falta ? 'text-[var(--ev-warning)]' : 'text-muted-foreground')}>{resumos[s.id]}</span>
                 </span>
+                {faltasDaSecao(s.id) > 0 && <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-[var(--ev-warning)]">{faltasDaSecao(s.id)} {faltasDaSecao(s.id) === 1 ? 'falta' : 'faltam'}</span>}
                 {s.id === 'quando' && travado && <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-normal text-muted-foreground"><I.Cadeado size={14} aria-hidden="true" />Travado: há ingressos vendidos</span>}
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-6 pt-1">

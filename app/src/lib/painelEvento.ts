@@ -274,6 +274,35 @@ export const SECAO_DA_PENDENCIA: Record<Pendencia['id'], string> = {
   nome: 'oque', formato: 'oque', descricao: 'oque', data: 'quando', local: 'quando', ingresso: 'ing', classificacao: 'regras', aceite: 'pub',
 }
 
+// O que dizer em cada pendência (no campo e no balão) e qual campo focar. Ids: os das seções do painel.
+export const MSG_PENDENCIA: Record<Pendencia['id'], string> = {
+  nome: 'Escreva o nome do evento.', formato: 'Escolha o formato.', descricao: 'Escreva a descrição, com pelo menos 20 caracteres.',
+  data: 'Escolha a data e a hora de início.', local: 'Preencha o local.', ingresso: 'Salve um ingresso com nome, quantidade e preço.',
+  classificacao: 'Escolha a classificação indicativa.', aceite: 'Marque o aceite do produtor.',
+}
+
+/** Id do campo que resolve a pendência. Ingresso: com mudança não salva, o botão "Salvar" (é o que falta); senão o primeiro sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
+export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[], ingSujo = false): string {
+  switch (id) {
+    case 'nome': return 'f-nome'
+    case 'formato': return 'f-formato'
+    case 'descricao': return 'f-desc'
+    case 'data': return 'f-inicio'
+    case 'local':
+      if (f.local_modo === 'online') return 'f-link'
+      return !f.venue_name.trim() ? 'f-lnome' : !f.venue_city.trim() ? 'f-cep' : 'f-link'
+    case 'ingresso': {
+      if (ingSujo) return 'ing-salvar'
+      const g = ings.find(i => i.ativo && (!i.nome.trim() || !quantidadeDe(i.qtd)))
+      if (g) return `ing-${g.id}-${!g.nome.trim() ? 'nome' : 'qtd'}`
+      const alvo = ings.find(i => i.ativo) ?? ings[0]
+      return alvo ? `ing-${alvo.id}-preco` : 'ing-novo'
+    }
+    case 'classificacao': return 'f-class'
+    case 'aceite': return 'f-aceite'
+  }
+}
+
 /** Os 8 itens com o que está na tela. Ingressos: só os SALVOS e ativos contam (o envio olha o banco). */
 export function pendenciasDoPainel(f: Form, ingressosSalvos: Ing[], aceite: boolean): Pendencia[] {
   const link = f.link.trim()

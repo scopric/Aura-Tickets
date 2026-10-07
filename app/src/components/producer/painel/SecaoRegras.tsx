@@ -1,3 +1,4 @@
+import * as I from '@/components/icones/evokaa16'
 import * as RadioPrimitive from '@radix-ui/react-radio-group'
 import { RadioGroup } from '@/components/ui/radio-group'
 import { Faixa, Selo, type PropsSecao } from './campos'
@@ -5,7 +6,7 @@ import { CLASSIFICACOES, avisoEntrada } from '../../../lib/tipoEvento'
 
 // Seção "Regras e idade": classificação (selo provisório), aviso de entrada gerado por ela e o resumo da bebida.
 // A bebida alcoólica é por ingresso (Decisão 151): aqui só se lê, quem marca é a seção Ingressos.
-export default function SecaoRegras({ f, set, bebidaN, ingressosN, ingSujo }: PropsSecao & { bebidaN: number; ingressosN: number; ingSujo: boolean }) {
+export default function SecaoRegras({ f, set, bebidaN, ingressosN, ingSujo, faltam }: PropsSecao & { bebidaN: number; ingressosN: number; ingSujo: boolean }) {
   const esporte = f.category === 'esporte'
   const aviso = avisoEntrada(f.classificacao)
 
@@ -20,7 +21,7 @@ export default function SecaoRegras({ f, set, bebidaN, ingressosN, ingSujo }: Pr
           </>
         ) : (
           <>
-            <RadioGroup aria-labelledby="r-cls" value={f.classificacao} onValueChange={v => set({ classificacao: v })} className="grid-cols-4 gap-2 sm:grid-cols-7">
+            <RadioGroup id="f-class" aria-labelledby="r-cls" aria-invalid={!!faltam?.['f-class']} aria-describedby={faltam?.['f-class'] ? 'f-class-erro' : undefined} value={f.classificacao} onValueChange={v => set({ classificacao: v })} className="grid-cols-4 gap-2 sm:grid-cols-7">
               {CLASSIFICACOES.map(c => (
                 <RadioPrimitive.Item
                   key={c.valor} value={c.valor}
@@ -30,6 +31,7 @@ export default function SecaoRegras({ f, set, bebidaN, ingressosN, ingSujo }: Pr
                 </RadioPrimitive.Item>
               ))}
             </RadioGroup>
+            {faltam?.['f-class'] && <p id="f-class-erro" role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{faltam['f-class']}</p>}
             <p className="text-xs text-muted-foreground">Autoclassificação da Portaria MJSP 1.048. O selo aparece na página, no cartão e no checkout.</p>
           </>
         )}

@@ -7,12 +7,12 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { errosDeIngresso, precoDe, type Ing } from '../../../lib/painelEvento'
 import { brl, calcularTaxa } from '../../../lib/taxa'
-import { Faixa, SegmentadoComSetas } from './campos'
+import { Faixa, SegmentadoComSetas, type Faltam } from './campos'
 
 const TIPO_FIXO: Record<string, string> = { individual: 'Individual', coletiva: 'Mesa coletiva', vip: 'VIP', mesa: 'Mesa' }
 
 // Seção "Ingressos": gravação própria ("Salvar ingressos"), separada do salvamento automático do evento.
-export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir, fimEvento }: {
+export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir, fimEvento, faltam }: {
   ings: Ing[]
   setIngs: (l: Ing[]) => void
   sujo: boolean
@@ -25,6 +25,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
   classificacao: string
   aDefinir: boolean
   fimEvento?: number // instante do fim do evento (limite do fim da venda)
+  faltam?: Faltam
 }) {
   const n = useRef(0)
   const muda = (id: string, p: Partial<Ing>) => setIngs(ings.map(i => (i.id === id ? { ...i, ...p } : i)))
@@ -32,6 +33,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
   return (
     <div className="grid gap-3">
       {ings.length === 0 && <p className="text-sm text-muted-foreground">Nenhum ingresso ainda. Adicione o primeiro.</p>}
+      {faltam?.['ing-novo'] && <p id="ing-novo-erro" role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{faltam['ing-novo']}</p>}
       {ings.map((g, k) => {
         const e = errosDeIngresso(g, fimEvento)
         const preco = precoDe(g.preco)
@@ -136,14 +138,14 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <Button
-          type="button" variant="ghost"
+          id="ing-novo" type="button" variant="ghost" aria-describedby={faltam?.['ing-novo'] ? 'ing-novo-erro' : undefined}
           onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '' }])}
         >
           <I.Criar aria-hidden="true" />Adicionar ingresso
         </Button>
         <span className="flex items-center gap-3">
           {sujo && <span role="status" className="text-xs text-muted-foreground">Ingressos com mudanças não salvas</span>}
-          <Button type="button" variant="outline" disabled={!sujo} loading={salvando} onClick={onSalvar}>Salvar ingressos</Button>
+          <Button id="ing-salvar" type="button" variant="outline" disabled={!sujo} loading={salvando} onClick={onSalvar}>Salvar ingressos</Button>
         </span>
       </div>
       <p className="text-xs text-muted-foreground">Taxa Evokaa de 10%, mínimo de R$ 3 por ingresso, paga pelo comprador e mostrada ao lado do preço. Preço 0 = gratuito. Ingresso com venda não sai da lista: use Ocultar.</p>
