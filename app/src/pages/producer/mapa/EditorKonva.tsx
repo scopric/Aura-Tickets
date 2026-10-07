@@ -13,7 +13,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
 import { useIngressos } from './usarIngressos'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
@@ -314,6 +314,22 @@ export default function EditorKonva() {
   const tamRef = useRef(tam)
   tamRef.current = tam
   const [avisoFora, setAvisoFora] = useState('')
+  const criarPavimento = () => {
+    setEnvs(prev => novoPavimento(prev, `pav-${novoId()}`))
+    setAtivo(envs.length)
+  }
+  const renomearPavimento = () => {
+    const nome = window.prompt('Novo nome do pavimento', env.name)?.trim().slice(0, 60)
+    if (nome) setEnvs(prev => prev.map(e => (e.id === env.id ? { ...e, name: nome } : e)))
+  }
+  const excluirPavimento = () => {
+    const r = apagarPavimento(envs, env.id)
+    if (r.erro) { window.alert(r.erro); return }
+    if (!window.confirm(`Apagar o pavimento "${env.name}" com ${env.seats.length} elemento(s)? Isso não dá para desfazer.`)) return
+    delete hist.current[env.id]
+    setEnvs(r.envs)
+    setAtivo(Math.min(ativo, r.envs.length - 1))
+  }
   const trazerParaDentro = () => {
     const r = encaixarNaSala(env)
     setAvisoFora(r.motivo || '')
@@ -419,6 +435,9 @@ export default function EditorKonva() {
         >
           {envs.map((p, i) => <option key={p.id} value={i}>{p.name}</option>)}
         </select>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={criarPavimento}>Novo pavimento</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={renomearPavimento}>Renomear</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={excluirPavimento} disabled={envs.length < 2}>Apagar pavimento</Button>
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'paleta'} aria-controls="gaveta-paleta" onClick={e => alternar('paleta', e.currentTarget)}>Elementos</Button>
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'cores'} aria-controls="gaveta-cores" onClick={e => alternar('cores', e.currentTarget)}>Cores</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => setAbrirTemplates(true)}>Templates</Button>

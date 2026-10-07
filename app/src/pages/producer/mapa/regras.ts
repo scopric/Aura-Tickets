@@ -1,4 +1,4 @@
-import type { Environment, SeatNode } from './modelo'
+import { defaultSections, type Environment, type SeatNode } from './modelo'
 import { caixaDosElementos, ORIGEM_SALA } from './geometria'
 import { ESTRUTURA } from './paleta'
 
@@ -109,4 +109,20 @@ export function metricas(env: Environment) {
     receita: soma(n => n.price * (n.sold || 0)),
     potencial: soma(n => n.price * (n.capacity || 0)),
   }
+}
+
+// ---- Pavimentos: só acrescenta ao fim ou remove um; a ordem e os ids dos outros nunca mudam (o checkout lê environments[0]) ----
+export function novoPavimento(envs: Environment[], id: string): Environment[] {
+  let n = envs.length + 1
+  while (envs.some(e => e.name === `Pavimento ${n}`)) n++
+  return [...envs, { id, name: `Pavimento ${n}`, seats: [], sections: JSON.parse(JSON.stringify(defaultSections)), walls: [], pixelsPerMeter: 40 }]
+}
+
+export function apagarPavimento(envs: Environment[], id: string): { envs: Environment[]; erro?: string } {
+  const alvo = envs.find(e => e.id === id)
+  if (!alvo) return { envs, erro: 'Pavimento não encontrado.' }
+  if (envs.length <= 1) return { envs, erro: 'Precisa de pelo menos um pavimento.' }
+  const v = (alvo.seats || []).filter(vendido).length
+  if (v) return { envs, erro: `"${alvo.name}" tem ${v} elemento(s) com venda ou reserva e não pode ser apagado.` }
+  return { envs: envs.filter(e => e.id !== id) }
 }

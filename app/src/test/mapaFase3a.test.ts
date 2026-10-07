@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
-import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas } from '../pages/producer/mapa/regras'
+import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento } from '../pages/producer/mapa/regras'
 
 const no = (o: Partial<SeatNode>): SeatNode => ({
   id: 'n', x: 12, y: 12, label: 'X', type: 'seat', color: '#111111', price: 10, rotation: 0, sold: 0, capacity: 1,
@@ -64,4 +64,24 @@ describe('metricas', () => {
     expect(metricas(e)).toEqual({ assentos: 7, mesas: 1, muros: 1, vendido: 3, reservados: 1, receita: 10 + 40, potencial: 10 + 120 })
   })
   it('mapa vazio', () => expect(metricas(mapa([]))).toEqual({ assentos: 0, mesas: 0, muros: 0, vendido: 0, reservados: 0, receita: 0, potencial: 0 }))
+})
+
+describe('pavimentos', () => {
+  const dois = () => [mapa([no({ id: '1' })]), { ...mapa([]), id: 'p2', name: 'Pavimento 2' }]
+  it('novo: nome e id únicos, ordem dos outros intacta', () => {
+    const r = novoPavimento(dois(), 'p3')
+    expect(r.map(e => e.id)).toEqual(['terreo', 'p2', 'p3'])
+    expect(r[2].name).toBe('Pavimento 3')
+    expect(novoPavimento(r.slice(0, 1).concat({ ...r[2], name: 'Pavimento 2' }), 'x').at(-1)!.name).toBe('Pavimento 3')
+  })
+  it('apagar preserva a ordem e os ids dos restantes', () => {
+    const tres = novoPavimento(dois(), 'p3')
+    expect(apagarPavimento(tres, 'p2').envs.map(e => e.id)).toEqual(['terreo', 'p3'])
+  })
+  it('apagar é bloqueado com venda/reserva e mantém pelo menos 1', () => {
+    const e = dois(); e[1].seats = [no({ id: 'v', status: 'reserved' })]
+    expect(apagarPavimento(e, 'p2').erro).toMatch(/venda/)
+    expect(apagarPavimento(e, 'p2').envs).toBe(e)
+    expect(apagarPavimento([e[0]], 'terreo').erro).toMatch(/pelo menos um/)
+  })
 })
