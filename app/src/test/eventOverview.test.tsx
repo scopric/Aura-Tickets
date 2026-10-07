@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import * as exportCsv from '../lib/exportCsv'
 import EventOverview from '../pages/producer/EventOverview'
 import { colunas, inicioDaSerie, serieDiaria } from '../lib/visaoEvento'
 
@@ -10,8 +11,11 @@ type Chamada = [string, unknown[]]
 type Resposta = { data?: unknown; error: unknown; count?: number | null }
 const tabelas: Record<string, (c: Chamada[]) => Resposta> = {}
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', name: 'Ricardo Scoparo' } }) }))
+const rpc = vi.fn()
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    rpc: (...a: unknown[]) => { const p = Promise.resolve(rpc(...a)); return Object.assign(p, { abortSignal: () => p }) },
+    auth: { mfa: { getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }) } },
     from: (t: string) => {
       const c: Chamada[] = []
       const r = () => Promise.resolve(tabelas[t](c))
@@ -55,6 +59,14 @@ function dadosDoBanco({ eventos = [evento()], ingressos = [], pagos = [], inicia
     const l = filtra(pagos, c)
     return { data: l, error: null, count: l.length }
   }
+  // RPC produtor_vendas_pagas: soma a fixture `pagos` (por dia de Brasília)
+  const porDia = new Map<string, { dia: string; pedidos: number; total: number }>()
+  for (const p of pagos) {
+    const dia = new Date(p.created_at as string).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
+    const d = porDia.get(dia) ?? { dia, pedidos: 0, total: 0 }
+    d.pedidos += 1; d.total += Number(p.total); porDia.set(dia, d)
+  }
+  rpc.mockResolvedValue({ data: { total: pagos.reduce((s, p) => s + Number(p.total), 0), pedidos: pagos.length, reembolsados: { pedidos: 0, total: 0 }, por_evento: [], por_dia: [...porDia.values()], por_forma: [] }, error: null })
   tabelas.tickets = c => {
     if (c.some(([n]) => n === 'not')) return { data: null, error: null, count: entraram }
     if (erroIngressos) return { data: null, error: { message: 'falhou' } }
@@ -73,7 +85,7 @@ const montar = (url = '/producer/event/e1') => {
   )
 }
 
-beforeEach(() => localStorage.clear())
+beforeEach(() => { localStorage.clear(); rpc.mockReset() })
 
 describe('Visão geral do evento (V7)', () => {
   it('vendidos, hoje, bruto, esgotado, "abre em" e funil vêm do banco', async () => {
@@ -200,6 +212,44 @@ describe('Visão geral do evento (V7)', () => {
     expect(grupo.queryByText(/Ver página/)).toBeNull()
     expect(grupo.queryByText('Compartilhar')).toBeNull()
     expect(grupo.getByRole('link', { name: 'Editar' })).toBeTruthy()
+  })
+})
+
+describe('Visão geral: período, soma no banco e CSV (L5)', () => {
+  it('bruto e "hoje" vêm da RPC (mais de 1.000 pedidos), sem "+" nem "soma parcial"', async () => {
+    dadosDoBanco()
+    rpc.mockResolvedValue({ data: { total: 123456.7, pedidos: 1500, reembolsados: { pedidos: 0, total: 0 }, por_evento: [], por_forma: [],
+      por_dia: [{ dia: hojeISO(), pedidos: 3, total: 300 }, { dia: '2020-01-01', pedidos: 1497, total: 123156.7 }] }, error: null })
+    montar()
+    expect(await screen.findByText(/R\$\s300,00 hoje · 0 ingressos hoje · R\$\s123\.456,70 bruto/)).toBeTruthy()
+    expect(screen.queryByText(/Soma parcial/)).toBeNull()
+    expect(screen.queryByText(/\+ (hoje|bruto)/)).toBeNull()
+  })
+
+  it('?periodo=7d manda p_de e p_event_id; sem período, p_de é nulo', async () => {
+    dadosDoBanco()
+    montar('/producer/event/e1?periodo=7d')
+    await screen.findByText('Nenhum pedido ainda.')
+    expect(rpc).toHaveBeenCalledWith('produtor_vendas_pagas', expect.objectContaining({ p_event_id: 'e1', p_de: expect.any(String) }))
+    rpc.mockClear()
+    montar()
+    await vi.waitFor(() => expect(rpc).toHaveBeenCalledWith('produtor_vendas_pagas', expect.objectContaining({ p_de: null, p_event_id: 'e1' })))
+  })
+
+  it('Exportar CSV baixa dia, pedidos_pagos e valor_bruto com vírgula decimal', async () => {
+    dadosDoBanco()
+    rpc.mockResolvedValue({ data: { total: 150.5, pedidos: 3, reembolsados: { pedidos: 0, total: 0 }, por_evento: [], por_forma: [],
+      por_dia: [{ dia: '2026-10-01', pedidos: 3, total: 150.5 }] }, error: null })
+    const baixa = vi.spyOn(exportCsv, 'downloadCsv').mockImplementation(() => {})
+    montar()
+    await screen.findByText(/bruto/)
+    fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }))
+    expect(baixa).toHaveBeenCalledTimes(1)
+    const [nome, csv] = baixa.mock.calls[0]
+    expect(nome).toMatch(/^evokaa-vendas-noite-de-forro-\d{4}-\d{2}-\d{2}\.csv$/)
+    expect(csv).toContain('dia;pedidos_pagos;valor_bruto')
+    expect(csv).toContain('2026-10-01;3;"150,50"')
+    baixa.mockRestore()
   })
 })
 

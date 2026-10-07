@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Segmented } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
@@ -15,7 +16,10 @@ import { useFixados } from '../../hooks/useFixados'
 import { siteUrl } from '../../lib/appHost'
 import { corSorteada, ehHex, temFoto, varsDoEvento } from '../../lib/corEvento'
 import { confirmacaoDuplicar, refDoEvento, situacaoEvento, type Situacao } from '../../lib/eventoProdutor'
+import { downloadCsv, csvFilename, slugArquivo, toCsv } from '../../lib/exportCsv'
+import { PERIODOS, ehPeriodo, type Periodo } from '../../lib/inicioProdutor'
 import { supabase } from '../../lib/supabase'
+import { faltaSegundoFator, janelaDoPeriodo, vendasPagas, type VendasPagas } from '../../lib/vendasPagas'
 import { brl } from '../../lib/taxa'
 import { colunas, dataComSemana, dataCurta, diaBR, diaDoEvento, diasEntre, horaCurta, inicioDaSerie, serieDiaria, type Serie } from '../../lib/visaoEvento'
 
@@ -46,48 +50,40 @@ interface Dados {
   cortado: boolean // mais de 1.000 ingressos: o gráfico usa os primeiros 1.000
   porTipo: Record<string, number> // contagem exata por tipo
   ingressosHoje: number // exato
-  pagos: { total: number; created_at: string }[]
-  pagosCortado: boolean // mais de 1.000 pedidos pagos: o bruto é soma parcial
   pagosQtd: number
+  bruto: number
+  porDia: VendasPagas['por_dia']
   vendaHoje: number
-  vendaHojeCortada: boolean
   iniciados: number
 }
 
-const soma = (l: { total: number }[]) => l.reduce((s, p) => s + (Number(p.total) || 0), 0)
-
-function useDadosDoEvento(e: DbEvent, hoje: string) {
+function useDadosDoEvento(e: DbEvent, hoje: string, periodo: Periodo) {
   return useQuery<Dados>({
-    queryKey: ['evento-visao', e.id, hoje],
+    queryKey: ['evento-visao', e.id, hoje, periodo],
     retry: 1,
     queryFn: async () => {
-      // ponytail: o gráfico e o bruto somam linhas no navegador, cortadas no max_rows (1.000) do PostgREST; o count diz se
-      // cortou e a tela avisa ("+" e nota). O resto (vendidos, por tipo, hoje, pedidos) é contagem exata. Soma exata e
-      // série por dia exata quando houver RPC/view de vendas (F2). Mesmo limite de 10 s do Início.
+      // ponytail: o gráfico soma linhas no navegador, cortadas no max_rows (1.000) do PostgREST; o count diz se cortou e a
+      // tela avisa. Bruto, pedidos pagos e "R$ hoje" vêm da RPC (soma no banco, sem teto). Mesmo limite de 10 s do Início.
       // ponytail: orders não tem paid_at: "R$ hoje" é o created_at do pedido pago e "ingressos hoje" é o created_at do
       // ingresso; um pedido criado ontem e pago hoje conta ontem em "R$ hoje" e hoje em "ingressos hoje".
       const desde = new Date(`${hoje}T00:00:00-03:00`).toISOString() // início do dia em Brasília
       const ctl = new AbortController()
       const relogio = setTimeout(() => ctl.abort(), 10000)
       const sinal = ctl.signal
+      const { de } = janelaDoPeriodo(periodo)
       const ingressosDe = (colunasSel: string, opt: { count: 'exact'; head?: boolean }) =>
         supabase.from('tickets').select(colunasSel, opt).eq('event_id', e.id).in('status', VENDIDO)
       try {
-        const [pagosQ, pagosHojeQ, iniciadosQ, ingressosQ, hojeQ, ...tiposQ] = await Promise.all([
-          supabase.from('orders').select('total, created_at', { count: 'exact' })
-            .eq('event_id', e.id).eq('status', 'paid').abortSignal(sinal),
-          supabase.from('orders').select('total', { count: 'exact' })
-            .eq('event_id', e.id).eq('status', 'paid').gte('created_at', desde).abortSignal(sinal),
-          supabase.from('orders').select('id', { count: 'exact', head: true })
-            .eq('event_id', e.id).abortSignal(sinal),
-          ingressosDe('ticket_type_id, created_at', { count: 'exact' }).order('created_at').abortSignal(sinal),
+        const comPeriodo = <T,>(q: T): T => (de ? (q as unknown as { gte: (c: string, v: string) => T }).gte('created_at', de) : q)
+        const [r, iniciadosQ, ingressosQ, hojeQ, ...tiposQ] = await Promise.all([
+          vendasPagas({ de, ate: null, eventId: e.id }, sinal),
+          comPeriodo(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('event_id', e.id)).abortSignal(sinal),
+          comPeriodo(ingressosDe('ticket_type_id, created_at', { count: 'exact' })).order('created_at').abortSignal(sinal),
           ingressosDe('id', { count: 'exact', head: true }).gte('created_at', desde).abortSignal(sinal),
           ...(e.ticket_types ?? []).map(t => ingressosDe('id', { count: 'exact', head: true }).eq('ticket_type_id', t.id).abortSignal(sinal)),
         ])
-        const erro = [pagosQ, pagosHojeQ, iniciadosQ, ingressosQ, hojeQ, ...tiposQ].find(r => r.error)?.error
+        const erro = [iniciadosQ, ingressosQ, hojeQ, ...tiposQ].find(r => r.error)?.error
         if (erro) throw erro
-        const pagos = (pagosQ.data ?? []) as unknown as Dados['pagos']
-        const pagosHoje = (pagosHojeQ.data ?? []) as unknown as { total: number }[]
         const ingressos = (ingressosQ.data ?? []) as unknown as Dados['ingressos']
         return {
           ingressos,
@@ -95,11 +91,10 @@ function useDadosDoEvento(e: DbEvent, hoje: string) {
           cortado: (ingressosQ.count ?? 0) > ingressos.length,
           porTipo: Object.fromEntries((e.ticket_types ?? []).map((t, i) => [t.id, tiposQ[i].count ?? 0])),
           ingressosHoje: hojeQ.count ?? 0,
-          pagos,
-          pagosCortado: (pagosQ.count ?? 0) > pagos.length,
-          pagosQtd: pagosQ.count ?? pagos.length,
-          vendaHoje: soma(pagosHoje),
-          vendaHojeCortada: (pagosHojeQ.count ?? 0) > pagosHoje.length,
+          pagosQtd: r.pedidos,
+          bruto: r.total,
+          porDia: r.por_dia,
+          vendaHoje: r.por_dia.find(d => d.dia === hoje)?.total ?? 0,
           iniciados: iniciadosQ.count ?? 0,
         }
       } finally {
@@ -173,7 +168,22 @@ function Visao({ e }: { e: DbEvent }) {
   const [agora] = useState(() => Date.now()) // fixo na montagem: "hoje" e "abre em" partem do mesmo instante
   const hoje = diaBR(agora)
   const diaEv = diaDoEvento(e) // null: evento sem data
-  const { data: dados, isPending, isError, refetch, isFetching } = useDadosDoEvento(e, hoje)
+  const [busca, setBusca] = useSearchParams()
+  const p = busca.get('periodo')
+  const periodo: Periodo = ehPeriodo(p) ? p : 'tudo'
+  const mudaPeriodo = (v: string) => setBusca((prev: URLSearchParams) => { const n = new URLSearchParams(prev); n.set('periodo', v); return n }, { replace: true })
+  const { data: dados, isPending, isError, refetch, isFetching } = useDadosDoEvento(e, hoje, periodo)
+  // zero pedidos pagos pode ser sessão sem 2FA concluído (o banco devolve zero, sem erro)
+  const doisFatoresQ = useQuery({ queryKey: ['producer-2fa-pendente', e.id], enabled: dados?.pagosQtd === 0, queryFn: faltaSegundoFator })
+  const exportar = () => {
+    if (!dados) return
+    try {
+      downloadCsv(csvFilename('vendas-' + slugArquivo(e.title, e.id)), toCsv(
+        dados.porDia.map(d => ({ dia: d.dia, pedidos_pagos: d.pedidos, valor_bruto: Number(d.total).toFixed(2).replace('.', ',') })),
+        ['dia', 'pedidos_pagos', 'valor_bruto'],
+      ))
+    } catch { toast.error('Não foi possível exportar agora. Tente de novo.') }
+  }
   const sit = situacaoEvento(e)
   // faixa do dia só em evento no ar (rascunho, em análise, recusado, cancelado e encerrado não têm portaria)
   const noDia = diaEv === hoje && sit === 'Publicado'
@@ -276,6 +286,17 @@ function Visao({ e }: { e: DbEvent }) {
         </div>
       </header>
 
+      <div className="mt-6 flex flex-wrap items-center gap-3">
+        <Segmented label="Período" size="sm" value={periodo} onValueChange={mudaPeriodo} items={PERIODOS} className="w-full sm:w-72" />
+        <Button variant="outline" size="sm" onClick={exportar} disabled={!dados || dados.porDia.length === 0}>
+          <I.Baixar aria-hidden="true" />Exportar CSV
+        </Button>
+        <p className="text-xs text-muted-foreground">O período vale para vendas, valores, pedidos e o gráfico. Ingressos por tipo, ocupação e check-in mostram o total do evento.</p>
+      </div>
+      {doisFatoresQ.data && dados?.pagosQtd === 0 && (
+        <EmptyState title="Confirme o 2FA para ver as vendas" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos." />
+      )}
+
       {isPending ? (
         <Esqueleto />
       ) : isError ? (
@@ -293,7 +314,6 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
   const tipos = e.ticket_types ?? []
   const { vendidos } = dados
   const base = Math.max(cap, vendidos)
-  const bruto = soma(dados.pagos)
   const percentual = cap > 0 ? Math.min((vendidos / cap) * 100, 100) : 0
   const naoPagos = Math.max(dados.iniciados - dados.pagosQtd, 0)
   const pagosPct = dados.iniciados > 0 ? Math.min((dados.pagosQtd / dados.iniciados) * 100, 100) : 0
@@ -337,10 +357,10 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
             </div>
           )}
           <p className="mt-3">
-            {brl(dados.vendaHoje)}{dados.vendaHojeCortada ? '+' : ''} hoje · {inteiro(dados.ingressosHoje)} {dados.ingressosHoje === 1 ? 'ingresso' : 'ingressos'} hoje · {brl(bruto)}{dados.pagosCortado ? '+' : ''} bruto
+            {brl(dados.vendaHoje)} hoje · {inteiro(dados.ingressosHoje)} {dados.ingressosHoje === 1 ? 'ingresso' : 'ingressos'} hoje · {brl(dados.bruto)} bruto
           </p>
           <p className="text-xs text-muted-foreground">
-            {dados.pagosCortado || dados.vendaHojeCortada ? 'Soma parcial: mais de 1.000 pedidos pagos. ' : ''}Bruto: pedidos pagos, com a taxa do comprador.
+            Bruto: pedidos pagos, com a taxa do comprador.
           </p>
 
           <VendasPorDia serie={serie} nomes={tipos.map(t => t.name)} exatos={tipos.map(t => dados.porTipo[t.id])} vendidos={vendidos} hoje={hoje} cortado={dados.cortado} comEvento={!!diaEv} />
