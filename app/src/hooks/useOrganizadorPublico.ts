@@ -63,6 +63,7 @@ export function useOrganizadorPublico() {
     data: query.data,
     isPending: query.isPending,
     isError: query.isError,
+    error: query.error,
     refetch: query.refetch,
     isFetching: query.isFetching,
     salvar: salvar.mutateAsync,

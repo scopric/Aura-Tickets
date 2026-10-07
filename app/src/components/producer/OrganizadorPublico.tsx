@@ -4,7 +4,6 @@ import * as I from '@/components/icones/evokaa16'
 import { useOrganizadorPublico, type Rede } from '../../hooks/useOrganizadorPublico'
 import PhoneInput from '../ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
-import { linkValido } from '../../lib/painelEvento'
 import { SectionTitle, Erro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +24,9 @@ const VAZIO: Form = {
   mostrar: { nome: true, whatsapp: false, instagram: false, site: false, email: false, outras_redes: false },
 }
 const MAX_REDES = 5
+// mesma regra do CHECK do banco (https, host ASCII, sem porta nem '?' logo após o domínio)
+const urlBanco = (u: string) => u.length <= 200 && /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s"<>]*)?$/.test(u)
+const SEGUNDO_FATOR = 'Confirme o segundo fator de novo e tente outra vez.'
 
 // o banco guarda 55+DDD+número; o PhoneInput trabalha com "+55..."
 const doBanco = (z: string | null) => (z ? `+${z}` : '')
@@ -42,24 +44,26 @@ export function validar(f: Form): Erros {
   const insta = f.instagram.trim().replace(/^@/, '')
   if (insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta)) e.instagram = 'Use só letras, números, ponto e sublinhado (até 30).'
   const site = f.site.trim()
-  if (site && (!linkValido(site) || site.length > 200 || /["<>]/.test(site))) e.site = 'Informe um endereço completo que comece com https://'
+  if (site && !urlBanco(site)) e.site = 'Informe um endereço completo que comece com https://'
   const email = f.email.trim()
   if (email && (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))) e.email = 'Informe um e-mail válido.'
   for (const r of f.redes) {
     const rot = r.rotulo.trim(), url = r.url.trim()
     if (!rot && !url) continue
     if (!rot || rot.length > 30) { e.redes = 'Cada rede precisa de um nome de até 30 caracteres.'; break }
-    if (!linkValido(url) || url.length > 200 || /["<>]/.test(url)) { e.redes = 'Cada rede precisa de um endereço que comece com https://'; break }
+    if (!urlBanco(url)) { e.redes = 'Cada rede precisa de um endereço que comece com https://'; break }
   }
+  if (!e.redes && JSON.stringify(f.redes.filter(r => r.rotulo.trim() || r.url.trim())).length > 950) e.redes = 'Encurte os endereços das redes'
   return e
 }
 
 export default function OrganizadorPublico() {
-  const { data, isPending, isError, refetch, isFetching, salvar, salvando } = useOrganizadorPublico()
+  const { data, isPending, isError, error, refetch, isFetching, salvar, salvando } = useOrganizadorPublico()
   const [edit, setEdit] = useState<Form | null>(null)
   const [mostrarErros, setMostrarErros] = useState(false)
 
   if (isPending) return <Skeleton aria-busy="true" className="h-96 rounded-[10px] bg-muted" />
+  if (isError && (error as { code?: string } | null)?.code === '42501') return <p role="alert" className="rounded-[10px] border border-border bg-card p-4 text-sm text-foreground">{SEGUNDO_FATOR}</p>
   if (isError) return <Erro texto="Não foi possível carregar os dados do organizador." refetch={() => refetch()} carregando={isFetching} />
 
   const base: Form = data
@@ -80,7 +84,13 @@ export default function OrganizadorPublico() {
 
   const enviar = async () => {
     setMostrarErros(true)
-    if (Object.keys(validar(f)).length) { toast.error('Confira os campos marcados.'); return }
+    const ruins = Object.keys(validar(f))
+    if (ruins.length) {
+      toast.error('Confira os campos marcados.')
+      const alvo = document.getElementById(ruins[0] === 'redes' ? 'org-outras_redes' : `org-${ruins[0]}`)
+      ;(alvo?.querySelector('input') ?? alvo)?.focus()
+      return
+    }
     const redes = f.redes.map(r => ({ rotulo: r.rotulo.trim(), url: r.url.trim() })).filter(r => r.rotulo || r.url)
     try {
       await salvar({
@@ -99,7 +109,7 @@ export default function OrganizadorPublico() {
     } catch (err) {
       const code = (err as { code?: string })?.code
       toast.error(
-        code === '42501' ? 'Confirme o segundo fator de novo e tente salvar outra vez.'
+        code === '42501' ? SEGUNDO_FATOR
         : code === '23514' ? 'Algum campo está em formato inválido. Confira e tente de novo.'
         : 'Erro ao salvar os dados do organizador',
       )
@@ -134,7 +144,7 @@ export default function OrganizadorPublico() {
       <SectionTitle>Organizador (aparece na página dos seus eventos)</SectionTitle>
 
       <div className="space-y-2 rounded-[10px] border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-        <p>Se sua conta tem CNPJ cadastrado, a razão social e o CNPJ aparecem sempre na página do evento (exigência de identificação do vendedor — a confirmar com o jurídico). Quem é pessoa física não mostra CNPJ nem CPF.</p>
+        <p>Se sua conta tem CNPJ cadastrado, a razão social e o CNPJ do seu cadastro (aba Perfil) aparecem sempre na página do evento (exigência de identificação do vendedor — a confirmar com o jurídico). Quem é pessoa física não mostra CNPJ nem CPF.</p>
         <p>Estes dados ficam públicos para qualquer pessoa que abrir a página do evento. Desligar um campo o esconde na hora; para apagar o dado, esvazie o campo e salve.</p>
       </div>
 
@@ -147,7 +157,7 @@ export default function OrganizadorPublico() {
 
       {campo('nome', 'Nome do organizador', null, erros.nome, p => texto('nome', p, { maxLength: 80, autoComplete: 'organization' }))}
       {campo('whatsapp', 'WhatsApp', null, erros.whatsapp, p => (
-        <PhoneInput id={p.id} apenasBrasil value={f.whatsapp} onChange={v => set({ whatsapp: v.replace(/\D/g, '').length <= 2 ? '' : v })} />
+        <PhoneInput id={p.id} aria-describedby={p.describedby} aria-invalid={!!erros.whatsapp} apenasBrasil value={f.whatsapp} onChange={v => set({ whatsapp: v.replace(/\D/g, '').length <= 2 ? '' : v })} />
       ))}
       {campo('instagram', 'Instagram', 'Só o nome de usuário, com ou sem @.', erros.instagram, p => texto('instagram', p, { maxLength: 31, autoCapitalize: 'none' }))}
       {campo('site', 'Site', 'Comece com https://', erros.site, p => texto('site', p, { type: 'url', inputMode: 'url', placeholder: 'https://' }))}

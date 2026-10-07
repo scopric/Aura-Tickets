@@ -24,6 +24,8 @@ interface PhoneInputProps {
   className?: string
   disabled?: boolean
   id?: string
+  'aria-describedby'?: string
+  'aria-invalid'?: boolean
   /** Trava o DDI em +55 (o chat só aceita número do Brasil) */
   apenasBrasil?: boolean
 }
@@ -34,7 +36,9 @@ export default function PhoneInput({
   className = '',
   disabled = false,
   id,
-  apenasBrasil = false
+  apenasBrasil = false,
+  'aria-describedby': describedby,
+  'aria-invalid': invalid,
 }: PhoneInputProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedCountry, setSelectedCountry] = useState<CountryDdi>(COUNTRIES_DDI[0])
@@ -139,6 +143,8 @@ export default function PhoneInput({
       <input
         type="tel"
         id={id}
+        aria-describedby={describedby}
+        aria-invalid={invalid}
         disabled={disabled}
         placeholder={selectedCountry.mask}
         value={localNumber}
