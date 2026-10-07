@@ -251,7 +251,7 @@ as $$
       join public.seating_maps m on m.event_id = tt.event_id and m.is_active
       cross join lateral jsonb_array_elements(case when jsonb_typeof(m.environments) = 'array' then m.environments else '[]'::jsonb end) env(value)
       cross join lateral jsonb_array_elements(case when jsonb_typeof(env.value->'sections') = 'array' then env.value->'sections' else '[]'::jsonb end) sec(value)
-     where tt.id = p_tt and lower(sec.value->>'ticketTypeId') = p_tt::text);
+     where tt.id = p_tt and replace(lower(sec.value->>'ticketTypeId'), '-', '') = replace(p_tt::text, '-', '')); -- só os dígitos: uuid com hífens fora do padrão (que o ::uuid da reservar_assentos aceita) também casa; sem cast, sem exceção
 $$;
 revoke all on function public.tipo_no_mapa(uuid) from public, anon, authenticated;
 
@@ -285,7 +285,7 @@ begin
     select 1
       from jsonb_array_elements(case when jsonb_typeof(new.environments) = 'array' then new.environments else '[]'::jsonb end) env(value)
       cross join lateral jsonb_array_elements(case when jsonb_typeof(env.value->'sections') = 'array' then env.value->'sections' else '[]'::jsonb end) sec(value)
-      join public.ticket_types tt on tt.id::text = lower(sec.value->>'ticketTypeId')
+      join public.ticket_types tt on replace(tt.id::text, '-', '') = replace(lower(sec.value->>'ticketTypeId'), '-', '')
      where tt.event_id = new.event_id and tt.max_por_cpf is not null) then
     raise exception 'Este setor usa um ingresso com limite por CPF: tire o limite do ingresso antes de ligar o setor ao mapa' using errcode = '22023';
   end if;
