@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { formatCNPJ } from '../lib/formatters'
+import { marcaOk, rotuloOk, emailSemProibidos } from '../lib/organizadorTexto'
 import type { OrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
 
 // Dado do banco vira texto e link só depois de conferido aqui (a RPC já valida; isto é a segunda trava no navegador)
@@ -9,11 +10,9 @@ const dominio = (url: string) => {
     const u = new URL(url)
     // sem login na URL, sem punycode (xn--) e sem se passar pela plataforma
     const h = u.hostname.toLowerCase()
-    return u.protocol === 'https:' && !u.username && !u.password && !h.includes('xn--') && !h.includes('evokaa') ? h.replace(/^www\./, '') : null
+    return u.protocol === 'https:' && !u.username && !u.password && !/(^|\.)xn--/.test(h) && marcaOk(h) ? h.replace(/^www\./, '') : null
   } catch { return null }
 }
-
-const semAcento = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
 
 const classeLink = 'flex min-h-11 w-full items-center gap-3 border-t border-border px-5 py-2 text-left hover:bg-[var(--ev-tint-hover)] focus-visible:shadow-[inset_0_0_0_2px_hsl(var(--ring))] focus-visible:outline-none first:border-t-0'
 
@@ -36,9 +35,9 @@ export default function BlocoOrganizador({ organizador: o, titulo }: { organizad
   const wa = o.whatsapp && /^55\d{10,11}$/.test(o.whatsapp) ? o.whatsapp : null
   const ig = o.instagram && /^[A-Za-z0-9._]{1,30}$/.test(o.instagram) ? o.instagram : null
   const site = o.site && dominio(o.site) ? o.site : null
-  const email = o.email && /^[^\s@<>"?&#%]+@[^\s@<>"?&#%]+\.[^\s@<>"?&#%]+$/.test(o.email) ? o.email : null
+  const email = o.email && emailSemProibidos(o.email) && /^[^\s@<>"?&#%]+@[^\s@<>"?&#%]+\.[^\s@<>"?&#%]+$/.test(o.email) ? o.email : null
   const redes = (Array.isArray(o.outras_redes) ? o.outras_redes : [])
-    .filter((r) => r && typeof r.rotulo === 'string' && typeof r.url === 'string' && dominio(r.url) && !/evokaa|pix|pagamento/.test(semAcento(r.rotulo)))
+    .filter((r) => r && typeof r.rotulo === 'string' && typeof r.url === 'string' && dominio(r.url) && rotuloOk(r.rotulo))
   const cnpj = o.cnpj ? formatCNPJ(o.cnpj) : null
   const temLinks = wa || ig || site || email || redes.length > 0
   if (!o.nome && !o.razao_social && !cnpj && !temLinks) return null

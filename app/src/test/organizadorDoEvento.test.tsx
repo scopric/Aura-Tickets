@@ -100,12 +100,20 @@ describe('BlocoOrganizador', () => {
       { outras_redes: [{ rotulo: 'Pagamento', url: 'https://a.com' }] },
       { outras_redes: [{ rotulo: 'Evokaa oficial', url: 'https://a.com' }] },
       { instagram: 'a b' }, { instagram: '../x' },
-      { email: 'oi@x.com?subject=Pague&body=x' }, { email: 'oi@x.com#a' }, { email: 'o%i@x.com' },
+      { email: 'oi@x.com?subject=Pague&body=x' }, { email: 'oi@x.com#a' }, { email: 'o%i@x.com' }, { email: 'a,b@x.com' }, { email: 'a@x.com>' },
     ]) {
       const { unmount } = render(<BlocoOrganizador titulo="X" organizador={{ nome: 'Bora', ...o }} />)
       expect(screen.queryAllByRole('link'), JSON.stringify(o)).toHaveLength(0)
       unmount()
     }
+  })
+
+  it('rótulo filtra por palavra inteira: Pixel Art e Pagamentos continuam na página', () => {
+    render(<BlocoOrganizador titulo="X" organizador={{ outras_redes: [
+      { rotulo: 'Pixel Art', url: 'https://a.com' }, { rotulo: 'Pagamentos', url: 'https://b.com' }, { rotulo: 'Pix oficial', url: 'https://c.com' }] }} />)
+    expect(screen.getAllByRole('link')).toHaveLength(2)
+    expect(screen.getByText('Pixel Art')).toBeInTheDocument()
+    expect(screen.queryByText('Pix oficial')).toBeNull()
   })
 
   it('links de nova aba avisam o leitor de tela; o mailto não', () => {
