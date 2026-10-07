@@ -513,6 +513,24 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     expect(db.ingressos[0]).toMatchObject({ max_per_order: null })
   })
 
+  test('publicado: Limite por CPF grava e vazio limpa', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Limite por CPF').fill('2')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ max_por_cpf: 2 })
+    await page.reload()
+    await abre(page, /^Ingressos/)
+    await expect(page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Limite por CPF')).toHaveValue('2')
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Limite por CPF').fill('')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ max_por_cpf: null })
+  })
+
   test('publicado: sem mudar classificação nem bebida, enviar não refaz o aceite', async ({ page }) => {
     const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
     await entrarProdutor(page)

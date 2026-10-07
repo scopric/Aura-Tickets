@@ -1174,6 +1174,7 @@ export interface Database {
           quantity_sold: number
           min_per_order: number
           max_per_order: number | null
+          max_por_cpf: number | null
           valid_from: string | null
           valid_until: string | null
           sale_start: string | null
@@ -1198,6 +1199,7 @@ export interface Database {
           quantity_sold?: number
           min_per_order?: number
           max_per_order?: number | null
+          max_por_cpf?: number | null
           valid_from?: string | null
           valid_until?: string | null
           sale_start?: string | null
@@ -1222,6 +1224,7 @@ export interface Database {
           quantity_sold?: number
           min_per_order?: number
           max_per_order?: number | null
+          max_por_cpf?: number | null
           valid_from?: string | null
           valid_until?: string | null
           sale_start?: string | null

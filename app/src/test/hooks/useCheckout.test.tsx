@@ -87,6 +87,39 @@ describe('useCheckout — criar pedido', () => {
     expect(ins.orders).toHaveLength(0)
   })
 
+  describe('limite por CPF', () => {
+    const comLimite = () => vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, max_por_cpf: 2 }] }, error: null } as never)
+    const criarCom = (customer_cpf?: string) => {
+      const { result } = renderHook(() => useCreateOrder(), { wrapper })
+      return result.current.mutateAsync({ event_id: 'event_123', items: ITENS, payment_method: 'pix', customer_cpf })
+    }
+
+    it('sem limite no tipo, a coluna customer_cpf não vai no insert (mesmo se a tela mandar)', async () => {
+      const ins = mockBanco([])
+      await criarCom('529.982.247-25')
+      expect(ins.orders[0]).not.toHaveProperty('customer_cpf')
+    })
+
+    it('com limite, manda só os dígitos do CPF', async () => {
+      const ins = mockBanco([]); comLimite()
+      await criarCom('529.982.247-25')
+      expect(ins.orders[0]).toMatchObject({ customer_cpf: '52998224725' })
+    })
+
+    it('com limite e sem CPF, manda null (o banco recusa com a mensagem dele)', async () => {
+      const ins = mockBanco([]); comLimite()
+      await criarCom()
+      expect(ins.orders[0]).toMatchObject({ customer_cpf: null })
+    })
+
+    it('com limite, não reaproveita pedido pendente igual', async () => {
+      const ins = mockBanco([pendente(110, 5)]); comLimite()
+      const o = await criarCom('11144477735')
+      expect(o.id).toBe('order_new')
+      expect(ins.orders).toHaveLength(1)
+    })
+  })
+
   it('propaga erro do banco ao criar o pedido', async () => {
     mockBanco([], 50, { data: null, error: { message: 'Database error' } })
     await expect(criar()).rejects.toMatchObject({ message: 'Database error' })

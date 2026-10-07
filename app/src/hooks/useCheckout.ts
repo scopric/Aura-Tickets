@@ -83,10 +83,12 @@ export function useCreateOrder() {
       event_id,
       items,
       payment_method,
+      customer_cpf,
     }: {
       event_id: string
       items: { ticket_type_id: string; quantity: number; seat_info?: string }[]
       payment_method: DbOrder['payment_method'] | null // null = pedido gratuito (sem forma de pagamento)
+      customer_cpf?: string // só dígitos; vai ao banco só se algum tipo do carrinho tem limite por CPF (o gatilho grava o hash e apaga o CPF)
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
 
@@ -102,7 +104,7 @@ export function useCreateOrder() {
       // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
       const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
       if (pubError) throw pubError
-      const r = pub as { evento?: Parameters<typeof vendaBloqueada>[0]; ingressos?: { id: string; name?: string; price: number | string | null; max_per_order?: number | null; sale_start?: string | null; sale_end?: string | null }[] } | null
+      const r = pub as { evento?: Parameters<typeof vendaBloqueada>[0]; ingressos?: { id: string; name?: string; price: number | string | null; max_per_order?: number | null; max_por_cpf?: number | null; sale_start?: string | null; sale_end?: string | null }[] } | null
       if (!r?.evento) throw new Error('Evento indisponível para compra')
       const ingressos = r.ingressos ?? []
       for (const i of items) {
@@ -122,7 +124,9 @@ export function useCreateOrder() {
       // ponytail: duplo clique rápido ainda pode criar dois pedidos (sem trava nem índice único); resolvido na Fase 4 com o gateway.
       // ponytail: Fase 4 — boleto vence em dias e Pix pode ser pago após 30 min; o cron (pedidos_pendentes_expirar) terá de excluir boleto
       // ou usar o vencimento do gateway, e o webhook tratar pedido já 'cancelled'.
-      const o = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
+      // Com limite por CPF, sempre pedido novo: o CPF do pendente virou hash e não dá para conferir se é o mesmo.
+      const exigeCpf = items.some(i => ingressos.find(t => t.id === i.ticket_type_id)?.max_por_cpf != null)
+      const o = !exigeCpf && pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
       if (o && Number(o.total) === ped.total) {
         return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
       }
@@ -143,7 +147,8 @@ export function useCreateOrder() {
           payment_method,
           gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
           customer_name: user.name || user.full_name || null,
-          customer_email: user.email
+          customer_email: user.email,
+          ...(exigeCpf ? { customer_cpf: (customer_cpf ?? '').replace(/\D/g, '') || null } : {}),
         })
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email`)
         .single()

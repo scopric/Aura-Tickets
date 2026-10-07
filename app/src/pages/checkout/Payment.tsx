@@ -9,7 +9,7 @@ import { usePayment } from '../../hooks/usePayment'
 import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
-import { formatCurrency } from '../../lib/formatters'
+import { cpfValido, formatCPF, formatCurrency } from '../../lib/formatters'
 import { mesaErro } from '../../hooks/useMatchmaking'
 import { resumoCarrinho } from '../../lib/taxa'
 
@@ -23,7 +23,7 @@ export default function CheckoutPayment() {
     eventId?: string
     cart?: Record<string, number>
     totalAmount?: number
-    itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number }[]
+    itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number; max_por_cpf?: number | null }[]
     orderId?: string // pedido de lugar marcado, já criado (e reservado por 10 min) pelo banco em reservar_assentos
     venceEm?: number // fim da reserva no relógio deste aparelho (Date.now)
   }
@@ -56,6 +56,14 @@ export default function CheckoutPayment() {
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
   const [cardCvv, setCardCvv] = useState('')
+  // CPF do comprador: só quando algum ingresso do carrinho tem limite por CPF (LGPD: minimização). Fica só neste estado,
+  // nunca em storage, URL, log ou toast; o banco grava só o hash.
+  // O carrinho pode estar velho (limite ligado depois, ou volta do login): o banco também pode exigir (exigeCpfServidor).
+  const [exigeCpfServidor, setExigeCpfServidor] = useState(false)
+  const exigeCpf = !orderIdLugar && (exigeCpfServidor || (itemsSummary || []).some((i: { max_por_cpf?: number | null }) => i.max_por_cpf != null))
+  const [cpf, setCpf] = useState('')
+  const [erroCpf, setErroCpf] = useState<string | null>(null)
+  useEffect(() => { if (erroCpf) document.getElementById('comprador-cpf')?.focus() }, [erroCpf])
   // Contagem regressiva da reserva do lugar (só pedido com lugar)
   const [restante, setRestante] = useState(() => (locationState.venceEm ? Math.max(0, Math.ceil((locationState.venceEm - Date.now()) / 1000)) : null))
   useEffect(() => {
@@ -177,6 +185,10 @@ export default function CheckoutPayment() {
     }
 
     if (esgotado) return
+    if (exigeCpf && !cpfValido(cpf)) {
+      setErroCpf('CPF inválido: confira os 11 números.')
+      return
+    }
     if (!gratis && paymentMethod === 'credit_card') {
       if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
         toast.error('Por favor, preencha todos os campos do cartão.')
@@ -204,9 +216,15 @@ export default function CheckoutPayment() {
       event_id: eventId,
       items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
       payment_method: gratis ? null : paymentMethod,
+      ...(exigeCpf ? { customer_cpf: cpf.replace(/\D/g, '') } : {}),
     }, {
       onSuccess: seguir,
       onError: (err) => {
+        const e = err as { code?: string; message?: string }
+        if (e.code === '22023' && /^Informe o CPF do comprador/.test(e.message ?? '')) {
+          setExigeCpfServidor(true); setErroCpf('Informe o CPF para continuar'); setProcessing(false)
+          return
+        }
         // 22023: regra do Match de Mesa no banco (menor de idade, 1 por conta, quantidade 1)
         toast.error((err as { code?: string }).code === '22023' ? mesaErro(err) : `Erro ao criar pedido: ${err.message}`, { duration: 7000 })
         setProcessing(false)
@@ -274,6 +292,17 @@ export default function CheckoutPayment() {
                   <span className="block text-[13px] leading-[18px] text-muted-foreground">Cobrança ainda não ativa (ambiente de teste)</span>
                 </span>
               </button>
+            </div>
+          )}
+
+          {!pixData && !esgotado && exigeCpf && (
+            <div className="rounded-ev-xl bg-card p-5 shadow-ev-secondary">
+              <label htmlFor="comprador-cpf" className={rotulo}>CPF do comprador</label>
+              <Input id="comprador-cpf" type="text" inputMode="numeric" autoComplete="off" placeholder="000.000.000-00" value={cpf} className={campo}
+                aria-invalid={!!erroCpf} aria-describedby={erroCpf ? 'comprador-cpf-ajuda comprador-cpf-erro' : 'comprador-cpf-ajuda'}
+                onChange={e => { setCpf(formatCPF(e.target.value)); setErroCpf(null) }} />
+              {erroCpf && <p id="comprador-cpf-erro" role="alert" className="mt-1.5 text-xs text-destructive">{erroCpf}</p>}
+              <p id="comprador-cpf-ajuda" className="mt-1.5 text-xs text-muted-foreground">Usamos o CPF só para limitar a compra por pessoa neste ingresso. Guardamos apenas um código (hash), não o CPF.</p>
             </div>
           )}
 

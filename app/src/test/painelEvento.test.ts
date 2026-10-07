@@ -18,7 +18,7 @@ const evento = (o: Partial<DbEvent> = {}) => ({
 }) as DbEvent
 
 const form = (o: Partial<Form> = {}): Form => ({ ...formDoEvento(evento(), ''), ...o })
-const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', ...o })
+const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '', ...o })
 
 describe('formulário ↔ banco', () => {
   it('lê o evento: hora sem segundos, fim em Brasília, endereço separado', () => {
@@ -204,6 +204,8 @@ describe('nome vazio e erro ao gravar ingressos', () => {
   it('erro de gravação dos ingressos por tipo: dado recusado pelo banco, remoção com pedidos e rede', () => {
     for (const e of [{ code: '22003' }, { code: '23514' }, { status: 400 }, { status: 422 }, { code: 'PGRST102' }]) expect(erroDosIngressos(e)).toMatch(/O banco recusou um dos ingressos: confira nome, preço e quantidade/)
     expect(erroDosIngressos({ code: '23514', message: 'Já foram vendidos 5: a quantidade não pode ser menor' })).toBe('Já foram vendidos 5: a quantidade não pode ser menor')
+    const lugar = 'Este ingresso é vendido por lugar marcado: não use limite por CPF nele'
+    expect(erroDosIngressos({ code: '22023', message: lugar })).toBe(lugar)
     expect(erroDosIngressos({ code: '23503' })).toMatch(/Use Ocultar/)
     expect(erroDosIngressos(new Error('Failed to fetch'))).toMatch(/Confira a internet/)
     expect(erroDosIngressos(null)).toMatch(/Confira a internet/)
@@ -456,8 +458,26 @@ describe('limites por pedido', () => {
     expect(ingDoBanco(t({ description: null, max_per_order: null }), 0)).toMatchObject({ descricao: '', minPed: '1', maxPed: '' })
   })
   it('para o banco: vazio vira null, número vira número', () => {
-    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null })
-    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4 })
+    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null, max_por_cpf: null })
+    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4, max_por_cpf: null })
+  })
+})
+
+describe('limite por CPF', () => {
+  const t = (o: object) => ({ id: 't1', name: 'Pista', price: 80, quantity_total: 200, type: 'individual', is_active: true, ...o }) as DbTicketType
+  it('ingDoBanco lê max_por_cpf; nulo vira vazio', () => {
+    expect(ingDoBanco(t({ max_por_cpf: 2 }), 0).maxCpf).toBe('2')
+    expect(ingDoBanco(t({ max_por_cpf: null }), 0).maxCpf).toBe('')
+  })
+  it('erros: 0, negativo, não inteiro e acima da quantidade; vazio aceito', () => {
+    for (const v of ['0', '-1', '1,5', 'abc']) expect(errosDeIngresso(ing({ maxCpf: v })).cpf).toMatch(/Limite por CPF inválido/)
+    expect(errosDeIngresso(ing({ maxCpf: '201' })).cpf).toMatch(/passar da quantidade/)
+    expect(errosDeIngresso(ing({ maxCpf: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ maxCpf: '200' }))).toEqual({})
+  })
+  it('para o banco: vazio limpa (null), número vira número', () => {
+    expect(pedidoParaBanco(ing({ maxCpf: '' })).max_por_cpf).toBeNull()
+    expect(pedidoParaBanco(ing({ maxCpf: ' 2 ' })).max_por_cpf).toBe(2)
   })
 })
 
