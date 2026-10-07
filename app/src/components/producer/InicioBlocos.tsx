@@ -76,7 +76,7 @@ export function ProximoEvento({ evento: e, agora }: { evento: DbEvent; agora: nu
   const local = [e.venue_name, e.venue_city].filter(Boolean).join(', ') || e.location
   const pct = vendidos !== undefined && cap > 0 ? Math.min(100, Math.round((vendidos / cap) * 100)) : 0
   return (
-    <section aria-labelledby="t-prox" className="evento-cor flex flex-col gap-4 xl:pt-1" style={varsDoEvento(corDoEvento(e))}>
+    <section aria-labelledby="t-prox" className="evento-cor flex flex-col gap-4 xl:pt-1" style={varsDoEvento(corDoEvento(e), false, e.accent_intensity ?? 100)}>
       <SectionTitle id="t-prox">Próximo evento</SectionTitle>
       <div className="flex gap-4">
         <div className="w-40 shrink-0"><EventoCapa evento={e} tamanho="cartao" /></div>
@@ -208,7 +208,7 @@ export function TabelaEventos({ eventos, linhas, vendidos, receita, receitaCorta
                 <tr
                   key={e.id}
                   className="evento-cor h-14 cursor-pointer border-t border-border hover:bg-[var(--ev-tint-hover)]"
-                  style={varsDoEvento(corDoEvento(e))}
+                  style={varsDoEvento(corDoEvento(e), false, e.accent_intensity ?? 100)}
                   onClick={ev => { if (!(ev.target as HTMLElement).closest('a')) navegar(editarEvento(e)) }}
                 >
                   <td className="px-3 py-[3px]"><EventoCapa evento={e} tamanho="mini" /></td>

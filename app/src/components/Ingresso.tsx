@@ -152,7 +152,7 @@ function Cartao({ t, evento, verso, motivo, aoVirar, aoAmpliar }: { t: DbTicket;
   return (
     <article
       className="ingresso evento-cor mx-auto w-full max-w-[360px] text-[#fff]"
-      style={varsDoEvento(corDoEvento(evento)) as CSSProperties}
+      style={varsDoEvento(corDoEvento(evento), false, evento.accent_intensity ?? 100) as CSSProperties}
       aria-label={`Ingresso ${tipo} de ${evento.title}`}
     >
       <div className={`ingresso-virador${verso ? ' virado' : ''}`} data-face={verso ? 'verso' : 'frente'}>

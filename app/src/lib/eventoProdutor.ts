@@ -140,6 +140,7 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       image_url: FOTO_PADRAO,
       accent_color: e.accent_color,
       capa_na_cor: e.capa_na_cor,
+      accent_intensity: e.accent_intensity,
       category: e.category,
       temas: e.temas,
       estilos: e.estilos,

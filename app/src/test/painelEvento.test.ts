@@ -97,6 +97,14 @@ describe('diff do salvamento automático', () => {
     expect(diffCampos(base, snapDoForm(form({ fimD: '', fimH: '' })))).toEqual({ end_date: null })
     expect(diffCampos(base, snapDoForm(form({ local_modo: 'hibrido', link: 'https://live.com/x' })))).toEqual({ local_modo: 'hibrido', online_url: 'https://live.com/x' })
   })
+  it('a intensidade da cor vai e volta pelo formulário, padrão 100, e não é conteúdo moderado', () => {
+    expect(formDoEvento(evento(), '').accent_intensity).toBe(100)
+    expect(formDoEvento(evento({ accent_intensity: 40 }), '').accent_intensity).toBe(40)
+    expect(diffCampos(snapDoForm(form()), snapDoForm(form({ accent_intensity: 40 })))).toEqual({ accent_intensity: 40 })
+    expect(mudouConteudo({ accent_intensity: 40 })).toBe(false)
+    expect(rotulosDoDiff({ accent_intensity: 40, accent_color: '#112233' })).toEqual(['cor'])
+  })
+
   it('a escolha da capa (capa_na_cor) vai e volta pelo formulário e não é conteúdo moderado', () => {
     expect(formDoEvento(evento(), '').capa_na_cor).toBe(false)
     expect(formDoEvento(evento({ capa_na_cor: true }), '').capa_na_cor).toBe(true)

@@ -91,7 +91,7 @@ export default function CheckoutSuccess() {
   const entra = 'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-4 motion-safe:duration-lento'
 
   return (
-    <div className="evento-cor min-h-screen bg-background pb-16 text-foreground" style={varsDoEvento(corEv)}>
+    <div className="evento-cor min-h-screen bg-background pb-16 text-foreground" style={varsDoEvento(corEv, false, eventoCompleto?.accent_intensity ?? 100)}>
       {/* Só celebra quando o pagamento está confirmado (um pedido pendente não é festa) */}
       {ticketsActive && !carregandoEvento && <Confete cor={corEv} />}
 

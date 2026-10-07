@@ -36,7 +36,7 @@ export function Passe({ g }: { g: GrupoIngressos }) {
     <div className={`rounded-2xl ${foco}`}>
       <div
         className="evento-cor passe-recorte relative overflow-hidden rounded-2xl text-left text-[#fff] transition-transform duration-micro has-[a.passe-abrir:active]:scale-[0.985] motion-reduce:has-[a.passe-abrir:active]:scale-100"
-        style={e ? varsDoEvento(corDoEvento(e)) as CSSProperties : undefined}
+        style={e ? varsDoEvento(corDoEvento(e), false, e.accent_intensity ?? 100) as CSSProperties : undefined}
       >
         {e && <EventoCapa evento={e} tamanho="cartao" className="!aspect-[3/2] !rounded-none" />}
         <div className="flex items-end gap-3 px-4 pb-4 pt-3.5" style={{ background: 'var(--evento-fundo-e)' }}>

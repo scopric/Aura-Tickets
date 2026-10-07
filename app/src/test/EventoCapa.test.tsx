@@ -67,3 +67,12 @@ describe('EventoCapa', () => {
     expect((container.firstElementChild as HTMLElement).style.getPropertyValue('--evento')).toBe('#1f7a74')
   })
 })
+
+describe('EventoCapa: intensidade da cor', () => {
+  it('sem intensidade = 100 (igual ao de antes); com 40 o --cz muda', () => {
+    const cz = (accent_intensity?: number) => render(<EventoCapa evento={{ ...evento, accent_intensity }} />).container.querySelector<HTMLElement>('.evcapa')!.style.getPropertyValue('--cz')
+    expect(cz(undefined)).toBe('#a55c65')
+    expect(cz(100)).toBe('#a55c65')
+    expect(cz(40)).not.toBe('#a55c65')
+  })
+})

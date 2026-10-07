@@ -154,7 +154,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   const circuloFundo = rolou ? '' : solido ? 'bg-card text-foreground shadow-ev-2' : 'vidro'
 
   return (
-    <div className={cn('evento-cor bg-background text-foreground', !previa && 'min-h-screen')} style={varsDoEvento(corEv)}>
+    <div className={cn('evento-cor bg-background text-foreground', !previa && 'min-h-screen')} style={varsDoEvento(corEv, false, event.accent_intensity ?? 100)}>
       {/* Barra de topo: círculos de vidro sobre a capa; depois de rolar, a barra inteira ganha vidro */}
       {!previa && <header
         className={cn(

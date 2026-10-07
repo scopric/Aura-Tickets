@@ -21,6 +21,7 @@ export interface EventoCatalogo {
   image_url?: string | null
   accent_color?: string | null
   capa_na_cor?: boolean | null
+  accent_intensity?: number | null
   featured_carousel?: boolean | null
   estilos?: string[] | null
   classificacao?: string | null
