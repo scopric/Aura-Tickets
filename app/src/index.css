@@ -1338,3 +1338,18 @@ body {
   .painel-produtor > aside, .painel-produtor > nav, .painel-produtor > [role="region"], .painel-produtor > div > .sticky, .painel-produtor [data-tour="evo"] { display: none !important; }
   .painel-produtor > div { margin-left: 0 !important; padding-bottom: 0 !important; }
 }
+
+/* Editor de mapa: paleta (transições curtas, desligadas com prefers-reduced-motion) */
+.mapa-anim { transition: transform 180ms ease, border-color 180ms ease, background-color 180ms ease, color 180ms ease; }
+.mapa-colapso { display: grid; transition: grid-template-rows 200ms ease; }
+.mapa-pulso { animation: mapa-pulso 1.8s ease-in-out infinite; }
+@keyframes mapa-pulso { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.35); } 50% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12); } }
+.mapa-gaveta { transition: transform 220ms ease; }
+.mapa-fade { animation: mapa-fade 220ms ease; }
+@keyframes mapa-fade { from { opacity: 0.7; } to { opacity: 0; } }
+.mapa-rolagem { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .mapa-anim, .mapa-colapso, .mapa-gaveta { transition: none !important; }
+  .mapa-pulso, .mapa-fade { animation: none !important; }
+  .mapa-cartao:hover { transform: none !important; }
+}

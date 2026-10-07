@@ -110,6 +110,8 @@ export default function EditorKonva() {
   const [ferr, setFerr] = useState('select') // 'select', 'pan' ou o id de um item da paleta (clique no mapa cria)
   const [grade, setGrade] = useState(true)
   const [abrirTemplates, setAbrirTemplates] = useState(false)
+  const [gaveta, setGaveta] = useState<'' | 'paleta' | 'cores'>('') // telas < 1024 px: painéis viram gavetas
+  const [versaoTemplate, setVersaoTemplate] = useState(0) // muda a cada template aplicado: dispara o fade do mapa
   const [reenquadrar, setReenquadrar] = useState(0)
   const [secSel, setSecSel] = useState<string | null>(null)
   const sec = (env.sections || []).find(x => x.id === secSel) || (env.sections || [])[0]
@@ -202,6 +204,7 @@ export default function EditorKonva() {
     if (env.seats.length + (env.walls || []).length > 0 &&
       !window.confirm(`Aplicar "${t.nome}" apaga os ${env.seats.length} elementos deste pavimento${d.bloqueados ? ` (${d.bloqueados} bloqueados)` : ''}. As seções, os preços e o vínculo com lotes (ingressos) serão substituídos. Dá para desfazer antes de salvar. Continuar?`)) return
     mudar(e => aplicarTemplate(e, t))
+    setVersaoTemplate(v => v + 1)
     setSel(null); setFerr('select'); setAbrirTemplates(false)
     setReenquadrar(n => n + 1)
   }
@@ -353,6 +356,8 @@ export default function EditorKonva() {
         >
           {envs.map((p, i) => <option key={p.id} value={i}>{p.name}</option>)}
         </select>
+        <Button size="sm" variant="outline" className="lg:hidden" aria-expanded={gaveta === 'paleta'} onClick={() => setGaveta(g => (g === 'paleta' ? '' : 'paleta'))}>Elementos</Button>
+        <Button size="sm" variant="outline" className="lg:hidden" aria-expanded={gaveta === 'cores'} onClick={() => setGaveta(g => (g === 'cores' ? '' : 'cores'))}>Cores</Button>
         <Button size="sm" variant="outline" onClick={() => setAbrirTemplates(true)}>Templates</Button>
         <Button size="sm" variant="outline" onClick={ajustar}>Ajustar à tela</Button>
         <Button size="sm" variant="outline" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
@@ -362,8 +367,10 @@ export default function EditorKonva() {
         {erroMapa && <span className="text-xs text-destructive">Não consegui ler o mapa: Salvar bloqueado. Recarregue a página.</span>}
         {sujo && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}
       </header>
-      <div className="flex min-h-0 flex-1">
-      <BarraPaleta ferramenta={ferr} onEscolher={setFerr} />
+      <div className="relative flex min-h-0 flex-1">
+      <div className={`mapa-gaveta absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] border-r border-border shadow-xl lg:static lg:z-auto lg:w-[280px] lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'paleta' ? 'translate-x-0' : '-translate-x-full'}`}>
+        <BarraPaleta ferramenta={ferr} onEscolher={id => { setFerr(id); setGaveta('') }} />
+      </div>
       <div ref={caixaRef} className="relative min-h-0 min-w-0 flex-1 bg-muted/40" style={{ cursor: criando ? 'crosshair' : ferr === 'pan' ? 'grab' : undefined }}>
         {tam.w > 0 && (
           <Stage
@@ -433,8 +440,9 @@ export default function EditorKonva() {
             </Layer>
           </Stage>
         )}
+        {versaoTemplate > 0 && <div key={versaoTemplate} aria-hidden className="mapa-fade pointer-events-none absolute inset-0 bg-background" />}
       </div>
-      <aside className="w-60 flex-shrink-0 space-y-5 overflow-y-auto border-l border-border bg-card p-3 text-sm">
+      <aside className={`mapa-gaveta mapa-rolagem absolute inset-y-0 right-0 z-20 w-72 max-w-[85vw] space-y-5 overflow-y-auto overflow-x-hidden border-l border-border bg-card p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-60 lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'cores' ? 'translate-x-0' : 'translate-x-full'}`}>
         <section aria-label="Cor da seção" className="space-y-2">
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Seções</h2>
           <ul className="space-y-1">
