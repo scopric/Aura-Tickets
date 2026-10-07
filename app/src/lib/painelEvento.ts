@@ -274,6 +274,32 @@ export const SECAO_DA_PENDENCIA: Record<Pendencia['id'], string> = {
   nome: 'oque', formato: 'oque', descricao: 'oque', data: 'quando', local: 'quando', ingresso: 'ing', classificacao: 'regras', aceite: 'pub',
 }
 
+// O que dizer em cada pendência (no campo e no balão) e qual campo focar. Ids: os das seções do painel.
+export const MSG_PENDENCIA: Record<Pendencia['id'], string> = {
+  nome: 'Escreva o nome do evento.', formato: 'Escolha o formato.', descricao: 'Escreva a descrição, com pelo menos 20 caracteres.',
+  data: 'Escolha a data e a hora de início.', local: 'Preencha o local.', ingresso: 'Salve um ingresso com nome, quantidade e preço.',
+  classificacao: 'Escolha a classificação indicativa.', aceite: 'Marque o aceite do produtor.',
+}
+
+/** Id do campo que resolve a pendência. Ingresso: o primeiro salvo sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
+export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[]): string {
+  switch (id) {
+    case 'nome': return 'f-nome'
+    case 'formato': return 'f-formato'
+    case 'descricao': return 'f-desc'
+    case 'data': return 'f-inicio'
+    case 'local':
+      if (f.local_modo === 'online') return 'f-link'
+      return !f.venue_name.trim() ? 'f-lnome' : !f.venue_city.trim() ? 'f-cep' : 'f-link'
+    case 'ingresso': {
+      const g = ings.find(i => i.ativo && (!i.nome.trim() || !quantidadeDe(i.qtd)))
+      return g ? `ing-${g.id}-${!g.nome.trim() ? 'nome' : 'qtd'}` : ings[0] ? `ing-${ings[0].id}-preco` : 'ing-novo'
+    }
+    case 'classificacao': return 'f-class'
+    case 'aceite': return 'f-aceite'
+  }
+}
+
 /** Os 8 itens com o que está na tela. Ingressos: só os SALVOS e ativos contam (o envio olha o banco). */
 export function pendenciasDoPainel(f: Form, ingressosSalvos: Ing[], aceite: boolean): Pendencia[] {
   const link = f.link.trim()

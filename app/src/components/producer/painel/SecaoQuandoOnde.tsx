@@ -12,7 +12,7 @@ const mascaraCep = (v: string) => { const d = v.replace(/\D/g, '').slice(0, 8); 
 
 // Seção "Quando e onde": início e fim, modo do local, local com CEP, link da transmissão e "a definir".
 // Depois da primeira venda (travado) data, hora, modo e local ficam desabilitados.
-export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao & { erros: ErrosData }) {
+export default function SecaoQuandoOnde({ f, set, travado, erros, faltam }: PropsSecao & { erros: ErrosData }) {
   const [cepErro, setCepErro] = useState('')
   const [manual, setManual] = useState(false)
   const ultimoCep = useRef(f.cep)
@@ -21,6 +21,9 @@ export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao &
   const modoNome = LOCAL_MODOS.find(m => m.valor === f.local_modo)?.rotulo ?? f.local_modo
   const link = f.link.trim()
   const linkRuim = link !== '' && !linkValido(link)
+  const eLink = (linkRuim ? 'Use um link que comece com https:// e não tenha usuário@ antes do endereço. Enquanto estiver assim, ele não é salvo.' : '') || faltam?.['f-link']
+  const eLocal = faltam?.['f-lnome']
+  const eCep = cepErro || faltam?.['f-cep']
   const enderecoPronto = [enderecoDe(f.rua, f.numero, f.bairro), [f.venue_city, f.venue_state].filter(Boolean).join(' – ')].filter(Boolean).join(' · ')
 
   async function mudaCep(valor: string) {
@@ -56,7 +59,7 @@ export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao &
         </Faixa>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        {data('f-inicio', 'Início', 'inicioD', 'inicioH', erros.inicio)}
+        {data('f-inicio', 'Início', 'inicioD', 'inicioH', erros.inicio || faltam?.['f-inicio'])}
         {data('f-fim', 'Fim', 'fimD', 'fimH', erros.fim, '(opcional)')}
       </div>
 
@@ -70,9 +73,9 @@ export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao &
       {presencial && (
         <>
           <div className="grid gap-4 sm:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)]">
-            <Campo id="f-lnome" rotulo="Nome do local"><Input id="f-lnome" value={f.venue_name} disabled={travado} onChange={e => set({ venue_name: e.target.value })} /></Campo>
-            <Campo id="f-cep" rotulo="CEP" erro={cepErro || undefined}>
-              <Input id="f-cep" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={f.cep} disabled={travado} onChange={e => void mudaCep(e.target.value)} aria-describedby={cepErro ? 'f-cep-erro' : manual ? undefined : 'f-end-ajuda'} />
+            <Campo id="f-lnome" rotulo="Nome do local" erro={eLocal}><Input id="f-lnome" aria-invalid={!!eLocal} aria-describedby={eLocal ? 'f-lnome-erro' : undefined} value={f.venue_name} disabled={travado} onChange={e => set({ venue_name: e.target.value })} /></Campo>
+            <Campo id="f-cep" rotulo="CEP" erro={eCep || undefined}>
+              <Input id="f-cep" inputMode="numeric" autoComplete="postal-code" placeholder="00000-000" value={f.cep} disabled={travado} onChange={e => void mudaCep(e.target.value)} aria-invalid={!!eCep} aria-describedby={eCep ? 'f-cep-erro' : manual ? undefined : 'f-end-ajuda'} />
             </Campo>
             <Campo id="f-num" rotulo="Número"><Input id="f-num" value={f.numero} disabled={travado} onChange={e => set({ numero: e.target.value })} /></Campo>
           </div>
@@ -95,10 +98,10 @@ export default function SecaoQuandoOnde({ f, set, travado, erros }: PropsSecao &
       {online && (
         <Campo
           id="f-link" rotulo="Link da transmissão"
-          erro={linkRuim ? 'Use um link que comece com https:// e não tenha usuário@ antes do endereço. Enquanto estiver assim, ele não é salvo.' : undefined}
+          erro={eLink || undefined}
           ajuda="Só quem tem ingresso vê o link. Pôr ou trocar o link depois da aprovação manda o evento para nova análise."
         >
-          <Input id="f-link" type="url" placeholder="https://" maxLength={500} value={f.link} aria-invalid={linkRuim} aria-describedby={linkRuim ? 'f-link-erro' : 'f-link-ajuda'} onChange={e => set({ link: e.target.value })} />
+          <Input id="f-link" type="url" placeholder="https://" maxLength={500} value={f.link} aria-invalid={!!eLink} aria-describedby={eLink ? 'f-link-erro' : 'f-link-ajuda'} onChange={e => set({ link: e.target.value })} />
           {link !== '' && !linkRuim && <p className="flex items-center gap-1.5 text-xs text-foreground"><I.AbrirExterno size={14} aria-hidden="true" />O link abre em <strong className="font-semibold">{dominioDoLink(link)}</strong></p>}
         </Campo>
       )}

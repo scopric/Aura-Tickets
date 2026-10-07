@@ -8,7 +8,9 @@ import type { Form } from '../../../lib/painelEvento'
 // Peças que as seções do painel repetem (prancha Painel.dc.html: .campo, .chip, .selo, .faixa).
 
 export type SetForm = (p: Partial<Form>) => void
-export type PropsSecao = { f: Form; set: SetForm; travado?: boolean }
+// faltam: id do campo → o que falta (só depois de "Enviar" / "Ver o que falta"); o erro que já existe no campo vale mais
+export type Faltam = Record<string, string>
+export type PropsSecao = { f: Form; set: SetForm; travado?: boolean; faltam?: Faltam }
 
 export function Campo({ id, rotulo, opc, ajuda, erro, children, className }: {
   id: string; rotulo: ReactNode; opc?: string; ajuda?: ReactNode; erro?: string; children: ReactNode; className?: string

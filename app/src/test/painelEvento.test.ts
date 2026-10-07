@@ -1,6 +1,9 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { pendencias } from '../lib/tipoEvento'
 import {
-  diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
+  MSG_PENDENCIA, SECAO_DA_PENDENCIA, campoDaPendencia, diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
   precoDe, quantidadeDe, semNomeVazio, erroDosIngressos, ERRO_NOME, rotuloDoModo, rotulosDoDiff, snapDoForm, eventoDaPrevia, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
@@ -455,5 +458,31 @@ describe('limites por pedido', () => {
   it('para o banco: vazio vira null, número vira número', () => {
     expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null })
     expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4 })
+  })
+})
+
+describe('mapa pendência → seção e campo (o que falta no campo)', () => {
+  const ler = (...a: string[]) => readFileSync(join(__dirname, '..', ...a), 'utf8')
+  const secoes = ['SecaoOQueE', 'SecaoQuandoOnde', 'SecaoIngressos', 'SecaoRegras', 'SecaoPublicar'].map(n => ler('components/producer/painel', `${n}.tsx`)).join('\n')
+  const painel = ler('pages/producer/PainelEvento.tsx')
+  const ids = pendencias({}).map(p => p.id)
+
+  it('toda pendência tem mensagem e seção que existe no painel', () => {
+    expect(ids).toHaveLength(8)
+    for (const id of ids) {
+      expect(MSG_PENDENCIA[id], id).toBeTruthy()
+      expect(painel, id).toContain(`id: '${SECAO_DA_PENDENCIA[id]}'`)
+    }
+  })
+
+  it('todo campo apontado existe no código das seções, em todos os modos e com ou sem ingresso', () => {
+    const formas = [{}, { local_modo: 'online' }, { local_modo: 'hibrido' }, { local_modo: 'hibrido', venue_name: 'X' }, { venue_name: 'X' }].map(o => form({ venue_name: '', venue_city: '', ...o }))
+    const listas = [[], [ing({ id: 'ABC', nome: '' })], [ing({ id: 'ABC', qtd: '' })], [ing({ id: 'ABC' })]]
+    for (const id of ids) for (const f of formas) for (const l of listas) {
+      const campo = campoDaPendencia(id, f, l)
+      const dinamico = campo.match(/^ing-ABC-(\w+)$/)
+      if (dinamico) expect(secoes, campo).toContain('${id}-' + dinamico[1])
+      else expect(secoes.includes(`id="${campo}"`) || secoes.includes(`'${campo}'`), campo).toBe(true)
+    }
   })
 })
