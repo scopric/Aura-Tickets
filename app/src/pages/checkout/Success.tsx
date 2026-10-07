@@ -12,7 +12,7 @@ import TicketQRCode from '../../components/TicketQRCode'
 import { corSorteada, derivarCor, ehHex, varsDoEvento } from '../../lib/corEvento'
 import { jaInstalado } from '../../lib/instalar'
 import { horaCurta } from '../../lib/ingresso'
-import { brl, calcularTaxa } from '../../lib/taxa'
+import { brlOuGratis } from '../../lib/taxa'
 import { soltarConfete } from '../../lib/confete'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -30,10 +30,7 @@ export default function CheckoutSuccess() {
   const navigate = useNavigate()
 
   const [params] = useSearchParams()
-  const { orderId: orderIdState, totalAmount } = (location.state || {}) as {
-    orderId?: string
-    totalAmount?: number
-  }
+  const { orderId: orderIdState } = (location.state || {}) as { orderId?: string }
   // O pedido vem do link (?pedido=), que abre em outra aba e depois de recarregar; o estado da navegação fica de reserva.
   // Só UUID segue para a consulta; a leitura de tickets já é restrita ao dono (RLS).
   const doLink = params.get('pedido')
@@ -178,13 +175,6 @@ export default function CheckoutSuccess() {
                     <div className="mt-1 text-[11px] leading-4 text-muted-foreground">{t.events?.date ? new Date(t.events.date + 'T00:00:00').toLocaleDateString('pt-BR') : ''}{horaCurta(t.events?.time) && ` · ${horaCurta(t.events?.time)}`}</div>
                   </div>
                 </div>
-
-                {!!totalAmount && (
-                  <div className="mt-3 flex justify-between gap-3 text-sm leading-5">
-                    <span className="text-muted-foreground">Valor com taxa</span>
-                    <span className="font-display font-semibold tabular-nums">{brl(calcularTaxa(t.ticket_types?.price || 0).total)}</span>
-                  </div>
-                )}
               </div>
             ))}
 
@@ -198,12 +188,23 @@ export default function CheckoutSuccess() {
                   <span className="text-muted-foreground">Código do Pedido</span>
                   <span className="font-display font-semibold tabular-nums">#{orderId?.substring(0, 8).toUpperCase()}</span>
                 </div>
-                {!!totalAmount && (
-                  <div className="flex justify-between gap-3 py-2.5 text-sm leading-5">
-                    <span className="text-muted-foreground">Total Pago</span>
-                    <span className="font-display font-semibold tabular-nums">{brl(totalAmount)}</span>
-                  </div>
-                )}
+              </div>
+            )}
+
+            {pedidoDaConta && pedidoDaConta.total != null && pedidoDaConta.subtotal != null && (
+              <div className={cartao}>
+                <div className="flex justify-between gap-3 py-1.5 text-sm leading-5">
+                  <span className="text-muted-foreground">Ingresso</span>
+                  <span className="font-display font-semibold tabular-nums">{brlOuGratis(pedidoDaConta.subtotal)}</span>
+                </div>
+                <div className="flex justify-between gap-3 py-1.5 text-sm leading-5">
+                  <span className="text-muted-foreground">Taxa de serviço</span>
+                  <span className="font-display font-semibold tabular-nums">{brlOuGratis(pedidoDaConta.service_fee)}</span>
+                </div>
+                <div className="flex justify-between gap-3 border-t border-border pt-2.5 text-sm leading-5">
+                  <span className="font-medium">Total</span>
+                  <span className="font-display font-semibold tabular-nums">{brlOuGratis(pedidoDaConta.total)}</span>
+                </div>
               </div>
             )}
 

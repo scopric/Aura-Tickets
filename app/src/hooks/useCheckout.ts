@@ -306,10 +306,10 @@ export function useUserTickets() {
 
 // O pedido é do usuário? A RLS de orders só devolve o do dono; null = não é desta conta (ou não existe)
 export function useOrderVisivel(orderId?: string) {
-  return useQuery<{ id: string } | null>({
+  return useQuery<{ id: string; subtotal: number | null; service_fee: number | null; total: number | null } | null>({
     queryKey: ['order-visivel', orderId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('orders').select('id').eq('id', orderId!).maybeSingle()
+      const { data, error } = await supabase.from('orders').select('id, subtotal, service_fee, total').eq('id', orderId!).maybeSingle()
       if (error) throw error
       return data
     },

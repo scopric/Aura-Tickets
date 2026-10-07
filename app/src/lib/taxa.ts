@@ -33,6 +33,9 @@ export function brl(v: number): string {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// Valor gravado no pedido; zero é "Gratuito" (como textoPreco) (nunca um "0" solto)
+export const brlOuGratis = (v: number | null | undefined): string => (Number(v) > 0 ? brl(Number(v)) : 'Gratuito')
+
 // "R$ 50,00 + taxa R$ 5,00 = R$ 55,00" (Decreto 13.108, art. 7º: preço, taxa e total discriminados)
 export function textoPreco(preco: number, qtd = 1): string {
   const r = resumoCarrinho([{ preco, qtd }])
