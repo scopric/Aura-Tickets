@@ -54,7 +54,7 @@ export function useAdminFinance() {
   return useQuery<AdminFinanceData>({
     queryKey: ['admin-finance'],
     queryFn: async () => {
-      // sem apelido na FK: cada uma das 3 tabelas tem uma única FK para profiles, então o PostgREST resolve sem ambiguidade
+      // sem apelido na FK: orders e transactions têm uma única FK para profiles, então o PostgREST resolve sem ambiguidade
       const [orders, transactions, withdrawals] = await Promise.all([
         supabase
           .from('orders')
@@ -66,11 +66,7 @@ export function useAdminFinance() {
           .select('id, type, amount, description, status, created_at, profiles (full_name, email)')
           .order('created_at', { ascending: false })
           .limit(1000),
-        supabase
-          .from('withdrawals')
-          .select('id, amount, pix_key, bank_account, status, created_at, processed_at, profiles (full_name, email)')
-          .order('created_at', { ascending: false })
-          .limit(1000),
+        supabase.rpc('pr7_admin_saques' as never), // Pix/banco completos, só manage_finance (docs/sql/20261007_pr7_cripto_rpcs.sql)
       ])
 
       const erro = orders.error || transactions.error || withdrawals.error
@@ -79,12 +75,15 @@ export function useAdminFinance() {
       // as linhas chegam como `never[]` enquanto o cliente do Supabase não tiver os tipos do banco
       // (pendência conhecida: `supabase gen types typescript`), por isso o cast nas 3 leituras
       const txs = (transactions.data || []) as (AdminTransaction & { profiles: Embed<ProfileRef> })[]
-      const wds = (withdrawals.data || []) as (AdminWithdrawal & { profiles: Embed<ProfileRef> })[]
+      const wds = (withdrawals.data || []) as unknown as (AdminWithdrawal & { produtor_nome: string | null; produtor_email: string | null })[]
 
       return {
         orders: (orders.data || []) as AdminOrder[],
         transactions: txs.map(t => ({ ...t, profiles: um(t.profiles) })) as AdminTransaction[],
-        withdrawals: wds.map(w => ({ ...w, profiles: um(w.profiles) })) as AdminWithdrawal[],
+        withdrawals: wds.map(({ produtor_nome, produtor_email, ...w }) => ({
+          ...w,
+          profiles: { full_name: produtor_nome, email: produtor_email },
+        })) as AdminWithdrawal[],
       }
     },
   })

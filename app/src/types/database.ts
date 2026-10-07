@@ -6,6 +6,15 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export interface StaffFicha {
+  nome_completo: string; cpf: string | null; rg: string | null; data_nascimento: string | null; cep: string | null
+  rua: string | null; numero: string | null; complemento: string | null; bairro: string | null; cidade: string | null
+  uf: string | null; email_secundario: string | null; telefone: string | null; whatsapp: string | null
+  emergencia_nome: string | null; emergencia_parentesco: string | null; emergencia_telefone: string | null
+  banco: string | null; agencia: string | null; conta: string | null; pix_tipo: string | null
+  pix_chave: string | null; email: string; cargo: string; updated_at: string
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -929,6 +938,9 @@ export interface Database {
           is_verified: boolean
           created_at: string
           updated_at: string
+          cnpj_enc: string | null
+          pix_key_enc: string | null
+          bank_account_enc: string | null
         }
         Insert: {
           id?: string | null
@@ -940,6 +952,9 @@ export interface Database {
           is_verified?: boolean
           created_at?: string
           updated_at?: string
+          cnpj_enc?: string | null
+          pix_key_enc?: string | null
+          bank_account_enc?: string | null
         }
         Update: {
           id?: string | null
@@ -951,6 +966,9 @@ export interface Database {
           is_verified?: boolean
           created_at?: string
           updated_at?: string
+          cnpj_enc?: string | null
+          pix_key_enc?: string | null
+          bank_account_enc?: string | null
         }
       }
       producer_subscriptions: {
@@ -1036,6 +1054,7 @@ export interface Database {
           is_verified: boolean
           created_at: string
           updated_at: string
+          cpf_enc: string | null
         }
         Insert: {
           id?: string | null
@@ -1055,6 +1074,7 @@ export interface Database {
           is_verified?: boolean
           created_at?: string
           updated_at?: string
+          cpf_enc?: string | null
         }
         Update: {
           id?: string | null
@@ -1074,6 +1094,7 @@ export interface Database {
           is_verified?: boolean
           created_at?: string
           updated_at?: string
+          cpf_enc?: string | null
         }
       }
       table_members: {
@@ -1306,6 +1327,8 @@ export interface Database {
           status: string
           created_at: string
           processed_at: string | null
+          pix_key_enc: string | null
+          bank_account_enc: string | null
         }
         Insert: {
           id?: string | null
@@ -1316,6 +1339,8 @@ export interface Database {
           status?: string
           created_at?: string
           processed_at?: string | null
+          pix_key_enc?: string | null
+          bank_account_enc?: string | null
         }
         Update: {
           id?: string | null
@@ -1325,7 +1350,67 @@ export interface Database {
           bank_account?: Json
           status?: string
           processed_at?: string | null
+          pix_key_enc?: string | null
+          bank_account_enc?: string | null
         }
+      }
+    }
+    Functions: {
+      // Escritas e leituras de PII da cifra (docs/sql/20261007_pr7_cripto_rpcs.sql); escritas à mão: o banco ainda não tem as RPCs
+      pr7_produtor_financeiro: {
+        Args: Record<string, never>
+        Returns: { cnpj: string | null; pix_key: string | null; bank_account: Json }[]
+      }
+      pr7_salvar_produtor_financeiro: {
+        Args: { p_cnpj: string | null; p_pix_key: string | null; p_bank_account: Json | null }
+        Returns: undefined
+      }
+      pr7_admin_saques: {
+        Args: Record<string, never>
+        Returns: {
+          id: string; amount: number; status: string; created_at: string; processed_at: string | null
+          pix_key: string | null; bank_account: Json; produtor_nome: string | null; produtor_email: string | null
+        }[]
+      }
+      pr7_admin_afiliados: {
+        Args: Record<string, never>
+        Returns: {
+          id: string; user_id: string; referral_code: string; status: string; recurring_percent: number
+          agreement_date: string; notes: string | null; full_name: string | null; cpf_mascarado: string | null
+          birth_date: string | null; email: string | null; phone: string | null; whatsapp: string | null
+          cep: string | null; street: string | null; street_number: string | null; complement: string | null
+          neighborhood: string | null; city: string | null; state: string | null; payout_account_id: string | null
+          created_at: string; updated_at: string; created_by: string | null
+          user_full_name: string | null; user_email: string | null
+        }[]
+      }
+      pr7_salvar_afiliado: {
+        Args: {
+          p_id: string | null; p_cpf: string | null; p_full_name: string; p_birth_date: string; p_email: string
+          p_phone: string; p_whatsapp: string; p_cep: string; p_street: string; p_street_number: string
+          p_complement: string | null; p_neighborhood: string; p_city: string; p_state: string
+          p_recurring_percent: number; p_status: string; p_agreement_date: string; p_notes: string | null
+          p_user_id?: string | null; p_referral_code?: string | null; p_payout_account_id?: string | null
+        }
+        Returns: string
+      }
+      pr7_meu_cadastro: {
+        Args: Record<string, never>
+        Returns: StaffFicha[]
+      }
+      pr7_salvar_meu_cadastro: {
+        Args: {
+          p_nome_completo: string; p_cpf: string; p_rg: string; p_data_nascimento: string; p_cep: string; p_rua: string
+          p_numero: string; p_complemento: string | null; p_bairro: string; p_cidade: string; p_uf: string
+          p_email_secundario: string; p_telefone: string; p_whatsapp: string; p_emergencia_nome: string
+          p_emergencia_parentesco: string; p_emergencia_telefone: string; p_banco: string | null
+          p_agencia: string | null; p_conta: string | null; p_pix_tipo: string; p_pix_chave: string; p_updated_at: string
+        }
+        Returns: string
+      }
+      colaborador_dados: {
+        Args: { p_user: string }
+        Returns: StaffFicha[] // CPF, RG, agência, conta e Pix mascarados
       }
     }
   }

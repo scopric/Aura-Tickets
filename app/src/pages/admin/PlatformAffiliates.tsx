@@ -32,7 +32,7 @@ interface Afiliado {
   notes: string | null
   payout_account_id: string | null
   full_name: string | null
-  cpf: string | null
+  cpf_mascarado: string | null // o CPF inteiro não volta mais do banco (pr7_admin_afiliados)
   birth_date: string | null
   email: string | null
   phone: string | null
@@ -45,6 +45,8 @@ interface Afiliado {
   city: string | null
   state: string | null
   created_at: string
+  user_full_name: string | null
+  user_email: string | null
   user?: { full_name: string | null; email: string } | null
 }
 
@@ -91,6 +93,7 @@ const vazio = {
   conta_salva: false, // já há conta de recebimento gravada: só o afiliado troca (banco, Decisão 163)
   full_name: '',
   cpf: '',
+  cpf_salvo: false, // já há CPF gravado: em branco mantém o atual
   birth_date: '',
   contact_email: '',
   phone: '',
@@ -113,7 +116,6 @@ const sugerirCodigo = (nome: string) =>
   nome.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || ''
 
 const fmtCpf = (s: string) => digitos(s).replace(/(\d{3})(\d{3})(\d{3})(\d{0,2}).*/, '$1.$2.$3-$4')
-const mascararCpf = (s: string | null) => (s && s.length === 11 ? `***.${s.slice(3, 6)}.${s.slice(6, 9)}-**` : '—')
 const fmtTel = (s: string | null) => {
   const d = digitos(s || '')
   if (d.length === 11) return d.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3')
@@ -136,7 +138,7 @@ function tempoDesde(iso: string) {
 function validar(f: Form): string | null {
   if (!f.id && !f.pessoa) return 'Busque a conta do afiliado pelo e-mail primeiro.'
   if (f.full_name.trim().length < 3) return 'Informe o nome completo.'
-  if (!cpfValido(f.cpf)) return 'CPF inválido.'
+  if (f.id && f.cpf_salvo && !f.cpf) { /* mantém o CPF gravado */ } else if (!cpfValido(f.cpf)) return 'CPF inválido.'
   if (!f.birth_date || !maiorDeIdade(f.birth_date)) return 'Data de nascimento inválida (o afiliado precisa ter 18 anos ou mais).'
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.contact_email.trim())) return 'E-mail de contato inválido.'
   if (!/^\d{10,11}$/.test(digitos(f.phone))) return 'Telefone: DDD + número (10 ou 11 dígitos).'
@@ -163,7 +165,7 @@ export default function AdminPlatformAffiliates() {
     queryKey: ['admin-platform-affiliates'],
     queryFn: async () => {
       const [af, vi, pr] = await Promise.all([
-        supabase.from('platform_affiliates').select('*, user:profiles!platform_affiliates_user_id_fkey(full_name, email)').order('created_at', { ascending: false }),
+        supabase.rpc('pr7_admin_afiliados' as never), // CPF mascarado (docs/sql/20261007_pr7_cripto_rpcs.sql)
         supabase.from('platform_affiliate_producers').select('*, producer:profiles!platform_affiliate_producers_producer_id_fkey(full_name, email, created_at)').order('linked_at', { ascending: false }),
         supabase.from('profiles').select('id, full_name, email, role').eq('role', 'producer').order('full_name').limit(1000),
       ])
@@ -171,7 +173,10 @@ export default function AdminPlatformAffiliates() {
       if (vi.error) throw vi.error
       if (pr.error) throw pr.error
       return {
-        afiliados: (af.data || []) as unknown as Afiliado[],
+        afiliados: ((af.data || []) as unknown as Afiliado[]).map(a => ({
+          ...a,
+          user: { full_name: a.user_full_name, email: a.user_email ?? '' },
+        })),
         vinculos: (vi.data || []) as unknown as Vinculo[],
         produtores: (pr.data || []) as Pessoa[],
       }
@@ -220,38 +225,37 @@ export default function AdminPlatformAffiliates() {
 
   const salvar = useMutation({
     mutationFn: async (f: Form) => {
-      const payload = {
-        recurring_percent: f.recurring_percent,
-        status: f.status,
-        agreement_date: f.agreement_date,
-        notes: f.notes.trim() || null,
-        full_name: f.full_name.trim(),
-        cpf: digitos(f.cpf),
-        birth_date: f.birth_date,
-        email: f.contact_email.trim().toLowerCase(),
-        phone: digitos(f.phone),
-        whatsapp: digitos(f.whatsapp),
-        cep: digitos(f.cep),
-        street: f.street.trim(),
-        street_number: f.street_number.trim(),
-        complement: f.complement.trim() || null,
-        neighborhood: f.neighborhood.trim(),
-        city: f.city.trim(),
-        state: f.state,
-        updated_at: new Date().toISOString(),
-      }
-      const q = f.id
+      const digCpf = digitos(f.cpf)
+      const { data: id, error: e } = await supabase.rpc('pr7_salvar_afiliado' as never, {
+        p_id: f.id,
+        p_cpf: digCpf || null, // null na edição = manter o CPF gravado
+        p_full_name: f.full_name.trim(),
+        p_birth_date: f.birth_date,
+        p_email: f.contact_email.trim().toLowerCase(),
+        p_phone: digitos(f.phone),
+        p_whatsapp: digitos(f.whatsapp),
+        p_cep: digitos(f.cep),
+        p_street: f.street.trim(),
+        p_street_number: f.street_number.trim(),
+        p_complement: f.complement.trim() || null,
+        p_neighborhood: f.neighborhood.trim(),
+        p_city: f.city.trim(),
+        p_state: f.state,
+        p_recurring_percent: f.recurring_percent,
+        p_status: f.status,
+        p_agreement_date: f.agreement_date,
+        p_notes: f.notes.trim() || null,
         // o banco trava o código de indicação depois de criado e a conta de recebimento depois de preenchida
-        ? supabase.from('platform_affiliates').update((f.conta_salva ? payload : { ...payload, payout_account_id: f.payout_account_id.trim() || null }) as never).eq('id', f.id).select('id')
-        : supabase.from('platform_affiliates').insert({ ...payload, referral_code: f.referral_code, payout_account_id: f.payout_account_id.trim() || null, user_id: f.pessoa!.id, created_by: user?.id ?? null } as never).select('id')
-      const { data: d, error: e } = await q
+        p_user_id: f.id ? null : f.pessoa!.id,
+        p_referral_code: f.id ? null : f.referral_code,
+        p_payout_account_id: f.conta_salva ? null : f.payout_account_id.trim() || null,
+      } as never)
       if (e) {
         if (e.code === '23505') throw new Error('CPF, código de indicação, conta Evokaa ou conta de recebimento já usados por outro afiliado.')
         if (e.code === '23514') throw new Error('O banco recusou algum dado (CPF, data, telefone, CEP ou UF). Confira o formulário.')
         throw e
       }
-      // `.select('id')`: RLS barrando volta "sucesso" com zero linhas (Decisão 62)
-      if (!d?.length) throw new Error('Nada foi gravado (sem permissão).')
+      if (!id) throw new Error('Nada foi gravado.')
     },
     onSuccess: (_, f) => {
       toast.success(f.id ? 'Afiliado atualizado.' : 'Afiliado cadastrado.')
@@ -312,7 +316,8 @@ export default function AdminPlatformAffiliates() {
     payout_account_id: a.payout_account_id || '',
     conta_salva: !!a.payout_account_id,
     full_name: a.full_name || a.user?.full_name || '',
-    cpf: a.cpf ? fmtCpf(a.cpf) : '',
+    cpf: '', // o CPF inteiro não volta do banco; em branco mantém o gravado
+    cpf_salvo: !!a.cpf_mascarado,
     birth_date: a.birth_date || '',
     contact_email: a.email || a.user?.email || '',
     phone: a.phone || '',
@@ -389,10 +394,10 @@ export default function AdminPlatformAffiliates() {
                   <div>
                     <div className="font-semibold text-foreground">{a.full_name || a.user?.full_name || a.user?.email || 'Conta removida'}</div>
                     <div className="text-xs text-muted-foreground">
-                      CPF {mascararCpf(a.cpf)} · {a.city && a.state ? `${a.city}/${a.state}` : 'sem endereço'} · WhatsApp {fmtTel(a.whatsapp)}
+                      CPF {a.cpf_mascarado ?? '—'} · {a.city && a.state ? `${a.city}/${a.state}` : 'sem endereço'} · WhatsApp {fmtTel(a.whatsapp)}
                     </div>
                     <div className="text-xs text-muted-foreground">{a.email || a.user?.email} · código <span className="font-mono font-bold">{a.referral_code}</span> · acordo de {dataBr(a.agreement_date)}</div>
-                    {!a.cpf && <div className="mt-1 text-xs text-[var(--ev-warning)]">Cadastro incompleto: faltam os dados pessoais.</div>}
+                    {!a.cpf_mascarado && <div className="mt-1 text-xs text-[var(--ev-warning)]">Cadastro incompleto: faltam os dados pessoais.</div>}
                     <div className={`mt-1 text-xs ${a.payout_account_id ? 'text-muted-foreground' : 'text-[var(--ev-warning)]'}`}>{a.payout_account_id ? 'Conta de recebimento informada' : 'Sem conta de recebimento: informar quando o gateway for definido'}</div>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap">
@@ -528,8 +533,8 @@ export default function AdminPlatformAffiliates() {
                   <Input autoFocus={!!form.id} value={form.full_name} onChange={e => set('full_name', e.target.value)} maxLength={150} autoComplete="off" />
                 </label>
                 <label className="space-y-1">
-                  <span className={rotulo}>CPF *</span>
-                  <Input className="font-mono" inputMode="numeric" value={form.cpf} onChange={e => set('cpf', fmtCpf(e.target.value))} placeholder="000.000.000-00" maxLength={14} autoComplete="off" />
+                  <span className={rotulo}>CPF {form.cpf_salvo ? '' : '*'}</span>
+                  <Input className="font-mono" inputMode="numeric" value={form.cpf} onChange={e => set('cpf', fmtCpf(e.target.value))} placeholder={form.cpf_salvo ? 'Em branco mantém o CPF atual' : '000.000.000-00'} maxLength={14} autoComplete="off" />
                 </label>
                 <label className="space-y-1">
                   <span className={rotulo}>Data de nascimento *</span>

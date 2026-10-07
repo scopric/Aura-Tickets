@@ -320,10 +320,10 @@ test.describe('tela Equipe — convidar colaborador', () => {
     await page.route('**/rest/v1/rpc/colaborador_dados', (r) => {
       chamadas.push({ rpc: 'colaborador_dados', ...(r.request().postDataJSON() as object) })
       return r.fulfill({ json: [{
-        user_id: CLARA, cargo: 'Atendimento', email: 'clara@teste.invalid', nome_completo: 'Clara Teste da Silva', cpf: '52998224725', rg: '12.345.678-9',
+        user_id: CLARA, cargo: 'Atendimento', email: 'clara@teste.invalid', nome_completo: 'Clara Teste da Silva', cpf: '***.***.***-25', rg: '••••78-9', // colaborador_dados devolve mascarado (pr7_mascara_cpf / pr7_mascara4)
         data_nascimento: '1990-05-20', cep: '01310100', rua: 'Avenida Paulista', numero: '1000', complemento: null, bairro: 'Bela Vista', cidade: 'São Paulo', uf: 'SP',
         email_secundario: 'clara.pessoal@teste.invalid', telefone: '+5511987654321', whatsapp: '+5511987654321', emergencia_nome: 'Pedro Teste',
-        emergencia_parentesco: 'Irmão', emergencia_telefone: '+5511912345678', banco: null, agencia: null, conta: null, pix_tipo: 'cpf', pix_chave: '52998224725',
+        emergencia_parentesco: 'Irmão', emergencia_telefone: '+5511912345678', banco: null, agencia: null, conta: null, pix_tipo: 'cpf', pix_chave: '••••4725',
       }] })
     })
     await page.route('**/functions/v1/admin-invite', (r) => {
@@ -387,7 +387,7 @@ test.describe('tela Equipe — convidar colaborador', () => {
     // ficha do colaborador
     await page.getByText('Clara Teste', { exact: true }).click()
     await expect(page.getByText('Dados do cadastro')).toBeVisible()
-    await expect(page.getByText('529.982.247-25')).toBeVisible()
+    await expect(page.getByText('***.***.***-25')).toBeVisible()
     await expect(page.getByText('Pedro Teste (Irmão), +5511912345678')).toBeVisible()
     expect(chamadas.find((c) => c.rpc === 'colaborador_dados')).toEqual({ rpc: 'colaborador_dados', p_user: CLARA })
   })

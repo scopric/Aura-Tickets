@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
     ['tickets', () => admin.from('tickets').update({ buyer_email: anonEmail }).eq('user_id', uid)],
     // Saques do produtor: destino bancário fora (sacar antes de excluir a conta)
     ['withdrawals', () => admin.from('withdrawals').update({ pix_key: null, bank_account: {} }).eq('producer_id', uid)],
+    // Afiliado da plataforma: CPF fora (o gatilho zz_pr7_sync_affiliates zera cpf_enc e cpf_hmac junto)
+    ['platform_affiliates', () => admin.from('platform_affiliates').update({ cpf: null }).eq('user_id', uid)],
     // CRM do produtor: ficha do participante sem base fiscal
     ['customers', () => admin.from('customers').update({ name: 'Usuário removido', email: anonEmail, phone: null, notes: null }).eq('user_id', uid)],
     // Conteúdo escrito pelo usuário (chat entre usuários, chat de atendimento e chat de suporte antigo)
