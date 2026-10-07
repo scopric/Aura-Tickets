@@ -9,6 +9,7 @@ import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
 import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { formasNovas } from './mapa/catalogo'
 import { type ToolType, type SeatStatus, type SeatNode, type WallNode, type Section, type Environment, sectionColors, defaultSections, typeLabels, toolDefaults, novosPavimentos, fundoPadrao, montarFundo, instantaneo, normalizarEnvs } from './mapa/modelo'
 
 
@@ -71,6 +72,7 @@ function toolIcon(t: ToolType) {
     case 'runway_stage': return RunwayStageIcon
     case 'container_toilet': return ContainerToiletIcon
     case 'large_tent': return LargeTentIcon
+    default: return I.Quadrado // tipos do catálogo novo (editor Konva) não têm ícone próprio aqui
   }
 }
 
@@ -1941,7 +1943,7 @@ export default function SeatingMap() {
   const blockedCount = seats.filter(s => s.status === 'blocked').length
 
   const filteredSeats = search
-    ? seats.filter(s => s.label.toLowerCase().includes(search.toLowerCase()) || typeLabels[s.type].toLowerCase().includes(search.toLowerCase()))
+    ? seats.filter(s => s.label.toLowerCase().includes(search.toLowerCase()) || (typeLabels[s.type] || '').toLowerCase().includes(search.toLowerCase()))
     : seats
 
   const canvasW = Math.max(60, roomWidth + 20) * pixelsPerMeter
@@ -2738,7 +2740,8 @@ export default function SeatingMap() {
                 s.type === 'vip_lounge' || s.type === 'round_buffet' || s.type === 'runway_stage' || s.type === 'backdrop' ||
                 s.type === 'foh_desk' || s.type === 'parking_spot' || s.type === 'l_bar' || s.type === 'u_bar' ||
                 s.type === 'food_court' || s.type === 'cloakroom' || s.type === 'ticket_office' || s.type === 'container_toilet' ||
-                s.type === 'large_tent' || s.type === 'buffet_table' || s.type === 'dressing_room' || s.type === 'portico' || s.type === 'dj_deck'
+                s.type === 'large_tent' || s.type === 'buffet_table' || s.type === 'dressing_room' || s.type === 'portico' || s.type === 'dj_deck' ||
+                s.type in formasNovas
 
               // Determinar o formato para mesas
               const isCircleTable = s.type === 'table' && s.tableShape === 'circle'
@@ -3194,6 +3197,16 @@ export default function SeatingMap() {
                     {s.type === 'extinguisher' && (
                       <div className="w-full h-full rounded-full border border-red-500 bg-red-50 flex items-center justify-center shadow-xs">
                         <ExtinguisherIcon className="w-4 h-4 text-red-600 animate-pulse flex-shrink-0" />
+                      </div>
+                    )}
+
+                    {/* Tipos do catálogo novo: retângulo com o nome (sem desenho próprio neste editor) */}
+                    {s.type in formasNovas && (
+                      <div
+                        className={`w-full h-full border flex items-center justify-center text-center overflow-hidden shadow-xs ${formasNovas[s.type] === 'c' ? 'rounded-full' : 'rounded-md'}`}
+                        style={{ borderColor: statusColor, background: `${statusColor}22` }}
+                      >
+                        <span className="text-[7.5px] font-bold leading-tight truncate max-w-full" style={{ color: statusColor }}>{s.label}</span>
                       </div>
                     )}
 

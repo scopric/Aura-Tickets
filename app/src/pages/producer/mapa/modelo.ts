@@ -1,5 +1,7 @@
-// Tipos de ferramentas do editor
-export type ToolType = 
+import { defaultsNovos, rotulosNovos, type TipoNovo } from './catalogo'
+
+// Tipos de ferramentas do editor (os do catálogo ampliado estão em catalogo.ts)
+export type ToolType = TipoNovo
   | 'select' | 'pan' | 'seat' | 'table' | 'stage' | 'bar' | 'door' | 'text' | 'dancefloor' | 'area' | 'stairs' 
   | 'restroom' | 'info' | 'service' | 'wall' | 'ledscreen' | 'truss' | 'generator' | 'soundhouse' 
   | 'barricade' | 'bistro' | 'couch' | 'tent' | 'stand' | 'chemical_toilet' | 'accessible_toilet' | 'emergency_exit'
@@ -90,7 +92,8 @@ export const typeLabels: Record<ToolType, string> = {
   ticket_office: 'Bilheteria / Portaria', parking_spot: 'Vaga Estacionam.', foh_desk: 'Mesa de Som (FOH)',
   backdrop: 'Backdrop (Fotos)', round_buffet: 'Mesa Buffet Red.', cloakroom: 'Guarda-volumes',
   extinguisher: 'Extintor Incêndio', runway_stage: 'Passarela Desfile', container_toilet: 'WC Container',
-  large_tent: 'Tenda Pirâmide Gde.'
+  large_tent: 'Tenda Pirâmide Gde.',
+  ...rotulosNovos
 }
 
 // Configurações padrão dos elementos em metros
@@ -143,7 +146,8 @@ export const toolDefaults: Record<ToolType, { wMeter: number; hMeter: number; ca
   extinguisher: { wMeter: 0.4, hMeter: 0.4, cap: 0, color: '#ef4444' },
   runway_stage: { wMeter: 2.0, hMeter: 8.0, cap: 0, color: '#444444' },
   container_toilet: { wMeter: 6.0, hMeter: 2.4, cap: 0, color: '#0891b2' },
-  large_tent: { wMeter: 10.0, hMeter: 10.0, cap: 0, color: '#6d28d9' }
+  large_tent: { wMeter: 10.0, hMeter: 10.0, cap: 0, color: '#6d28d9' },
+  ...defaultsNovos
 }
 
 export const novosPavimentos = (): Environment[] => [
