@@ -12,10 +12,11 @@ type Resposta = { data?: unknown; error: unknown; count?: number | null }
 const tabelas: Record<string, (c: Chamada[]) => Resposta> = {}
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', name: 'Ricardo Scoparo' } }) }))
 const rpc = vi.fn()
+const nivel2fa = vi.fn(() => ({ currentLevel: 'aal2', nextLevel: 'aal2' }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
     rpc: (...a: unknown[]) => { const p = Promise.resolve(rpc(...a)); return Object.assign(p, { abortSignal: () => p }) },
-    auth: { mfa: { getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } }) } },
+    auth: { mfa: { getAuthenticatorAssuranceLevel: () => Promise.resolve({ data: nivel2fa() }) } },
     from: (t: string) => {
       const c: Chamada[] = []
       const r = () => Promise.resolve(tabelas[t](c))
@@ -35,7 +36,7 @@ const diaEm = (d: number) => new Date(Date.now() + d * 86_400_000).toLocaleDateS
 const tipo = (id: string, name: string, quantity_total: number, extra: object = {}) =>
   ({ id, event_id: 'e1', name, price: 50, quantity_total, capacity: quantity_total, sold: 0, is_active: true, sale_start: null, ...extra })
 const evento = (extra: object = {}) => ({
-  id: 'e1', producer_id: 'u1', title: 'Noite de Forró', slug: 'noite-de-forro', status: 'published', approval_status: 'approved',
+  id: 'e1', producer_id: 'u1', visibility: 'public', title: 'Noite de Forró', slug: 'noite-de-forro', status: 'published', approval_status: 'approved',
   date: diaEm(10), time: '22:00:00', start_date: `${diaEm(10)}T22:00:00-03:00`, created_at: agora(),
   venue_name: 'Espaço Torres', venue_city: 'Curitiba', cover_image: null, image_url: null, accent_color: '#a55c65', capacity: null,
   ticket_types: [tipo('ta', 'Pista', 2), tipo('tb', 'Camarote', 10), tipo('tc', 'Pista 2º lote', 8, { sale_start: `${diaEm(5)}T12:00:00Z` })],
@@ -85,7 +86,7 @@ const montar = (url = '/producer/event/e1') => {
   )
 }
 
-beforeEach(() => { localStorage.clear(); rpc.mockReset() })
+beforeEach(() => { localStorage.clear(); rpc.mockReset(); nivel2fa.mockClear() })
 
 describe('Visão geral do evento (V7)', () => {
   it('vendidos, hoje, bruto, esgotado, "abre em" e funil vêm do banco', async () => {
@@ -250,6 +251,31 @@ describe('Visão geral: período, soma no banco e CSV (L5)', () => {
     expect(csv).toContain('dia;pedidos_pagos;valor_bruto')
     expect(csv).toContain('2026-10-01;3;"150,50"')
     baixa.mockRestore()
+  })
+})
+
+describe('Visão geral: ocupação e 2FA (correções)', () => {
+  it('?periodo=hoje não muda a ocupação: "480 de 500", não "3 de 500"', async () => {
+    dadosDoBanco({
+      eventos: [evento({ ticket_types: [tipo('ta', 'Pista', 500)] })],
+      ingressos: [
+        ...Array.from({ length: 477 }, () => ({ ticket_type_id: 'ta', created_at: '2020-01-01T15:00:00Z' })),
+        ...Array.from({ length: 3 }, () => ({ ticket_type_id: 'ta', created_at: agora() })),
+      ],
+    })
+    montar('/producer/event/e1?periodo=hoje')
+    expect(await screen.findByText('de 500 vendidos')).toBeTruthy()
+    expect(screen.getByText('480')).toBeTruthy()
+    expect(screen.getByRole('progressbar', { name: 'Ingressos vendidos' }).getAttribute('aria-valuenow')).toBe('480')
+  })
+
+  it('zero pedidos com 2FA pendente: só o aviso de 2FA, sem "Nenhum pedido ainda" nem R$ 0,00', async () => {
+    dadosDoBanco()
+    nivel2fa.mockReturnValue({ currentLevel: 'aal1', nextLevel: 'aal2' })
+    montar()
+    expect(await screen.findByText('Confirme o 2FA para ver as vendas')).toBeTruthy()
+    expect(screen.queryByText('Nenhum pedido ainda.')).toBeNull()
+    expect(screen.queryByText(/R\$\s0,00/)).toBeNull()
   })
 })
 

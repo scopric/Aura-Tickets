@@ -46,7 +46,8 @@ const PONTO: Record<Situacao, string> = {
 
 interface Dados {
   ingressos: { ticket_type_id: string; created_at: string }[] // para o gráfico: no máximo 1.000 (o max_rows do PostgREST)
-  vendidos: number
+  vendidos: number // total do evento (sem período): ocupação e barra
+  vendidosPeriodo: number // só no período: resumo do gráfico
   cortado: boolean // mais de 1.000 ingressos: o gráfico usa os primeiros 1.000
   porTipo: Record<string, number> // contagem exata por tipo
   ingressosHoje: number // exato
@@ -75,19 +76,21 @@ function useDadosDoEvento(e: DbEvent, hoje: string, periodo: Periodo) {
         supabase.from('tickets').select(colunasSel, opt).eq('event_id', e.id).in('status', VENDIDO)
       try {
         const comPeriodo = <T,>(q: T): T => (de ? (q as unknown as { gte: (c: string, v: string) => T }).gte('created_at', de) : q)
-        const [r, iniciadosQ, ingressosQ, hojeQ, ...tiposQ] = await Promise.all([
+        const [r, iniciadosQ, ingressosQ, totalQ, hojeQ, ...tiposQ] = await Promise.all([
           vendasPagas({ de, ate: null, eventId: e.id }, sinal),
           comPeriodo(supabase.from('orders').select('id', { count: 'exact', head: true }).eq('event_id', e.id)).abortSignal(sinal),
           comPeriodo(ingressosDe('ticket_type_id, created_at', { count: 'exact' })).order('created_at').abortSignal(sinal),
+          ingressosDe('id', { count: 'exact', head: true }).abortSignal(sinal),
           ingressosDe('id', { count: 'exact', head: true }).gte('created_at', desde).abortSignal(sinal),
           ...(e.ticket_types ?? []).map(t => ingressosDe('id', { count: 'exact', head: true }).eq('ticket_type_id', t.id).abortSignal(sinal)),
         ])
-        const erro = [iniciadosQ, ingressosQ, hojeQ, ...tiposQ].find(r => r.error)?.error
+        const erro = [iniciadosQ, ingressosQ, totalQ, hojeQ, ...tiposQ].find(r => r.error)?.error
         if (erro) throw erro
         const ingressos = (ingressosQ.data ?? []) as unknown as Dados['ingressos']
         return {
           ingressos,
-          vendidos: ingressosQ.count ?? ingressos.length,
+          vendidos: totalQ.count ?? 0,
+          vendidosPeriodo: ingressosQ.count ?? ingressos.length,
           cortado: (ingressosQ.count ?? 0) > ingressos.length,
           porTipo: Object.fromEntries((e.ticket_types ?? []).map((t, i) => [t.id, tiposQ[i].count ?? 0])),
           ingressosHoje: hojeQ.count ?? 0,
@@ -293,14 +296,13 @@ function Visao({ e }: { e: DbEvent }) {
         </Button>
         <p className="text-xs text-muted-foreground">O período vale para vendas, valores, pedidos e o gráfico. Ingressos por tipo, ocupação e check-in mostram o total do evento.</p>
       </div>
-      {doisFatoresQ.data && dados?.pagosQtd === 0 && (
-        <EmptyState title="Confirme o 2FA para ver as vendas" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos." />
-      )}
 
       {isPending ? (
         <Esqueleto />
       ) : isError ? (
         <Erro texto="Não foi possível carregar as vendas deste evento." refetch={refetch} carregando={isFetching} className="mt-6" />
+      ) : doisFatoresQ.data && dados.pagosQtd === 0 ? (
+        <EmptyState title="Confirme o 2FA para ver as vendas" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos." />
       ) : (
         <Corpo e={e} dados={dados} cap={cap} agora={agora} hoje={hoje} diaEv={diaEv} noDia={noDia} entraram={entraram} />
       )}
@@ -363,7 +365,7 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
             Bruto: pedidos pagos, com a taxa do comprador.
           </p>
 
-          <VendasPorDia serie={serie} nomes={tipos.map(t => t.name)} exatos={tipos.map(t => dados.porTipo[t.id])} vendidos={vendidos} hoje={hoje} cortado={dados.cortado} comEvento={!!diaEv} />
+          <VendasPorDia serie={serie} nomes={tipos.map(t => t.name)} exatos={tipos.map(t => dados.porTipo[t.id])} vendidos={dados.vendidosPeriodo} hoje={hoje} cortado={dados.cortado} comEvento={!!diaEv} />
         </section>
 
         <section aria-labelledby="t-ingr" className="lg:col-span-4 lg:pt-1">
