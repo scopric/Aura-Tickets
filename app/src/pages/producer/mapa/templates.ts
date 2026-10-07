@@ -6,7 +6,7 @@ import { criarNo, daSecao, ITENS } from './paleta'
 export interface Gerado { seats: SeatNode[]; walls: WallNode[]; sections: Section[]; roomWidth: number; roomHeight: number }
 export interface Template { id: string; nome: string; descricao: string; gerar: () => Gerado }
 
-type Opcoes = { s?: number; label?: string; rot?: number; w?: number; h?: number; n?: number; cor?: string; shape?: 'circle' | 'rectangle' | 'square' }
+type Opcoes = { s?: number; label?: string; rot?: number; w?: number; h?: number; n?: number; cap?: number; cor?: string; shape?: 'circle' | 'rectangle' | 'square' }
 const letra = (i: number) => String.fromCharCode(65 + (i % 26))
 
 // Construtor da sala: seções com as cores do editor + uma seção "Estrutura" para o que não é vendido
@@ -26,14 +26,15 @@ function sala(W: number, H: number, secoes: [string, number][]) {
       ...(o.rot ? { rotation: o.rot } : {}),
       ...(o.w ? { widthMeter: o.w } : {}),
       ...(o.h ? { heightMeter: o.h } : {}),
+      ...(o.cap ? { capacity: o.cap } : {}),
       ...(o.cor ? { color: o.cor } : {}),
       ...(o.shape ? { tableShape: o.shape } : {}),
       ...(o.n && it.tipo === 'table' ? { seatsCount: o.n, capacity: o.n } : {}),
     }))
   }
   // cols x rows de assentos; r0/c0 continuam a numeração (fileira A, B... e número da cadeira)
-  const grade = (item: string, s: number, x0: number, y0: number, cols: number, rows: number, dx: number, dy: number, r0 = 0, c0 = 0) => {
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) add(item, x0 + c * dx, y0 + r * dy, { s, label: `${letra(r0 + r)}${c0 + c + 1}` })
+  const grade = (item: string, s: number, x0: number, y0: number, cols: number, rows: number, dx: number, dy: number, r0 = 0, c0 = 0, pre = '') => {
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) add(item, x0 + c * dx, y0 + r * dy, { s, label: `${pre}${letra(r0 + r)}${c0 + c + 1}` })
   }
   const parede = (x1: number, y1: number, x2: number, y2: number) =>
     walls.push({ id: nid(), x1: O + x1, y1: O + y1, x2: O + x2, y2: O + y2, thickness: 0.2, color: '#4b5563', locked: false })
@@ -83,11 +84,11 @@ function auditorio(): Gerado {
 function estadio(): Gerado {
   const b = sala(60, 44, [['Norte', 80], ['Sul', 80], ['Leste', 60], ['Oeste', 60]])
   b.add('area', 30, 22, { w: 36, h: 20, label: 'Gramado / Campo', cor: '#15803d' })
-  b.grade('poltrona', 0, 12.8, 3, 40, 6, 0.8, 0.9)
-  b.grade('poltrona', 1, 12.8, 36.5, 40, 6, 0.8, 0.9)
+  b.grade('poltrona', 0, 12.8, 3, 40, 6, 0.8, 0.9, 0, 0, 'N-')
+  b.grade('poltrona', 1, 12.8, 36.5, 40, 6, 0.8, 0.9, 0, 0, 'S-')
   for (let r = 0; r < 20; r++) for (let c = 0; c < 5; c++) {
-    b.add('poltrona', 3 + c * 0.9, 14 + r * 0.8, { s: 3, label: `${letra(c)}${r + 1}` })
-    b.add('poltrona', 53.4 + c * 0.9, 14 + r * 0.8, { s: 2, label: `${letra(c)}${r + 1}` })
+    b.add('poltrona', 3 + c * 0.9, 14 + r * 0.8, { s: 3, label: `L-${letra(c)}${r + 1}` })
+    b.add('poltrona', 53.4 + c * 0.9, 14 + r * 0.8, { s: 2, label: `O-${letra(c)}${r + 1}` })
   }
   b.add('wc_female', 4, 3); b.add('wc_male', 4, 34)
   b.add('medical_post', 56, 3); b.add('ambulance', 53, 34)
@@ -106,7 +107,8 @@ function arena(): Gerado {
   fileiraDeGrades(b, 25, 10.5)
   b.add('dancefloor', 25, 14, { s: 1, w: 24, h: 6, label: 'Pista Premium (Front Stage)' })
   b.add('dancefloor', 25, 25, { s: 0, w: 24, h: 14, label: 'Pista' })
-  ;[16, 24].forEach(y => { b.add('box_elevated', 4.5, y, { s: 2, w: 6, h: 6, label: 'Camarote Esquerdo' }); b.add('box_elevated', 45.5, y, { s: 2, w: 6, h: 6, label: 'Camarote Direito' }) })
+  let cam = 0
+  ;[16, 24].forEach(y => { b.add('box_elevated', 4.5, y, { s: 2, w: 6, h: 6, label: `Camarote ${++cam}` }); b.add('box_elevated', 45.5, y, { s: 2, w: 6, h: 6, label: `Camarote ${++cam}` }) })
   b.add('pa_array', 11, 4); b.add('pa_array', 39, 4)
   ;[[12, 10], [38, 10], [12, 30], [38, 30]].forEach(([x, y]) => b.add('light_tower', x, y))
   b.add('foh_desk', 25, 34, { label: 'Mesa de Som' })
@@ -205,7 +207,7 @@ function congresso(): Gerado {
 function feira(): Gerado {
   const b = sala(50, 38, [['Stands', 1200]])
   let k = 0
-  for (const y of [5.5, 8.7, 17.5, 20.7]) for (let i = 0; i < 9; i++) b.add('stand', 5.5 + i * 4.6, y, { label: `Stand ${String(++k).padStart(2, '0')}` })
+  for (const y of [5.5, 8.7, 17.5, 20.7]) for (let i = 0; i < 9; i++) b.add('stand', 5.5 + i * 4.6, y, { cap: 1, label: `Stand ${String(++k).padStart(2, '0')}` })
   b.add('food_court', 40, 31, { label: 'Praça de Alimentação' })
   b.add('accreditation', 5, 33.5); b.add('info', 12, 33)
   b.add('wc_female', 20, 35.5); b.add('wc_male', 25, 35.5)
@@ -221,7 +223,8 @@ function pistaCamarote(): Gerado {
   fileiraDeGrades(b, 22, 10.5)
   b.add('dancefloor', 22, 13.5, { s: 1, w: 24, h: 4, label: 'Front Stage' })
   b.add('dancefloor', 22, 23, { s: 0, w: 24, h: 13, label: 'Pista' })
-  ;[14, 21, 28].forEach(y => { b.add('box_elevated', 5, y, { s: 2, w: 6, h: 6, label: 'Camarote' }); b.add('box_elevated', 39, y, { s: 2, w: 6, h: 6, label: 'Camarote' }) })
+  let cam = 0
+  ;[14, 21, 28].forEach(y => { b.add('box_elevated', 5, y, { s: 2, w: 6, h: 6, label: `Camarote ${++cam}` }); b.add('box_elevated', 39, y, { s: 2, w: 6, h: 6, label: `Camarote ${++cam}` }) })
   b.add('pa_array', 10, 4); b.add('pa_array', 34, 4)
   b.add('light_tower', 11, 9); b.add('light_tower', 33, 9)
   b.add('foh_desk', 22, 32, { label: 'Mesa de Som' })
@@ -265,5 +268,7 @@ export const TEMPLATES: Template[] = [
 // Troca o conteúdo do pavimento pelo do template (mantém id, nome e escala)
 export const aplicarTemplate = (env: Environment, t: Template): Environment => {
   const g = t.gerar()
-  return { ...env, ...g, roomShape: 'rectangle' }
+  // ids prefixados com o do pavimento: não repetem entre pavimentos
+  const pre = (id: string) => `${env.id}-${id}`
+  return { ...env, ...g, seats: g.seats.map(n => ({ ...n, id: pre(n.id) })), walls: g.walls.map(w => ({ ...w, id: pre(w.id) })), roomShape: 'rectangle' }
 }
