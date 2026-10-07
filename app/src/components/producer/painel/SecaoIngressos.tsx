@@ -77,7 +77,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
 
             <div className="grid gap-1.5">
               <Label htmlFor={`${id}-desc`} className="text-xs text-muted-foreground">Descrição (opcional)</Label>
-              <Textarea id={`${id}-desc`} rows={2} value={g.descricao} onChange={ev => muda(g.id, { descricao: ev.target.value })} />
+              <Textarea id={`${id}-desc`} rows={2} maxLength={500} value={g.descricao} onChange={ev => muda(g.id, { descricao: ev.target.value })} />
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[9rem_9rem_minmax(0,1fr)]">

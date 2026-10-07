@@ -338,7 +338,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         tickets: ings.map(i => ({
           id: i.novo ? undefined : i.id, name: i.nome.trim(), price: precoDe(i.preco) ?? 0, capacity: quantidadeDe(i.qtd) ?? 0,
           inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'], sale_start: vendaParaBanco(i.inicioVenda), sale_end: vendaParaBanco(i.fimVenda),
-          description: i.descricao.trim() || null, ...pedidoParaBanco(i),
+          description: i.descricao.trim().slice(0, 500) || null, ...pedidoParaBanco(i),
         })),
       })
       const { data, error } = await supabase.from('ticket_types').select('*').eq('event_id', evento.id)

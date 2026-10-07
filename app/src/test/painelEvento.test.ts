@@ -173,6 +173,12 @@ describe('ingressos', () => {
     expect(errosDeIngresso(ing({ maxPed: '' }))).toEqual({})
     expect(errosDeIngresso(ing({ minPed: '2', maxPed: '200' }))).toEqual({})
   })
+  it('grátis sem máximo tem teto 10 no servidor: mínimo acima disso fica impossível de comprar', () => {
+    expect(errosDeIngresso(ing({ preco: '0', minPed: '12', maxPed: '' })).pedido).toMatch(/grátis.*10/)
+    expect(errosDeIngresso(ing({ preco: '0', minPed: '10', maxPed: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ preco: '0', minPed: '12', maxPed: '50' }))).toEqual({}) // máximo explícito vale
+    expect(errosDeIngresso(ing({ preco: '80,00', minPed: '12', maxPed: '' }))).toEqual({}) // pago sem máximo não tem teto
+  })
   it('datas de venda: fim depois do início e não depois do fim do evento', () => {
     const fimEv = Date.parse('2026-12-13T04:00:00-03:00')
     expect(errosDeIngresso(ing({ inicioVenda: '2026-11-01T10:00', fimVenda: '2026-12-01T10:00' }), fimEv)).toEqual({})
