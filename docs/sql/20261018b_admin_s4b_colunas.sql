@@ -5,8 +5,11 @@
 -- por coluna (grant), no molde de 20261011_orders_tickets_colunas_pessoais.sql. Não mexe em nenhuma regra (RLS), nem em
 -- INSERT, UPDATE ou DELETE.
 --   revoke select em public.profiles de anon e authenticated; grant select de 7 colunas a authenticated:
---   id, email, full_name, avatar_url, role, created_at, avatar_moderacao (as que listas, selects e embeds do front e as
---   funções SECURITY INVOKER mesa_* leem). Retidas (17): phone, cpf, bio, city, birth_date, instagram, tiktok, linkedin,
+--   id, email, full_name, avatar_url, role, created_at, avatar_moderacao (as que listas, selects e embeds do front leem).
+--   ATENÇÃO: mesa_ok e mesa_cartao (SECURITY INVOKER) leem birth_date (retida) e mesa_ok também avatar_moderacao_hash; só
+--   funcionam porque rodam sempre por dentro de funções SECURITY DEFINER do bloco mesa (formar_mesas, minha_mesa, mesas_para_escolher, escolher_mesa, mesa_remover_membro) e não têm
+--   EXECUTE para authenticated (20261003_mesa_coletiva.sql). NUNCA dar EXECUTE delas a authenticated: daria 42501.
+--   Retidas (17): phone, cpf, bio, city, birth_date, instagram, tiktok, linkedin,
 --   stripe_customer_id, is_verified, updated_at, website, admin_permissions, avatar_moderado_em, avatar_moderacao_hash,
 --   avatar_moderacao_tentativas, avatar_moderacao_reservada_ate. select('*') em profiles passa a dar 42501.
 --
