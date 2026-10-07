@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { refDoEvento, situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoArquivar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
+import { refDoEvento, situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, dataPorVir, noAr, confirmacaoEncerrar, copiaDoEvento, confirmacaoCancelar, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, REABRIR_COM_VENDA } from '../lib/eventoProdutor'
 import type { DbEvent, DbTicketType } from '../hooks/useEvents'
 
 describe('situacaoEvento (selo do produtor: status + moderação)', () => {
@@ -75,7 +75,7 @@ describe('vendidosDe', () => {
   })
 })
 
-describe('dataPorVir e confirmacaoArquivar', () => {
+describe('dataPorVir e confirmacaoEncerrar', () => {
   const agora = Date.parse('2026-10-01T12:00:00Z')
   it('usa o fim e, sem fim, o início', () => {
     expect(dataPorVir({ start_date: '2026-09-30T20:00:00Z', end_date: '2026-10-02T04:00:00Z' }, agora)).toBe(true)
@@ -93,9 +93,9 @@ describe('dataPorVir e confirmacaoArquivar', () => {
     expect(dataPorVir({ ...passado, date: '2026-10-01', time: null }, agora)).toBe(true)
   })
   it('só avisa do suporte quando não se sabe a venda e a data está por vir', () => {
-    expect(confirmacaoArquivar('Festa', undefined, true)).toMatch(/não pode sair do ar antes da data: fale com o suporte/)
-    expect(confirmacaoArquivar('Festa', 0, true)).not.toMatch(/suporte/)
-    expect(confirmacaoArquivar('Festa', undefined, false)).not.toMatch(/suporte/)
+    expect(confirmacaoEncerrar('Festa', undefined, true)).toMatch(/não pode sair do ar antes da data: fale com o suporte/)
+    expect(confirmacaoEncerrar('Festa', 0, true)).not.toMatch(/suporte/)
+    expect(confirmacaoEncerrar('Festa', undefined, false)).not.toMatch(/suporte/)
   })
 })
 

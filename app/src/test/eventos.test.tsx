@@ -9,13 +9,14 @@ import { SAIR_DO_AR_COM_VENDA, CANCELAR_COM_VENDA } from '../lib/eventoProdutor'
 const atualizar = vi.fn()
 const apagar = vi.fn()
 let lista: object[] = []
-let vendidosMock: Record<string, number> = {}
+let vendidosMock: Record<string, number> | undefined = {}
+let pendente = false
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('../hooks/useEvents', () => ({
   useProducerEvents: () => ({ data: lista, isLoading: false, isError: false, refetch: vi.fn(), isFetching: false }),
-  useVendidosPorEvento: () => ({ data: { porEvento: vendidosMock, cortado: false } }),
-  useDeleteEvent: () => ({ mutateAsync: apagar, isPending: false }),
-  useUpdateEvent: () => ({ mutateAsync: atualizar, isPending: false }),
+  useVendidosPorEvento: () => ({ data: vendidosMock && { porEvento: vendidosMock, cortado: false } }),
+  useDeleteEvent: () => ({ mutateAsync: apagar, isPending: pendente }),
+  useUpdateEvent: () => ({ mutateAsync: atualizar, isPending: pendente }),
 }))
 vi.mock('../hooks/useDuplicarEvento', () => ({ useDuplicarEvento: () => ({ duplicar: vi.fn(), duplicando: false }) }))
 
@@ -25,7 +26,7 @@ const evento = (extra: object = {}) => ({
 })
 const montar = () => render(<MemoryRouter><ProducerEvents /></MemoryRouter>)
 
-beforeEach(() => { atualizar.mockReset(); apagar.mockReset(); vi.mocked(toast.error).mockClear(); lista = [evento()]; vendidosMock = {} })
+beforeEach(() => { atualizar.mockReset(); apagar.mockReset(); vi.mocked(toast.error).mockClear(); lista = [evento()]; vendidosMock = {}; pendente = false })
 
 describe('Todos os eventos (tela 02)', () => {
   it('busca sem acento: "forro" acha "Forró"', () => {
@@ -103,5 +104,18 @@ describe('Todos os eventos (tela 02)', () => {
     lista = [evento({ status: 'cancelled' })]
     montar()
     expect(screen.queryByRole('button', { name: /^Cancelar/ })).toBeNull()
+  })
+
+  it('contagem desconhecida com data por vir: Encerrar abre a janela e manda falar com o suporte', () => {
+    vendidosMock = undefined
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Encerrar Noite de Forró' }))
+    expect(screen.getByRole('alertdialog').textContent).toMatch(/fale com o suporte/)
+  })
+
+  it('durante uma mutação os botões da linha ficam desativados', () => {
+    pendente = true
+    montar()
+    for (const n of ['Encerrar', 'Cancelar', 'Excluir']) expect((screen.getByRole('button', { name: `${n} Noite de Forró` }) as HTMLButtonElement).disabled).toBe(true)
   })
 })

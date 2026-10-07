@@ -92,8 +92,8 @@ export const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime(
 export const noAr = (e: { status: string; approval_status?: string | null; start_date: string; end_date: string | null; date?: string | null; time?: string | null }, agora = Date.now()): boolean =>
   e.status === 'published' && e.approval_status === 'approved' && fimDe(e as DbEvent) > agora
 
-// Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
-export function confirmacaoArquivar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
+// Encerrar (antes "arquivar"). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
+export function confirmacaoEncerrar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
   const base = `Encerrar "${titulo}"? A situação passa a ser Encerrado.`
   return vendidos === undefined && porVir
     ? `${base}\n\nSe o evento tiver ingressos vendidos, ele não pode sair do ar antes da data: fale com o suporte da Evokaa.`
@@ -107,6 +107,7 @@ export function erroAoExcluir(err: unknown, vendidos?: number): { mensagem: stri
   const e = err as { code?: string; message?: string; details?: string } | null
   if (e?.code === '23503' && (vendidos ?? 0) > 0) return { mensagem: CANCELAR_COM_VENDA, oferecerCancelar: false }
   if (e?.code === '23503') {
+    // ponytail: ingresso 'transferred' não entra na contagem da tela (vendidos=0) e o banco recusa; aqui sugere cancelar sem efeito. Corrige em useEvents (useVendidosPorEvento).
     const txt = `${e.message ?? ''} ${e.details ?? ''}`
     const o = 'Cancele o evento em vez de excluir.'
     return {

@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents, useDeleteEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, confirmacaoArquivar, dataPorVir, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, confirmacaoEncerrar, dataPorVir, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { abreEvento, normaliza } from '../../lib/navegacaoProdutor'
 import EventoCapa from '../../components/EventoCapa'
@@ -38,6 +38,7 @@ export default function ProducerEvents() {
   const updateEvent = useUpdateEvent()
 
   // undefined = não se sabe (contagem não carregou ou veio cortada)
+  const ocupado = updateEvent.isPending || deleteMutation.isPending
   const vendidoDe = (id: string) => vendidosDe(vendidos, id)
 
   // Cancelar, encerrar e excluir passam pela mesma janela (acao); estas só abrem
@@ -80,7 +81,7 @@ export default function ProducerEvents() {
 
   const textoDaJanela = ({ tipo, event }: NonNullable<typeof acao>) => {
     const v = vendidoDe(event.id)
-    if (tipo === 'encerrar') return { titulo: 'Encerrar evento', texto: confirmacaoArquivar(event.title, v, dataPorVir(event)), botao: 'Encerrar' }
+    if (tipo === 'encerrar') return { titulo: 'Encerrar evento', texto: confirmacaoEncerrar(event.title, v, dataPorVir(event)), botao: 'Encerrar' }
     if (tipo === 'cancelar') return { titulo: 'Cancelar evento', texto: confirmacaoCancelar(event.title, v), botao: 'Cancelar evento' }
     return {
       titulo: 'Excluir evento',
@@ -212,12 +213,12 @@ export default function ProducerEvents() {
                       <I.Copiar aria-hidden="true" />
                     </Button>
                     {st === 'Publicado' && (
-                      <Button variant="ghost" size="sm" className={icone} onClick={() => encerrar(event)} disabled={updateEvent.isPending} aria-label={`Encerrar ${event.title}`}>Encerrar</Button>
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => encerrar(event)} disabled={ocupado} aria-label={`Encerrar ${event.title}`}>Encerrar</Button>
                     )}
                     {event.status !== 'cancelled' && (
-                      <Button variant="ghost" size="sm" className={icone} onClick={() => cancelar(event)} disabled={updateEvent.isPending} aria-label={`Cancelar ${event.title}`}>Cancelar</Button>
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => cancelar(event)} disabled={ocupado} aria-label={`Cancelar ${event.title}`}>Cancelar</Button>
                     )}
-                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => pedirExclusao(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => pedirExclusao(event)} disabled={ocupado} aria-label={`Excluir ${event.title}`}>
                       <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>
