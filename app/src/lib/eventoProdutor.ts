@@ -213,7 +213,7 @@ export async function duplicarEvento(
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const blob = await resp.blob()
       if (blob.type !== 'image/webp' && blob.type !== 'image/jpeg') throw new Error(`tipo ${blob.type}`)
-      r.foto = await enviarEGravarCapa({ blob, previewUrl: '', cor: '' }, produtorId, novo.id)
+      r.foto = await enviarEGravarCapa({ blob }, produtorId, novo.id)
     } catch (err) {
       console.error('[duplicarEvento] foto', err instanceof Error ? err.message : err)
     }
