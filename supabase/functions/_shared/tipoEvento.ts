@@ -96,13 +96,14 @@ export const rotuloFormato = (slug: string | null | undefined): string => format
 // "2026-10-04 Aceite do produtor da F1 — rascunho para o jurídico"). A versão é a de aceite_evento_versao() no SQL.
 // O servidor (aceite-evento) monta o texto com o nome do evento e as variantes e grava o hash DESTE texto montado;
 // a tela (PR3) mostra o mesmo texto. O teste fixa o sha256 de um caso: mudou uma vírgula? Versão nova aqui, no _shared e no SQL (Decisão 6).
-export const ACEITE_VERSAO = '2026-10-04'
+// 2026-10-07: ajustes do Ricardo, como jurídico, nos itens 2 e 3 e na última linha (SQL: 20261026_aceite_versao.sql).
+export const ACEITE_VERSAO = '2026-10-07'
 
 export function textoAceite(e: { titulo: string; formato: string | null; classificacao: string | null; temBebida: boolean }): string {
   const c = CLASSIFICACOES.find((x) => x.valor === e.classificacao)
   const classificacao = e.formato === 'esporte'
     ? '2. O evento é esportivo e não é objeto de classificação indicativa.'
-    : `2. Autoclassifiquei o evento como ${c ? `${c.valor} (${c.rotulo})` : '[sem classificação]'} pelos critérios do Ministério da Justiça para apresentações ao vivo. Sou o responsável por exibir o símbolo e as demais informações obrigatórias no local e por controlar a entrada de crianças e adolescentes.`
+    : `2. Autoclassifiquei o evento como ${c ? `${c.valor} (${c.rotulo})` : '[sem classificação]'} pelos critérios do Ministério da Justiça para apresentações ao vivo. Sei que a autoclassificação é provisória e pode ser revista pelo Ministério da Justiça e Segurança Pública, e que a responsabilidade por ela e pela informação ao público continua sendo minha. Sou o responsável por exibir o símbolo e as demais informações obrigatórias no local e por controlar a entrada de crianças e adolescentes.`
   const bebida = e.temBebida
     ? '4. Sou eu, e não a Evokaa, quem vende e serve a bebida, e não vou vendê-la, fornecê-la nem servi-la a menor de 18 anos.'
     : '4. Nenhum ingresso deste evento inclui bebida alcoólica.'
@@ -111,11 +112,11 @@ export function textoAceite(e: { titulo: string; formato: string | null; classif
     `Ao enviar o evento "${e.titulo.trim()}" para aprovação, declaro que:`,
     '1. Sou o organizador do evento ou tenho poderes para representá-lo, e as informações publicadas são verdadeiras: data, local, ingressos e preços.',
     classificacao,
-    '3. Na entrada, vou aplicar as regras de acesso de crianças e adolescentes: acompanhamento, autorização por escrito do responsável e a portaria ou o alvará do juiz da comarca, quando houver. Também vou conferir documento com foto e idade.',
+    '3. Na entrada, vou aplicar as regras de acesso de crianças e adolescentes que valem para a faixa etária do evento e as determinações da autoridade judiciária competente (portaria ou alvará), incluindo o acompanhamento dos pais ou do responsável quando exigido. Também vou conferir documento com foto e idade.',
     bebida,
     '5. Se eu mudar a classificação ou a bebida de algum ingresso depois da aprovação, refaço este termo antes de enviar as alterações.',
     '6. Sei que a Evokaa intermedeia a venda de ingressos e pode recusar ou tirar do ar um evento em desacordo com este termo ou com os Termos de Uso.',
-    `A Evokaa registra a data, a hora, o IP e o navegador deste aceite. Versão ${ACEITE_VERSAO}.`,
+    `A Evokaa registra a data, a hora, o IP e o navegador deste aceite, para comprovar que ele foi dado. Versão ${ACEITE_VERSAO}.`,
   ].join('\n')
 }
 

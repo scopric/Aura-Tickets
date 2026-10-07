@@ -57,8 +57,9 @@ describe('listas iguais às do SQL', () => {
     expect(listaDoCheck('events_local_modo_check')).toEqual(slugs(LOCAL_MODOS))
   })
 
-  it('ACEITE_VERSAO é a de aceite_evento_versao()', () => {
-    const fn = sql.slice(sql.indexOf('function public.aceite_evento_versao'))
+  it('ACEITE_VERSAO é a de aceite_evento_versao() (SQL mais novo: 20261026_aceite_versao.sql)', () => {
+    const novo = readFileSync(resolve(__dirname, '../../../docs/sql/20261026_aceite_versao.sql'), 'utf8')
+    const fn = novo.slice(novo.indexOf('function public.aceite_evento_versao'))
     expect(fn.match(/as \$\$ select '([^']+)' \$\$/)![1]).toBe(ACEITE_VERSAO)
   })
 })
@@ -174,10 +175,10 @@ describe('textoAceite', () => {
   })
   // O texto da versão em vigor é prova (hash gravado em cada aceite). Este hash falhou? Então o texto mudou:
   // versão nova em ACEITE_VERSAO (aqui e no _shared) e SQL novo com aceite_evento_versao() (Decisão 6).
-  it('texto da versão 2026-10-04 fixado', () => {
+  it('texto da versão 2026-10-07 fixado', () => {
     const h = createHash('sha256').update(textoAceite(base)).digest('hex')
-    expect(ACEITE_VERSAO).toBe('2026-10-04')
-    expect(h).toBe('2c9ab1448261e75336c331c729a5c28dabe73560650af21c39fbf75c2f8e5c5b')
+    expect(ACEITE_VERSAO).toBe('2026-10-07')
+    expect(h).toBe('abf2938b826a094eae9cf0f50333c2a566475306910b7d2f35d224f10eae0ef5')
   })
   it('muda quando muda o que foi declarado (o hash muda junto)', () => {
     expect(textoAceite(base)).not.toBe(textoAceite({ ...base, classificacao: 'A18' }))
