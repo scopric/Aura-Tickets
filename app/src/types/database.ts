@@ -937,7 +937,6 @@ export interface Database {
         Row: {
           id: string | null
           company_name: string
-          cnpj: string
           stripe_account_id: string | null
           woovi_account_id: string | null
           commission_rate: number
@@ -947,11 +946,11 @@ export interface Database {
           cnpj_enc: string | null
           pix_key_enc: string | null
           bank_account_enc: string | null
+          cnpj_hmac: string | null
         }
         Insert: {
           id?: string | null
           company_name: string
-          cnpj: string
           stripe_account_id?: string | null
           woovi_account_id?: string | null
           commission_rate?: number
@@ -961,11 +960,11 @@ export interface Database {
           cnpj_enc?: string | null
           pix_key_enc?: string | null
           bank_account_enc?: string | null
+          cnpj_hmac?: string | null
         }
         Update: {
           id?: string | null
           company_name?: string
-          cnpj?: string
           stripe_account_id?: string | null
           woovi_account_id?: string | null
           commission_rate?: number
@@ -975,6 +974,7 @@ export interface Database {
           cnpj_enc?: string | null
           pix_key_enc?: string | null
           bank_account_enc?: string | null
+          cnpj_hmac?: string | null
         }
       }
       producer_subscriptions: {
@@ -1047,7 +1047,6 @@ export interface Database {
           email: string
           full_name: string | null
           phone: string | null
-          cpf: string | null
           avatar_url: string | null
           bio: string | null
           city: string | null
@@ -1067,7 +1066,6 @@ export interface Database {
           email: string
           full_name?: string | null
           phone?: string | null
-          cpf?: string | null
           avatar_url?: string | null
           bio?: string | null
           city?: string | null
@@ -1087,7 +1085,6 @@ export interface Database {
           email?: string
           full_name?: string | null
           phone?: string | null
-          cpf?: string | null
           avatar_url?: string | null
           bio?: string | null
           city?: string | null
@@ -1331,8 +1328,6 @@ export interface Database {
           id: string | null
           producer_id: string
           amount: number
-          pix_key: string | null
-          bank_account: Json
           status: string
           created_at: string
           processed_at: string | null
@@ -1343,8 +1338,6 @@ export interface Database {
           id?: string | null
           producer_id: string
           amount: number
-          pix_key?: string | null
-          bank_account?: Json
           status?: string
           created_at?: string
           processed_at?: string | null
@@ -1355,8 +1348,6 @@ export interface Database {
           id?: string | null
           producer_id?: string
           amount?: number
-          pix_key?: string | null
-          bank_account?: Json
           status?: string
           processed_at?: string | null
           pix_key_enc?: string | null
@@ -1366,6 +1357,10 @@ export interface Database {
     }
     Functions: {
       // Escritas e leituras de PII da cifra (docs/sql/20261007_pr7_cripto_rpcs.sql); escritas à mão: o banco ainda não tem as RPCs
+      pr7_anonimizar_pii: {
+        Args: { p_uid: string }
+        Returns: undefined
+      }
       pr7_produtor_financeiro: {
         Args: Record<string, never>
         Returns: { cnpj: string | null; pix_key: string | null; bank_account: Json }[]

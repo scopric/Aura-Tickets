@@ -1,3 +1,6 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (staff_profiles.banco, agencia, conta, pix_tipo, pix_chave, no gatilho staff_profiles_reauth_dinheiro) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
 -- =============================================================================
 -- S9 do plano sparkling-gliding-harp (admin, Decisão 163 itens 12 a 14), PR1: REAUTENTICAÇÃO RECENTE PARA DINHEIRO. 05/10/2026.
 -- Plano: Claude/Entregas/2026-10-05 Admin — plano do 2FA e da sessão (S9). Hoje quem está logado em aal2 (código digitado

@@ -3,6 +3,7 @@
 -- este arquivo (psql -f ou `supabase test db`). Tudo em begin ... rollback. Nunca contra produção.
 -- pg_temp.como() troca papel e claims do JWT como o PostgREST; pg_temp.n(sql) = primeira coluna bigint do select;
 -- pg_temp.t(sql) = primeira coluna text; pg_temp.upd(sql) = linhas afetadas por update.
+-- Pós-passo 2 do PR 7: a coluna cpf (texto) foi apagada; o CPF vive em cpf_enc (bytea, sem grant de SELECT para authenticated, fora do meu_perfil()).
 -- Contas: adm_users (manage_users), adm_team (manage_team), adm_support (manage_support), adm_fin (manage_finance),
 -- super1 e super2, adm_aal1 (as 3 permissões, token aal1), comum (sem 2FA, com telefone e CPF), p1 (produtor),
 -- comum_mfa (2FA confirmado, token aal1).
@@ -54,7 +55,7 @@ update public.profiles set role = 'admin', admin_permissions = array['manage_fin
 update public.profiles set role = 'admin', admin_permissions = array['super_admin']::text[] where id in ('d8000000-0000-4000-8000-000000000005', 'd8000000-0000-4000-8000-000000000006');
 update public.profiles set role = 'admin', admin_permissions = array['manage_users', 'manage_team', 'manage_support']::text[] where id = 'd8000000-0000-4000-8000-000000000007';
 update public.profiles set role = 'producer' where id = 'd8000000-0000-4000-8000-000000000009';
-update public.profiles set phone = '11999990008', cpf = '12345678900', stripe_customer_id = 'cus_teste', city = 'Cuiabá', birth_date = '1990-05-05'
+update public.profiles set phone = '11999990008', cpf_enc = convert_to('12345678900', 'UTF8'), stripe_customer_id = 'cus_teste', city = 'Cuiabá', birth_date = '1990-05-05'
   where id = 'd8000000-0000-4000-8000-000000000008';
 insert into public.producer_subscriptions (producer_id, plan) values ('d8000000-0000-4000-8000-000000000009', 'pro');
 insert into public.user_custom_features (user_id, feature_key) values ('d8000000-0000-4000-8000-000000000009', 'crm');
@@ -64,7 +65,7 @@ select ok((select bool_and(has_column_privilege('authenticated', 'public.profile
            from unnest(array['id', 'email', 'full_name', 'avatar_url', 'role', 'created_at', 'avatar_moderacao']) c),
   'authenticated lê as 7 colunas liberadas');
 select ok(not (select bool_or(has_column_privilege('authenticated', 'public.profiles', c, 'select'))
-           from unnest(array['phone', 'cpf', 'bio', 'city', 'birth_date', 'instagram', 'tiktok', 'linkedin', 'stripe_customer_id',
+           from unnest(array['phone', 'cpf_enc', 'bio', 'city', 'birth_date', 'instagram', 'tiktok', 'linkedin', 'stripe_customer_id',
              'is_verified', 'updated_at', 'website', 'admin_permissions', 'avatar_moderado_em', 'avatar_moderacao_hash',
              'avatar_moderacao_tentativas', 'avatar_moderacao_reservada_ate']) c),
   'authenticated não lê nenhuma das 17 colunas retidas');
@@ -93,7 +94,7 @@ select is(pg_temp.t($$select full_name from public.profiles where id = 'd8000000
 select is(pg_temp.n($$select count(*) from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$), 1::bigint, 'comum: lê id da própria linha');
 select throws_ok($$select phone from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'comum: select phone da própria linha dá 42501');
 select throws_ok($$select * from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'comum: select * dá 42501');
-select throws_ok($$select cpf from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'comum: select cpf dá 42501');
+select throws_ok($$select cpf_enc from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'comum: select cpf_enc dá 42501');
 select throws_ok($$select id from public.profiles where phone is not null$$, '42501', null, 'comum: filtrar por phone também dá 42501');
 select throws_ok($$select id from public.profiles where id = 'd8000000-0000-4000-8000-000000000008' and birth_date is null$$, '42501', null,
   'comum: filtrar por birth_date dá 42501 (o Checkout confere no cliente)');
@@ -103,7 +104,7 @@ select is(pg_temp.n($$select count(*) from public.profiles where id <> 'd8000000
 select is(pg_temp.t($$select meu_perfil() ->> 'phone'$$), '11999990008', 'meu_perfil: devolve o próprio telefone');
 select is(pg_temp.t($$select meu_perfil() ->> 'city'$$), 'Cuiabá', 'meu_perfil: devolve a própria cidade');
 select is(pg_temp.t($$select meu_perfil() ->> 'birth_date'$$), '1990-05-05', 'meu_perfil: devolve o próprio nascimento');
-select ok(pg_temp.t($$select (not meu_perfil() ? 'cpf' and not meu_perfil() ? 'stripe_customer_id')::text$$) = 'true', 'meu_perfil: sem cpf e sem stripe_customer_id');
+select ok(pg_temp.t($$select (not meu_perfil() ? 'cpf_enc' and not meu_perfil() ? 'stripe_customer_id')::text$$) = 'true', 'meu_perfil: sem cpf_enc e sem stripe_customer_id');
 select is(pg_temp.t($$select meu_perfil() ->> 'role'$$), 'user', 'meu_perfil: devolve o papel');
 select is(pg_temp.t($$select meu_perfil() ->> 'id'$$), 'd8000000-0000-4000-8000-000000000008', 'meu_perfil: é a linha de auth.uid()');
 
@@ -134,7 +135,7 @@ select pg_temp.como('authenticated', 'd8000000-0000-4000-8000-000000000004', 'aa
 select is(pg_temp.t($$select email from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$), 'comum@teste-s4b.local', 'adm_fin: lê e-mail de terceiro');
 select is(pg_temp.t($$select full_name from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$), 'comum', 'adm_fin: lê nome de terceiro');
 select throws_ok($$select phone from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'adm_fin: phone de terceiro dá 42501');
-select throws_ok($$select cpf from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'adm_fin: cpf de terceiro dá 42501');
+select throws_ok($$select cpf_enc from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'adm_fin: cpf_enc de terceiro dá 42501');
 select throws_ok($$select * from public.profiles where id = 'd8000000-0000-4000-8000-000000000008'$$, '42501', null, 'adm_fin: select * dá 42501');
 select throws_ok($$select admin_permissions from public.profiles where role = 'admin'$$, '42501', null, 'adm_fin: admin_permissions pela tabela dá 42501');
 select throws_ok($$select * from public.admin_usuarios_lista()$$, '42501', 'acesso negado: precisa da permissão manage_users', 'adm_fin: admin_usuarios_lista dá 42501');
@@ -172,8 +173,8 @@ select is(pg_temp.t($$select x -> 'user_custom_features' -> 0 ->> 'feature_key' 
   'crm', 'adm_users: recursos como lista');
 select ok(pg_temp.t($$select (x -> 'producer_subscriptions' = 'null'::jsonb and x -> 'user_custom_features' = '[]'::jsonb)::text from jsonb_array_elements(public.admin_usuarios_lista()) x where x ->> 'id' = 'd8000000-0000-4000-8000-000000000008'$$) = 'true',
   'adm_users: sem assinatura, nulo; sem recursos, lista vazia');
-select ok(pg_temp.t($$select (not x ? 'cpf' and not x ? 'stripe_customer_id' and not x ? 'birth_date')::text from jsonb_array_elements(public.admin_usuarios_lista()) x where x ->> 'id' = 'd8000000-0000-4000-8000-000000000008'$$) = 'true',
-  'adm_users: a lista não traz cpf, stripe_customer_id nem nascimento');
+select ok(pg_temp.t($$select (not x ? 'cpf_enc' and not x ? 'stripe_customer_id' and not x ? 'birth_date')::text from jsonb_array_elements(public.admin_usuarios_lista()) x where x ->> 'id' = 'd8000000-0000-4000-8000-000000000008'$$) = 'true',
+  'adm_users: a lista não traz cpf_enc, stripe_customer_id nem nascimento');
 select pg_temp.como('authenticated', 'd8000000-0000-4000-8000-000000000005', 'aal2');
 select ok(pg_temp.n($$select jsonb_array_length(public.admin_usuarios_lista())$$) > 0 and pg_temp.n($$select count(*) from public.admin_equipe()$$) > 0
   and pg_temp.n($$select count(*) from public.chat_atendentes()$$) > 0, 'super_admin passa nas três RPCs');

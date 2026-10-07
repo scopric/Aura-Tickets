@@ -1,3 +1,6 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (profiles.cpf, platform_affiliates.cpf, producer_profiles.cnpj/pix_key/bank_account, withdrawals.pix_key/bank_account e staff_profiles.cpf/rg/banco/agencia/conta/pix_tipo/pix_chave: backfill e gatilhos zz_pr7_sync_* que leem o texto) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
 -- =============================================================================
 -- PR 7 — passo 1 (aditivo, não-quebra): cifra de PII em repouso.
 -- Escopo (decisão Ricardo 07/10): 7 tabelas. CPF de comprador (orders/tickets)

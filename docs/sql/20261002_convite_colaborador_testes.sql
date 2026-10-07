@@ -234,8 +234,8 @@ begin
   perform pg_temp.como(null, null, 'postgres');
   assert (select role || admin_permissions::text from public.profiles where id = pg_temp.u(2)) = 'admin{manage_support,moderate_mesa}', 'papel/permissões';
   assert (select status = 'usado' and used_by = pg_temp.u(2) and used_at is not null from public.admin_invites where token_hash = pg_temp.h('tok-clara')), 'convite não marcado como usado';
-  assert (select user_id = pg_temp.u(2) and cargo = 'Atendimento' and email = 'clara@teste-convite.invalid' and cpf = '52998224725'
-            and cep = '01310100' and uf = 'SP' and pix_chave = 'clara.pix@teste-convite.invalid' and invite_id is not null
+  assert (select user_id = pg_temp.u(2) and cargo = 'Atendimento' and email = 'clara@teste-convite.invalid' and public.pr7_dec(cpf_enc) = '52998224725'
+            and cep = '01310100' and uf = 'SP' and public.pr7_dec(pix_chave_enc) = 'clara.pix@teste-convite.invalid' and invite_id is not null
           from public.staff_profiles), 'cadastro gravado errado';
   -- apóstrofo do iPhone vira reto e o Á decomposto vira composto (NFC)
   assert (select nome_completo from public.staff_profiles) = 'Clara D''Ávila Teste', 'nome não normalizado: ' || (select nome_completo from public.staff_profiles);
@@ -320,7 +320,10 @@ begin
   assert pg_temp.erro($$update public.staff_profiles set email = 'x@teste-convite.invalid'$$) = '42501', 'editou o e-mail principal';
   assert pg_temp.erro(format($$update public.staff_profiles set user_id = %L$$, pg_temp.u(3))) = '42501', 'trocou o user_id';
   assert pg_temp.erro($$update public.staff_profiles set invite_id = null$$) = '42501', 'trocou o invite_id';
-  assert pg_temp.erro($$update public.staff_profiles set cpf = '12345678900'$$) = '23514', 'gravou CPF inválido';
+  -- pós-passo 2 do PR 7: o CHECK staff_cpf_ok caiu com a coluna cpf; a validação mora em pr7_salvar_meu_cadastro (23514 antes de gravar)
+  assert pg_temp.erro($$select public.pr7_salvar_meu_cadastro('Clara Teste da Silva', '123.456.789-00', '123456789', date '1990-05-20', '01310100', 'Avenida Paulista', '1000',
+    null, 'Bela Vista', 'São Paulo', 'SP', null, '+5511900000000', '+5511900000000', 'Pedro Teste', 'Irmão', '+5511912345678', null, null, null, 'email',
+    'clara.pix@teste-convite.invalid', (select updated_at from public.staff_profiles))$$) = '23514', 'gravou CPF inválido';
   assert pg_temp.erro($$insert into public.staff_profiles (user_id) values (gen_random_uuid())$$) = '42501', 'inseriu cadastro';
   assert pg_temp.erro($$delete from public.staff_profiles$$) = '42501', 'apagou cadastro';
   perform pg_temp.como(pg_temp.u(2), 'aal1');
@@ -369,7 +372,10 @@ begin
   delete from public.staff_profiles_historico_pagamento;
   perform pg_temp.como(pg_temp.u(2), 'aal2');
   update public.staff_profiles set whatsapp = '+5511911112222' where user_id = pg_temp.u(2);
-  update public.staff_profiles set pix_tipo = 'telefone', pix_chave = '+5511911112222', banco = 'Outro Banco' where user_id = pg_temp.u(2);
+  -- pós-passo 2: Pix e banco só se gravam cifrados, pela RPC (a colaboradora não escreve _enc direto). Mesmos dados do cadastro, só tipo/chave do Pix e banco mudam
+  perform public.pr7_salvar_meu_cadastro(s.nome_completo, '52998224725', '12.345.678-9', s.data_nascimento, s.cep, s.rua, s.numero, s.complemento, s.bairro, s.cidade, s.uf,
+    s.email_secundario, s.telefone, s.whatsapp, s.emergencia_nome, s.emergencia_parentesco, s.emergencia_telefone, 'Outro Banco', '0001', '12345-6',
+    'telefone', '+5511911112222', s.updated_at) from public.staff_profiles s where s.user_id = pg_temp.u(2);
   assert pg_temp.erro($$select * from public.staff_profiles_historico_pagamento$$) = '42501', 'colaboradora lê o histórico';
   assert pg_temp.erro($$select * from public.staff_profiles_acessos$$) = '42501', 'colaboradora lê os acessos';
   -- nome: só letras (com acento), espaço, apóstrofo, ponto e hífen
@@ -388,9 +394,10 @@ begin
   perform pg_temp.como(null, null, 'postgres');
   assert (select updated_at > '2000-01-01' from public.staff_profiles where user_id = pg_temp.u(2)), 'updated_at não veio do gatilho';
   assert (select count(*) from public.staff_profiles_historico_pagamento) = 1, 'histórico: esperado 1 linha';
-  assert (select user_id = pg_temp.u(2) and alterado_por = pg_temp.u(2) and antes ->> 'pix_tipo' = 'email'
-            and antes ->> 'pix_chave' = 'clara.pix@teste-convite.invalid' and depois ->> 'pix_chave' = '+5511911112222'
-            and depois ->> 'banco' = 'Outro Banco' from public.staff_profiles_historico_pagamento), 'histórico gravado errado';
+  assert (select user_id = pg_temp.u(2) and alterado_por = pg_temp.u(2) and public.pr7_dec(decode(antes ->> 'pix_tipo_enc', 'hex')) = 'email'
+            and public.pr7_dec(decode(antes ->> 'pix_chave_enc', 'hex')) = 'clara.pix@teste-convite.invalid'
+            and public.pr7_dec(decode(depois ->> 'pix_chave_enc', 'hex')) = '+5511911112222'
+            and public.pr7_dec(decode(depois ->> 'banco_enc', 'hex')) = 'Outro Banco' from public.staff_profiles_historico_pagamento), 'histórico gravado errado';
   update auth.mfa_factors set status = 'unverified' where user_id = pg_temp.u(2);
   perform pg_temp.como(pg_temp.u(2), 'aal2');
   update public.staff_profiles set telefone = '+5511933334444' where user_id = pg_temp.u(2);
