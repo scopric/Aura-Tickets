@@ -6,6 +6,7 @@ import type { DbEvent } from '../hooks/useEvents'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
+vi.mock('../hooks/useOrganizadorDoEvento', () => ({ useOrganizadorDoEvento: () => ({ data: null }) })) // o bloco Organizador tem teste próprio
 vi.mock('../lib/supabase', () => ({ supabase: { from: () => ({}) } }))
 vi.mock('../components/SupportChatWidget', () => ({
   JanelaSuporte: (p: { publico: string; assuntoInicial?: string; textoInicial?: string }) => <div role="dialog">{`${p.publico}|${p.assuntoInicial}|${p.textoInicial}`}</div>,

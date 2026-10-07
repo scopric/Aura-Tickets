@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { cn } from '@/lib/utils'
 import AviseMe from './AviseMe'
+import BlocoOrganizador from './BlocoOrganizador'
 import BotaoSalvar from './BotaoSalvar'
 import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
@@ -16,6 +17,7 @@ import { useAuthStore } from '../stores/authStore'
 import { publicoDoPapel } from '../hooks/useConversas'
 import { ASSUNTO_DENUNCIA } from '../lib/ingresso'
 import type { DbEvent } from '../hooks/useEvents'
+import { useOrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
 import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
@@ -58,6 +60,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   const papel = useAuthStore(s => s.user?.role)
   const [denunciando, setDenunciando] = useState(false) // janela do chat no assunto "Denunciar evento" (a página do evento não tem o Evo)
   const navigate = useNavigate()
+  const { data: organizador } = useOrganizadorDoEvento(event.id)
   const location = useLocation()
   const heroRef = useRef<HTMLDivElement>(null)
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null)
@@ -213,6 +216,8 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           <Linha icone={<I.Local size={20} />} titulo={local} sub={endereco || undefined} href={mapaUrl} rotulo={`Como chegar: ${local} (abre o mapa)`} />
           <Linha icone={<I.Info size={20} />} titulo={event.classificacao ? `Classificação: ${CLASSIFICACOES.find((c) => c.valor === event.classificacao)?.rotulo ?? event.classificacao}` : event.category === 'esporte' ? 'Evento esportivo: sem classificação indicativa' : 'Classificação não informada pelo produtor'} />
         </div>
+
+        <BlocoOrganizador organizador={organizador} titulo={event.title} />
 
         {/* Ingressos: lista, com a taxa ao lado do preço (Decreto 13.108, art. 7º) */}
         <section id="ingressos" aria-labelledby="h-ingressos" className="scroll-mt-20 border-t border-border px-5 pb-2 pt-6">
