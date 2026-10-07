@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
-import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento, lerImportacao, buscarNo, alternarStatus, statusEditavel } from '../pages/producer/mapa/regras'
+import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento, lerImportacao, lerPreco, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, alternarStatus, statusEditavel } from '../pages/producer/mapa/regras'
 
 const no = (o: Partial<SeatNode>): SeatNode => ({
   id: 'n', x: 12, y: 12, label: 'X', type: 'seat', color: '#111111', price: 10, rotation: 0, sold: 0, capacity: 1,
@@ -107,7 +107,7 @@ describe('importação', () => {
     const dup = bom(); dup.environments.push(dup.environments[0])
     expect(lerImportacao(arq(dup), livre).erro).toBeTruthy()
     const neg = bom(); neg.environments[0].seats[0].price = -5
-    expect(lerImportacao(arq(neg), livre).erro).toMatch(/price/)
+    expect(lerImportacao(arq(neg), livre).erro).toMatch(/negativo/)
     expect(lerImportacao('x'.repeat(5 * 1024 * 1024 + 1), livre).erro).toMatch(/5 MB/)
   })
   it('bloqueada se o mapa atual tem venda ou reserva', () => {
@@ -135,5 +135,121 @@ describe('busca e status', () => {
     }
     expect(alternarStatus(l, 'sold')).toBe(l)
     expect(alternarStatus(l, 'reserved')).toBe(l)
+  })
+})
+
+describe('lerPreco', () => {
+  const v = (t: string) => lerPreco(t)?.valor
+  it('aceita milhar com ponto + vírgula e simples com 1-2 decimais', () => {
+    expect(v('1.200,50')).toBe(1200.5)
+    expect(v('12,5')).toBe(12.5)
+    expect(v('12.5')).toBe(12.5)
+    expect(v('1.20')).toBe(1.2)
+    expect(v('90')).toBe(90)
+    expect(v('0')).toBe(0)
+    expect(v('1.234.567')).toBeUndefined() // > 1.000.000
+    expect(v('1.000.000')).toBe(1000000)
+    expect(v('12.345.678,9')).toBeUndefined()
+  })
+  it('"1.200" vale 1200 mas é ambíguo; "1.200,00" e "2.500.000" não', () => {
+    expect(lerPreco('1.200')).toEqual({ valor: 1200, ambiguo: true })
+    expect(lerPreco('1.200,00')).toEqual({ valor: 1200, ambiguo: false })
+    expect(lerPreco('1.200.300')).toBeNull()
+    expect(lerPreco('999.999')).toEqual({ valor: 999999, ambiguo: true })
+    expect(lerPreco('12.500.0')).toBeNull()
+  })
+  it('rejeita científica, texto, negativo, vazio, vírgula/ponto soltos e 3 decimais', () => {
+    for (const t of ['1e3', '1E3', 'abc', '-3', '+3', '', ' ', '1,', '.5', ',5', '1,234', '1..2', '1,2,3', '12 reais', 'NaN', 'Infinity', '1.2.3'])
+      expect(lerPreco(t), t).toBeNull()
+  })
+})
+
+describe('preço não reescreve elemento vendido', () => {
+  const e = () => mapa([no({ id: '1' }), no({ id: '2', sold: 3, price: 10 }), no({ id: '3', status: 'reserved', price: 10 })])
+  it('definirPreco: seção e livres mudam; vendido/reservado mantêm; conta os mantidos', () => {
+    const r = definirPreco(e(), 'a', 25)
+    expect(r.sections[0].price).toBe(25)
+    expect(r.seats.map(n => n.price)).toEqual([25, 10, 10])
+    expect(vendidosComPrecoAntigo(r, 'a')).toBe(2)
+    expect(vendidosComPrecoAntigo(e(), 'a')).toBe(0)
+  })
+  it('ligarIngresso idem', () => {
+    const r = ligarIngresso(e(), 'a', { id: 't', price: 77 })
+    expect(r.sections[0]).toMatchObject({ price: 77, ticketTypeId: 't' })
+    expect(r.seats.map(n => n.price)).toEqual([77, 10, 10])
+    expect(metricas(r).receita).toBe(30)
+  })
+})
+
+describe('importação: saneamento', () => {
+  const base = () => ({ id: 'x', name: 'P', sections: [{ id: 's', name: 'S', color: '#fff', price: 5, ticketTypeId: 't1' }, { id: 'estrutura', name: 'Estrutura', color: '#475569', price: 0 }],
+    seats: [{ id: 'a', x: 1, y: 1, type: 'seat', sold: 9, status: 'sold', sectionId: 'nao-existe', price: 5, capacity: 1 }], walls: [] as any[] })
+  const ler = (env: any, ing = ['t1']) => lerImportacao(JSON.stringify({ environments: [env] }), [mapa([])], ing)
+  it('zera venda e status do sistema; sectionId inexistente vai para o primeiro lote; status válido fica', () => {
+    const env = base(); env.seats.push({ id: 'b', x: 2, y: 2, type: 'seat', sold: 0, status: 'blocked', sectionId: 'estrutura', price: 0, capacity: 0 } as any, { id: 'c', x: 3, y: 3, type: 'seat', sold: 0, status: 'contact', sectionId: 's', price: 0, capacity: 0 } as any, { id: 'd', x: 4, y: 4, type: 'seat', sold: 0, status: 'xyz', sectionId: 's', price: 0, capacity: 0 } as any)
+    const r = ler(env)
+    expect(r.envs![0].seats.map(n => [n.sold, n.status])).toEqual([[0, 'free'], [0, 'blocked'], [0, 'contact'], [0, 'free']])
+    expect(r.envs![0].seats[0].sectionId).toBe('s')
+    expect(r.envs![0].seats[1].sectionId).toBe('estrutura')
+    expect(r.avisos!.join(' ')).toMatch(/zerados/)
+  })
+  it('ticketTypeId inexistente no evento é zerado e avisado; existente fica', () => {
+    expect(ler(base()).envs![0].sections[0].ticketTypeId).toBe('t1')
+    const r = ler(base(), ['outro'])
+    expect(r.envs![0].sections[0].ticketTypeId).toBeUndefined()
+    expect(r.avisos!.join(' ')).toMatch(/ingressos que não existem/)
+    expect(lerImportacao(JSON.stringify({ environments: [base()] }), [mapa([])]).envs![0].sections[0].ticketTypeId).toBeUndefined()
+  })
+  it('paredes: válida passa; coordenada/espessura ruim recusa', () => {
+    const ok = base(); ok.walls = [{ id: 'w', x1: 0, y1: 0, x2: 5, y2: 0, thickness: 0.15 }]
+    expect(ler(ok).envs![0].walls![0]).toMatchObject({ x2: 5, locked: false })
+    for (const w of [{ id: 'w', x1: 0, y1: 0, x2: null, y2: 0, thickness: 0.2 }, { id: 'w', x1: 0, y1: 0, x2: 1, y2: 0, thickness: 0 }, { id: 'w', x1: 0, y1: 0, x2: 1, y2: 0, thickness: 99 }, { id: 'w', x1: 0, y1: 0, x2: 1, y2: '0', thickness: 0.2 }]) {
+      const e = base(); e.walls = [w]
+      expect(ler(e).erro).toMatch(/parede/)
+    }
+  })
+  it('tipo desconhecido é mantido e avisado', () => {
+    const e = base(); (e.seats[0] as any).type = 'ovni'
+    const r = ler(e)
+    expect(r.envs![0].seats[0].type).toBe('ovni')
+    expect(r.avisos!.join(' ')).toMatch(/ovni/)
+  })
+  it('__proto__ no arquivo não polui nem entra no mapa', () => {
+    const txt = '{"__proto__":{"polluted":1},"environments":[{"id":"x","name":"P","__proto__":{"polluted":2},"sections":[{"id":"s","name":"S","price":1,"__proto__":{"polluted":3}}],"seats":[{"id":"a","x":1,"y":1,"type":"seat","__proto__":{"polluted":4},"constructor":{"prototype":{"polluted":5}}}]}]}'
+    const r = lerImportacao(txt, [mapa([])], [])
+    expect(r.erro).toBeUndefined()
+    expect(({} as any).polluted).toBeUndefined()
+    const no0 = r.envs![0].seats[0]
+    expect(Object.keys(no0)).not.toContain('__proto__')
+    expect(Object.keys(no0)).not.toContain('constructor')
+    expect(Object.keys(r.envs![0])).not.toContain('__proto__')
+  })
+  it('campo numérico negativo ou texto recusa', () => {
+    const e = base(); (e.seats[0] as any).capacity = '3'
+    expect(ler(e).erro).toBeTruthy()
+  })
+})
+
+describe('desfazer x importação', () => {
+  it('pavimento ativo com histórico desfaz o pavimento', () => expect(alvoDesfazer({ a: [1], b: [] }, 'a', true)).toBe('pavimento'))
+  it('importação só volta sem NENHUM histórico', () => {
+    expect(alvoDesfazer({ a: [], b: [1] }, 'a', true)).toBeNull()
+    expect(alvoDesfazer({ a: [], b: [] }, 'a', true)).toBe('importacao')
+    expect(alvoDesfazer({}, 'a', false)).toBeNull()
+  })
+  it('ao trocar de pavimento o alvo muda junto', () => {
+    const h = { a: [1], b: [] as number[] }
+    expect(alvoDesfazer(h, 'a', true)).toBe('pavimento')
+    expect(alvoDesfazer(h, 'b', true)).toBeNull()
+  })
+})
+
+describe('nomeUnico', () => {
+  it('limita a 60, volta ao anterior se vazio, sufixa duplicado', () => {
+    expect(nomeUnico('x'.repeat(80), [], 'ant')).toHaveLength(60)
+    expect(nomeUnico('   ', [], 'ant')).toBe('ant')
+    expect(nomeUnico('vip', ['VIP'], 'ant')).toBe('vip (2)')
+    expect(nomeUnico('vip', ['VIP', 'vip (2)'], 'ant')).toBe('vip (3)')
+    expect(nomeUnico('x'.repeat(60), ['x'.repeat(60)], 'a')).toHaveLength(60)
   })
 })
