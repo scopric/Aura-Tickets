@@ -194,6 +194,7 @@ export type Ing = {
   ativo: boolean; vendidos: number; novo: boolean
   inicioVenda: string; fimVenda: string // datetime-local (AAAA-MM-DDTHH:MM, Brasília); vazio = sem data
   descricao: string; minPed: string; maxPed: string // maxPed vazio = sem limite (null no banco)
+  maxCpf: string // limite por CPF do comprador; vazio = sem limite (null no banco)
 }
 
 export const brTexto = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })
@@ -208,11 +209,15 @@ export function ingDoBanco(t: DbTicketType, vendidos: number): Ing {
     tipo: t.type, ativo: t.is_active, vendidos, novo: false,
     inicioVenda: venda(t.sale_start), fimVenda: venda(t.sale_end),
     descricao: t.description ?? '', minPed: String(t.min_per_order ?? 1), maxPed: t.max_per_order == null ? '' : String(t.max_per_order),
+    maxCpf: t.max_por_cpf == null ? '' : String(t.max_por_cpf),
   }
 }
 
-/** Limites por pedido para o banco: mínimo número, máximo número ou null (vazio) */
-export const pedidoParaBanco = (i: Ing) => ({ min_per_order: Number(i.minPed), max_per_order: i.maxPed.trim() === '' ? null : Number(i.maxPed) })
+/** Limites por pedido e por CPF para o banco: mínimo número, máximo e limite por CPF número ou null (vazio limpa) */
+export const pedidoParaBanco = (i: Ing) => ({
+  min_per_order: Number(i.minPed), max_per_order: i.maxPed.trim() === '' ? null : Number(i.maxPed),
+  max_por_cpf: i.maxCpf.trim() === '' ? null : Number(i.maxCpf),
+})
 
 /** Reais, ou null se inválido. Com vírgula, o ponto é milhar; sem vírgula, o ponto é decimal. Vazio, negativo e texto: inválido. */
 export function precoDe(tx: string): number | null {
@@ -224,7 +229,7 @@ export function precoDe(tx: string): number | null {
 export const QUANTIDADE_MAX = 1_000_000
 export const quantidadeDe = (tx: string): number | null => (/^\d+$/.test(tx.trim()) && Number(tx) > 0 && Number(tx) <= QUANTIDADE_MAX ? Number(tx) : null)
 
-export type ErrosIng = { nome?: string; preco?: string; qtd?: string; venda?: string; pedido?: string }
+export type ErrosIng = { nome?: string; preco?: string; qtd?: string; venda?: string; pedido?: string; cpf?: string }
 
 /** fimEvento: instante (ms) do fim do evento, se houver */
 export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
@@ -241,6 +246,9 @@ export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
   else if (max !== undefined && max < min) e.pedido = 'O máximo por pedido não pode ser menor que o mínimo.'
   else if (max === undefined && precoDe(i.preco) === 0 && min > 10) e.pedido = 'Em ingresso grátis sem máximo, o limite por pedido é 10: preencha o máximo ou use um mínimo de até 10.'
   else if (max !== undefined && q !== null && max > q) e.pedido = 'O máximo por pedido não pode passar da quantidade de ingressos.'
+  const cpf = i.maxCpf.trim()
+  if (cpf !== '' && (!/^\d+$/.test(cpf) || Number(cpf) < 1)) e.cpf = 'Limite por CPF inválido: use um número inteiro a partir de 1 ou deixe vazio para não limitar.'
+  else if (cpf !== '' && q !== null && Number(cpf) > q) e.cpf = 'O limite por CPF não pode passar da quantidade de ingressos.'
   const ini = i.inicioVenda ? Date.parse(vendaParaBanco(i.inicioVenda)!) : null
   const fim = i.fimVenda ? Date.parse(vendaParaBanco(i.fimVenda)!) : null
   if (ini !== null && fim !== null && fim <= ini) e.venda = 'O fim da venda precisa ser depois do início.'

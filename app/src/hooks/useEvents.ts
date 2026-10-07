@@ -24,6 +24,7 @@ export interface DbTicketType {
   quantity_total?: number | null // coluna real no banco (capacity é legado)
   min_per_order?: number // mínimo por pedido (coluna real, padrão 1)
   max_per_order?: number | null // máximo por pedido (nulo: grátis tem teto 10, pago sem teto; ver tetoPorPedido)
+  max_por_cpf?: number | null // limite por CPF do comprador (nulo: sem limite)
   lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null
   sale_end: string | null
@@ -452,6 +453,7 @@ export function useUpdateEvent() {
           ...(t.sale_end !== undefined ? { sale_end: t.sale_end } : {}),
           ...(t.min_per_order !== undefined ? { min_per_order: t.min_per_order } : {}),
           ...(t.max_per_order !== undefined ? { max_per_order: t.max_per_order } : {}),
+          ...(t.max_por_cpf !== undefined ? { max_por_cpf: t.max_por_cpf } : {}),
         }
         if (t.id && existingIds.has(t.id)) {
           const { data, error } = await supabase

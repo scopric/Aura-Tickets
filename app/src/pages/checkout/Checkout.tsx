@@ -325,7 +325,7 @@ export default function Checkout() {
         cart,
         seats: escolhidos,
         totalAmount: grandTotal,
-        itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
+        itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price, max_por_cpf: i.max_por_cpf ?? null }))
       }))
       toast.info('Faça login para continuar sua compra.')
       navigate('/auth/login', { state: { from: '/checkout' } })
@@ -340,7 +340,7 @@ export default function Checkout() {
       toast.error('O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.')
       return
     }
-    const resumoItens = items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
+    const resumoItens = items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price, max_por_cpf: i.max_por_cpf ?? null }))
     if (escolhidos.length) {
       reservarLugares(resumoItens)
       return

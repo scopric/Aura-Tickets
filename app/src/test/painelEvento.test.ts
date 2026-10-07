@@ -18,7 +18,7 @@ const evento = (o: Partial<DbEvent> = {}) => ({
 }) as DbEvent
 
 const form = (o: Partial<Form> = {}): Form => ({ ...formDoEvento(evento(), ''), ...o })
-const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', ...o })
+const ing = (o: Partial<Ing> = {}): Ing => ({ id: 'i1', nome: 'Pista', preco: '80,00', qtd: '200', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: false, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '', ...o })
 
 describe('formulário ↔ banco', () => {
   it('lê o evento: hora sem segundos, fim em Brasília, endereço separado', () => {
@@ -456,8 +456,26 @@ describe('limites por pedido', () => {
     expect(ingDoBanco(t({ description: null, max_per_order: null }), 0)).toMatchObject({ descricao: '', minPed: '1', maxPed: '' })
   })
   it('para o banco: vazio vira null, número vira número', () => {
-    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null })
-    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4 })
+    expect(pedidoParaBanco(ing({ minPed: '2', maxPed: '' }))).toEqual({ min_per_order: 2, max_per_order: null, max_por_cpf: null })
+    expect(pedidoParaBanco(ing({ minPed: '1', maxPed: '4' }))).toEqual({ min_per_order: 1, max_per_order: 4, max_por_cpf: null })
+  })
+})
+
+describe('limite por CPF', () => {
+  const t = (o: object) => ({ id: 't1', name: 'Pista', price: 80, quantity_total: 200, type: 'individual', is_active: true, ...o }) as DbTicketType
+  it('ingDoBanco lê max_por_cpf; nulo vira vazio', () => {
+    expect(ingDoBanco(t({ max_por_cpf: 2 }), 0).maxCpf).toBe('2')
+    expect(ingDoBanco(t({ max_por_cpf: null }), 0).maxCpf).toBe('')
+  })
+  it('erros: 0, negativo, não inteiro e acima da quantidade; vazio aceito', () => {
+    for (const v of ['0', '-1', '1,5', 'abc']) expect(errosDeIngresso(ing({ maxCpf: v })).cpf).toMatch(/Limite por CPF inválido/)
+    expect(errosDeIngresso(ing({ maxCpf: '201' })).cpf).toMatch(/passar da quantidade/)
+    expect(errosDeIngresso(ing({ maxCpf: '' }))).toEqual({})
+    expect(errosDeIngresso(ing({ maxCpf: '200' }))).toEqual({})
+  })
+  it('para o banco: vazio limpa (null), número vira número', () => {
+    expect(pedidoParaBanco(ing({ maxCpf: '' })).max_por_cpf).toBeNull()
+    expect(pedidoParaBanco(ing({ maxCpf: ' 2 ' })).max_por_cpf).toBe(2)
   })
 })
 
