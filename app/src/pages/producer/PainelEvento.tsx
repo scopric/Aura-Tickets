@@ -6,6 +6,7 @@ import * as I from '@/components/icones/evokaa16'
 import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
 import { PreviaFolha, PreviaMoldura } from '../../components/producer/PreviaCelular'
+import LateralSecoes from '../../components/producer/painel/LateralSecoes'
 import SecaoIngressos from '../../components/producer/painel/SecaoIngressos'
 import SecaoOQueE from '../../components/producer/painel/SecaoOQueE'
 import SecaoPublicar, { type Falta } from '../../components/producer/painel/SecaoPublicar'
@@ -531,7 +532,13 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   }
 
   return (
-    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[minmax(0,1fr)_316px] min-[1180px]:gap-10">
+    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[minmax(0,1fr)_316px] min-[1440px]:grid-cols-[200px_minmax(0,1fr)_316px] min-[1180px]:gap-10">
+      <div className="hidden min-[1440px]:block">
+        <LateralSecoes
+          itens={SECOES.map(s => ({ id: s.id, nome: s.nome, pronta: pronta(s.id), faltam: alvos.filter(a => a.secao === s.id).length, atual: s.id === (guiado ? SECOES[passo].id : abertas[abertas.length - 1]) }))}
+          onIr={abrir} prontos={prontos} total={lista.length}
+        />
+      </div>
       <div className="min-w-0">
       <PageHeader
         title={nome}
@@ -666,6 +673,13 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
 
       {/* Match de Mesa: só com ingresso coletiva (o painel só abre para o dono) */}
       {evento.ticket_types?.some(t => t.type === 'coletiva') && <MatchDeMesaPanel eventId={evento.id} />}
+
+      {mostrarFaltas && alvos.length > 0 && !guiado && destaque === null && (
+        <div className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] right-[76px] z-30 flex items-center justify-between gap-2 rounded-[10px] bg-card px-3 py-2 text-sm shadow-lg ring-1 ring-border md:bottom-4 min-[1440px]:hidden">
+          <span role="status" className="font-medium text-[var(--ev-warning)]">{alvos.length === 1 ? 'Falta 1 item' : `Faltam ${alvos.length} itens`}</span>
+          <Button size="sm" onClick={() => irAoPasso(0)}>Próximo</Button>
+        </div>
+      )}
 
       <Dialog open={dialogo} onOpenChange={o => { if (!enviando) setDialogo(o) }}>
         <DialogContent>
