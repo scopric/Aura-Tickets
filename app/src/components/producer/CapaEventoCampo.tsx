@@ -80,7 +80,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
         {temCapa && (
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium text-foreground">Como a capa aparece</legend>
-            <RadioGroup value={naCor ? 'cor' : 'original'} onValueChange={v => onNaCor(v === 'cor')} disabled={salvando} aria-label="Como a capa aparece" className="gap-2">
+            <RadioGroup value={naCor ? 'cor' : 'original'} onValueChange={v => onNaCor(v === 'cor')} disabled={salvando} className="gap-2">
               <div className="flex items-center gap-2">
                 <RadioGroupItem value="original" id={`${id}-orig`} />
                 <Label htmlFor={`${id}-orig`} className="font-normal">Foto original</Label>

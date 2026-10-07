@@ -281,7 +281,7 @@ export function useCreateEvent() {
           cover_image: event.cover_image || '/images/hero-bg.jpg',
           image_url: event.image_url || '/images/hero-bg.jpg',
           accent_color: event.accent_color || null,
-          capa_na_cor: event.capa_na_cor === true,
+          capa_na_cor: event.capa_na_cor || undefined, // como as colunas da F1: só vai se marcada (o banco tem o padrão)
           gallery: event.gallery || [],
           category: event.category || null,
           // colunas da F1: só vão preenchidas (o banco tem o padrão), assim criar não depende de elas existirem
