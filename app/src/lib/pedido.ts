@@ -31,7 +31,7 @@ export function pedidoReaproveitavel<P extends Pendente>(pendentes: P[], items: 
 const quando = (iso: string) => new Date(iso).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' às')
 
 // Por que o tipo de ingresso não pode ser comprado agora (null = pode): evento já terminou ou fora da janela sale_start/sale_end.
-// ponytail: só o front confere (também em useCreateOrder, antes de gravar); o gatilho do banco não barra janela nem data, só estoque (20261022).
+// O banco confere a mesma regra (venda_bloqueada em 20261022); aqui é só para avisar antes de gravar.
 export function vendaBloqueada(evento: Pick<DbEvent, 'start_date' | 'end_date' | 'date' | 'time'>, tipo: { sale_start?: string | null; sale_end?: string | null }, agora = Date.now()): string | null {
   if (fimDe(evento as DbEvent) <= agora) return 'Este evento já terminou'
   if (tipo.sale_start && new Date(tipo.sale_start).getTime() > agora) return `Vendas abrem em ${quando(tipo.sale_start)}`

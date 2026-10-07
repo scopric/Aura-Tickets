@@ -143,7 +143,7 @@ export function useCreateOrder() {
       // 2. Criar order_items para cada tipo de ingresso, com o preço do tipo
       const { error: orderItemsError } = await supabase
         .from('order_items')
-        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })))
+        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })).sort((a, b) => a.ticket_type_id.localeCompare(b.ticket_type_id))) // mesma ordem de trava em todo pedido (sem impasse)
 
       if (orderItemsError) throw orderItemsError
 

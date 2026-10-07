@@ -86,7 +86,8 @@ export default function CheckoutPayment() {
     }, {
       onSuccess: async (order) => {
         try {
-          if (gratis) {
+          // Quem decide é o total devolvido pelo banco, não o que a tela mostrava (sessionStorage pode estar velho)
+          if (Number(order.total) === 0) {
             // O banco confere que todos os itens têm preço 0 e emite os ingressos (docs/sql/20261022_pedido_gratis_e_estoque.sql)
             const { error } = await supabase.rpc('confirmar_pedido_gratis' as never, { p_order: order.id } as never)
             if (error) throw error
@@ -94,6 +95,7 @@ export default function CheckoutPayment() {
             navigate(`/checkout/success?pedido=${order.id}`, { state: { orderId: order.id, totalAmount: 0, paymentMethod: null } })
             return
           }
+          if (gratis) throw new Error('O valor do pedido mudou. Volte ao evento e escolha de novo.')
           if (paymentMethod === 'credit_card') {
             // 2. Pedir o pagamento ao hook usePayment
             const result = await processPayment({
