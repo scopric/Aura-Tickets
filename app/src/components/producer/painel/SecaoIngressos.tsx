@@ -11,7 +11,7 @@ import { Faixa, SegmentadoComSetas } from './campos'
 const TIPO_FIXO: Record<string, string> = { individual: 'Individual', coletiva: 'Mesa coletiva', vip: 'VIP', mesa: 'Mesa' }
 
 // Seção "Ingressos": gravação própria ("Salvar ingressos"), separada do salvamento automático do evento.
-export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir }: {
+export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, onSalvar, onRemover, onAlternar, alternando, classificacao, aDefinir, fimEvento }: {
   ings: Ing[]
   setIngs: (l: Ing[]) => void
   sujo: boolean
@@ -23,6 +23,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
   alternando: string | null
   classificacao: string
   aDefinir: boolean
+  fimEvento?: number // instante do fim do evento (limite do fim da venda)
 }) {
   const n = useRef(0)
   const muda = (id: string, p: Partial<Ing>) => setIngs(ings.map(i => (i.id === id ? { ...i, ...p } : i)))
@@ -31,7 +32,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
     <div className="grid gap-3">
       {ings.length === 0 && <p className="text-sm text-muted-foreground">Nenhum ingresso ainda. Adicione o primeiro.</p>}
       {ings.map((g, k) => {
-        const e = errosDeIngresso(g)
+        const e = errosDeIngresso(g, fimEvento)
         const preco = precoDe(g.preco)
         const temVenda = g.vendidos > 0
         const verPreco = tentou || g.preco.trim() !== ''
@@ -62,8 +63,19 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
               </div>
             </div>
 
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor={`${id}-ini`} className="text-xs text-muted-foreground">Início da venda (opcional)</Label>
+                <Input id={`${id}-ini`} type="datetime-local" value={g.inicioVenda} onChange={ev => muda(g.id, { inicioVenda: ev.target.value })} />
+              </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor={`${id}-fim`} className="text-xs text-muted-foreground">Fim da venda (opcional)</Label>
+                <Input id={`${id}-fim`} type="datetime-local" value={g.fimVenda} aria-invalid={!!e.venda} aria-describedby={e.venda ? `${id}-venda-erro` : undefined} onChange={ev => muda(g.id, { fimVenda: ev.target.value })} />
+              </div>
+            </div>
+
             {[
-              [tentou && e.nome, 'nome'], [verPreco && e.preco, 'preco'], [verQtd && e.qtd, 'qtd'],
+              [e.venda, 'venda'], [tentou && e.nome, 'nome'], [verPreco && e.preco, 'preco'], [verQtd && e.qtd, 'qtd'],
             ].map(([msg, campo]) => msg && (
               <p key={campo as string} id={`${id}-${campo}-erro`} role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{msg}</p>
             ))}
@@ -107,7 +119,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <Button
           type="button" variant="ghost"
-          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true }])}
+          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '' }])}
         >
           <I.Criar aria-hidden="true" />Adicionar ingresso
         </Button>

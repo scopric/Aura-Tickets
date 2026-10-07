@@ -447,6 +447,8 @@ export function useUpdateEvent() {
           quantity_total: t.capacity ? Number(t.capacity) : 0,
           ...(t.perks ? { perks: t.perks } : {}),
           ...(t.inclui_bebida !== undefined ? { inclui_bebida: t.inclui_bebida } : {}),
+          ...(t.sale_start !== undefined ? { sale_start: t.sale_start } : {}),
+          ...(t.sale_end !== undefined ? { sale_end: t.sale_end } : {}),
         }
         if (t.id && existingIds.has(t.id)) {
           const { data, error } = await supabase

@@ -220,10 +220,17 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     await page.getByRole('button', { name: /^Remover o ingresso 2$/ }).click()
     await expect(page.getByText('Só maiores de 18 compram a Mesa coletiva.')).toHaveCount(0)
 
+    // Datas de venda do lote: fim antes do início mostra o erro; corrigido, vai ao banco
+    await page.getByLabel('Início da venda (opcional)').fill('2026-11-02T10:00')
+    await page.getByLabel('Fim da venda (opcional)').fill('2026-11-01T10:00')
+    await expect(page.getByText('O fim da venda precisa ser depois do início.')).toBeVisible()
+    await page.getByLabel('Fim da venda (opcional)').fill('2026-11-03T10:00')
+    await expect(page.getByText('O fim da venda precisa ser depois do início.')).toHaveCount(0)
+
     await page.getByRole('button', { name: 'Salvar ingressos' }).click()
     await expect(page.getByText('Ingressos salvos.')).toBeVisible()
     expect(db.ingressos).toHaveLength(1)
-    expect(db.ingressos[0]).toMatchObject({ name: 'Pista', price: 80, capacity: 200, quantity_total: 200, type: 'individual', is_active: true })
+    expect(db.ingressos[0]).toMatchObject({ name: 'Pista', price: 80, capacity: 200, quantity_total: 200, type: 'individual', is_active: true, sale_start: '2026-11-02T10:00:00-03:00', sale_end: '2026-11-03T10:00:00-03:00' })
     await expect(page.getByText('Ingressos com mudanças não salvas')).toHaveCount(0)
 
     // Regras e idade: classificação, aviso de entrada e resumo da bebida (por ingresso)

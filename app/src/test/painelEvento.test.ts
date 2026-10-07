@@ -167,6 +167,15 @@ describe('ingressos', () => {
     expect(Object.keys(errosDeIngresso(ing({ nome: ' ', preco: 'x', qtd: '0' })))).toEqual(['nome', 'preco', 'qtd'])
     expect(errosDeIngresso(ing({ qtd: '5', vendidos: 8 })).qtd).toMatch(/8/)
   })
+  it('datas de venda: fim depois do início e não depois do fim do evento', () => {
+    const fimEv = Date.parse('2026-12-13T04:00:00-03:00')
+    expect(errosDeIngresso(ing({ inicioVenda: '2026-11-01T10:00', fimVenda: '2026-12-01T10:00' }), fimEv)).toEqual({})
+    expect(errosDeIngresso(ing({ fimVenda: '2026-12-01T10:00' }), fimEv)).toEqual({})
+    expect(errosDeIngresso(ing({ inicioVenda: '2026-12-01T10:00', fimVenda: '2026-12-01T10:00' })).venda).toMatch(/depois do início/)
+    expect(errosDeIngresso(ing({ inicioVenda: '2026-12-02T10:00', fimVenda: '2026-12-01T10:00' })).venda).toMatch(/depois do início/)
+    expect(errosDeIngresso(ing({ fimVenda: '2026-12-14T10:00' }), fimEv).venda).toMatch(/fim do evento/)
+    expect(errosDeIngresso(ing({ fimVenda: '2026-12-14T10:00' })).venda).toBeUndefined()
+  })
 })
 
 describe('nome vazio e erro ao gravar ingressos', () => {
@@ -419,6 +428,7 @@ describe('Enviar para aprovação', () => {
 
   it('o banco recusa publicar: erro, sem dizer que enviou', async () => {
     update.mockImplementation(() => ({ eq: () => ({ select: () => ({ single: () => Promise.resolve({ data: null, error: { code: '42501' } }) }) }) }))
-    expect((await enviarEvento(base())).ok).toBe(false)
+    const r = await enviarEvento(base())
+    expect(r).toMatchObject({ ok: false, erro: 'Refaça o aceite: a classificação ou a bebida mudou.' })
   })
 })

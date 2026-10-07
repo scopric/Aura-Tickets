@@ -29,11 +29,11 @@ import { useTourLog } from '../../hooks/useTourLog'
 import { siteUrl } from '../../lib/appHost'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
 import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
-import { confirmacaoDuplicar, erroAoExcluir } from '../../lib/eventoProdutor'
+import { confirmacaoDuplicar, erroAoExcluir, instanteLocal } from '../../lib/eventoProdutor'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, vendaParaBanco, modoPainel,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -285,7 +285,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const aceiteNoDialogo = soAceite || precisaAceiteNovo
   const bloqueioDialogo = soAceite ? '' : ingSujo ? 'Há ingressos com mudanças não salvas. Salve os ingressos antes de enviar.' : erroNome || erros.inicio || erros.fim || linkRuim ? 'Corrija o nome, as datas e o link da transmissão antes de enviar.' : ''
 
-  const ingValidos = !ingSujo && ings.every(i => !temErro(errosDeIngresso(i)))
+  const fimEvento = form.fimD && form.fimH ? instanteLocal(form.fimD, form.fimH) : undefined
+  const ingValidos = !ingSujo && ings.every(i => !temErro(errosDeIngresso(i, fimEvento)))
   const pronta = (id: string) => id === 'img' || (modo !== 'rascunho' && modo !== 'recusado' && id === 'pub')
     || (lista.filter(p => SECAO_DA_PENDENCIA[p.id] === id).every(p => p.pronto) && (id !== 'ing' || ingValidos))
   const ativos = ingsSalvos.filter(i => i.ativo)
@@ -323,7 +324,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   // ---- ingressos: gravação própria ----
   async function salvarIngressos() {
     setTentouIng(true)
-    if (ings.some(i => temErro(errosDeIngresso(i)))) { toast.error('Corrija os ingressos marcados antes de salvar.'); return }
+    if (ings.some(i => temErro(errosDeIngresso(i, fimEvento)))) { toast.error('Corrija os ingressos marcados antes de salvar.'); return }
     setSalvandoIng(true)
     try {
       if (removidos.length > 0) {
@@ -336,7 +337,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         eventId: evento.id, event: {},
         tickets: ings.map(i => ({
           id: i.novo ? undefined : i.id, name: i.nome.trim(), price: precoDe(i.preco) ?? 0, capacity: quantidadeDe(i.qtd) ?? 0,
-          inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'],
+          inclui_bebida: i.bebida, type: i.tipo as DbTicketType['type'], sale_start: vendaParaBanco(i.inicioVenda), sale_end: vendaParaBanco(i.fimVenda),
         })),
       })
       const { data, error } = await supabase.from('ticket_types').select('*').eq('event_id', evento.id)
@@ -495,7 +496,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         <SecaoIngressos
           ings={ings} setIngs={setIngs} sujo={ingSujo} salvando={salvandoIng} tentou={tentouIng} onSalvar={() => void salvarIngressos()}
           onRemover={g => { if (!g.novo) setRemovidos(r => [...r, g.id]); setIngs(l => l.filter(i => i.id !== g.id)) }}
-          onAlternar={g => void alternarIngresso(g)} alternando={alternando} classificacao={form.classificacao} aDefinir={form.local_modo === 'a_definir'}
+          onAlternar={g => void alternarIngresso(g)} alternando={alternando} classificacao={form.classificacao} aDefinir={form.local_modo === 'a_definir'} fimEvento={fimEvento}
         />
       )
       case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
@@ -505,6 +506,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
           onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
+          hrefOrcamento={hrefDaTela('/producer/caixinha', evento.id)}
           noArDesde={evento.approved_at ? new Date(evento.approved_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', timeZone: 'America/Sao_Paulo' }) : undefined}
         />
         </div>
