@@ -58,7 +58,32 @@ describe('Cupons do produtor', () => {
     fireEvent.change(screen.getByLabelText('Desconto (%)'), { target: { value: '30' } })
     salvar()
     await waitFor(() => expect(atualizar).toHaveBeenCalledTimes(1))
-    expect(atualizar.mock.calls[0][0]).toMatchObject({ id: 'c1', code: 'AURA20', discount_value: 30, max_uses: null, valid_from: inicio, valid_until: fim })
+    expect(atualizar.mock.calls[0][0]).toMatchObject({ id: 'c1', code: 'AURA20', discount_value: 30, max_uses: null })
+    expect(atualizar.mock.calls[0][0]).not.toHaveProperty('valid_from')
+    expect(atualizar.mock.calls[0][0]).not.toHaveProperty('valid_until')
+  })
+
+  it('mudar só o fim envia só o fim (dia 31 às 23:59:59 local)', async () => {
+    lista = [cupom({ valid_until: new Date('2099-12-20T12:00:00').toISOString() })]
+    atualizar.mockResolvedValue({})
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Editar AURA20' }))
+    fireEvent.change(screen.getByLabelText('Fim'), { target: { value: '2099-12-31' } })
+    salvar()
+    await waitFor(() => expect(atualizar).toHaveBeenCalled())
+    const arg = atualizar.mock.calls[0][0]
+    expect(arg.valid_until).toBe(fim)
+    expect(arg).not.toHaveProperty('valid_from')
+  })
+
+  it('limite menor que os usos já feitos não envia', async () => {
+    lista = [cupom({ uses: 5 })]
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Editar AURA20' }))
+    fireEvent.change(screen.getByLabelText('Limite de pedidos (vazio = sem limite)'), { target: { value: '3' } })
+    salvar()
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('O limite não pode ser menor que os usos já feitos'))
+    expect(atualizar).not.toHaveBeenCalled()
   })
 
   it('cupom já usado trava tipo, valor e código', () => {
@@ -100,9 +125,8 @@ describe('Cupons do produtor', () => {
     ['valor', { code: '23514', message: 'violates check constraint "coupons_value_chk"' }, 'Valor do desconto inválido'],
     ['datas', { code: '23514', message: 'violates check constraint "coupons_periodo_chk"' }, 'As datas do cupom são inválidas'],
     ['limite', { code: '23514', message: 'violates check constraint "coupons_limites_chk"' }, 'O limite de pedidos é inválido'],
-    ['valor travado', { code: '42501', message: 'Valor travado' }, 'Cupom já usado: o valor não pode mudar.'],
     ['42501', { code: '42501', message: 'permission denied' }, /2FA/],
-    ['PGRST116', { code: 'PGRST116' }, /2FA/],
+    ['PGRST116', { code: 'PGRST116' }, 'Não foi possível salvar: sem permissão, 2FA pendente ou o cupom não existe mais.'],
     ['outro', new Error('x'), 'Não foi possível salvar o cupom.'],
   ])('erro %s mostra a mensagem certa ao salvar', async (_n, erro, esperado) => {
     atualizar.mockRejectedValue(erro)

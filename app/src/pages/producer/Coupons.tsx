@@ -50,8 +50,8 @@ const erroCupom = (e: unknown, padrao: string) => {
   if (code === '23514' && message.includes('coupons_value_chk')) return 'Valor do desconto inválido'
   if (code === '23514' && message.includes('coupons_periodo_chk')) return 'As datas do cupom são inválidas'
   if (code === '23514' && message.includes('coupons_limites_chk')) return 'O limite de pedidos é inválido'
-  if (code === '42501' && message.includes('Valor travado')) return 'Cupom já usado: o valor não pode mudar.'
-  if (code === '42501' || code === 'PGRST116') return 'Sem permissão para isso. Confirme o 2FA (verificação em duas etapas) e tente de novo.'
+  if (code === 'PGRST116') return 'Não foi possível salvar: sem permissão, 2FA pendente ou o cupom não existe mais.'
+  if (code === '42501') return 'Sem permissão para isso. Confirme o 2FA (verificação em duas etapas) e tente de novo.'
   return padrao
 }
 
@@ -103,6 +103,7 @@ export default function ProducerCoupons() {
     if (form.type === 'percent' && value > 100) { toast.error('Percentual não pode passar de 100'); return }
     const maxUses = form.maxUses ? Number(form.maxUses) : null
     if (maxUses !== null && !(Number.isInteger(maxUses) && maxUses >= 1)) { toast.error('Limite de usos precisa ser 1 ou mais'); return }
+    if (editando && maxUses !== null && maxUses < editando.uses) { toast.error('O limite não pode ser menor que os usos já feitos'); return }
     const minOrder = form.minPurchase ? Number(form.minPurchase) : null
     if (minOrder !== null && !(minOrder >= 0)) { toast.error('Compra mínima inválida'); return }
     // data do campo é dia local: início às 00:00, fim às 23:59:59
@@ -118,8 +119,9 @@ export default function ProducerCoupons() {
           min_order_value: minOrder,
           max_uses: maxUses,
           event_id: form.eventId || null,
-          valid_from: validFrom,
-          valid_until: validUntil,
+          // só regrava a data que mudou: o horário original (ex.: fim às 12:00) não pode ser sobrescrito
+          ...(form.startDate !== diaLocal(editando.valid_from) ? { valid_from: validFrom } : {}),
+          ...(form.endDate !== diaLocal(editando.valid_until) ? { valid_until: validUntil } : {}),
           description: form.description || null,
         })
         setEditando(null)
