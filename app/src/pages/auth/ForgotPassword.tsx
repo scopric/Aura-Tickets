@@ -85,7 +85,7 @@ export default function ForgotPassword() {
                   onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 pr-10"
                 />
                 <Mail className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso/20" />
               </div>

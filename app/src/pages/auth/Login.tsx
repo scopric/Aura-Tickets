@@ -407,7 +407,7 @@ export default function AuthLogin() {
                 onChange={e => setEmail(e.target.value)}
                 placeholder="seu@email.com"
                 disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
+                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
               />
             </div>
             <div>
@@ -420,7 +420,7 @@ export default function AuthLogin() {
                   onChange={e => setPassword(e.target.value)}
                   placeholder="Sua senha"
                   disabled={isSubmitting}
-                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
+                  className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50"
                 />
                 <button
                   type="button"
