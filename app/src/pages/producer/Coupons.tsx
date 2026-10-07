@@ -34,7 +34,26 @@ const couponStatus = (c: DbCoupon) =>
 const rotulo = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
-const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '999', eventId: '', startDate: '', endDate: '', description: '' }
+const emptyForm = { code: '', type: 'percent' as DbCoupon['discount_type'], value: '', minPurchase: '', maxUses: '', eventId: '', startDate: '', endDate: '', description: '' }
+
+// dia local (não toISOString, que vira UTC e muda o dia) em yyyy-mm-dd
+const diaLocal = (iso: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// mensagem por código/constraint do banco (estáveis), não pelo texto
+const erroCupom = (e: unknown, padrao: string) => {
+  const { code, message = '' } = (e ?? {}) as { code?: string; message?: string }
+  if (code === '23505') return 'Esse código já existe'
+  if (code === '23514' && message.includes('coupons_value_chk')) return 'Valor do desconto inválido'
+  if (code === '23514' && message.includes('coupons_periodo_chk')) return 'As datas do cupom são inválidas'
+  if (code === '23514' && message.includes('coupons_limites_chk')) return 'O limite de pedidos é inválido'
+  if (code === 'PGRST116') return 'Não foi possível salvar: sem permissão, 2FA pendente ou o cupom não existe mais.'
+  if (code === '42501') return 'Sem permissão para isso. Confirme o 2FA (verificação em duas etapas) e tente de novo.'
+  return padrao
+}
 
 export default function ProducerCoupons() {
   const { data: coupons = [], isLoading, isError, refetch, isFetching } = useProducerCoupons()
@@ -44,6 +63,7 @@ export default function ProducerCoupons() {
   const deleteCoupon = useDeleteCoupon()
 
   const [showForm, setShowForm] = useState(false)
+  const [editando, setEditando] = useState<DbCoupon | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [filterStatus, setFilterStatus] = useState('Todos')
   const [filterType, setFilterType] = useState('Todos')
@@ -61,7 +81,17 @@ export default function ProducerCoupons() {
   // no evento, os usos do cupom global não entram: parte deles foi em outros eventos
   const totalUses = lista.reduce((s, c) => s + (filtroEvento && c.event_id === null ? 0 : c.uses || 0), 0)
 
-  const abrir = () => { setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
+  const editar = (c: DbCoupon) => {
+    setEditando(c)
+    setForm({
+      code: c.code, type: c.discount_type, value: String(c.discount_value), minPurchase: c.min_order_value == null ? '' : String(c.min_order_value),
+      maxUses: c.max_uses == null ? '' : String(c.max_uses), eventId: c.event_id ?? '', startDate: diaLocal(c.valid_from), endDate: diaLocal(c.valid_until), description: c.description ?? '',
+    })
+    setShowForm(true)
+  }
+  // ponytail: trava só no front; passar para o gatilho gf_protect_coupon_uses quando o checkout consumir o cupom
+  const travado = !!editando && editando.uses > 0
+  const abrir = () => { setEditando(null); setForm({ ...emptyForm, eventId: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }); setShowForm(true) }
 
   const addCoupon = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -73,14 +103,33 @@ export default function ProducerCoupons() {
     if (form.type === 'percent' && value > 100) { toast.error('Percentual não pode passar de 100'); return }
     const maxUses = form.maxUses ? Number(form.maxUses) : null
     if (maxUses !== null && !(Number.isInteger(maxUses) && maxUses >= 1)) { toast.error('Limite de usos precisa ser 1 ou mais'); return }
+    if (editando && maxUses !== null && maxUses < editando.uses) { toast.error('O limite não pode ser menor que os usos já feitos'); return }
     const minOrder = form.minPurchase ? Number(form.minPurchase) : null
     if (minOrder !== null && !(minOrder >= 0)) { toast.error('Compra mínima inválida'); return }
     // data do campo é dia local: início às 00:00, fim às 23:59:59
     const validFrom = form.startDate ? new Date(`${form.startDate}T00:00:00`).toISOString() : null
     const validUntil = form.endDate ? new Date(`${form.endDate}T23:59:59`).toISOString() : null
     if (validFrom && validUntil && validUntil <= validFrom) { toast.error('A data final precisa ser depois da inicial'); return }
-    if (validUntil && validUntil <= new Date().toISOString()) { toast.error('A data final já passou'); return }
+    if (validUntil && validUntil <= new Date().toISOString() && !(editando && form.endDate === diaLocal(editando.valid_until))) { toast.error('A data final já passou'); return }
     try {
+      if (editando) {
+        await updateCoupon.mutateAsync({
+          id: editando.id,
+          ...(travado ? {} : { code, discount_type: form.type, discount_value: value }),
+          min_order_value: minOrder,
+          max_uses: maxUses,
+          event_id: form.eventId || null,
+          // só regrava a data que mudou: o horário original (ex.: fim às 12:00) não pode ser sobrescrito
+          ...(form.startDate !== diaLocal(editando.valid_from) ? { valid_from: validFrom } : {}),
+          ...(form.endDate !== diaLocal(editando.valid_until) ? { valid_until: validUntil } : {}),
+          description: form.description || null,
+        })
+        setEditando(null)
+        setForm(emptyForm)
+        setShowForm(false)
+        toast.success('Cupom atualizado.')
+        return
+      }
       await createCoupon.mutateAsync({
         code,
         discount_type: form.type,
@@ -97,7 +146,7 @@ export default function ProducerCoupons() {
       setShowForm(false)
       toast.success('Cupom criado.')
     } catch (e) {
-      toast.error((e as { code?: string })?.code === '23505' ? 'Esse código já existe' : 'Não foi possível criar o cupom.')
+      toast.error(erroCupom(e, editando ? 'Não foi possível salvar o cupom.' : 'Não foi possível criar o cupom.'))
     }
   }
 
@@ -113,8 +162,8 @@ export default function ProducerCoupons() {
     try {
       await updateCoupon.mutateAsync({ id: coupon.id, is_active: isActive })
       toast.success(`Cupom ${isActive ? 'ativado' : 'desativado'}.`)
-    } catch {
-      toast.error('Não foi possível atualizar o status.')
+    } catch (e) {
+      toast.error(erroCupom(e, 'Não foi possível atualizar o status.'))
     }
   }
 
@@ -125,7 +174,7 @@ export default function ProducerCoupons() {
       toast.success('Cupom removido.')
     } catch (e) {
       // 23503: o cupom está ligado a um pedido (como em admin/Coupons.tsx)
-      toast.error((e as { code?: string })?.code === '23503' ? 'Este cupom já foi usado. Desative em vez de excluir.' : 'Não foi possível remover o cupom.')
+      toast.error((e as { code?: string })?.code === '23503' ? 'Este cupom já foi usado. Desative em vez de excluir.' : erroCupom(e, 'Não foi possível remover o cupom.'))
     }
   }
 
@@ -206,10 +255,13 @@ export default function ProducerCoupons() {
                       <Button variant="ghost" size="icon-sm" className={icone} onClick={() => copyCode(coupon.code)} aria-label={`Copiar código ${coupon.code}`}>
                         {copied === coupon.code ? <I.Check aria-hidden="true" /> : <I.Copiar aria-hidden="true" />}
                       </Button>
-                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => toggleStatus(coupon)} aria-label={coupon.is_active ? `Desativar ${coupon.code}` : `Ativar ${coupon.code}`}>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => editar(coupon)} disabled={updateCoupon.isPending} aria-label={`Editar ${coupon.code}`}>
+                        <I.Editar aria-hidden="true" />
+                      </Button>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => toggleStatus(coupon)} disabled={updateCoupon.isPending} aria-label={coupon.is_active ? `Desativar ${coupon.code}` : `Ativar ${coupon.code}`}>
                         <I.Ligar aria-hidden="true" />
                       </Button>
-                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon)} aria-label={`Remover ${coupon.code}`}>
+                      <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(coupon)} disabled={deleteCoupon.isPending} aria-label={`Remover ${coupon.code}`}>
                         <I.Lixeira aria-hidden="true" />
                       </Button>
                     </div>
@@ -226,8 +278,8 @@ export default function ProducerCoupons() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-muted-foreground">Usado</dt>
-                      <dd className="text-sm font-medium tabular-nums text-foreground">{coupon.uses || 0}/{coupon.max_uses || '–'}</dd>
+                      <dt className="text-xs text-muted-foreground">Pedidos</dt>
+                      <dd className="text-sm font-medium tabular-nums text-foreground">{coupon.uses || 0}/{coupon.max_uses ?? '∞'}</dd>
                     </div>
                     <div>
                       <dt className="text-xs text-muted-foreground">Mínimo</dt>
@@ -245,37 +297,38 @@ export default function ProducerCoupons() {
         )}
       </div>
 
-      <Dialog open={showForm} onOpenChange={setShowForm}>
+      <Dialog open={showForm} onOpenChange={o => { setShowForm(o); if (!o) setEditando(null) }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Novo cupom</DialogTitle>
+            <DialogTitle>{editando ? 'Editar cupom' : 'Novo cupom'}</DialogTitle>
             <DialogDescription>O código vale para o evento escolhido ou para todos os seus eventos.</DialogDescription>
           </DialogHeader>
           <form id="form-cupom" onSubmit={addCoupon} className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="cupom-codigo">Código</Label>
-              <Input id="cupom-codigo" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} placeholder="Ex.: AURA20" />
+              <Input id="cupom-codigo" value={form.code} onChange={e => setForm({ ...form, code: e.target.value.toUpperCase() })} disabled={travado} placeholder="Ex.: AURA20" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="cupom-tipo">Tipo</Label>
-                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={selectNativo}>
+                <select id="cupom-tipo" value={form.type} onChange={e => setForm({ ...form, type: e.target.value as DbCoupon['discount_type'] })} className={selectNativo} disabled={travado}>
                   <option value="percent">Percentual (%)</option>
                   <option value="fixed">Valor fixo (R$)</option>
                 </select>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="cupom-valor">{form.type === 'percent' ? 'Desconto (%)' : 'Desconto (R$)'}</Label>
-                <Input id="cupom-valor" type="number" inputMode="decimal" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} />
+                <Input id="cupom-valor" type="number" inputMode="decimal" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} disabled={travado} />
               </div>
             </div>
+            {travado && <p className="text-xs text-muted-foreground">Já usado: valor travado</p>}
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="cupom-minimo">Compra mínima (R$)</Label>
                 <Input id="cupom-minimo" type="number" inputMode="decimal" value={form.minPurchase} onChange={e => setForm({ ...form, minPurchase: e.target.value })} />
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="cupom-usos">Limite de usos</Label>
+                <Label htmlFor="cupom-usos">Limite de pedidos (vazio = sem limite)</Label>
                 <Input id="cupom-usos" type="number" inputMode="numeric" value={form.maxUses} onChange={e => setForm({ ...form, maxUses: e.target.value })} />
               </div>
             </div>
@@ -302,9 +355,9 @@ export default function ProducerCoupons() {
             </div>
           </form>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button type="submit" form="form-cupom" loading={createCoupon.isPending}>
-              Criar cupom
+            <Button variant="outline" onClick={() => { setShowForm(false); setEditando(null) }}>Cancelar</Button>
+            <Button type="submit" form="form-cupom" loading={createCoupon.isPending || updateCoupon.isPending}>
+              {editando ? 'Salvar' : 'Criar cupom'}
             </Button>
           </DialogFooter>
         </DialogContent>
