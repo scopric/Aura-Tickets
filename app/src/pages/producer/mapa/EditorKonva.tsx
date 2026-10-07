@@ -417,7 +417,9 @@ export default function EditorKonva() {
   const aoClicar = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const cur = e.target.getStage()?.getPointerPosition()
     if (modoPlanta === 'calibrar' && !arrastou.current && cur && pontosCal.length < 2) {
-      setPontosCal(p => [...p, { x: (cur.x - vista.pan.x) / escala, y: (cur.y - vista.pan.y) / escala }])
+      const novo = { x: (cur.x - vista.pan.x) / escala, y: (cur.y - vista.pan.y) / escala }
+      // toque dispara onTap e o click emulado: o mesmo lugar (a menos de 4 px da tela) não conta como 2º ponto
+      setPontosCal(p => (p.length === 1 && Math.hypot(novo.x - p[0].x, novo.y - p[0].y) * escala < 4 ? p : [...p, novo]))
       return
     }
     if (!criando || arrastou.current || !cur) return
@@ -547,18 +549,6 @@ export default function EditorKonva() {
             onMouseUp={fimPan} onTouchEnd={fimPan} onMouseLeave={fimPan}
             onClick={aoClicar} onTap={aoClicar}
           >
-            {fundo && planta.img && (
-              <Layer listening={modoPlanta === 'mover'}>
-                <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
-                  <KImage
-                    image={planta.img} x={fundo.offset.x / ppm} y={fundo.offset.y / ppm} opacity={fundo.opacity}
-                    width={(fundo.scale * LARGURA_BASE_PX) / ppm} height={(fundo.scale * LARGURA_BASE_PX * planta.img.naturalHeight) / planta.img.naturalWidth / ppm}
-                    draggable={modoPlanta === 'mover'} listening={modoPlanta === 'mover'}
-                    onDragEnd={e => setFundo({ ...fundo, offset: { x: e.target.x() * ppm, y: e.target.y() * ppm } })}
-                  />
-                </Group>
-              </Layer>
-            )}
             <Layer>
               <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
                 <Rect {...sala} width={sala.w} height={sala.h} fill="#2b303b" stroke="#64748b" strokeWidth={1} strokeScaleEnabled={false} listening={false} />
@@ -568,6 +558,15 @@ export default function EditorKonva() {
                 {grade && Array.from({ length: Math.floor(sala.h) + 1 }, (_, i) => (i % 5 === 0 || escala >= 12) && (
                   <Line key={`gh${i}`} points={[sala.x, sala.y + i, sala.x + sala.w, sala.y + i]} stroke="#ffffff" opacity={i % 5 === 0 ? 0.16 : 0.06} strokeWidth={1} strokeScaleEnabled={false} listening={false} />
                 ))}
+                {/* a planta fica logo acima do chão e da grade da sala e abaixo de paredes e elementos; só escuta o mouse no modo Mover */}
+                {fundo && planta.img && (
+                  <KImage
+                    image={planta.img} x={fundo.offset.x / ppm} y={fundo.offset.y / ppm} opacity={fundo.opacity}
+                    width={(fundo.scale * LARGURA_BASE_PX) / ppm} height={(fundo.scale * LARGURA_BASE_PX * planta.img.naturalHeight) / planta.img.naturalWidth / ppm}
+                    draggable={modoPlanta === 'mover'} listening={modoPlanta === 'mover'}
+                    onDragEnd={e => setFundo({ ...fundo, offset: { x: e.target.x() * ppm, y: e.target.y() * ppm } })}
+                  />
+                )}
                 {(env.walls || []).map(p => {
                   const pontos = [p.x1, p.y1, p.x2, p.y2]
                   const escolhida = sel?.tipo === 'parede' && sel.id === p.id
