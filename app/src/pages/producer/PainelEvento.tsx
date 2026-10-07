@@ -633,7 +633,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
             <span className="block h-full origin-left rounded bg-foreground transition-transform motion-reduce:transition-none" style={{ transform: `scaleX(${prontos / lista.length})` }} />
           </span>
           {prontos < lista.length
-            ? <Button variant="link" size="sm" onClick={() => irAoPasso(0)}>Ver o que falta</Button>
+            ? alvos.length > 0 && <Button variant="link" size="sm" onClick={() => irAoPasso(0)}>Ver o que falta</Button> // no ar sem bloqueio o clique não teria alvo
             : <span className="text-[13px] text-muted-foreground">Tudo pronto</span>}
         </div>
       )}
