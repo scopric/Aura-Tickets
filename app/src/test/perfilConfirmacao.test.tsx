@@ -20,7 +20,7 @@ vi.mock('../hooks/useUserOrders', () => ({ useUserOrders: () => ({ data: [], isL
 const pedidoLido = vi.hoisted(() => vi.fn())
 const pedido = vi.hoisted(() => ({ vazio: false, meu: false }))
 vi.mock('../hooks/useCheckout', () => ({
-  useOrderVisivel: () => ({ data: pedido.meu ? { id: 'x' } : null, isLoading: false }),
+  useOrderVisivel: () => ({ data: pedido.meu ? { id: 'x', subtotal: 10, service_fee: 3, total: 13 } : null, isLoading: false }),
   useOrderTickets: (id?: string) => (pedidoLido(id), {
     isLoading: false,
     data: pedido.vazio ? [] : [{ id: 't1', status: 'cancelled', code: 'EVK-1', ticket_types: { name: 'Pista', price: 10, type: 'individual' }, events: { id: 'e1', title: 'Noite', date: '2026-12-12', time: '20:00:00' } }],
@@ -62,9 +62,13 @@ describe('Perfil', () => {
 })
 
 describe('Confirmação da compra', () => {
-  it('mostra o valor do ingresso com a taxa (R$ 10,00 + R$ 3,00) e o horário sem segundos', () => {
+  it('mostra ingresso, taxa e total do pedido gravado (R$ 10,00 + R$ 3,00 = R$ 13,00) e o horário sem segundos', () => {
+    pedido.meu = true
     render(<MemoryRouter initialEntries={[{ pathname: '/checkout/success', state: { orderId: 'o1', totalAmount: 13 } }]}><Success /></MemoryRouter>)
-    expect(screen.getByText('Valor com taxa')).toBeTruthy()
+    pedido.meu = false
+    expect(screen.getByText('Taxa de serviço')).toBeTruthy()
+    expect(screen.getByText(/R\$\s10,00/)).toBeTruthy()
+    expect(screen.getByText(/R\$\s3,00/)).toBeTruthy()
     expect(screen.getByText(/R\$\s13,00/)).toBeTruthy()
     expect(screen.queryByText(/20:00:00/)).toBeNull()
     expect(screen.getAllByText(/20h/).length).toBeGreaterThan(0)
