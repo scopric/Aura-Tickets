@@ -4,9 +4,9 @@ import { Button } from './ui/button'
 import { useUserOrders } from '../hooks/useCheckout'
 import { abrirAjudaIngresso } from '../lib/ingresso'
 
-export function NaoVejoMeuIngresso({ className = '' }: { className?: string }) {
+export function NaoVejoMeuIngresso({ className = '', antes }: { className?: string; antes?: () => void }) {
   return (
-    <Button type="button" variant="ghost" onClick={abrirAjudaIngresso} className={`h-11 px-1 text-sm font-semibold text-primary ${className}`}>
+    <Button type="button" variant="ghost" onClick={() => { antes?.(); abrirAjudaIngresso() }} className={`h-11 px-1 text-sm font-semibold text-primary ${className}`}>
       Não vejo meu ingresso
     </Button>
   )

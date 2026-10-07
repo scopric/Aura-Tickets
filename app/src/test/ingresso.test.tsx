@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act, cleanup } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import IngressosDoEvento from '../components/Ingresso'
@@ -247,6 +247,31 @@ describe('IngressosDoEvento', () => {
     expect(d.textContent).toContain('Ricardo Scoparo')
     expect(d.textContent).toContain('#ABCDEF12')
     expect(d.textContent).toContain('Regras')
+  })
+
+  it('Detalhes só mostra "Lugar" quando seat_info tem valor', () => {
+    const abrir = (seat: string | null) => {
+      render(<MemoryRouter><ThemeProvider><IngressosDoEvento ingressos={[ticket(1, { seat_info: seat })]} evento={evento} /></ThemeProvider></MemoryRouter>)
+      fireEvent.click(screen.getByRole('button', { name: /Detalhes/ }))
+      return screen.getByRole('dialog').textContent
+    }
+    expect(abrir('Mesa 4')).toContain('Lugar')
+    cleanup()
+    expect(abrir('  ')).not.toContain('Lugar')
+    cleanup()
+    expect(abrir(null)).not.toContain('Lugar')
+  })
+
+  it('Detalhes tem o atalho "Não vejo meu ingresso" que chama o suporte', () => {
+    const ouvinte = vi.fn()
+    window.addEventListener('evo:suporte', ouvinte)
+    render(tela(1))
+    fireEvent.click(screen.getByRole('button', { name: /Detalhes/ }))
+    fireEvent.click(screen.getByRole('button', { name: 'Não vejo meu ingresso' }))
+    // a folha fecha antes: o suporte abriria atrás do modal, sem clique
+    expect(screen.queryByRole('dialog')).toBeNull()
+    window.removeEventListener('evo:suporte', ouvinte)
+    expect(ouvinte).toHaveBeenCalledTimes(1)
   })
 
   it('o QR é o código do ingresso, como sempre', () => {
