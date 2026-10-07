@@ -2,7 +2,8 @@
 -- TESTES de 20261028_limite_por_cpf.sql (o código fica lá; este arquivo não vai para produção).
 -- Rodar só em banco descartável, DEPOIS de aplicar o arquivo de código. Um bloco begin … rollback.
 -- Cada teste termina com "NOTICE: Tn OK"; falha = ERROR com o valor recebido.
--- CPFs FICTÍCIOS, só válidos pelo algoritmo dos dígitos: 529.982.247-25 (A) e 111.444.777-35 (B).
+-- CPFs FICTÍCIOS, só válidos pelo algoritmo dos dígitos: 529.982.247-25 (A), 111.444.777-35 (B),
+-- 390.533.447-05 e 714.287.938-60.
 -- =============================================================================
 begin;
 
@@ -88,41 +89,62 @@ begin
   if r <> 'ok' or h1 is distinct from h2 then raise exception 'T6 formatado e só dígitos dão hash diferente: %', r; end if;
   raise notice 'T4/T5/T6 OK';
 
-  -- T7: limite 2 (tipo sem lotação): conta 1 pede 2 e passa; conta 2, MESMO CPF, pede 1 e é recusada; mensagem sem contagem
+  -- T7/T15: limite 2 (tipo sem lotação): conta 1 pede 2 e passa; o pendente da conta 1 NÃO segura o CPF para a conta 2
   r := pg_temp.item(1, 33, 21, 2);
   if r <> 'ok' then raise exception 'T7 primeiro pedido de 2: %', r; end if;
   r := pg_temp.item(2, 35, 21, 1);
-  if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T7 segunda conta: %', r; end if;
-  if substr(r, 7) ~ '[013-9]' or r ~* 'já' then raise exception 'T7 mensagem revela contagem: %', r; end if;
-  raise notice 'T7 OK (vale sem lotação)';
+  if r <> 'ok' then raise exception 'T15 pendente de outra conta contou: %', r; end if;
+  raise notice 'T7/T15 OK (vale sem lotação)';
+
+  -- T16: ao pagar, recheck: conta 1 paga primeiro; a conta 2 não vira 'paid'; mensagem sem contagem
+  update public.orders set status = 'paid' where id = pg_temp.u(33);
+  r := pg_temp.erro(format('update public.orders set status = %L where id = %L', 'paid', pg_temp.u(35)));
+  if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T16 segunda conta pagou: %', r; end if;
+  if substr(r, 7) ~ '[013-9]' or r ~* 'já' then raise exception 'T16 mensagem revela contagem: %', r; end if;
+  delete from public.order_items where order_id = pg_temp.u(35) and ticket_type_id = pg_temp.u(21);
+  raise notice 'T16 OK';
+
+  -- T10: pago conta no guard
+  r := pg_temp.item(2, 35, 21, 1);
+  if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T10 pago não contou: %', r; end if;
+  raise notice 'T10 OK';
 
   -- T8: outro tipo de ingresso não conta
   r := pg_temp.item(2, 35, 22, 2);
   if r <> 'ok' then raise exception 'T8 outro tipo: %', r; end if;
   raise notice 'T8 OK';
 
-  -- T9: pendente com mais de 30 min não conta
-  update public.orders set created_at = now() - interval '31 minutes' where id = pg_temp.u(33);
-  r := pg_temp.item(2, 35, 21, 1);
-  if r <> 'ok' then raise exception 'T9 pendente vencido contou: %', r; end if;
-  delete from public.order_items where order_id = pg_temp.u(35) and ticket_type_id = pg_temp.u(21);
-  raise notice 'T9 OK';
-
-  -- T10: pago conta (mesmo antigo)
-  update public.orders set status = 'paid' where id = pg_temp.u(33);
-  r := pg_temp.item(2, 35, 21, 1);
-  if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T10 pago não contou: %', r; end if;
-  raise notice 'T10 OK';
-
-  -- T11: linhas do mesmo pedido somam uma vez só (CPF B: 1 + 1 passa, + 1 falha)
+  -- T17/T9: pendente da MESMA conta conta; vencido (> 30 min) não. orders_um_pendente cancela o pendente anterior da
+  -- mesma conta e evento ao nascer o novo; o teste devolve o anterior a 'pending' (pendente vivo, ex.: gateway Pix)
   r := pg_temp.pedido(4, 36, '111.444.777-35');
+  if r <> 'ok' or pg_temp.item(4, 36, 21, 2) <> 'ok' then raise exception 'T17 montagem: %', r; end if;
+  r := pg_temp.pedido(4, 39, '11144477735');
+  update public.orders set status = 'pending' where id = pg_temp.u(36);
+  r := pg_temp.item(4, 39, 21, 1);
+  if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T17 pendente da mesma conta não contou: %', r; end if;
+  update public.orders set created_at = now() - interval '31 minutes' where id = pg_temp.u(36);
+  r := pg_temp.item(4, 39, 21, 1);
+  if r <> 'ok' then raise exception 'T9 pendente vencido contou: %', r; end if;
+  raise notice 'T17/T9 OK';
+
+  -- T11: linhas do mesmo pedido somam uma vez só (CPF B no tipo 22: 1 + 1 passa, + 1 falha)
+  r := pg_temp.pedido(7, 40, '111.444.777-35');
   if r <> 'ok' then raise exception 'T11 pedido: %', r; end if;
-  if pg_temp.item(4, 36, 21, 1) <> 'ok' or pg_temp.item(4, 36, 21, 1) <> 'ok' then raise exception 'T11 1 + 1 deveria passar'; end if;
-  r := pg_temp.item(4, 36, 21, 1);
+  if pg_temp.item(7, 40, 22, 1) <> 'ok' or pg_temp.item(7, 40, 22, 1) <> 'ok' then raise exception 'T11 1 + 1 deveria passar'; end if;
+  r := pg_temp.item(7, 40, 22, 1);
   if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T11 terceira linha: %', r; end if;
   raise notice 'T11 OK';
 
-  -- T12: confirmar_pedido_gratis recusa acima do limite (contando 'paid' de outra conta do mesmo CPF)
+  -- T18: anti-sondagem: 3 CPFs diferentes por conta por hora; repetir um deles passa; o 4º diferente é recusado
+  if pg_temp.pedido(8, 41, '52998224725') <> 'ok' or pg_temp.pedido(8, 42, '11144477735') <> 'ok'
+     or pg_temp.pedido(8, 43, '39053344705') <> 'ok' or pg_temp.pedido(8, 44, '529.982.247-25') <> 'ok' then
+    raise exception 'T18 três CPFs (e repetir um) deveriam passar';
+  end if;
+  r := pg_temp.pedido(8, 45, '71428793860');
+  if r <> '22023 Muitas tentativas com CPFs diferentes. Tente de novo mais tarde.' then raise exception 'T18 quarto CPF: %', r; end if;
+  raise notice 'T18 OK';
+
+  -- T12/T19: o caminho grátis passa com o gatilho de pagamento; confirmar_pedido_gratis recusa acima do limite (contando 'paid' de outra conta do mesmo CPF)
   r := pg_temp.pedido(5, 37, '11144477735', 0);
   if r <> 'ok' or pg_temp.item(5, 37, 23, 2, 0) <> 'ok' then raise exception 'T12 montagem 1: %', r; end if;
   perform pg_temp.como(pg_temp.u(5));
@@ -136,7 +158,7 @@ begin
   r := pg_temp.erro(format('select public.confirmar_pedido_gratis(%L)', pg_temp.u(38)));
   perform pg_temp.como(null);
   if r <> '22023 Limite de 2 ingressos por CPF neste ingresso' then raise exception 'T12: %', r; end if;
-  raise notice 'T12 OK';
+  raise notice 'T12/T19 OK';
 
   -- T13: authenticated e anon não leem o hash; o cliente não consegue trocá-lo (sem regra de UPDATE em orders)
   if has_column_privilege('authenticated', 'public.orders', 'customer_cpf_hmac', 'select')

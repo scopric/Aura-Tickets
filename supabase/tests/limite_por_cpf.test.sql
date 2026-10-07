@@ -1,11 +1,12 @@
 -- pgTAP de docs/sql/20261028_limite_por_cpf.sql. Só no banco local: aplicar o SQL (e os de docs/sql anteriores: 20261022,
 -- 20261008, 20261011, 20261027) e rodar `supabase test db`. Precisa de pr7_hmac (20261007_pr7_cripto_passo1 e o segredo
 -- pr7_pii_key no Vault local). Tudo em begin ... rollback. Nunca contra produção.
--- CPFs FICTÍCIOS, só válidos pelo algoritmo dos dígitos: 529.982.247-25 (A) e 111.444.777-35 (B).
+-- CPFs FICTÍCIOS, só válidos pelo algoritmo dos dígitos: 529.982.247-25 (A), 111.444.777-35 (B),
+-- 390.533.447-05 e 714.287.938-60.
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(15);
+select plan(18);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -57,30 +58,55 @@ select is((select customer_cpf_hmac from public.orders where id = 'fc000000-0000
           (select customer_cpf_hmac from public.orders where id = 'fc000000-0000-4000-8000-0000000000f2'), 'formatado e só dígitos: mesmo hash');
 select is((select customer_cpf_hmac from public.orders where id = 'fc000000-0000-4000-8000-0000000000f3'), null, 'hash forjado sem CPF é descartado');
 
--- limite 2 (sem lotação): conta 1 leva 2; conta 2 com o mesmo CPF é recusada; outro tipo passa
+-- limite 2 (sem lotação): conta 1 leva 2; o pendente dela não segura o CPF para a conta 2; outro tipo passa
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000001');
 select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fc000000-0000-4000-8000-0000000000f1', 'fc000000-0000-4000-8000-0000000000b1', 2, 50)$$, 'CPF A: 2 passam (limite vale sem lotação)');
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000002');
-select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
-  ('fc000000-0000-4000-8000-0000000000f2', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, '22023',
-  'Limite de 2 ingressos por CPF neste ingresso', 'CPF A por outra conta: recusa, mensagem sem contagem');
+select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fc000000-0000-4000-8000-0000000000f2', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, 'pendente de outra conta não conta');
 select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fc000000-0000-4000-8000-0000000000f2', 'fc000000-0000-4000-8000-0000000000b2', 2, 50)$$, 'outro tipo não conta');
 
--- pendente com mais de 30 min não conta; pago conta
+-- ao pagar: conta 1 paga; a conta 2 não vira 'paid' (recheck), mensagem sem contagem
 select pg_temp.como('postgres');
-update public.orders set created_at = now() - interval '31 minutes' where id = 'fc000000-0000-4000-8000-0000000000f1';
-select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000002');
-select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
-  ('fc000000-0000-4000-8000-0000000000f2', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, 'pendente vencido não conta');
-select pg_temp.como('postgres');
-delete from public.order_items where order_id = 'fc000000-0000-4000-8000-0000000000f2' and ticket_type_id = 'fc000000-0000-4000-8000-0000000000b1';
 update public.orders set status = 'paid' where id = 'fc000000-0000-4000-8000-0000000000f1';
+select throws_ok($$update public.orders set status = 'paid' where id = 'fc000000-0000-4000-8000-0000000000f2'$$, '22023',
+  'Limite de 2 ingressos por CPF neste ingresso', 'recheck ao pagar recusa o 2º pagamento do mesmo CPF');
+delete from public.order_items where order_id = 'fc000000-0000-4000-8000-0000000000f2' and ticket_type_id = 'fc000000-0000-4000-8000-0000000000b1';
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000002');
 select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fc000000-0000-4000-8000-0000000000f2', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, '22023',
-  'Limite de 2 ingressos por CPF neste ingresso', 'pago conta');
+  'Limite de 2 ingressos por CPF neste ingresso', 'pago conta (outra conta)');
+
+-- pendente da MESMA conta conta (orders_um_pendente cancela o anterior; o teste o devolve a 'pending'); vencido não
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000004');
+insert into public.orders (id, user_id, event_id, total, status, customer_cpf) values
+  ('fc000000-0000-4000-8000-0000000000f4', 'fc000000-0000-4000-8000-000000000004', 'fc000000-0000-4000-8000-0000000000e1', 100, 'pending', '111.444.777-35');
+insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fc000000-0000-4000-8000-0000000000f4', 'fc000000-0000-4000-8000-0000000000b1', 2, 50);
+insert into public.orders (id, user_id, event_id, total, status, customer_cpf) values
+  ('fc000000-0000-4000-8000-0000000000f7', 'fc000000-0000-4000-8000-000000000004', 'fc000000-0000-4000-8000-0000000000e1', 50, 'pending', '11144477735');
+select pg_temp.como('postgres');
+update public.orders set status = 'pending' where id = 'fc000000-0000-4000-8000-0000000000f4';
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000004');
+select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fc000000-0000-4000-8000-0000000000f7', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, '22023',
+  'Limite de 2 ingressos por CPF neste ingresso', 'pendente da mesma conta conta');
+select pg_temp.como('postgres');
+update public.orders set created_at = now() - interval '31 minutes' where id = 'fc000000-0000-4000-8000-0000000000f4';
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000004');
+select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fc000000-0000-4000-8000-0000000000f7', 'fc000000-0000-4000-8000-0000000000b1', 1, 50)$$, 'pendente vencido não conta');
+
+-- anti-sondagem: conta 8 usa 3 CPFs (e repete um); o 4º diferente na mesma hora é recusado
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000008');
+insert into public.orders (user_id, event_id, total, status, customer_cpf)
+select 'fc000000-0000-4000-8000-000000000008', 'fc000000-0000-4000-8000-0000000000e1', 50, 'pending', c
+  from unnest(array['52998224725', '11144477735', '39053344705', '529.982.247-25']) c;
+select throws_ok($$insert into public.orders (user_id, event_id, total, status, customer_cpf) values
+  ('fc000000-0000-4000-8000-000000000008', 'fc000000-0000-4000-8000-0000000000e1', 50, 'pending', '71428793860')$$, '22023',
+  'Muitas tentativas com CPFs diferentes. Tente de novo mais tarde.', '4º CPF diferente na hora é recusado');
 
 -- confirmar_pedido_gratis: conta 5 (CPF B) confirma 2; conta 6 (CPF B) entra com limite 3 e confirma com limite 2: recusa
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000005');
@@ -88,7 +114,7 @@ insert into public.orders (id, user_id, event_id, total, status, customer_cpf) v
   ('fc000000-0000-4000-8000-0000000000f5', 'fc000000-0000-4000-8000-000000000005', 'fc000000-0000-4000-8000-0000000000e1', 0, 'pending', '111.444.777-35');
 insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fc000000-0000-4000-8000-0000000000f5', 'fc000000-0000-4000-8000-0000000000b3', 2, 0);
-select is(public.confirmar_pedido_gratis('fc000000-0000-4000-8000-0000000000f5'), 2, 'grátis CPF B: 2 confirmados');
+select is(public.confirmar_pedido_gratis('fc000000-0000-4000-8000-0000000000f5'), 2, 'grátis CPF B: 2 confirmados (passa pelo gatilho de pagamento)');
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000006');
 insert into public.orders (id, user_id, event_id, total, status, customer_cpf) values
   ('fc000000-0000-4000-8000-0000000000f6', 'fc000000-0000-4000-8000-000000000006', 'fc000000-0000-4000-8000-0000000000e1', 0, 'pending', '11144477735');

@@ -5,13 +5,22 @@
 --    o gatilho orders_cpf_hash (BEFORE INSERT) valida o CPF (gf_cpf_valido; inválido = 22023), grava o hash e zera
 --    customer_cpf. Hash mandado pelo cliente sem CPF é descartado: o hash só nasce do CPF validado.
 --    "123.456.789-09" e "12345678909" dão o mesmo hash (pr7_hmac tira o que não é dígito).
+--    Anti-sondagem: a mesma conta usa no máximo 3 CPFs DIFERENTES por hora (o 4º dá "Muitas tentativas com CPFs
+--    diferentes..."; repetir o mesmo CPF não conta; CPF inválido falha antes e não conta). Limita só POR CONTA: o
+--    cadastro é aberto, então quem cria várias contas sonda mais; o limite por IP fica para uma Edge Function antes do
+--    checkout (pendência). O oráculo "esse CPF já comprou" continua possível, só mais caro.
 -- 2. ticket_types.max_por_cpf (int > 0; nulo = sem limite) e UPDATE dela para authenticated (o produtor edita).
 -- 3. order_items_estoque_guard (recriada a partir da definição de PRODUÇÃO, md5 140578e7…, com a cláusula de
 --    pedido_assentos): depois de venda_bloqueada e ANTES do teste de lotação (vale mesmo sem lotação), se o tipo tem
 --    max_por_cpf: pedido sem hash = "Informe o CPF do comprador para este ingresso"; soma itens do mesmo tipo em pedidos
---    do mesmo hash ('paid', ou 'pending' com menos de 30 min, 10 se tem assento vivo, a mesma regra da reserva) + o
---    pedido atual; acima do limite = "Limite de N ingressos por CPF neste ingresso". A mensagem NÃO diz quantos o CPF já
+--    do mesmo hash ('paid' de qualquer conta, ou 'pending' DA MESMA CONTA com menos de 30 min, 10 se tem assento vivo,
+--    a mesma regra da reserva) + o pedido atual; pendente de OUTRA conta não segura o CPF (não deixa uma conta travar o
+--    CPF alheio) e é rechecado ao pagar (3b); acima do limite = "Limite de N ingressos por CPF neste ingresso". A mensagem NÃO diz quantos o CPF já
 --    tem (não deixa descobrir, tentando, quantos ingressos um CPF comprou). Trava por (tipo, hash).
+-- 3b. orders_pago_cpf_guard (BEFORE UPDATE OF status, quando vira 'paid', qualquer papel, inclusive o gateway com
+--    service_role): por tipo com max_por_cpf, este pedido + os 'paid' de outros pedidos do mesmo hash; acima = mesma
+--    mensagem sem contagem. Mesma trava (tipo, hash), tipos em ordem de id. Roda depois de orders_pago_assento_guard
+--    (ordem alfabética). confirmar_pedido_gratis também passa por ele ao gravar 'paid' (confere o mesmo que ela).
 -- 4. confirmar_pedido_gratis (recriada a partir de PRODUÇÃO, md5 565433ef…): além do limite por conta (continua), o
 --    mesmo limite por CPF contando pedidos 'paid' do mesmo hash, de qualquer conta. Mesma mensagem sem contagem.
 -- 5. Colunas e grants: customer_cpf_hmac nasce SEM SELECT para anon e authenticated (a E4, 20261011, concede SELECT
@@ -20,12 +29,14 @@
 -- REAPLICAR ARQUIVOS ANTIGOS: o bloco 0 de 20261027_ticket_types_grants_por_coluna.sql passa a abortar (coluna nova
 --    max_por_cpf): pôr max_por_cpf na lista e no grant se for reaplicado. A conferência da E4 (20261011) também aborta
 --    (customer_cpf_hmac fora das listas): classificar como RETIDA se for reaplicada.
--- ORDEM: 1) este arquivo; 2) o PR do front (checkout com CPF e campo max_por_cpf no painel). Sem o front, tipo com
+-- ORDEM: 0) 20261008_assento_reserva e 20261022 já aplicados (o bloco 0 confere); 1) este arquivo; 2) o PR do front (checkout com CPF e campo max_por_cpf no painel). Sem o front, tipo com
 --    max_por_cpf preenchido recusa toda compra ("Informe o CPF"); enquanto ninguém preenche max_por_cpf, nada muda.
 -- Pré-requisito: segredo pr7_pii_key no Vault (pr7_hmac falha fechado sem ele: pedido COM CPF dá erro 55000).
 -- Como aplicar: colar o arquivo inteiro no SQL Editor (UTF-8 via pbcopy, NUNCA TextEdit). Uma transação, idempotente.
 -- Testes: 20261028_limite_por_cpf_testes.sql, supabase/tests/limite_por_cpf.test.sql e supabase/tests/corrida_cpf.sh
 -- (só em banco descartável). NÃO mover para supabase/migrations/.
+-- ponytail: o limite de 3 CPFs/hora não trava a conta: duas inserções simultâneas da mesma conta podem passar do 3;
+--    aceitável para anti-sondagem.
 -- ponytail: janela de 30/10 min do pendente fixa no código, igual ao resto do guard; mudar junto com o cron.
 -- =============================================================================
 begin;
@@ -43,6 +54,9 @@ begin
      or to_regprocedure('public.order_items_estoque_guard()') is null
      or to_regprocedure('public.confirmar_pedido_gratis(uuid)') is null then
     raise exception 'faltam pr7_hmac, gf_cpf_valido, order_items_estoque_guard ou confirmar_pedido_gratis';
+  end if;
+  if not exists (select 1 from pg_trigger where tgname = 'orders_pago_assento_guard' and tgrelid = 'public.orders'::regclass) then
+    raise exception 'falta o gatilho orders_pago_assento_guard (20261008): orders_pago_cpf_guard roda depois dele';
   end if;
   d := pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure);
   if md5(d) <> '140578e72f563eee4d06f1efa3880504' and position('limite por CPF (20261028)' in d) = 0 then
@@ -75,6 +89,16 @@ begin
       raise exception 'CPF inválido' using errcode = '22023';
     end if;
     new.customer_cpf_hmac := public.pr7_hmac(v_cpf);
+    -- anti-sondagem: no máximo 3 CPFs diferentes por conta por hora (repetir o mesmo CPF não conta)
+    if new.user_id is not null
+       and (select count(distinct o.customer_cpf_hmac) from public.orders o
+             where o.user_id = new.user_id and o.customer_cpf_hmac is not null
+               and o.created_at > now() - interval '1 hour') >= 3
+       and not exists (select 1 from public.orders o
+             where o.user_id = new.user_id and o.customer_cpf_hmac = new.customer_cpf_hmac
+               and o.created_at > now() - interval '1 hour') then
+      raise exception 'Muitas tentativas com CPFs diferentes. Tente de novo mais tarde.' using errcode = '22023';
+    end if;
   end if;
   new.customer_cpf := null; -- o CPF puro nunca fica no banco
   return new;
@@ -102,6 +126,7 @@ declare
   v_motivo text;
   v_max_cpf int;
   v_hash bytea;
+  v_user uuid;
   v_outros int;
 begin
   select case when coalesce(tt.quantity_total, 0) > 0 then tt.quantity_total
@@ -130,7 +155,7 @@ begin
   end if;
   -- limite por CPF (20261028): antes do teste de lotação, vale mesmo sem lotação; a mensagem não diz quantos o CPF já tem
   if v_max_cpf is not null then
-    select o.customer_cpf_hmac into v_hash from public.orders o where o.id = new.order_id;
+    select o.customer_cpf_hmac, o.user_id into v_hash, v_user from public.orders o where o.id = new.order_id;
     if v_hash is null then
       raise exception 'Informe o CPF do comprador para este ingresso' using errcode = '22023';
     end if;
@@ -141,7 +166,7 @@ begin
      where oi.ticket_type_id = new.ticket_type_id and o.customer_cpf_hmac = v_hash
        and o.id <> new.order_id and oi.id is distinct from new.id
        and (o.status = 'paid'
-            or (o.status = 'pending'
+            or (o.status = 'pending' and o.user_id = v_user -- pendente só da MESMA conta; o de outra é rechecado ao pagar
                 and o.created_at > now() - case when exists (select 1 from public.pedido_assentos pa where pa.order_id = o.id and pa.liberada_em is null)
                                                 then interval '10 minutes' else interval '30 minutes' end));
     if v_no_pedido + v_outros > v_max_cpf then
@@ -165,6 +190,39 @@ begin
 end;
 $function$;
 revoke execute on function public.order_items_estoque_guard() from public, anon, authenticated;
+
+-- 3b. Recheck na hora de pagar: pendentes de contas diferentes com o mesmo CPF não viram 'paid' juntos ---------------
+create or replace function public.orders_pago_cpf_guard()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare it record;
+begin
+  for it in select a.ticket_type_id, a.q, tt.max_por_cpf
+              from (select oi.ticket_type_id, sum(oi.quantity) as q from public.order_items oi where oi.order_id = new.id group by 1) a
+              join public.ticket_types tt on tt.id = a.ticket_type_id
+             where tt.max_por_cpf is not null
+             order by a.ticket_type_id loop
+    if new.customer_cpf_hmac is null then
+      raise exception 'Informe o CPF do comprador para este ingresso' using errcode = '22023';
+    end if;
+    perform pg_advisory_xact_lock(hashtextextended(it.ticket_type_id::text || encode(new.customer_cpf_hmac, 'hex'), 0));
+    if it.q + coalesce((select sum(oi.quantity) from public.order_items oi join public.orders o on o.id = oi.order_id
+                         where oi.ticket_type_id = it.ticket_type_id and o.customer_cpf_hmac = new.customer_cpf_hmac
+                           and o.status = 'paid' and o.id <> new.id), 0) > it.max_por_cpf then
+      raise exception 'Limite de % ingressos por CPF neste ingresso', it.max_por_cpf using errcode = '22023';
+    end if;
+  end loop;
+  return new;
+end;
+$$;
+revoke all on function public.orders_pago_cpf_guard() from public, anon, authenticated;
+drop trigger if exists orders_pago_cpf_guard on public.orders;
+create trigger orders_pago_cpf_guard before update of status on public.orders
+  for each row when (new.status = 'paid' and old.status is distinct from 'paid')
+  execute function public.orders_pago_cpf_guard();
 
 -- 4. Pedido gratuito (produção + limite por CPF) ----------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.confirmar_pedido_gratis(p_order uuid)
@@ -275,15 +333,16 @@ begin
      or not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'ticket_types' and column_name = 'max_por_cpf') then
     raise exception 'coluna customer_cpf_hmac ou max_por_cpf ausente';
   end if;
-  if not exists (select 1 from pg_trigger where tgname = 'orders_cpf_hash' and tgrelid = 'public.orders'::regclass and tgenabled = 'O') then
-    raise exception 'gatilho orders_cpf_hash ausente ou desligado';
+  if (select count(*) from pg_trigger where tgname in ('orders_cpf_hash', 'orders_pago_cpf_guard')
+        and tgrelid = 'public.orders'::regclass and tgenabled = 'O') <> 2 then
+    raise exception 'gatilho orders_cpf_hash ou orders_pago_cpf_guard ausente ou desligado';
   end if;
   if position('limite por CPF (20261028)' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) = 0
      or position('limite por CPF (20261028)' in pg_get_functiondef('public.confirmar_pedido_gratis(uuid)'::regprocedure)) = 0 then
     raise exception 'função recriada sem a marca do limite por CPF';
   end if;
   foreach r in array array['anon', 'authenticated'] loop
-    foreach f in array array['public.orders_cpf_hash()', 'public.order_items_estoque_guard()'] loop
+    foreach f in array array['public.orders_cpf_hash()', 'public.order_items_estoque_guard()', 'public.orders_pago_cpf_guard()'] loop
       if has_function_privilege(r, f, 'execute') then raise exception '% pode executar %', r, f; end if;
     end loop;
     if has_column_privilege(r, 'public.orders', 'customer_cpf_hmac', 'select') then
@@ -310,6 +369,7 @@ commit;
 -- DESFAZER: primeiro recriar as duas funções com a definição de antes (a de produção de 07/10, md5 do bloco 0; ler
 -- com pg_get_functiondef ANTES de aplicar este arquivo e guardar), depois:
 --   drop trigger if exists orders_cpf_hash on public.orders; drop function if exists public.orders_cpf_hash();
+--   drop trigger if exists orders_pago_cpf_guard on public.orders; drop function if exists public.orders_pago_cpf_guard();
 --   drop index if exists public.orders_customer_cpf_hmac_idx;
 --   alter table public.orders drop column if exists customer_cpf_hmac;
 --   alter table public.ticket_types drop column if exists max_por_cpf;
