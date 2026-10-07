@@ -19,6 +19,14 @@ export const hostOk = (url: string) => {
   return !/(^|\.)xn--/i.test(h) && marcaOk(h)
 }
 
+/** Endereço digitado -> https://. Outros esquemas (javascript:, ftp:...) ficam como estão para a validação recusar. */
+export const normalizaUrl = (s: string) => {
+  const t = s.trim()
+  if (!t) return ''
+  if (/^https?:\/\//i.test(t)) return t.replace(/^https?:\/\//i, 'https://')
+  return /^[a-z][a-z0-9+.-]*:/i.test(t) ? t : `https://${t}`
+}
+
 export const emailSemProibidos = (e: string) => !/[?&#%,;<>"]/.test(e)
 
 const MENSAGEM_CHECK: Record<string, string> = {
