@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(13);
+select plan(16);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -28,7 +28,9 @@ insert into public.ticket_types (id, event_id, name, price, quantity_total, max_
   ('fb000000-0000-4000-8000-0000000000b1', 'fb000000-0000-4000-8000-0000000000e1', 'Pago', 50, 10, null, null),
   ('fb000000-0000-4000-8000-0000000000b2', 'fb000000-0000-4000-8000-0000000000e1', 'Grátis', 0, 5, 5, null),
   ('fb000000-0000-4000-8000-0000000000b3', 'fb000000-0000-4000-8000-0000000000e1', 'Futuro', 0, 5, null, now() + interval '1 day'),
-  ('fb000000-0000-4000-8000-0000000000b5', 'fb000000-0000-4000-8000-0000000000e1', 'Grátis sem máximo', 0, 50, null, null);
+  ('fb000000-0000-4000-8000-0000000000b5', 'fb000000-0000-4000-8000-0000000000e1', 'Grátis sem máximo', 0, 50, null, null),
+  ('fb000000-0000-4000-8000-0000000000b6', 'fb000000-0000-4000-8000-0000000000e1', 'Pago sem máximo', 50, 50, null, null),
+  ('fb000000-0000-4000-8000-0000000000b7', 'fb000000-0000-4000-8000-0000000000e1', 'Grátis 6+4', 0, 50, 10, null);
 
 select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-00000000000a', 'aal2'); -- com aal2: a RLS (inclui gf_mfa_aal2) é exercida como em produção
 -- o1: pedido de total 0 com item do tipo PAGO (preço do item adulterado para 0)
@@ -82,7 +84,26 @@ insert into public.orders (id, user_id, event_id, total, status) values
   ('fb000000-0000-4000-8000-0000000000f5', 'fb000000-0000-4000-8000-00000000000a', 'fb000000-0000-4000-8000-0000000000e1', 0, 'pending');
 insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
   ('fb000000-0000-4000-8000-0000000000f5', 'fb000000-0000-4000-8000-0000000000b5', 5, 0);
-select throws_ok($$select public.confirmar_pedido_gratis('fb000000-0000-4000-8000-0000000000f5')$$, '22023', 'Limite de 10 ingressos por pessoa', 'por conta: 2º pedido que soma 11 > 10 é recusado');
+select throws_ok($$select public.confirmar_pedido_gratis('fb000000-0000-4000-8000-0000000000f5')$$, '22023', 'Limite de 10 ingressos por pessoa em "Grátis sem máximo": você já tem 11 (com este pedido)', 'por conta: 2º pedido que soma 11 > 10 é recusado');
+
+-- tipo PAGO sem max_per_order: sem teto por pedido (12 passa; o teto de 10 é só do grátis)
+insert into public.orders (id, user_id, event_id, total, status) values
+  ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-00000000000a', 'fb000000-0000-4000-8000-0000000000e1', 600, 'pending');
+select lives_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-0000000000b6', 12, 50)$$, 'pago sem máximo aceita 12');
+select throws_ok($$insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fb000000-0000-4000-8000-0000000000f6', 'fb000000-0000-4000-8000-0000000000b5', 11, 0)$$, '22023', 'Limite de 10 ingressos por pedido deste tipo', 'grátis sem máximo continua com teto 10 por pedido');
+
+-- confirmação com 2 linhas do mesmo tipo grátis: 6 + 4 passam no gatilho (máx. 10); com o máximo baixado para 8, a soma (10) falha
+insert into public.orders (id, user_id, event_id, total, status) values
+  ('fb000000-0000-4000-8000-0000000000f7', 'fb000000-0000-4000-8000-00000000000a', 'fb000000-0000-4000-8000-0000000000e1', 0, 'pending');
+insert into public.order_items (order_id, ticket_type_id, quantity, unit_price) values
+  ('fb000000-0000-4000-8000-0000000000f7', 'fb000000-0000-4000-8000-0000000000b7', 6, 0),
+  ('fb000000-0000-4000-8000-0000000000f7', 'fb000000-0000-4000-8000-0000000000b7', 4, 0);
+select pg_temp.como('postgres');
+update public.ticket_types set max_per_order = 8 where id = 'fb000000-0000-4000-8000-0000000000b7';
+select pg_temp.como('authenticated', 'fb000000-0000-4000-8000-00000000000a', 'aal2');
+select throws_ok($$select public.confirmar_pedido_gratis('fb000000-0000-4000-8000-0000000000f7')$$, '22023', 'Limite de 8 ingressos por pessoa em "Grátis 6+4": você já tem 10 (com este pedido)', 'confirmação: 2 linhas do mesmo tipo somando acima do teto falha');
 
 select * from finish();
 rollback;

@@ -80,6 +80,13 @@ describe('useCheckout — criar pedido', () => {
     expect(ins.orders).toHaveLength(0)
   })
 
+  it('acima do máximo por pedido não cria pedido (pago com max_per_order)', async () => {
+    const ins = mockBanco([], 50)
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, max_per_order: 1 }] }, error: null } as never)
+    await expect(criar()).rejects.toThrow('Pista: máximo de 1 por pedido')
+    expect(ins.orders).toHaveLength(0)
+  })
+
   it('propaga erro do banco ao criar o pedido', async () => {
     mockBanco([], 50, { data: null, error: { message: 'Database error' } })
     await expect(criar()).rejects.toMatchObject({ message: 'Database error' })

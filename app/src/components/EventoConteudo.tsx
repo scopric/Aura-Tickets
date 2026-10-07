@@ -14,7 +14,7 @@ import type { DbEvent } from '../hooks/useEvents'
 import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 
-import { esgotado, lotacao, noLimite } from '../lib/lotacao'
+import { esgotado, lotacao, noLimite, tetoPorPedido } from '../lib/lotacao'
 import { CLASSIFICACOES } from '../lib/tipoEvento'
 import { fimDe } from '../lib/eventoProdutor'
 
@@ -268,6 +268,9 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
                     </div>
                   ) : (
                     <div className="text-sm font-semibold leading-5">Gratuito</div>
+                  )}
+                  {!acabou && !fechado && tetoPorPedido(ticket) !== null && (
+                    <div className="text-[13px] leading-5 text-muted-foreground">máx. {tetoPorPedido(ticket)} por pedido</div>
                   )}
                   {perks.length > 0 && (
                     <>

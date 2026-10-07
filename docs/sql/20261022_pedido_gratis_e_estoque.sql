@@ -24,7 +24,8 @@
 --    já nasce 'paid'), e a regra de cancelar o pendente anterior (1b) precisa tratar Pix/boleto ainda não pago.
 -- 2b) Limite POR CONTA em evento grátis (Decisão do Ricardo, 07/10): confirmar_pedido_gratis recusa se a soma de ingressos do
 --    usuário no tipo (itens de pedidos 'paid' dele + o pedido atual) passar de coalesce(max_per_order, 10). O mesmo teto
---    (coalesce(max_per_order, 10)) vale por pedido no gatilho 1, para tipos sem máximo.
+--    (coalesce(max_per_order, 10)) vale por pedido no gatilho 1, SÓ para tipo grátis (price = 0); tipo pago sem
+--    max_per_order não tem teto por pedido (nulo, como antes).
 -- ponytail: impasse residual de ordem de travas: o gatilho trava o tipo e depois a FK pede o pedido; a RPC trava o pedido e
 --    depois o tipo. Janela rara (INSERT de item contra confirmação do MESMO pedido); o Postgres detecta e aborta um dos dois
 --    (40P01), o front mostra o erro e o cliente tenta de novo. Unificar a ordem se aparecer no log.
@@ -73,13 +74,14 @@ declare
 begin
   select case when coalesce(tt.quantity_total, 0) > 0 then tt.quantity_total
               when coalesce(tt.capacity, 0) > 0 then tt.capacity else 0 end,
-         coalesce(tt.sold, 0), tt.min_per_order, tt.max_per_order
+         coalesce(tt.sold, 0), tt.min_per_order,
+         case when tt.price = 0 then coalesce(tt.max_per_order, 10) else tt.max_per_order end
     into v_lotacao, v_sold, v_min, v_max
     from public.ticket_types tt where tt.id = new.ticket_type_id for update;
   if not found then
     return new; -- tipo inexistente cai na FK
   end if;
-  v_max := coalesce(v_max, 10); -- tipo sem máximo definido: teto de 10 por pedido
+  -- v_max: tipo grátis sem máximo definido = teto de 10; tipo pago sem máximo = sem teto por pedido (nulo)
   if new.quantity < 1 or new.quantity < coalesce(v_min, 1) then
     raise exception 'Quantidade fora do permitido por pedido (mínimo %)', coalesce(v_min, 1) using errcode = '22023';
   end if;
@@ -88,7 +90,7 @@ begin
   select coalesce(sum(oi.quantity), 0) + new.quantity into v_no_pedido
     from public.order_items oi
    where oi.order_id = new.order_id and oi.ticket_type_id = new.ticket_type_id and oi.id is distinct from new.id;
-  if v_no_pedido > v_max then
+  if v_max is not null and v_no_pedido > v_max then
     raise exception 'Limite de % ingressos por pedido deste tipo', v_max using errcode = '22023';
   end if;
   v_motivo := public.venda_bloqueada(new.ticket_type_id);
@@ -150,7 +152,6 @@ declare
   esperado int;
   it record;
   v_motivo text;
-  v_limite int;
 begin
   select * into o from public.orders where id = p_order and user_id = auth.uid() and status = 'pending' for update;
   if not found then
@@ -180,17 +181,15 @@ begin
   end loop;
 
   -- limite por conta: ingressos já comprados (pedidos 'paid') + os deste pedido, por tipo (tipos já travados acima)
-  select tt.max_per_order into v_limite from (select 1) d left join lateral (
-      select coalesce(tt.max_per_order, 10) as max_per_order
-        from (select oi.ticket_type_id, sum(oi.quantity) as q from public.order_items oi where oi.order_id = o.id group by 1) a
-        join public.ticket_types tt on tt.id = a.ticket_type_id
-       where a.q + coalesce((select sum(oi2.quantity) from public.order_items oi2 join public.orders o2 on o2.id = oi2.order_id
-                              where o2.user_id = o.user_id and o2.status = 'paid' and oi2.ticket_type_id = a.ticket_type_id), 0)
-             > coalesce(tt.max_per_order, 10)
-       limit 1) tt on true;
-  if v_limite is not null then
-    raise exception 'Limite de % ingressos por pessoa', v_limite using errcode = '22023';
-  end if;
+  for it in select tt.name, coalesce(tt.max_per_order, 10) as teto, a.q + coalesce((
+                select sum(oi2.quantity) from public.order_items oi2 join public.orders o2 on o2.id = oi2.order_id
+                 where o2.user_id = o.user_id and o2.status = 'paid' and oi2.ticket_type_id = a.ticket_type_id), 0) as total
+              from (select oi.ticket_type_id, sum(oi.quantity) as q from public.order_items oi where oi.order_id = o.id group by 1) a
+              join public.ticket_types tt on tt.id = a.ticket_type_id loop
+    if it.total > it.teto then
+      raise exception 'Limite de % ingressos por pessoa em "%": você já tem % (com este pedido)', it.teto, it.name, it.total using errcode = '22023';
+    end if;
+  end loop;
 
   select coalesce(nullif(o.customer_name, ''), nullif(p.full_name, ''), nullif(u.raw_user_meta_data->>'full_name', ''), ''),
          coalesce(nullif(o.customer_email, ''), nullif(p.email, ''), nullif(u.email, ''), '')
