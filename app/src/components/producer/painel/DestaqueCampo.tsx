@@ -58,7 +58,8 @@ export default function DestaqueCampo({ alvos: alvosVivos, indice, onIndice, onF
 
   if (!alvo) return null
   const ultimo = indice >= alvos.length - 1
-  const embaixo = !caixa || caixa.bottom + 16 + altura <= window.innerHeight - 8
+  const limite = window.innerHeight - (window.innerWidth < 1024 ? 84 : 8) // abaixo de lg a barra de navegação fixa (56 px) ocupa o pé da tela
+  const embaixo = !caixa || caixa.bottom + 16 + altura <= limite
   return (
     <>
       {caixa && (
