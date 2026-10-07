@@ -20,6 +20,7 @@ export interface EventoCatalogo {
   cover_image?: string | null
   image_url?: string | null
   accent_color?: string | null
+  capa_na_cor?: boolean | null
   featured_carousel?: boolean | null
   estilos?: string[] | null
   classificacao?: string | null

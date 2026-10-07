@@ -97,6 +97,13 @@ describe('diff do salvamento automático', () => {
     expect(diffCampos(base, snapDoForm(form({ fimD: '', fimH: '' })))).toEqual({ end_date: null })
     expect(diffCampos(base, snapDoForm(form({ local_modo: 'hibrido', link: 'https://live.com/x' })))).toEqual({ local_modo: 'hibrido', online_url: 'https://live.com/x' })
   })
+  it('a escolha da capa (capa_na_cor) vai e volta pelo formulário e não é conteúdo moderado', () => {
+    expect(formDoEvento(evento(), '').capa_na_cor).toBe(false)
+    expect(formDoEvento(evento({ capa_na_cor: true }), '').capa_na_cor).toBe(true)
+    expect(diffCampos(snapDoForm(form()), snapDoForm(form({ capa_na_cor: true })))).toEqual({ capa_na_cor: true })
+    expect(mudouConteudo({ capa_na_cor: true })).toBe(false)
+    expect(eventoDaPrevia(form({ capa_na_cor: true }), [ing()], { evento: evento(), capaUrl: null }).capa_na_cor).toBe(true)
+  })
   it('só a cor não é conteúdo moderado (vale na hora); o resto e a capa são', () => {
     expect(mudouConteudo({ accent_color: '#112233' })).toBe(false)
     expect(mudouConteudo({})).toBe(false)

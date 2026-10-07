@@ -75,6 +75,7 @@ export interface DbEvent {
   featured_carousel?: boolean
   ingressos_alterados_em?: string | null // S8: preço, quantidade ou tipo novo de ingresso depois da aprovação (aviso ao admin)
   accent_color?: string | null // cor do evento, #rrggbb (V6a)
+  capa_na_cor?: boolean | null // Decisão 173: true pinta a capa em duotone na cor do evento; senão, foto original
   ticket_types?: DbTicketType[]
 }
 
@@ -280,6 +281,7 @@ export function useCreateEvent() {
           cover_image: event.cover_image || '/images/hero-bg.jpg',
           image_url: event.image_url || '/images/hero-bg.jpg',
           accent_color: event.accent_color || null,
+          capa_na_cor: event.capa_na_cor || undefined, // como as colunas da F1: só vai se marcada (o banco tem o padrão)
           gallery: event.gallery || [],
           category: event.category || null,
           // colunas da F1: só vão preenchidas (o banco tem o padrão), assim criar não depende de elas existirem
@@ -356,6 +358,7 @@ export function colunasDoEvento(event: Partial<DbEvent>): Record<string, unknown
     cover_image: event.cover_image || '/images/hero-bg.jpg',
     image_url: event.image_url || '/images/hero-bg.jpg',
     accent_color: event.accent_color || null,
+    capa_na_cor: event.capa_na_cor === true,
     category: event.category || null,
     temas: event.temas || [],
     estilos: event.estilos || [],

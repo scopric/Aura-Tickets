@@ -17,8 +17,29 @@ describe('EventoCapa', () => {
       unmount()
     }
   })
-  it('com foto usa o duotone na cor do evento; a foto que não carrega cai no cartaz', () => {
-    const { container } = render(<EventoCapa evento={{ ...evento, cover_image: FOTO }} />)
+  it('com foto e sem a opção: foto original inteira, com a mesma foto desfocada ao fundo (decorativa) e sem duotone', () => {
+    for (const capa_na_cor of [undefined, null, false]) {
+      const { container, unmount } = render(<EventoCapa evento={{ ...evento, cover_image: FOTO, capa_na_cor }} />)
+      expect(container.querySelector('.evcapa-duo')).toBeNull()
+      const imgs = container.querySelectorAll('.evcapa-orig img')
+      expect(imgs).toHaveLength(2)
+      expect(imgs[0].classList.contains('evcapa-fundo')).toBe(true)
+      expect(imgs[0].getAttribute('aria-hidden')).toBe('true')
+      expect(imgs[0].getAttribute('alt')).toBe('')
+      expect([...imgs].map(i => i.getAttribute('src'))).toEqual([FOTO, FOTO])
+      expect(container.querySelector('[role="img"]')?.getAttribute('aria-label')).toBe('Capa do evento Noite de Forró')
+      unmount()
+    }
+  })
+  it('miniatura na foto original não carrega fundo: só uma imagem; foto que não carrega cai no cartaz', () => {
+    const { container } = render(<EventoCapa evento={{ ...evento, cover_image: FOTO }} tamanho="mini" />)
+    expect(container.querySelectorAll('img')).toHaveLength(1)
+    fireEvent.error(container.querySelector('img')!)
+    expect(container.querySelector('.evcapa-cz')).not.toBeNull()
+  })
+  it('capa_na_cor true usa o duotone na cor do evento; a foto que não carrega cai no cartaz', () => {
+    const { container } = render(<EventoCapa evento={{ ...evento, cover_image: FOTO, capa_na_cor: true }} />)
+    expect(container.querySelectorAll('img')).toHaveLength(1)
     const img = container.querySelector('img')!
     expect(img.getAttribute('src')).toBe(FOTO)
     expect(container.querySelector('.evcapa-duo')).not.toBeNull()
