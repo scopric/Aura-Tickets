@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
-import { itensDoPedido, pedidoReaproveitavel, type Pendente } from '../lib/pedido'
+import { itensDoPedido, pedidoReaproveitavel, vendaBloqueada, type Pendente } from '../lib/pedido'
+import { tetoPorPedido } from '../lib/lotacao'
 
 export interface DbOrder {
   id: string
@@ -82,13 +83,13 @@ export function useCreateOrder() {
     }: {
       event_id: string
       items: { ticket_type_id: string; quantity: number; seat_info?: string }[]
-      payment_method: DbOrder['payment_method']
+      payment_method: DbOrder['payment_method'] | null // null = pedido gratuito (sem forma de pagamento)
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
 
       // 0. Pedido pendente igual (mesmo evento, itens e forma de pagamento): reaproveita em vez de criar outro.
-      // ponytail: o cliente não tem UPDATE em orders (RLS), então pedido pendente diferente não é cancelado aqui; o vencimento
-      // (docs/sql/20261021_pedidos_pendentes_expiram.sql) cancela os antigos.
+      // O cliente não tem UPDATE em orders (RLS): quem cancela o pendente anterior ao nascer o novo é o gatilho orders_um_pendente
+      // (docs/sql/20261022_pedido_gratis_e_estoque.sql); o vencimento (20261021_pedidos_pendentes_expiram.sql) cancela os esquecidos.
       const { data: pendentes, error: pendError } = await supabase
         .from('orders')
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email, order_items ( ticket_type_id, quantity )`)
@@ -98,7 +99,20 @@ export function useCreateOrder() {
       // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
       const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
       if (pubError) throw pubError
-      const ingressos = (pub as { ingressos?: { id: string; price: number | string | null }[] } | null)?.ingressos ?? []
+      const r = pub as { evento?: Parameters<typeof vendaBloqueada>[0]; ingressos?: { id: string; name?: string; price: number | string | null; max_per_order?: number | null; sale_start?: string | null; sale_end?: string | null }[] } | null
+      if (!r?.evento) throw new Error('Evento indisponível para compra')
+      const ingressos = r.ingressos ?? []
+      for (const i of items) {
+        const t = ingressos.find(x => x.id === i.ticket_type_id)
+        const motivo = t && vendaBloqueada(r.evento, t)
+        if (motivo) throw new Error(`${t.name ?? 'Ingresso'}: ${motivo}`)
+      }
+      // Máximo por pedido (soma das linhas do tipo): o banco recusa acima dele, mas só depois de o gatilho cancelar o pendente bom.
+      for (const t of ingressos) {
+        const teto = tetoPorPedido(t)
+        const qtd = items.filter(i => i.ticket_type_id === t.id).reduce((n, i) => n + i.quantity, 0)
+        if (teto !== null && qtd > teto) throw new Error(`${t.name ?? 'Ingresso'}: máximo de ${teto} por pedido`)
+      }
       const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
       const ped = itensDoPedido(items, precos)
       // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.
@@ -136,7 +150,7 @@ export function useCreateOrder() {
       // 2. Criar order_items para cada tipo de ingresso, com o preço do tipo
       const { error: orderItemsError } = await supabase
         .from('order_items')
-        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })))
+        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })).sort((a, b) => a.ticket_type_id.localeCompare(b.ticket_type_id))) // mesma ordem de trava em todo pedido (sem impasse)
 
       if (orderItemsError) throw orderItemsError
 
