@@ -187,7 +187,7 @@ function Assuntos({ publico, ir }: { publico: Publico; ir: (t: Tela) => void }) 
 
 type Campos = { nome: string; telefone: string; novidades: boolean; texto: string }
 
-function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }) {
+function Formulario({ assunto, ir, textoInicial = '' }: { assunto: Assunto; ir: (t: Tela) => void; textoInicial?: string }) {
   const { user } = useAuth()
   const contato = useMeuContato()
   const telPerfil = validarTelefoneBR(user?.phone) ? `+${(user?.phone ?? '').replace(/\D/g, '')}` : ''
@@ -205,6 +205,7 @@ function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }
           <p role="status" className={`mx-4 mb-2 text-[11px] ${suave}`}>Não carregamos suas preferências salvas; confira os campos.</p>
         )}
         <CamposFormulario
+          key={assunto.id + textoInicial}
           assunto={assunto}
           ir={ir}
           // 1ª vez: nome do perfil e caixa de novidades desmarcada; depois, o que a pessoa já informou
@@ -212,7 +213,7 @@ function Formulario({ assunto, ir }: { assunto: Assunto; ir: (t: Tela) => void }
             nome: contato.data?.name ?? user?.full_name ?? '',
             telefone: contato.data?.phone ? `+${contato.data.phone}` : telPerfil,
             novidades: contato.data?.marketing_opt_in ?? false,
-            texto: '',
+            texto: textoInicial,
           }}
         />
         </>
@@ -442,15 +443,16 @@ function TelaConversa({ id, ir }: { id: string; ir: (t: Tela) => void }) {
   )
 }
 
-function Suporte({ publico, focarAoAbrir = false, assuntoInicial }: { publico: Publico; focarAoAbrir?: boolean; assuntoInicial?: string | null }) {
+function Suporte({ publico, focarAoAbrir = false, assuntoInicial, textoInicial }: { publico: Publico; focarAoAbrir?: boolean; assuntoInicial?: string | null; textoInicial?: string }) {
   const { user } = useAuth()
   const [tela, setTela] = useState<Tela>({ t: 'inicio' })
   // atalho de fora ("Não vejo meu ingresso"): pula direto para o formulário do assunto pedido, pelo rótulo
   const { data: assuntos } = useAssuntos(publico, !!assuntoInicial)
   const [aplicado, setAplicado] = useState<string | null>(null)
   const alvo = assuntoInicial ? assuntos?.find((x) => x.label === assuntoInicial) : undefined
-  if (alvo && aplicado !== assuntoInicial) { // ajuste durante o render (sem efeito): vale uma vez por pedido
-    setAplicado(assuntoInicial ?? null)
+  const chave = `${assuntoInicial}|${textoInicial ?? ''}`
+  if (alvo && aplicado !== chave) { // ajuste durante o render (sem efeito): vale uma vez por pedido/texto
+    setAplicado(chave)
     setTela({ t: 'form', assunto: alvo })
   }
   const raiz = useRef<HTMLDivElement>(null)
@@ -465,7 +467,7 @@ function Suporte({ publico, focarAoAbrir = false, assuntoInicial }: { publico: P
       {!user && <SemLogin />}
       {user && tela.t === 'inicio' && <Inicio ir={setTela} />}
       {user && tela.t === 'assuntos' && <Assuntos publico={publico} ir={setTela} />}
-      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} />}
+      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} textoInicial={tela.assunto.label === assuntoInicial ? textoInicial : undefined} />}
       {user && tela.t === 'conversa' && <TelaConversa id={tela.id} ir={setTela} />}
     </div>
   )
@@ -482,7 +484,7 @@ export function SupportChatPanel() {
  * fora não fecha; Esc fecha (quem abriu devolve o foco). Usada pelo balão do site e, para o
  * participante, pelo mascote do Evo. `posicao` traz bottom/right/altura de cada uso.
  */
-export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial }: { publico: Publico; aoFechar: () => void; posicao: string; assuntoInicial?: string | null }) {
+export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial, textoInicial }: { publico: Publico; aoFechar: () => void; posicao: string; assuntoInicial?: string | null; textoInicial?: string }) {
   const { user } = useAuth()
   return (
     <div
@@ -500,7 +502,7 @@ export function JanelaSuporte({ publico, aoFechar, posicao, assuntoInicial }: { 
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
       </div>
-      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir assuntoInicial={assuntoInicial} />
+      <Suporte key={user?.id ?? 'anon'} publico={publico} focarAoAbrir assuntoInicial={assuntoInicial} textoInicial={textoInicial} />
     </div>
   )
 }

@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 const refetch = vi.fn()
 let estado: Record<string, unknown> = {}
 vi.mock('../hooks/useCheckout', () => ({ useUserOrders: () => ({ refetch, ...estado }) }))
+vi.mock('../hooks/useConversas', () => ({ useChatConfig: () => ({ data: { prazo: 'Respondemos em até 1 dia útil.' } }) }))
 import Orders from '../pages/app/Orders'
 
 const tela = () => render(<MemoryRouter><Orders /></MemoryRouter>)
@@ -54,5 +55,40 @@ describe('Compras', () => {
     tela()
     expect(screen.getByRole('status').textContent).toContain('Evento cancelado')
     expect(screen.getByRole('heading', { name: 'Noite' })).toBeTruthy()
+  })
+  const pedido = (status: string) => ({ id: 'abcdef12-0000-4000-8000-000000000000', event_id: 'e1', status, payment_method: 'pix', total_amount: 55, events: { title: 'Noite' } })
+  it('"Ver ingressos" só aparece em pedido pago e leva ao evento do pedido', () => {
+    for (const st of ['pending', 'failed', 'cancelled', 'refunded']) {
+      estado = { isLoading: false, isError: false, data: [pedido(st)] }
+      const { unmount } = tela()
+      expect(screen.queryByRole('link', { name: /Ver ingressos/ })).toBeNull()
+      unmount()
+    }
+    estado = { isLoading: false, isError: false, data: [pedido('paid')] }
+    tela()
+    expect(screen.getByRole('link', { name: /Ver ingressos/ }).getAttribute('href')).toBe('/app/tickets?evento=e1')
+  })
+  it('copia o número completo do pedido e avisa quando falha', async () => {
+    estado = { isLoading: false, isError: false, data: [pedido('paid')] }
+    const writeText = vi.fn().mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error('negado'))
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    tela()
+    fireEvent.click(screen.getByRole('button', { name: /Copiar número do pedido/ }))
+    expect(await screen.findByText('Copiado')).toBeTruthy()
+    expect(writeText).toHaveBeenCalledWith('abcdef12-0000-4000-8000-000000000000')
+    fireEvent.click(screen.getByRole('button', { name: /Copiar número do pedido/ }))
+    expect(await screen.findByText('Não foi possível copiar')).toBeTruthy()
+  })
+  it('suporte do pedido: mostra o prazo e pede o chat com o número do pedido', () => {
+    estado = { isLoading: false, isError: false, data: [pedido('pending')] }
+    const ouvir = vi.fn()
+    window.addEventListener('evo:suporte', ouvir)
+    tela()
+    expect(screen.getByText('Respondemos em até 1 dia útil.')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Falar com o suporte sobre este pedido/ }))
+    window.removeEventListener('evo:suporte', ouvir)
+    const d = (ouvir.mock.calls[0][0] as CustomEvent).detail
+    expect(d.assunto).toBe('Pagamento: cobrança, Pix ou cartão')
+    expect(d.texto).toContain('#ABCDEF12')
   })
 })

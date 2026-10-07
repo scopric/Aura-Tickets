@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import EventoCapa from '../../components/EventoCapa'
 import { useUserOrders } from '../../hooks/useCheckout'
-import { dataCurta, horaCurta, motivoEvento } from '../../lib/ingresso'
+import { useChatConfig } from '../../hooks/useConversas'
+import { abrirAjudaPedido, dataCurta, horaCurta, motivoEvento } from '../../lib/ingresso'
 
 const methodLabels: Record<string, string> = {
   credit_card: 'Cartão de Crédito',
@@ -35,8 +37,24 @@ const dataDoEvento = (data?: string | null) => {
   return d && data!.slice(0, 4) !== String(new Date().getFullYear()) ? `${d} de ${data!.slice(0, 4)}` : d
 }
 
+// Só pedido pago tem ingresso para ver (pending, failed e cancelled não; refunded perdeu o ingresso)
+const COM_INGRESSO = ['paid']
+
 export default function AppOrders() {
   const { data: orders = [], isLoading, isError, refetch } = useUserOrders()
+  const prazo = useChatConfig().data?.prazo
+  const [copiado, setCopiado] = useState<string | null>(null)
+  const [erroCopia, setErroCopia] = useState<string | null>(null)
+  const copiar = async (id: string) => {
+    try {
+      await navigator.clipboard.writeText(id)
+      setErroCopia(null)
+      setCopiado(id)
+    } catch {
+      setCopiado(null)
+      setErroCopia(id)
+    }
+  }
 
   if (isLoading) {
     return (
@@ -95,9 +113,12 @@ export default function AppOrders() {
                           {order.events?.venue_name || 'Local a definir'}
                         </span>
                       </p>}
-                      <p className="mt-1 text-xs leading-4 text-muted-foreground">
-                        Pedido #{order.id.slice(0, 8).toUpperCase()}
-                        {order.created_at && ` · comprado em ${new Date(order.created_at).toLocaleDateString('pt-BR')}`}
+                      <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs leading-4 text-muted-foreground">
+                        <span>Pedido #{order.id.slice(0, 8).toUpperCase()}</span>
+                        <button type="button" onClick={() => copiar(order.id)} aria-label={`Copiar número do pedido ${order.id.slice(0, 8).toUpperCase()}`} className="rounded-ev-md font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco">
+                          {copiado === order.id ? 'Copiado' : erroCopia === order.id ? 'Não foi possível copiar' : 'Copiar'}
+                        </button>
+                        {order.created_at && <span>· comprado em {new Date(order.created_at).toLocaleDateString('pt-BR')}</span>}
                       </p>
                     </div>
                   </div>
@@ -116,13 +137,21 @@ export default function AppOrders() {
                       R$ {order.total_amount?.toFixed(2).replace('.', ',')}
                     </span>
                   </div>
-                  <Link
-                    to={`/app/tickets`}
-                    className="flex items-center gap-1 rounded-ev-md text-[13px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco"
-                  >
-                    Ver ingressos
-                    <I.ChevronDireita size={16} aria-hidden="true" />
-                  </Link>
+                  {COM_INGRESSO.includes(order.status) && (
+                    <Link
+                      to={`/app/tickets?evento=${order.event_id}`}
+                      className="flex items-center gap-1 rounded-ev-md text-[13px] font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco"
+                    >
+                      Ver ingressos
+                      <I.ChevronDireita size={16} aria-hidden="true" />
+                    </Link>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] leading-[18px]">
+                  <button type="button" onClick={() => abrirAjudaPedido(order.id, order.status === 'paid')} className="rounded-ev-md font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco">
+                    Falar com o suporte sobre este pedido
+                  </button>
+                  <span className="text-muted-foreground">{prazo}</span>
                 </div>
               </li>
             )
