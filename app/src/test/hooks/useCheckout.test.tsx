@@ -27,7 +27,7 @@ function mockBanco(pendentes: unknown[], preco: number | null = 50, orderInsert:
     select: () => { const q: any = { eq: () => q, then: (r: any) => r({ data: pendentes, error: null }) }; return q },
     insert: (v: unknown) => { inserts[t].push(v); return { select: () => ({ single: () => Promise.resolve(orderInsert) }), then: (r: any) => r({ error: null }) } },
   })) as any)
-  vi.mocked(supabase.rpc).mockResolvedValue({ data: { ingressos: [{ id: 'tt_1', price: preco }] }, error: null } as any)
+  vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', price: preco }] }, error: null } as any)
   return inserts
 }
 
@@ -70,6 +70,13 @@ describe('useCheckout — criar pedido', () => {
   it('ingresso sem preço no banco dá erro e não grava nada', async () => {
     const ins = mockBanco([], null)
     await expect(criar()).rejects.toThrow('Ingresso sem preço')
+    expect(ins.orders).toHaveLength(0)
+  })
+
+  it('tipo com venda encerrada não cria pedido', async () => {
+    const ins = mockBanco([], 50)
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: { evento: { start_date: '2099-01-01T21:00:00Z', end_date: null, date: '2099-01-01', time: '18:00' }, ingressos: [{ id: 'tt_1', name: 'Pista', price: 50, sale_end: '2020-01-01T00:00:00Z' }] }, error: null } as any)
+    await expect(criar()).rejects.toThrow('Pista: Vendas encerradas')
     expect(ins.orders).toHaveLength(0)
   })
 

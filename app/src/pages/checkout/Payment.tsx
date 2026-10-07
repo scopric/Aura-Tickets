@@ -32,15 +32,15 @@ export default function CheckoutPayment() {
     } catch { return null }
   })()
 
-  const { eventId, cart, totalAmount, itemsSummary } = {
+  const { eventId, cart, itemsSummary } = {
     eventId: locationState.eventId || pendingCheckout?.eventId,
     cart: locationState.cart || pendingCheckout?.cart,
-    totalAmount: locationState.totalAmount || pendingCheckout?.totalAmount,
     itemsSummary: locationState.itemsSummary || pendingCheckout?.itemsSummary,
   }
   // Recalcula aqui: o totalAmount do sessionStorage pode ter a taxa antiga de 5%.
   const resumo = resumoCarrinho((itemsSummary || []).map((i: { price: number; quantity: number }) => ({ preco: i.price, qtd: i.quantity })))
 
+  const gratis = resumo.total === 0 && (itemsSummary?.length ?? 0) > 0
   const [paymentMethod, setPaymentMethod] = useState<'credit_card' | 'pix'>('credit_card')
   const [pixData, setPixData] = useState<{ qrCodeData: string; qrCodeImageUrl: string } | null>(null)
   
@@ -57,19 +57,19 @@ export default function CheckoutPayment() {
   const [pixCopiado, setPixCopiado] = useState(false)
 
   useEffect(() => {
-    if (!eventId || !totalAmount) {
+    if (!eventId || !itemsSummary?.length) { // total 0 (evento gratuito) é válido
       toast.error('Sessão de pagamento expirada ou inválida.')
       navigate('/')
     }
-  }, [eventId, totalAmount, navigate])
+  }, [eventId, itemsSummary, navigate])
 
   const handlePay = async () => {
-    if (!eventId || !cart || !resumo.total || !itemsSummary) {
+    if (!eventId || !cart || !itemsSummary) {
       toast.error('Detalhes do pedido inválidos.')
       return
     }
 
-    if (paymentMethod === 'credit_card') {
+    if (!gratis && paymentMethod === 'credit_card') {
       if (!cardNumber || !cardName || !cardExpiry || !cardCvv) {
         toast.error('Por favor, preencha todos os campos do cartão.')
         return
@@ -82,10 +82,18 @@ export default function CheckoutPayment() {
     createOrderMutation.mutate({
       event_id: eventId,
       items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
-      payment_method: paymentMethod,
+      payment_method: gratis ? null : paymentMethod,
     }, {
       onSuccess: async (order) => {
         try {
+          if (gratis) {
+            // O banco confere que todos os itens têm preço 0 e emite os ingressos (docs/sql/20261022_pedido_gratis_e_estoque.sql)
+            const { error } = await supabase.rpc('confirmar_pedido_gratis' as never, { p_order: order.id } as never)
+            if (error) throw error
+            sessionStorage.removeItem('aura_pending_checkout')
+            navigate(`/checkout/success?pedido=${order.id}`, { state: { orderId: order.id, totalAmount: 0, paymentMethod: null } })
+            return
+          }
           if (paymentMethod === 'credit_card') {
             // 2. Pedir o pagamento ao hook usePayment
             const result = await processPayment({
@@ -203,7 +211,7 @@ export default function CheckoutPayment() {
 
         <div className="space-y-4">
           {/* Forma de pagamento */}
-          {!pixData && (
+          {!pixData && !gratis && (
             <div role="radiogroup" aria-label="Forma de pagamento" className="grid gap-2">
               <button type="button" role="radio" aria-checked={paymentMethod === 'credit_card'} onClick={() => setPaymentMethod('credit_card')} className={`group ${metodo}`}>
                 <span className={radio} aria-hidden="true" />
@@ -223,7 +231,7 @@ export default function CheckoutPayment() {
             </div>
           )}
 
-          {!pixData && paymentMethod === 'credit_card' && (
+          {!pixData && !gratis && paymentMethod === 'credit_card' && (
             <div className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
               <div>
                 <label htmlFor="cartao-numero" className={rotulo}>Número do Cartão</label>
@@ -246,7 +254,7 @@ export default function CheckoutPayment() {
             </div>
           )}
 
-          {!pixData && paymentMethod === 'pix' && (
+          {!pixData && !gratis && paymentMethod === 'pix' && (
             <p className="px-1 text-[13px] leading-5 text-muted-foreground">
               Ao clicar em "Pagar Agora", tentaremos gerar o código Pix Copia e Cola.
             </p>
@@ -299,8 +307,8 @@ export default function CheckoutPayment() {
             </p>
             {!pixData && (
               <Button type="button" size="lg" className="mt-4 w-full rounded-full" onClick={handlePay} loading={ocupado}>
-                <I.Cadeado size={16} />
-                Pagar Agora
+                {!gratis && <I.Cadeado size={16} />}
+                {gratis ? 'Garantir ingresso grátis' : 'Pagar Agora'}
               </Button>
             )}
           </div>

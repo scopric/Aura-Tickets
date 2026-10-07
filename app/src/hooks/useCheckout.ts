@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
-import { itensDoPedido, pedidoReaproveitavel, type Pendente } from '../lib/pedido'
+import { itensDoPedido, pedidoReaproveitavel, vendaBloqueada, type Pendente } from '../lib/pedido'
 
 export interface DbOrder {
   id: string
@@ -82,7 +82,7 @@ export function useCreateOrder() {
     }: {
       event_id: string
       items: { ticket_type_id: string; quantity: number; seat_info?: string }[]
-      payment_method: DbOrder['payment_method']
+      payment_method: DbOrder['payment_method'] | null // null = pedido gratuito (sem forma de pagamento)
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
 
@@ -98,7 +98,14 @@ export function useCreateOrder() {
       // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
       const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
       if (pubError) throw pubError
-      const ingressos = (pub as { ingressos?: { id: string; price: number | string | null }[] } | null)?.ingressos ?? []
+      const r = pub as { evento?: Parameters<typeof vendaBloqueada>[0]; ingressos?: { id: string; name?: string; price: number | string | null; sale_start?: string | null; sale_end?: string | null }[] } | null
+      if (!r?.evento) throw new Error('Evento indisponível para compra')
+      const ingressos = r.ingressos ?? []
+      for (const i of items) {
+        const t = ingressos.find(x => x.id === i.ticket_type_id)
+        const motivo = t && vendaBloqueada(r.evento, t)
+        if (motivo) throw new Error(`${t.name ?? 'Ingresso'}: ${motivo}`)
+      }
       const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
       const ped = itensDoPedido(items, precos)
       // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.

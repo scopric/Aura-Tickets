@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Spinner } from '@/components/ui/spinner'
 import ContadorIngresso from '../../components/ContadorIngresso'
 import { noLimite } from '../../lib/lotacao'
+import { vendaBloqueada } from '../../lib/pedido'
 import EventoCapa from '../../components/EventoCapa'
 
 // Match de Mesa: só maiores de 18 (o banco confere de novo no pedido, mesa_pedido_guard)
@@ -206,6 +207,8 @@ export default function Checkout() {
     })
   }
 
+  const bloqueio = (t: { sale_start?: string | null; sale_end?: string | null }) => (event ? vendaBloqueada(event, t) : null)
+
   const items = Object.entries(cart).map(([id, qty]) => {
     const ticket = ticketTypes.find(t => t.id === id)
     if (!ticket) return null
@@ -266,6 +269,11 @@ export default function Checkout() {
   const handleContinuePayment = () => {
     if (items.length === 0) {
       toast.error('Selecione pelo menos um ingresso para continuar.')
+      return
+    }
+    const fechado = items.find(i => bloqueio(i))
+    if (fechado) {
+      toast.error(`${fechado.name}: ${bloqueio(fechado)}`)
       return
     }
     // Match de Mesa: 1 lugar por conta em cada evento (cobre o carrinho vindo do state/sessionStorage,
@@ -379,18 +387,19 @@ export default function Checkout() {
               {ticketTypes.length > 0 ? (
                 ticketTypes.map(ticket => {
                   const qty = cart[ticket.id] || 0
+                  const fechado = bloqueio(ticket)
                   return (
                     <div key={ticket.id} className="flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0">
                       <div className="min-w-0 flex-1">
                         <div className="text-base font-medium leading-6">{ticket.name}</div>
-                        <div className="text-[13px] leading-5 text-muted-foreground">{ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}</div>
+                        <div className="text-[13px] leading-5 text-muted-foreground">{fechado ?? (ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito')}</div>
                       </div>
                       <ContadorIngresso
                         nome={ticket.name}
                         qtd={qty}
                         onMenos={() => updateQty(ticket.id, -1)}
                         onMais={() => updateQty(ticket.id, 1)}
-                        maisDesligado={(ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
+                        maisDesligado={!!fechado || (ticket.type === 'coletiva' && qty >= 1) || noLimite(ticket, qty)}
                       />
                     </div>
                   )
