@@ -1,8 +1,13 @@
 -- =============================================================================
 -- Tela 06, fatia 2: venda no servidor com meia-entrada, taxa, cupom e reserva de 10 min. 2026-10-30 (NÃO aplicado)
--- ADITIVO: o caminho antigo (INSERT do navegador em orders/order_items) continua funcionando, só fica mais estreito
--- (políticas RESTRICTIVE, item 8). O arquivo B (20261030b_fechar_insert_navegador.sql) fecha o INSERT direto e só vem
--- DEPOIS do front publicado. Mudanças:
+-- ATENÇÃO: este arquivo NÃO é "aditivo" para quem compra. Assim que entrar em produção: (1) a inteira passa a vender só até
+-- lotação - ceil(40%) enquanto houver meia a vender (a cota fica guardada para a meia); (2) o front ANTIGO não vende meia e
+-- não consegue mais gravar pedido com cupom, desconto ou reserva (RESTRICTIVE); (3) tipo pago sem max_per_order passa a ter
+-- teto de 10 por pedido (fora lugar marcado). ORDEM: o Ricardo aplica o A -> o front novo é publicado LOGO em seguida -> o B
+-- (20261030b_fechar_insert_navegador.sql) só depois. Produção hoje: 0 ingressos emitidos e 1 pedido, a janela é aceitável.
+-- DECISÃO PENDENTE DO RICARDO: prender o CPF à conta (hoje a conta informa o CPF a cada compra; a recusa por limite de CPF e a
+-- de cupom inválido viram retorno {ok:false,...} e contam tentativa em tentativas_reserva, mas prender o CPF à conta fecha o
+-- oráculo de vez). Mudanças:
 -- 1. Colunas: ticket_types.permite_meia (padrão true; UPDATE para authenticated: o produtor liga e desliga); order_items.beneficio
 --    ('inteira'|'meia'), meia_tipo, taxa_unit; orders.reservado_ate. tickets NÃO ganha coluna: a portaria lê o benefício por
 --    order_item_id. Tabela beneficios_uf (benefício estadual por UF), vazia, RLS ligada, SELECT para anon.
@@ -39,8 +44,22 @@
 --    min_order_value do cupom é conferido contra o subtotal das inteiras (a base do desconto): suposição, ver relatório.
 --    Pedido de total 0 nasce 'pending' e o front segue com confirmar_pedido_gratis.
 -- 7. Políticas RESTRICTIVE de INSERT (authenticated): orders sem reservado_ate, cupom e desconto; order_items só inteira ao
---    preço do tipo, sem meia_tipo e sem taxa_unit. reservar_ingressos, reservar_assentos e os gatilhos são SECURITY
---    DEFINER (dono postgres): não passam por RLS.
+--    preço do tipo, sem meia_tipo e sem taxa_unit, e SÓ em pedido sem reservado_ate e sem coupon_id (função auxiliar
+--    pedido_do_navegador, porque authenticated não lê reservado_ate): fecha o ataque de injetar item num pedido de cupom de
+--    total 0 e pedir confirmar_pedido_gratis. Defesa em 2 camadas: confirmar_pedido_gratis, no ramo com cupom, exige que NENHUM
+--    item tenha taxa_unit nula (todo item de reservar_ingressos tem; item de INSERT direto não), soma dos itens = subtotal e
+--    subtotal - desconto + taxa = 0. reservar_ingressos, reservar_assentos e os gatilhos são SECURITY DEFINER (dono postgres).
+-- 8. Limites contra negação de estoque: teto por pedido também para tipo pago (coalesce(max_per_order, 10), fora lugar marcado);
+--    teto de 20 ingressos vivos por conta e evento; no máximo 10 reservas por conta e evento por hora (canceladas contam).
+-- 9. Cupom e CPF: recusa de cupom (qualquer motivo, UMA mensagem) e de limite por CPF NÃO levantam exceção: a reserva da conta
+--    é preservada (a tentativa roda numa subtransação desfeita), a tentativa é gravada em tentativas_reserva (sem acesso do
+--    navegador; >1 dia é apagada na própria função) e o retorno é {ok:false, motivo:'cupom_invalido'|'indisponivel'}. Quem tem
+--    10 tentativas falhas na última hora recebe "Muitas tentativas". Limite por CPF e "já comprou" têm o mesmo motivo
+--    'indisponivel'. Cupom: UNIQUE(code) e UNIQUE(upper(code)) já existem em coupons, então a busca por upper(code) é
+--    determinística; order by id limit 1 só por segurança.
+-- 10. Gatilho ticket_types_sem_meia_mesa: mesa e coletiva sempre permite_meia=false (INSERT e UPDATE).
+--     UPDATE de tabela de authenticated e anon em orders e order_items é revogado (o front só lê; sem política de UPDATE nada
+--     mudava; grep em app/src confere).
 -- REAPLICAR ARQUIVOS ANTIGOS: o bloco 0 de 20261027_ticket_types_grants_por_coluna.sql abortará (coluna nova permite_meia):
 --    pôr permite_meia na lista e no grant se for reaplicado. A conferência da E4 (20261011) também abortará com reservado_ate
 --    (e as colunas novas de order_items): classificar como RETIDAS se for reaplicada. authenticated NÃO lê reservado_ate,
@@ -71,11 +90,11 @@ begin
     raise exception 'falta o gatilho orders_cpf_hash (20261028_limite_por_cpf)';
   end if;
   d := pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure);
-  if md5(d) <> '783677ce59ef02906bd27752455f5fbb' and position('meia (20261030)' in d) = 0 then
+  if md5(d) not in ('783677ce59ef02906bd27752455f5fbb', '3641e118aeaf0f2b64acaeb314938fe3') then
     raise exception 'order_items_estoque_guard mudou desde a leitura de produção (md5 %): refazer a partir da definição atual', md5(d);
   end if;
   d := pg_get_functiondef('public.confirmar_pedido_gratis(uuid)'::regprocedure);
-  if md5(d) <> 'e949efceff9e652de092c9a8525242c3' and position('meia (20261030)' in d) = 0 then
+  if md5(d) not in ('e949efceff9e652de092c9a8525242c3', 'aaf268ebd776b07fd0802a07d72cc9dd') then
     raise exception 'confirmar_pedido_gratis mudou desde a leitura de produção (md5 %): refazer a partir da definição atual', md5(d);
   end if;
 end $$;
@@ -97,6 +116,34 @@ alter table public.order_items drop constraint if exists order_items_taxa_unit_c
 alter table public.order_items add constraint order_items_taxa_unit_check check (taxa_unit >= 0);
 alter table public.orders add column if not exists reservado_ate timestamptz;
 create index if not exists orders_reserva_conta_evento_idx on public.orders (user_id, event_id, created_at) where reservado_ate is not null;
+
+create table if not exists public.tentativas_reserva (
+  id bigint generated always as identity primary key,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  quando timestamptz not null default now(),
+  motivo text not null
+);
+create index if not exists tentativas_reserva_user_idx on public.tentativas_reserva (user_id, quando);
+alter table public.tentativas_reserva enable row level security;
+revoke all on table public.tentativas_reserva from public, anon, authenticated;
+
+create or replace function public.ticket_types_sem_meia_mesa()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.type in ('mesa', 'coletiva') then new.permite_meia := false; end if;
+  return new;
+end;
+$$;
+revoke all on function public.ticket_types_sem_meia_mesa() from public, anon, authenticated;
+drop trigger if exists ticket_types_sem_meia_mesa on public.ticket_types;
+create trigger ticket_types_sem_meia_mesa before insert or update of type, permite_meia on public.ticket_types
+  for each row execute function public.ticket_types_sem_meia_mesa();
+
+-- o front só lê orders e order_items (sem política de UPDATE nada mudava); fecha também o grant
+revoke update on table public.orders, public.order_items from anon, authenticated;
 
 create table if not exists public.beneficios_uf (
   uf char(2) not null,
@@ -172,6 +219,17 @@ begin
     from public.ticket_types tt where tt.id = new.ticket_type_id for update;
   if not found then
     return new; -- tipo inexistente cai na FK
+  end if;
+  -- meia (20261030): tipo pago sem máximo também tem teto por pedido e por conta/evento (negação de estoque); lugar marcado fica fora
+  -- (reservar_assentos grava um item com todos os lugares)
+  if v_preco > 0 and not public.tipo_no_mapa(new.ticket_type_id) then
+    v_max := coalesce(v_max, 10);
+    if (select coalesce(sum(oi.quantity), 0) from public.order_items oi join public.orders o on o.id = oi.order_id
+         join public.orders o2 on o2.id = new.order_id
+         where o.user_id = o2.user_id and o.event_id = o2.event_id and o.status = 'pending' and oi.id is distinct from new.id
+           and coalesce(o.reservado_ate > now(), o.created_at > now() - interval '30 minutes')) + new.quantity > 20 then
+      raise exception 'Limite de 20 ingressos reservados ao mesmo tempo neste evento' using errcode = '22023';
+    end if;
   end if;
   -- v_max: tipo grátis sem máximo definido = teto de 10; tipo pago sem máximo = sem teto por pedido (nulo)
   if new.quantity < 1 or new.quantity < coalesce(v_min, 1) then
@@ -295,7 +353,11 @@ begin
   -- item de preço > 0 e total 0 (cupom de 100%); sem cupom, continua exigindo item e tipo de preço 0
   if o.total <> 0 or (o.coupon_id is null and exists (
        select 1 from public.order_items oi join public.ticket_types tt on tt.id = oi.ticket_type_id
-        where oi.order_id = o.id and (oi.unit_price <> 0 or tt.price <> 0))) then
+        where oi.order_id = o.id and (oi.unit_price <> 0 or tt.price <> 0)))
+     or (o.coupon_id is not null and (
+         exists (select 1 from public.order_items oi where oi.order_id = o.id and oi.taxa_unit is null) -- item de INSERT direto
+         or (select coalesce(sum(oi.unit_price * oi.quantity), 0) from public.order_items oi where oi.order_id = o.id) <> o.subtotal
+         or o.subtotal - o.discount + o.service_fee <> 0)) then
     raise exception 'Pedido não é gratuito' using errcode = '22023';
   end if;
   if exists (select 1 from public.order_items oi where oi.order_id = o.id and not public.pode_comprar(o.id, oi.ticket_type_id)) then
@@ -396,7 +458,9 @@ as $$
                where oi.ticket_type_id = tt.id and oi.beneficio = 'meia' and (o.status = 'paid' or (o.status = 'pending'
                  and coalesce(o.reservado_ate > now(), o.created_at > now() - case when exists (select 1 from public.pedido_assentos pa where pa.order_id = o.id and pa.liberada_em is null)
                                      then interval '10 minutes' else interval '30 minutes' end))))::int as meias,
-             ((case when coalesce(tt.quantity_total, 0) > 0 then tt.quantity_total when coalesce(tt.capacity, 0) > 0 then tt.capacity else 0 end) * 4 + 9) / 10 as cota
+             case when (tt.permite_meia and tt.type not in ('mesa', 'coletiva') and tt.price > 0 and not public.tipo_no_mapa(tt.id))
+                  then ((case when coalesce(tt.quantity_total, 0) > 0 then tt.quantity_total when coalesce(tt.capacity, 0) > 0 then tt.capacity else 0 end) * 4 + 9) / 10
+                  else 0 end as cota
         from public.ticket_types tt
        where tt.event_id = p_event_id and tt.is_active
          and public.evento_acesso(p_event_id) in ('aberto', 'link')
@@ -408,6 +472,18 @@ revoke all on function public.vitrine_ingressos(uuid) from public, anon, authent
 grant execute on function public.vitrine_ingressos(uuid) to anon, authenticated;
 
 -- 6. Reserva no servidor ------------------------------------------------------------------------------------------------
+create or replace function public.pedido_do_navegador(p_order uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (select 1 from public.orders o where o.id = p_order and o.reservado_ate is null and o.coupon_id is null);
+$$;
+revoke all on function public.pedido_do_navegador(uuid) from public, anon, authenticated;
+grant execute on function public.pedido_do_navegador(uuid) to authenticated;
+
 create or replace function public.reservar_ingressos(p_event_id uuid, p_itens jsonb, p_cupom text default null, p_cpf text default null)
 returns jsonb
 language plpgsql
@@ -419,7 +495,6 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_ev record;
-  v_nome text;
   v_cup record;
   v_cup_id uuid;
   v_it record;
@@ -437,9 +512,10 @@ declare
   v_ate timestamptz := now() + interval '10 minutes'; -- 10 min fixos, definidos aqui (o cliente não escolhe)
   v_cancel int;
   v_usos int;
-  v_n_meia int;
   v_n_inteira int;
   v_cpf boolean;
+  v_motivo text;
+  v_msg text;
 begin
   if v_uid is null or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
     raise exception 'Entre na sua conta para comprar' using errcode = '42501';
@@ -450,10 +526,17 @@ begin
   if p_itens is null or jsonb_typeof(p_itens) <> 'array' or jsonb_array_length(p_itens) not between 1 and 10 then
     raise exception 'Informe de 1 a 10 itens' using errcode = '22023';
   end if;
-  if exists (select 1 from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
-              where x.ticket_type_id is null or x.quantidade is null or x.quantidade not between 1 and 100
-                 or coalesce(x.beneficio, 'inteira') not in ('inteira', 'meia')) then
-    raise exception 'Item inválido (ingresso, quantidade de 1 a 100, benefício inteira ou meia)' using errcode = '22023';
+  -- valida o JSON ANTES de qualquer cast (texto no lugar de número não pode virar erro 22P02)
+  if exists (select 1 from jsonb_array_elements(p_itens) e(v)
+              where jsonb_typeof(e.v) <> 'object'
+                 or jsonb_typeof(e.v -> 'ticket_type_id') is distinct from 'string'
+                 or (e.v ->> 'ticket_type_id') !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+                 or jsonb_typeof(e.v -> 'quantidade') is distinct from 'number'
+                 or (e.v ->> 'quantidade')::numeric not between 1 and 100 or (e.v ->> 'quantidade')::numeric <> trunc((e.v ->> 'quantidade')::numeric)
+                 or coalesce(jsonb_typeof(e.v -> 'beneficio'), 'string') <> 'string'
+                 or coalesce(e.v ->> 'beneficio', 'inteira') not in ('inteira', 'meia')
+                 or coalesce(jsonb_typeof(e.v -> 'meia_tipo'), 'string') <> 'string') then
+    raise exception 'Item inválido (ingresso, quantidade inteira de 1 a 100, benefício inteira ou meia)' using errcode = '22023';
   end if;
   if (select count(*) - count(distinct (x.ticket_type_id, coalesce(x.beneficio, 'inteira'), x.meia_tipo))
         from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)) > 0 then
@@ -479,108 +562,129 @@ begin
   end loop;
 
   perform pg_advisory_xact_lock(hashtextextended('reserva:' || v_uid || ':' || p_event_id, 0));
+  delete from public.tentativas_reserva where quando < now() - interval '1 day';
+  if (select count(*) from public.tentativas_reserva t where t.user_id = v_uid and t.quando > now() - interval '1 hour') >= 10 then
+    raise exception 'Muitas tentativas. Tente de novo mais tarde.' using errcode = '22023';
+  end if;
   if (select count(*) from public.orders o
        where o.user_id = v_uid and o.event_id = p_event_id and o.reservado_ate is not null
-         and o.created_at > now() - interval '1 hour') >= 5 then
+         and o.created_at > now() - interval '1 hour') >= 10 then
     raise exception 'Muitas reservas neste evento. Tente de novo em alguns minutos.' using errcode = '22023';
   end if;
-  update public.orders set status = 'cancelled'
-   where user_id = v_uid and event_id = p_event_id and status = 'pending' and reservado_ate is not null;
-  get diagnostics v_cancel = row_count;
 
-  -- todos os tipos pedidos existem, estão ativos e são deste evento
-  if (select count(distinct x.ticket_type_id) from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))
-     <> (select count(*) from public.ticket_types tt where tt.event_id = p_event_id and tt.is_active
-          and tt.id in (select x.ticket_type_id from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))) then
-    raise exception 'Ingresso não encontrado ou indisponível' using errcode = '22023';
+  -- Tudo que pode ser recusado por cupom ou por limite de CPF roda numa subtransação: se recusar, a reserva anterior da conta
+  -- é preservada (nada fica gravado) e a função devolve {ok:false}, sem exceção, para a tentativa poder ser contada.
+  begin
+    update public.orders set status = 'cancelled'
+     where user_id = v_uid and event_id = p_event_id and status = 'pending' and reservado_ate is not null;
+    get diagnostics v_cancel = row_count;
+
+    if (select count(distinct x.ticket_type_id) from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))
+       <> (select count(*) from public.ticket_types tt where tt.event_id = p_event_id and tt.is_active
+            and tt.id in (select x.ticket_type_id from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text))) then
+      raise exception 'Ingresso não encontrado ou indisponível' using errcode = '22023';
+    end if;
+    select coalesce(sum(round(tt.price * 100)::bigint * x.quantidade) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'), 0),
+           count(*) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'),
+           coalesce(bool_or(tt.max_por_cpf is not null), false)
+      into v_base, v_n_inteira, v_cpf
+      from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
+      join public.ticket_types tt on tt.id = x.ticket_type_id;
+
+    -- cupom: qualquer recusa levanta o mesmo erro interno (EV001), sem dizer o motivo
+    if btrim(coalesce(p_cupom, '')) <> '' then
+      if v_n_inteira = 0 then
+        raise exception 'O cupom não vale para meia-entrada: tire o cupom ou inclua ingressos inteiros' using errcode = '22023';
+      end if;
+      select * into v_cup from public.coupons c
+       where upper(c.code) = upper(btrim(p_cupom)) and c.producer_id = v_ev.producer_id
+         and (c.event_id is null or c.event_id = p_event_id) and c.is_active
+         and (c.valid_from is null or c.valid_from <= now()) and (c.valid_until is null or c.valid_until > now())
+         and c.audience in ('all', 'first_purchase')
+       order by c.id limit 1
+       for update;
+      if not found
+         or (v_cup.audience = 'first_purchase' and exists (select 1 from public.orders o where o.user_id = v_uid and o.status = 'paid'))
+         or (v_cup.min_order_value is not null and v_base < round(v_cup.min_order_value * 100)::bigint) then
+        raise exception 'cupom' using errcode = 'EV001';
+      end if;
+      v_cup_id := v_cup.id;
+      select count(*) into v_usos from public.orders o
+       where o.coupon_id = v_cup.id and (o.status = 'paid' or (o.status = 'pending' and o.reservado_ate > now()));
+      if v_cup.max_uses is not null and v_usos >= v_cup.max_uses then
+        raise exception 'cupom' using errcode = 'EV001';
+      end if;
+      select count(*) into v_usos from public.orders o
+       where o.coupon_id = v_cup.id and o.user_id = v_uid and (o.status = 'paid' or (o.status = 'pending' and o.reservado_ate > now()));
+      if v_cup.max_uses_per_user is not null and v_usos >= v_cup.max_uses_per_user then
+        raise exception 'cupom' using errcode = 'EV001';
+      end if;
+      v_desc_nominal := case v_cup.discount_type
+                          when 'percent' then floor(v_base * v_cup.discount_value / 100)::bigint
+                          else round(v_cup.discount_value * 100)::bigint end;
+      if v_cup.max_discount is not null then
+        v_desc_nominal := least(v_desc_nominal, round(v_cup.max_discount * 100)::bigint);
+      end if;
+      v_desc_nominal := least(v_desc_nominal, v_base);
+    end if;
+
+    -- linhas (ordem de id do tipo: mesma ordem de trava em todo pedido, sem impasse)
+    for v_it in select x.ticket_type_id, x.quantidade, coalesce(x.beneficio, 'inteira') as beneficio, x.meia_tipo,
+                       round(tt.price * 100)::bigint as cent
+                  from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
+                  join public.ticket_types tt on tt.id = x.ticket_type_id
+                 order by x.ticket_type_id, 3, x.meia_tipo loop
+      if v_it.beneficio = 'meia' then
+        v_cent := public.evk_preco_meia(v_it.cent);
+        v_d := 0; -- cupom não vale na meia
+      else
+        v_cent := v_it.cent;
+        v_d := case when v_base > 0 then (v_desc_nominal * v_cent) / v_base else 0 end; -- rateio: ver cabeçalho
+      end if;
+      v_taxa_u := public.evk_taxa_centavos(v_cent - v_d, v_it.beneficio = 'meia'); -- TAXA_BASE: preço com desconto (decisão do Ricardo, 30/10)
+      v_sub := v_sub + v_cent * v_it.quantidade;
+      v_desc := v_desc + v_d * v_it.quantidade;
+      v_taxa := v_taxa + v_taxa_u * v_it.quantidade;
+      v_linhas := v_linhas || jsonb_build_object('ticket_type_id', v_it.ticket_type_id, 'quantidade', v_it.quantidade,
+        'beneficio', v_it.beneficio, 'meia_tipo', v_it.meia_tipo, 'cent', v_cent, 'desc_cent', v_d, 'taxa_cent', v_taxa_u);
+    end loop;
+    v_total := v_sub - v_desc + v_taxa;
+
+    insert into public.orders (user_id, event_id, coupon_id, subtotal, discount, service_fee, total, status,
+                               customer_name, customer_email, customer_cpf, reservado_ate)
+    values (v_uid, p_event_id, v_cup_id, round(v_sub / 100.0, 2), round(v_desc / 100.0, 2), round(v_taxa / 100.0, 2), round(v_total / 100.0, 2), 'pending',
+            (select nullif(btrim(p.full_name), '') from public.profiles p where p.id = v_uid),
+            auth.jwt() ->> 'email', case when v_cpf then nullif(btrim(coalesce(p_cpf, '')), '') end, v_ate)
+    returning id into v_order;
+
+    -- um insert por item, em ordem: o guard e a mesa_pedido_guard enxergam os itens anteriores do mesmo pedido
+    for v_it in select * from jsonb_to_recordset(v_linhas)
+             as y(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text, cent bigint, taxa_cent bigint) loop
+      insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, taxa_unit, subtotal, beneficio, meia_tipo)
+      values (v_order, v_it.ticket_type_id, v_it.quantidade, round(v_it.cent / 100.0, 2), round(v_it.taxa_cent / 100.0, 2),
+              round(v_it.cent * v_it.quantidade / 100.0, 2), v_it.beneficio, v_it.meia_tipo);
+    end loop;
+  exception
+    when sqlstate 'EV001' then
+      v_motivo := 'cupom_invalido';
+    when sqlstate '22023' then
+      get stacked diagnostics v_msg = message_text;
+      if v_msg like 'Limite de % ingressos por CPF neste ingresso' then
+        v_motivo := 'indisponivel'; -- mesma resposta para "já comprou" e para outras falhas: não vira oráculo de CPF
+      else
+        raise;
+      end if;
+  end;
+  if v_motivo is not null then
+    insert into public.tentativas_reserva (user_id, motivo) values (v_uid, v_motivo);
+    return jsonb_build_object('ok', false, 'motivo', v_motivo,
+      'mensagem', case v_motivo when 'cupom_invalido' then 'Cupom inválido ou não se aplica a este pedido'
+                                else 'Não foi possível reservar este ingresso' end);
   end if;
-  select coalesce(sum(round(tt.price * 100)::bigint * x.quantidade) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'), 0),
-         count(*) filter (where x.beneficio = 'meia'), count(*) filter (where coalesce(x.beneficio, 'inteira') = 'inteira'),
-         coalesce(bool_or(tt.max_por_cpf is not null), false)
-    into v_base, v_n_meia, v_n_inteira, v_cpf
-    from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
-    join public.ticket_types tt on tt.id = x.ticket_type_id;
-
-  -- cupom
-  if btrim(coalesce(p_cupom, '')) <> '' then
-    if v_n_inteira = 0 then
-      raise exception 'O cupom não vale para meia-entrada: tire o cupom ou inclua ingressos inteiros' using errcode = '22023';
-    end if;
-    select * into v_cup from public.coupons c
-     where upper(c.code) = upper(btrim(p_cupom)) and c.producer_id = v_ev.producer_id
-       and (c.event_id is null or c.event_id = p_event_id) and c.is_active
-       and (c.valid_from is null or c.valid_from <= now()) and (c.valid_until is null or c.valid_until > now())
-       and c.audience in ('all', 'first_purchase')
-     for update;
-    if not found then
-      raise exception 'Cupom inválido ou indisponível' using errcode = '22023';
-    end if;
-    v_cup_id := v_cup.id;
-    if v_cup.audience = 'first_purchase' and exists (select 1 from public.orders o where o.user_id = v_uid and o.status = 'paid') then
-      raise exception 'Este cupom é só para a primeira compra' using errcode = '22023';
-    end if;
-    if v_cup.min_order_value is not null and v_base < round(v_cup.min_order_value * 100)::bigint then
-      raise exception 'Pedido mínimo de R$ % para este cupom', to_char(v_cup.min_order_value, 'FM999999990D00') using errcode = '22023';
-    end if;
-    select count(*) into v_usos from public.orders o
-     where o.coupon_id = v_cup.id and (o.status = 'paid' or (o.status = 'pending' and o.reservado_ate > now()));
-    if v_cup.max_uses is not null and v_usos >= v_cup.max_uses then
-      raise exception 'Este cupom esgotou' using errcode = '22023';
-    end if;
-    select count(*) into v_usos from public.orders o
-     where o.coupon_id = v_cup.id and o.user_id = v_uid and (o.status = 'paid' or (o.status = 'pending' and o.reservado_ate > now()));
-    if v_cup.max_uses_per_user is not null and v_usos >= v_cup.max_uses_per_user then
-      raise exception 'Você já usou este cupom' using errcode = '22023';
-    end if;
-    v_desc_nominal := case v_cup.discount_type
-                        when 'percent' then floor(v_base * v_cup.discount_value / 100)::bigint
-                        else round(v_cup.discount_value * 100)::bigint end;
-    if v_cup.max_discount is not null then
-      v_desc_nominal := least(v_desc_nominal, round(v_cup.max_discount * 100)::bigint);
-    end if;
-    v_desc_nominal := least(v_desc_nominal, v_base);
-  end if;
-
-  -- linhas (ordem de id do tipo: mesma ordem de trava em todo pedido, sem impasse)
-  for v_it in select x.ticket_type_id, x.quantidade, coalesce(x.beneficio, 'inteira') as beneficio, x.meia_tipo,
-                     round(tt.price * 100)::bigint as cent
-                from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
-                join public.ticket_types tt on tt.id = x.ticket_type_id
-               order by x.ticket_type_id, 3, x.meia_tipo loop
-    if v_it.beneficio = 'meia' then
-      v_cent := public.evk_preco_meia(v_it.cent);
-      v_d := 0; -- cupom não vale na meia
-    else
-      v_cent := v_it.cent;
-      v_d := case when v_base > 0 then (v_desc_nominal * v_cent) / v_base else 0 end; -- rateio: ver cabeçalho
-    end if;
-    v_taxa_u := public.evk_taxa_centavos(v_cent - v_d, v_it.beneficio = 'meia'); -- TAXA_BASE: preço com desconto (decisão do Ricardo, 30/10)
-    v_sub := v_sub + v_cent * v_it.quantidade;
-    v_desc := v_desc + v_d * v_it.quantidade;
-    v_taxa := v_taxa + v_taxa_u * v_it.quantidade;
-    v_linhas := v_linhas || jsonb_build_object('ticket_type_id', v_it.ticket_type_id, 'quantidade', v_it.quantidade,
-      'beneficio', v_it.beneficio, 'meia_tipo', v_it.meia_tipo, 'cent', v_cent, 'desc_cent', v_d, 'taxa_cent', v_taxa_u);
-  end loop;
-  v_total := v_sub - v_desc + v_taxa;
-
-  insert into public.orders (user_id, event_id, coupon_id, subtotal, discount, service_fee, total, status,
-                             customer_name, customer_email, customer_cpf, reservado_ate)
-  values (v_uid, p_event_id, v_cup_id, v_sub / 100.0, v_desc / 100.0, v_taxa / 100.0, v_total / 100.0, 'pending',
-          (select nullif(btrim(p.full_name), '') from public.profiles p where p.id = v_uid),
-          auth.jwt() ->> 'email', case when v_cpf then nullif(btrim(coalesce(p_cpf, '')), '') end, v_ate)
-  returning id into v_order;
-
-  -- um insert por item, em ordem: o guard e a mesa_pedido_guard enxergam os itens anteriores do mesmo pedido
-  for v_it in select * from jsonb_to_recordset(v_linhas)
-           as y(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text, cent bigint, taxa_cent bigint) loop
-    insert into public.order_items (order_id, ticket_type_id, quantity, unit_price, taxa_unit, subtotal, beneficio, meia_tipo)
-    values (v_order, v_it.ticket_type_id, v_it.quantidade, v_it.cent / 100.0, v_it.taxa_cent / 100.0,
-            v_it.cent * v_it.quantidade / 100.0, v_it.beneficio, v_it.meia_tipo);
-  end loop;
 
   return jsonb_build_object(
-    'order_id', v_order, 'status', 'pending', 'subtotal', v_sub / 100.0, 'desconto', v_desc / 100.0, 'taxa', v_taxa / 100.0,
-    'total', v_total / 100.0, 'reservado_ate', v_ate, 'agora', now(), 'itens', v_linhas,
+    'ok', true, 'order_id', v_order, 'status', 'pending', 'subtotal', round(v_sub / 100.0, 2), 'desconto', round(v_desc / 100.0, 2),
+    'taxa', round(v_taxa / 100.0, 2), 'total', round(v_total / 100.0, 2), 'reservado_ate', v_ate, 'agora', now(), 'itens', v_linhas,
     'aviso', case when v_cancel > 0 then 'Sua reserva anterior neste evento foi substituída por esta.' end);
 end;
 $$;
@@ -593,7 +697,7 @@ create policy gf_orders_sem_reserva_falsa on public.orders as restrictive for in
   with check (reservado_ate is null and coupon_id is null and coalesce(discount, 0) = 0);
 drop policy if exists gf_order_items_so_inteira on public.order_items;
 create policy gf_order_items_so_inteira on public.order_items as restrictive for insert to authenticated
-  with check (beneficio = 'inteira' and meia_tipo is null and taxa_unit is null
+  with check (beneficio = 'inteira' and meia_tipo is null and taxa_unit is null and public.pedido_do_navegador(order_id)
               and unit_price = (select tt.price from public.ticket_types tt where tt.id = ticket_type_id));
 
 -- 8. Conferências (abortam) ---------------------------------------------------------------------------------------------
@@ -638,6 +742,11 @@ begin
         and policyname in ('gf_orders_sem_reserva_falsa', 'gf_order_items_so_inteira')) <> 2 then
     raise exception 'faltam as políticas RESTRICTIVE de INSERT';
   end if;
+  if has_function_privilege('anon', 'public.pedido_do_navegador(uuid)', 'execute') or has_table_privilege('authenticated', 'public.tentativas_reserva', 'select')
+     or has_table_privilege('authenticated', 'public.orders', 'update') or has_table_privilege('authenticated', 'public.order_items', 'update')
+     or not (select relrowsecurity from pg_class where oid = 'public.tentativas_reserva'::regclass) then
+    raise exception 'privilégios de pedido_do_navegador, tentativas_reserva ou UPDATE de orders/order_items fora do esperado';
+  end if;
   if not (select relrowsecurity from pg_class where oid = 'public.beneficios_uf'::regclass) then
     raise exception 'RLS desligada em beneficios_uf';
   end if;
@@ -669,4 +778,7 @@ commit;
 --   alter table public.orders drop column if exists reservado_ate;
 --   alter table public.order_items drop column if exists meia_tipo, drop column if exists taxa_unit, drop column if exists beneficio;
 --   alter table public.ticket_types drop column if exists permite_meia;
+--   drop table if exists public.tentativas_reserva; drop function if exists public.pedido_do_navegador(uuid);
+--   drop trigger if exists ticket_types_sem_meia_mesa on public.ticket_types; drop function if exists public.ticket_types_sem_meia_mesa();
+--   grant update on table public.orders, public.order_items to authenticated;  -- só se o baseline antigo for desejado
 -- =============================================================================
