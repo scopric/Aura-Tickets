@@ -262,6 +262,7 @@ export default function TeamManager() {
       {showInvite && (
         <div className="team-card mt-6 rounded-[10px] border border-border bg-card p-4">
           <h2 className="mb-4 text-[15px] font-semibold leading-5 text-foreground">Convidar Membro</h2>
+          <p className="mb-4 text-xs text-muted-foreground">A pessoa não recebe e-mail: avise que ela aceita em {window.location.origin}/equipe, entrando com a conta deste e-mail e com a verificação em duas etapas ativa. Visualizador não faz check-in.</p>
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="grid gap-1.5 md:col-span-2">
               <Label htmlFor="equipe-email">E-mail</Label>

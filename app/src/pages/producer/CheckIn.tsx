@@ -13,6 +13,7 @@ import { iniciais } from '../../hooks/useConversas'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
+import { useEventosDaEquipe } from '../../hooks/useEventosDaEquipe'
 import { codigoCompleto, codigoCurto, EXEMPLO_CODIGO, LEITURA_CODIGO_CURTO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
 
 interface TicketCheck {
@@ -37,10 +38,37 @@ const TOM = {
 // Atualização entre aparelhos: não há canal em tempo real, só nova consulta a cada tanto
 const ATUALIZA_MS = 20_000
 const LIMITE_LISTA = 1000 // a lista traz os mais recentes; os números vêm de contagem no servidor
+type LinhaEquipe = { id: string; buyer_name: string | null; status: string; checked_in_at: string | null; tipo: string | null }
+// Equipe: lista com os 1000 ingressos mais recentes (limite no SQL, como o dono) e números pela contagem no servidor
+const listaEquipe = async (eventId: string) => {
+  const { data, error } = await supabase.rpc('team_lista_ingressos' as never, { p_event_id: eventId } as never)
+  if (error) throw error
+  return (data ?? []) as LinhaEquipe[]
+}
+const contagemEquipe = async (eventId: string) => {
+  const { data, error } = await supabase.rpc('team_contagem' as never, { p_event_id: eventId } as never)
+  if (error) throw error
+  const c = ((data ?? []) as { total: number; usados: number; cancelados: number; transferidos: number }[])[0]
+  return { total: c?.total ?? 0, usados: c?.usados ?? 0, cancelados: c?.cancelados ?? 0, transferidos: c?.transferidos ?? 0 }
+}
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
+type EventoCheckIn = { id: string; title: string; status: string }
+
+// Dono do evento (/producer/checkin): os próprios eventos. Equipe da portaria (/equipe/checkin): useEventosDaEquipe.
 export default function ProducerCheckIn() {
-  const { data: events, isLoading: isEventsLoading } = useProducerEvents()
+  const { data, isLoading } = useProducerEvents()
+  return <CheckInTela events={data} isEventsLoading={isLoading} />
+}
+
+export function EquipeCheckIn() {
+  const { data, isLoading, isError } = useEventosDaEquipe()
+  return <div className="mx-auto max-w-5xl px-4 py-6"><CheckInTela events={data} isEventsLoading={isLoading} eventsError={isError} voltar="/equipe" equipe /></div>
+}
+
+// equipe: os ingressos vêm de team_lista_ingressos (só id, nome, status, horário e tipo; sem o código do ingresso),
+// então a lista só mostra; a entrada é pelo leitor (check-in-validate).
+function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/producer/events', equipe = false }: { events?: EventoCheckIn[]; isEventsLoading: boolean; eventsError?: boolean; voltar?: string; equipe?: boolean }) {
 
   const [tickets, setTickets] = useState<TicketCheck[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(false)
@@ -81,8 +109,8 @@ export default function ProducerCheckIn() {
     return {
       id: dbTicket.id,
       name: dbTicket.buyer_name || 'Participante',
-      ticketType: dbTicket.ticket_types?.name || 'Ingresso Comum',
-      ticketCode: dbTicket.qr_code,
+      ticketType: dbTicket.tipo || dbTicket.ticket_types?.name || 'Ingresso Comum',
+      ticketCode: dbTicket.qr_code ?? '',
       status: checkStatus,
       checkInTime: dbTicket.checked_in_at ? hora(dbTicket.checked_in_at) : null,
       seat: '-',
@@ -92,6 +120,7 @@ export default function ProducerCheckIn() {
 
   // Números: contagem no servidor (a lista é limitada a 1000 linhas)
   const contarIngressos = async (eventId: string) => {
+    if (equipe) return contagemEquipe(eventId)
     const contar = async (status?: string[]) => {
       let q = supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('event_id', eventId)
       if (status) q = q.in('status', status)
@@ -110,6 +139,14 @@ export default function ProducerCheckIn() {
     if (!silencioso) setIsLoadingTickets(true)
     const versao = ++versaoLista.current
     try {
+      if (equipe) {
+        const [linhas, contagemNova] = await Promise.all([listaEquipe(eventId), contagemEquipe(eventId)])
+        if (eventoAtual.current !== eventId || versaoLista.current !== versao) return
+        setTickets(linhas.map(mapDbTicketToTicketCheck))
+        setContagem(contagemNova)
+        setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
+        return
+      }
       const [lista, contagemNova] = await Promise.all([
         supabase.from('tickets')
           .select(`
@@ -211,7 +248,9 @@ export default function ProducerCheckIn() {
         versaoLista.current++
         setTickets(ts => ts.map(t => t.ticketCode === codigo ? { ...t, status: 'usado', checkInTime: quando ?? (leitura.tom === 'ok' ? hora(new Date().toISOString()) : t.checkInTime) } : t))
       }
-      if (!leitura.falha) contarIngressos(evento).then(c => { if (eventoAtual.current === evento) setContagem(c) }).catch(() => {})
+      // equipe: a lista não tem o código do ingresso; depois de entrar, recarrega a lista (e a contagem) em silêncio
+      if (equipe && (leitura.tom === 'ok' || leitura.rotulo === 'Já usado')) loadTickets(evento, true)
+      else if (!leitura.falha) contarIngressos(evento).then(c => { if (eventoAtual.current === evento) setContagem(c) }).catch(() => {})
     } catch (err: any) {
       console.error('Erro ao validar check-in:', err)
       if (eventoAtual.current !== evento) return
@@ -294,8 +333,12 @@ export default function ProducerCheckIn() {
         <div role="status">
           <EmptyState
             title="Este evento ainda não está publicado"
-            description={<>O check-in abre quando ele estiver no ar. Escolha outro evento acima ou <Link to="/producer/events" className="text-foreground underline underline-offset-4">veja seus eventos</Link>.</>}
+            description={<>O check-in abre quando ele estiver no ar. Escolha outro evento acima ou <Link to={voltar} className="text-foreground underline underline-offset-4">veja seus eventos</Link>.</>}
           />
+        </div>
+      ) : eventsError ? (
+        <div role="alert">
+          <EmptyState title="Não deu para carregar os eventos" description="Confira a conexão e recarregue a página." />
         </div>
       ) : activeEvents.length === 0 ? (
         <EmptyState
@@ -396,7 +439,7 @@ export default function ProducerCheckIn() {
             <div className="mt-6 space-y-3">
               <div className="relative w-full sm:max-w-md">
                 <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder="Buscar por participante ou código do ingresso..." className="pl-9" />
+                <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder={equipe ? 'Buscar por participante...' : 'Buscar por participante ou código do ingresso...'} className="pl-9" />
               </div>
 
               {noServidor && (
@@ -418,7 +461,7 @@ export default function ProducerCheckIn() {
                       <div className="min-w-0 flex-1">
                         <div className={cn('truncate text-sm font-medium', t.status === 'cancelado' ? 'text-muted-foreground' : 'text-foreground')}>{t.name}</div>
                         <div className="truncate text-xs text-muted-foreground">
-                          {t.ticketType} · {t.ticketCode}
+                          {[t.ticketType, t.ticketCode].filter(Boolean).join(' · ')}
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
@@ -429,7 +472,8 @@ export default function ProducerCheckIn() {
                         )}
                         {t.status === 'cancelado' && <div className="text-xs font-medium text-destructive">Cancelado</div>}
                         {t.status === 'transferido' && <div className="text-xs font-medium text-muted-foreground">Transferido</div>}
-                        {t.status === 'pendente' && (
+                        {t.status === 'pendente' && equipe && <div className="text-xs text-muted-foreground">Não entrou</div>}
+                        {t.status === 'pendente' && !equipe && (
                           <Button size="sm" onClick={() => manualCheckIn(t)}>
                             <I.Raio /> Confirmar Entrada
                           </Button>
