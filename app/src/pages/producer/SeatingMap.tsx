@@ -340,6 +340,7 @@ export default function SeatingMap() {
   // Mapa carregado do evento escolhido e salvo por último (para o aviso de alterações não salvas)
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState(false)
+  const [ativo, setAtivo] = useState(false) // seating_maps.is_active: o comprador só vê o mapa se o produtor ligar (grava junto com Salvar)
   const [salvo, setSalvo] = useState<string | null>(null)
 
   // Environments (múltiplos espaços)
@@ -554,7 +555,7 @@ export default function SeatingMap() {
   }
 
   // Ingressos do evento escolhido para ligar a um setor (coletiva não tem lugar marcado; inativo não vende)
-  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number }[]>([])
+  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number; max: number | null }[]>([])
   const [tiposCarregados, setTiposCarregados] = useState(false) // falso enquanto carrega e se a leitura falhar
   useEffect(() => {
     setTiposIngresso([])
@@ -563,14 +564,14 @@ export default function SeatingMap() {
     let cancelado = false
     supabase
       .from('ticket_types')
-      .select('id, name, price, type, is_active')
+      .select('id, name, price, type, is_active, max_per_order')
       .eq('event_id', eventId)
       .then(({ data, error }) => {
         if (cancelado) return
         if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
-        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean }[] // ticket_types não está nos tipos gerados
+        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean; max_per_order: number | null }[] // ticket_types não está nos tipos gerados
         setTiposCarregados(true)
-        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(({ id, name, price }) => ({ id, name, price })))
+        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(t => ({ id: t.id, name: t.name, price: t.price, max: t.max_per_order ?? (Number(t.price) === 0 ? 10 : null) })))
       })
     return () => { cancelado = true }
   }, [eventId])
@@ -581,6 +582,7 @@ export default function SeatingMap() {
     const iniciais = novosPavimentos()
     setPronto(false)
     setErroMapa(false)
+    setAtivo(false)
     setSalvo(null)
     setEnvironments(iniciais)
     setActiveEnv(0)
@@ -611,6 +613,7 @@ export default function SeatingMap() {
         return
       }
 
+      setAtivo(data?.is_active === true)
       if (data?.environments && Array.isArray(data.environments)) {
         const loadedEnvs = (data.environments as Environment[]).map(env => ({
           ...env,
@@ -702,7 +705,8 @@ export default function SeatingMap() {
         event_id: eventId,
         name: environments[activeEnv]?.name || 'Principal',
         config: { zoom, pan, background: fundo },
-        environments: environments
+        environments: environments,
+        is_active: ativo
       }, { onConflict: 'event_id' })
 
     if (error) {
@@ -2220,6 +2224,19 @@ export default function SeatingMap() {
           <Button size="sm" onClick={handleSaveMap} disabled={!pronto} className="ml-2">
             <I.Guardar aria-hidden="true" /> Salvar
           </Button>
+          <Button
+            size="sm"
+            variant={ativo ? 'default' : 'outline'}
+            aria-pressed={ativo}
+            disabled={!pronto}
+            onClick={() => {
+              setAtivo(a => !a)
+              if (!ativo) toast.warning('Com o mapa ligado o comprador escolhe o lugar, que fica reservado por 10 minutos. Mudar ou apagar um lugar já vendido não altera o ingresso emitido. Clique em Salvar para valer.', { duration: 9000 })
+              else toast.info('Mapa desligado: clique em Salvar para o comprador deixar de ver.')
+            }}
+          >
+            <I.Lugar aria-hidden="true" /> {ativo ? 'Mapa visível para o comprador' : 'Mostrar mapa para o comprador'}
+          </Button>
         </div>
 
         {/* CONTROLES SUPERIORES */}
@@ -3674,6 +3691,16 @@ export default function SeatingMap() {
                               }}
                               className="w-full accent-primary"
                             />
+                            {(() => {
+                              // a mesa vende todas as cadeiras num pedido só: acima do máximo por pedido do ingresso, ninguém consegue comprar
+                              const tipo = tiposIngresso.find(t => t.id === sections.find(sec => sec.id === node.sectionId)?.ticketTypeId)
+                              const n = node.seatsCount || node.capacity
+                              return tipo?.max != null && n > tipo.max ? (
+                                <p role="alert" className="mt-1 text-[9px] leading-3 text-destructive">
+                                  Esta mesa tem {n} cadeiras e o ingresso "{tipo.name}" permite {tipo.max} por pedido: ela não poderá ser comprada. Reduza as cadeiras ou aumente o máximo por pedido.
+                                </p>
+                              ) : null
+                            })()}
                           </div>
 
                           {/* Presets Rápidos */}

@@ -13,6 +13,7 @@ import ContadorIngresso from '../../components/ContadorIngresso'
 import { noLimite, tetoPorPedido } from '../../lib/lotacao'
 import { vendaBloqueada } from '../../lib/pedido'
 import EventoCapa from '../../components/EventoCapa'
+import { chaveDoLugar, itensDosLugares, tipoDoLugar, type Estado } from '../../lib/lugares'
 
 // Match de Mesa: só maiores de 18 (o banco confere de novo no pedido, mesa_pedido_guard)
 function maiorDe18(iso: string) {
@@ -26,7 +27,7 @@ import { resumoCarrinho, brl, textoPreco, TAXA_PERCENTUAL, TAXA_MINIMA } from '.
 export default function Checkout() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { eventId: stateEventId, cart: stateCart } = (location.state || {}) as { eventId?: string; cart?: Record<string, number> }
+  const { eventId: stateEventId, cart: stateCart, abrirMapa } = (location.state || {}) as { eventId?: string; cart?: Record<string, number>; abrirMapa?: boolean }
 
   // Recuperar carrinho pendente do sessionStorage (quando volta do login)
   const pendingCheckout = (() => {
@@ -45,10 +46,13 @@ export default function Checkout() {
   const [nascimento, setNascimento] = useState('')
   const [salvandoNascimento, setSalvandoNascimento] = useState(false)
 
-  // Estados do Mapa de Assentos (só visualização até o M5.1: nenhum assento entra no pedido)
+  // Mapa de Assentos: o produtor liga (is_active); o comprador escolhe o lugar e "Continuar" o reserva por 10 min (reservar_assentos)
   const [seatingMap, setSeatingMap] = useState<any | null>(null)
   const [loadingMap, setLoadingMap] = useState(false)
-  const [chooseViaMap, setChooseViaMap] = useState(false)
+  const [chooseViaMap, setChooseViaMap] = useState(!!abrirMapa)
+  const [escolhidos, setEscolhidos] = useState<string[]>(Array.isArray(pendingCheckout?.seats) ? pendingCheckout.seats : [])
+  const [ocupados, setOcupados] = useState<Record<string, Estado>>({})
+  const [reservando, setReservando] = useState(false)
 
   // Estados para Navegação (Pan e Zoom) no Checkout
   const [mapZoom, setMapZoom] = useState(0.8)
@@ -179,20 +183,35 @@ export default function Checkout() {
         .from('seating_maps')
         .select('*')
         .eq('event_id', eventId)
+        .eq('is_active', true) // mapa desligado pelo produtor não aparece
         .maybeSingle()
         
       if (data) {
         setSeatingMap(data) // abre na seleção rápida: o carrinho da página do evento fica como veio
+        await carregarOcupados()
       }
       setLoadingMap(false)
     }
     
     loadSeatingMap()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eventId])
+
+  // Lugares vendidos e reservados (só chave e estado; sem dado pessoal). Falha de leitura deixa tudo "livre": o banco recusa de novo ao reservar.
+  async function carregarOcupados() {
+    const { data } = await supabase.rpc('assentos_ocupados' as never, { p_event: eventId } as never)
+    const lista = (Array.isArray(data) ? data : []) as { seat_key: string; estado: Estado }[]
+    setOcupados(Object.fromEntries(lista.map(o => [o.seat_key, o.estado])))
+    return lista
+  }
 
   const ticketTypes = event?.ticket_types || []
 
   const updateQty = (id: string, delta: number) => {
+    if (delta > 0 && escolhidos.length) {
+      toast.info('Você escolheu lugares no mapa. Para comprar pela seleção rápida, tire os lugares escolhidos.')
+      return
+    }
     // Match de Mesa: 1 lugar por conta em cada evento
     const max = ticketTypes.find(t => t.id === id)?.type === 'coletiva' ? 1 : Infinity
     setCart(prev => {
@@ -209,11 +228,19 @@ export default function Checkout() {
 
   const bloqueio = (t: { sale_start?: string | null; sale_end?: string | null }) => (event ? vendaBloqueada(event, t) : null)
 
-  const items = Object.entries(cart).map(([id, qty]) => {
+  const itemsRapidos = Object.entries(cart).map(([id, qty]) => {
     const ticket = ticketTypes.find(t => t.id === id)
     if (!ticket) return null
     return { ...ticket, qty, total: (ticket.price || 0) * qty }
   }).filter(Boolean) as any[]
+  // Com lugares escolhidos no mapa, o pedido é só deles (a seleção rápida fica de fora: um pedido não mistura os dois)
+  const ambiente = seatingMap?.environments?.[0]
+  const itensLugar = ambiente && escolhidos.length
+    ? itensDosLugares(ambiente, escolhidos, id => { const t = ticketTypes.find(x => x.id === id); return t ? { name: t.name, price: t.price || 0 } : undefined })
+    : []
+  const items = itensLugar.length
+    ? itensLugar.map(i => ({ ...ticketTypes.find(t => t.id === i.ticket_type_id)!, qty: i.quantity, total: i.price * i.quantity }))
+    : itemsRapidos
 
   const resumo = resumoCarrinho(items.map(i => ({ preco: i.price || 0, qtd: i.qty })))
   const grandTotal = resumo.total
@@ -225,7 +252,15 @@ export default function Checkout() {
       toast.info(`Para comprar o(a) ${seat.label}, entre em contato com o organizador do evento pelo WhatsApp ou e-mail de suporte.`, { duration: 6000 })
       return
     }
-    // sem reserva de assento ainda (M5.1): clicar em lugar livre não faz nada
+    if (!ambiente || !tipoDoLugar(ambiente, seat)) return // bloqueado, sem ingresso ligado ou não é lugar
+    const chave = chaveDoLugar(ambiente, seat)
+    if (ocupados[chave]) return
+    if (escolhidos.includes(chave)) return setEscolhidos(e => e.filter(k => k !== chave))
+    if (Object.keys(cart).length) {
+      toast.info('Você já escolheu ingressos na seleção rápida. Tire-os para escolher lugares no mapa.')
+      return
+    }
+    setEscolhidos(e => [...e, chave])
   }
 
   // Grava em profiles.birth_date só se estiver vazia (conferido no cliente): com o perfil ainda carregando, nunca sobrescreve
@@ -288,6 +323,7 @@ export default function Checkout() {
       sessionStorage.setItem('aura_pending_checkout', JSON.stringify({
         eventId,
         cart,
+        seats: escolhidos,
         totalAmount: grandTotal,
         itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
       }))
@@ -304,14 +340,31 @@ export default function Checkout() {
       toast.error('O Match de Mesa é só para maiores de 18. Para grupos com menores, escolha outro tipo de ingresso.')
       return
     }
-    navigate('/checkout/payment', {
-      state: {
-        eventId,
-        cart,
-        totalAmount: grandTotal,
-        itemsSummary: items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
-      }
-    })
+    const resumoItens = items.map(i => ({ ticket_type_id: i.id, quantity: i.qty, name: i.name, price: i.price }))
+    if (escolhidos.length) {
+      reservarLugares(resumoItens)
+      return
+    }
+    navigate('/checkout/payment', { state: { eventId, cart, totalAmount: grandTotal, itemsSummary: resumoItens } })
+  }
+
+  // Reserva no servidor (10 min) e segue para o pagamento com o pedido já criado pelo banco
+  const reservarLugares = async (itemsSummary: { ticket_type_id: string; quantity: number; name: string; price: number }[]) => {
+    setReservando(true)
+    try {
+      const { data, error } = await supabase.rpc('reservar_assentos' as never, { p_event: eventId, p_seats: escolhidos } as never)
+      if (error) throw error
+      const r = data as unknown as { order_id: string; expira_em: string; agora: string }
+      // prazo pelo relógio do servidor: a diferença entre expira_em e agora vale no relógio deste aparelho
+      const venceEm = Date.now() + (new Date(r.expira_em).getTime() - new Date(r.agora).getTime())
+      navigate('/checkout/payment', { state: { eventId, cart: {}, totalAmount: grandTotal, itemsSummary, orderId: r.order_id, venceEm } })
+    } catch (err) {
+      toast.error((err as Error)?.message || 'Não foi possível reservar os lugares.', { duration: 7000 })
+      const lista = await carregarOcupados() // lugar tomado por outra pessoa sai da escolha
+      setEscolhidos(e => e.filter(k => !lista.some(o => o.seat_key === k)))
+    } finally {
+      setReservando(false)
+    }
   }
 
   if (!eventId) {
@@ -447,14 +500,25 @@ export default function Checkout() {
                 </div>
 
                 <p role="note" className="text-[13px] leading-5 text-muted-foreground">
-                  A escolha de lugar no mapa ainda não reserva o assento. Por enquanto, compre pela Seleção rápida.
+                  Toque nos lugares livres para escolher. Ao continuar, eles ficam reservados para você por 10 minutos enquanto você paga.
+                  {escolhidos.length > 0 && ' Para voltar à seleção rápida, tire os lugares escolhidos.'}
                 </p>
+                {escolhidos.length > 0 && (
+                  <div role="status" className="flex items-center justify-between gap-3 rounded-ev-lg bg-secondary px-3 py-2 text-[13px] font-semibold leading-5">
+                    <span>{escolhidos.length} {escolhidos.length === 1 ? 'lugar escolhido' : 'lugares escolhidos'}</span>
+                    <button type="button" onClick={() => setEscolhidos([])} className="text-primary underline underline-offset-4">Limpar</button>
+                  </div>
+                )}
 
                 {/* Legenda de Status */}
                 <div className="flex flex-wrap gap-3 rounded-ev-lg bg-secondary p-2.5 text-[11px] font-semibold text-muted-foreground">
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                     <span>Livre</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                    <span>Escolhido</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-600" />
@@ -634,9 +698,14 @@ export default function Checkout() {
                             const w = (s.widthMeter || 0.5) * ppm
                             const h = (s.heightMeter || 0.5) * ppm
 
-                            let statusColor = s.color
-                            if (s.status === 'sold') statusColor = '#dc2626'
-                            else if (s.status === 'reserved') statusColor = '#d97706'
+                            const chave = chaveDoLugar(activeEnv, s)
+                            const vendavel = !!tipoDoLugar(activeEnv, s)
+                            const estado = ocupados[chave]
+                            const escolhido = escolhidos.includes(chave)
+                            const livre = vendavel && !estado
+                            let statusColor = escolhido ? '#2563eb' : s.color
+                            if (s.status === 'sold' || estado === 'vendido') statusColor = '#dc2626'
+                            else if (s.status === 'reserved' || estado === 'reservado') statusColor = '#d97706'
                             else if (s.status === 'blocked') statusColor = '#78716c'
                             else if (s.status === 'contact') statusColor = '#0284c7'
 
@@ -647,7 +716,12 @@ export default function Checkout() {
                                   ev.stopPropagation()
                                   handleSeatClick(s)
                                 }}
-                                className={`absolute origin-center transition-all ${s.status === 'contact' ? 'hover:scale-105 hover:brightness-105 active:scale-95 cursor-pointer' : s.status === 'free' ? '' : 'opacity-55 cursor-not-allowed'} z-10`}
+                                tabIndex={livre ? 0 : undefined}
+                                onKeyDown={livre ? (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); handleSeatClick(s) } } : undefined}
+                                role={livre ? 'button' : undefined}
+                                aria-pressed={livre ? escolhido : undefined}
+                                aria-label={livre ? `${s.label || 'Lugar'}${escolhido ? ', escolhido' : ''}` : undefined}
+                                className={`absolute origin-center transition-all ${s.status === 'contact' || livre ? 'hover:scale-105 hover:brightness-105 active:scale-95 cursor-pointer' : s.status === 'free' && !estado ? '' : 'opacity-55 cursor-not-allowed'} z-10`}
                                 style={{
                                   left: s.x * ppm - w / 2,
                                   top: s.y * ppm - h / 2,
@@ -813,7 +887,8 @@ export default function Checkout() {
                 size="lg"
                 className="mt-5 w-full rounded-full"
                 onClick={handleContinuePayment}
-                disabled={items.length === 0}
+                disabled={items.length === 0 || reservando}
+                loading={reservando}
               >
                 {isAuthenticated ? (
                   <>

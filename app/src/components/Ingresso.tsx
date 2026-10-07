@@ -26,16 +26,24 @@ const valor = 'font-display text-[17px] font-semibold leading-6 tabular-nums min
 
 // Diálogos abertos por estado (sem Dialog.Trigger): o Radix não sabe para onde devolver o foco; guardamos quem abriu.
 // setTimeout: no toque fora, o mousedown do navegador põe o foco no body depois do fechamento.
+// Quem fecha para abrir outra janela (o Evo) liga esta marca: o foco fica com a janela nova, não volta para trás dela.
+// A marca vive no componente (useRef), não no módulo: não sobra ligada para a próxima janela.
 function useFocoDeVolta() {
   const origem = useRef(document.activeElement as HTMLElement | null)
-  return (e: Event) => { e.preventDefault(); const o = origem.current; setTimeout(() => o?.focus()) }
+  const semVolta = useRef(false)
+  const devolver = (e: Event) => {
+    e.preventDefault()
+    if (semVolta.current) return
+    const o = origem.current; setTimeout(() => o?.focus())
+  }
+  return [devolver, () => { semVolta.current = true }] as const
 }
 
 // ---- QR ampliado: tela branca inteira, tela acesa (Wake Lock). O QR é o mesmo de sempre (TicketQRCode). ----------
 function QrAmpliado({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFechar: () => void }) {
   const { temaResolvido } = useTheme()
   const acesa = useTelaAcesa(true)
-  const devolverFoco = useFocoDeVolta()
+  const [devolverFoco] = useFocoDeVolta()
   const quando = [dataCurta(evento.date), horaCurta(evento.time)].filter(Boolean).join(' · ')
   const area = useRef<HTMLDivElement>(null)
   const salvar = () => {
@@ -83,7 +91,7 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
     ['Comprado em', t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR') : null],
     ['Local', enderecoDoEvento(evento) || null],
   ]
-  const devolverFoco = useFocoDeVolta()
+  const [devolverFoco, semVoltaDeFoco] = useFocoDeVolta()
   return (
     <Dialog.Root open onOpenChange={aberto => { if (!aberto) aoFechar() }}>
       <Dialog.Portal>
@@ -105,7 +113,7 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
             <li>Não compartilhe o código: quem for lido primeiro entra.</li>
             <li>Para cancelar ou tirar dúvidas, fale com o <Link to="/contato" className="underline underline-offset-2">suporte</Link>.</li>
           </ul>
-          <NaoVejoMeuIngresso className="mt-2" antes={aoFechar} />
+          <NaoVejoMeuIngresso className="mt-2" antes={() => { semVoltaDeFoco(); aoFechar() }} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

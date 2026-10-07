@@ -11,6 +11,10 @@ import CollectiveTableCard from './CollectiveTableCard'
 import ContadorIngresso from './ContadorIngresso'
 import EventoCapa from './EventoCapa'
 import ThemeToggle from './ThemeToggle'
+import { JanelaSuporte } from './SupportChatWidget'
+import { useAuthStore } from '../stores/authStore'
+import { publicoDoPapel } from '../hooks/useConversas'
+import { ASSUNTO_DENUNCIA } from '../lib/ingresso'
 import type { DbEvent } from '../hooks/useEvents'
 import { corSorteada, ehHex, varsDoEvento } from '../lib/corEvento'
 import { calcularTaxa, resumoCarrinho, brl, TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
@@ -51,6 +55,8 @@ function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo:
 // O corpo da página pública do evento. Com `previa` (painel do produtor, PR3d-1) vira só o miolo: sem cabeçalho, sem
 // "Aparência", sem listener de rolagem, barra de compra sticky e "Comprar" desligado. 'moldura' = vidro; 'folha' = sólida.
 export default function EventoConteudo({ evento: event, previa }: { evento: DbEvent; previa?: 'moldura' | 'folha' }) {
+  const papel = useAuthStore(s => s.user?.role)
+  const [denunciando, setDenunciando] = useState(false) // janela do chat no assunto "Denunciar evento" (a página do evento não tem o Evo)
   const navigate = useNavigate()
   const location = useLocation()
   const heroRef = useRef<HTMLDivElement>(null)
@@ -355,6 +361,11 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           <p className="mt-6 text-sm leading-5 text-muted-foreground">
             Dúvidas sobre a compra? <Link to="/contato" className="font-semibold text-primary underline underline-offset-4">Fale com a gente</Link>.
           </p>
+          <p className="mt-3 text-sm leading-5 text-muted-foreground">
+            Algo errado neste evento?{' '}
+            <button type="button" onClick={() => setDenunciando(true)} className="font-semibold text-primary underline underline-offset-4">Denunciar evento</button>
+            {' '}ou escreva para <a href="mailto:contato@evokaa.com.br" className="font-semibold text-primary underline underline-offset-4">contato@evokaa.com.br</a>.
+          </p>
         </section>
         )}
       </div>
@@ -396,6 +407,16 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
           )}
         </div>
       </div>
+
+      {!previa && denunciando && (
+        <JanelaSuporte
+          publico={publicoDoPapel(papel)}
+          assuntoInicial={ASSUNTO_DENUNCIA}
+          textoInicial={`Denúncia do evento "${event.title}" (${window.location.href}): `}
+          aoFechar={() => setDenunciando(false)}
+          posicao="bottom-28 max-sm:bottom-24 h-[min(620px,calc(100dvh-9rem))]"
+        />
+      )}
 
       {!previa && <Drawer open={taxaAberta} onOpenChange={setTaxaAberta}>
         <DrawerContent className="mx-auto max-w-xl">
