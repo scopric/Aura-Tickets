@@ -24,8 +24,8 @@ export function usarImagem(src: string | undefined) {
   return r
 }
 
-export default function PlantaFundo({ envsCount, eventId, fundo, onFundo, modo, onModo, erroImagem }: {
-  envsCount: number; eventId: string | null; fundo: Fundo | null; onFundo: (f: Fundo | null) => void; modo: ModoPlanta; onModo: (m: ModoPlanta) => void; erroImagem: boolean
+export default function PlantaFundo({ envsCount, eventId, fundo, onFundo, modo, onModo, erroImagem, onLerIA }: {
+  envsCount: number; eventId: string | null; fundo: Fundo | null; onFundo: (f: Fundo | null) => void; modo: ModoPlanta; onModo: (m: ModoPlanta) => void; erroImagem: boolean; onLerIA: () => void
 }) {
   const arq = useRef<HTMLInputElement>(null)
   const [lendo, setLendo] = useState(false)
@@ -77,6 +77,7 @@ export default function PlantaFundo({ envsCount, eventId, fundo, onFundo, modo, 
           </label>
           <Button size="sm" variant={modo === 'mover' ? 'default' : 'outline'} aria-pressed={modo === 'mover'} className="w-full max-lg:h-10" onClick={() => onModo(modo === 'mover' ? '' : 'mover')}>Mover planta</Button>
           <Button size="sm" variant={modo === 'calibrar' ? 'default' : 'outline'} aria-pressed={modo === 'calibrar'} className="w-full max-lg:h-10" onClick={() => onModo(modo === 'calibrar' ? '' : 'calibrar')}>Calibrar escala</Button>
+          <Button size="sm" variant="outline" className="w-full max-lg:h-10" disabled={!eventId || erroImagem} onClick={onLerIA}>Ler planta com IA</Button>
           <Button size="sm" variant="outline" className="w-full border-destructive text-destructive max-lg:h-10" onClick={remover}>Remover planta</Button>
         </>
       )}

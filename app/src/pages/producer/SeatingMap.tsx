@@ -6,16 +6,13 @@ import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { reduzirPlanta, pdfParaImagem, MAX_ARQUIVO_BYTES } from '../../lib/plantaFundo'
 import * as I from '@/components/icones/evokaa16'
 import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
-import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
+import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, CUSTO_LEITURA, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { formasNovas } from './mapa/catalogo'
 import { type ToolType, type SeatStatus, type SeatNode, type WallNode, type Section, type Environment, sectionColors, defaultSections, typeLabels, toolDefaults, novosPavimentos, fundoPadrao, montarFundo, instantaneo, normalizarEnvs } from './mapa/modelo'
 
 
-// ponytail: custo padrão da leitura (ai_settings.credit_cost.imagem); o produtor não lê as configurações do Evo.
-// Se a administração mudar o valor, este texto fica desatualizado até uma leitura recusada ou concluída mostrar o real.
-const CUSTO_LEITURA = 5
 const ESCALA_PADRAO = 40 // pixelsPerMeter de um pavimento novo; 40 = escala ainda não calibrada
 
 

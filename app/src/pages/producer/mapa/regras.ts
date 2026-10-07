@@ -1,6 +1,7 @@
-import { defaultSections, normalizarEnvs, typeLabels, type Environment, type SeatNode, type SeatStatus, type WallNode } from './modelo'
+import { defaultSections, normalizarEnvs, typeLabels, type Environment, type Section, type SeatNode, type SeatStatus, type WallNode } from './modelo'
 import { caixaDosElementos, ORIGEM_SALA } from './geometria'
-import { ESTRUTURA } from './paleta'
+import { ESTRUTURA, ITENS, comSecao, criarNo, destinoDe } from './paleta'
+import type { nosDaProposta } from '../../../lib/plantaIA'
 
 const vendido = (n: SeatNode) => n.sold > 0 || n.status === 'sold' || n.status === 'reserved'
 
@@ -9,6 +10,25 @@ export function proximoRotulo(nos: Pick<SeatNode, 'label'>[], base: string): str
   const re = new RegExp(`^${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s?(\\d+)$`)
   const max = nos.reduce((m, n) => Math.max(m, Number(re.exec(n.label)?.[1] ?? 0)), 0)
   return base ? `${base} ${max + 1}` : String(max + 1)
+}
+
+// Leitor de planta: acrescenta as peças aprovadas ao pavimento, sem tocar nos nós que já existem
+export function acrescentarPecas(e: Environment, nos: ReturnType<typeof nosDaProposta>, sec: Section, novoId: () => string): { env: Environment; ids: string[] } {
+  let sections = e.sections
+  const seats = [...e.seats]
+  const ids: string[] = []
+  for (const n of nos) {
+    const it = ITENS[n.tipo]
+    if (!it) continue
+    const destino = destinoDe(it, sec)
+    sections = comSecao(sections, destino)
+    const label = n.rotulo && !seats.some(s => s.label === n.rotulo) ? n.rotulo : proximoRotulo(seats, n.tipo === 'seat' ? '' : n.tipo === 'table' ? 'Mesa' : it.nome) // numeração como na criação manual
+    const quadrada = Math.abs(n.widthMeter - n.heightMeter) <= 0.15 * Math.max(n.widthMeter, n.heightMeter)
+    const no = criarNo(it, n.x, n.y, novoId(), destino, { label, widthMeter: n.widthMeter, heightMeter: n.heightMeter, ...(n.tipo === 'table' ? { tableShape: quadrada ? 'circle' : 'rectangle' } : {}) })
+    seats.push(no)
+    ids.push(no.id)
+  }
+  return { env: { ...e, sections, seats }, ids }
 }
 
 // Rótulo da cópia: troca o número final pelo próximo livre; sem número, só muda se o nó vende lugar

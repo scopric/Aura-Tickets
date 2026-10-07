@@ -12,13 +12,14 @@ import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNod
 import { useMapa } from './usarMapa'
 import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
-import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
+import { comSecao, criarNo, destinoDe, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, acrescentarPecas } from './regras'
 import { useIngressos } from './usarIngressos'
 import PrecoLote from './PrecoLote'
 import PlantaFundo, { FaixaPlanta, usarImagem, type ModoPlanta } from './PlantaFundo'
-import { LARGURA_BASE_PX } from '../../../lib/plantaIA'
+import PainelLeitor, { usarLeitorPlanta } from './LeitorPlanta'
+import { emMetros, nosDaProposta, LARGURA_BASE_PX, type Quadro } from '../../../lib/plantaIA'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -135,6 +136,9 @@ export default function EditorKonva() {
   const [modoPlanta, setModoPlanta] = useState<ModoPlanta>('')
   const [pontosCal, setPontosCal] = useState<{ x: number; y: number }[]>([]) // em metros, como o mapa guarda
   const planta = usarImagem(fundo?.image)
+  const leitor = usarLeitorPlanta(eventId, fundo?.image)
+  const [leitorAberto, setLeitorAberto] = useState(false)
+  useEffect(() => { setLeitorAberto(false) }, [eventId])
   const escolherModo = (m: ModoPlanta) => { setModoPlanta(m); setPontosCal([]); if (m) { setGaveta(''); setFerr('select'); setSel(null) } }
   useEffect(() => { setModoPlanta('') ; setPontosCal([]) }, [eventId])
   const [secSel, setSecSel] = useState<string | null>(null)
@@ -219,11 +223,27 @@ export default function EditorKonva() {
     const base = it.id === 'seat' || it.id === 'poltrona' ? '' : it.id === 'table' ? 'Mesa' : it.id === 'cadeira_pne' ? 'PNE' : it.id === 'espaco_cadeirante' ? 'Espaço Cadeirante' : null
     const rotulo = base === null ? it.nome : proximoRotulo(env.seats, base)
     // o que não vende vai para a seção "Estrutura" (criada se faltar), sem inflar a contagem da seção ativa
-    const destino = daSecao(it.tipo) ? sec : ESTRUTURA
+    const destino = destinoDe(it, sec)
     const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), destino, { label: rotulo })
-    mudar(e => ({ ...e, sections: (e.sections || []).some(s => s.id === destino.id || s.name === destino.name) ? e.sections : [...(e.sections || []), destino], seats: [...e.seats, no] }))
+    mudar(e => ({ ...e, sections: comSecao(e.sections, destino), seats: [...e.seats, no] }))
     setSel({ tipo: 'no', id: no.id })
     setFerr('select')
+  }
+  // Mesma conta do KImage da planta: largura scale * LARGURA_BASE_PX, altura pela proporção da imagem, tudo em px do pavimento
+  const quadro: Quadro | null = fundo && planta.img
+    ? { offset: fundo.offset, scale: fundo.scale, naturalWidth: planta.img.naturalWidth, naturalHeight: planta.img.naturalHeight, pixelsPerMeter: ppm }
+    : null
+  // Só as peças marcadas, num único passo do desfazer; nós que já existem não são tocados
+  const aplicarLeitura = () => {
+    const p = leitor.propostaAtual
+    if (!p || !quadro || !sec) return
+    const nos = nosDaProposta(p.pecas, quadro)
+    if (!nos.length) { toast.error('Nenhuma peça marcada. Marque ao menos uma ou descarte.'); return }
+    const r = acrescentarPecas(env, nos, sec, novoId)
+    const foraNovos = r.env.seats.filter(n => r.ids.includes(n.id) && (c => c.w > salaW + 1e-6 || c.h > salaH + 1e-6)(limites({ ...env, seats: [n], walls: [] }))).length
+    mudar(() => r.env)
+    leitor.descartar(); setLeitorAberto(false); setSel(null); setReenquadrar(v => v + 1)
+    toast.success(`${r.ids.length} peças aplicadas. Ctrl+Z desfaz tudo de uma vez.${foraNovos ? ` ${foraNovos} ficaram fora da sala: use o aviso vermelho "fora da sala" para trazê-las.` : ''}`)
   }
   const apagar = () => {
     if (!sel) return
@@ -611,6 +631,22 @@ export default function EditorKonva() {
             <Layer>
               <Transformer ref={trRef} rotateEnabled keepRatio={false} boundBoxFunc={(a, b) => (b.width < 8 || b.height < 8 ? a : b)} />
             </Layer>
+            {quadro && leitor.propostaAtual && (
+              <Layer listening={false}>
+                <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
+                  {leitor.propostaAtual.pecas.filter(p => p.marcada).map(p => {
+                    const m = emMetros(p, quadro)
+                    return (
+                      <Group key={p.id} x={m.x} y={m.y}>
+                        <Rect x={-m.widthMeter / 2} y={-m.heightMeter / 2} width={m.widthMeter} height={m.heightMeter} fill="#f59e0b" opacity={0.18} />
+                        <Rect x={-m.widthMeter / 2} y={-m.heightMeter / 2} width={m.widthMeter} height={m.heightMeter} stroke="#f59e0b" strokeWidth={2} strokeScaleEnabled={false} dash={[6, 4]} />
+                        <Texto w={m.widthMeter} h={m.heightMeter} texto={p.rotulo || typeLabels[p.tipo] || p.tipo} fonte={Math.max(0.2, Math.min(0.5, m.heightMeter * 0.5))} cor="#fde68a" />
+                      </Group>
+                    )
+                  })}
+                </Group>
+              </Layer>
+            )}
             {modoPlanta === 'calibrar' && pontosCal.length > 0 && (
               <Layer listening={false}>
                 <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
@@ -705,7 +741,7 @@ export default function EditorKonva() {
             <p className="text-xs text-muted-foreground">{sel?.tipo === 'parede' ? 'Parede selecionada.' : 'Clique em um elemento para mudar só a cor dele.'}</p>
           )}
         </section>
-        <PlantaFundo key={eventId} envsCount={envs.length} eventId={eventId} fundo={fundo} onFundo={setFundo} modo={modoPlanta} onModo={escolherModo} erroImagem={!!planta.erro} />
+        <PlantaFundo key={eventId} envsCount={envs.length} eventId={eventId} fundo={fundo} onFundo={setFundo} modo={modoPlanta} onModo={escolherModo} erroImagem={!!planta.erro} onLerIA={() => setLeitorAberto(true)} />
       </aside>
       </div>
       <footer aria-label="Totais do pavimento" className="flex flex-shrink-0 items-center gap-5 overflow-x-auto whitespace-nowrap border-t border-border bg-card px-3 py-2 text-xs text-muted-foreground">
@@ -717,6 +753,7 @@ export default function EditorKonva() {
         <span className="ml-auto">Receita: <strong className="text-foreground">{reais(m.receita)}</strong></span>
         <span>Potencial: <strong className="text-foreground">{reais(m.potencial)}</strong></span>
       </footer>
+      {leitorAberto && <PainelLeitor leitor={leitor} naoCalibrada={ppm === 40} onLer={() => leitor.ler(() => setLeitorAberto(true))} onAplicar={aplicarLeitura} onFechar={() => setLeitorAberto(false)} />}
       <SeletorTemplates aberto={abrirTemplates} onFechar={() => setAbrirTemplates(false)} onEscolher={escolherTemplate} />
     </div>
   )

@@ -74,3 +74,8 @@ export function criarNo(item: ItemCatalogo, x: number, y: number, id: string, se
     ...extra,
   }
 }
+
+// Onde o item mora: o que vende vai para a seção ativa; o resto, para "Estrutura" (criada se faltar)
+export const destinoDe = (it: ItemCatalogo, sec: Section): Section => (daSecao(it.tipo) ? sec : ESTRUTURA)
+export const comSecao = (sections: Section[] | undefined, destino: Section): Section[] =>
+  (sections || []).some(s => s.id === destino.id || s.name === destino.name) ? sections! : [...(sections || []), destino]
