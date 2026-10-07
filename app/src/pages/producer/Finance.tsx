@@ -1,6 +1,6 @@
 import * as I from '@/components/icones/evokaa16'
 import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -30,6 +30,7 @@ type Pedido = {
 const data = (iso: string) => new Date(iso).toLocaleDateString('pt-BR')
 const diaBr = (aaaammdd: string) => aaaammdd.split('-').reverse().join('/')
 const num = (v: unknown) => Number(v) || 0
+const POR_PAGINA = 20
 const COLUNAS = 'id, event_id, total, payment_method, created_at, events!inner(title, producer_id)'
 
 export default function ProducerFinance() {
@@ -41,32 +42,48 @@ export default function ProducerFinance() {
 
   const [filtroEvento] = useFiltroEvento()
   const { de, ate } = janelaDoPeriodo(periodo)
-  // soma e quebras vêm do banco (sem teto de 1.000 linhas); a lista na tela traz só as 20 mais recentes, o CSV traz todas
-  const { data: v, isPending, isError, refetch, isFetching } = useQuery({
+  // soma e quebras vêm do banco (sem teto de 1.000 linhas); a lista na tela traz 20 por vez ("Ver mais"), o CSV traz todas
+  const somaQ = useQuery({
     queryKey: ['producer-financeiro', user?.id, periodo, filtroEvento],
     enabled: !!user?.id,
-    queryFn: async () => {
-      const [soma, recentes] = await Promise.all([
-        vendasPagas({ de, ate, eventId: filtroEvento }),
-        (() => {
-          let q = supabase.from('orders').select(COLUNAS).eq('events.producer_id', user!.id).eq('status', 'paid')
-          if (de) q = q.gte('created_at', de)
-          if (filtroEvento) q = q.eq('event_id', filtroEvento)
-          return q.order('created_at', { ascending: false }).order('id').limit(20) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>
-        })(),
-      ])
-      if (recentes.error) throw recentes.error
-      return { soma, recentes: recentes.data ?? [] }
+    queryFn: () => vendasPagas({ de, ate, eventId: filtroEvento }),
+  })
+  const nPedidos = num(somaQ.data?.pedidos)
+  const pedidosQ = useInfiniteQuery({
+    queryKey: ['producer-fin-pedidos', user?.id, periodo, filtroEvento],
+    enabled: !!user?.id,
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      let q = supabase.from('orders').select(COLUNAS).eq('events.producer_id', user!.id).eq('status', 'paid')
+      if (de) q = q.gte('created_at', de)
+      if (filtroEvento) q = q.eq('event_id', filtroEvento)
+      const r = await (q.order('created_at', { ascending: false }).order('id').range(pageParam, pageParam + POR_PAGINA - 1) as unknown as PromiseLike<{ data: Pedido[] | null; error: unknown }>)
+      if (r.error) throw r.error
+      return r.data ?? []
+    },
+    // para quando a página vem curta ou a soma das linhas chega ao total do banco
+    getNextPageParam: (ultima, todas) => {
+      const carregadas = todas.reduce((a, p) => a + p.length, 0)
+      return ultima.length < POR_PAGINA || carregadas >= nPedidos ? undefined : carregadas
     },
   })
-  const soma = v?.soma
+  const isPending = somaQ.isPending || pedidosQ.isPending
+  const isError = somaQ.isError || (pedidosQ.isError && !pedidosQ.data)
+  const isFetching = somaQ.isFetching || pedidosQ.isFetching
+  const refetch = () => { somaQ.refetch(); pedidosQ.refetch() }
+  // pedido pago no meio da paginação desloca as páginas e repetiria uma linha: um por id
+  const recentes = [...new Map((pedidosQ.data?.pages.flat() ?? []).map(x => [x.id, x])).values()]
+  const verMais = async () => {
+    const r = await pedidosQ.fetchNextPage()
+    if (r.isError) toast.error('Não foi possível carregar mais pedidos. Tente de novo.')
+  }
+  const soma = somaQ.data
   const vazio = !!soma && soma.pedidos === 0
   // zero vendas com 2FA pendente é zero do banco, não falta de venda
   const doisFatoresQ = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: vazio, queryFn: faltaSegundoFator })
 
   // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
   const bruto = num(soma?.total)
-  const nPedidos = num(soma?.pedidos)
 
   const exportar = async () => {
     try {
@@ -92,7 +109,7 @@ export default function ProducerFinance() {
       actions={
         <>
           <Segmented label="Período" size="sm" value={periodo} onValueChange={mudaPeriodo} items={PERIODOS} className="w-full sm:w-72" />
-          <Button variant="outline" onClick={exportar} disabled={nPedidos === 0}>
+          <Button variant="outline" onClick={exportar} disabled={nPedidos === 0} title={nPedidos === 0 ? 'Sem pedidos pagos para exportar' : undefined}>
           <I.Baixar aria-hidden="true" />Exportar CSV
           </Button>
         </>
@@ -104,7 +121,7 @@ export default function ProducerFinance() {
     <div className="mb-6 rounded-[10px] border border-border bg-card p-4">
       <p className="text-sm font-medium text-foreground">Os valores do repasse aparecem quando o pagamento estiver ligado.</p>
       <p className="mt-1 text-sm text-muted-foreground">
-        Até lá, esta tela mostra só o valor bruto dos pedidos pagos: o que o comprador pagou, com a taxa de serviço incluída. Taxas, repasse e saque ainda não são descontados aqui. Pedido reembolsado sai da soma.
+        Até lá, esta tela mostra só o valor bruto dos pedidos pagos: o que o comprador pagou, com a taxa de serviço incluída. Taxas, repasse e saque ainda não são descontados aqui. Pedido reembolsado sai da soma e da lista, no período em que o pedido foi feito, não no do reembolso.
       </p>
     </div>
   )
@@ -113,6 +130,7 @@ export default function ProducerFinance() {
     return (
       <div aria-busy="true">
         {header}
+        <FiltroEvento />
         {aviso}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
@@ -126,8 +144,9 @@ export default function ProducerFinance() {
     return (
       <div>
         {header}
+        <FiltroEvento />
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">Não foi possível carregar as vendas.</p>
+          <p className="text-sm text-foreground">Não foi possível carregar o resumo financeiro.</p>
           <Button variant="outline" size="sm" onClick={() => refetch()} loading={isFetching}>Tentar de novo</Button>
         </div>
       </div>
@@ -143,11 +162,11 @@ export default function ProducerFinance() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Stat label="Vendas pagas (bruto)" value={brl(bruto)} />
         <Stat label="Pedidos pagos" value={nPedidos.toLocaleString('pt-BR')} />
-        <Stat label="Ticket médio (bruto)" value={nPedidos ? brl(bruto / nPedidos) : '—'} />
+        <Stat label="Ticket médio por pedido (bruto)" value={nPedidos ? brl(bruto / nPedidos) : '—'} />
       </div>
       {num(soma?.reembolsados.pedidos) > 0 && (
         <p className="mt-3 text-xs text-muted-foreground">
-          {num(soma?.reembolsados.pedidos).toLocaleString('pt-BR')} {num(soma?.reembolsados.pedidos) === 1 ? 'pedido reembolsado' : 'pedidos reembolsados'} ({brl(num(soma?.reembolsados.total))}) não {num(soma?.reembolsados.pedidos) === 1 ? 'entra' : 'entram'} na soma.
+          {num(soma?.reembolsados.pedidos).toLocaleString('pt-BR')} {num(soma?.reembolsados.pedidos) === 1 ? 'pedido reembolsado' : 'pedidos reembolsados'} ({brl(num(soma?.reembolsados.total))}) não {num(soma?.reembolsados.pedidos) === 1 ? 'entra' : 'entram'} na soma (contados pela data do pedido).
         </p>
       )}
 
@@ -212,7 +231,7 @@ export default function ProducerFinance() {
           <section aria-labelledby="fin-pedidos" className="rounded-[10px] border border-border bg-card">
             <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-pedidos">Últimos pedidos pagos</SectionTitle></div>
             <ul className="divide-y divide-border">
-              {v!.recentes.map(x => (
+              {recentes.map(x => (
                 <li key={x.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
                     <p className="truncate text-sm text-foreground">{x.events?.title || 'Sem título'}</p>
@@ -222,10 +241,15 @@ export default function ProducerFinance() {
                 </li>
               ))}
             </ul>
-            {nPedidos > 20 && (
-              <p className="border-t border-border px-4 py-3 text-xs text-muted-foreground">
-                Mostrando os 20 mais recentes de {nPedidos.toLocaleString('pt-BR')}. O CSV traz todos.
-              </p>
+            {nPedidos > recentes.length && (
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {recentes.length.toLocaleString('pt-BR')} de {nPedidos.toLocaleString('pt-BR')}. O CSV traz todos.
+                </p>
+                {pedidosQ.hasNextPage && (
+                  <Button variant="outline" size="sm" onClick={verMais} loading={pedidosQ.isFetchingNextPage}>Ver mais</Button>
+                )}
+              </div>
             )}
           </section>
         </div>
