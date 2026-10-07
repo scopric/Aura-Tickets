@@ -51,7 +51,7 @@ describe('OrganizadorPublico', () => {
     fireEvent.change(screen.getByLabelText('Instagram'), { target: { value: 'a b' } })
     fireEvent.change(screen.getByLabelText('E-mail de contato'), { target: { value: 'sem-arroba' } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(await screen.findByText(/não pode conter "Evokaa"/)).toBeInTheDocument()
+    expect(await screen.findByText(/não pode lembrar a marca/)).toBeInTheDocument()
     expect(screen.getByText(/comece com https:\/\/$/, { selector: '[role=alert]' })).toBeInTheDocument()
     expect(screen.getByText(/letras, números, ponto/)).toBeInTheDocument()
     expect(screen.getByText('Informe um e-mail válido.')).toBeInTheDocument()

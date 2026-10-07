@@ -4,6 +4,7 @@ import * as I from '@/components/icones/evokaa16'
 import { useOrganizadorPublico, type Rede } from '../../hooks/useOrganizadorPublico'
 import PhoneInput from '../ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
+import { marcaOk, rotuloOk, hostOk, emailSemProibidos, mensagemCheck } from '../../lib/organizadorTexto'
 import { SectionTitle, Erro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,7 @@ const VAZIO: Form = {
 }
 const MAX_REDES = 5
 // mesma regra do CHECK do banco (https, host ASCII, sem porta nem '?' logo após o domínio)
-const urlBanco = (u: string) => u.length <= 200 && /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s"<>]*)?$/.test(u)
+const urlBanco = (u: string) => u.length <= 200 && /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s"<>]*)?$/.test(u) && hostOk(u)
 const SEGUNDO_FATOR = 'Confirme o segundo fator de novo e tente outra vez.'
 
 // o banco guarda 55+DDD+número; o PhoneInput trabalha com "+55..."
@@ -38,7 +39,7 @@ export function validar(f: Form): Erros {
   const nome = f.nome.trim()
   if (!nome) e.nome = 'Informe o nome do organizador.'
   else if (nome.length > 80) e.nome = 'Use até 80 caracteres.'
-  else if (/evokaa/i.test(nome)) e.nome = 'O nome não pode conter "Evokaa".'
+  else if (!marcaOk(nome)) e.nome = 'O nome não pode lembrar a marca Evokaa ou Aura Tickets.'
   const zap = nacional(f.whatsapp)
   if (zap && !/^\d{10,11}$/.test(zap)) e.whatsapp = 'Informe o DDD e o número (10 ou 11 dígitos).'
   const insta = f.instagram.trim().replace(/^@/, '')
@@ -47,10 +48,12 @@ export function validar(f: Form): Erros {
   if (site && !urlBanco(site)) e.site = 'Informe um endereço completo que comece com https://'
   const email = f.email.trim()
   if (email && (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))) e.email = 'Informe um e-mail válido.'
+  else if (email && !emailSemProibidos(email)) e.email = 'O e-mail não pode ter ? & # % , ; < > ".'
   for (const r of f.redes) {
     const rot = r.rotulo.trim(), url = r.url.trim()
     if (!rot && !url) continue
     if (!rot || rot.length > 30) { e.redes = 'Cada rede precisa de um nome de até 30 caracteres.'; break }
+    if (!rotuloOk(rot)) { e.redes = 'O nome da rede não pode ter Pix, Pagamento nem lembrar a marca.'; break }
     if (!urlBanco(url)) { e.redes = 'Cada rede precisa de um endereço que comece com https://'; break }
   }
   if (!e.redes && JSON.stringify(f.redes.filter(r => r.rotulo.trim() || r.url.trim())).length > 950) e.redes = 'Encurte os endereços das redes'
@@ -110,7 +113,7 @@ export default function OrganizadorPublico() {
       const code = (err as { code?: string })?.code
       toast.error(
         code === '42501' ? SEGUNDO_FATOR
-        : code === '23514' ? 'Algum campo está em formato inválido. Confira e tente de novo.'
+        : code === '23514' ? mensagemCheck((err as { message?: string })?.message)
         : 'Erro ao salvar os dados do organizador',
       )
     }
