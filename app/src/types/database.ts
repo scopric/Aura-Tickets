@@ -395,6 +395,7 @@ export interface Database {
           meta_description: string | null
           accent_color: string | null
           capa_na_cor: boolean
+          accent_intensity: number
           created_at: string
           updated_at: string
         }
@@ -431,6 +432,7 @@ export interface Database {
           meta_description?: string | null
           accent_color?: string | null
           capa_na_cor?: boolean
+          accent_intensity?: number
           created_at?: string
           updated_at?: string
         }
@@ -467,6 +469,7 @@ export interface Database {
           meta_description?: string | null
           accent_color?: string | null
           capa_na_cor?: boolean
+          accent_intensity?: number
           created_at?: string
           updated_at?: string
         }

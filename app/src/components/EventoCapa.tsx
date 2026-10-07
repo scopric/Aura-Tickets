@@ -14,6 +14,7 @@ export interface EventoCapaDados {
   image_url?: string | null
   accent_color?: string | null
   capa_na_cor?: boolean | null // true: duotone na cor do evento; senão, foto original
+  accent_intensity?: number | null // 10 a 100 (%); ausente = 100
   date?: string | null
 }
 
@@ -37,7 +38,7 @@ export default function EventoCapa({ evento, tamanho = 'cartao', cor, className 
   const comp = compDoCartaz(evento.id)
   const dm = diaMesDoCartaz(evento.date)
   const { linhas, k } = linhasDoCartaz(evento.title)
-  const estilo = { ...varsDoEvento(corEv, faixa), '--cz-k': k.toFixed(2) } as CSSProperties
+  const estilo = { ...varsDoEvento(corEv, faixa, evento.accent_intensity ?? 100), '--cz-k': k.toFixed(2) } as CSSProperties
   const aria = cartao
     ? { role: 'img', 'aria-label': foto ? `Capa do evento ${evento.title}` : `Cartaz de ${evento.title}${dm ? `, ${dm.dia} de ${dm.mes.toLowerCase()}` : ''}` }
     : { 'aria-hidden': true as const }

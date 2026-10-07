@@ -83,7 +83,7 @@ export default function ProducerDashboard() {
   useEffect(() => {
     if (!aprovado || !carregou || erroRegistro || celebrou.current || registrados.has('celebracao:primeiro-evento')) return
     celebrou.current = true
-    const d = derivarCor(corDoEvento(aprovado))
+    const d = derivarCor(corDoEvento(aprovado), aprovado.accent_intensity ?? 100)
     soltarConfete([d.cor, d.duoLuz, '#f2994a'])
     registrar('celebracao:primeiro-evento', { silencioso: true })
   }, [aprovado, carregou, erroRegistro, registrados, registrar])

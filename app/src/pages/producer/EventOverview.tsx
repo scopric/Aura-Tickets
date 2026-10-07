@@ -217,7 +217,7 @@ function Visao({ e }: { e: DbEvent }) {
   const rotulo = (t: string) => <span className="max-sm:sr-only">{t}</span>
 
   return (
-    <div className="evento-cor" style={varsDoEvento(cor) as CSSProperties}>
+    <div className="evento-cor" style={varsDoEvento(cor, false, e.accent_intensity ?? 100) as CSSProperties}>
       <header
         className="relative isolate flex min-h-[184px] flex-col justify-between gap-6 overflow-hidden rounded-ev-xl pb-5 pl-6 pr-4 pt-4"
         style={{ color: comFoto ? '#ffffff' : 'var(--cz-tinta)', textShadow: comFoto ? '0 1px 3px rgb(0 0 0 / 0.55)' : undefined }}

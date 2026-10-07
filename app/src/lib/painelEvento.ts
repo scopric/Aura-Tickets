@@ -15,6 +15,7 @@ export type Form = {
   classificacao: string
   accent_color: string | null
   capa_na_cor: boolean
+  accent_intensity: number
 }
 
 // O que vai ao banco: colunas de events (a lista branca é colunasDoEvento) e online_url (evento_privado).
@@ -23,7 +24,7 @@ export type Snap = {
   title: string; subtitle: string; category: string; temas: string[]; estilos: string[]; tags: string[]; description: string
   date: string; time: string; end_date?: string | null
   local_modo: string; venue_name: string; venue_zip: string; venue_address: string; venue_city: string; venue_state: string
-  classificacao: string; accent_color: string | null; capa_na_cor: boolean; online_url?: string
+  classificacao: string; accent_color: string | null; capa_na_cor: boolean; accent_intensity: number; online_url?: string
 }
 
 export const USA_LINK = ['online', 'hibrido']
@@ -55,7 +56,7 @@ export function formDoEvento(e: DbEvent, link: string): Form {
     title: e.title ?? '', subtitle: e.subtitle ?? '', category: e.category ?? '', temas: e.temas ?? [], estilos: e.estilos ?? [], tags: e.tags ?? [],
     description: e.description ?? '', inicioD: e.date ?? '', inicioH: (e.time ?? '').slice(0, 5), fimD: fim.d, fimH: fim.h,
     local_modo: e.local_modo ?? 'presencial', venue_name: e.venue_name ?? '', cep: e.venue_zip ?? '', ...separaEndereco(e.venue_address),
-    venue_city: e.venue_city ?? '', venue_state: e.venue_state ?? '', link, classificacao: e.classificacao ?? '', accent_color: e.accent_color ?? null, capa_na_cor: e.capa_na_cor === true,
+    venue_city: e.venue_city ?? '', venue_state: e.venue_state ?? '', link, classificacao: e.classificacao ?? '', accent_color: e.accent_color ?? null, capa_na_cor: e.capa_na_cor === true, accent_intensity: e.accent_intensity ?? 100,
   }
 }
 
@@ -66,7 +67,7 @@ export function formDoSnap(s: Snap): Form {
     title: s.title, subtitle: s.subtitle, category: s.category, temas: s.temas, estilos: s.estilos, tags: s.tags, description: s.description,
     inicioD: s.date, inicioH: s.time, fimD: fim.d, fimH: fim.h, local_modo: s.local_modo, venue_name: s.venue_name, cep: s.venue_zip,
     ...separaEndereco(s.venue_address), venue_city: s.venue_city, venue_state: s.venue_state, link: s.online_url ?? '',
-    classificacao: s.classificacao, accent_color: s.accent_color, capa_na_cor: s.capa_na_cor,
+    classificacao: s.classificacao, accent_color: s.accent_color, capa_na_cor: s.capa_na_cor, accent_intensity: s.accent_intensity,
   }
 }
 
@@ -78,7 +79,7 @@ export function snapDoForm(f: Form): Snap {
     date: f.inicioD, time: f.inicioH,
     ...(fimCompleto ? { end_date: `${f.fimD}T${f.fimH}:00-03:00` } : !f.fimD && !f.fimH ? { end_date: null } : {}),
     local_modo: f.local_modo, venue_name: f.venue_name, venue_zip: f.cep, venue_address: enderecoDe(f.rua, f.numero, f.bairro),
-    venue_city: f.venue_city, venue_state: f.venue_state, classificacao: f.classificacao, accent_color: f.accent_color, capa_na_cor: f.capa_na_cor,
+    venue_city: f.venue_city, venue_state: f.venue_state, classificacao: f.classificacao, accent_color: f.accent_color, capa_na_cor: f.capa_na_cor, accent_intensity: f.accent_intensity,
     // modo sem link (presencial, a definir): o link salvo some de evento_privado
     ...(!USA_LINK.includes(f.local_modo) ? { online_url: '' } : link === '' || linkValido(link) ? { online_url: link } : {}),
   }
@@ -93,8 +94,8 @@ export function diffCampos<T extends Record<string, unknown>>(base: T, atual: T)
 }
 
 // O que o gatilho do banco (gf_protect_event_moderation) trata como conteúdo: mudar isto num evento aprovado o devolve
-// para análise. A cor (accent_color) e a escolha da capa (capa_na_cor) ficam de fora: vale na hora. A capa (cover_image) é conteúdo (Decisão 136).
-const FORA_DA_MODERACAO = ['accent_color', 'capa_na_cor']
+// para análise. A cor (accent_color), sua intensidade (accent_intensity) e a escolha da capa (capa_na_cor) ficam de fora: vale na hora. A capa (cover_image) é conteúdo (Decisão 136).
+const FORA_DA_MODERACAO = ['accent_color', 'accent_intensity', 'capa_na_cor']
 export const mudouConteudo = (d: object, capa = false) => capa || Object.keys(d).some(k => !FORA_DA_MODERACAO.includes(k))
 
 export const ERRO_NOME = 'Escreva o nome: ele aparece na página e no ingresso.'
@@ -126,7 +127,7 @@ export function semDatasInvalidas<T extends Record<string, unknown>>(d: Partial<
 const ROTULO_CAMPO: Record<string, string> = {
   title: 'nome', subtitle: 'subtítulo', category: 'formato', temas: 'temas', estilos: 'estilo musical', tags: 'etiquetas', description: 'descrição',
   date: 'data', time: 'hora', end_date: 'fim', local_modo: 'local', venue_name: 'local', venue_zip: 'local', venue_address: 'local',
-  venue_city: 'local', venue_state: 'local', online_url: 'link', classificacao: 'classificação', accent_color: 'cor', capa_na_cor: 'estilo da capa', capa: 'capa',
+  venue_city: 'local', venue_state: 'local', online_url: 'link', classificacao: 'classificação', accent_color: 'cor', capa_na_cor: 'estilo da capa', accent_intensity: 'cor', capa: 'capa',
 }
 /** Os campos mudados em texto, sem repetir ("data, hora, local") */
 export const rotulosDoDiff = (d: object) => [...new Set(Object.keys(d).map(k => ROTULO_CAMPO[k]).filter(Boolean))]

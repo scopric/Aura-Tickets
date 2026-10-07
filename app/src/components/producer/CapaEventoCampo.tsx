@@ -11,7 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 // Campo "capa e cor do evento" do painel do evento (PainelEvento). A foto é preparada
 // aqui (reduz e tira EXIF) mas só é enviada quando o pai salva: o banco não deixa apagar arquivo, então enviar a cada
 // escolha encheria o limite de 10 por evento.
-export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemover, cor, corManual, onCor, naCor, onNaCor, podeEnviar = true, avisoAnalise = false, ocupado: salvando = false }: {
+export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemover, cor, corManual, onCor, intensidade, onIntensidade, naCor, onNaCor, podeEnviar = true, avisoAnalise = false, ocupado: salvando = false }: {
   evento: EventoCapaDados // título, data e id (semente do cartaz e do sorteio de cor) da prévia
   urlAtual?: string | null // capa já salva no evento (painel); some quando a pessoa remove
   capa: CapaPronta | null
@@ -20,6 +20,8 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
   cor: string
   corManual: boolean // a pessoa já escolheu a cor: uma foto nova não a troca pela sugestão
   onCor: (c: string, manual: boolean) => void
+  intensidade: number // 10 a 100 (%): 100 = cor cheia; menos = mais suave, misturada com o fundo
+  onIntensidade: (v: number) => void
   naCor: boolean // Decisão 173: false = foto original (padrão); true = duotone na cor do evento
   onNaCor: (v: boolean) => void
   podeEnviar?: boolean // só o dono do evento envia (a regra do Storage exige o dono no caminho)
@@ -56,7 +58,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
 
   return (
     <div className="grid gap-4 sm:grid-cols-[minmax(0,15rem)_1fr]">
-      <EventoCapa evento={{ ...evento, cover_image: capa?.previewUrl ?? urlAtual ?? null, image_url: null, capa_na_cor: naCor }} cor={cor} tamanho="cartao" />
+      <EventoCapa evento={{ ...evento, cover_image: capa?.previewUrl ?? urlAtual ?? null, image_url: null, capa_na_cor: naCor, accent_intensity: intensidade }} cor={cor} tamanho="cartao" />
       <div className="space-y-4">
         {podeEnviar ? (
           <div className="space-y-2">
@@ -102,7 +104,10 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
               className="h-9 w-14 cursor-pointer rounded-md border border-input bg-transparent p-1 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
             <span className="text-xs tabular-nums text-muted-foreground">{cor}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Tinge o ingresso e os gráficos do evento (e a capa, em "Na cor do evento"). A sugestão vem da foto; você pode trocar.</p>
+          <Label htmlFor={`${id}-int`} className="mt-1">Intensidade da cor: <span className="tabular-nums">{intensidade}%</span></Label>
+          <input id={`${id}-int`} type="range" min={10} max={100} step={5} value={intensidade} onChange={e => onIntensidade(Number(e.target.value))} disabled={salvando}
+            aria-valuetext={`${intensidade}%`} style={{ accentColor: cor }} className="w-full max-w-xs cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
+          <p className="text-xs text-muted-foreground">100% é a cor cheia; menos deixa a cor mais suave, misturada com o fundo. Os textos continuam legíveis. Tinge o ingresso e os gráficos do evento (e a capa, em "Na cor do evento"). A sugestão vem da foto; você pode trocar.</p>
         </div>
         {avisoAnalise && podeEnviar && (
           <p className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">

@@ -60,6 +60,7 @@ export interface DbTicket {
     image_url?: string | null
     accent_color?: string | null
     capa_na_cor?: boolean | null
+    accent_intensity?: number | null
     end_date?: string | null
     status?: string | null
     venue_address?: string | null
@@ -265,6 +266,7 @@ export function useUserTickets() {
               image_url,
               accent_color,
               capa_na_cor,
+              accent_intensity,
               date,
               end_date,
               status,
@@ -340,6 +342,7 @@ export function useOrderTickets(orderId?: string) {
               title,
               cover_image,
               capa_na_cor,
+              accent_intensity,
               date,
               time,
               venue_name
@@ -363,6 +366,7 @@ export function useOrderTickets(orderId?: string) {
           title: t.ticket_types.events.title,
           cover_image: t.ticket_types.events.cover_image,
           capa_na_cor: t.ticket_types.events.capa_na_cor,
+          accent_intensity: t.ticket_types.events.accent_intensity,
           date: t.ticket_types.events.date,
           time: t.ticket_types.events.time,
           venue_name: t.ticket_types.events.venue_name,
