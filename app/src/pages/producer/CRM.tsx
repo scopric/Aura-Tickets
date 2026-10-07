@@ -192,6 +192,7 @@ export default function ProducerCRM() {
           stage_id: etapas[0]?.id ?? null, // primeira etapa do produtor (uuid real)
         } as never)
         .select('id')
+      if (error?.code === '23505') { toast.error('Já existe um lead com este e-mail.'); return }
       if (error || !r?.length) throw error ?? new Error('Lead não gravado')
       toast.success('Lead adicionado.')
       setIsAddModalOpen(false)
