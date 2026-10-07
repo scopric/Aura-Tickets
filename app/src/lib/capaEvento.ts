@@ -15,6 +15,7 @@ const LADOS = [2000, 1600, 1200] // lado maior, do melhor ao menor; só reduz, n
 export const LADO_BOM = 1200
 export const LADO_MINIMO = 600
 const BUCKET_CAPAS = 'capas-eventos'
+const BUCKET_CARDAPIO = 'cardapio-itens'
 
 export interface CapaPronta {
   blob: Blob // webp (ou jpeg, onde o navegador não grava webp), até 2 MB, sem EXIF
@@ -95,18 +96,27 @@ export async function prepararCapa(file: File, semente: string): Promise<CapaPro
 function mensagemDeEnvio(err: { message?: string; statusCode?: string | number; status?: number }): string {
   const recusado = /row-level security|unauthorized|forbidden|violates/i.test(err.message ?? '') || [401, 403, '401', '403'].includes(err.statusCode ?? err.status ?? 0)
   return recusado
-    ? 'O envio da foto foi recusado: só o dono do evento envia, o evento não pode estar cancelado e cada evento aceita até 10 envios de capa.'
+    ? 'O envio da foto foi recusado: só o dono da conta envia e há um limite de envios por evento (capa) e por conta (cardápio).'
     : 'Não foi possível enviar a foto. Confira a internet e tente de novo.'
 }
 
 // Sobe a capa em <produtor>/<evento>/<uuid>.<ext> (a regra do Storage exige esse caminho; o nome do arquivo da pessoa
 // não entra). upsert: false e nome novo a cada envio: o banco não deixa trocar nem apagar arquivo. Devolve a URL pública.
 export async function enviarCapa(capa: Pick<CapaPronta, 'blob'>, produtorId: string, eventoId: string): Promise<string> {
-  const ext = capa.blob.type === 'image/webp' ? 'webp' : 'jpg'
-  const caminho = `${produtorId}/${eventoId}/${crypto.randomUUID()}.${ext}`
-  const { error } = await supabase.storage.from(BUCKET_CAPAS).upload(caminho, capa.blob, { contentType: capa.blob.type, upsert: false, cacheControl: '86400' })
+  return enviar(capa.blob, BUCKET_CAPAS, `${produtorId}/${eventoId}`)
+}
+
+// Foto de item do cardápio: <produtor>/<uuid>.<ext> no bucket cardapio-itens (nome do arquivo da pessoa nunca entra)
+export async function enviarFotoItem(blob: Blob, produtorId: string): Promise<string> {
+  return enviar(blob, BUCKET_CARDAPIO, produtorId)
+}
+
+async function enviar(blob: Blob, bucket: string, pasta: string): Promise<string> {
+  const ext = blob.type === 'image/webp' ? 'webp' : 'jpg'
+  const caminho = `${pasta}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from(bucket).upload(caminho, blob, { contentType: blob.type, upsert: false, cacheControl: '86400' })
   if (error) throw new Error(mensagemDeEnvio(error as { message?: string; statusCode?: string }))
-  return supabase.storage.from(BUCKET_CAPAS).getPublicUrl(caminho).data.publicUrl
+  return supabase.storage.from(bucket).getPublicUrl(caminho).data.publicUrl
 }
 
 // Grava a URL nas duas colunas (a trava do banco aceita só URL do bucket, a foto padrão ou vazio). Trocar a capa de

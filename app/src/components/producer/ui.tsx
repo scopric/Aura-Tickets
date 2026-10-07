@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 
 // Peças do painel do produtor (Decisão 112; tipografia do contrato v3.4, §3): só tokens (bg-card, border-border,
@@ -51,5 +53,15 @@ export function EmptyState({ title, description, action }: { title: ReactNode; d
       </EmptyHeader>
       {action && <EmptyContent>{action}</EmptyContent>}
     </Empty>
+  )
+}
+
+// Falha de leitura: aviso com "Tentar de novo" (role=alert)
+export function Erro({ texto, refetch, carregando, className }: { texto: string; refetch: () => void; carregando: boolean; className?: string }) {
+  return (
+    <div role="alert" className={cn('rounded-[10px] border border-border bg-card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between', className)}>
+      <p className="text-sm text-foreground">{texto}</p>
+      <Button variant="outline" size="sm" onClick={() => refetch()} disabled={carregando}>{carregando ? 'Carregando…' : 'Tentar de novo'}</Button>
+    </div>
   )
 }

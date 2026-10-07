@@ -1,17 +1,20 @@
 import { useState } from 'react'
+import { useAuth } from '../../hooks/useAuth'
+import { prepararCapa, enviarFotoItem } from '../../lib/capaEvento'
 import * as I from '@/components/icones/evokaa16'
 import { useProducerMenuItems, useCreateMenuItem, useUpdateMenuItem, useDeleteMenuItem } from '../../hooks/useMenuItems'
 import { toast } from 'sonner'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState, selectNativo, chipOk, chipAviso } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, Erro, selectNativo, chipOk, chipAviso } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 const categories = [
@@ -42,7 +45,8 @@ const emptyForm: MenuForm = {
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
 
 export default function ProducerMenu() {
-  const { data: todos = [], isLoading } = useProducerMenuItems()
+  const { user } = useAuth()
+  const { data: todos = [], isLoading, isError, refetch, isFetching } = useProducerMenuItems()
   const [filtroEvento] = useFiltroEvento()
   const { data: events = [], isPending: carregandoEventos } = useProducerEvents()
   const items = doEvento(todos, filtroEvento)
@@ -54,10 +58,28 @@ export default function ProducerMenu() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [form, setForm] = useState<MenuForm>(emptyForm)
+  const [foto, setFoto] = useState<File | null>(null) // escolhida, ainda não enviada
+  const [previa, setPrevia] = useState<string | null>(null) // blob: local da foto escolhida
+  const [excluindo, setExcluindo] = useState<{ id: string; name: string } | null>(null)
+  const [enviando, setEnviando] = useState(false)
 
   const filtered = activeCategory === 'all'
     ? items
     : items.filter(i => i.category === activeCategory)
+
+  const limparFoto = () => {
+    if (previa) URL.revokeObjectURL(previa)
+    setFoto(null)
+    setPrevia(null)
+  }
+
+  const escolherFoto = (file: File | undefined) => {
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { toast.error('Use uma foto JPG, PNG ou WebP.'); return }
+    if (previa) URL.revokeObjectURL(previa)
+    setFoto(file)
+    setPrevia(URL.createObjectURL(file))
+  }
 
   const handleSubmit = async () => {
     try {
@@ -65,18 +87,29 @@ export default function ProducerMenu() {
         toast.error('Nome do item é obrigatório')
         return
       }
+      let dados = form
+      if (foto) {
+        if (!user?.id) throw new Error('Entre na sua conta para enviar a foto.')
+        setEnviando(true)
+        const pronta = await prepararCapa(foto, form.name)
+        URL.revokeObjectURL(pronta.previewUrl)
+        dados = { ...form, image_url: await enviarFotoItem(pronta.blob, user.id) }
+      }
       if (editingId) {
-        await updateItem.mutateAsync({ id: editingId, ...form })
+        await updateItem.mutateAsync({ id: editingId, ...dados })
         toast.success('Item atualizado!')
       } else {
-        await createItem.mutateAsync(form)
+        await createItem.mutateAsync(dados)
         toast.success('Item cadastrado!')
       }
       setShowForm(false)
       setEditingId(null)
       setForm(emptyForm)
+      limparFoto()
     } catch (err: any) {
       toast.error(err.message || 'Erro ao salvar item')
+    } finally {
+      setEnviando(false)
     }
   }
 
@@ -92,7 +125,6 @@ export default function ProducerMenu() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir este item?')) return
     try {
       await deleteItem.mutateAsync(id)
       toast.success('Item excluído!')
@@ -102,6 +134,7 @@ export default function ProducerMenu() {
   }
 
   const startEdit = (item: any) => {
+    limparFoto()
     setEditingId(item.id)
     setForm({
       name: item.name,
@@ -118,7 +151,6 @@ export default function ProducerMenu() {
 
   const stats = {
     total: items.length,
-    totalValue: items.reduce((s, i) => s + Number(i.price), 0),
     byCategory: categories.map(c => ({
       ...c,
       count: items.filter(i => i.category === c.value).length,
@@ -126,7 +158,7 @@ export default function ProducerMenu() {
     }))
   }
 
-  const isMutating = createItem.isPending || updateItem.isPending || deleteItem.isPending
+  const isMutating = createItem.isPending || updateItem.isPending || deleteItem.isPending || enviando
 
   return (
     <div>
@@ -137,11 +169,11 @@ export default function ProducerMenu() {
         actions={
           <>
             <Button
-              onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
+              onClick={() => { limparFoto(); setShowForm(true); setEditingId(null); setForm({ ...emptyForm, event_id: events.some(e => e.id === filtroEvento) ? filtroEvento! : '' }) }}
               disabled={isMutating || (!!filtroEvento && carregandoEventos)}
             >
               <I.Criar aria-hidden="true" />
-              Novo Item
+              Novo item
             </Button>
           </>
         }
@@ -185,15 +217,20 @@ export default function ProducerMenu() {
       )}
 
       {/* Items Grid */}
-      {!isLoading && (
+      {!isLoading && isError && (
+        <Erro texto="Não foi possível carregar o cardápio agora." refetch={refetch} carregando={isFetching} />
+      )}
+      {!isLoading && !isError && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(item => {
             const cat = categories.find(c => c.value === item.category)
             return (
               <div key={item.id} className={`rounded-[10px] border border-border p-4 ${item.is_available ? 'bg-card' : 'bg-secondary'}`}>
                 <div className="mb-3 flex items-start justify-between">
-                  <div className="flex size-10 items-center justify-center rounded-md bg-secondary text-muted-foreground">
-                    {cat && <cat.icon size={20} aria-hidden="true" />}
+                  <div className="flex size-10 items-center justify-center overflow-hidden rounded-md bg-secondary text-muted-foreground">
+                    {item.image_url
+                      ? <img src={item.image_url} alt="" className="size-full object-cover" />
+                      : cat && <cat.icon size={20} aria-hidden="true" />}
                   </div>
                   <div className="flex items-center gap-1">
                     <Button variant="ghost" size="icon-sm" className={item.is_available ? 'text-[var(--ev-success)] hover:bg-foreground/5' : icone} aria-pressed={item.is_available} onClick={() => toggleAvailable(item)} aria-label={`Disponível: ${item.name}`}>
@@ -202,7 +239,7 @@ export default function ProducerMenu() {
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => startEdit(item)} aria-label={`Editar ${item.name}`}>
                       <I.Editar aria-hidden="true" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item.id)} aria-label={`Excluir ${item.name}`}>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setExcluindo({ id: item.id, name: item.name })} aria-label={`Excluir ${item.name}`}>
                       <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>
@@ -222,7 +259,7 @@ export default function ProducerMenu() {
       )}
 
       {/* Empty state */}
-      {!isLoading && filtered.length === 0 && (
+      {!isLoading && !isError && filtered.length === 0 && (
         <EmptyState
           title="Nenhum item encontrado"
           description={filtroEvento ? 'Itens sem evento aparecem em Todos os eventos.' : 'Cadastre seu primeiro item no cardápio'}
@@ -233,12 +270,12 @@ export default function ProducerMenu() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined} onInteractOutside={e => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>{editingId ? 'Editar Item' : 'Novo Item'}</DialogTitle>
+            <DialogTitle>{editingId ? 'Editar item' : 'Novo item'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="item-nome">Nome</Label>
-              <Input id="item-nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tonica" />
+              <Input id="item-nome" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="Ex: Gin Tônica" />
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="item-descricao">Descrição</Label>
@@ -247,7 +284,7 @@ export default function ProducerMenu() {
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="item-preco">Preço (R$)</Label>
-                <Input id="item-preco" type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+                <Input id="item-preco" type="number" min={0} step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="item-categoria">Categoria</Label>
@@ -258,21 +295,40 @@ export default function ProducerMenu() {
             </div>
             <div className="grid gap-1.5">
               <Label htmlFor="item-estoque">Estoque (opcional)</Label>
-              <Input id="item-estoque" type="number" value={form.stock ?? ''} onChange={e => setForm({ ...form, stock: e.target.value ? Number(e.target.value) : null })} placeholder="Sem limite" />
+              <Input id="item-estoque" type="number" min={0} value={form.stock ?? ''} onChange={e => setForm({ ...form, stock: e.target.value ? Number(e.target.value) : null })} placeholder="Sem limite" />
             </div>
-            <div className="rounded-[10px] border-2 border-dashed border-border p-6 text-center">
-              <I.Carregar size={20} aria-hidden="true" className="mx-auto mb-2 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">Arraste uma imagem ou clique para selecionar</p>
-              <p className="mt-1 text-xs text-muted-foreground">PNG, JPG até 2MB · 800x600px recomendado</p>
+            <div className="grid gap-1.5">
+              <Label htmlFor="item-foto">Foto (opcional)</Label>
+              <input id="item-foto" type="file" accept="image/jpeg,image/png,image/webp" onChange={e => { escolherFoto(e.target.files?.[0]); e.target.value = '' }} className="text-sm text-foreground file:mr-3 file:rounded-md file:border file:border-input file:bg-transparent file:px-3 file:py-1.5 file:text-sm" />
+              <p className="text-xs text-muted-foreground">JPG, PNG ou WebP até 10 MB; enviamos reduzida (até 2 MB)</p>
+              {(previa || form.image_url) && (
+                <div className="flex items-center gap-3">
+                  <img src={previa ?? form.image_url} alt="Prévia da foto do item" className="size-16 rounded-md object-cover" />
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { limparFoto(); setForm({ ...form, image_url: '' }) }}>Remover foto</Button>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
             <Button onClick={handleSubmit} loading={isMutating}>
-              {editingId ? 'Salvar Alterações' : 'Cadastrar Item'}
+              {editingId ? 'Salvar alterações' : 'Cadastrar item'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!excluindo} onOpenChange={aberto => { if (!aberto) setExcluindo(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir item</AlertDialogTitle>
+            <AlertDialogDescription>Excluir "{excluindo?.name}"? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (excluindo) void handleDelete(excluindo.id) }}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
