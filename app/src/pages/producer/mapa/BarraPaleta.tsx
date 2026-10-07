@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Armchair, ChevronDown, DoorOpen, Hand, MousePointer2, Search, Theater, Type, UtensilsCrossed, Wrench, X } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { CATEGORIAS, formaDe, type ItemCatalogo } from './paleta'
@@ -12,20 +12,21 @@ const NAVEGACAO: { id: string; nome: string; Icone: LucideIcon }[] = [
 // Miniatura plana (vista de cima) na proporção real do objeto, até 40 px; mesas ganham cadeirinhas
 function Miniatura({ i }: { i: ItemCatalogo }) {
   const M = 40, cor = i.cor || '#94a3b8'
-  const k = Math.min(M / i.w, M / i.h, 40) * (i.tipo === 'table' ? 0.6 : 0.9)
-  const w = Math.max(6, i.w * k), h = Math.max(6, i.h * k), cx = M / 2, cy = M / 2
-  const redonda = i.tipo === 'table' ? (i.mesa || 'circle') === 'circle' : formaDe(i.tipo) === 'c'
-  const cadeiras = i.tipo === 'table' ? Math.min(i.cap || 4, 8) : 0
+  const mesa = i.tipo === 'table'
+  const reserva = mesa ? 9 : 2 // espaço das cadeirinhas em volta da mesa
+  // escala por item: a maior medida ocupa o quadro; a proporção largura/altura fica como a real
+  const k = (M - reserva * 2) / Math.max(i.w, i.h)
+  const w = i.w * k, h = i.h * k, cx = M / 2, cy = M / 2
+  const redonda = mesa ? (i.mesa || 'circle') === 'circle' : formaDe(i.tipo) === 'c'
+  const cadeiras = mesa ? Math.min(i.cap || 4, 8) : 0
   const pontos = Array.from({ length: cadeiras }, (_, n) => {
     const a = (n / cadeiras) * Math.PI * 2
-    return { x: cx + Math.cos(a) * (w / 2 + 3.5), y: cy + Math.sin(a) * (h / 2 + 3.5) }
+    return { x: cx + Math.cos(a) * (w / 2 + 4), y: cy + Math.sin(a) * (h / 2 + 4) }
   })
   return (
-    <svg width={M} height={M} viewBox={`0 0 ${M} ${M}`} aria-hidden className="flex-shrink-0">
-      {pontos.map((p, n) => <circle key={n} cx={p.x} cy={p.y} r={2.6} fill="none" stroke={cor} strokeWidth={1} opacity={0.8} />)}
-      {redonda
-        ? <ellipse cx={cx} cy={cy} rx={w / 2} ry={h / 2} fill={cor} fillOpacity={0.25} stroke={cor} strokeWidth={1.25} />
-        : <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={2} fill={cor} fillOpacity={0.25} stroke={cor} strokeWidth={1.25} />}
+    <svg width={M} height={M} viewBox={`0 0 ${M} ${M}`} aria-hidden className="mapa-mini flex-shrink-0" style={{ '--c': cor } as CSSProperties}>
+      {pontos.map((p, n) => <circle key={n} cx={p.x} cy={p.y} r={2.8} />)}
+      {redonda ? <ellipse cx={cx} cy={cy} rx={w / 2} ry={h / 2} /> : <rect x={cx - w / 2} y={cy - h / 2} width={w} height={h} rx={2} />}
     </svg>
   )
 }

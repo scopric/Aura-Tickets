@@ -1353,3 +1353,9 @@ body {
   .mapa-pulso, .mapa-fade { animation: none !important; }
   .mapa-cartao:hover { transform: none !important; }
 }
+
+/* miniaturas da paleta: preenchimento clareado + contorno na cor cheia (escuro); no tema claro, cor cheia com contorno escurecido */
+.mapa-mini * { stroke-width: 1.5; fill: color-mix(in srgb, var(--c) 62%, white); stroke: var(--c); }
+.mapa-mini circle { fill: none; }
+:root:not(.dark) .mapa-mini * { fill: color-mix(in srgb, var(--c) 85%, white); stroke: color-mix(in srgb, var(--c) 70%, black); }
+:root:not(.dark) .mapa-mini circle { fill: none; }
