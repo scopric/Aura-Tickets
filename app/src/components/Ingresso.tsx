@@ -25,9 +25,15 @@ const valor = 'font-display text-[17px] font-semibold leading-6 tabular-nums min
 
 // Diálogos abertos por estado (sem Dialog.Trigger): o Radix não sabe para onde devolver o foco; guardamos quem abriu.
 // setTimeout: no toque fora, o mousedown do navegador põe o foco no body depois do fechamento.
+// Quem fecha para abrir outra janela (o Evo) liga esta marca: o foco fica com a janela nova, não volta para trás dela.
+let semVoltaDeFoco = false
 function useFocoDeVolta() {
   const origem = useRef(document.activeElement as HTMLElement | null)
-  return (e: Event) => { e.preventDefault(); const o = origem.current; setTimeout(() => o?.focus()) }
+  return (e: Event) => {
+    e.preventDefault()
+    if (semVoltaDeFoco) { semVoltaDeFoco = false; return }
+    const o = origem.current; setTimeout(() => o?.focus())
+  }
 }
 
 // ---- QR ampliado: tela branca inteira, tela acesa (Wake Lock). O QR é o mesmo de sempre (TicketQRCode). ----------
@@ -104,7 +110,7 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
             <li>Para cancelar ou tirar dúvidas, fale com o <Link to="/contato" className="underline underline-offset-2">suporte</Link>.</li>
           </ul>
           {/* fecha a folha antes: o modal impede tocar no Evo que abre por trás */}
-          <Button type="button" variant="ghost" onClick={() => { aoFechar(); abrirAjudaIngresso() }} className="-ml-1 mt-2 h-11 px-1 text-sm font-semibold text-primary">Não vejo meu ingresso</Button>
+          <Button type="button" variant="ghost" onClick={() => { semVoltaDeFoco = true; aoFechar(); abrirAjudaIngresso() }} className="-ml-1 mt-2 h-11 px-1 text-sm font-semibold text-primary">Não vejo meu ingresso</Button>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

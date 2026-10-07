@@ -255,8 +255,8 @@ describe('IngressosDoEvento', () => {
     render(tela(1))
     fireEvent.click(screen.getByRole('button', { name: /Detalhes/ }))
     expect(screen.getByRole('dialog').textContent).not.toContain('Lugar')
-    fireEvent.click(screen.getByRole('button', { name: 'Não vejo meu ingresso' }))
-    window.removeEventListener('evo:suporte', ouvir)
+    try { fireEvent.click(screen.getByRole('button', { name: 'Não vejo meu ingresso' })) }
+    finally { window.removeEventListener('evo:suporte', ouvir) }
     expect((ouvir.mock.calls[0][0] as CustomEvent).detail.assunto).toBe('Não recebi ou não acho meu ingresso')
     expect(screen.queryByRole('dialog')).toBeNull()
   })
