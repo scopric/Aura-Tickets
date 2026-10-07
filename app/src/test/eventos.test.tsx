@@ -3,16 +3,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { toast } from 'sonner'
 import ProducerEvents from '../pages/producer/Events'
-import { SAIR_DO_AR_COM_VENDA } from '../lib/eventoProdutor'
+import { SAIR_DO_AR_COM_VENDA, CANCELAR_COM_VENDA } from '../lib/eventoProdutor'
 
 // Ganchos falsos: a tela é testada sem banco
 const atualizar = vi.fn()
 const apagar = vi.fn()
 let lista: object[] = []
+let vendidosMock: Record<string, number> = {}
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('../hooks/useEvents', () => ({
   useProducerEvents: () => ({ data: lista, isLoading: false, isError: false, refetch: vi.fn(), isFetching: false }),
-  useVendidosPorEvento: () => ({ data: { porEvento: {}, cortado: false } }),
+  useVendidosPorEvento: () => ({ data: { porEvento: vendidosMock, cortado: false } }),
   useDeleteEvent: () => ({ mutateAsync: apagar, isPending: false }),
   useUpdateEvent: () => ({ mutateAsync: atualizar, isPending: false }),
 }))
@@ -24,7 +25,7 @@ const evento = (extra: object = {}) => ({
 })
 const montar = () => render(<MemoryRouter><ProducerEvents /></MemoryRouter>)
 
-beforeEach(() => { atualizar.mockReset(); apagar.mockReset(); vi.mocked(toast.error).mockClear(); lista = [evento()] })
+beforeEach(() => { atualizar.mockReset(); apagar.mockReset(); vi.mocked(toast.error).mockClear(); lista = [evento()]; vendidosMock = {} })
 
 describe('Todos os eventos (tela 02)', () => {
   it('busca sem acento: "forro" acha "Forró"', () => {
@@ -39,12 +40,12 @@ describe('Todos os eventos (tela 02)', () => {
     atualizar.mockResolvedValue({})
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Encerrar Noite de Forró' }))
-    expect(screen.getByRole('alertdialog').textContent).toMatch(/Arquivar "Noite de Forró"/)
+    expect(screen.getByRole('alertdialog').textContent).toMatch(/Encerrar "Noite de Forró"/)
     fireEvent.click(screen.getByRole('button', { name: 'Encerrar' }))
     await waitFor(() => expect(atualizar).toHaveBeenCalledWith({ eventId: 'e1', event: { status: 'ended' }, tickets: [] }))
   })
 
-  it('Encerrar recusado pelo banco (EV002) mostra a mensagem de venda', async () => {
+  it('EV002 vindo do banco (cache velho) mostra a mensagem de venda', async () => {
     atualizar.mockRejectedValue({ code: 'EV002' })
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Encerrar Noite de Forró' }))
@@ -66,10 +67,36 @@ describe('Todos os eventos (tela 02)', () => {
     await waitFor(() => expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/tem pedidos/))
   })
 
-  it('Cancelar abre a janela e some quando o evento já está cancelado', () => {
+  it('Cancelar abre a janela', () => {
     montar()
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar Noite de Forró' }))
     expect(screen.getByRole('alertdialog').textContent).toMatch(/Cancelar o evento "Noite de Forró"/)
+  })
+
+  it('Cancelar e Encerrar com venda: toast, sem janela e sem update', () => {
+    vendidosMock = { e1: 3 }
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar Noite de Forró' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Encerrar Noite de Forró' }))
+    expect(vi.mocked(toast.error).mock.calls.map(c => c[0])).toEqual([CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA])
+    expect(screen.queryByRole('alertdialog')).toBeNull()
+    expect(atualizar).not.toHaveBeenCalled()
+  })
+
+  it('Encerrar com venda e data já passada abre a janela', () => {
+    vendidosMock = { e1: 3 }
+    lista = [evento({ date: '2020-01-01', start_date: '2020-01-01T22:00:00-03:00' })]
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Encerrar Noite de Forró' }))
+    expect(screen.getByRole('alertdialog')).toBeTruthy()
+  })
+
+  it('Excluir com venda: toast e sem janela', () => {
+    vendidosMock = { e1: 3 }
+    montar()
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir Noite de Forró' }))
+    expect(vi.mocked(toast.error).mock.calls[0][0]).toMatch(/3 ingressos vendidos/)
+    expect(screen.queryByRole('alertdialog')).toBeNull()
   })
 
   it('sem botão Cancelar em evento cancelado', () => {

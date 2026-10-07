@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents, useDeleteEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, confirmacaoArquivar, dataPorVir, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, confirmacaoArquivar, dataPorVir, CANCELAR_COM_VENDA, SAIR_DO_AR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
 import { abreEvento, normaliza } from '../../lib/navegacaoProdutor'
 import EventoCapa from '../../components/EventoCapa'
@@ -46,6 +46,17 @@ export default function ProducerEvents() {
     setAcao({ tipo: 'cancelar', event })
   }
 
+  const encerrar = (event: DbEvent) => {
+    if ((vendidoDe(event.id) ?? 0) > 0 && dataPorVir(event)) { toast.error(SAIR_DO_AR_COM_VENDA); return } // Decisão 129
+    setAcao({ tipo: 'encerrar', event })
+  }
+
+  const pedirExclusao = (event: DbEvent) => {
+    const v = vendidoDe(event.id) ?? 0
+    if (v > 0) { toast.error(`Este evento tem ${inteiro(v)} ${v === 1 ? 'ingresso vendido' : 'ingressos vendidos'} e não pode ser excluído. Fale com o suporte da Evokaa.`); return }
+    setAcao({ tipo: 'excluir', event })
+  }
+
   const mudarStatus = async (event: DbEvent, status: 'cancelled' | 'ended') => {
     try {
       await updateEvent.mutateAsync({ eventId: event.id, event: { status }, tickets: [] })
@@ -73,7 +84,7 @@ export default function ProducerEvents() {
     if (tipo === 'cancelar') return { titulo: 'Cancelar evento', texto: confirmacaoCancelar(event.title, v), botao: 'Cancelar evento' }
     return {
       titulo: 'Excluir evento',
-      texto: `Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.${(v ?? 0) > 0 ? ` Ele tem ${inteiro(v!)} ${v === 1 ? 'ingresso vendido' : 'ingressos vendidos'}, e por isso o banco deve recusar a exclusão.` : ''}`,
+      texto: `Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.`,
       botao: 'Excluir',
     }
   }
@@ -201,12 +212,12 @@ export default function ProducerEvents() {
                       <I.Copiar aria-hidden="true" />
                     </Button>
                     {st === 'Publicado' && (
-                      <Button variant="ghost" size="sm" className={icone} onClick={() => setAcao({ tipo: 'encerrar', event })} aria-label={`Encerrar ${event.title}`}>Encerrar</Button>
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => encerrar(event)} disabled={updateEvent.isPending} aria-label={`Encerrar ${event.title}`}>Encerrar</Button>
                     )}
                     {event.status !== 'cancelled' && (
-                      <Button variant="ghost" size="sm" className={icone} onClick={() => cancelar(event)} aria-label={`Cancelar ${event.title}`}>Cancelar</Button>
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => cancelar(event)} disabled={updateEvent.isPending} aria-label={`Cancelar ${event.title}`}>Cancelar</Button>
                     )}
-                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setAcao({ tipo: 'excluir', event })} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => pedirExclusao(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
                       <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>

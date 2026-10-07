@@ -94,7 +94,7 @@ export const noAr = (e: { status: string; approval_status?: string | null; start
 
 // Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
 export function confirmacaoArquivar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
-  const base = `Arquivar "${titulo}"? A situação passa a ser Encerrado.`
+  const base = `Encerrar "${titulo}"? A situação passa a ser Encerrado.`
   return vendidos === undefined && porVir
     ? `${base}\n\nSe o evento tiver ingressos vendidos, ele não pode sair do ar antes da data: fale com o suporte da Evokaa.`
     : base
