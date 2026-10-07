@@ -134,7 +134,7 @@ export default function EditorKonva() {
   }
   const desfazer = () => {
     const anterior = hist.current[env.id]?.pop()
-    if (anterior) setEnvs(prev => prev.map(e => (e.id === anterior.id ? anterior : e)))
+    if (anterior) { setEnvs(prev => prev.map(e => (e.id === anterior.id ? anterior : e))); setReenquadrar(v => v + 1) }
   }
   useEffect(() => { hist.current = {} }, [eventId])
   useEffect(() => {
@@ -275,9 +275,11 @@ export default function EditorKonva() {
     const r = encaixarNaSala(env)
     setAvisoFora(r.motivo || '')
     if (r.env === env) return
-    mudar(() => r.env)
+    mudar(e => encaixarNaSala(e).env)
     setReenquadrar(v => v + 1)
+    setTimeout(() => document.getElementById('btn-desfazer')?.focus(), 50) // espera o botão sair do disabled
   }
+  useEffect(() => { setAvisoFora('') }, [ativo, eventId])
   const ajustar = useCallback(() => {
     const { w, h } = tamRef.current
     if (w === 0 || h === 0) return
@@ -377,9 +379,9 @@ export default function EditorKonva() {
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'cores'} aria-controls="gaveta-cores" onClick={e => alternar('cores', e.currentTarget)}>Cores</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => setAbrirTemplates(true)}>Templates</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={ajustar}>Ajustar à tela</Button>
-        {fora.size > 0 && <Button size="sm" variant="outline" className="border-red-500 text-red-600 max-lg:h-10" onClick={trazerParaDentro}>{fora.size} fora da sala: Trazer para dentro da sala</Button>}
-        {avisoFora && <span role="alert" className="text-xs text-destructive">{avisoFora}</span>}
-        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
+        {fora.size > 0 && <Button size="sm" variant="outline" className="border-red-500 text-red-600 dark:text-red-400 max-lg:h-10" title="Move todos os elementos e paredes juntos" onClick={trazerParaDentro}>{fora.size} fora da sala: Trazer para dentro da sala</Button>}
+        {fora.size > 0 && avisoFora && <span role="alert" className="text-xs text-destructive">{avisoFora}</span>}
+        <Button id="btn-desfazer" size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>
         <Button size="sm" className="max-lg:h-10" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>

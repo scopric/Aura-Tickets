@@ -47,4 +47,21 @@ describe('encaixarNaSala', () => {
     const f = (n: SeatNode) => [n.id, n.label, n.price, n.status, n.sold, n.sectionId]
     expect(r.env.seats.map(f)).toEqual(e.seats.map(f))
   })
+  const parede = (x1: number, y1: number, x2: number, y2: number) => ({ id: `w${x1}${y1}${x2}${y2}`, x1, y1, x2, y2, thickness: 0.3 }) as any
+  it('paredes no perímetro e palco fora (exigiria ampliar): recusa e não mexe', () => {
+    const e = amb([palco, cadeira], { walls: [parede(10, 10, 50, 10), parede(50, 10, 50, 50), parede(50, 50, 10, 50), parede(10, 50, 10, 10)] })
+    const r = encaixarNaSala(e)
+    expect(r.env).toBe(e)
+    expect(r.motivo).toMatch(/paredes/)
+  })
+  it('paredes e conjunto que cabe só deslocando: move tudo junto, paredes inclusive', () => {
+    const e = amb([palco, cadeira], { walls: [parede(15, 14, 30, 14)] })
+    const r = encaixarNaSala(e)
+    expect(r.motivo).toBeUndefined()
+    const dy = r.env.seats[0].y - palco.y
+    expect(dy).toBeGreaterThan(0)
+    expect(r.env.walls![0].y1 - 14).toBeCloseTo(dy)
+    expect(r.env.walls![0].y2 - 14).toBeCloseTo(dy)
+    expect(r.env.roomWidth).toBe(40)
+  })
 })

@@ -46,6 +46,9 @@ export function encaixarNaSala(env: Environment): { env: Environment; motivo?: s
   const w = Math.max(W, Math.ceil(c.w + 2 * MARGEM - e)), h = Math.max(H, Math.ceil(c.h + 2 * MARGEM - e))
   const alvo = (ini: number, tam: number, sala: number) =>
     ini < ORIGEM_SALA + MARGEM ? ORIGEM_SALA + MARGEM - ini : ini + tam > ORIGEM_SALA + sala - MARGEM ? ORIGEM_SALA + sala - MARGEM - (ini + tam) : 0
+  if ((env.walls || []).length && (w !== W || h !== H)) {
+    return { env, motivo: 'As paredes ocupam a sala inteira; ajuste a sala ou mova o que está fora à mão.' }
+  }
   const dx = alvo(c.x, c.w, w), dy = alvo(c.y, c.h, h)
   return {
     env: {
