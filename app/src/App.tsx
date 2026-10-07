@@ -85,6 +85,7 @@ const CertificateBuilder = lazy(() => import('./pages/producer/CertificateBuilde
 const Marketing = lazy(() => import('./pages/producer/Marketing'))
 const EvokaaAcademy = lazy(() => import('./pages/producer/EvokaaAcademy'))
 const SeatingMap = lazy(() => import('./pages/producer/SeatingMap'))
+const EditorKonva = lazy(() => import('./pages/producer/mapa/EditorKonva'))
 const OrganizerApp = lazy(() => import('./pages/producer/OrganizerApp'))
 const AdvancePayment = lazy(() => import('./pages/producer/AdvancePayment'))
 const Installments = lazy(() => import('./pages/producer/Installments'))
@@ -353,7 +354,7 @@ function Layout() {
   const rota = location.pathname.replace(/\/+$/, '')
   const temEvo =
     (rota.startsWith('/producer') || rota.startsWith('/app')) &&
-    !['/app/download', '/producer/lugar-marcado'].includes(rota)
+    !['/app/download', '/producer/lugar-marcado', '/producer/lugar-marcado-v2'].includes(rota)
 
   // Dados e pagamento têm o botão principal fixo embaixo; o feedback flutuante o cobria em 360/390 px (a página de sucesso mantém)
   const naCompra = rota === '/checkout' || rota === '/checkout/payment'
@@ -435,6 +436,18 @@ function Layout() {
                   </FeatureGuard>
                 </ProtectedRoute>
               } 
+            />
+
+            {/* Editor novo (Konva), em paralelo ao antigo; sem entrada no menu até o QA */}
+            <Route
+              path="/producer/lugar-marcado-v2"
+              element={
+                <ProtectedRoute allowedRoles={['producer', 'editor']}>
+                  <FeatureGuard featureKey="seating_map">
+                    <EditorKonva />
+                  </FeatureGuard>
+                </ProtectedRoute>
+              }
             />
 
             {/* Admin só existe no alpha.* */}

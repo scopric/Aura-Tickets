@@ -58,7 +58,7 @@ export function usarMapa(eventId: string | null) {
     }
     const evento = eventId
     const c = config.current
-    const { error } = await supabase
+    const { error } = await (supabase as any) // a tabela não está nos tipos gerados
       .from('seating_maps')
       .upsert({
         event_id: eventId,
