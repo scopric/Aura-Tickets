@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Calendar, MapPin, Ticket, Sparkles } from 'lucide-react'
 import { useFeaturedEvents } from '../hooks/useEvents'
-import { temFoto } from '../lib/corEvento'
+import EventoCapa from './EventoCapa'
 import { rotuloFormato } from '../lib/tipoEvento'
 
 export default function EventCarousel() {
@@ -107,17 +107,16 @@ export default function EventCarousel() {
               key={event.id}
               className="w-full h-full flex-shrink-0 relative overflow-hidden"
             >
-              {/* Imagem de Fundo com zoom suave e fade */}
-              <div 
-                className={`absolute inset-0 w-full h-full bg-cover bg-center transition-all ease-out ${
+              {/* Capa inteira (Decisão 173: contain sobre a própria foto desfocada; duotone só com capa_na_cor), com zoom suave e fade */}
+              <div
+                className={`absolute inset-0 w-full h-full transition-all ease-out ${
                   isActive ? 'scale-105 opacity-100' : 'scale-100 opacity-0'
                 }`}
-                style={{ 
-                  backgroundImage: `url(${JSON.stringify(temFoto(event.cover_image) ? event.cover_image : '/images/hero-bg.jpg')})`,
-                  transitionDuration: '10000ms'
-                }}
-              />
-              
+                style={{ transitionDuration: '10000ms' }}
+              >
+                <EventoCapa evento={event} tamanho="faixa" prioridade /> {/* todos os slides: carregam já, não só na troca */}
+              </div>
+
               {/* Degradê escuro de sobreposição para contraste perfeito de leitura */}
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/60 to-transparent md:bg-gradient-to-r md:from-slate-950 md:via-slate-950/40 md:to-transparent" />
 

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { EmptyState, PageHeader, Stat, chipAviso, chipErro, chipNeutro, chipOk } from '@/components/producer/ui'
 import { Tabela, alertaErro, painel, th } from '@/components/admin/ui'
+import EventoCapa from '@/components/EventoCapa'
 import { cn } from '@/lib/utils'
 import { useAdminEvents, useApproveEvent, useEventoModeracao, useToggleFeaturedCarousel, type AdminEvent } from '../../hooks/useEvents'
 import { toast } from 'sonner'
@@ -198,9 +199,7 @@ export default function AdminEvents() {
                   <tr key={e.id} className="border-b border-border last:border-0 hover:bg-[var(--ev-tint-hover)]">
                     <td className="px-2 py-3 sm:px-4">
                       <div className="flex items-center gap-3">
-                        <div className="size-10 shrink-0 overflow-hidden rounded-lg bg-muted">
-                          <img src={e.cover_image || '/images/hero-bg.jpg'} alt="" className="size-full object-cover" />
-                        </div>
+                        <EventoCapa evento={e} tamanho="mini" />
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground">{e.title}</div>
                           <div className="text-xs text-muted-foreground">{e.venue_city || e.venue_name || 'Local a definir'}</div>
@@ -333,7 +332,11 @@ export default function AdminEvents() {
             </div>
 
             <div className="p-6 space-y-6 text-sm">
-              {detail.cover_image && <img src={detail.cover_image} alt="" className="w-full aspect-video object-cover rounded-xl bg-muted" />}
+              {detail.cover_image && (
+                <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-muted">
+                  <EventoCapa evento={detail} tamanho="faixa" />
+                </div>
+              )}
 
               <div className="flex flex-wrap gap-2">
                 <Badge variant="secondary" className={(statusCfg[detail.status] || { cls: chipNeutro }).cls}>

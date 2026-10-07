@@ -2,7 +2,7 @@ import { useId, useState } from 'react'
 import { Upload, X } from 'lucide-react'
 import { toast } from 'sonner'
 import EventoCapa, { type EventoCapaDados } from '../EventoCapa'
-import { prepararCapa, type CapaPronta } from '../../lib/capaEvento'
+import { LADO_BOM, LADO_MINIMO, prepararCapa, type CapaPronta } from '../../lib/capaEvento'
 import { temFoto } from '../../lib/corEvento'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
@@ -30,6 +30,8 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
 }) {
   const id = useId()
   const [preparando, setPreparando] = useState(false)
+  // aviso calculado da capa pronta: some sozinho quando o pai a descarta (setCapa(null))
+  const pequena = capa && Math.max(capa.largura, capa.altura) < LADO_BOM ? `${capa.largura} × ${capa.altura} px` : null
   const ocupado = preparando || salvando
   const temCapa = !!capa || temFoto(urlAtual)
 
@@ -40,6 +42,13 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
     setPreparando(true)
     try {
       const nova = await prepararCapa(arquivo, evento.id)
+      const lado = Math.max(nova.largura, nova.altura)
+      const medida = `${nova.largura} × ${nova.altura} px`
+      if (lado < LADO_MINIMO) {
+        URL.revokeObjectURL(nova.previewUrl)
+        toast.error(`Foto pequena demais (${medida}): ficaria borrada para quem vê o evento. Use a arte com pelo menos ${LADO_BOM} px no lado maior.`)
+        return
+      }
       if (capa) URL.revokeObjectURL(capa.previewUrl)
       onCapa(nova)
       if (!corManual) onCor(nova.cor, false) // sugestão da foto; a pessoa troca abaixo
@@ -72,8 +81,14 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
               </Button>
               {temCapa && <Button type="button" variant="ghost" onClick={remover} disabled={ocupado}><X aria-hidden="true" />Remover a foto</Button>}
             </div>
+            <p role="status" className="text-xs font-medium text-[var(--ev-warning)]">
+              {pequena && `Esta foto é pequena (${pequena}) e pode ficar borrada no celular e no computador de quem vê o evento. Se tiver a arte em tamanho maior, troque.`}
+            </p>
             <p className="text-xs text-muted-foreground">
-              JPG, PNG ou WebP até 10 MB. A foto é reduzida para 1600×900 e os dados de localização dela são apagados. Sem foto, o evento ganha um cartaz com o nome e a data.
+              Use a arte em boa qualidade: <strong className="font-semibold text-foreground">em pé, 1080 × 1350 px</strong> (o formato do Instagram) ou <strong className="font-semibold text-foreground">deitada, 1920 × 1080 px</strong>; no mínimo {LADO_BOM} px no lado maior. Foto pequena ou tirada de print fica borrada para quem vê.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              JPG, PNG ou WebP até 10 MB. A arte aparece inteira, sem corte, e os dados de localização dela são apagados. Sem foto, o evento ganha um cartaz com o nome e a data.
             </p>
           </div>
         ) : (
@@ -105,7 +120,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
             <span className="text-xs tabular-nums text-muted-foreground">{cor}</span>
           </div>
           <Label htmlFor={`${id}-int`} className="mt-1">Intensidade da cor: <span className="tabular-nums">{intensidade}%</span></Label>
-          <input id={`${id}-int`} type="range" min={10} max={100} step={5} value={intensidade} onChange={e => onIntensidade(Number(e.target.value))} disabled={salvando}
+          <input id={`${id}-int`} type="range" min={25} max={100} step={5} value={intensidade} onChange={e => onIntensidade(Number(e.target.value))} disabled={salvando}
             aria-valuetext={`${intensidade}%`} style={{ accentColor: cor }} className="w-full max-w-xs cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
           <p className="text-xs text-muted-foreground">100% é a cor cheia; menos deixa a cor mais suave, misturada com o fundo. Os textos continuam legíveis. Tinge o ingresso e os gráficos do evento (e a capa, em "Na cor do evento"). A sugestão vem da foto; você pode trocar.</p>
         </div>

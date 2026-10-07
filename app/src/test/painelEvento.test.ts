@@ -188,6 +188,7 @@ describe('nome vazio e erro ao gravar ingressos', () => {
   })
   it('erro de gravação dos ingressos por tipo: dado recusado pelo banco, remoção com pedidos e rede', () => {
     for (const e of [{ code: '22003' }, { code: '23514' }, { status: 400 }, { status: 422 }, { code: 'PGRST102' }]) expect(erroDosIngressos(e)).toMatch(/O banco recusou um dos ingressos: confira nome, preço e quantidade/)
+    expect(erroDosIngressos({ code: '23514', message: 'Já foram vendidos 5: a quantidade não pode ser menor' })).toBe('Já foram vendidos 5: a quantidade não pode ser menor')
     expect(erroDosIngressos({ code: '23503' })).toMatch(/Use Ocultar/)
     expect(erroDosIngressos(new Error('Failed to fetch'))).toMatch(/Confira a internet/)
     expect(erroDosIngressos(null)).toMatch(/Confira a internet/)

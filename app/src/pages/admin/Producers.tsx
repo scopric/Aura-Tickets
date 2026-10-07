@@ -13,7 +13,6 @@ import { toast } from 'sonner'
 
 interface Company {
   company_name: string
-  cnpj: string | null
   is_verified: boolean
   commission_rate: number | null
 }
@@ -42,7 +41,7 @@ export default function AdminProducers() {
       const { data, error } = await supabase
         .from('profiles')
         // events tem duas FKs para profiles: sem o !producer_id o PostgREST devolve PGRST201
-        .select('id, email, full_name, avatar_url, created_at, producer_profiles(company_name, cnpj, is_verified, commission_rate), events!producer_id(count)')
+        .select('id, email, full_name, avatar_url, created_at, producer_profiles(company_name, is_verified, commission_rate), events!producer_id(count)')
         .eq('role', 'producer')
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -164,7 +163,6 @@ export default function AdminProducers() {
                       {c ? (
                         <div>
                           <div className="text-sm text-foreground">{c.company_name}</div>
-                          <div className="text-xs text-muted-foreground">CNPJ {!c.cnpj || c.cnpj.startsWith('PENDENTE-') ? 'a preencher' : c.cnpj}</div>
                         </div>
                       ) : (
                         <span className="text-xs text-muted-foreground">cadastro incompleto</span>

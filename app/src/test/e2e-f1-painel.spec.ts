@@ -483,6 +483,17 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     expect(db.patches[0]).toEqual({ description: 'Baile de forró com trio pé-de-serra no Espaço Torres, em Curitiba.', classificacao: 'A18' })
   })
 
+  test('publicado: preço novo salva na hora e o aviso diz que já vale', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Preço', { exact: true }).fill('90')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ price: 90 })
+  })
+
   test('publicado: sem mudar classificação nem bebida, enviar não refaz o aceite', async ({ page }) => {
     const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
     await entrarProdutor(page)
@@ -974,6 +985,24 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await page.goto(`/producer/events/${EVENTO}/edit`)
     await expect(page.getByText('Evento não encontrado')).toBeVisible()
     await expect(page.getByRole('button', { name: /^O que é/ })).toHaveCount(0)
+  })
+
+  test('capa: foto pequena (864 × 1184) mostra o aviso de qualidade; foto boa (1344 × 768) não; o texto diz o tamanho recomendado', async ({ page }) => {
+    await montarBanco(page, { evento: evento() })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Imagem/)
+    await expect(page.getByText(/em pé, 1080 × 1350 px/)).toBeVisible()
+    const arquivo = page.locator('input[type="file"][accept^="image/jpeg"]')
+    await arquivo.setInputFiles('public/images/concert-1.jpg')
+    await expect(page.getByRole('status').filter({ hasText: 'Esta foto é pequena (864 × 1184 px)' })).toBeVisible()
+    await arquivo.setInputFiles('public/images/hero-bg.jpg')
+    await expect(page.getByText(/Esta foto é pequena/)).toHaveCount(0)
+    // o aviso acompanha a capa pronta: remover a foto (e o Descartar do painel, que também zera a capa) o apaga
+    await arquivo.setInputFiles('public/images/concert-1.jpg')
+    await expect(page.getByText(/Esta foto é pequena/)).toBeVisible()
+    await page.getByRole('button', { name: 'Remover a foto' }).click()
+    await expect(page.getByText(/Esta foto é pequena/)).toHaveCount(0)
   })
 
   test('celular de 320 e 375 px: sem rolagem para o lado com local comprido, título de palavra única e evento travado', async ({ page }) => {

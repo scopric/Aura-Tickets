@@ -92,9 +92,9 @@ export const fimDe = (e: DbEvent) => (e.end_date ? new Date(e.end_date).getTime(
 export const noAr = (e: { status: string; approval_status?: string | null; start_date: string; end_date: string | null; date?: string | null; time?: string | null }, agora = Date.now()): boolean =>
   e.status === 'published' && e.approval_status === 'approved' && fimDe(e as DbEvent) > agora
 
-// Arquivar (= encerrar). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
-export function confirmacaoArquivar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
-  const base = `Arquivar "${titulo}"? A situação passa a ser Encerrado.`
+// Encerrar (antes "arquivar"). Sem saber se há venda e com a data por vir, avisa que o banco pode recusar.
+export function confirmacaoEncerrar(titulo: string, vendidos: number | undefined, porVir: boolean): string {
+  const base = `Encerrar "${titulo}"? A situação passa a ser Encerrado.`
   return vendidos === undefined && porVir
     ? `${base}\n\nSe o evento tiver ingressos vendidos, ele não pode sair do ar antes da data: fale com o suporte da Evokaa.`
     : base
@@ -107,11 +107,14 @@ export function erroAoExcluir(err: unknown, vendidos?: number): { mensagem: stri
   const e = err as { code?: string; message?: string; details?: string } | null
   if (e?.code === '23503' && (vendidos ?? 0) > 0) return { mensagem: CANCELAR_COM_VENDA, oferecerCancelar: false }
   if (e?.code === '23503') {
-    const afiliado = /affiliates/.test(`${e.message ?? ''} ${e.details ?? ''}`)
+    // ponytail: ingresso 'transferred' não entra na contagem da tela (vendidos=0) e o banco recusa; aqui sugere cancelar sem efeito. Corrige em useEvents (useVendidosPorEvento).
+    const txt = `${e.message ?? ''} ${e.details ?? ''}`
+    const o = 'Cancele o evento em vez de excluir.'
     return {
-      mensagem: afiliado
-        ? 'Este evento tem afiliados vinculados. Cancele o evento em vez de excluir.'
-        : 'Este evento tem vendas ou registros vinculados. Cancele o evento em vez de excluir.',
+      mensagem: /affiliates/.test(txt) ? `Este evento tem afiliados vinculados. ${o}`
+        : /\borders\b/.test(txt) ? `Este evento tem pedidos. ${o}`
+        : /\btickets\b/.test(txt) ? `Este evento tem ingressos emitidos. ${o}`
+        : `Este evento tem vendas ou registros vinculados. ${o}`,
       oferecerCancelar: true,
     }
   }
@@ -213,7 +216,7 @@ export async function duplicarEvento(
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const blob = await resp.blob()
       if (blob.type !== 'image/webp' && blob.type !== 'image/jpeg') throw new Error(`tipo ${blob.type}`)
-      r.foto = await enviarEGravarCapa({ blob, previewUrl: '', cor: '' }, produtorId, novo.id)
+      r.foto = await enviarEGravarCapa({ blob }, produtorId, novo.id)
     } catch (err) {
       console.error('[duplicarEvento] foto', err instanceof Error ? err.message : err)
     }
