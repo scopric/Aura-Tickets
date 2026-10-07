@@ -5,6 +5,13 @@
 -- caminho de escrita).
 -- Aplicar à mão no SQL Editor (UTF-8 via pbcopy, NUNCA TextEdit). NÃO vai para supabase/migrations.
 -- Idempotente. Ensaiar inteiro em `begin … rollback` pela API antes de aplicar.
+--
+-- ATENÇÃO (ganho real): o passo 1 é ADITIVO. As colunas de texto (cpf, pix_key,
+-- bank_account, cnpj, rg...) CONTINUAM no banco ao lado das _enc até o PASSO 2 apagá-las.
+-- Logo o passo 1 sozinho dá CONFIDENCIALIDADE ZERO: um pg_dump vazado ainda traz a PII
+-- em claro. Só o passo 2 (pós-merge do front, que revoga grants e dropa as colunas de
+-- texto) entrega "PII cifrada em repouso". NÃO comunicar conformidade de cifra (LGPD/DPO)
+-- enquanto o texto existir.
 -- Pré-requisitos (conferidos em produção 07/10): pgcrypto no schema `extensions`
 -- (pgp_sym_encrypt/hmac resolvem), supabase_vault, gf_cpf_valido, gf_admin_can já existem.
 --
@@ -37,16 +44,21 @@ exception when undefined_function then
   raise exception 'pgcrypto não resolve em extensions.*; ajustar o schema das chamadas';
 end $$;
 
--- 1. Segredo no Vault (idempotente) ------------------------------------------------------------------
---    A chave real pode ser definida pelo Ricardo antes de rodar isto (vault.create_secret).
---    Se faltar, criamos com valor aleatório forte; o Ricardo DEVE guardá-la no gerenciador logo após:
+-- 1. Segredo no Vault — DEVE existir ANTES de rodar este arquivo (FAIL-CLOSED) ----------------------
+--    O Ricardo cria o segredo UMA vez e guarda a chave no gerenciador de senhas, ANTES de aplicar:
+--      select vault.create_secret(encode(extensions.gen_random_bytes(32),'hex'),
+--               'pr7_pii_key','PR7 — chave de cifra de PII em repouso');
 --      select decrypted_secret from vault.decrypted_secrets where name='pr7_pii_key';
---    Sem essa chave, o backup cifrado não se recupera.
+--        (copiar para o gerenciador do Ricardo e DEPOIS limpar o histórico de queries do painel)
+--    IMUTÁVEL: uma vez que os dados forem cifrados, NÃO troque a chave com update_secret — isso torna
+--    todo *_enc indecifrável (perda silenciosa). Rotação exige migração de re-cifra (docs/SECURITY.md, PR 9).
+--    Não auto-geramos a chave aqui de propósito: gerar-e-cifrar antes de o Ricardo fixar a dele levaria
+--    exatamente a essa perda. Se o segredo faltar, ABORTA.
 do $$ declare v_id uuid; begin
   select s.id into v_id from vault.secrets s where s.name = 'pr7_pii_key';
   if v_id is null then
-    perform vault.create_secret(encode(extensions.gen_random_bytes(32), 'hex'),
-      'pr7_pii_key', 'PR7 — chave de cifra de PII em repouso (cópia no gerenciador do Ricardo)');
+    raise exception 'pr7_pii_key ausente no Vault — crie o segredo (e guarde a chave) ANTES de rodar o passo 1'
+      using errcode = '55000';
   end if;
 end $$;
 
@@ -196,6 +208,13 @@ drop trigger if exists zz_pr7_sync_staff on public.staff_profiles;
 create trigger zz_pr7_sync_staff before insert or update on public.staff_profiles
   for each row execute function public.pr7_sync_staff();
 
+-- por simetria (as funções de gatilho não rodam fora de contexto de trigger, mas não precisam de EXECUTE público)
+revoke all on function public.pr7_sync_profiles(), public.pr7_sync_affiliates(), public.pr7_sync_producer(),
+  public.pr7_sync_withdrawals(), public.pr7_sync_staff() from public, anon, authenticated, service_role;
+
+-- ponytail: hmac usa a MESMA chave da cifra. Suficiente hoje; no passo 2, avaliar chaves derivadas
+-- distintas (índice cego vs. cifra). Não bloqueia.
+
 -- 5. Backfill (poucas linhas; o gatilho NÃO recifra: texto inalterado e _enc deixa de ser nulo) -------
 update public.profiles            set cpf_enc = public.pr7_enc(cpf)                     where cpf is not null and cpf_enc is null;
 update public.platform_affiliates set cpf_enc = public.pr7_enc(cpf),
@@ -219,13 +238,18 @@ do $$ begin
   or exists (select 1 from public.withdrawals         where bank_account_enc is null) then
     raise exception 'backfill incompleto: há PII sem coluna _enc';
   end if;
-  if exists (select 1 from public.platform_affiliates
-             where cpf is not null and public.pr7_dec(cpf_enc) is distinct from cpf) then
-    raise exception 'round-trip cifra/decifra divergente em platform_affiliates';
+  -- round-trip: ao menos uma coluna de cada tabela (BAIXO-1 da auditoria)
+  if exists (select 1 from public.platform_affiliates where cpf is not null and public.pr7_dec(cpf_enc) is distinct from cpf)
+  or exists (select 1 from public.profiles            where cpf is not null and public.pr7_dec(cpf_enc) is distinct from cpf)
+  or exists (select 1 from public.staff_profiles      where public.pr7_dec(cpf_enc) is distinct from cpf)
+  or exists (select 1 from public.producer_profiles   where cnpj is not null and public.pr7_dec(cnpj_enc) is distinct from cnpj)
+  or exists (select 1 from public.producer_profiles   where pix_key is not null and public.pr7_dec(pix_key_enc) is distinct from pix_key)
+  or exists (select 1 from public.withdrawals         where pix_key is not null and public.pr7_dec(pix_key_enc) is distinct from pix_key) then
+    raise exception 'round-trip cifra/decifra divergente (coluna texto)';
   end if;
-  if exists (select 1 from public.producer_profiles
-             where public.pr7_dec(bank_account_enc)::jsonb is distinct from bank_account) then
-    raise exception 'round-trip bank_account (jsonb) divergente em producer_profiles';
+  if exists (select 1 from public.producer_profiles where public.pr7_dec(bank_account_enc)::jsonb is distinct from bank_account)
+  or exists (select 1 from public.withdrawals       where public.pr7_dec(bank_account_enc)::jsonb is distinct from bank_account) then
+    raise exception 'round-trip bank_account (jsonb) divergente';
   end if;
 end $$;
 
