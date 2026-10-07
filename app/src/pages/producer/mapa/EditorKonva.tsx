@@ -13,6 +13,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
+import { decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia } from './regras'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -158,8 +159,8 @@ export default function EditorKonva() {
   const criarEm = (x: number, y: number) => {
     const it = ITENS[ferr]
     if (!it || !sec) return
-    const mesmos = env.seats.filter(n => n.type === it.tipo).length + 1
-    const rotulo = it.id === 'seat' || it.id === 'poltrona' ? String(mesmos) : it.id === 'table' ? `Mesa ${mesmos}` : it.nome
+    const base = it.id === 'seat' || it.id === 'poltrona' ? '' : it.id === 'table' ? 'Mesa' : it.id === 'cadeira_pne' ? 'PNE' : it.id === 'espaco_cadeirante' ? 'Espaço Cadeirante' : null
+    const rotulo = base === null ? it.nome : proximoRotulo(env.seats, base)
     const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), sec, { label: rotulo })
     mudar(e => ({ ...e, seats: [...e.seats, no] }))
     setSel({ tipo: 'no', id: no.id })
@@ -169,6 +170,9 @@ export default function EditorKonva() {
     if (!sel) return
     if (sel.tipo === 'no') {
       if (noSel?.locked) return
+      const d = noSel ? decidirApagar(noSel) : { acao: 'ok' as const }
+      if (d.acao === 'recusar') { window.alert(d.msg); return }
+      if (d.acao === 'confirmar' && !window.confirm(d.msg)) return
       mudar(e => ({ ...e, seats: e.seats.filter(n => n.id !== sel.id) }))
     } else {
       if ((env.walls || []).find(p => p.id === sel.id)?.locked) return
@@ -179,7 +183,7 @@ export default function EditorKonva() {
   const duplicar = () => {
     if (!noSel) return
     // a cópia é livre: não herda venda, reserva nem trava
-    const copia: SeatNode = { ...noSel, id: novoId(), x: noSel.x + 0.5, y: noSel.y + 0.5, status: 'free', sold: 0, locked: false }
+    const copia: SeatNode = { ...noSel, id: novoId(), x: noSel.x + 0.5, y: noSel.y + 0.5, status: 'free', sold: 0, locked: false, label: rotuloDaCopia(env.seats, noSel) }
     mudar(e => ({ ...e, seats: [...e.seats, copia] }))
     setSel({ tipo: 'no', id: copia.id })
   }
@@ -193,9 +197,10 @@ export default function EditorKonva() {
     }
   }
   const escolherTemplate = (t: Template) => {
-    const vendidos = env.seats.filter(n => n.status !== 'free' || n.sold > 0).length
+    const d = decidirTemplate(env.seats)
+    if (!d.permitido) { window.alert(`Não dá para aplicar "${t.nome}": ${d.vendidos} elemento(s) deste pavimento têm venda ou reserva. Crie outro pavimento para o novo modelo.`); return }
     if (env.seats.length + (env.walls || []).length > 0 &&
-      !window.confirm(`Aplicar "${t.nome}" apaga os ${env.seats.length} elementos deste pavimento${vendidos ? ` (${vendidos} já vendidos, reservados ou bloqueados)` : ''}. Dá para desfazer antes de salvar. Continuar?`)) return
+      !window.confirm(`Aplicar "${t.nome}" apaga os ${env.seats.length} elementos deste pavimento${d.bloqueados ? ` (${d.bloqueados} bloqueados)` : ''}. As seções, os preços e o vínculo com lotes (ingressos) serão substituídos. Dá para desfazer antes de salvar. Continuar?`)) return
     mudar(e => aplicarTemplate(e, t))
     setSel(null); setFerr('select'); setAbrirTemplates(false)
     setReenquadrar(n => n + 1)
@@ -203,13 +208,15 @@ export default function EditorKonva() {
   // Teclado: Delete apaga, Ctrl/Cmd+D duplica, setas movem 0,25 m (Shift = 1 m), Ctrl/Cmd+Z desfaz, Esc volta a selecionar
   const teclas = useRef<(e: KeyboardEvent) => void>(() => {})
   teclas.current = e => {
-    if (abrirTemplates || (e.target as HTMLElement | null)?.closest?.('input,select,textarea,[role=dialog]')) return
+    const alvo = e.target as HTMLElement | null
+    if (abrirTemplates || alvo?.closest?.('input,select,textarea,[role=dialog]')) return
+    const emBotao = !!alvo?.closest?.('button,[role=button],[role=menuitem]')
     const cmd = e.ctrlKey || e.metaKey
     const k = e.key.toLowerCase()
     if (k === 'escape') setFerr('select')
     else if (cmd && k === 'z') { e.preventDefault(); desfazer() }
     else if (cmd && k === 'd') { e.preventDefault(); duplicar() }
-    else if (k === 'delete' || k === 'backspace') { if (sel) { e.preventDefault(); apagar() } }
+    else if (k === 'delete' || k === 'backspace') { if (sel && !emBotao) { e.preventDefault(); apagar() } }
     else if (k.startsWith('arrow') && sel) {
       e.preventDefault()
       const p = PASSO_SETA * (e.shiftKey ? 4 : 1)
