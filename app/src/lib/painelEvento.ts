@@ -290,6 +290,13 @@ export const MSG_PENDENCIA: Record<Pendencia['id'], string> = {
   classificacao: 'Escolha a classificação indicativa.', aceite: 'Marque o aceite do produtor.',
 }
 
+/** Passos do destaque por modo, um por campo: rascunho e recusado = pendências + bloqueios; no ar e em análise = só os bloqueios (o aceite e as pendências antigas não impedem); fechado = nenhum. Com vendas (travado) data e hora estão desabilitadas: o alvo vira o cabeçalho da seção. */
+export function alvosDoModo<T extends { campo: string }>(modo: ModoPainel, pendencias: T[], bloqueios: T[], travado = false): T[] {
+  const base = modo === 'rascunho' || modo === 'recusado' ? [...pendencias, ...bloqueios] : modo === 'publicado' || modo === 'analise' ? bloqueios : []
+  const campo = (c: string) => (travado && (c === 'f-inicio' || c === 'f-fim') ? 's-quando' : c)
+  return base.map(x => ({ ...x, campo: campo(x.campo) })).filter((x, i, l) => l.findIndex(y => y.campo === x.campo) === i)
+}
+
 /** Id do campo que resolve a pendência. Ingresso: com mudança não salva, o botão "Salvar" (é o que falta); senão o primeiro sem nome ou sem quantidade; sem ingresso, o botão "Adicionar". */
 export function campoDaPendencia(id: Pendencia['id'], f: Form, ings: Ing[], ingSujo = false): string {
   switch (id) {

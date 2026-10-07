@@ -35,7 +35,7 @@ import { confirmacaoDuplicar, erroAoExcluir, instanteLocal } from '../../lib/eve
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, MSG_PENDENCIA, SECAO_DA_PENDENCIA, campoDaPendencia, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, pedidoParaBanco, vendaParaBanco, modoPainel,
+  ERRO_NOME, MSG_PENDENCIA, SECAO_DA_PENDENCIA, campoDaPendencia, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, pedidoParaBanco, vendaParaBanco, modoPainel, alvosDoModo,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -268,15 +268,16 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const aceiteMarcado = aceiteDe === textoDoAceite
   const lista = pendenciasDoPainel(form, ingsSalvos, aceiteMarcado || modo === 'publicado' || modo === 'analise')
   const prontos = lista.filter(p => p.pronto).length
-  const faltas: Falta[] = [
-    ...lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]], campo: campoDaPendencia(p.id, form, ings, ingSujo), msg: MSG_PENDENCIA[p.id] })),
+  const pendFaltas: Falta[] = lista.filter(p => !p.pronto).map(p => ({ rotulo: p.rotulo, secao: SECAO_DA_PENDENCIA[p.id], nomeSecao: NOME_SECAO[SECAO_DA_PENDENCIA[p.id]], campo: campoDaPendencia(p.id, form, ings, ingSujo), msg: MSG_PENDENCIA[p.id] }))
+  const bloqueios: Falta[] = [
     ...(ingSujo ? [{ rotulo: 'Salvar os ingressos', secao: 'ing', nomeSecao: 'Ingressos', campo: 'ing-salvar', msg: 'Salve os ingressos.' }] : []),
     ...(erroNome ? [{ rotulo: 'Escrever o nome do evento', secao: 'oque', nomeSecao: 'O que é', campo: 'f-nome', msg: MSG_PENDENCIA.nome }] : []),
     ...(erros.inicio || erros.fim ? [{ rotulo: 'Corrigir as datas', secao: 'quando', nomeSecao: 'Quando e onde', campo: erros.inicio ? 'f-inicio' : 'f-fim', msg: 'Corrija as datas.' }] : []),
     ...(linkRuim ? [{ rotulo: 'Corrigir o link da transmissão', secao: 'quando', nomeSecao: 'Quando e onde', campo: 'f-link', msg: 'Corrija o link da transmissão.' }] : []),
   ]
-  // um passo por campo (nome sem texto e "escrever o nome" são o mesmo campo); só rascunho e recusado enviam
-  const alvos = (modo === 'rascunho' || modo === 'recusado') ? faltas.filter((x, i) => faltas.findIndex(y => y.campo === x.campo) === i) : []
+  const faltas = [...pendFaltas, ...bloqueios]
+  // um passo por campo (nome sem texto e "escrever o nome" são o mesmo campo); no ar e em análise só valem os bloqueios
+  const alvos = alvosDoModo(modo, pendFaltas, bloqueios, travado)
   const faltam = mostrarFaltas ? Object.fromEntries(alvos.map(a => [a.campo, a.msg])) : undefined
   const faltasDaSecao = (id: string) => (mostrarFaltas ? alvos.filter(a => a.secao === id).length : 0)
   // evento no ar: só o conteúdo moderado vai para a faixa "Alterações não enviadas" (a cor salva sozinha)
@@ -604,7 +605,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         {alteracoes.length > 0 && (
           <Faixa
             tom="atencao" titulo={`Alterações não enviadas: ${alteracoes.join(', ')}`}
-            acoes={<><Button variant="ghost" size="sm" onClick={descartar}>Descartar</Button><Button size="sm" onClick={() => { setErroEnvio(''); setAceiteDe(null); setSoAceite(false); setDialogo(true) }}>Enviar alterações para análise</Button></>}
+            acoes={<><Button variant="ghost" size="sm" onClick={descartar}>Descartar</Button><Button size="sm" onClick={() => { if (alvos.length > 0) { irAoPasso(0); return } setErroEnvio(''); setAceiteDe(null); setSoAceite(false); setDialogo(true) }}>Enviar alterações para análise</Button></>}
           >
             Nada muda na página até você enviar. Ao enviar, o evento sai da vitrine e da busca até a equipe aprovar. Ingressos salvos valem na hora.
           </Faixa>
