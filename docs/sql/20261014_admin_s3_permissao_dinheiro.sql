@@ -1,3 +1,7 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (producer_profiles.cnpj, pix_key, bank_account, lidas pela função gf_protect_producer_profile_privileges) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
+-- A guarda de md5 deste script ABORTA se a função gf_protect_producer_profile_privileges já foi reescrita pelo passo 2 (mantida de propósito).
 -- =============================================================================
 -- S3 do plano sparkling-gliding-harp (admin, Decisão 163): o banco passa a exigir a PERMISSÃO DA TELA nas tabelas de
 -- DINHEIRO. 04/10/2026. Hoje qualquer admin (gf_is_admin) lê e grava tudo; depois deste arquivo, cada regra pede a

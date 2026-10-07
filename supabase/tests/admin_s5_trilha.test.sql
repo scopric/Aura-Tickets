@@ -4,6 +4,8 @@
 -- A tabela da trilha não se apaga nem se limpa, então os testes marcam o último id (pg_temp.marca) e contam só o que veio depois.
 -- pg_temp.como() troca papel e claims do JWT como o PostgREST; pg_temp.hdr() põe request.headers; pg_temp.n(sql) = primeira
 -- coluna bigint do select; pg_temp.nlog(cond) e pg_temp.ult(cond) olham a trilha (só como postgres) depois da marca.
+-- Pós-passo 2 do PR 7: PII só existe cifrada (colunas _enc, bytea). Nas fixtures o "cifrado" é convert_to(texto, 'UTF8'): o gatilho só compara
+-- valores, e o hex do texto permite caçar vazamento na trilha (to_jsonb(bytea) sai como \x<hex>). pr7_anonimizar_pii precisa da chave no Vault.
 -- Contas: adm_users (manage_users), adm_fin (manage_finance), adm_set (manage_settings), adm_ana (view_analytics),
 -- adm_audit (view_audit), super, comum (sem papel), p1 (produtor dono).
 begin;
@@ -63,8 +65,8 @@ update public.profiles set role = 'admin', admin_permissions = array['manage_set
 update public.profiles set role = 'admin', admin_permissions = array['view_analytics']::text[] where id = 'd7000000-0000-4000-8000-000000000004';
 update public.profiles set role = 'admin', admin_permissions = array['view_audit']::text[] where id = 'd7000000-0000-4000-8000-000000000005';
 update public.profiles set role = 'admin', admin_permissions = array['super_admin']::text[] where id = 'd7000000-0000-4000-8000-000000000006';
-insert into public.producer_profiles (id, company_name, pix_key, bank_account, cnpj) values
-  ('d7000000-0000-4000-8000-000000000008', 'Paula Eventos', 'p1@pix-secreto', '{"banco":"341-secreto"}', '11222333000181');
+insert into public.producer_profiles (id, company_name, pix_key_enc, bank_account_enc, cnpj_enc) values
+  ('d7000000-0000-4000-8000-000000000008', 'Paula Eventos', convert_to('p1@pix-secreto', 'UTF8'), convert_to('{"banco":"341-secreto"}', 'UTF8'), convert_to('11222333000181', 'UTF8'));
 insert into public.events (id, producer_id, title, slug, status, approval_status) values
   ('d7000000-0000-4000-8000-0000000000e1', 'd7000000-0000-4000-8000-000000000008', 'No ar', 's5-e1', 'published', 'pending');
 insert into public.orders (id, user_id, event_id, total, status) values
@@ -79,8 +81,8 @@ insert into public.withdrawals (id, producer_id, amount) values ('d7000000-0000-
 insert into public.platform_settings (key, value) values ('general', '{"a":1}'), ('fees', '{"taxa":10}');
 insert into public.coupons (id, code, discount_type, discount_value, duration) values ('d7000000-0000-4000-8000-0000000000a5', 'S5PLANO', 'percent', 10, 'once');
 insert into public.coupons (id, producer_id, code, discount_type, discount_value) values ('d7000000-0000-4000-8000-0000000000a6', 'd7000000-0000-4000-8000-000000000008', 'S5PAULA', 'percent', 10);
-insert into public.platform_affiliates (id, user_id, referral_code, recurring_percent, cpf) values
-  ('d7000000-0000-4000-8000-0000000000a7', 'd7000000-0000-4000-8000-000000000009', 'S5AFIL', 20, '52998224725');
+insert into public.platform_affiliates (id, user_id, referral_code, recurring_percent, cpf_enc) values
+  ('d7000000-0000-4000-8000-0000000000a7', 'd7000000-0000-4000-8000-000000000009', 'S5AFIL', 20, convert_to('52998224725', 'UTF8'));
 insert into public.feedback (id, message) values ('d7000000-0000-4000-8000-0000000000a8', 'texto-secreto-do-feedback');
 insert into public.contact_messages (id, name, email, message) values ('d7000000-0000-4000-8000-0000000000a9', 'Fulano Secreto', 'fulano-secreto@x.local', 'msg-secreta');
 insert into public.kb_articles (id, title, body) values ('d7000000-0000-4000-8000-0000000000aa', 'Titulo', 'corpo-secreto-do-artigo');
@@ -118,15 +120,15 @@ select throws_ok($$truncate public.admin_audit_log, public.withdrawals cascade$$
 -- C. Pix mudado aparece só como «oculto» ----------------------------------------------------------------------------------
 select pg_temp.marca();
 select pg_temp.como('authenticated', 'd7000000-0000-4000-8000-000000000008', 'aal1');
-update public.producer_profiles set pix_key = 'novo-pix-secreto@x', bank_account = '{"banco":"001-novo-secreto"}', cnpj = '99888777000166'
+update public.producer_profiles set pix_key_enc = convert_to('novo-pix-secreto@x', 'UTF8'), bank_account_enc = convert_to('{"banco":"001-novo-secreto"}', 'UTF8'), cnpj_enc = convert_to('99888777000166', 'UTF8')
   where id = 'd7000000-0000-4000-8000-000000000008';
 select pg_temp.como('postgres');
 select is(pg_temp.nlog($$tabela = 'producer_profiles' and objeto_id = 'd7000000-0000-4000-8000-000000000008'$$), 1::bigint, 'Pix, conta e CNPJ mudados: 1 linha na trilha');
-select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,pix_key}', '«oculto»', 'Pix aparece como «oculto» (depois)');
-select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{antes,pix_key}', '«oculto»', 'Pix aparece como «oculto» (antes)');
-select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,bank_account}', '«oculto»', 'conta bancária oculta');
-select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,cnpj}', '«oculto»', 'CNPJ oculto');
-select is(position('secreto' in (select (antes::text || depois::text) from public.admin_audit_log order by id desc limit 1)), 0,
+select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,pix_key_enc}', '«oculto»', 'Pix aparece como «oculto» (depois)');
+select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{antes,pix_key_enc}', '«oculto»', 'Pix aparece como «oculto» (antes)');
+select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,bank_account_enc}', '«oculto»', 'conta bancária oculta');
+select is(pg_temp.ult($$tabela = 'producer_profiles'$$) #>> '{depois,cnpj_enc}', '«oculto»', 'CNPJ oculto');
+select is(position(encode('secreto'::bytea, 'hex') in (select (antes::text || depois::text) from public.admin_audit_log order by id desc limit 1)), 0,
   'nenhum valor real de Pix, conta ou CNPJ na linha (antes + depois)');
 select is(pg_temp.ult($$tabela = 'producer_profiles'$$) ->> 'autor', 'd7000000-0000-4000-8000-000000000008', 'autor = quem mudou');
 select is(pg_temp.ult($$tabela = 'producer_profiles'$$) ->> 'acao', 'alterar', 'acao = alterar');
@@ -217,15 +219,15 @@ select pg_temp.marca();
 delete from public.feedback where id = 'd7000000-0000-4000-8000-0000000000a8';
 delete from public.contact_messages where id = 'd7000000-0000-4000-8000-0000000000a9';
 update public.kb_articles set body = 'corpo-novo-secreto', title = 'Titulo 2' where id = 'd7000000-0000-4000-8000-0000000000aa';
-update public.platform_affiliates set cpf = '11144477735', recurring_percent = 25 where id = 'd7000000-0000-4000-8000-0000000000a7';
+update public.platform_affiliates set cpf_enc = convert_to('11144477735', 'UTF8'), recurring_percent = 25 where id = 'd7000000-0000-4000-8000-0000000000a7';
 select is(pg_temp.ult($$tabela = 'feedback' and acao = 'excluir'$$) #>> '{antes,message}', '«oculto»', 'DELETE de feedback: mensagem oculta');
 select is(pg_temp.ult($$tabela = 'contact_messages' and acao = 'excluir'$$) #>> '{antes,email}', '«oculto»', 'DELETE de contato: e-mail oculto');
 select is(pg_temp.ult($$tabela = 'contact_messages' and acao = 'excluir'$$) #>> '{antes,name}', '«oculto»', 'DELETE de contato: nome oculto');
 select is(pg_temp.ult($$tabela = 'kb_articles'$$) #>> '{depois,body}', '«oculto»', 'artigo da base: corpo oculto');
-select is(pg_temp.ult($$tabela = 'platform_affiliates'$$) #>> '{depois,cpf}', '«oculto»', 'afiliado: CPF oculto');
+select is(pg_temp.ult($$tabela = 'platform_affiliates'$$) #>> '{depois,cpf_enc}', '«oculto»', 'afiliado: CPF oculto');
 select is(pg_temp.ult($$tabela = 'platform_affiliates'$$) #>> '{depois,recurring_percent}', '25', 'afiliado: comissão aparece');
 select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
-  and (antes::text || depois::text) ~ 'secret|52998224725|11144477735'), 0::bigint, 'nenhum texto, CPF ou segredo vazou nas linhas acima');
+  and (antes::text || depois::text) ~ ('secret|52998224725|11144477735|' || encode('secret'::bytea, 'hex') || '|' || encode('52998224725'::bytea, 'hex') || '|' || encode('11144477735'::bytea, 'hex'))), 0::bigint, 'nenhum texto, CPF ou segredo vazou nas linhas acima');
 select pg_temp.marca();
 insert into public.admin_invites (id, email, cargo, permissions, token_hash) values
   ('d7000000-0000-4000-8000-0000000000ac', 'novo@teste-s5.local', 'Analista', array['view_audit']::text[], repeat('ab', 32));
@@ -351,34 +353,34 @@ select ok(not public.convite_permissoes_ok(array['view_auditoria']), 'convite re
 select pg_temp.como('postgres');
 insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data) values
   ('d7000000-0000-4000-8000-000000000010', 'saida-secreta@teste-s5.local', now(), '{"full_name":"Nome Secreto Saida"}');
-update public.profiles set full_name = 'Nome Secreto Saida', phone = '11988887777', cpf = '39053344705', bio = 'bio-secreta',
+update public.profiles set full_name = 'Nome Secreto Saida', phone = '11988887777', cpf_enc = convert_to('39053344705', 'UTF8'), bio = 'bio-secreta',
   city = 'Cidade-Secreta', birth_date = '1990-01-01', instagram = '@insta-secreto', tiktok = '@tik-secreto', linkedin = 'in/lk-secreto',
   website = 'https://site-secreto.example', stripe_customer_id = 'cus_secreto', avatar_url = 'https://img-secreto.example',
   role = 'admin', admin_permissions = array['manage_users']::text[], is_verified = true
   where id = 'd7000000-0000-4000-8000-000000000010';
-insert into public.producer_profiles (id, company_name, pix_key, bank_account, cnpj, webhook_url, notification_settings, is_verified) values
-  ('d7000000-0000-4000-8000-000000000010', 'Empresa-Secreta', 'pix-secreto-saida', '{"banco":"conta-secreta"}', '12345678000195',
+insert into public.producer_profiles (id, company_name, pix_key_enc, bank_account_enc, cnpj_enc, webhook_url, notification_settings, is_verified) values
+  ('d7000000-0000-4000-8000-000000000010', 'Empresa-Secreta', convert_to('pix-secreto-saida', 'UTF8'), convert_to('{"banco":"conta-secreta"}', 'UTF8'), convert_to('12345678000195', 'UTF8'),
    'https://hook-secreto.example', '{"k":"notif-secreta"}', true);
-insert into public.withdrawals (id, producer_id, amount, pix_key, bank_account) values
-  ('d7000000-0000-4000-8000-0000000000d3', 'd7000000-0000-4000-8000-000000000010', 5, 'pix-saque-secreto', '{"x":"conta-saque-secreta"}');
+insert into public.withdrawals (id, producer_id, amount, pix_key_enc, bank_account_enc) values
+  ('d7000000-0000-4000-8000-0000000000d3', 'd7000000-0000-4000-8000-000000000010', 5, convert_to('pix-saque-secreto', 'UTF8'), convert_to('{"x":"conta-saque-secreta"}', 'UTF8'));
 select pg_temp.marca();
 select pg_temp.como('service_role');
--- os mesmos UPDATE de supabase/functions/delete-account/index.ts (passos profiles, producer_profiles e withdrawals)
-update public.profiles set email = 'removido-x@teste-s5.local', full_name = 'Usuário removido', phone = null, cpf = null, avatar_url = null,
+-- os mesmos passos de supabase/functions/delete-account/index.ts (profiles, producer_profiles e a RPC pr7_anonimizar_pii, que limpa as _enc)
+update public.profiles set email = 'removido-x@teste-s5.local', full_name = 'Usuário removido', phone = null, avatar_url = null,
   bio = null, city = null, birth_date = null, instagram = null, tiktok = null, linkedin = null, website = null,
   stripe_customer_id = null, role = 'user', admin_permissions = '{}', is_verified = false where id = 'd7000000-0000-4000-8000-000000000010';
-update public.producer_profiles set company_name = 'Removido', cnpj = 'REMOVIDO-x', stripe_account_id = null, woovi_account_id = null,
-  bank_account = '{}', pix_key = null, webhook_url = null, notification_settings = '{}', is_verified = false
+update public.producer_profiles set company_name = 'Removido', stripe_account_id = null, woovi_account_id = null,
+  webhook_url = null, notification_settings = '{}', is_verified = false
   where id = 'd7000000-0000-4000-8000-000000000010';
-update public.withdrawals set pix_key = null, bank_account = '{}' where producer_id = 'd7000000-0000-4000-8000-000000000010';
+select public.pr7_anonimizar_pii('d7000000-0000-4000-8000-000000000010');
 select pg_temp.como('postgres');
 select is(pg_temp.nlog($$tabela = 'profiles'$$), 1::bigint, 'delete-account: profiles grava 1 linha (papel e permissão mudaram)');
 select is((select array_agg(k order by k) from jsonb_object_keys(pg_temp.ult($$tabela = 'profiles'$$) -> 'depois') k),
   array['admin_permissions', 'is_verified', 'role'], 'delete-account: só role, admin_permissions e is_verified entram');
-select is(pg_temp.nlog($$tabela = 'producer_profiles'$$), 1::bigint, 'delete-account: producer_profiles grava 1 linha');
+select is(pg_temp.nlog($$tabela = 'producer_profiles'$$), 2::bigint, 'delete-account: producer_profiles grava 2 linhas (o UPDATE da conta e o pr7_anonimizar_pii, que zera as _enc)');
 select is(pg_temp.nlog($$tabela = 'withdrawals'$$), 0::bigint, 'delete-account: limpar Pix do saque (status igual) não grava');
 select is((select count(*) from public.admin_audit_log where id > current_setting('test.marca')::bigint
-  and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~* 'secret|removido|39053344705|11988887777|1990-01-01|12345678000195|saida'),
+  and (coalesce(antes::text, '') || coalesce(depois::text, '')) ~* ('secret|removido|39053344705|11988887777|1990-01-01|12345678000195|saida|' || encode('secret'::bytea, 'hex') || '|' || encode('39053344705'::bytea, 'hex') || '|' || encode('12345678000195'::bytea, 'hex'))),
   0::bigint, 'delete-account: nenhum e-mail, nome, telefone, CPF, Pix, conta, CNPJ ou webhook em antes/depois');
 
 -- O. INSERT e DELETE seguem a lista de vigiadas (coluna futura e texto livre nunca entram) -------------------------------------

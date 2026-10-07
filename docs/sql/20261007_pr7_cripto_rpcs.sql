@@ -1,3 +1,6 @@
+-- ⚠️ NÃO REAPLICAR após o passo 2 do PR 7 (docs/sql/20261007_pr7_cripto_passo2.sql).
+-- Este script recria/usa colunas de PII em TEXTO (as mesmas colunas de texto do passo 1: as RPCs pr7_* daqui leem e gravam o texto; o passo 2 as substitui por versões que usam só as _enc) que o passo 2 APAGOU em produção (07/10/2026).
+-- Reaplicar reintroduz PII em claro ou falha. Mantido como histórico; já aplicado no seu tempo.
 -- =============================================================================
 -- PR 7 (cifra de PII), RPCs do cutover do front. Aditivo e idempotente. Aplicar DEPOIS de 20261007_pr7_cripto_passo1.sql
 -- e ANTES de publicar o front deste PR.

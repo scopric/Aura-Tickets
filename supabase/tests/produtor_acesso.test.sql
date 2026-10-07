@@ -323,18 +323,19 @@ select pg_temp.como('authenticated', 'b3000000-0000-4000-8000-000000000001');
 select results_eq($$select name from crm_criar_etapas_padrao()$$, array['Minha etapa'],
   'P1 já tinha etapa: nada é criado');
 
+-- Pós-passo 2 do PR 7: a unicidade do CNPJ é o índice parcial em cnpj_hmac (a coluna de texto cnpj foi apagada)
 -- Chaves únicas e CNPJ (como postgres) ----------------------------------------------------------------------------
 select pg_temp.como('postgres');
 select throws_ok($$insert into certificates (event_id) values ('b3000000-0000-4000-8000-0000000000e1')$$,
   '23505', null, 'segundo certificado no mesmo evento é recusado');
 select throws_ok($$insert into seating_maps (event_id) values ('b3000000-0000-4000-8000-0000000000e1')$$,
   '23505', null, 'segundo mapa de lugares no mesmo evento é recusado');
-select lives_ok($$insert into producer_profiles (id, company_name, cnpj) values
+select lives_ok($$insert into producer_profiles (id, company_name, cnpj_hmac) values
   ('b3000000-0000-4000-8000-000000000001', 'P1 Ltda', null), ('b3000000-0000-4000-8000-000000000002', 'P2 Ltda', null)$$,
   'dois produtores com CNPJ nulo não colidem');
-select throws_ok($$insert into producer_profiles (id, company_name, cnpj) values
-  ('b3000000-0000-4000-8000-000000000007', 'P3 Ltda', '11222333000181'),
-  ('b3000000-0000-4000-8000-000000000003', 'AF Ltda', '11222333000181')$$,
+select throws_ok($$insert into producer_profiles (id, company_name, cnpj_enc, cnpj_hmac) values
+  ('b3000000-0000-4000-8000-000000000007', 'P3 Ltda', convert_to('11222333000181', 'UTF8'), '\x11'),
+  ('b3000000-0000-4000-8000-000000000003', 'AF Ltda', convert_to('11222333000181', 'UTF8'), '\x11')$$,
   '23505', null, 'CNPJ preenchido continua único');
 
 select * from finish();
