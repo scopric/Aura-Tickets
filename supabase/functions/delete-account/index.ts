@@ -74,6 +74,8 @@ Deno.serve(async (req) => {
       bio: null, city: null, birth_date: null, instagram: null, tiktok: null, linkedin: null,
       website: null, stripe_customer_id: null, role: 'user', admin_permissions: [], is_verified: false,
     }).eq('id', uid)],
+    // Bloco "Organizador" da página do evento (docs/sql/20261007_organizador_publico.sql): sai antes de anonimizar o cadastro
+    ['producer_public', () => admin.from('producer_public').delete().eq('producer_id', uid)],
     // Cadastro de produtor: dados bancários e chaves fora (0 linhas se não for produtor)
     ['producer_profiles', () => admin.from('producer_profiles').update({
       company_name: 'Removido', cnpj: `REMOVIDO-${uid}`, stripe_account_id: null, woovi_account_id: null,
