@@ -3,7 +3,7 @@ import * as I from '@/components/icones/evokaa16'
 import { selectNativo } from '@/components/producer/ui'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { ESTILOS, FORMATOS, MAX_ESTILOS, MAX_TEMAS, TEMAS } from '../../../lib/tipoEvento'
+import { ESTILOS, FORMATOS, MAX_ESTILOS, MAX_TEMAS, TEMAS, formatoDe } from '../../../lib/tipoEvento'
 import { Campo, Chip, type PropsSecao } from './campos'
 
 const MAX_TAGS = 10
@@ -13,7 +13,7 @@ const alterna = (lista: string[], v: string) => (lista.includes(v) ? lista.filte
 // Seção "O que é": nome, subtítulo, formato, temas, estilos (só com o tema Música), etiquetas e descrição.
 export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome: string }) {
   const [tag, setTag] = useState('')
-  const formatoConhecido = FORMATOS.some(x => x.valor === f.category) // texto antigo de category não casa com a lista: mostra "Escolha"
+  const formato = formatoDe(f.category) // texto fora da lista mostra "Escolha"
 
   const poeTag = () => {
     const v = tag.trim()
@@ -30,7 +30,7 @@ export default function SecaoOQueE({ f, set, erroNome }: PropsSecao & { erroNome
         <Input id="f-sub" value={f.subtitle} onChange={e => set({ subtitle: e.target.value })} maxLength={120} placeholder="Uma linha que aparece abaixo do nome" />
       </Campo>
       <Campo id="f-formato" rotulo="Formato" ajuda="Um só. Ele decide os modelos prontos e o filtro do Explorar.">
-        <select id="f-formato" aria-describedby="f-formato-ajuda" className={selectNativo} value={formatoConhecido ? f.category : ''} onChange={e => set({ category: e.target.value })}>
+        <select id="f-formato" aria-describedby="f-formato-ajuda" className={selectNativo} value={formato?.valor ?? ''} onChange={e => set({ category: e.target.value })}>
           <option value="">Escolha o formato</option>
           {FORMATOS.map(x => <option key={x.valor} value={x.valor}>{x.rotulo}</option>)}
         </select>

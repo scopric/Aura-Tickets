@@ -93,13 +93,13 @@ export default function PainelEvento() {
       return ((data as UltimoAceite[] | null) ?? [])[0] ?? null
     },
   })
-  // Vendidos por tipo: ticket_types.sold não é atualizado por nada no banco; vale a contagem de ingressos válidos
+  // Vendidos por tipo: ticket_types.sold não é atualizado por nada no banco; vale a contagem de ingressos não cancelados nem reembolsados (mesmo critério do gatilho gf_trava_venda_ingresso)
   const vd = useQuery({
     queryKey: ['painel-vendidos', eventId], enabled: !!ev.data, ...frescas,
     queryFn: async () => {
       const tipos = ev.data!.ticket_types ?? []
       const contagens = await Promise.all(tipos.map(t =>
-        supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('ticket_type_id', t.id).in('status', ['active', 'used'])))
+        supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('ticket_type_id', t.id).or('status.is.null,status.not.in.(cancelled,refunded)')))
       const porId: Record<string, number> = {}
       tipos.forEach((t, i) => {
         const gravado = Math.max(Number(t.sold) || 0, Number((t as unknown as { quantity_sold?: number }).quantity_sold) || 0)
@@ -345,7 +345,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       const novos = porCriacao((data ?? []) as DbTicketType[]).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
       setIngs(novos); setIngsSalvos(novos); setTentouIng(false)
       void qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }) // o Match de Mesa aparece com o primeiro ingresso coletiva
-      toast.success('Ingressos salvos.')
+      toast.success(modo === 'publicado' ? 'Ingressos salvos. Já valem para quem compra.' : 'Ingressos salvos.')
     } catch (err) {
       toast.error(erroDosIngressos(err))
     } finally {
