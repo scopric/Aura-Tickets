@@ -297,7 +297,7 @@ function Visao({ e }: { e: DbEvent }) {
         <p className="text-xs text-muted-foreground">O período vale para vendas, valores, pedidos e o gráfico. Ingressos por tipo, ocupação e check-in mostram o total do evento.</p>
       </div>
 
-      {isPending || doisFatoresQ.isPending && dados?.pagosQtd === 0 ? (
+      {isPending || (doisFatoresQ.isPending && dados.pagosQtd === 0) ? (
         <Esqueleto />
       ) : isError ? (
         <Erro texto="Não foi possível carregar as vendas deste evento." refetch={refetch} carregando={isFetching} className="mt-6" />
