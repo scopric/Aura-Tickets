@@ -265,7 +265,8 @@ describe('Visão geral: ocupação e 2FA (correções)', () => {
     })
     montar('/producer/event/e1?periodo=hoje')
     expect(await screen.findByText('de 500 vendidos')).toBeTruthy()
-    expect(screen.getByText('480')).toBeTruthy()
+    expect(screen.getAllByText('480').length).toBeGreaterThan(0)
+    expect(screen.queryByText('3 de 500')).toBeNull()
     expect(screen.getByRole('progressbar', { name: 'Ingressos vendidos' }).getAttribute('aria-valuenow')).toBe('480')
   })
 
