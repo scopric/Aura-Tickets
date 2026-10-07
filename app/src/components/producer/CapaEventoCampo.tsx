@@ -30,7 +30,8 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
 }) {
   const id = useId()
   const [preparando, setPreparando] = useState(false)
-  const [pequena, setPequena] = useState<string | null>(null) // "800 × 600 px": a foto escolhida pode ficar borrada
+  // aviso calculado da capa pronta: some sozinho quando o pai a descarta (setCapa(null))
+  const pequena = capa && Math.max(capa.largura, capa.altura) < LADO_BOM ? `${capa.largura} × ${capa.altura} px` : null
   const ocupado = preparando || salvando
   const temCapa = !!capa || temFoto(urlAtual)
 
@@ -48,7 +49,6 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
         toast.error(`Foto pequena demais (${medida}): ficaria borrada para quem vê o evento. Use a arte com pelo menos ${LADO_BOM} px no lado maior.`)
         return
       }
-      setPequena(lado < LADO_BOM ? medida : null)
       if (capa) URL.revokeObjectURL(capa.previewUrl)
       onCapa(nova)
       if (!corManual) onCor(nova.cor, false) // sugestão da foto; a pessoa troca abaixo
@@ -61,7 +61,6 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
 
   function remover() {
     if (capa) URL.revokeObjectURL(capa.previewUrl)
-    setPequena(null)
     onCapa(null)
     onRemover()
   }
@@ -82,11 +81,9 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
               </Button>
               {temCapa && <Button type="button" variant="ghost" onClick={remover} disabled={ocupado}><X aria-hidden="true" />Remover a foto</Button>}
             </div>
-            {pequena && (
-              <p role="status" className="text-xs font-medium text-[var(--ev-warning)]">
-                Esta foto é pequena ({pequena}) e pode ficar borrada no celular e no computador de quem vê o evento. Se tiver a arte em tamanho maior, troque.
-              </p>
-            )}
+            <p role="status" className="text-xs font-medium text-[var(--ev-warning)]">
+              {pequena && `Esta foto é pequena (${pequena}) e pode ficar borrada no celular e no computador de quem vê o evento. Se tiver a arte em tamanho maior, troque.`}
+            </p>
             <p className="text-xs text-muted-foreground">
               Use a arte em boa qualidade: <strong className="font-semibold text-foreground">em pé, 1080 × 1350 px</strong> (o formato do Instagram) ou <strong className="font-semibold text-foreground">deitada, 1920 × 1080 px</strong>; no mínimo {LADO_BOM} px no lado maior. Foto pequena ou tirada de print fica borrada para quem vê.
             </p>

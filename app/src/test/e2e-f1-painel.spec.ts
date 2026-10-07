@@ -998,6 +998,11 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await expect(page.getByRole('status').filter({ hasText: 'Esta foto é pequena (864 × 1184 px)' })).toBeVisible()
     await arquivo.setInputFiles('public/images/hero-bg.jpg')
     await expect(page.getByText(/Esta foto é pequena/)).toHaveCount(0)
+    // o aviso acompanha a capa pronta: remover a foto (e o Descartar do painel, que também zera a capa) o apaga
+    await arquivo.setInputFiles('public/images/concert-1.jpg')
+    await expect(page.getByText(/Esta foto é pequena/)).toBeVisible()
+    await page.getByRole('button', { name: 'Remover a foto' }).click()
+    await expect(page.getByText(/Esta foto é pequena/)).toHaveCount(0)
   })
 
   test('celular de 320 e 375 px: sem rolagem para o lado com local comprido, título de palavra única e evento travado', async ({ page }) => {

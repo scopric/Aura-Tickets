@@ -4,13 +4,13 @@ import { queryClient } from './queryClient'
 import { corViva } from './corEvento'
 
 // Envio da capa do evento (V6b; Decisões 136, 142 e 173). A arte vai INTEIRA, na proporção dela (flyer em pé ou deitado),
-// reduzida no navegador só se passar de 2000 px no lado maior (nunca ampliada: foto pequena ampliada fica borrada) e
+// reduzida no navegador só se passar de 2000 px no lado maior (nunca ampliada: foto pequena ampliada fica borrada; se não couber em 2 MB, cai para 1600 e 1200) e
 // regravada pelo canvas, o que descarta EXIF e GPS. O banco (bucket capas-eventos) também confere tipo, tamanho e
 // caminho; aqui se confere antes só para dar mensagem clara.
 const ENTRADA_TIPOS = ['image/jpeg', 'image/png', 'image/webp'] // SVG e o resto ficam de fora
 const ENTRADA_MAX = 10 * 1024 * 1024 // o que a pessoa escolhe; o arquivo enviado é bem menor
 const SAIDA_MAX = 2 * 1024 * 1024 - 4096 // teto do bucket (2 MB) com margem
-const LADO_MAX = 2000
+const LADOS = [2000, 1600, 1200] // lado maior, do melhor ao menor; só reduz, nunca amplia
 /** Abaixo disso a arte fica borrada em tela de celular e de computador (o campo avisa); abaixo do mínimo, recusa. */
 export const LADO_BOM = 1200
 export const LADO_MINIMO = 600
@@ -24,44 +24,61 @@ export interface CapaPronta {
   altura: number
 }
 
+// Medidas da foto já giradas pelo EXIF (naturalWidth/Height), sem decodificar a arte inteira na memória
+function lerMedidas(file: File): Promise<{ w: number; h: number }> {
+  const url = URL.createObjectURL(file)
+  return new Promise((ok, falha) => {
+    const img = new Image()
+    img.onload = () => { URL.revokeObjectURL(url); ok({ w: img.naturalWidth, h: img.naturalHeight }) }
+    img.onerror = () => { URL.revokeObjectURL(url); falha(new Error('Não foi possível abrir essa foto. Escolha outro arquivo.')) }
+    img.src = url
+  })
+}
+
+const gravar = (canvas: HTMLCanvasElement, tipo: string, q: number) => new Promise<Blob | null>(ok => canvas.toBlob(ok, tipo, q))
+
 export async function prepararCapa(file: File, semente: string): Promise<CapaPronta> {
   if (!ENTRADA_TIPOS.includes(file.type)) throw new Error('Use uma foto JPG, PNG ou WebP.')
   if (file.size > ENTRADA_MAX) throw new Error('A foto deve ter no máximo 10 MB.')
-  let bmp: ImageBitmap
-  try {
-    // já gira a foto de celular antes de perder o EXIF. Navegador sem a opção: tenta sem ela.
-    // ponytail: decodifica no tamanho original (foto de 48 MP pesa na memória); se der problema, ler o tamanho antes
-    bmp = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  } catch {
+  const { w, h } = await lerMedidas(file)
+  const maior = Math.max(w, h)
+  let canvas: HTMLCanvasElement | null = null
+  let blob: Blob | null = null
+  // Lado máximo cai (2000, 1600, 1200) até caber nos 2 MB do bucket; em cada lado, webp em 3 qualidades e jpeg como última
+  for (const lado of LADOS) {
+    const esc = Math.min(1, lado / maior) // só reduz; a proporção da arte fica
+    const rw = Math.round(w * esc), rh = Math.round(h * esc)
+    let bmp: ImageBitmap
     try {
-      bmp = await createImageBitmap(file)
+      // decodifica já reduzida (foto de 48 MP não pode ir inteira para a memória) e gira pelo EXIF; navegador sem a opção: tenta sem ela
+      bmp = await createImageBitmap(file, { imageOrientation: 'from-image', resizeWidth: rw, resizeHeight: rh, resizeQuality: 'high' })
     } catch {
-      throw new Error('Não foi possível abrir essa foto. Escolha outro arquivo.')
+      try {
+        bmp = await createImageBitmap(file)
+      } catch {
+        throw new Error('Não foi possível abrir essa foto. Escolha outro arquivo.')
+      }
     }
-  }
-  try {
-    const canvas = document.createElement('canvas')
-    const esc = Math.min(1, LADO_MAX / Math.max(bmp.width, bmp.height)) // só reduz; a proporção da arte fica
-    canvas.width = Math.round(bmp.width * esc)
-    canvas.height = Math.round(bmp.height * esc)
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Seu navegador não conseguiu preparar a foto.')
-    ctx.imageSmoothingQuality = 'high'
-    ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height)
-    let blob: Blob | null = null
-    for (const q of [0.85, 0.7, 0.55]) {
-      blob = await new Promise<Blob | null>(ok => canvas.toBlob(ok, 'image/webp', q))
-      // Safari antigo devolve PNG quando não grava webp: nesse caso, jpeg (o bucket aceita os dois)
-      if (blob && blob.type !== 'image/webp') blob = await new Promise<Blob | null>(ok => canvas.toBlob(ok, 'image/jpeg', q))
+    try {
+      canvas = document.createElement('canvas')
+      canvas.width = rw
+      canvas.height = rh
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Seu navegador não conseguiu preparar a foto.')
+      ctx.imageSmoothingQuality = 'high'
+      ctx.drawImage(bmp, 0, 0, rw, rh)
+    } finally {
+      bmp.close()
+    }
+    for (const [tipo, q] of [['image/webp', 0.85], ['image/webp', 0.7], ['image/webp', 0.55], ['image/jpeg', 0.7]] as const) {
+      blob = await gravar(canvas, tipo, q)
+      if (blob && blob.type !== tipo) blob = null // Safari antigo devolve PNG quando não grava webp: pula para o jpeg
       if (blob && blob.size <= SAIDA_MAX) break
     }
-    if (!blob || blob.size > SAIDA_MAX || (blob.type !== 'image/webp' && blob.type !== 'image/jpeg')) {
-      throw new Error('Não foi possível reduzir a foto. Escolha outra.')
-    }
-    return { blob, previewUrl: URL.createObjectURL(blob), cor: corViva(canvas, semente), largura: bmp.width, altura: bmp.height }
-  } finally {
-    bmp.close()
+    if (blob && blob.size <= SAIDA_MAX) break
   }
+  if (!canvas || !blob || blob.size > SAIDA_MAX) throw new Error('Não foi possível reduzir a foto. Escolha outra.')
+  return { blob, previewUrl: URL.createObjectURL(blob), cor: corViva(canvas, semente), largura: w, altura: h }
 }
 
 function mensagemDeEnvio(err: { message?: string; statusCode?: string | number; status?: number }): string {
