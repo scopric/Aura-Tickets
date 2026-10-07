@@ -13,7 +13,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia } from './regras'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -270,6 +270,14 @@ export default function EditorKonva() {
   envRef.current = env
   const tamRef = useRef(tam)
   tamRef.current = tam
+  const [avisoFora, setAvisoFora] = useState('')
+  const trazerParaDentro = () => {
+    const r = encaixarNaSala(env)
+    setAvisoFora(r.motivo || '')
+    if (r.env === env) return
+    mudar(() => r.env)
+    setReenquadrar(v => v + 1)
+  }
   const ajustar = useCallback(() => {
     const { w, h } = tamRef.current
     if (w === 0 || h === 0) return
@@ -369,6 +377,8 @@ export default function EditorKonva() {
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'cores'} aria-controls="gaveta-cores" onClick={e => alternar('cores', e.currentTarget)}>Cores</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => setAbrirTemplates(true)}>Templates</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={ajustar}>Ajustar à tela</Button>
+        {fora.size > 0 && <Button size="sm" variant="outline" className="border-red-500 text-red-600 max-lg:h-10" onClick={trazerParaDentro}>{fora.size} fora da sala: Trazer para dentro da sala</Button>}
+        {avisoFora && <span role="alert" className="text-xs text-destructive">{avisoFora}</span>}
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>

@@ -10,11 +10,9 @@ export interface Vista { zoom: number; pan: { x: number; y: number } }
 
 const limitarZoom = (z: number) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z))
 
-// Menor caixa (em metros) que contém a sala E tudo o que está desenhado, mesmo fora da sala
-// ponytail: ignora roomRotation e a sala em L (usa o retângulo roomWidth x roomHeight)
-export function limites(env: Environment): Caixa {
-  let x1 = ORIGEM_SALA, y1 = ORIGEM_SALA
-  let x2 = ORIGEM_SALA + (env.roomWidth || 40), y2 = ORIGEM_SALA + (env.roomHeight || 40)
+// Caixa que envolve só os elementos e paredes (com rotação), sem a sala; null se não há nada
+export function caixaDosElementos(env: Environment): Caixa | null {
+  let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity
   for (const s of env.seats || []) {
     const w = s.widthMeter || 0.5, h = s.heightMeter || 0.5
     const r = ((s.rotation || 0) * Math.PI) / 180
@@ -28,7 +26,17 @@ export function limites(env: Environment): Caixa {
     x1 = Math.min(x1, p.x1 - t, p.x2 - t); x2 = Math.max(x2, p.x1 + t, p.x2 + t)
     y1 = Math.min(y1, p.y1 - t, p.y2 - t); y2 = Math.max(y2, p.y1 + t, p.y2 + t)
   }
-  return { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }
+  return x1 === Infinity ? null : { x: x1, y: y1, w: x2 - x1, h: y2 - y1 }
+}
+
+// Menor caixa (em metros) que contém a sala E tudo o que está desenhado, mesmo fora da sala
+// ponytail: ignora roomRotation e a sala em L (usa o retângulo roomWidth x roomHeight)
+export function limites(env: Environment): Caixa {
+  const sx2 = ORIGEM_SALA + (env.roomWidth || 40), sy2 = ORIGEM_SALA + (env.roomHeight || 40)
+  const c = caixaDosElementos(env)
+  if (!c) return { x: ORIGEM_SALA, y: ORIGEM_SALA, w: sx2 - ORIGEM_SALA, h: sy2 - ORIGEM_SALA }
+  const x1 = Math.min(ORIGEM_SALA, c.x), y1 = Math.min(ORIGEM_SALA, c.y)
+  return { x: x1, y: y1, w: Math.max(sx2, c.x + c.w) - x1, h: Math.max(sy2, c.y + c.h) - y1 }
 }
 
 // Zoom e pan (pixels) que centralizam a caixa na tela com 8% de margem; o Group usa scale = ppm * zoom
