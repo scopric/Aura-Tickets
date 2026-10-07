@@ -9,7 +9,7 @@ import { Button } from './ui/button'
 import { useTheme } from '../contexts/ThemeContext'
 import { siteUrl } from '../lib/appHost'
 import { temFoto, varsDoEvento } from '../lib/corEvento'
-import { baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta, salvarQrPng } from '../lib/ingresso'
+import { abrirAjudaIngresso, baixarIcs, corDoEvento, dataCurta, diasAte, enderecoDoEvento, gerarIcs, horaCurta, linkMapa, motivoSemQr, quandoFalta, salvarQrPng } from '../lib/ingresso'
 import { useFalta } from '../hooks/useFalta'
 import { useTelaAcesa } from '../hooks/useTelaAcesa'
 import type { DbTicket } from '../hooks/useCheckout'
@@ -77,7 +77,6 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
   const dados: [string, string | null][] = [
     ['Comprador', t.buyer_name ?? null],
     ['Ingresso', t.ticket_types?.name ?? 'Ingresso'],
-    ['Lugar', t.seat_info],
     ['Pedido', t.order_id ? `#${t.order_id.slice(0, 8).toUpperCase()}` : null],
     ['Comprado em', t.created_at ? new Date(t.created_at).toLocaleDateString('pt-BR') : null],
     ['Local', enderecoDoEvento(evento) || null],
@@ -104,6 +103,8 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
             <li>Não compartilhe o código: quem for lido primeiro entra.</li>
             <li>Para cancelar ou tirar dúvidas, fale com o <Link to="/contato" className="underline underline-offset-2">suporte</Link>.</li>
           </ul>
+          {/* fecha a folha antes: o modal impede tocar no Evo que abre por trás */}
+          <Button type="button" variant="ghost" onClick={() => { aoFechar(); abrirAjudaIngresso() }} className="-ml-1 mt-2 h-11 px-1 text-sm font-semibold text-primary">Não vejo meu ingresso</Button>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

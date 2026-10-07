@@ -249,6 +249,18 @@ describe('IngressosDoEvento', () => {
     expect(d.textContent).toContain('Regras')
   })
 
+  it('Detalhes não mostra "Lugar" (a coluna não existe no banco) e "Não vejo meu ingresso" fecha a folha e pede o assunto ao Evo', () => {
+    const ouvir = vi.fn()
+    window.addEventListener('evo:suporte', ouvir)
+    render(tela(1))
+    fireEvent.click(screen.getByRole('button', { name: /Detalhes/ }))
+    expect(screen.getByRole('dialog').textContent).not.toContain('Lugar')
+    fireEvent.click(screen.getByRole('button', { name: 'Não vejo meu ingresso' }))
+    window.removeEventListener('evo:suporte', ouvir)
+    expect((ouvir.mock.calls[0][0] as CustomEvent).detail.assunto).toBe('Não recebi ou não acho meu ingresso')
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('o QR é o código do ingresso, como sempre', () => {
     const { container } = render(tela(1, { abrirNoQr: true }))
     expect(container.querySelector('svg title')?.textContent).toBe('QR Code do ingresso EVK-0001')
