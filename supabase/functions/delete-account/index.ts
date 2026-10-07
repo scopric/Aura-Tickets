@@ -15,7 +15,7 @@
 // Só age sobre o usuário do token: não lê nada do body.
 //
 // Colunas obrigatórias no banco (conferido em 27/09/2026): profiles.email e admin_permissions
-// (text[]), producer_profiles.company_name, cnpj (único), bank_account e notification_settings
+// (text[]), producer_profiles.company_name, notification_settings
 // (jsonb), tickets.buyer_email. Por isso valores vazios, não nulos.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8"
 import { corsHeaders } from "../_shared/cors.ts"
@@ -70,22 +70,22 @@ Deno.serve(async (req) => {
   const steps: Array<[string, () => PromiseLike<{ error: { message: string } | null }>]> = [
     // Perfil anonimizado (a linha fica: pedidos e ingressos apontam para ela)
     ['profiles', () => admin.from('profiles').update({
-      email: anonEmail, full_name: 'Usuário removido', phone: null, cpf: null, avatar_url: null,
+      email: anonEmail, full_name: 'Usuário removido', phone: null, avatar_url: null,
       bio: null, city: null, birth_date: null, instagram: null, tiktok: null, linkedin: null,
       website: null, stripe_customer_id: null, role: 'user', admin_permissions: [], is_verified: false,
     }).eq('id', uid)],
-    // Cadastro de produtor: dados bancários e chaves fora (0 linhas se não for produtor)
+    // Cadastro de produtor: chaves fora (0 linhas se não for produtor). CNPJ, Pix e conta bancária (cifrados) saem em 'pii'
     ['producer_profiles', () => admin.from('producer_profiles').update({
-      company_name: 'Removido', cnpj: `REMOVIDO-${uid}`, stripe_account_id: null, woovi_account_id: null,
-      bank_account: {}, pix_key: null, webhook_url: null, notification_settings: {}, is_verified: false,
+      company_name: 'Removido', stripe_account_id: null, woovi_account_id: null,
+      webhook_url: null, notification_settings: {}, is_verified: false,
     }).eq('id', uid)],
     // Compras: nome e CPF ficam (fisco); e-mail e telefone não são exigência fiscal
     ['orders', () => admin.from('orders').update({ customer_email: anonEmail, customer_phone: null }).eq('user_id', uid)],
     ['tickets', () => admin.from('tickets').update({ buyer_email: anonEmail }).eq('user_id', uid)],
-    // Saques do produtor: destino bancário fora (sacar antes de excluir a conta)
-    ['withdrawals', () => admin.from('withdrawals').update({ pix_key: null, bank_account: {} }).eq('producer_id', uid)],
-    // Afiliado da plataforma: CPF fora (o gatilho zz_pr7_sync_affiliates zera cpf_enc e cpf_hmac junto)
-    ['platform_affiliates', () => admin.from('platform_affiliates').update({ cpf: null }).eq('user_id', uid)],
+    // PII cifrada (PR 7, docs/sql/20261007_pr7_cripto_passo2.sql): CPF do perfil e do afiliado, CNPJ/Pix/conta do produtor
+    // e destino bancário dos saques (sacar antes de excluir a conta). Requer o passo 2 aplicado: publicar esta função
+    // logo depois dele (antes, a coluna de texto ainda existe e a RPC ainda não existe; depois, só a RPC funciona).
+    ['pii', () => admin.rpc('pr7_anonimizar_pii', { p_uid: uid })],
     // CRM do produtor: ficha do participante sem base fiscal
     ['customers', () => admin.from('customers').update({ name: 'Usuário removido', email: anonEmail, phone: null, notes: null }).eq('user_id', uid)],
     // Conteúdo escrito pelo usuário (chat entre usuários, chat de atendimento e chat de suporte antigo)
