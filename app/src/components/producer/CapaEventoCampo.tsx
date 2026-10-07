@@ -105,7 +105,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
             <span className="text-xs tabular-nums text-muted-foreground">{cor}</span>
           </div>
           <Label htmlFor={`${id}-int`} className="mt-1">Intensidade da cor: <span className="tabular-nums">{intensidade}%</span></Label>
-          <input id={`${id}-int`} type="range" min={10} max={100} step={5} value={intensidade} onChange={e => onIntensidade(Number(e.target.value))} disabled={salvando}
+          <input id={`${id}-int`} type="range" min={25} max={100} step={5} value={intensidade} onChange={e => onIntensidade(Number(e.target.value))} disabled={salvando}
             aria-valuetext={`${intensidade}%`} style={{ accentColor: cor }} className="w-full max-w-xs cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
           <p className="text-xs text-muted-foreground">100% é a cor cheia; menos deixa a cor mais suave, misturada com o fundo. Os textos continuam legíveis. Tinge o ingresso e os gráficos do evento (e a capa, em "Na cor do evento"). A sugestão vem da foto; você pode trocar.</p>
         </div>
