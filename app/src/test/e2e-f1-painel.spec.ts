@@ -488,7 +488,7 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     await entrarProdutor(page)
     await abrirPainel(page)
     await abre(page, /^Ingressos/)
-    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Preço', { exact: true }).fill('90')
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Preço (R$)').fill('90')
     await page.getByRole('button', { name: 'Salvar ingressos' }).click()
     await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
     expect(db.ingressos[0]).toMatchObject({ price: 90 })
