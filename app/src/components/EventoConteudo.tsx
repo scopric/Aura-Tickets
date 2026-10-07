@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
@@ -52,6 +52,7 @@ function Linha({ icone, titulo, sub, href, rotulo }: { icone: ReactNode; titulo:
 // "Aparência", sem listener de rolagem, barra de compra sticky e "Comprar" desligado. 'moldura' = vidro; 'folha' = sólida.
 export default function EventoConteudo({ evento: event, previa }: { evento: DbEvent; previa?: 'moldura' | 'folha' }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const heroRef = useRef<HTMLDivElement>(null)
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null)
   const [cart, setCart] = useState<Record<string, number>>({})
@@ -85,23 +86,25 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
   }
 
   const handleShare = async () => {
-    if (navigator.share && event) {
-      try {
+    try {
+      if (navigator.share && event) {
         await navigator.share({
           title: event.title,
           text: event.subtitle || event.description || '',
           url: window.location.href,
         })
-      } catch {
-        // Ignora cancelamentos
+      } else {
+        await navigator.clipboard.writeText(window.location.href)
+        toast.success('Link copiado para a área de transferência!')
       }
-    } else {
-      navigator.clipboard.writeText(window.location.href)
-      toast.success('Link copiado para a área de transferência!')
+    } catch (e) {
+      if ((e as Error).name === 'AbortError') return // a pessoa fechou a janela de compartilhar
+      toast.error('Não foi possível copiar o link. Copie o endereço na barra do navegador.')
     }
   }
 
-  const voltar = () => (window.history.length > 1 ? navigate(-1) : navigate('/events'))
+  // key 'default' = a página foi a primeira da sessão no app (veio de outro site ou link direto): voltar sairia do app
+  const voltar = () => (location.key !== 'default' ? navigate(-1) : navigate('/events'))
 
   const corEv = ehHex(event.accent_color) ? event.accent_color : corSorteada(event.id)
   const ticketTypes = event.ticket_types || []
