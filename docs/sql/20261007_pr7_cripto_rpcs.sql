@@ -66,19 +66,20 @@ create or replace function public.pr7_salvar_produtor_financeiro(
   p_cnpj text, p_pix_key text, p_bank_account jsonb)
 returns void language plpgsql security definer set search_path = '' as $$
 declare v_uid uuid := (select auth.uid());
+        v_cnpj text := nullif(regexp_replace(coalesce(p_cnpj,''),'\D','','g'), '');  -- '' ou formatação -> null/dígitos
 begin
   if v_uid is null then raise exception 'sem sessão' using errcode='42501'; end if;
   if not public.gf_mfa_ok() then
     raise exception 'Reautenticação de dois fatores necessária.' using errcode='42501';
   end if;
-  if p_cnpj is not null and length(regexp_replace(p_cnpj,'\D','','g')) <> 14 then
+  if v_cnpj is not null and length(v_cnpj) <> 14 then
     raise exception 'CNPJ inválido' using errcode='23514';
   end if;
   insert into public.producer_profiles (id, company_name, cnpj, bank_account, pix_key, notification_settings)
     values (v_uid, coalesce((select full_name from public.profiles where id=v_uid),'Minha Empresa'),
-            p_cnpj, coalesce(p_bank_account,'{}'::jsonb), coalesce(p_pix_key,''), '{}'::jsonb)
+            v_cnpj, coalesce(p_bank_account,'{}'::jsonb), coalesce(p_pix_key,''), '{}'::jsonb)
   on conflict (id) do update
-    set cnpj = p_cnpj, pix_key = coalesce(p_pix_key,''), bank_account = coalesce(p_bank_account,'{}'::jsonb);
+    set cnpj = v_cnpj, pix_key = coalesce(p_pix_key,''), bank_account = coalesce(p_bank_account,'{}'::jsonb);
   -- PASSO 2: SET cnpj_enc=pr7_enc(p_cnpj), pix_key_enc=pr7_enc(coalesce(p_pix_key,'')), bank_account_enc=pr7_enc(coalesce(p_bank_account,'{}')::text)
 end $$;
 
