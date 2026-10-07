@@ -13,8 +13,9 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, lerPreco, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote } from './regras'
 import { useIngressos } from './usarIngressos'
+import PrecoLote from './PrecoLote'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -96,34 +97,6 @@ function Cores({ valor, onChange }: { valor: string; onChange: (c: string) => vo
       ))}
       <input type="color" aria-label="Outra cor" value={/^#[0-9a-f]{6}$/i.test(valor) ? valor : '#000000'} onChange={e => onChange(e.target.value)} className="h-6 w-8 cursor-pointer rounded border border-border bg-transparent p-0" />
     </div>
-  )
-}
-
-// Preço em R$: aplica na hora o que é claro; "1.200" (ambíguo) pede confirmação mostrando o valor lido; o resto mostra erro
-const moeda = (n: number) => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-const comoTexto = (n: number) => String(n).replace('.', ',')
-function PrecoLote({ valor, onChange }: { valor: number; onChange: (n: number) => void }) {
-  const [txt, setTxt] = useState(comoTexto(valor))
-  const lido = lerPreco(txt)
-  // só reescreve o campo quando o preço mudou por fora (ligar ingresso, desfazer), não enquanto se digita
-  useEffect(() => { if (lerPreco(txt)?.valor !== valor) setTxt(comoTexto(valor)) }, [valor]) // eslint-disable-line react-hooks/exhaustive-deps
-  const invalido = txt.trim() !== '' && !lido
-  return (
-    <>
-      <input
-        type="text" inputMode="decimal" aria-label="Preço do lote em reais" aria-invalid={invalido || txt.trim() === ''} value={txt}
-        onChange={e => { setTxt(e.target.value); const l = lerPreco(e.target.value); if (l && !l.ambiguo) onChange(l.valor) }}
-        onBlur={() => { if (!lido?.ambiguo) setTxt(comoTexto(valor)) }}
-        className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-      />
-      {lido?.ambiguo && (
-        <p role="status" className="flex flex-wrap items-center gap-2 text-xs">
-          Entendi {moeda(lido.valor)}.
-          <Button size="sm" variant="outline" className="h-7 px-2 text-xs max-lg:h-10" onClick={() => onChange(lido.valor)}>Confirmar {moeda(lido.valor)}</Button>
-        </p>
-      )}
-      {(invalido || txt.trim() === '') && <p role="alert" className="text-xs text-destructive">Digite um preço de 0 a 1.000.000, ex.: 80 ou 1.200,50.</p>}
-    </>
   )
 }
 
@@ -504,15 +477,15 @@ export default function EditorKonva() {
         </select>
         <div className="contents" onKeyDown={e => { if (e.key === 'Escape' && mais) { e.stopPropagation(); setMais(false); maisBtn.current?.focus() } }}>
           <Button ref={maisBtn} size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={mais} aria-controls="menu-mais" onClick={() => setMais(a => !a)}>Mais</Button>
-          <div id="menu-mais" ref={maisMenu} className={`${mais ? 'absolute left-2 top-full z-30 mt-1 flex w-64 max-w-[90vw] flex-col gap-1 rounded-md border border-border bg-card p-2 shadow-xl' : 'max-lg:hidden'} lg:contents`}>
+          <div id="menu-mais" ref={maisMenu} role="group" aria-label="Mais ações do mapa" onBlur={e => { if (mais && !maisMenu.current?.contains(e.relatedTarget as Node | null) && e.relatedTarget !== maisBtn.current) setMais(false) }} className={`${mais ? 'absolute left-2 top-full z-30 mt-1 flex w-64 max-w-[90vw] flex-col gap-1 rounded-md border border-border bg-card p-2 shadow-xl' : 'max-lg:hidden'} lg:contents`}>
             <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => { setMais(false); criarPavimento() }}>Novo pavimento</Button>
             <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => { setMais(false); renomearPavimento() }}>Renomear</Button>
             <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => { setMais(false); excluirPavimento() }} disabled={envs.length < 2}>Apagar pavimento</Button>
-        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => { setMais(false); exportar() }}>Exportar JSON</Button>
-        <label className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-input px-3 text-sm font-medium focus-within:ring-[3px] focus-within:ring-ring/50 max-lg:h-10">
-          Importar JSON
-          <input type="file" accept="application/json,.json" className="sr-only" onChange={e => { importar(e.target.files?.[0]); e.target.value = '' }} />
-        </label>
+            <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => { setMais(false); exportar() }}>Exportar JSON</Button>
+            <label className="inline-flex h-8 cursor-pointer items-center justify-center rounded-md border border-input px-3 text-sm font-medium focus-within:ring-[3px] focus-within:ring-ring/50 max-lg:h-10">
+              Importar JSON
+              <input type="file" accept="application/json,.json" className="sr-only" onChange={e => { importar(e.target.files?.[0]); e.target.value = '' }} />
+            </label>
           </div>
         </div>
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'paleta'} aria-controls="gaveta-paleta" onClick={e => alternar('paleta', e.currentTarget)}>Elementos</Button>
@@ -641,7 +614,7 @@ export default function EditorKonva() {
           {sec && (
             <div className="space-y-2 border-t border-border pt-2">
               <label className="block text-xs text-muted-foreground">Nome do lote
-                <NomeLote nome={sec.name} outros={lotes.filter(x => x.id !== sec.id).map(x => x.name)} onChange={n => nomeLote(sec.id, n)} />
+                <NomeLote key={sec.id} nome={sec.name} outros={lotes.filter(x => x.id !== sec.id).map(x => x.name)} onChange={n => nomeLote(sec.id, n)} />
               </label>
               <label className="block text-xs text-muted-foreground">Ingresso ligado
                 <select value={sec.ticketTypeId || ''} onChange={e => ingressoLote(sec.id, e.target.value)}
@@ -653,7 +626,7 @@ export default function EditorKonva() {
                 </select>
               </label>
               <div className="text-xs text-muted-foreground">Preço (R$)
-                <PrecoLote valor={sec.price} onChange={n => precoLote(sec.id, n)} />
+                <PrecoLote key={sec.id} valor={sec.price} onChange={n => precoLote(sec.id, n)} />
               </div>
               {vendidosComPrecoAntigo(env, sec.id) > 0 && <p role="status" className="text-xs text-amber-600 dark:text-amber-400">{vendidosComPrecoAntigo(env, sec.id)} elemento(s) com venda ou reserva mantêm o preço antigo (a receita já feita não muda). Só o lote e os elementos livres receberam o preço novo.</p>}
               <p className="text-xs text-muted-foreground">Cor de “{sec.name}” (muda todos os elementos do lote)</p>

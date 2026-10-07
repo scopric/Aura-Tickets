@@ -173,7 +173,7 @@ const nao_neg = (v: unknown) => num(v) && (v as number) >= 0
 // Só campos conhecidos entram (nada de __proto__ ou lixo do arquivo); venda e reserva nunca vêm do arquivo
 function limparNo(n: Record<string, unknown>, lote: string, lotes: Set<string>): SeatNode | null {
   const campos = {
-    label: so(n, 'label', str, ''), color: so(n, 'color', str, ''), price: so(n, 'price', nao_neg, 0), capacity: so(n, 'capacity', nao_neg, 0),
+    label: so(n, 'label', str, '')?.slice(0, 80) ?? null, color: so(n, 'color', str, ''), price: so(n, 'price', nao_neg, 0), capacity: so(n, 'capacity', nao_neg, 0),
     rotation: so(n, 'rotation', num, 0), locked: so(n, 'locked', v => typeof v === 'boolean', false),
     widthMeter: so(n, 'widthMeter', nao_neg, undefined), heightMeter: so(n, 'heightMeter', nao_neg, undefined), seatsCount: so(n, 'seatsCount', nao_neg, undefined),
   }
@@ -200,7 +200,7 @@ export function lerImportacao(texto: string, atual: Environment[], ingressos: st
   let semIngresso = 0, vendaZerada = 0
   const envs: Environment[] = []
   for (const e of lista) {
-    if (!obj(e) || typeof e.id !== 'string' || !e.id || ids.has(e.id) || typeof e.name !== 'string' || !Array.isArray(e.seats) || !Array.isArray(e.sections)) return { erro: 'Arquivo de mapa inválido: pavimento sem id único, nome, elementos ou lotes.' }
+    if (!obj(e) || typeof e.id !== 'string' || !e.id || ids.has(e.id) || typeof e.name !== 'string' || !Array.isArray(e.seats) || !Array.isArray(e.sections) || !e.sections.length) return { erro: 'Arquivo de mapa inválido: pavimento sem id único, nome, elementos ou ao menos um lote.' }
     ids.add(e.id)
     const secoes: Environment['sections'] = []
     for (const x of e.sections) {

@@ -253,3 +253,12 @@ describe('nomeUnico', () => {
     expect(nomeUnico('x'.repeat(60), ['x'.repeat(60)], 'a')).toHaveLength(60)
   })
 })
+
+describe('importação: lotes e rótulo', () => {
+  it('pavimento sem lotes é recusado; rótulo é cortado em 80', () => {
+    const e: any = { id: 'x', name: 'P', sections: [], seats: [] }
+    expect(lerImportacao(JSON.stringify({ environments: [e] }), [mapa([])], []).erro).toMatch(/ao menos um lote/)
+    e.sections = [{ id: 's', name: 'S', price: 1 }]; e.seats = [{ id: 'a', x: 1, y: 1, type: 'seat', label: 'L'.repeat(200) }]
+    expect(lerImportacao(JSON.stringify({ environments: [e] }), [mapa([])], []).envs![0].seats[0].label).toHaveLength(80)
+  })
+})
