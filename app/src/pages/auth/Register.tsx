@@ -191,7 +191,7 @@ export default function AuthRegister() {
                   disabled={isSubmitting}
                   onChange={e => { setName(e.target.value); if (errors.name) setErrors(p => { const n = { ...p }; delete n.name; return n }) }}
                   placeholder="Seu nome"
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.name ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.name ? 'border-red-300' : 'border-white/60'}`}
                 />
                 {errors.name && <p className="text-[10px] text-red-500 mt-1">{errors.name}</p>}
               </div>
@@ -203,7 +203,7 @@ export default function AuthRegister() {
                   disabled={isSubmitting}
                   onChange={e => { setLastName(e.target.value); if (errors.lastName) setErrors(p => { const n = { ...p }; delete n.lastName; return n }) }}
                   placeholder="Sobrenome"
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.lastName ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.lastName ? 'border-red-300' : 'border-white/60'}`}
                 />
                 {errors.lastName && <p className="text-[10px] text-red-500 mt-1">{errors.lastName}</p>}
               </div>
@@ -216,7 +216,7 @@ export default function AuthRegister() {
                 disabled={isSubmitting}
                 onChange={e => { setEmail(e.target.value); if (errors.email) setErrors(p => { const n = { ...p }; delete n.email; return n }) }}
                 placeholder="seu@email.com"
-                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.email ? 'border-red-300' : 'border-white/60'}`}
+                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.email ? 'border-red-300' : 'border-white/60'}`}
               />
               {errors.email && <p className="text-[10px] text-red-500 mt-1">{errors.email}</p>}
             </div>
@@ -232,7 +232,7 @@ export default function AuthRegister() {
                   placeholder="Crie uma senha"
                   aria-describedby="password-hint"
                   aria-invalid={!!errors.password}
-                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
+                  className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors pr-10 disabled:opacity-50 ${errors.password ? 'border-red-300' : 'border-white/60'}`}
                 />
                 <button type="button" disabled={isSubmitting} onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={showPassword} className="absolute right-3 top-1/2 -translate-y-1/2 text-espresso/70 hover:text-espresso transition-colors">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -251,7 +251,7 @@ export default function AuthRegister() {
                 onChange={e => { setConfirmPassword(e.target.value); if (errors.confirmPassword) setErrors(p => { const n = { ...p }; delete n.confirmPassword; return n }) }}
                 placeholder="Repita a senha"
                 aria-invalid={!!errors.confirmPassword}
-                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.confirmPassword ? 'border-red-300' : 'border-white/60'}`}
+                className={`w-full px-4 py-3 bg-white/60 border rounded-xl text-base md:text-sm text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50 ${errors.confirmPassword ? 'border-red-300' : 'border-white/60'}`}
               />
               {errors.confirmPassword && <p className="text-[10px] text-red-500 mt-1">{errors.confirmPassword}</p>}
               {password.length > 0 && <div className="mt-2"><AuthPasswordStrength password={password} confirmPassword={confirmPassword} /></div>}
@@ -276,7 +276,7 @@ export default function AuthRegister() {
                   value={affiliateCode}
                   onChange={e => setAffiliateCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, '').slice(0, 30))}
                   placeholder="Se um consultor Evokaa indicou você"
-                  className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-sm font-mono uppercase focus:outline-none focus:border-plum"
+                  className="w-full px-4 py-3 bg-white dark:bg-white/5 border border-espresso/10 rounded-xl text-base md:text-sm font-mono uppercase focus:outline-none focus:border-plum"
                   autoComplete="off"
                 />
               </div>
