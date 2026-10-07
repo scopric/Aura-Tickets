@@ -165,6 +165,13 @@ export const novosPavimentos = (): Environment[] => [
 export const fundoPadrao = { scale: 1.0, offset: { x: 150, y: 100 }, opacity: 0.4 }
 export const montarFundo = (image: string | null, scale: number, offset: { x: number; y: number }, opacity: number) =>
   image ? { image, scale, offset, opacity } : null
+export type Fundo = NonNullable<ReturnType<typeof montarFundo>>
+// Lê config.background como o editor antigo: só planta enviada (data:image/); o que faltar vira o padrão
+export function lerFundo(bg: any): Fundo | null {
+  if (typeof bg?.image !== 'string' || !bg.image.startsWith('data:image/')) return null
+  const n = (v: unknown, d: number) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
+  return { image: bg.image, scale: n(bg.scale, fundoPadrao.scale), offset: { x: n(bg.offset?.x, fundoPadrao.offset.x), y: n(bg.offset?.y, fundoPadrao.offset.y) }, opacity: n(bg.opacity, fundoPadrao.opacity) }
+}
 export const instantaneo = (envs: Environment[], fundo: ReturnType<typeof montarFundo>) => JSON.stringify({ envs, fundo })
 
 // Lê o JSON salvo (inclusive o antigo, sem walls/pixelsPerMeter/widthMeter) e completa os campos que faltam

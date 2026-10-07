@@ -45,3 +45,13 @@ export async function pdfParaImagem(arquivo: Blob, maxLado = 1600): Promise<Blob
     await tarefa.destroy()
   }
 }
+
+export const MAX_ARQUIVO_BYTES = 15 * 1024 * 1024 // planta enviada pelo produtor (imagem ou PDF)
+
+// Mesmas regras do editor antigo: até 15 MB; imagem ou PDF (o <input accept> do navegador não impede arrastar outro tipo)
+export function validarArquivoPlanta(a: { size: number; type: string; name: string }): { pdf: boolean; erro?: string } {
+  const pdf = a.type === 'application/pdf' || /\.pdf$/i.test(a.name)
+  if (a.size > MAX_ARQUIVO_BYTES) return { pdf, erro: 'Esse arquivo passa de 15 MB. Use um arquivo menor.' }
+  if (!pdf && !a.type.startsWith('image/')) return { pdf, erro: 'Use uma imagem (PNG, JPG ou WebP) ou um PDF.' }
+  return { pdf }
+}

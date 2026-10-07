@@ -54,3 +54,18 @@ export function zoomNoCursor(v: Vista, cursor: { x: number; y: number }, novoZoo
 }
 
 export const snap = (v: number, passo = 0.25) => Math.round(v / passo) * passo || 0 // "|| 0" evita -0
+
+export const PPM_MIN = 5
+export const PPM_MAX = 400
+export const MAX_METROS_CALIBRAR = 1000
+
+// Calibração: p1 e p2 em metros (como o mapa guarda), `metros` é a distância real entre eles.
+// Devolve o novo pixels/metro: a planta (em pixels) não muda, os elementos (em metros) é que são redesenhados na nova escala.
+export function calibrar(p1: { x: number; y: number }, p2: { x: number; y: number }, metros: number, ppmAtual: number): { ppm: number } | { erro: string } {
+  if (!Number.isFinite(metros) || metros <= 0 || metros > MAX_METROS_CALIBRAR) return { erro: `Informe uma distância entre 0 e ${MAX_METROS_CALIBRAR} metros.` }
+  const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y)
+  if (!(dist > 1e-6)) return { erro: 'Os dois pontos estão no mesmo lugar. Marque pontos diferentes.' }
+  const ppm = Math.round((dist * ppmAtual) / metros)
+  if (!Number.isFinite(ppm) || ppm < PPM_MIN || ppm > PPM_MAX) return { erro: `Essa medida daria ${ppm} px por metro; o aceito é de ${PPM_MIN} a ${PPM_MAX}. Confira os pontos e a distância.` }
+  return { ppm }
+}

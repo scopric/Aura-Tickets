@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Stage, Layer, Group, Rect, Circle, Ellipse, Line, Text, Transformer } from 'react-konva'
+import { Stage, Layer, Group, Rect, Circle, Ellipse, Line, Text, Transformer, Image as KImage } from 'react-konva'
+import { toast } from 'sonner'
 import type Konva from 'konva'
 import { useProducerEvents } from '../../../hooks/useEvents'
 import { useEventoDaUrl } from '../../../hooks/useEventoDaUrl'
 import { Button } from '@/components/ui/button'
-import { limites, ajustarTela, zoomNoCursor, snap, ORIGEM_SALA, type Vista } from './geometria'
+import { limites, ajustarTela, zoomNoCursor, snap, calibrar, ORIGEM_SALA, type Vista } from './geometria'
 import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNode, type SeatStatus } from './modelo'
 import { useMapa } from './usarMapa'
 import BarraPaleta from './BarraPaleta'
@@ -16,6 +17,8 @@ import { aplicarTemplate, type Template } from './templates'
 import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote } from './regras'
 import { useIngressos } from './usarIngressos'
 import PrecoLote from './PrecoLote'
+import PlantaFundo, { FaixaPlanta, usarImagem, type ModoPlanta } from './PlantaFundo'
+import { LARGURA_BASE_PX } from '../../../lib/plantaIA'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -116,7 +119,7 @@ const reais = (n: number) => `R$ ${n.toLocaleString('pt-BR')}`
 export default function EditorKonva() {
   const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
   const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
-  const { envs, setEnvs, pronto, erroMapa, sujo, salvar } = useMapa(eventId)
+  const { envs, setEnvs, fundo, setFundo, pronto, erroMapa, sujo, salvar } = useMapa(eventId)
   const [ativo, setAtivo] = useState(0)
   const env = envs[ativo] || envs[0]
   const ppm = env.pixelsPerMeter || 40
@@ -129,6 +132,11 @@ export default function EditorKonva() {
   const abrirRef = useRef<HTMLElement | null>(null) // botão que abriu a gaveta: recebe o foco de volta
   const [versaoTemplate, setVersaoTemplate] = useState(0) // muda a cada template aplicado: dispara o fade do mapa
   const [reenquadrar, setReenquadrar] = useState(0)
+  const [modoPlanta, setModoPlanta] = useState<ModoPlanta>('')
+  const [pontosCal, setPontosCal] = useState<{ x: number; y: number }[]>([]) // em metros, como o mapa guarda
+  const planta = usarImagem(fundo?.image)
+  const escolherModo = (m: ModoPlanta) => { setModoPlanta(m); setPontosCal([]); if (m) { setGaveta(''); setFerr('select') } }
+  useEffect(() => { setModoPlanta('') ; setPontosCal([]) }, [eventId])
   const [secSel, setSecSel] = useState<string | null>(null)
   const lotes = lotesDe(env)
   const sec = lotes.find(x => x.id === secSel) || lotes[0]
@@ -265,7 +273,7 @@ export default function EditorKonva() {
     const emBotao = !!alvo?.closest?.('button,[role=button],[role=menuitem]')
     const cmd = e.ctrlKey || e.metaKey
     const k = e.key.toLowerCase()
-    if (k === 'escape') { setFerr('select'); setGaveta('') }
+    if (k === 'escape') { setFerr('select'); setGaveta(''); escolherModo('') }
     else if (cmd && k === 'z') { e.preventDefault(); desfazer() }
     else if (cmd && k === 'd') { e.preventDefault(); duplicar() }
     else if (k === 'delete' || k === 'backspace') { if (sel && !emBotao) { e.preventDefault(); apagar() } }
@@ -408,6 +416,10 @@ export default function EditorKonva() {
   }
   const aoClicar = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const cur = e.target.getStage()?.getPointerPosition()
+    if (modoPlanta === 'calibrar' && !arrastou.current && cur && pontosCal.length < 2) {
+      setPontosCal(p => [...p, { x: (cur.x - vista.pan.x) / escala, y: (cur.y - vista.pan.y) / escala }])
+      return
+    }
     if (!criando || arrastou.current || !cur) return
     criarEm((cur.x - vista.pan.x) / escala, (cur.y - vista.pan.y) / escala)
   }
@@ -420,6 +432,16 @@ export default function EditorKonva() {
     setVista(v => ({ ...v, pan: { x: v.pan.x + dx, y: v.pan.y + dy } }))
   }
   const fimPan = () => { pan.current = null }
+  // Só pixelsPerMeter muda: as posições dos elementos continuam em metros (nada vendido se mexe); a planta fica no mesmo lugar em pixels
+  const aplicarCalibracao = (metros: number) => {
+    if (pontosCal.length < 2) return 'Marque os dois pontos antes.'
+    const r = calibrar(pontosCal[0], pontosCal[1], metros, ppm)
+    if ('erro' in r) return r.erro
+    mudar(e => ({ ...e, pixelsPerMeter: r.ppm }))
+    toast.success(`Escala redefinida: 1 metro = ${r.ppm} px.`)
+    escolherModo('')
+    return null
+  }
 
   useEffect(() => {
     if (!sujo) return
@@ -525,6 +547,18 @@ export default function EditorKonva() {
             onMouseUp={fimPan} onTouchEnd={fimPan} onMouseLeave={fimPan}
             onClick={aoClicar} onTap={aoClicar}
           >
+            {fundo && planta.img && (
+              <Layer listening={modoPlanta === 'mover'}>
+                <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
+                  <KImage
+                    image={planta.img} x={fundo.offset.x / ppm} y={fundo.offset.y / ppm} opacity={fundo.opacity}
+                    width={(fundo.scale * LARGURA_BASE_PX) / ppm} height={(fundo.scale * LARGURA_BASE_PX * planta.img.naturalHeight) / planta.img.naturalWidth / ppm}
+                    draggable={modoPlanta === 'mover'} listening={modoPlanta === 'mover'}
+                    onDragEnd={e => setFundo({ ...fundo, offset: { x: e.target.x() * ppm, y: e.target.y() * ppm } })}
+                  />
+                </Group>
+              </Layer>
+            )}
             <Layer>
               <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
                 <Rect {...sala} width={sala.w} height={sala.h} fill="#2b303b" stroke="#64748b" strokeWidth={1} strokeScaleEnabled={false} listening={false} />
@@ -539,7 +573,7 @@ export default function EditorKonva() {
                   const escolhida = sel?.tipo === 'parede' && sel.id === p.id
                   return (
                     <Group
-                      key={p.id} draggable={!p.locked && ferr === 'select'}
+                      key={p.id} draggable={!p.locked && ferr === 'select' && !modoPlanta}
                       onMouseDown={() => setSel({ tipo: 'parede', id: p.id })} onTouchStart={() => setSel({ tipo: 'parede', id: p.id })}
                       onDragEnd={e => {
                         const dx = e.target.x(), dy = e.target.y()
@@ -555,7 +589,7 @@ export default function EditorKonva() {
                 {env.seats.map(n => (
                   <Group
                     key={n.id} ref={g => { nosRef.current[n.id] = g }}
-                    x={n.x} y={n.y} rotation={n.rotation || 0} draggable={!n.locked && ferr === 'select'}
+                    x={n.x} y={n.y} rotation={n.rotation || 0} draggable={!n.locked && ferr === 'select' && !modoPlanta}
                     onMouseDown={() => setSel({ tipo: 'no', id: n.id })} onTouchStart={() => setSel({ tipo: 'no', id: n.id })}
                     onDragMove={e => { if (encaixar) e.target.position({ x: snap(e.target.x()), y: snap(e.target.y()) }) }}
                     onDragEnd={e => moverNo(n.id, { x: e.target.x(), y: e.target.y() })}
@@ -577,6 +611,14 @@ export default function EditorKonva() {
             <Layer>
               <Transformer ref={trRef} rotateEnabled keepRatio={false} boundBoxFunc={(a, b) => (b.width < 8 || b.height < 8 ? a : b)} />
             </Layer>
+            {modoPlanta === 'calibrar' && pontosCal.length > 0 && (
+              <Layer listening={false}>
+                <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
+                  {pontosCal.length === 2 && <Line points={[pontosCal[0].x, pontosCal[0].y, pontosCal[1].x, pontosCal[1].y]} stroke="#f59e0b" strokeWidth={2} strokeScaleEnabled={false} dash={[6, 4]} />}
+                  {pontosCal.map((p, i) => <Circle key={i} x={p.x} y={p.y} radius={6 / escala} fill="#f59e0b" stroke="#ffffff" strokeWidth={2} strokeScaleEnabled={false} />)}
+                </Group>
+              </Layer>
+            )}
             <Layer listening={false}>
               <Line points={[16, tam.h - 20, 16 + passo * escala, tam.h - 20]} stroke="#475569" strokeWidth={2} />
               <Text x={16} y={tam.h - 38} text={`${passo} m`} fontSize={12} fill="#475569" />
@@ -584,6 +626,7 @@ export default function EditorKonva() {
             </Layer>
           </Stage>
         )}
+        <FaixaPlanta modo={modoPlanta} pontos={pontosCal.length} ppm={ppm} onAplicar={aplicarCalibracao} onCancelar={() => escolherModo('')} />
         {versaoTemplate > 0 && <div key={versaoTemplate} aria-hidden onAnimationEnd={() => setVersaoTemplate(0)} className="mapa-fade pointer-events-none absolute inset-0 bg-background opacity-0" />}
       </div>
       <aside id="gaveta-cores" className={`mapa-gaveta ${gaveta === 'cores' ? 'mapa-gaveta-aberta' : 'max-lg:invisible'} mapa-rolagem absolute inset-y-0 right-0 z-20 w-72 max-w-[85vw] space-y-5 overflow-y-auto overflow-x-hidden border-l border-border bg-card p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-60 lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'cores' ? 'translate-x-0' : 'translate-x-full'}`}>
@@ -662,6 +705,7 @@ export default function EditorKonva() {
             <p className="text-xs text-muted-foreground">{sel?.tipo === 'parede' ? 'Parede selecionada.' : 'Clique em um elemento para mudar só a cor dele.'}</p>
           )}
         </section>
+        <PlantaFundo fundo={fundo} onFundo={setFundo} modo={modoPlanta} onModo={escolherModo} erroImagem={!!planta.erro} />
       </aside>
       </div>
       <footer aria-label="Totais do pavimento" className="flex flex-shrink-0 items-center gap-5 overflow-x-auto whitespace-nowrap border-t border-border bg-card px-3 py-2 text-xs text-muted-foreground">

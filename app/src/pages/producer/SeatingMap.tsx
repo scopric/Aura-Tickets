@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
-import { reduzirPlanta, pdfParaImagem } from '../../lib/plantaFundo'
+import { reduzirPlanta, pdfParaImagem, MAX_ARQUIVO_BYTES } from '../../lib/plantaFundo'
 import * as I from '@/components/icones/evokaa16'
 import { chamarEvo, RECUSAS, creditos } from '../../lib/evo'
 import { alternarTipo, contarPorTipo, nosDaProposta, pecasValidas, LARGURA_BASE_PX, type PecaProposta } from '../../lib/plantaIA'
@@ -17,7 +17,6 @@ import { type ToolType, type SeatStatus, type SeatNode, type WallNode, type Sect
 // Se a administração mudar o valor, este texto fica desatualizado até uma leitura recusada ou concluída mostrar o real.
 const CUSTO_LEITURA = 5
 const ESCALA_PADRAO = 40 // pixelsPerMeter de um pavimento novo; 40 = escala ainda não calibrada
-const MAX_ARQUIVO_BYTES = 15 * 1024 * 1024 // planta enviada pelo produtor (imagem ou PDF); a que vai ao Evo já sai reduzida
 
 
 let _nextId = Date.now()
