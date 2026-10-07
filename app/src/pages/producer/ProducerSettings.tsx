@@ -17,9 +17,10 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import OrganizadorPublico from '@/components/producer/OrganizadorPublico'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
-type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'equipe'
+type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'organizador' | 'equipe'
 
 export default function ProducerSettings() {
   const {
@@ -261,6 +262,7 @@ export default function ProducerSettings() {
     { id: 'conta', label: 'Conta e segurança', icon: I.Cadeado },
     { id: 'pagamento', label: 'Pagamento', icon: I.Cartao },
     { id: 'notificacoes', label: 'Notificações', icon: I.Notificacoes },
+    { id: 'organizador', label: 'Organizador', icon: I.Eventos },
     { id: 'equipe', label: 'Equipe', icon: I.Equipe },
   ]
 
@@ -317,6 +319,8 @@ export default function ProducerSettings() {
         </nav>
 
         <div className="min-w-0 flex-1">
+          {section === 'organizador' && <OrganizadorPublico />}
+
           {/* PERFIL */}
           {section === 'perfil' && (
             <section className="space-y-6 rounded-[10px] border border-border bg-card p-4 sm:p-6">
