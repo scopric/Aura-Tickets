@@ -93,10 +93,11 @@ export async function prepararCapa(file: File, semente: string): Promise<CapaPro
   return { blob, previewUrl: URL.createObjectURL(blob), cor: corViva(canvas, semente), largura: w, altura: h }
 }
 
-function mensagemDeEnvio(err: { message?: string; statusCode?: string | number; status?: number }): string {
+function mensagemDeEnvio(err: { message?: string; statusCode?: string | number; status?: number }, bucket = BUCKET_CAPAS): string {
   const recusado = /row-level security|unauthorized|forbidden|violates/i.test(err.message ?? '') || [401, 403, '401', '403'].includes(err.statusCode ?? err.status ?? 0)
+  if (recusado && bucket === BUCKET_CARDAPIO) return 'Limite de fotos do cardápio atingido ou conta sem permissão de produtor.'
   return recusado
-    ? 'O envio da foto foi recusado: só o dono da conta envia e há um limite de envios por evento (capa) e por conta (cardápio).'
+    ? 'O envio da foto foi recusado: só o dono do evento envia, o evento não pode estar cancelado e cada evento aceita até 10 envios de capa.'
     : 'Não foi possível enviar a foto. Confira a internet e tente de novo.'
 }
 
@@ -115,7 +116,7 @@ async function enviar(blob: Blob, bucket: string, pasta: string): Promise<string
   const ext = blob.type === 'image/webp' ? 'webp' : 'jpg'
   const caminho = `${pasta}/${crypto.randomUUID()}.${ext}`
   const { error } = await supabase.storage.from(bucket).upload(caminho, blob, { contentType: blob.type, upsert: false, cacheControl: '86400' })
-  if (error) throw new Error(mensagemDeEnvio(error as { message?: string; statusCode?: string }))
+  if (error) throw new Error(mensagemDeEnvio(error as { message?: string; statusCode?: string }, bucket))
   return supabase.storage.from(bucket).getPublicUrl(caminho).data.publicUrl
 }
 

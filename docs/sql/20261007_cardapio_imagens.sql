@@ -12,8 +12,11 @@
 -- PASSO 0 (só leitura; rodar SOZINHO antes de aplicar): mesma conferência do 20261007_capa_e_cor_do_evento.sql:
 --   select policyname, cmd, roles::text, qual, with_check from pg_policies
 --    where schemaname = 'storage' and tablename = 'objects';
---   Esperado: nenhuma regra permissiva sem filtro de bucket_id (uma de SELECT listaria também este bucket; uma de
---   INSERT deixaria enviar fora do caminho). O bloco 3 aborta se achar.
+--   select policyname, roles::text, with_check from pg_policies
+--    where schemaname = 'storage' and tablename = 'objects' and cmd in ('INSERT', 'ALL') and permissive = 'PERMISSIVE';
+--   Esperado: só capas_eventos_insert e chat_anexos_insert (with_check com bucket_id = '<literal>'). O bloco 3 aborta
+--   se houver regra permissiva de INSERT (ou ALL) cujo with_check não tenha bucket_id = '<literal>': ela deixaria
+--   enviar para este bucket fora do caminho. Regra de SELECT sem bucket_id também listaria: conferir à vista.
 --
 -- DECISÕES (as de 1 a 4 do 20261007_capa_e_cor_do_evento.sql valem aqui igualmente)
 -- 1. Só INSERT em storage.objects; nenhuma regra de SELECT, UPDATE ou DELETE: a leitura é pela URL pública, com
@@ -24,6 +27,9 @@
 -- 3. Teto de 300 arquivos por produtor (cardapio_can_upload, SECURITY DEFINER, search_path vazio, com
 --    pg_advisory_xact_lock por produtor). Limite da trava: envios simultâneos podem passar do teto por poucos
 --    arquivos (o lock some no fim do teste de permissão do storage-api); serve contra abuso de volume.
+-- 3b. Quem esgota os 300 arquivos fica travado: não há regra de DELETE (o gatilho storage.protect_delete também barra).
+--    O envio passa a dar 403/42501; o front avisa "Limite de fotos do cardápio atingido ou conta sem permissão de
+--    produtor" (mensagemDeEnvio em capaEvento.ts). Liberar espaço exige apagar pelo painel/service_role.
 -- 4. A coluna menu_items.image_url NÃO ganha CHECK aqui (fora do escopo): aceita qualquer texto, como antes.
 -- PENDÊNCIAS (fora deste arquivo):
 --   // ponytail: incluir o bucket cardapio-itens em capas_arquivos_a_apagar / delete-account (LGPD: a exclusão de
@@ -63,6 +69,10 @@ begin
   if v_uid is null or split_part(p_name, '/', 1) <> v_uid::text then
     return false;
   end if;
+  -- só produtor ou admin envia (conta comum não gasta o espaço do bucket); profiles.id = auth.uid()
+  if not exists (select 1 from public.profiles p where p.id = v_uid and p.role in ('producer', 'admin')) then
+    return false;
+  end if;
   perform pg_advisory_xact_lock(hashtext('cardapio:' || v_uid::text));
   return (select count(*) from storage.objects o
           where o.bucket_id = 'cardapio-itens'
@@ -97,15 +107,15 @@ begin
                     and policyname = 'cardapio_itens_insert' and cmd = 'INSERT') then
     raise exception 'esperado exatamente 1 regra citando cardapio-itens, e ela é cardapio_itens_insert (INSERT)';
   end if;
-  -- uma regra permissiva de outro assunto SEM filtro de bucket_id alcançaria este bucket; as restritivas
+  -- regra permissiva de INSERT (ou ALL) cujo with_check não COMECE por bucket_id = '<literal>' AND (barra também `or true`) alcançaria este bucket; as restritivas
   -- (gf_mfa_aal2) só restringem e ficam de fora
   if exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
-             and permissive = 'PERMISSIVE' and policyname <> 'cardapio_itens_insert'
-             and coalesce(qual, '') || coalesce(with_check, '') not like '%bucket_id%') then
-    raise exception 'há regra permissiva em storage.objects sem filtro de bucket_id: %',
+             and permissive = 'PERMISSIVE' and cmd in ('INSERT', 'ALL') and policyname <> 'cardapio_itens_insert'
+             and coalesce(with_check, qual, '') !~ $re$^\(*bucket_id = '[^']+'(::text)?\)+ AND $re$) then
+    raise exception 'há regra permissiva de INSERT em storage.objects sem bucket_id = literal: %',
       (select string_agg(policyname::text, ', ') from pg_policies where schemaname = 'storage' and tablename = 'objects'
-       and permissive = 'PERMISSIVE' and policyname <> 'cardapio_itens_insert'
-       and coalesce(qual, '') || coalesce(with_check, '') not like '%bucket_id%');
+       and permissive = 'PERMISSIVE' and cmd in ('INSERT', 'ALL') and policyname <> 'cardapio_itens_insert'
+       and coalesce(with_check, qual, '') !~ $re$^\(*bucket_id = '[^']+'(::text)?\)+ AND $re$);
   end if;
   if has_function_privilege('anon', 'public.cardapio_can_upload(text)', 'execute')
      or not has_function_privilege('authenticated', 'public.cardapio_can_upload(text)', 'execute') then
@@ -143,6 +153,7 @@ order by 1, 2;
 -- insert into auth.users (id, email) values
 --   ('c6b00000-0000-4000-8000-000000000001', 'p@teste-cardapio.invalid'),
 --   ('c6b00000-0000-4000-8000-000000000002', 'q@teste-cardapio.invalid');
+-- update public.profiles set role = 'producer' where id = 'c6b00000-0000-4000-8000-000000000001';
 -- do $$
 -- declare p uuid := 'c6b00000-0000-4000-8000-000000000001'; q uuid := 'c6b00000-0000-4000-8000-000000000002';
 --   ins text := 'insert into storage.objects (bucket_id, name, owner, metadata) values (%L, %L, %L, %L::jsonb)';
@@ -150,6 +161,13 @@ order by 1, 2;
 -- begin
 --   perform pg_temp.como('authenticated', p);
 --   assert pg_temp.erro(format(ins, 'cardapio-itens', p || '/aaaaaaaa-1111.webp', p, w)) = 'ok', 'P não enviou na própria pasta';
+--   -- conta comum (role user) não envia
+--   perform pg_temp.como('postgres');
+--   update public.profiles set role = 'producer' where id in (p, q);
+--   update public.profiles set role = 'user' where id = q;
+--   perform pg_temp.como('authenticated', q);
+--   assert pg_temp.erro(format(ins, 'cardapio-itens', q || '/aaaaaaaa-7777.webp', q, w)) = '42501', 'user enviou';
+--   perform pg_temp.como('authenticated', p);
 --   assert pg_temp.erro(format(ins, 'cardapio-itens', q || '/aaaaaaaa-2222.webp', p, w)) = '42501', 'P enviou na pasta de Q';
 --   assert pg_temp.erro(format(ins, 'cardapio-itens', p || '/../' || q || '/aaaaaaaa.webp', p, w)) = '42501', 'aceitou ../';
 --   assert pg_temp.erro(format(ins, 'cardapio-itens', p || '/sub/aaaaaaaa.webp', p, w)) = '42501', 'subpasta aceita';
