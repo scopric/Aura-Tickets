@@ -14,7 +14,7 @@ vi.mock('../lib/supabase', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { useMapa } from '../pages/producer/mapa/usarMapa'
-import { calibrar } from '../pages/producer/mapa/geometria'
+import { calibrar, aplicarPpm } from '../pages/producer/mapa/geometria'
 import { lerFundo } from '../pages/producer/mapa/modelo'
 import { validarArquivoPlanta, MAX_ARQUIVO_BYTES } from '../lib/plantaFundo'
 
@@ -39,8 +39,9 @@ describe('calibrar', () => {
   })
   it('só devolve o ppm: posições em metros (inclusive de lugar vendido) não são tocadas', () => {
     const r = calibrar(p1, { x: 6, y: 8 }, 8, 40) as { ppm: number }
-    const depois = { ...ENV, pixelsPerMeter: r.ppm } // é o que o editor faz
-    expect(depois.seats).toBe(ENV.seats)
+    const depois = aplicarPpm(ENV as any, r.ppm) // a mesma função que o editor usa
+    expect(depois.pixelsPerMeter).toBe(50)
+    expect(depois).toEqual({ ...ENV, pixelsPerMeter: 50 })
     expect(depois.seats[0]).toMatchObject({ x: 12, y: 14, sold: 1, status: 'sold' })
   })
 })
@@ -103,5 +104,25 @@ describe('useMapa e a planta de fundo', () => {
     const h = await abrir({ zoom: 1 })
     await act(() => h.result.current.salvar(0))
     expect(bd.gravado.config.background).toBeNull()
+  })
+})
+
+describe('envio da planta durante troca de evento', () => {
+  it('upload que termina depois da troca de evento não entrega a planta de A ao B', async () => {
+    const { render, screen, fireEvent, waitFor } = await import('@testing-library/react')
+    const { createElement } = await import('react')
+    const lib = await import('../lib/plantaFundo')
+    let soltar!: (v: string) => void
+    vi.spyOn(lib, 'reduzirPlanta').mockImplementation(() => new Promise<string>(r => { soltar = r }))
+    const PlantaFundo = (await import('../pages/producer/mapa/PlantaFundo')).default
+    const onFundo = vi.fn()
+    const props = { envsCount: 1, fundo: null, onFundo, modo: '' as const, onModo: vi.fn(), erroImagem: false }
+    const { rerender } = render(createElement(PlantaFundo, { key: 'A', eventId: 'A', ...props }))
+    fireEvent.change(screen.getByLabelText('Arquivo da planta'), { target: { files: [new File(['x'], 'p.png', { type: 'image/png' })] } })
+    await waitFor(() => expect(soltar).toBeTypeOf('function'))
+    rerender(createElement(PlantaFundo, { key: 'B', eventId: 'B', ...props })) // trocou de evento: remonta
+    soltar('data:image/webp;base64,AAAA')
+    await new Promise(r => setTimeout(r, 50))
+    expect(onFundo).not.toHaveBeenCalled()
   })
 })

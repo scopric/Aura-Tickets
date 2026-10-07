@@ -55,6 +55,9 @@ export function zoomNoCursor(v: Vista, cursor: { x: number; y: number }, novoZoo
 
 export const snap = (v: number, passo = 0.25) => Math.round(v / passo) * passo || 0 // "|| 0" evita -0
 
+// Aplica o ppm calibrado: só pixelsPerMeter muda; posições (metros), venda e status ficam como estão
+export const aplicarPpm = (env: Environment, ppm: number): Environment => ({ ...env, pixelsPerMeter: ppm })
+
 export const PPM_MIN = 5
 export const PPM_MAX = 400
 export const MAX_METROS_CALIBRAR = 1000

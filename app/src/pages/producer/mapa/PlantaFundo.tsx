@@ -24,25 +24,32 @@ export function usarImagem(src: string | undefined) {
   return r
 }
 
-export default function PlantaFundo({ fundo, onFundo, modo, onModo, erroImagem }: {
-  fundo: Fundo | null; onFundo: (f: Fundo | null) => void; modo: ModoPlanta; onModo: (m: ModoPlanta) => void; erroImagem: boolean
+export default function PlantaFundo({ envsCount, eventId, fundo, onFundo, modo, onModo, erroImagem }: {
+  envsCount: number; eventId: string | null; fundo: Fundo | null; onFundo: (f: Fundo | null) => void; modo: ModoPlanta; onModo: (m: ModoPlanta) => void; erroImagem: boolean
 }) {
   const arq = useRef<HTMLInputElement>(null)
   const [lendo, setLendo] = useState(false)
+  // envio demorado (PDF) que termina depois de trocar de evento ou sair da tela é descartado
+  const vivo = useRef(true)
+  const eventoAtual = useRef(eventId)
+  eventoAtual.current = eventId
+  useEffect(() => { vivo.current = true; return () => { vivo.current = false } }, [])
   const enviar = async (a: File | undefined) => {
     if (!a) return
     const v = validarArquivoPlanta(a)
     if (v.erro) { toast.error(v.erro); return }
+    const doEvento = eventId
     setLendo(true)
     try {
       const image = await reduzirPlanta(v.pdf ? await pdfParaImagem(a) : a)
+      if (!vivo.current || eventoAtual.current !== doEvento) return
       onFundo({ image, ...ENVIO_PADRAO })
       onModo('')
       toast.success(v.pdf ? 'Página 1 do PDF carregada como planta de fundo.' : 'Imagem da planta carregada como fundo.')
       if (image.length * 0.75 > AVISO_PESADA) toast.warning('A planta ficou pesada mesmo reduzida; o mapa pode demorar a abrir. Prefira uma imagem mais simples.', { duration: 6500 })
     } catch {
       toast.error(v.pdf ? 'Não consegui abrir esse PDF. Confira se ele não tem senha ou use uma imagem.' : 'Não consegui ler essa imagem. Use PNG, JPG ou WebP.')
-    } finally { setLendo(false) }
+    } finally { if (vivo.current) setLendo(false) }
   }
   const remover = () => {
     if (!window.confirm('Remover a planta de fundo? O mapa não muda; dá para enviar a planta de novo depois.')) return
@@ -57,6 +64,7 @@ export default function PlantaFundo({ fundo, onFundo, modo, onModo, erroImagem }
       <Button size="sm" variant="outline" className="w-full max-lg:h-10" disabled={lendo} onClick={() => arq.current?.click()}>
         {lendo ? 'Lendo…' : fundo ? 'Trocar a planta (imagem ou PDF)' : 'Enviar imagem ou PDF'}
       </Button>
+      {envsCount > 1 && <p className="text-xs text-muted-foreground">A planta é a mesma em todos os pavimentos; a escala é do pavimento ativo.</p>}
       {!fundo && <p className="text-xs text-muted-foreground">Até 15 MB. Fica sob o mapa, como guia para posicionar e medir.</p>}
       {fundo && (
         <>

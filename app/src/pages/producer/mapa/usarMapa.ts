@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { supabase } from '../../../lib/supabase'
-import { instantaneo, lerFundo, normalizarEnvs, novosPavimentos, type Environment, type Fundo } from './modelo'
+import { lerFundo, normalizarEnvs, novosPavimentos, type Environment, type Fundo } from './modelo'
 
 // ponytail: copia a lógica de carregar/salvar do SeatingMap antigo (mesma tabela, mesmo JSON) em vez de extraí-la
 // de um arquivo de 4,9 mil linhas em produção; unificar quando o editor antigo for aposentado.
@@ -13,7 +13,7 @@ export function useMapa(eventId: string | null) {
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState(false)
   const [fundo, setFundoEstado] = useState<Fundo | null>(null)
-  const [salvo, setSalvo] = useState<string | null>(null)
+  const [salvo, setSalvo] = useState<{ e: string; f: Fundo | null } | null>(null) // pavimentos serializados + a planta por referência (não serializa o base64 a cada edição)
   const config = useRef<Config>({})
   const eventIdRef = useRef(eventId)
   eventIdRef.current = eventId
@@ -44,9 +44,9 @@ export function useMapa(eventId: string | null) {
         const f = lerFundo(config.current.background)
         setEnvs(lidos)
         setFundoEstado(f)
-        setSalvo(instantaneo(lidos, f))
+        setSalvo({ e: JSON.stringify(lidos), f })
       } else {
-        setSalvo(instantaneo(iniciais, null))
+        setSalvo({ e: JSON.stringify(iniciais), f: null })
       }
       setPronto(true)
     })()
@@ -55,7 +55,7 @@ export function useMapa(eventId: string | null) {
 
   // Tirar a planta também apaga a que veio do banco (mesmo a inválida, que o editor não exibe)
   const setFundo = (f: Fundo | null) => { if (!f) config.current = { ...config.current, background: null }; setFundoEstado(f) }
-  const sujo = useMemo(() => pronto && salvo !== null && instantaneo(envs, fundo) !== salvo, [pronto, salvo, envs, fundo])
+  const sujo = useMemo(() => pronto && salvo !== null && (fundo !== salvo.f || JSON.stringify(envs) !== salvo.e), [pronto, salvo, envs, fundo])
 
   const salvar = async (ativo: number) => {
     if (!eventId || !pronto) {
@@ -76,7 +76,7 @@ export function useMapa(eventId: string | null) {
       toast.error(`Não foi possível salvar o mapa: ${error.message}`, { duration: 6500 })
     } else {
       // Se trocou de evento durante o salvamento, o "salvo" já é de outro mapa: não mexe nele
-      if (evento === eventIdRef.current) setSalvo(instantaneo(envs, fundo))
+      if (evento === eventIdRef.current) setSalvo({ e: JSON.stringify(envs), f: fundo })
       toast.success('Mapa de assentos salvo!')
     }
   }
