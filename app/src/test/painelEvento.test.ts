@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { pendencias } from '../lib/tipoEvento'
 import {
-  MSG_PENDENCIA, SECAO_DA_PENDENCIA, campoDaPendencia, diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
+  MSG_PENDENCIA, SECAO_DA_PENDENCIA, alvosDoModo, campoDaPendencia, diffCampos, dominioDoLink, ingDoBanco, pedidoParaBanco, enviarEvento, errosDeData, errosDeIngresso, formDoEvento, formDoSnap, linkValido, modoPainel, pendenciasDoPainel,
   precoDe, quantidadeDe, semNomeVazio, erroDosIngressos, ERRO_NOME, rotuloDoModo, rotulosDoDiff, snapDoForm, eventoDaPrevia, mudouConteudo, semDatasInvalidas, sha256Hex, ERRO_ACEITE_NO_AR, type Form, type Ing,
 } from '../lib/painelEvento'
 import { naFilaDeModeracao } from '../lib/eventoProdutor'
@@ -515,5 +515,24 @@ describe('campo do ingresso pendente', () => {
   it('sem mudança: o preço do primeiro ingresso ATIVO (senão o primeiro)', () => {
     expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false }), ing({ id: 'B' })])).toBe('ing-B-preco')
     expect(campoDaPendencia('ingresso', form(), [ing({ id: 'A', ativo: false })])).toBe('ing-A-preco')
+  })
+})
+
+describe('alvosDoModo (passos do destaque por modo)', () => {
+  const x = (campo: string) => ({ campo })
+  const pend = [x('f-nome'), x('f-inicio')]
+  const bloq = [x('f-nome'), x('ing-salvar')]
+  const campos = (l: { campo: string }[]) => l.map(a => a.campo)
+
+  it('rascunho e recusado: pendências + bloqueios, um por campo', () => {
+    for (const m of ['rascunho', 'recusado'] as const) expect(campos(alvosDoModo(m, pend, bloq))).toEqual(['f-nome', 'f-inicio', 'ing-salvar'])
+  })
+  it('no ar e em análise: só os bloqueios', () => {
+    for (const m of ['publicado', 'analise'] as const) expect(campos(alvosDoModo(m, pend, bloq))).toEqual(['f-nome', 'ing-salvar'])
+    expect(alvosDoModo('publicado', pend, [])).toEqual([])
+  })
+  it('fechado: nenhum', () => expect(alvosDoModo('fechado', pend, bloq)).toEqual([]))
+  it('com vendas, data e hora (desabilitadas) apontam para a seção', () => {
+    expect(campos(alvosDoModo('publicado', [], [x('f-inicio'), x('f-fim'), x('f-link')], true))).toEqual(['s-quando', 'f-link'])
   })
 })
