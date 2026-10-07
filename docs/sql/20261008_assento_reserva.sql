@@ -16,6 +16,10 @@
 --    lugares 10 min. Mesa = todas as cadeiras (seatsCount, senão capacity, senão 6) em ingressos do tipo do setor.
 --    Corrida: o gatilho de estoque trava a linha do tipo e o índice único barra o 2º dono: só um comprador vence, o outro
 --    recebe "Lugar acabou de ser escolhido" e a transação inteira (pedido incluído) é desfeita.
+--    Só publicado + aprovado (o dono não reserva em rascunho); mesa vale no máximo 50 lugares.
+-- 2b) Política "Anyone can read active seating maps" (baseline): recriada exigindo também evento_acesso(event_id) in ('aberto','link')
+--    (anon e authenticated executam evento_acesso, 20261017 PR3e); mapa de evento privado, com senha ou rascunho deixa de vazar.
+--    A política do produtor ("Producers can manage own seating maps") fica intacta.
 -- 3) assentos_ocupados(p_event): anon e authenticated; só seat_key e estado (vendido | reservado), nada pessoal; só de evento
 --    aberto ou por link (evento_acesso).
 -- 4) D1/D2: pedido com lugar vence em 10 min (estoque do 20261022 só conta pendente de lugar por 10 min; o vencimento
@@ -23,6 +27,12 @@
 --    não vira 'paid' pedido cujo lugar venceu ou foi liberado (o gateway estorna). Pedido grátis com lugar, dentro do prazo,
 --    passa (confirmar_pedido_gratis só faz UPDATE ... 'paid').
 -- 5) Assunto de chat "Denunciar evento" (site e participant_evokaa), idempotente.
+-- RISCOS ACEITOS (decididos, não esquecidos):
+--    a) Várias contas podem segurar lugares ao mesmo tempo (10 min cada): mitigado por e-mail confirmado obrigatório no Supabase
+--       desde 07/10/2026 e pelo limite de 5 pedidos por hora e conta no evento.
+--    b) Compra de setor sem escolher lugar continua possível (D3 do Ricardo): o mapa não é a única porta de venda.
+--    c) Mesa com mais cadeiras que o máximo por pedido do ingresso (ou 10 em tipo grátis sem máximo) fica invendável: o
+--       SeatingMap avisa o produtor ao editar a mesa; o banco recusa pelo gatilho de estoque.
 -- RISCO Fase 4 (gateway): o webhook que marca 'paid' recebe 22023 deste gatilho quando o lugar venceu e tem de estornar;
 --    ele também não pode marcar 'paid' um pedido já 'cancelled' (a liberação cancela o pedido vencido).
 -- ponytail: lugar liberado fica como linha com liberada_em (histórico); sem limpeza. Apagar liberadas com mais de 30 dias se crescer.
@@ -148,6 +158,10 @@ begin
   if public.evento_acesso(p_event) is distinct from 'aberto' and public.evento_acesso(p_event) is distinct from 'link' then
     raise exception 'Evento indisponível para compra' using errcode = '22023';
   end if;
+  -- evento_acesso devolve 'aberto' ao dono mesmo em rascunho: aqui só se reserva em evento publicado e aprovado
+  if not exists (select 1 from public.events where id = p_event and status = 'published' and approval_status = 'approved') then
+    raise exception 'Evento indisponível para compra' using errcode = '22023';
+  end if;
   -- mesma trava do gatilho orders_um_pendente: contagem e criação do pedido da mesma pessoa e evento em fila
   perform pg_advisory_xact_lock(hashtextextended(v_user::text || p_event::text, 0));
   select count(*) into v_n from public.orders where user_id = v_user and event_id = p_event and created_at > now() - interval '1 hour';
@@ -165,8 +179,8 @@ begin
       select distinct (env.value->>'id') || ':' || (s.value->>'id') as seat_key,
              (sec.value->>'ticketTypeId')::uuid as tt,
              case when s.value->>'type' = 'table'
-                  then greatest(coalesce(case when jsonb_typeof(s.value->'seatsCount') = 'number' then (s.value->>'seatsCount')::int end,
-                                         case when jsonb_typeof(s.value->'capacity') = 'number' then (s.value->>'capacity')::int end, 6), 1)
+                  then least(greatest(coalesce(case when jsonb_typeof(s.value->'seatsCount') = 'number' then (s.value->>'seatsCount')::int end,
+                                               case when jsonb_typeof(s.value->'capacity') = 'number' then (s.value->>'capacity')::int end, 6), 1), 50) -- teto 50: mapa adulterado não vira pedido gigante
                   else 1 end as lugares
         from jsonb_array_elements(case when jsonb_typeof(v_mapa) = 'array' then v_mapa else '[]'::jsonb end) env(value)
         cross join lateral jsonb_array_elements(case when jsonb_typeof(env.value->'seats') = 'array' then env.value->'seats' else '[]'::jsonb end) s(value)
@@ -224,6 +238,11 @@ end;
 $$;
 revoke execute on function public.reservar_assentos(uuid, text[]) from public, anon, authenticated;
 grant execute on function public.reservar_assentos(uuid, text[]) to authenticated;
+
+-- 2b. Leitura pública do mapa só de evento aberto ou por link (o dono lê pela política própria)
+drop policy if exists "Anyone can read active seating maps" on public.seating_maps;
+create policy "Anyone can read active seating maps" on public.seating_maps as PERMISSIVE for SELECT to public
+  using (is_active = true and public.evento_acesso(event_id) in ('aberto', 'link'));
 
 -- 3. Ocupados: só lugar e estado --------------------------------------------------------------------------------------
 create or replace function public.assentos_ocupados(p_event uuid)
@@ -306,6 +325,7 @@ begin
   assert not has_function_privilege('authenticated', 'public.pedidos_pendentes_expirar(int)', 'execute'), 'authenticated expira pedidos';
   assert exists (select 1 from pg_trigger where tgname = 'orders_pago_assento_guard' and tgrelid = 'public.orders'::regclass), 'gatilho de pagamento ausente';
   assert (select column_default from information_schema.columns where table_schema = 'public' and table_name = 'seating_maps' and column_name = 'is_active') = 'false', 'is_active ainda nasce true';
+  assert (select qual like '%evento_acesso%' from pg_policies where tablename = 'seating_maps' and policyname = 'Anyone can read active seating maps'), 'política de leitura do mapa sem evento_acesso';
   assert (select count(*) from public.chat_topics where label = 'Denunciar evento') = 2, 'assunto Denunciar evento não está em site e participant_evokaa';
   raise notice 'OK: lugar marcado e reserva conferidos';
 end $$;
@@ -318,6 +338,8 @@ drop function if exists public.assentos_ocupados(uuid);
 drop function if exists public.reservar_assentos(uuid, text[]);
 drop table if exists public.pedido_assentos;
 alter table public.seating_maps alter column is_active set default true;
+drop policy if exists "Anyone can read active seating maps" on public.seating_maps;
+create policy "Anyone can read active seating maps" on public.seating_maps as PERMISSIVE for SELECT to public using (is_active = true);
 delete from public.chat_topics where label = 'Denunciar evento';
 -- order_items_estoque_guard e pedidos_pendentes_expirar: reaplicar as versões de 20261022 e 20261021.
 */

@@ -185,7 +185,7 @@ describe('Lugar marcado: setor ligado ao ingresso (E7a)', () => {
     await waitFor(() => expect(select.querySelector('option[value="tt1"]')).toBeTruthy())
     expect(select.querySelector('option[value="tt2"]')).toBeNull() // coletiva
     expect(select.querySelector('option[value="tt3"]')).toBeNull() // inativo
-    expect(h.colunasTipos).toBe('id, name, price, type, is_active')
+    expect(h.colunasTipos).toBe('id, name, price, type, is_active, max_per_order')
 
     const ev = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(ev)

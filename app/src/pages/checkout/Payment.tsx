@@ -257,7 +257,7 @@ export default function CheckoutPayment() {
           )}
 
           {/* Forma de pagamento */}
-          {!pixData && !gratis && (
+          {!pixData && !gratis && !esgotado && (
             <div role="radiogroup" aria-label="Forma de pagamento" className="grid gap-2">
               <button type="button" role="radio" aria-checked={paymentMethod === 'credit_card'} onClick={() => setPaymentMethod('credit_card')} className={`group ${metodo}`}>
                 <span className={radio} aria-hidden="true" />
@@ -307,7 +307,7 @@ export default function CheckoutPayment() {
           )}
 
           {/* Pix gerado: copiar o código primeiro, QR recolhido */}
-          {pixData && (
+          {pixData && !esgotado && (
             <div className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
               <h2 className="text-lg font-semibold leading-7">Efetue o pagamento Pix</h2>
               <Button type="button" size="lg" className="w-full rounded-full" onClick={copiarPix}>

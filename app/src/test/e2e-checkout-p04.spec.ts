@@ -148,11 +148,17 @@ test.describe('Checkout P04', () => {
   })
 
   test('5c. lugar marcado: a contagem zera, mostra "Tempo esgotado" e volta ao mapa', async ({ page }) => {
-    await preparar(page, { ingressos: [tipo({})], mapa: true, vencePorSeg: 3 })
+    await preparar(page, { ingressos: [tipo({})], mapa: true, vencePorSeg: 6 })
     await page.getByRole('button', { name: 'Ver o mapa do salão' }).click()
     await page.getByRole('button', { name: 'A1' }).click()
     await page.getByRole('button', { name: /Continuar para Pagamento/ }).click()
-    await expect(page.getByRole('alert')).toContainText('Tempo esgotado', { timeout: 8000 })
+    await page.getByRole('radio', { name: /Pix/ }).click()
+    await page.getByRole('button', { name: /Pagar Agora/ }).click()
+    await expect(page.getByRole('heading', { name: 'Efetue o pagamento Pix' })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText('Tempo esgotado', { timeout: 12000 })
+    // com o tempo esgotado o Pix gerado (código e QR) some
+    await expect(page.getByRole('heading', { name: 'Efetue o pagamento Pix' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Copiar código Pix/ })).toHaveCount(0)
     await expect(page.getByRole('button', { name: /Pagar Agora/ })).toHaveCount(0)
     await page.screenshot({ path: 'test-results/p03-tempo-esgotado.png', fullPage: true })
     await page.getByRole('button', { name: 'Voltar ao mapa' }).click()

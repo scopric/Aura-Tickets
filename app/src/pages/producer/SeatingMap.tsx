@@ -555,7 +555,7 @@ export default function SeatingMap() {
   }
 
   // Ingressos do evento escolhido para ligar a um setor (coletiva não tem lugar marcado; inativo não vende)
-  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number }[]>([])
+  const [tiposIngresso, setTiposIngresso] = useState<{ id: string; name: string; price: number; max: number | null }[]>([])
   const [tiposCarregados, setTiposCarregados] = useState(false) // falso enquanto carrega e se a leitura falhar
   useEffect(() => {
     setTiposIngresso([])
@@ -564,14 +564,14 @@ export default function SeatingMap() {
     let cancelado = false
     supabase
       .from('ticket_types')
-      .select('id, name, price, type, is_active')
+      .select('id, name, price, type, is_active, max_per_order')
       .eq('event_id', eventId)
       .then(({ data, error }) => {
         if (cancelado) return
         if (error) { toast.error(`Não consegui carregar os ingressos do evento: ${error.message}`); return }
-        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean }[] // ticket_types não está nos tipos gerados
+        const tipos = (data || []) as unknown as { id: string; name: string; price: number; type: string; is_active: boolean; max_per_order: number | null }[] // ticket_types não está nos tipos gerados
         setTiposCarregados(true)
-        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(({ id, name, price }) => ({ id, name, price })))
+        setTiposIngresso(tipos.filter(t => t.type !== 'coletiva' && t.is_active).map(t => ({ id: t.id, name: t.name, price: t.price, max: t.max_per_order ?? (Number(t.price) === 0 ? 10 : null) })))
       })
     return () => { cancelado = true }
   }, [eventId])
@@ -3691,6 +3691,16 @@ export default function SeatingMap() {
                               }}
                               className="w-full accent-primary"
                             />
+                            {(() => {
+                              // a mesa vende todas as cadeiras num pedido só: acima do máximo por pedido do ingresso, ninguém consegue comprar
+                              const tipo = tiposIngresso.find(t => t.id === sections.find(sec => sec.id === node.sectionId)?.ticketTypeId)
+                              const n = node.seatsCount || node.capacity
+                              return tipo?.max != null && n > tipo.max ? (
+                                <p role="alert" className="mt-1 text-[9px] leading-3 text-destructive">
+                                  Esta mesa tem {n} cadeiras e o ingresso "{tipo.name}" permite {tipo.max} por pedido: ela não poderá ser comprada. Reduza as cadeiras ou aumente o máximo por pedido.
+                                </p>
+                              ) : null
+                            })()}
                           </div>
 
                           {/* Presets Rápidos */}

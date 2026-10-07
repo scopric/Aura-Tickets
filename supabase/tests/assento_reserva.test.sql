@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(31);
+select plan(37);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -50,6 +50,23 @@ insert into public.seating_maps (event_id, environments) values
   ('fc000000-0000-4000-8000-0000000000e2', '[]');
 select is((select is_active from public.seating_maps where event_id = 'fc000000-0000-4000-8000-0000000000e2'), false, 'mapa novo nasce desligado (is_active false)');
 
+-- e3 rascunho COM mapa ativo (o dono não pode reservar); e4 aberto com mesa de 999 cadeiras; e5 privado com mapa ativo
+insert into public.events (id, producer_id, title, slug, status, approval_status, start_date, visibility) values
+  ('fc000000-0000-4000-8000-0000000000e3', 'fc000000-0000-4000-8000-000000000009', 'Rascunho com mapa', 'assento-e3', 'draft', 'pending', now() + interval '7 days', 'public'),
+  ('fc000000-0000-4000-8000-0000000000e4', 'fc000000-0000-4000-8000-000000000009', 'Mesa gigante', 'assento-e4', 'published', 'approved', now() + interval '7 days', 'public'),
+  ('fc000000-0000-4000-8000-0000000000e5', 'fc000000-0000-4000-8000-000000000009', 'Privado', 'assento-e5', 'published', 'approved', now() + interval '7 days', 'private');
+insert into public.ticket_types (id, event_id, name, price, quantity_total) values
+  ('fc000000-0000-4000-8000-0000000000b3', 'fc000000-0000-4000-8000-0000000000e3', 'Pago', 50, 100),
+  ('fc000000-0000-4000-8000-0000000000b4', 'fc000000-0000-4000-8000-0000000000e4', 'Pago', 50, 100),
+  ('fc000000-0000-4000-8000-0000000000b5', 'fc000000-0000-4000-8000-0000000000e5', 'Pago', 50, 100);
+insert into public.seating_maps (event_id, environments, is_active)
+select ev, jsonb_build_array(jsonb_build_object('id', 'a', 'sections', jsonb_build_array(jsonb_build_object('id', 'v', 'ticketTypeId', tt)),
+         'seats', jsonb_build_array(jsonb_build_object('id', 's1', 'type', 'seat', 'sectionId', 'v', 'status', 'free'),
+                                    jsonb_build_object('id', 'm1', 'type', 'table', 'sectionId', 'v', 'status', 'free', 'seatsCount', 999)))), true
+  from (values ('fc000000-0000-4000-8000-0000000000e3'::uuid, 'fc000000-0000-4000-8000-0000000000b3'::uuid),
+               ('fc000000-0000-4000-8000-0000000000e4', 'fc000000-0000-4000-8000-0000000000b4'),
+               ('fc000000-0000-4000-8000-0000000000e5', 'fc000000-0000-4000-8000-0000000000b5')) v(ev, tt);
+
 -- 1. reserva básica (Ana, aal2 como em produção)
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-00000000000a', 'aal2');
 create temp table r1 as select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e1', array['terreo:s1']) as r;
@@ -77,6 +94,23 @@ select throws_ok($$select public.reservar_assentos('fc000000-0000-4000-8000-0000
 select throws_ok($$select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e1', array['terreo:x1'])$$, '22023', null, 'elemento que não é assento nem mesa recusado');
 select throws_ok($$select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e1', array['terreo:nao-existe'])$$, '22023', null, 'chave inexistente recusada');
 select throws_ok($$select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e2', array['terreo:s1'])$$, '22023', null, 'evento fora do ar recusado');
+
+-- 3a. o produtor (dono) não reserva em rascunho, mesmo com mapa ativo
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000009', 'aal2');
+select throws_ok($$select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e3', array['a:s1'])$$, '22023', 'Evento indisponível para compra', '3a: rascunho recusado mesmo para o dono');
+
+-- 3b. mesa com 999 cadeiras no mapa vira no máximo 50 ingressos
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-00000000000b', 'aal2');
+create temp table r5 as select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e4', array['a:m1']) as r;
+select is((select sum(quantity)::int from public.order_items where order_id = (select (r->>'order_id')::uuid from r5)), 50, '3b: mesa de 999 cadeiras limitada a 50 ingressos');
+
+-- 3c. anon lê o mapa de evento aberto, não o de rascunho nem o privado; o dono lê o próprio rascunho
+select pg_temp.como('anon');
+select is((select count(*) from public.seating_maps where event_id = 'fc000000-0000-4000-8000-0000000000e3'), 0::bigint, '3c: anon não lê mapa de rascunho');
+select is((select count(*) from public.seating_maps where event_id = 'fc000000-0000-4000-8000-0000000000e5'), 0::bigint, '3c: anon não lê mapa de evento privado');
+select is((select count(*) from public.seating_maps where event_id = 'fc000000-0000-4000-8000-0000000000e4'), 1::bigint, '3c: anon lê mapa de evento aberto');
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000009', 'aal2');
+select is((select count(*) from public.seating_maps where event_id = 'fc000000-0000-4000-8000-0000000000e3'), 1::bigint, '3c: o produtor continua lendo o próprio mapa em rascunho');
 
 -- 4. liberação após 10 min: vence a reserva da Ana; Bia pega o lugar e o pedido da Ana é cancelado
 select pg_temp.como('postgres');
