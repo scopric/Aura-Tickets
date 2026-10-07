@@ -4,7 +4,7 @@ import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 import * as front from '../lib/tipoEvento'
 import * as shared from '../../../supabase/functions/_shared/tipoEvento'
-import { FORMATOS, TEMAS, ESTILOS, CLASSIFICACOES, LOCAL_MODOS, ACEITE_VERSAO, textoAceite, rotuloFormato, avisoEntrada, pendencias } from '../lib/tipoEvento'
+import { FORMATOS, TEMAS, ESTILOS, CLASSIFICACOES, LOCAL_MODOS, ACEITE_VERSAO, textoAceite, rotuloFormato, formatoDe, avisoEntrada, pendencias } from '../lib/tipoEvento'
 import { MESA_TAGS } from '../lib/mesaTags'
 
 const slugs = (l: readonly { valor: string }[]) => l.map(x => x.valor)
@@ -67,6 +67,8 @@ describe('rotuloFormato', () => {
   it('slug vira rótulo; texto antigo passa como está; vazio devolve ""', () => {
     expect(rotuloFormato('festa_encontro')).toBe('Festa ou encontro')
     expect(rotuloFormato('Festa')).toBe('Festa')
+    expect(rotuloFormato('Show')).toBe(rotuloFormato('show'))
+    expect(formatoDe('FESTA_ENCONTRO')?.valor).toBe('festa_encontro')
     expect(rotuloFormato(null)).toBe('')
     expect(rotuloFormato(undefined)).toBe('')
   })

@@ -86,8 +86,11 @@ export const MAX_TEMAS = 3
 export const MAX_ESTILOS = 3
 
 // slug → rótulo. Texto antigo de events.category ("Festa", "Música"…) passa como está; sem categoria devolve ''.
-export const rotuloFormato = (slug: string | null | undefined): string =>
-  FORMATOS.find((f) => f.valor === slug)?.rotulo ?? slug ?? ''
+export const formatoDe = (texto: string | null | undefined) => {
+  const t = (texto ?? '').toLowerCase() // texto antigo ("Show") casa com o slug ou o rótulo sem diferenciar maiúscula
+  return FORMATOS.find((f) => f.valor === t || f.rotulo.toLowerCase() === t)
+}
+export const rotuloFormato = (slug: string | null | undefined): string => formatoDe(slug)?.rotulo ?? slug ?? ''
 
 // Aceite do produtor (Decisão 148, item 6; texto final = rascunho v1 aprovado pelo Ricardo em 04/10/2026, nota
 // "2026-10-04 Aceite do produtor da F1 — rascunho para o jurídico"). A versão é a de aceite_evento_versao() no SQL.

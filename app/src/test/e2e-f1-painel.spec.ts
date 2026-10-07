@@ -483,6 +483,17 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     expect(db.patches[0]).toEqual({ description: 'Baile de forró com trio pé-de-serra no Espaço Torres, em Curitiba.', classificacao: 'A18' })
   })
 
+  test('publicado: preço novo salva na hora e o aviso diz que já vale', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Ingressos/)
+    await page.getByRole('group', { name: 'Ingresso Pista' }).getByLabel('Preço', { exact: true }).fill('90')
+    await page.getByRole('button', { name: 'Salvar ingressos' }).click()
+    await expect(page.getByText('Ingressos salvos. Já valem para quem compra.')).toBeVisible()
+    expect(db.ingressos[0]).toMatchObject({ price: 90 })
+  })
+
   test('publicado: sem mudar classificação nem bebida, enviar não refaz o aceite', async ({ page }) => {
     const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
     await entrarProdutor(page)

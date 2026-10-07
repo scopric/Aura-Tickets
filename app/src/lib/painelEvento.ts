@@ -111,6 +111,8 @@ export function semNomeVazio<T extends Record<string, unknown>>(d: Partial<T>, n
 /** Mensagem do erro ao gravar os ingressos: dado recusado pelo banco (400/422, códigos 22 e 23) não é problema de internet */
 export function erroDosIngressos(err: unknown): string {
   const e = err as { code?: string; status?: number } | null
+  const msg = (err as { message?: string } | null)?.message ?? ''
+  if (e?.code === '23514' && msg.startsWith('Já foram vendidos')) return msg
   if (e?.code === '23503') return 'Este ingresso já tem pedidos ligados e não pode ser removido. Use Ocultar.'
   if (e?.status === 400 || e?.status === 422 || /^(22|23)/.test(e?.code ?? '') || /^PGRST1/.test(e?.code ?? '')) return 'O banco recusou um dos ingressos: confira nome, preço e quantidade.'
   return 'Não foi possível salvar os ingressos. Confira a internet e tente de novo.'

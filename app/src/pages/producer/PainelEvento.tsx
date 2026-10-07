@@ -345,7 +345,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       const novos = porCriacao((data ?? []) as DbTicketType[]).map(t => ingDoBanco(t, vendidosPorId[t.id] ?? 0))
       setIngs(novos); setIngsSalvos(novos); setTentouIng(false)
       void qc.invalidateQueries({ queryKey: ['painel-evento', evento.id] }) // o Match de Mesa aparece com o primeiro ingresso coletiva
-      toast.success('Ingressos salvos.')
+      toast.success(modo === 'publicado' ? 'Ingressos salvos. Já valem para quem compra.' : 'Ingressos salvos.')
     } catch (err) {
       toast.error(erroDosIngressos(err))
     } finally {
