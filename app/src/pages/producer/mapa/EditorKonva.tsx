@@ -23,7 +23,7 @@ const medidas = (s: SeatNode) => ({
 // ponytail: cadeiras da mesa em anel elíptico ao redor, mesmo para mesa retangular; trocar por lados da mesa se o produtor pedir
 function CadeirasDaMesa({ w, h, n }: { w: number; h: number; n: number }) {
   return Array.from({ length: Math.max(0, Math.min(n, 40)) }, (_, i) => {
-    const a = (2 * Math.PI * i) / n
+    const a = (2 * Math.PI * i) / Math.min(n, 40)
     return <Circle key={i} x={(w / 2 + 0.25) * Math.cos(a)} y={(h / 2 + 0.25) * Math.sin(a)} radius={0.2} fill="#64748b" listening={false} />
   })
 }
@@ -77,7 +77,7 @@ export default function EditorKonva() {
   const [sel, setSel] = useState<Selecao>(null)
   const [encaixar, setEncaixar] = useState(false)
   const [secSel, setSecSel] = useState<string | null>(null)
-  const sec = env.sections.find(x => x.id === secSel) || env.sections[0]
+  const sec = (env.sections || []).find(x => x.id === secSel) || (env.sections || [])[0]
   const noSel = sel?.tipo === 'no' ? env.seats.find(n => n.id === sel.id) : undefined
 
   // Desfazer simples por pavimento: guarda o pavimento inteiro antes de cada mudança.
@@ -136,13 +136,16 @@ export default function EditorKonva() {
   const [vista, setVista] = useState<Vista>({ zoom: 1, pan: { x: 0, y: 0 } })
   const envRef = useRef(env)
   envRef.current = env
+  const tamRef = useRef(tam)
+  tamRef.current = tam
   const ajustar = useCallback(() => {
-    if (tam.w === 0 || tam.h === 0) return
+    const { w, h } = tamRef.current
+    if (w === 0 || h === 0) return
     const e = envRef.current
-    setVista(ajustarTela(limites(e), tam.w, tam.h, e.pixelsPerMeter || 40))
-  }, [tam.w, tam.h])
+    setVista(ajustarTela(limites(e), w, h, e.pixelsPerMeter || 40))
+  }, [])
   // Enquadra ao abrir o mapa e ao trocar de pavimento (não a cada edição)
-  useEffect(() => { if (pronto) ajustar() }, [pronto, eventId, ativo, ajustar])
+  useEffect(() => { if (pronto) ajustar() }, [pronto, eventId, ativo, tam.w > 0, ajustar]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setAtivo(0) }, [eventId])
 
   const aoRolar = (e: Konva.KonvaEventObject<WheelEvent>) => {
@@ -221,7 +224,7 @@ export default function EditorKonva() {
           {envs.map((p, i) => <option key={p.id} value={i}>{p.name}</option>)}
         </select>
         <Button size="sm" variant="outline" onClick={ajustar}>Ajustar à tela</Button>
-        <Button size="sm" variant="outline" onClick={desfazer} disabled={!sujo}>Desfazer</Button>
+        <Button size="sm" variant="outline" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <Button size="sm" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>
         {erroMapa && <span className="text-xs text-destructive">Não consegui ler o mapa: Salvar bloqueado. Recarregue a página.</span>}
@@ -268,7 +271,10 @@ export default function EditorKonva() {
                     onTransformEnd={e => {
                       const g = e.target, { w, h } = medidas(n), sx = g.scaleX(), sy = g.scaleY()
                       g.scaleX(1); g.scaleY(1)
-                      moverNo(n.id, { x: g.x(), y: g.y(), rotation: g.rotation(), widthMeter: w * sx, heightMeter: h * sy })
+                      // cadeira e mesa redonda mantêm a proporção (círculo): um só fator para largura e altura
+      const redondo = n.type === 'seat' || (n.type === 'table' && (n.tableShape || 'circle') === 'circle')
+      const k = sx !== 1 ? sx : sy
+      moverNo(n.id, { x: g.x(), y: g.y(), rotation: g.rotation(), widthMeter: w * (redondo ? k : sx), heightMeter: redondo ? w * k : h * sy })
                     }}
                   >
                     <Forma s={n} />
@@ -290,7 +296,7 @@ export default function EditorKonva() {
         <section aria-label="Cor da seção" className="space-y-2">
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Seções</h2>
           <ul className="space-y-1">
-            {env.sections.map(x => (
+            {(env.sections || []).map(x => (
               <li key={x.id}>
                 <button type="button" onClick={() => setSecSel(x.id)} aria-pressed={sec?.id === x.id}
                   className={`flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left ${sec?.id === x.id ? 'border-primary bg-primary/10' : 'border-border'}`}>

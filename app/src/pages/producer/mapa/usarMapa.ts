@@ -36,7 +36,7 @@ export function useMapa(eventId: string | null) {
         toast.error(`Erro ao carregar mapa: ${error.message}`)
         return
       }
-      if (data?.environments && Array.isArray(data.environments)) {
+      if (Array.isArray(data?.environments) && data.environments.length) {
         const lidos = normalizarEnvs(data.environments as Environment[])
         if (data.config && typeof data.config === 'object') config.current = data.config as Config
         setEnvs(lidos)
