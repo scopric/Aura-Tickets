@@ -73,12 +73,14 @@ export default function AdminProducers() {
       if (error) throw error
       if (!data || data.length === 0) throw new Error('nenhuma linha foi alterada (regra de acesso ou cadastro inexistente)')
       // profiles.is_verified é o que o app carrega no usuário (authStore); manter os dois iguais
-      const { error: profileError } = await supabase.from('profiles').update({ is_verified: value }).eq('id', p.id)
+      const { data: profileRows, error: profileError } = await supabase.from('profiles').update({ is_verified: value }).eq('id', p.id).select('id')
       if (profileError) throw profileError
+      if (!profileRows || profileRows.length === 0) throw new Error('o perfil não foi alterado (regra de acesso ou perfil inexistente); o cadastro da empresa já foi gravado, tente de novo')
       toast.success(value ? 'Produtor marcado como verificado.' : 'Verificação removida.')
       await loadData()
     } catch (err: any) {
       toast.error('Não foi possível gravar: ' + (err?.message || 'erro desconhecido'))
+      await loadData() // o primeiro update pode já ter gravado: a tela volta a mostrar o banco
     } finally {
       setSavingId(null)
     }
