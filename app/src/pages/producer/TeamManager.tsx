@@ -25,6 +25,15 @@ interface TeamMember {
   avatar: string | null
 }
 
+// Respostas de team_convidar ({ ok: false, motivo }); 'generico' não diz se a conta existe
+const MOTIVO_CONVITE: Record<string, string> = {
+  generico: 'Não foi possível convidar este e-mail. Confira se a pessoa já tem conta na Evokaa com ele.',
+  duplicado: 'Esta pessoa já está na sua equipe.',
+  bloqueado: 'Esta pessoa está bloqueada na sua equipe. Use Ativar na lista.',
+  limite: 'Muitas tentativas. Tente de novo em uma hora.',
+  limite_equipe: 'Limite de 5 membros atingido',
+}
+
 export default function TeamManager() {
   const { user } = useAuth()
   const ref = useRef<HTMLDivElement>(null)
@@ -63,22 +72,12 @@ export default function TeamManager() {
     if (!user?.id) return
     setIsLoading(true)
     try {
-      // 1. Consultar a tabela team_members
-      const { data, error } = await supabase
-        .from('team_members')
-        .select(`
-          *,
-          profiles:user_id (
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
-        .eq('producer_id', user.id)
+      // A RLS de profiles não deixa o produtor ler nome e e-mail do membro: team_lista (20261029_equipe_convidar.sql)
+      const { data, error } = await supabase.rpc('team_lista' as never)
 
       if (error) throw error
 
-      setMembers(data.map(mapDbMemberToTeamMember))
+      setMembers(((data ?? []) as any[]).map(m => mapDbMemberToTeamMember({ ...m, profiles: { full_name: m.full_name, email: m.email } })))
     } catch (err: any) {
       console.error('Erro ao carregar equipe:', err)
       toast.error('Erro ao carregar equipe de administradores')
@@ -119,38 +118,23 @@ export default function TeamManager() {
     if (!user?.id) return
 
     try {
-      // 1. Verificar se existe usuário cadastrado com esse e-mail na tabela profiles
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('email', inviteEmail)
-        .maybeSingle()
-
-      // Sem conta com esse e-mail, para: não gravar o próprio produtor como membro da equipe
-      if (!profileData) {
-        toast.error('Nenhuma conta Evokaa com esse e-mail. A pessoa precisa se cadastrar antes.')
+      // O banco acha a conta e grava o convite (a RLS de profiles não deixa o produtor procurar e-mail): 20261029_equipe_convidar.sql
+      const { data, error } = await supabase.rpc('team_convidar' as never, { p_email: inviteEmail.trim(), p_role: inviteRole } as never)
+      if (error) throw error
+      const r = data as { ok: boolean; motivo?: string } | null
+      if (!r?.ok) {
+        toast.error(MOTIVO_CONVITE[r?.motivo ?? ''] ?? MOTIVO_CONVITE.generico)
         return
       }
-      const targetUserId = profileData.id
 
-      const { data, error } = await supabase
-        .from('team_members')
-        .insert({
-          producer_id: user.id,
-          user_id: targetUserId,
-          role: inviteRole,
-        })
-        .select('id')
-
-      exigirLinhas(error, data)
-
-      toast.success('Membro adicionado')
+      toast.success('Convite registrado')
       setInviteEmail('')
       setShowInvite(false)
       loadMembers()
     } catch (err: any) {
       console.error('Erro ao convidar membro:', err)
-      toast.error('Erro ao registrar convite no banco')
+      // 42501 (não é conta de produtor ou falta o código do 2FA) e 22023 (cargo) trazem o texto do banco
+      toast.error(err?.code === '42501' || err?.code === '22023' ? err.message : 'Erro ao registrar convite no banco')
     }
   }
 
