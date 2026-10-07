@@ -59,9 +59,17 @@ export default function AdminFinance() {
       withdrawals: ['id', 'created_at', 'status', 'amount', 'pix_key', 'processed_at'],
     }
     try {
-      const linhas = await fetchAllRows<Record<string, unknown>>((from, to) =>
-        supabase.from(tabela).select(colunas[tabela].join(', ')).order('id').range(from, to)
-      )
+      // saques: Pix só pela RPC (pr7_admin_saques, até 1.000 linhas, as mais recentes); as outras tabelas paginam o select
+      const linhas = tabela === 'withdrawals'
+        ? await supabase.rpc('pr7_admin_saques' as never).then(({ data, error }) => {
+            if (error) throw error
+            const linhas = (data ?? []) as Record<string, unknown>[]
+            if (linhas.length === 1000) toast.info('Exportação limitada aos 1000 saques mais recentes.')
+            return linhas
+          })
+        : await fetchAllRows<Record<string, unknown>>((from, to) =>
+            supabase.from(tabela).select(colunas[tabela].join(', ')).order('id').range(from, to)
+          )
       if (linhas.length === 0) {
         toast.info('Não há registros para exportar nesta tabela.')
         return
