@@ -149,6 +149,10 @@ describe('copiaDoEvento', () => {
     const { tickets: t } = copiaDoEvento({ ...evento, ticket_types: [tipo({ inclui_bebida: true }), tipo({ name: 'Pista' })] } as DbEvent)
     expect(t.map(x => x.inclui_bebida)).toEqual([true, undefined])
   })
+  it('o teto por pedido vai na cópia', () => {
+    const { tickets: t } = copiaDoEvento({ ...evento, ticket_types: [tipo({ max_per_order: 4 }), tipo({})] } as DbEvent)
+    expect(t.map(x => x.max_per_order)).toEqual([4, undefined])
+  })
   it('ingressos sem id nem vendas, com a quantidade real e o oculto continua oculto', () => {
     for (const t of tickets) for (const k of ['id', 'event_id', 'sold']) expect(t).not.toHaveProperty(k)
     expect(tickets.map(t => [t.name, t.capacity, t.is_active])).toEqual([['Pista', 100, true], ['Oculto', 100, false]])

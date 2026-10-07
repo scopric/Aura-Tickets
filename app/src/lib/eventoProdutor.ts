@@ -166,6 +166,7 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       perks: t.perks,
       is_active: t.is_active, // tipo oculto continua oculto na cópia
       inclui_bebida: t.inclui_bebida,
+      max_per_order: t.max_per_order, // teto por pedido (#217)
     })),
   }
 }
@@ -196,7 +197,7 @@ export async function duplicarEvento(
     const { error } = await supabase.from('ticket_types').insert(tickets.map((t, i) => ({
       event_id: novo.id, name: t.name || `Ingresso ${i + 1}`, description: t.description || null, price: Number(t.price) || 0,
       capacity: t.capacity ? Number(t.capacity) : null, quantity_total: t.capacity ? Number(t.capacity) : 0, sold: 0, quantity_sold: 0,
-      type: t.type === 'coletiva' ? 'coletiva' : 'individual', perks: t.perks || [], is_active: t.is_active ?? true, inclui_bebida: !!t.inclui_bebida,
+      type: t.type === 'coletiva' ? 'coletiva' : 'individual', perks: t.perks || [], is_active: t.is_active ?? true, inclui_bebida: !!t.inclui_bebida, max_per_order: t.max_per_order ?? null,
     })) as never)
     if (error) { console.error('[duplicarEvento] ingressos', error); r.avisos.push('os ingressos não foram copiados') } else r.ingressos = tickets.length
   }

@@ -189,14 +189,20 @@ export type Ing = {
   id: string; nome: string; preco: string; qtd: string; bebida: boolean
   tipo: string // 'individual' | 'coletiva' no novo; o tipo gravado (inclusive vip e mesa) no existente, fixo
   ativo: boolean; vendidos: number; novo: boolean
+  inicioVenda: string; fimVenda: string // datetime-local (AAAA-MM-DDTHH:MM, Brasília); vazio = sem data
 }
 
 export const brTexto = (n: number) => n.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2, useGrouping: false })
+
+const venda = (iso: string | null | undefined) => { const p = partesBrasilia(iso); return p.d ? `${p.d}T${p.h}` : '' }
+/** datetime-local → timestamptz de Brasília; vazio → null */
+export const vendaParaBanco = (tx: string) => (tx ? `${tx}:00-03:00` : null)
 
 export function ingDoBanco(t: DbTicketType, vendidos: number): Ing {
   return {
     id: t.id, nome: t.name, preco: brTexto(Number(t.price) || 0), qtd: String(t.quantity_total ?? t.capacity ?? ''), bebida: !!t.inclui_bebida,
     tipo: t.type, ativo: t.is_active, vendidos, novo: false,
+    inicioVenda: venda(t.sale_start), fimVenda: venda(t.sale_end),
   }
 }
 
@@ -210,15 +216,20 @@ export function precoDe(tx: string): number | null {
 export const QUANTIDADE_MAX = 1_000_000
 export const quantidadeDe = (tx: string): number | null => (/^\d+$/.test(tx.trim()) && Number(tx) > 0 && Number(tx) <= QUANTIDADE_MAX ? Number(tx) : null)
 
-export type ErrosIng = { nome?: string; preco?: string; qtd?: string }
+export type ErrosIng = { nome?: string; preco?: string; qtd?: string; venda?: string }
 
-export function errosDeIngresso(i: Ing): ErrosIng {
+/** fimEvento: instante (ms) do fim do evento, se houver */
+export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
   const e: ErrosIng = {}
   if (!i.nome.trim()) e.nome = 'Dê um nome ao ingresso.'
   if (precoDe(i.preco) === null) e.preco = 'Preço inválido: use só números, com vírgula nos centavos (ex.: 80,00).'
   const q = quantidadeDe(i.qtd)
   if (q === null) e.qtd = 'Quantidade inválida: use um número inteiro entre 1 e 1.000.000.'
   else if (q < i.vendidos) e.qtd = `Já foram vendidos ${i.vendidos}: a quantidade não pode ser menor.`
+  const ini = i.inicioVenda ? Date.parse(vendaParaBanco(i.inicioVenda)!) : null
+  const fim = i.fimVenda ? Date.parse(vendaParaBanco(i.fimVenda)!) : null
+  if (ini !== null && fim !== null && fim <= ini) e.venda = 'O fim da venda precisa ser depois do início.'
+  else if (fim !== null && fimEvento !== undefined && fim > fimEvento) e.venda = 'A venda não pode terminar depois do fim do evento.'
   return e
 }
 
@@ -326,7 +337,7 @@ export async function enviarEvento(p: {
   }
   if (p.publicar) {
     const { error } = await supabase.from('events').update({ status: 'published' } as never).eq('id', p.eventId).select('id').single()
-    if (error) return { ok: false, erro: 'Não foi possível enviar o evento. Tente de novo.' }
+    if (error) return { ok: false, erro: (error as { code?: string }).code === '42501' ? 'Refaça o aceite: a classificação ou a bebida mudou.' : 'Não foi possível enviar o evento. Tente de novo.' }
   }
   return { ok: true }
 }

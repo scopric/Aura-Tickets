@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -8,7 +9,7 @@ export type Falta = { rotulo: string; secao: string; nomeSecao: string }
 
 // Seção "Publicar": o que falta (com "Ir para…"), o aceite do produtor (o texto de textoAceite, montado do que está na
 // tela) e o botão de enviar. Evento no ar ou em análise só mostra o estado: o envio das alterações é na faixa do topo.
-export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, enviando, erroEnvio, noArDesde }: {
+export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteMarcado, aceiteTrava, onAceite, onEnviar, enviando, erroEnvio, noArDesde, hrefOrcamento }: {
   modo: ModoPainel
   faltas: Falta[]
   onIr: (secao: string) => void
@@ -20,6 +21,7 @@ export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteM
   enviando: boolean
   erroEnvio: string
   noArDesde?: string // data curta da aprovação (approved_at)
+  hrefOrcamento: string // o mesmo link do menu "…"
 }) {
   if (modo === 'publicado') return <p className="flex items-center gap-2 text-sm text-foreground"><I.Check size={16} aria-hidden="true" />{noArDesde ? `No ar desde ${noArDesde}.` : 'No ar.'} Mudanças de conteúdo passam por nova análise.</p>
   if (modo === 'analise') return <p className="flex items-center gap-2 text-sm text-foreground"><I.Horario size={16} aria-hidden="true" />Enviado para aprovação. A equipe avisa por e-mail quando aprovar ou recusar.</p>
@@ -66,6 +68,7 @@ export default function SecaoPublicar({ modo, faltas, onIr, aceiteTexto, aceiteM
           {trava ? `Falta: ${faltas.map(p => p.rotulo).join(', ')}.` : 'A equipe analisa antes de o evento ir ao ar.'}
         </span>
       </div>
+      <Button asChild variant="link" className="justify-self-start px-0"><Link to={hrefOrcamento}><I.Financeiro aria-hidden="true" />Montar o orçamento</Link></Button>
       {erroEnvio && <p role="alert" className="flex items-start gap-1.5 text-sm text-destructive"><I.Erro size={16} className="mt-0.5 shrink-0" aria-hidden="true" />{erroEnvio}</p>}
     </div>
   )
