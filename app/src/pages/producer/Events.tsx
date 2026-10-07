@@ -4,12 +4,13 @@ import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { useProducerEvents, useDeleteEvent, useUpdateEvent, useVendidosPorEvento, type DbEvent } from '../../hooks/useEvents'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
-import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
+import { situacaoEvento, erroAoExcluir, erroDeStatus, vendidosDe, confirmacaoDuplicar, confirmacaoCancelar, confirmacaoArquivar, dataPorVir, CANCELAR_COM_VENDA, type Situacao } from '../../lib/eventoProdutor'
 import { siteUrl } from '../../lib/appHost'
-import { abreEvento } from '../../lib/navegacaoProdutor'
+import { abreEvento, normaliza } from '../../lib/navegacaoProdutor'
 import EventoCapa from '../../components/EventoCapa'
 import { PageHeader, EmptyState } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -28,6 +29,7 @@ function formatDate(dateStr: string | null) {
 export default function ProducerEvents() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'Todos' | Situacao>('Todos')
+  const [acao, setAcao] = useState<{ tipo: 'encerrar' | 'cancelar' | 'excluir'; event: DbEvent } | null>(null)
 
   const { data: events = [], isLoading, isError, refetch, isFetching } = useProducerEvents()
   const { data: vendidos } = useVendidosPorEvento()
@@ -38,19 +40,22 @@ export default function ProducerEvents() {
   // undefined = não se sabe (contagem não carregou ou veio cortada)
   const vendidoDe = (id: string) => vendidosDe(vendidos, id)
 
-  const cancelar = async (event: DbEvent) => {
+  // Cancelar, encerrar e excluir passam pela mesma janela (acao); estas só abrem
+  const cancelar = (event: DbEvent) => {
     if ((vendidoDe(event.id) ?? 0) > 0) { toast.error(CANCELAR_COM_VENDA); return } // Decisão 129
-    if (!window.confirm(confirmacaoCancelar(event.title, vendidoDe(event.id)))) return
+    setAcao({ tipo: 'cancelar', event })
+  }
+
+  const mudarStatus = async (event: DbEvent, status: 'cancelled' | 'ended') => {
     try {
-      await updateEvent.mutateAsync({ eventId: event.id, event: { status: 'cancelled' }, tickets: [] })
-      toast.success('Evento cancelado.')
+      await updateEvent.mutateAsync({ eventId: event.id, event: { status }, tickets: [] })
+      toast.success(status === 'ended' ? 'Evento encerrado.' : 'Evento cancelado.')
     } catch (err) {
-      toast.error(erroDeStatus(err, 'Não foi possível cancelar o evento.'))
+      toast.error(erroDeStatus(err, status === 'ended' ? 'Não foi possível encerrar o evento.' : 'Não foi possível cancelar o evento.'))
     }
   }
 
-  const handleDelete = async (event: DbEvent) => {
-    if (!window.confirm(`Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.`)) return
+  const excluir = async (event: DbEvent) => {
     try {
       await deleteMutation.mutateAsync(event.id)
       toast.success('Evento excluído.')
@@ -62,13 +67,31 @@ export default function ProducerEvents() {
     }
   }
 
+  const textoDaJanela = ({ tipo, event }: NonNullable<typeof acao>) => {
+    const v = vendidoDe(event.id)
+    if (tipo === 'encerrar') return { titulo: 'Encerrar evento', texto: confirmacaoArquivar(event.title, v, dataPorVir(event)), botao: 'Encerrar' }
+    if (tipo === 'cancelar') return { titulo: 'Cancelar evento', texto: confirmacaoCancelar(event.title, v), botao: 'Cancelar evento' }
+    return {
+      titulo: 'Excluir evento',
+      texto: `Excluir o evento "${event.title}"? Esta ação não pode ser desfeita.${(v ?? 0) > 0 ? ` Ele tem ${inteiro(v!)} ${v === 1 ? 'ingresso vendido' : 'ingressos vendidos'}, e por isso o banco deve recusar a exclusão.` : ''}`,
+      botao: 'Excluir',
+    }
+  }
+
+  const confirmar = () => {
+    if (!acao) return
+    const { tipo, event } = acao
+    if (tipo === 'excluir') void excluir(event)
+    else void mudarStatus(event, tipo === 'encerrar' ? 'ended' : 'cancelled')
+  }
+
   const handleDuplicate = (event: DbEvent) => {
     if (window.confirm(confirmacaoDuplicar(event.title))) void duplicar(event)
   }
 
-  const termo = search.trim().toLowerCase()
+  const termo = normaliza(search.trim())
   const filtered = events.filter(e =>
-    e.title.toLowerCase().includes(termo) && (filter === 'Todos' || situacaoEvento(e) === filter))
+    normaliza(e.title).includes(termo) && (filter === 'Todos' || situacaoEvento(e) === filter))
 
   const header = (
     <PageHeader
@@ -177,7 +200,13 @@ export default function ProducerEvents() {
                     <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDuplicate(event)} disabled={duplicando} aria-label={`Duplicar ${event.title}`}>
                       <I.Copiar aria-hidden="true" />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(event)} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
+                    {st === 'Publicado' && (
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => setAcao({ tipo: 'encerrar', event })} aria-label={`Encerrar ${event.title}`}>Encerrar</Button>
+                    )}
+                    {event.status !== 'cancelled' && (
+                      <Button variant="ghost" size="sm" className={icone} onClick={() => cancelar(event)} aria-label={`Cancelar ${event.title}`}>Cancelar</Button>
+                    )}
+                    <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setAcao({ tipo: 'excluir', event })} disabled={deleteMutation.isPending} aria-label={`Excluir ${event.title}`}>
                       <I.Lixeira aria-hidden="true" />
                     </Button>
                   </div>
@@ -190,6 +219,23 @@ export default function ProducerEvents() {
           <p className="mt-3 text-xs text-muted-foreground">Contagem parcial: mais de 1.000 ingressos vendidos.</p>
         )}
       </div>
+
+      <AlertDialog open={!!acao} onOpenChange={aberto => { if (!aberto) setAcao(null) }}>
+        <AlertDialogContent>
+          {acao && (() => { const j = textoDaJanela(acao); return (
+            <>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{j.titulo}</AlertDialogTitle>
+                <AlertDialogDescription className="whitespace-pre-line">{j.texto}</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Voltar</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmar}>{j.botao}</AlertDialogAction>
+              </AlertDialogFooter>
+            </>
+          ) })()}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

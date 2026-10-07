@@ -107,11 +107,13 @@ export function erroAoExcluir(err: unknown, vendidos?: number): { mensagem: stri
   const e = err as { code?: string; message?: string; details?: string } | null
   if (e?.code === '23503' && (vendidos ?? 0) > 0) return { mensagem: CANCELAR_COM_VENDA, oferecerCancelar: false }
   if (e?.code === '23503') {
-    const afiliado = /affiliates/.test(`${e.message ?? ''} ${e.details ?? ''}`)
+    const txt = `${e.message ?? ''} ${e.details ?? ''}`
+    const o = 'Cancele o evento em vez de excluir.'
     return {
-      mensagem: afiliado
-        ? 'Este evento tem afiliados vinculados. Cancele o evento em vez de excluir.'
-        : 'Este evento tem vendas ou registros vinculados. Cancele o evento em vez de excluir.',
+      mensagem: /affiliates/.test(txt) ? `Este evento tem afiliados vinculados. ${o}`
+        : /\borders\b/.test(txt) ? `Este evento tem pedidos. ${o}`
+        : /\btickets\b/.test(txt) ? `Este evento tem ingressos emitidos. ${o}`
+        : `Este evento tem vendas ou registros vinculados. ${o}`,
       oferecerCancelar: true,
     }
   }
