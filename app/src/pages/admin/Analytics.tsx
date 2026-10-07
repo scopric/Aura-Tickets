@@ -723,7 +723,7 @@ export default function AdminAnalytics() {
       // 2. Contagem real de contas no sistema
       const { count: profilesCount, error: profilesError } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact', head: true })
+        .select('id', { count: 'exact', head: true }) // 'id': select('*') em profiles dá 42501 (S4b)
       if (profilesError) {
         console.warn('Erro ao contar profiles:', profilesError)
         setLoadError(prev => prev || profilesError.message)

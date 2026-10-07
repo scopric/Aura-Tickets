@@ -17,7 +17,7 @@ test.skip(({ isMobile }) => isMobile, 'a lateral do produtor cobre a tela no cel
 type Linha = Record<string, unknown>
 type Banco = {
   evento: Linha; ingressos: Linha[]; link: string | null; vendidos: Record<string, number>; aceites: Linha[]
-  chamadas: string[]; patches: Linha[]; aceite: () => { status: number; json: unknown }
+  chamadas: string[]; patches: Linha[]; guia: string[] | 'erro'; aceite: () => { status: number; json: unknown }
 }
 
 const evento = (o: Linha = {}): Linha => ({
@@ -51,6 +51,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
   const db: Banco = {
     ingressos: [], link: null, vendidos: {}, chamadas: [], patches: [],
     aceites: [], aceite: () => aceiteOk(db),
+    guia: ['guia:painel-evento'], // padrão: o guia já foi visto (só os testes do guia o tiram)
     ...ini,
   }
   // evento que já foi aprovado tem um aceite coerente com ele, salvo se o teste disser outra coisa
@@ -119,6 +120,18 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
     db.chamadas.push('INVOKE aceite-evento')
     const a = db.aceite()
     return route.fulfill({ status: a.status, json: a.json })
+  })
+  // onboarding_logs (V9): leitura dos registros do produtor e gravação (upsert) do que ele concluiu ou pulou
+  await page.route(/\/rest\/v1\/onboarding_logs(\?|$)/, route => {
+    const r = route.request()
+    if (r.method() === 'GET') return db.guia === 'erro' ? route.fulfill({ status: 500, json: { message: 'falha' } }) : route.fulfill({ json: db.guia.map(step_name => ({ step_name })) })
+    if (r.method() === 'POST') {
+      const b = r.postDataJSON() as { step_name: string; skipped: boolean }
+      db.chamadas.push(`UPSERT onboarding_logs ${b.step_name} skipped=${b.skipped}`)
+      if (db.guia !== 'erro' && !db.guia.includes(b.step_name)) db.guia.push(b.step_name)
+      return route.fulfill({ status: 201, body: '' })
+    }
+    return route.fallback()
   })
   await page.route('https://viacep.com.br/**', route => route.fulfill({ json: { logradouro: 'Rua das Flores', bairro: 'Centro', localidade: 'Curitiba', uf: 'PR' } }))
   return db
@@ -193,7 +206,7 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     await page.getByRole('button', { name: 'Adicionar ingresso' }).click()
     await page.getByLabel('Nome', { exact: true }).fill('Pista')
     await page.getByLabel('Preço (R$)').fill('80,00')
-    await page.getByLabel('Quantidade').fill('200')
+    await page.getByLabel('Quantidade', { exact: true }).fill('200')
     await expect(page.getByText(/Comprador paga/)).toContainText('R$ 88,00')
     await expect(page.getByText('Ingressos com mudanças não salvas')).toBeVisible()
     await page.getByLabel('Preço (R$)').fill('8x')
@@ -300,6 +313,110 @@ test.describe('painel do evento: rascunho até "Em análise"', () => {
     falhar = false
     await salva(page, db, () => page.getByRole('button', { name: 'Tentar de novo' }).click())
     expect(db.patches.at(-1)).toEqual({ title: 'Nome novo' })
+  })
+})
+
+test.describe('painel do evento: modo guiado "Passo N de 6"', () => {
+  // a seção que fecha ainda está no DOM durante a animação: só vale o botão da seção aberta
+  const proximo = (p: Page) => p.locator('[role=region][data-state=open]').getByRole('button', { name: 'Próximo' })
+  const voltar = (p: Page) => p.locator('[role=region][data-state=open]').getByRole('button', { name: 'Voltar' })
+  const secaoAberta = (page: Page) => page.locator('button[aria-expanded="true"][id^="s-"]')
+
+  test('rascunho sem registro: passo 1, Próximo e Voltar, uma seção aberta por vez', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Passo 1 de 6 · O que é')).toBeVisible()
+    await expect(page.getByText(/de 8\s*prontos/)).toHaveCount(0)
+    await expect(secaoAberta(page)).toHaveCount(1)
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(voltar(page)).toHaveCount(0)
+    await proximo(page).click()
+    await expect(page.getByText('Passo 2 de 6 · Quando e onde')).toBeVisible()
+    await expect(secaoAberta(page)).toHaveCount(1)
+    await expect(secao(page, /^Quando e onde/)).toBeFocused()
+    await voltar(page).click()
+    await expect(page.getByText('Passo 1 de 6 · O que é')).toBeVisible()
+    for (let i = 2; i <= 6; i++) await proximo(page).click()
+    await expect(page.getByText('Passo 6 de 6 · Publicar')).toBeVisible()
+    await expect(proximo(page)).toHaveCount(0)
+  })
+
+  test('"Ver todas as seções" registra skipped e mostra "N de 8 prontos"; recarregar não traz o guia de volta', async ({ page }) => {
+    const db = await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await proximo(page).click()
+    await page.getByRole('button', { name: 'Ver todas as seções' }).click()
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+    await expect(secao(page, /^Quando e onde/)).toBeFocused()
+    await expect(secao(page, /^Quando e onde/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false') // só a do passo, não as já visitadas
+    await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=true')
+    await page.reload()
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('evento em análise ou no ar nunca mostra o guia', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('evento no ar sem registro: sem guia', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('À venda', { exact: true }).first()).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('falha ao ler o onboarding_logs: painel normal, sem guia', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: 'erro' })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('1 de 8')).toBeVisible()
+    await expect(page.getByText(/Passo \d de 6/)).toHaveCount(0)
+  })
+
+  test('enviar para aprovação pelo guia registra skipped false', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await expect(page.getByText('Passo 1 de 6')).toBeVisible()
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect.poll(() => db.chamadas).toContain('UPSERT onboarding_logs guia:painel-evento skipped=false')
+  })
+
+  test('enviar pelo passo 6: Publicar continua aberta em análise e o foco não cai no body', async ({ page }) => {
+    await montarBanco(page, { evento: aprovado({ status: 'draft', approval_status: 'pending' }), ingressos: [ingresso()], guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await page.getByLabel('Li e aceito o termo do produtor').check()
+    await page.getByRole('button', { name: 'Enviar para aprovação' }).click()
+    await expect(page.getByText('Em análise pela equipe')).toBeVisible()
+    await expect(secao(page, /^Publicar/)).toHaveAttribute('aria-expanded', 'true')
+    await expect(secao(page, /^O que é/)).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.locator('body')).not.toBeFocused()
+  })
+
+  test('passo 6: Voltar sem Próximo, e o link de "falta" troca de passo', async ({ page }) => {
+    await montarBanco(page, { evento: evento(), guia: [] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    for (let i = 0; i < 5; i++) await proximo(page).click()
+    await expect(page.getByText('Passo 6 de 6 · Publicar')).toBeVisible()
+    await expect(voltar(page)).toHaveCount(1)
+    await expect(proximo(page)).toHaveCount(0)
+    await page.locator('[role=region][data-state=open]').getByRole('button', { name: /^Ir para / }).first().click()
+    await expect(page.getByText(/Passo [1-5] de 6/)).toBeVisible()
+    await expect(page.getByText('Passo 6 de 6')).toHaveCount(0)
   })
 })
 
@@ -423,9 +540,9 @@ test.describe('painel do evento: recusado, em análise, no ar e travado', () => 
     await expect(pista.getByText('Tipo: Individual')).toBeVisible()
 
     // quantidade abaixo dos vendidos não passa
-    await pista.getByLabel('Quantidade').fill('100')
+    await pista.getByLabel('Quantidade', { exact: true }).fill('100')
     await expect(pista.getByText(/Já foram vendidos 180/)).toBeVisible()
-    await pista.getByLabel('Quantidade').fill('200')
+    await pista.getByLabel('Quantidade', { exact: true }).fill('200')
 
     await pista.getByRole('button', { name: 'Ocultar' }).click()
     await expect(page.getByText('Ingresso oculto: não aparece mais para venda.')).toBeVisible()
@@ -769,9 +886,9 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await page.route(/\/rest\/v1\/ticket_types(\?|$)/, route => (route.request().method() === 'PATCH' ? route.fulfill({ status: 422, json: { code: '22003', message: 'out of range' } }) : route.fallback()))
     await abrirPainel(page)
     await abre(page, /^Ingressos/)
-    await page.getByLabel('Quantidade').fill('10000000000')
+    await page.getByLabel('Quantidade', { exact: true }).fill('10000000000')
     await expect(page.getByText('Quantidade inválida: use um número inteiro entre 1 e 1.000.000.')).toBeVisible()
-    await page.getByLabel('Quantidade').fill('1000000')
+    await page.getByLabel('Quantidade', { exact: true }).fill('1000000')
     await expect(page.getByText(/Quantidade inválida/)).toHaveCount(0)
     await page.getByRole('button', { name: 'Salvar ingressos' }).click()
     await expect(page.getByText('O banco recusou um dos ingressos: confira nome, preço e quantidade.')).toBeVisible()
@@ -861,5 +978,57 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await expect(page.getByRole('heading', { level: 1, name: 'Noite de teste' })).toBeVisible()
     await expect(page.getByText('Não foi possível carregar o evento')).toHaveCount(0)
     expect(db.ingressos[0]).toMatchObject({ inclui_bebida: true })
+  })
+})
+
+// PR3d-1: prévia no celular. Evento no ar: nada salva sozinho, então a prévia mostrar o nome digitado prova que ela lê a tela, não o banco.
+test.describe('painel do evento: prévia no celular', () => {
+  test('1280 px: a moldura aparece e mostra o nome digitado sem salvar', async ({ page }) => {
+    const db = await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    const moldura = page.getByRole('complementary', { name: 'Prévia no celular' })
+    await expect(moldura).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Ver no celular' })).toBeHidden()
+    await expect(moldura.locator('h1')).toHaveText('Noite de teste')
+    await abre(page, /^O que é/)
+    await page.getByLabel('Nome do evento').fill('Nome só na prévia')
+    await expect(moldura.locator('h1')).toHaveText('Nome só na prévia')
+    await expect(moldura.getByText('Pista', { exact: true })).toBeVisible()
+    await page.waitForTimeout(1500)
+    expect(db.patches).toEqual([])
+  })
+
+  test.describe('390 px', () => {
+    test.use({ viewport: { width: 390, height: 844 } })
+    test('a folha abre como diálogo com título, Esc fecha e o foco volta ao botão', async ({ page }) => {
+      await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+      await entrarProdutor(page)
+      await abrirPainel(page)
+      await expect(page.getByRole('complementary', { name: 'Prévia no celular' })).toBeHidden()
+      const botao = page.getByRole('button', { name: 'Ver no celular' })
+      await botao.click()
+      const dlg = page.getByRole('dialog', { name: 'Ver no celular · prévia' })
+      await expect(dlg).toBeVisible()
+      await expect(dlg.getByRole('region', { name: /Prévia da página/ })).toBeVisible()
+      await page.keyboard.press('Escape')
+      await expect(dlg).toBeHidden()
+      await expect(botao).toBeFocused()
+    })
+
+    test.describe('tela de toque', () => {
+      test.use({ hasTouch: true })
+      test('tocar em "Ver no celular" com os chips abertos abre a folha (a área de 44 px dos chips não cobre o botão)', async ({ page }) => {
+        await montarBanco(page, { evento: aprovado(), ingressos: [ingresso()] })
+        await entrarProdutor(page)
+        await abrirPainel(page)
+        await abre(page, /^O que é/)
+        expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true)
+        const marcados = await page.locator('[aria-pressed="true"]').count()
+        await page.getByRole('button', { name: 'Ver no celular' }).tap()
+        await expect(page.getByRole('dialog', { name: 'Ver no celular · prévia' })).toBeVisible()
+        await expect(page.locator('[aria-pressed="true"]')).toHaveCount(marcados) // nenhum chip trocou
+      })
+    })
   })
 })

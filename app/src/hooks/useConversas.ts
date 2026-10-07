@@ -105,13 +105,13 @@ const MOTIVOS: Record<string, string> = {
 }
 
 /** Erro do Supabase → frase em português. As recusas do banco (22023/42501) já vêm em português. */
-export function mensagemDeErro(e: unknown): string {
+export function mensagemDeErro(e: unknown, semAcesso = 'Você não tem acesso a esta conversa.'): string {
   if (e instanceof Error && e.name === 'ErroChat') return e.message
   if (typeof navigator !== 'undefined' && !navigator.onLine) return 'Sem conexão com a internet. Tente de novo quando voltar.'
   const err = e as { code?: string; message?: string } | null
   // recusa do banco em português passa; texto técnico (RLS, privilégio) nunca chega à tela
   if ((err?.code === '22023' || err?.code === '42501') && err.message && !/permission denied|violates|row-level security|policy/i.test(err.message)) return err.message
-  if (err?.code === '42501') return 'Você não tem acesso a esta conversa.'
+  if (err?.code === '42501') return semAcesso
   return 'Não foi possível concluir agora. Tente de novo em instantes.'
 }
 

@@ -70,6 +70,7 @@ export default function EventsBrowse({ aba }: { aba?: 'salvos' }) {
         .select('*, ticket_types (*)')
         .eq('status', 'published')
         .eq('approval_status', 'approved')
+        .eq('visibility', 'public')
         .gte('date', hoje)
         .order('date', { ascending: true })
       if (error) throw error

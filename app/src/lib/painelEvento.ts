@@ -223,6 +223,24 @@ export function errosDeIngresso(i: Ing): ErrosIng {
 
 export const temErro = (e: object) => Object.keys(e).length > 0
 
+// ---- prévia no celular (PR3d-1) -----------------------------------------------------------------------------------
+/** O evento como a página pública o mostraria com o que está na tela (sem gravar). Só ingressos ativos: o banco só mostra esses ao público. */
+export function eventoDaPrevia(form: Form, ings: Ing[], { evento, capaUrl }: { evento: DbEvent; capaUrl: string | null }): DbEvent {
+  return {
+    ...evento, ...snapDoForm(form),
+    // start_date é obrigatório para publicar; sem data na tela, um rascunho antigo mostraria "Evento encerrado" na prévia
+    ...(form.inicioD ? {} : { start_date: new Date().toISOString() }),
+    cover_image: capaUrl, image_url: capaUrl,
+    ticket_types: ings.filter(i => i.ativo).map(i => {
+      const db = evento.ticket_types?.find(t => t.id === i.id) // o que não é editado no formulário (descrição, benefícios, datas de venda) vem do salvo
+      return {
+        ...db, id: i.id, event_id: evento.id, perks: Array.isArray(db?.perks) ? db.perks : [], name: i.nome.trim() || 'Ingresso sem nome', price: precoDe(i.preco) ?? 0,
+        capacity: quantidadeDe(i.qtd), quantity_total: quantidadeDe(i.qtd), sold: db?.sold ?? 0, type: i.tipo as DbTicketType['type'], is_active: true, inclui_bebida: i.bebida,
+      }
+    }),
+  } as DbEvent
+}
+
 // ---- pendências ------------------------------------------------------------------------------------------------------
 // Seção do painel de cada um dos 8 itens da barra
 export const SECAO_DA_PENDENCIA: Record<Pendencia['id'], string> = {

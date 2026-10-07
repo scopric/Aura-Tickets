@@ -1,3 +1,5 @@
+import { comTempo, lerIngressos } from './lib/ingressosOffline'
+import { AuthRetryableFetchError, isAuthRetryableFetchError } from '@supabase/supabase-js'
 import { Fragment, Suspense, lazy, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { Routes, Route, useLocation, useParams, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
@@ -164,7 +166,7 @@ export function ProtectedRoute({
   const { isAuthenticated, isLoading, role, user } = useAuth()
   const location = useLocation()
   // Fecha em erro: sem confirmar o nível do 2FA a rota não abre.
-  const [mfa, setMfa] = useState<'checking' | 'ok' | 'required' | 'enroll' | 'error'>('checking')
+  const [mfaEstado, setMfa] = useState<'checking' | 'ok' | 'required' | 'enroll' | 'error' | 'offline'>('checking')
   const [mfaAttempt, setMfaAttempt] = useState(0)
   // Papel da última conferência: o papel provisório ('user') vira 'admin' depois do perfil; até conferir de novo, espera
   const [mfaRole, setMfaRole] = useState(role)
@@ -174,7 +176,8 @@ export function ProtectedRoute({
     // Sessão demo (só DEV) não existe no Supabase: sem isto os testes e2e com as contas demo parariam aqui.
     if (isMockSession(useAuthStore.getState().session)) { setMfa('ok'); setMfaRole(role); return }
     let cancelled = false
-    supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    const nivel = supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    ;(location.pathname === '/app/tickets' ? comTempo(nivel, 6000, () => ({ data: null, error: new AuthRetryableFetchError('timeout', 0) })) : nivel)
       .then(async ({ data, error }) => {
         if (error || !data?.currentLevel) throw error ?? new Error('Nível de autenticação indisponível')
         if (data.nextLevel === 'aal2' && data.currentLevel === 'aal1') return 'required' as const
@@ -187,11 +190,13 @@ export function ProtectedRoute({
       })
       .then((estado) => { if (!cancelled) { setMfa(estado); setMfaRole(role) } })
       .catch((err) => {
+        // Sem rede o nível do 2FA não se confere. 'offline' não libera nada por si: o render só abre "Ingressos" com cópia guardada
+        if (isAuthRetryableFetchError(err)) { if (!cancelled) { setMfa('offline'); setMfaRole(role) } return }
         console.error('[ProtectedRoute] Erro ao verificar MFA:', err)
         if (!cancelled) { setMfa('error'); setMfaRole(role) }
       })
     return () => { cancelled = true }
-  }, [isLoading, isAuthenticated, role, mfaAttempt])
+  }, [isLoading, isAuthenticated, role, mfaAttempt, location.pathname])
 
   const retryMfa = useCallback(() => { setMfa('checking'); setMfaAttempt((n) => n + 1) }, [])
 
@@ -200,6 +205,9 @@ export function ProtectedRoute({
       <Loader2 className="w-8 h-8 animate-spin text-plum" />
     </div>
   )
+
+  // 'offline' (falha de rede no 2FA) só vale em /app/tickets e com cópia dos ingressos desta conta; nas outras rotas é erro
+  const mfa = mfaEstado === 'offline' ? (location.pathname === '/app/tickets' && user?.id && lerIngressos(user.id) ? 'ok' : 'error') : mfaEstado
 
   if (isLoading) return spinner
 

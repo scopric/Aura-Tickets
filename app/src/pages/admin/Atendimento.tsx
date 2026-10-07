@@ -157,14 +157,10 @@ function useOpcoes() {
     staleTime: 10 * 60_000,
     queryFn: async () => {
       // mesma regra do chat_update: admin com manage_support ou super_admin
-      const { data: d, error } = await supabase
-        .from('profiles' as never)
-        .select('id, full_name, email')
-        .eq('role', 'admin')
-        .overlaps('admin_permissions', ['super_admin', 'manage_support'])
-        .order('full_name')
+      // chat_atendentes() (docs/sql/20261018a_admin_s4b_funcoes.sql): manage_support; a tabela não entrega admin_permissions
+      const { data: d, error } = await supabase.rpc('chat_atendentes' as never)
       if (error) throw error
-      return (d ?? []) as unknown as { id: string; full_name: string | null; email: string }[]
+      return (Array.isArray(d) ? d : []) as unknown as { id: string; full_name: string | null; email: string }[]
     },
   })
   return { setores: setores.data ?? [], atendentes: atendentes.data ?? [], erroAtendentes: atendentes.error }
@@ -488,7 +484,7 @@ export default function Atendimento() {
                   )}
                   {atendentes.map((a) => <option key={a.id} value={a.id}>{a.full_name || a.email}{a.id === user?.id ? ' (você)' : ''}</option>)}
                 </select>
-                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes)}</p>}
+                {erroAtendentes && <p role="alert" className="mt-1 text-xs text-destructive">Não foi possível carregar a lista de atendentes: {mensagemDeErro(erroAtendentes, 'Você não tem permissão para ver esta lista.')}</p>}
               </div>
               <div>
                 <label htmlFor="atendimento-setor" className="text-xs text-muted-foreground">Setor</label>

@@ -40,10 +40,10 @@ export default function TeamManager() {
   const mapDbMemberToTeamMember = (dbMember: any): TeamMember => {
     const profile = dbMember.profiles || {}
     let status: TeamMember['status'] = 'pending'
-    if (dbMember.accepted_at) {
-      status = 'active'
-    } else if (dbMember.role === 'blocked') {
+    if (dbMember.blocked_at) {
       status = 'blocked'
+    } else if (dbMember.accepted_at) {
+      status = 'active'
     }
 
     return {
@@ -139,7 +139,6 @@ export default function TeamManager() {
           producer_id: user.id,
           user_id: targetUserId,
           role: inviteRole,
-          invited_at: new Date().toISOString(),
         })
         .select('id')
 
@@ -177,15 +176,10 @@ export default function TeamManager() {
   // Bloquear/desbloquear membro
   const updateStatus = async (memberId: string, status: 'active' | 'pending' | 'blocked') => {
     try {
-      // Se for bloqueado, mudamos a role para blocked na tabela
-      const dbRole = status === 'blocked' ? 'blocked' : 'viewer'
-      
+      // Só blocked_at: o cargo e o aceite (accepted_at) não são do produtor
       const { data, error } = await supabase
         .from('team_members')
-        .update({ 
-          role: dbRole,
-          accepted_at: status === 'active' ? new Date().toISOString() : null
-        })
+        .update({ blocked_at: status === 'blocked' ? new Date().toISOString() : null })
         .eq('id', memberId)
         .select('id')
 

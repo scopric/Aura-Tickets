@@ -1,7 +1,7 @@
 import type { DbEvent } from '../hooks/useEvents'
 import { brl } from './taxa'
 import { temFoto } from './corEvento'
-import { fimDe, inicioDe, situacaoEvento, vendidosDe } from './eventoProdutor'
+import { fimDe, inicioDe, refDoEvento, situacaoEvento, vendidosDe } from './eventoProdutor'
 import { hrefDaTela } from './navegacaoProdutor'
 
 // Contas do Início da produtora (V5): períodos, séries por dia ou hora, variação e textos de data. Sem dependência.
@@ -204,7 +204,7 @@ export function sugestaoDoEvo(d: DadosSugestao, registrados: ReadonlySet<string>
       const dias = Math.floor((agora - aprovado) / DIA_MS)
       return dias >= 3 && vendidosDe(vendidos, e.id) === 0
         ? [sug(`sugestao:sem-venda:${e.id}`, `O ${e.title} está no ar há ${dias} dias e ainda não vendeu. Compartilhe o link com o seu público.`,
-          { texto: 'Copiar link', copiar: e.slug || e.id })]
+          { texto: 'Copiar link', copiar: refDoEvento(e) })]
         : []
     }) : []),
     // 6. sem foto de capa

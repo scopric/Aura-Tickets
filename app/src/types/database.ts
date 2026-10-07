@@ -1113,6 +1113,7 @@ export interface Database {
           role: string
           invited_at: string
           accepted_at: string | null
+          blocked_at: string | null
         }
         Insert: {
           id?: string | null
@@ -1121,6 +1122,7 @@ export interface Database {
           role?: string
           invited_at?: string
           accepted_at?: string | null
+          blocked_at?: string | null
         }
         Update: {
           id?: string | null
@@ -1129,6 +1131,7 @@ export interface Database {
           role?: string
           invited_at?: string
           accepted_at?: string | null
+          blocked_at?: string | null
         }
       }
       ticket_types: {

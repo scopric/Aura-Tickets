@@ -48,7 +48,7 @@ export default function CheckoutPayment() {
   const { processPayment } = usePayment()
   const [processing, setProcessing] = useState(false)
 
-  // Formulário de cartão de crédito nativo genérico (Gateway-Agnostic)
+  // Campos do cartão (ainda sem cobrança)
   const [cardNumber, setCardNumber] = useState('')
   const [cardName, setCardName] = useState('')
   const [cardExpiry, setCardExpiry] = useState('')
@@ -83,17 +83,15 @@ export default function CheckoutPayment() {
       event_id: eventId,
       items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
       payment_method: paymentMethod,
-      total_amount: resumo.total
     }, {
       onSuccess: async (order) => {
         try {
           if (paymentMethod === 'credit_card') {
-            // 2. Processar pagamento de forma genérica (Gateway-Agnostic)
-            // Envia para o hook usePayment genérico
+            // 2. Pedir o pagamento ao hook usePayment
             const result = await processPayment({
               orderId: order.id,
               method: 'credit_card',
-              amount: resumo.total,
+              amount: Number(order.total),
               customerEmail: order.customer_email || user?.email || '',
               customerName: order.customer_name || user?.full_name || '',
               customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
@@ -109,19 +107,19 @@ export default function CheckoutPayment() {
             navigate(`/checkout/success?pedido=${order.id}`, {
               state: {
                 orderId: order.id,
-                totalAmount: resumo.total,
+                totalAmount: Number(order.total),
                 paymentMethod
               }
             })
 
           } else if (paymentMethod === 'pix') {
-            // 2. Chamar o hook de pagamentos para gerar cobrança Pix via Woovi
+            // 2. Chamar o hook de pagamentos para gerar a cobrança Pix
             const result = await processPayment({
               orderId: order.id,
               method: 'pix',
-              amount: resumo.total,
-              customerEmail: order.customer_email || '',
-              customerName: order.customer_name || '',
+              amount: Number(order.total),
+              customerEmail: order.customer_email || user?.email || '',
+              customerName: order.customer_name || user?.full_name || '',
               customerCpf: '', // orders.customer_cpf nunca é gravado e não tem SELECT (E4)
             })
 
@@ -155,7 +153,7 @@ export default function CheckoutPayment() {
                     navigate(`/checkout/success?pedido=${order.id}`, {
                       state: {
                         orderId: order.id,
-                        totalAmount: resumo.total,
+                        totalAmount: Number(order.total),
                         paymentMethod: 'pix'
                       }
                     })

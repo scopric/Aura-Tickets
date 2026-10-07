@@ -14,7 +14,7 @@ import { TAXA_PERCENTUAL, TAXA_MINIMA } from '../lib/taxa'
 vi.mock('../lib/supabase', () => {
   const fila = (data: unknown[]): unknown => new Proxy(() => {}, { get: (_, k) => (k === 'then' ? (r: (v: unknown) => void) => r({ data, error: null }) : () => fila(data)) })
   const perfil = { id: 'p1', email: 'ana@x.com', full_name: 'Ana', phone: null, role: 'producer', created_at: '2026-01-01T00:00:00Z', avatar_url: null, producer_subscriptions: [], user_custom_features: [] }
-  return { supabase: { from: (t: string) => fila(t === 'profiles' ? [perfil] : []), rpc: () => fila([]), functions: { invoke: vi.fn() } } }
+  return { supabase: { from: (t: string) => fila(t === 'profiles' ? [perfil] : []), rpc: (n: string) => fila(n === 'admin_usuarios_lista' ? [perfil] : []), functions: { invoke: vi.fn() } } }
 })
 vi.mock('../hooks/useEvents', () => ({ useAdminTickets: () => ({ data: [], isLoading: false }) }))
 vi.mock('../hooks/useAdminFinance', () => ({ useAdminFinance: () => ({ data: { orders: [], transactions: [], withdrawals: [] }, isLoading: false, isError: false, error: null }) }))

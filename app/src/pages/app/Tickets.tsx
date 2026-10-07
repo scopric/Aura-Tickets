@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { SetaEsquerda } from '../../components/icones/evokaa16'
@@ -11,12 +11,14 @@ import { Button } from '../../components/ui/button'
 import { Spinner } from '../../components/ui/spinner'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { useUserTickets } from '../../hooks/useUserTickets'
+import { copiaAtual, ouvirCopia } from '../../lib/ingressosOffline'
 import { agruparPorEvento, ehProximo, enderecoDoEvento, linkMapa } from '../../lib/ingresso'
 
 export default function ParticipantTickets() {
   const [params] = useSearchParams()
   const [mesaDe, setMesaDe] = useState<string | null>(null) // evento da "Sua mesa" aberta
   const { data: tickets = [], isLoading } = useUserTickets()
+  const copiaEm = useSyncExternalStore(ouvirCopia, copiaAtual)
 
   const [agora] = useState(() => Date.now()) // a lista vale para esta abertura da tela
   const proximos = agruparPorEvento(tickets.filter(t => ehProximo(t, agora)))
@@ -28,6 +30,11 @@ export default function ParticipantTickets() {
 
   return (
     <div className="mx-auto w-full max-w-lg">
+      {copiaEm && (
+        <p role="status" className="mb-3 rounded-lg bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+          Sem conexão. Cópia de {new Date(copiaEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}.
+        </p>
+      )}
       {eventoId ? (
         <>
           <div className="mb-4 flex items-center gap-2">

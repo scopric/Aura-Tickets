@@ -7,8 +7,9 @@ import { useAuth } from '../../hooks/useAuth'
 import { useTourLog } from '../../hooks/useTourLog'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
+import { vendasPagas, type VendasPagas } from '../../lib/vendasPagas'
 import { siteUrl } from '../../lib/appHost'
-import { situacaoEvento } from '../../lib/eventoProdutor'
+import { refDoEvento, situacaoEvento } from '../../lib/eventoProdutor'
 import { soltarConfete } from '../../lib/confete'
 import { corDoEvento, derivarCor } from '../../lib/corEvento'
 import {
@@ -30,7 +31,8 @@ type Metrica = 'receita' | 'ingressos'
 type Pedido = Linha & { evento: string }
 type Ingresso = Linha & { evento: string; tipo: string; pedido: string }
 // Linhas da mais nova para a mais velha. Cortadas no max_rows (1.000) do PostgREST: `cortado` diz que as mais velhas ficaram de fora.
-type Vendas = { pedidos: Pedido[]; ingressos: Ingresso[]; pedidosCortado: boolean; ingressosCortado: boolean }
+// exato: soma de todos os pedidos pagos feita no banco (L6); nulo se a função ainda não existe ou falhou (a tela cai na soma parcial)
+type Vendas = { pedidos: Pedido[]; ingressos: Ingresso[]; pedidosCortado: boolean; ingressosCortado: boolean; exato: VendasPagas | null }
 
 const TEXTO_PERIODO: Record<Periodo, string> = { hoje: 'hoje', '7d': 'nos últimos 7 dias', '30d': 'nos últimos 30 dias', tudo: 'até agora' }
 const LEGENDA: Record<Periodo, [string, string]> = {
@@ -99,12 +101,13 @@ export default function ProducerDashboard() {
       // "soma parcial". Soma exata quando houver RPC/view de vendas (F2).
       // Receita = orders.total dos pagos (o "bruto"): o checkout ainda não grava service_fee/processing_fee e o total
       // inclui a taxa do comprador (Decisões 88 e 111). Receita líquida quando a F2 gravar as taxas.
-      const [pedidos, ingressos] = await Promise.all([
+      const [pedidos, ingressos, exato] = await Promise.all([
         supabase.from('orders').select('total, created_at, event_id, events!inner(producer_id)', { count: 'exact' })
           .eq('events.producer_id', id).eq('status', 'paid').order('created_at', { ascending: false }).abortSignal(sinal),
         // sem nome nem e-mail do comprador (LGPD): só o que o bloco "Vendas recentes" mostra
         supabase.from('tickets').select('order_id, event_id, ticket_type_id, created_at, events!inner(producer_id)', { count: 'exact' })
           .eq('events.producer_id', id).in('status', VENDIDO).order('created_at', { ascending: false }).abortSignal(sinal),
+        vendasPagas({}, sinal).catch(() => null),
       ])
       if (pedidos.error) throw pedidos.error
       if (ingressos.error) throw ingressos.error
@@ -116,6 +119,7 @@ export default function ProducerDashboard() {
         ingressos: li.map(x => ({ t: Date.parse(x.created_at), v: 1, evento: x.event_id, tipo: x.ticket_type_id, pedido: x.order_id })).sort((a, b) => b.t - a.t),
         pedidosCortado: (pedidos.count ?? 0) > lp.length,
         ingressosCortado: (ingressos.count ?? 0) > li.length,
+        exato,
       }
     }),
   })
@@ -285,6 +289,8 @@ export default function ProducerDashboard() {
   const vendidos = { porEvento, cortado: v?.ingressosCortado ?? false }
   const receitaPorEvento: Record<string, number> = {}
   for (const x of v?.pedidos ?? []) receitaPorEvento[x.evento] = (receitaPorEvento[x.evento] ?? 0) + x.v
+  // soma exata do banco (sem o teto de 1.000 linhas) vale mais que a do navegador
+  if (v?.exato) for (const e of v.exato.por_evento) receitaPorEvento[e.event_id] = Number(e.total) || 0
   const sete = janelas('7d', agora).atual
   const spark = Object.fromEntries(eventos.map(e => [e.id, serie(ingPorEvento[e.id] ?? [], sete, agora)]))
 
@@ -313,7 +319,7 @@ export default function ProducerDashboard() {
 
   const copiarLink = async (endereco?: string) => {
     const e = proximo && situacaoEvento(proximo) === 'Publicado' ? proximo : publicados[0]
-    const alvo = endereco ?? (e && (e.slug || e.id))
+    const alvo = endereco ?? (e && refDoEvento(e))
     if (!alvo) return
     try {
       await navigator.clipboard.writeText(siteUrl(`/event/${alvo}`))
@@ -439,9 +445,9 @@ export default function ProducerDashboard() {
           linhas={ordenados.slice(0, 10)}
           vendidos={v ? vendidos : undefined}
           receita={v ? receitaPorEvento : undefined}
-          receitaCortada={v?.pedidosCortado ?? false}
+          receitaCortada={v && !v.exato ? v.pedidosCortado : false}
           spark={spark}
-          total={v?.pedidos.reduce((s, x) => s + x.v, 0)}
+          total={v?.exato ? Number(v.exato.total) || 0 : v?.pedidos.reduce((s, x) => s + x.v, 0)}
         />
 
         {recentes.size > 0 && <VendasRecentes vendas={[...recentes.values()]} agora={agora} />}

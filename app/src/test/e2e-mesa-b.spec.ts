@@ -82,9 +82,14 @@ async function mockPerfil(page: Page, perfil: object | null) {
   return upserts
 }
 
+// A página pública lê o evento por rpc evento_publico (PR3e): {acesso, evento, ingressos}
+async function mockEventoRpc(page: Page, row: typeof EVENTO_ROW) {
+  const { ticket_types: ingressos, ...evento } = row
+  await page.route('**/rest/v1/rpc/evento_publico', (route) => route.fulfill({ json: { acesso: 'aberto', evento, ingressos } }))
+}
+
 async function mockEvento(page: Page) {
-  await page.route('**/rest/v1/events?*', (route) =>
-    route.request().url().includes(`id=eq.${EVENTO}`) ? route.fulfill({ json: [EVENTO_ROW] }) : route.fallback())
+  await mockEventoRpc(page, EVENTO_ROW)
 }
 
 async function entrar(page: Page) {
@@ -305,7 +310,7 @@ test('checkout de Match de Mesa: quantidade fixa em 1 e data de nascimento (18+)
   await expect(page.getByText('Data de nascimento salva no seu Perfil.')).toBeVisible()
   expect(gravadas).toHaveLength(1)
   expect(gravadas[0].body).toEqual({ birth_date: '1995-06-15' })
-  expect(String(gravadas[0].url)).toContain('birth_date=is.null') // só preenche data vazia
+  expect(String(gravadas[0].url)).not.toContain('birth_date=') // filtrar por birth_date dá 42501 (S4b): a conferência de data vazia é no cliente
 
   await page.getByRole('button', { name: 'Continuar para Pagamento' }).click()
   await expect(page).toHaveURL(/\/checkout\/payment$/)
@@ -360,8 +365,7 @@ test('checkout recusa, antes do pagamento, 2 tipos de Match de Mesa ou quantidad
   await mockPerfil(page, null)
   const TIPO2 = 'e0000000-0000-4000-8000-0000000000c2'
   const evento = { ...EVENTO_ROW, ticket_types: [...EVENTO_ROW.ticket_types, { ...EVENTO_ROW.ticket_types[1], id: TIPO2, name: 'Match de Mesa VIP' }] }
-  await page.route('**/rest/v1/events?*', (route) =>
-    route.request().url().includes(`id=eq.${EVENTO}`) ? route.fulfill({ json: [evento] }) : route.fallback())
+  await mockEventoRpc(page, evento)
 
   for (const cart of [{ [TIPO]: 1, [TIPO2]: 1 }, { [TIPO]: 2 }]) {
     await page.goto('/')
@@ -507,8 +511,7 @@ test('dois tipos coletivos no evento: só um aviso de foto', async ({ page }) =>
   await mockPerfil(page, PERFIL_OK)
   const TIPO2 = 'e0000000-0000-4000-8000-0000000000c2'
   const evento = { ...EVENTO_ROW, ticket_types: [...EVENTO_ROW.ticket_types, { ...EVENTO_ROW.ticket_types[1], id: TIPO2, name: 'Match de Mesa VIP' }] }
-  await page.route('**/rest/v1/events?*', (route) =>
-    route.request().url().includes(`id=eq.${EVENTO}`) ? route.fulfill({ json: [evento] }) : route.fallback())
+  await mockEventoRpc(page, evento)
   await mockFoto(page, () => 'revisar')
   await page.goto(`/event/${EVENTO}`)
   await expect(page.getByRole('heading', { name: 'Match de Mesa VIP' })).toBeVisible()

@@ -365,9 +365,8 @@ test.describe('admin — Match de Mesa (moderate_mesa)', () => {
 })
 
 test('admin — Equipe mostra a permissão "Moderar Match de Mesa"', async ({ page }) => {
-  await page.route('**/rest/v1/profiles?*', (route) => route.request().method() === 'GET'
-    ? route.fulfill({ json: [{ id: 'p-outro', email: null, full_name: 'Moderadora Teste', avatar_url: null, role: 'admin', admin_permissions: [], updated_at: null }] })
-    : route.fallback())
+  await page.route('**/rest/v1/rpc/admin_equipe', (route) => // admin_equipe() (S4b): a tabela não entrega admin_permissions
+    route.fulfill({ json: [{ id: 'p-outro', email: null, full_name: 'Moderadora Teste', avatar_url: null, admin_permissions: [] }] }))
   await entrarAdmin(page, ['super_admin', 'manage_team'])
   await page.goto(`${ALPHA}/admin/team`)
   await page.getByText('Moderadora Teste').click()

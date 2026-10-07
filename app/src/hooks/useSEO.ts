@@ -27,7 +27,7 @@ export function useSEO(options: SEOOptions = {}) {
       if (!el) {
         el = document.createElement("meta");
         const key = attr === "property" ? "property" : "name";
-        el.setAttribute(key, selector.replace(/meta\[name="|meta\[property="|\"/g, ""));
+        el.setAttribute(key, selector.replace(/meta\[name="|meta\[property="|"\]/g, ""));
         document.head.appendChild(el);
       }
       el.setAttribute("content", value);

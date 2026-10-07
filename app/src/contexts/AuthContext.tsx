@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { TERMS_VERSION, PRIVACY_VERSION } from '../lib/legal'
 import { supabase } from '../lib/supabase'
+import { apagarIngressosGuardados, comTempo, sessaoGuardadaNoAparelho } from '../lib/ingressosOffline'
 import { useAuthStore } from '../stores/authStore'
 import type { Role } from '../types/auth'
 
@@ -30,7 +31,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Sincroniza sessão ativa inicial do Supabase
-    supabase.auth.getSession()
+    // sem resposta em 4 s (só sem internet ou com cópia de ingressos guardada) e sessão guardada (renovação do token em espera, sem rede): segue com o usuário do store
+    const sessaoInicial = supabase.auth.getSession()
+    const guardada = navigator.onLine === false || Object.keys(localStorage).some(k => k.startsWith('evk.ingressos.'))
+    ;(guardada ? comTempo(sessaoInicial, 4000, () => ({ data: { session: null }, error: null })) : sessaoInicial)
       .then(({ data: { session } }) => {
         if (session) {
           setSession(session)
@@ -41,9 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Sem sessão no Supabase não há o que restaurar: o token não é copiado de outro lugar. Limpa o
           // store persistido já aqui, senão ele libera a rota até o INITIAL_SESSION chegar (demo só em DEV).
           const currentSession = useAuthStore.getState().session
-          if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
+          if (sessaoGuardadaNoAparelho()) {
+            // token vencido sem rede: o supabase-js não conseguiu renovar, mas não houve saída. Mantém o usuário do store
+            // (só nome e papel, nenhum token) para "Ingressos" abrir com a cópia local; sem servidor ele não lê nada além disso.
+          } else if (!(import.meta.env.DEV && currentSession?.access_token?.startsWith('mock-token-'))) {
             setSession(null)
             setUser(null)
+            apagarIngressosGuardados()
           }
           setLoading(false)
         }
@@ -93,8 +101,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
 
+          if (event !== 'SIGNED_OUT' && sessaoGuardadaNoAparelho()) { setLoading(false); return } // ver o getSession acima
           setSession(null)
           setUser(null)
+          apagarIngressosGuardados()
           setLoading(false)
         }
       } catch (err) {

@@ -1,3 +1,4 @@
+import { apagarIngressosGuardados } from '../../lib/ingressosOffline'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, ClipboardList, Eye, EyeOff, KeyRound, Loader2, LockKeyhole, ShieldCheck } from 'lucide-react'
@@ -203,6 +204,7 @@ export default function Convite() {
     await useAuthStore.getState().setSession(null)
     await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
     queryClient.clear() // nada em cache da conta anterior
+    apagarIngressosGuardados()
     setEmail('')
     setSenha('')
     setModo('entrar')

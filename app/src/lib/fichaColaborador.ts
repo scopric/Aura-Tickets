@@ -87,7 +87,8 @@ const MENSAGEM_CHECK: Record<string, string> = {
   staff_banco_ok: 'Dados bancários longos demais.',
   staff_pix_ok: 'A chave Pix não confere com o tipo escolhido.',
 }
-export function mensagemDoBanco(e: { code?: string; message?: string }) {
+export function mensagemDoBanco(e: { code?: string; message?: string; hint?: string }) {
+  if (e.code === '42501' && e.hint === 'reautenticar') return 'Para mudar Pix ou dados bancários, confirme o código do aplicativo de verificação em duas etapas.'
   if (e.code === '23514') return MENSAGEM_CHECK[e.message?.match(/constraint "([^"]+)"/)?.[1] ?? ''] ?? 'Dados do cadastro inválidos.'
   return 'Não foi possível salvar agora. Tente de novo.'
 }

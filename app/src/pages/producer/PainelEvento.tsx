@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import CapaEventoCampo from '../../components/producer/CapaEventoCampo'
 import MatchDeMesaPanel from '../../components/producer/MatchDeMesaPanel'
+import { PreviaFolha, PreviaMoldura } from '../../components/producer/PreviaCelular'
 import SecaoIngressos from '../../components/producer/painel/SecaoIngressos'
 import SecaoOQueE from '../../components/producer/painel/SecaoOQueE'
 import SecaoPublicar, { type Falta } from '../../components/producer/painel/SecaoPublicar'
+import VisibilidadeEvento from '../../components/producer/painel/VisibilidadeEvento'
 import SecaoQuandoOnde from '../../components/producer/painel/SecaoQuandoOnde'
 import SecaoRegras from '../../components/producer/painel/SecaoRegras'
 import { Faixa } from '../../components/producer/painel/campos'
@@ -23,6 +25,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import { gravarEvento, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTicketType } from '../../hooks/useEvents'
 import { useAuth } from '../../hooks/useAuth'
+import { useTourLog } from '../../hooks/useTourLog'
 import { siteUrl } from '../../lib/appHost'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
 import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
@@ -30,7 +33,7 @@ import { confirmacaoDuplicar, erroAoExcluir } from '../../lib/eventoProdutor'
 import { useDuplicarEvento } from '../../hooks/useDuplicarEvento'
 import { hrefDaTela } from '../../lib/navegacaoProdutor'
 import {
-  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
+  ERRO_NOME, SECAO_DA_PENDENCIA, USA_LINK, diffCampos, enviarEvento, errosDeData, eventoDaPrevia, erroDosIngressos, errosDeIngresso, formDoEvento, formDoSnap, ingDoBanco, linkValido, modoPainel,
   mudouConteudo, pendenciasDoPainel, precoDe, quantidadeDe, rotuloDoModo, rotulosDoDiff, semDatasInvalidas, semNomeVazio, snapDoForm, temErro, type Form, type Ing, type ModoPainel, type Snap,
 } from '../../lib/painelEvento'
 import { supabase } from '../../lib/supabase'
@@ -50,6 +53,7 @@ const NOME_SECAO = Object.fromEntries(SECOES.map(s => [s.id, s.nome])) as Record
 type UltimoAceite = { classificacao: string | null; tem_bebida: boolean; versao: string; texto_hash: string }
 const PONTO: Record<ModoPainel, string> = { rascunho: 'bg-muted-foreground', recusado: 'bg-destructive', analise: 'bg-[var(--ev-warning)]', publicado: 'bg-[var(--ev-success)]', fechado: 'bg-muted-foreground' }
 const ATIVO = ['rascunho', 'recusado', 'analise']
+const GUIA = 'guia:painel-evento' // registro em onboarding_logs (V9): sem ele, o rascunho abre no modo guiado
 
 const porCriacao = (l: DbTicketType[]) => [...l].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
 const semCentavos = (v: number) => brl(v).replace(',00', '')
@@ -183,6 +187,11 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const [soAceite, setSoAceite] = useState(false) // o diálogo só refaz o aceite (evento que já está em análise ou no ar)
   const [saida, setSaida] = useState<string | null>(null)
   const [abertas, setAbertas] = useState<string[]>(['oque'])
+  // Modo guiado (decisão 164.1): todo produtor, em rascunho, até concluir ou pular. Leitura com erro = painel normal.
+  const { feitos, registrar, carregou, erro: erroGuia } = useTourLog({ ativo: modo === 'rascunho' })
+  const [passo, setPasso] = useState(0)
+  const [saiuGuia, setSaiuGuia] = useState(false)
+  const guiado = modo === 'rascunho' && carregou && !erroGuia && !feitos.has(GUIA) && !saiuGuia
 
   const set = useCallback((p: Partial<Form>) => setForm(f => ({ ...f, ...p })), [])
   const snap = useMemo(() => snapDoForm(form), [form])
@@ -295,12 +304,20 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const resumoFalta = (id: string) => !pronta(id) && !(id === 'pub' && modo !== 'rascunho' && modo !== 'recusado')
 
   const abrir = (id: string) => {
-    setAbertas(a => (a.includes(id) ? a : [...a, id]))
+    if (guiado) setPasso(SECOES.findIndex(s => s.id === id))
+    // com o guia, só a seção do passo (ao sair dele fica só ela, não um valor velho nem as já visitadas)
+    setAbertas(a => (guiado ? [id] : a.includes(id) ? a : [...a, id]))
     setTimeout(() => {
       const cab = document.getElementById(`s-${id}`)
       cab?.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
       cab?.focus({ preventScroll: true })
     }, 50)
+  }
+
+  function verTodas() {
+    void registrar(GUIA, { skipped: true })
+    setSaiuGuia(true)
+    abrir(SECOES[passo].id) // o botão some: o foco vai ao título da seção
   }
 
   // ---- ingressos: gravação própria ----
@@ -386,6 +403,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         else if (modo === 'publicado' && !soAceite) await recarregar()
         return
       }
+      if (guiado) { void registrar(GUIA, { skipped: false, silencioso: true }); setAbertas(['pub']); abrir('pub') } // o envio já avisa o resultado; abrir devolve o foco (o botão Enviar some)
       await recarregar() // relê evento e último aceite ANTES de fechar: a faixa "Aceite pendente" não pode piscar depois do sucesso
       setDialogo(false); setSoAceite(false)
       toast.success(soAceite ? 'Aceite registrado.' : modo === 'publicado' ? 'Alterações enviadas para análise.' : 'Evento enviado para aprovação.')
@@ -454,6 +472,10 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   const classificacaoNova = CLASSIFICACOES.find(c => c.valor === classAceite)
   const aceiteTrava = !esporte && !form.classificacao
 
+  // Prévia: o que está na tela (não salvo), sem travar a digitação. Só memória: nada vai ao navegador nem ao banco.
+  const capaPrevia = capa?.previewUrl ?? (removida ? null : urlAtual)
+  const previaEvento = useDeferredValue(useMemo(() => ({ ...eventoDaPrevia(form, ings, { evento, capaUrl: capaPrevia }), accent_color: cor }), [form, ings, evento, capaPrevia, cor]))
+
   const corpo = (id: string) => {
     switch (id) {
       case 'oque': return <SecaoOQueE f={form} set={set} erroNome={erroNome} />
@@ -476,17 +498,21 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       )
       case 'regras': return <SecaoRegras f={form} set={set} bebidaN={ingsSalvos.filter(i => i.bebida).length} ingressosN={ingsSalvos.length} ingSujo={ingSujo} />
       default: return (
+        <div className="grid gap-6">
+        <VisibilidadeEvento eventoId={evento.id} slug={evento.slug} visibilidade={evento.visibility} noAr={evento.status === 'published' && evento.approval_status === 'approved'} onSalvo={() => { for (const k of ['painel-evento', 'public-event', 'public-events', 'explorar-eventos', 'featured-events']) void qc.invalidateQueries({ queryKey: [k] }) }} />
         <SecaoPublicar
           modo={modo} faltas={faltas} onIr={abrir} aceiteTexto={textoDoAceite} aceiteMarcado={aceiteMarcado} aceiteTrava={aceiteTrava}
           onAceite={v => setAceiteDe(v ? textoDoAceite : null)} onEnviar={() => void enviar()} enviando={enviando} erroEnvio={erroEnvio}
           noArDesde={evento.approved_at ? new Date(evento.approved_at).toLocaleDateString('pt-BR', { day: 'numeric', month: 'short', timeZone: 'America/Sao_Paulo' }) : undefined}
         />
+        </div>
       )
     }
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[minmax(0,1fr)_316px] min-[1180px]:gap-10">
+      <div className="min-w-0">
       <PageHeader
         title={nome}
         description={
@@ -522,6 +548,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         }
       />
 
+      <PreviaFolha evento={previaEvento} />
+
       <div className="mb-4 grid gap-3 empty:hidden">
         {modo === 'recusado' && (
           <Faixa tom="erro" titulo="A equipe recusou o envio" acoes={<Button variant="outline" size="sm" onClick={() => abrir('pub')}>Ir para Publicar</Button>}>
@@ -556,7 +584,16 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         )}
       </div>
 
-      {modo !== 'fechado' && (
+      {guiado && (
+        <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+          <span aria-live="polite" className="text-[13px] font-semibold leading-5 text-foreground">Passo {passo + 1} de {SECOES.length} · {SECOES[passo].nome}</span>
+          <span aria-hidden="true" className="flex max-w-60 flex-1 gap-1">
+            {SECOES.map((s, i) => <span key={s.id} className={cn('h-1 flex-1 rounded-sm', i <= passo ? 'bg-foreground' : 'bg-secondary')} />)}
+          </span>
+          <Button variant="ghost" size="sm" onClick={verTodas}>Ver todas as seções</Button>
+        </div>
+      )}
+      {modo !== 'fechado' && !guiado && !(modo === 'rascunho' && !carregou) && (
         <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span><span className="font-display text-[22px] font-semibold leading-7 tabular-nums">{prontos} de {lista.length}</span> <span className="text-sm text-muted-foreground">prontos</span></span>
           <span role="progressbar" aria-label="Itens prontos" aria-valuemin={0} aria-valuemax={lista.length} aria-valuenow={prontos} className="h-2 min-w-24 flex-1 overflow-hidden rounded bg-secondary">
@@ -568,7 +605,10 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
         </div>
       )}
 
-      <Accordion type="multiple" value={abertas} onValueChange={setAbertas} className="border-t border-border">
+      <Accordion
+        type="multiple" value={guiado ? [SECOES[passo].id] : abertas}
+        onValueChange={guiado ? v => { const n = v.find(i => i !== SECOES[passo].id); if (n) abrir(n) } : setAbertas} className="border-t border-border"
+      >
         {SECOES.map(s => {
           const ok = pronta(s.id)
           const falta = resumoFalta(s.id)
@@ -586,6 +626,12 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
               </AccordionTrigger>
               <AccordionContent className="px-2 pb-6 pt-1">
                 <fieldset disabled={somenteLeitura || enviando} className="m-0 min-w-0 border-0 p-0">{corpo(s.id)}</fieldset>
+                {guiado && (
+                  <div className="mt-4 flex justify-end gap-2">
+                    {passo > 0 && <Button variant="ghost" onClick={() => abrir(SECOES[passo - 1].id)}>Voltar</Button>}
+                    {s.id !== 'pub' && <Button variant="secondary" onClick={() => abrir(SECOES[passo + 1].id)}>Próximo</Button>}
+                  </div>
+                )}
               </AccordionContent>
             </AccordionItem>
           )
@@ -652,6 +698,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
+      <PreviaMoldura evento={previaEvento} />
     </div>
   )
 }

@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/producer/ui'
 import { alertaAviso, alertaErro, painel } from '@/components/admin/ui'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
+import { useReautenticar } from '../../hooks/useReautenticar'
 import { formatCPF, formatPostalCode } from '../../lib/formatters'
 import { CamposFicha } from '../../components/FichaColaborador'
 import { campo, fichaParaBanco, fichaVazia, mensagemDoBanco, rotulo, validarFicha, type Ficha } from '../../lib/fichaColaborador'
@@ -37,6 +38,7 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
   const [f, setF] = useState<Ficha>(() => paraFormulario(linha))
   const [erro, setErro] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const { reautenticar, modal } = useReautenticar()
 
   const novo = fichaParaBanco(f)
   const mudouPagamento = PAGAMENTO.some((k) => (novo[k] ?? null) !== (linha[k] ?? null))
@@ -49,8 +51,9 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
     setSalvando(true)
     // .select(): sem ele, a RLS que barra devolve sucesso vazio (Erros que não se repetem, 11). updated_at: aba antiga
     // não sobrescreve o que outra aba salvou (o Pix inclusive); nesse caso também volta vazio
-    const { data, error } = await supabase.from('staff_profiles' as never).update(novo as never)
-      .eq('user_id', linha.user_id).eq('updated_at', linha.updated_at).select().maybeSingle()
+    // Pix e banco: o banco pede o código do aplicativo digitado há menos de 5 minutos (S9); o hook abre a janela e repete
+    const { data, error } = await reautenticar(() => supabase.from('staff_profiles' as never).update(novo as never)
+      .eq('user_id', linha.user_id).eq('updated_at', linha.updated_at).select().maybeSingle())
     setSalvando(false)
     if (error || !data) {
       setErro(error ? mensagemDoBanco(error) : 'Não foi possível salvar. O cadastro pode ter mudado em outra aba, ou a sessão precisa do código da verificação em duas etapas: recarregue a página (ou saia e entre de novo) e tente outra vez.')
@@ -61,7 +64,9 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
     toast.success(mudouPagamento ? 'Cadastro atualizado. A mudança de pagamento ficou registrada.' : 'Cadastro atualizado.')
   }
 
+  // `modal` fica fora do <form>: o submit da janela do código subiria pela árvore do React até o salvar
   return (
+    <>
     <form onSubmit={salvar} noValidate className="space-y-9">
       <p className="text-sm leading-relaxed text-muted-foreground">
         Estes dados servem só ao seu vínculo de trabalho com a Evokaa. Ficam visíveis para você e para a
@@ -94,6 +99,8 @@ function Formulario({ linha, onSalvo }: { linha: Linha; onSalvo: (l: Linha) => v
         <I.Guardar /> Salvar alterações
       </Button>
     </form>
+    {modal}
+    </>
   )
 }
 

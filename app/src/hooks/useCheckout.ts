@@ -1,7 +1,9 @@
+import { comTempo, definirCopia, falhaDeRede, guardarIngressos, lerIngressos } from '../lib/ingressosOffline'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { isDemoAccount } from '../lib/demo'
 import { useAuth } from './useAuth'
+import { itensDoPedido, pedidoReaproveitavel, type Pendente } from '../lib/pedido'
 
 export interface DbOrder {
   id: string
@@ -77,14 +79,36 @@ export function useCreateOrder() {
       event_id,
       items,
       payment_method,
-      total_amount,
     }: {
       event_id: string
       items: { ticket_type_id: string; quantity: number; seat_info?: string }[]
       payment_method: DbOrder['payment_method']
-      total_amount: number
     }) => {
       if (!user?.id) throw new Error('Usuário precisa estar autenticado para realizar compras')
+
+      // 0. Pedido pendente igual (mesmo evento, itens e forma de pagamento): reaproveita em vez de criar outro.
+      // ponytail: o cliente não tem UPDATE em orders (RLS), então pedido pendente diferente não é cancelado aqui; o vencimento
+      // (docs/sql/20261021_pedidos_pendentes_expiram.sql) cancela os antigos.
+      const { data: pendentes, error: pendError } = await supabase
+        .from('orders')
+        .select(`${COLUNAS_PEDIDO}, customer_name, customer_email, order_items ( ticket_type_id, quantity )`)
+        .eq('user_id', user.id).eq('event_id', event_id).eq('status', 'pending')
+      if (pendError) throw pendError
+      // Preço de cada tipo vem do banco, pela mesma fonte da página do evento (evento_publico): a RLS de ticket_types
+      // só libera evento 'aberto', e a compra também aceita 'link' (Só com link).
+      const { data: pub, error: pubError } = await supabase.rpc('evento_publico' as never, { p_ref: event_id } as never)
+      if (pubError) throw pubError
+      const ingressos = (pub as { ingressos?: { id: string; price: number | string | null }[] } | null)?.ingressos ?? []
+      const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
+      const ped = itensDoPedido(items, precos)
+      // Só reaproveita se o total recalculado com o preço atual do banco for igual ao gravado.
+      // ponytail: duplo clique rápido ainda pode criar dois pedidos (sem trava nem índice único); resolvido na Fase 4 com o gateway.
+      // ponytail: Fase 4 — boleto vence em dias e Pix pode ser pago após 30 min; o cron (pedidos_pendentes_expirar) terá de excluir boleto
+      // ou usar o vencimento do gateway, e o webhook tratar pedido já 'cancelled'.
+      const o = pedidoReaproveitavel((pendentes || []) as unknown as Pendente[], items, payment_method)
+      if (o && Number(o.total) === ped.total) {
+        return { ...o, total_amount: Number(o.total) || 0, payment_id: o.gateway_payment_id } as any
+      }
 
       // 1. Criar o registro do pedido na tabela 'orders'
       const { data: order, error: orderError } = await supabase
@@ -92,14 +116,16 @@ export function useCreateOrder() {
         .insert({
           user_id: user.id,
           event_id,
-          total: total_amount,
+          subtotal: ped.subtotal,
+          service_fee: ped.service_fee,
+          total: ped.total,
           // ponytail: sem gateway publicado, todo pedido nasce pendente — só uma confirmação
           // real de pagamento (Fase 4) deveria gravar 'paid'. O status do ticket (abaixo)
           // já deriva daqui.
           status: 'pending',
           payment_method,
           gateway_payment_id: `PAY-${Math.random().toString(36).substr(2, 9).toUpperCase()}`,
-          customer_name: user.name || user.full_name || 'Participante',
+          customer_name: user.name || user.full_name || null,
           customer_email: user.email
         })
         .select(`${COLUNAS_PEDIDO}, customer_name, customer_email`)
@@ -107,18 +133,10 @@ export function useCreateOrder() {
 
       if (orderError) throw orderError
 
-      // 2. Criar order_items para cada tipo de ingresso
-      const orderItemsToInsert = items.map((item) => ({
-        order_id: order.id,
-        ticket_type_id: item.ticket_type_id,
-        quantity: item.quantity,
-        unit_price: Number((total_amount / items.reduce((sum, it) => sum + it.quantity, 0)).toFixed(2)),
-        subtotal: Number((total_amount / items.reduce((sum, it) => sum + it.quantity, 0) * item.quantity).toFixed(2)),
-      }))
-
+      // 2. Criar order_items para cada tipo de ingresso, com o preço do tipo
       const { error: orderItemsError } = await supabase
         .from('order_items')
-        .insert(orderItemsToInsert)
+        .insert(ped.linhas.map(l => ({ order_id: order.id, ...l })))
 
       if (orderItemsError) throw orderItemsError
 
@@ -214,7 +232,8 @@ export function useUserTickets() {
 
       // Buscar ingressos do usuário e trazer dados do tipo de ingresso (ticket_types)
       // E também do evento relacionado através do ticket_types.
-      const { data, error } = await supabase
+      const copia = lerIngressos<DbTicket>(user.id)
+      const consulta = supabase
         .from('tickets')
         .select(`
           ${COLUNAS_INGRESSO},
@@ -241,11 +260,18 @@ export function useUserTickets() {
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+      // com cópia, rede pendurada (ou renovação de token em espera) não segura a tela
+      const { data, error }: { data: any[] | null; error: { code?: string } | null } = copia ? await comTempo<{ data: any[] | null; error: { code?: string } | null }>(consulta, 3500, () => ({ data: null, error: { code: '' } })) : await consulta
 
-      if (error) throw error
+      if (error) {
+        // falha de rede (sem internet, fetch caiu, timeout): mostra a cópia da última vez que carregou (D4); erro do banco segue como erro
+        if (copia && falhaDeRede(error)) { definirCopia(copia.em); return copia.ingressos }
+        throw error
+      }
+      definirCopia(null)
 
       // Mapear retorno aninhado para facilitar o consumo no frontend
-      return (data || []).map((t: any) => ({
+      const lista = (data || []).map((t: any) => ({
         ...t,
         code: t.code ?? t.qr_code,
         ticket_types: {
@@ -255,8 +281,12 @@ export function useUserTickets() {
         },
         events: t.ticket_types?.events ?? undefined,
       })) as DbTicket[]
+      guardarIngressos(user.id, lista)
+      return lista
     },
     enabled: !!user?.id,
+    networkMode: 'always', // offline a consulta roda mesmo assim e cai na cópia guardada
+    retry: (n) => n < 2 && !(user?.id && lerIngressos(user.id)), // com cópia não insiste: cai nela já
   })
 }
 

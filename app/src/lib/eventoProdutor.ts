@@ -21,6 +21,10 @@ export function situacaoEvento(e: { status: string; approval_status?: string | n
 
 // Fila de moderação do admin (F1): só o que o produtor ENVIOU (published) e ainda não foi decidido. Rascunho com
 // approval_status 'pending' (o padrão do banco) não é pedido de análise. Sem approval_status conta como pendente.
+/** Referência do link público: fora de 'public' só o uuid abre (evento_publico, PR3e); o slug é chutável. */
+export const refDoEvento = (e: { id: string; slug?: string | null; visibility?: string | null }) =>
+  e.visibility === 'public' ? e.slug || e.id : e.id
+
 export const naFilaDeModeracao = (e: { status: string; approval_status?: string | null }): boolean =>
   e.status === 'published' && (e.approval_status === 'pending' || !e.approval_status)
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { mensagemDeErro } from '@/hooks/useConversas'
 import { toast } from 'sonner'
 import gsap from 'gsap'
 import * as I from '@/components/icones/evokaa16'
@@ -21,7 +22,6 @@ interface AdminProfile {
   avatar_url: string | null
   role: 'user' | 'producer' | 'admin'
   admin_permissions: string[]
-  updated_at: string | null
 }
 
 const PERMISSIONS = [
@@ -39,6 +39,7 @@ const PERMISSIONS = [
   { id: 'manage_coupons', label: 'Cupons de Desconto', desc: 'Criar, editar e desativar cupons dos planos vendidos aos produtores.' },
   { id: 'moderate_mesa', label: 'Moderar Match de Mesa', desc: 'Aprova fotos de perfil, faz a triagem de denúncias e revisa remoções. Exige 2FA.' },
   { id: 'manage_team', label: 'Ver a Equipe Evokaa', desc: 'Permite ver os colaboradores da Evokaa. Convidar, remover e alterar funções é só de quem tem Acesso total.' },
+  { id: 'view_audit', label: 'Ver auditoria', desc: 'Consultar o registro de ações e acessos da equipe.' },
 ]
 // No convite, nunca super_admin (só pela edição de permissões); o banco e a Edge Function admin-invite conferem de novo
 const PERMISSOES_CONVITE = PERMISSIONS.filter(p => p.id !== 'super_admin')
@@ -106,19 +107,16 @@ export default function AdminTeamManager() {
   const fetchAdmins = async () => {
     setIsLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'admin')
-        .order('full_name', { ascending: true })
+      // admin_equipe() (docs/sql/20261018a_admin_s4b_funcoes.sql): manage_team; a tabela não entrega admin_permissions
+      const { data, error } = await supabase.rpc('admin_equipe' as never)
 
       if (error) throw error
-      setAdmins(data || [])
+      setAdmins(Array.isArray(data) ? (data as unknown as AdminProfile[]) : [])
       setLoadError('')
     } catch (err: any) {
       console.error('Erro ao buscar equipe admin:', err)
       setAdmins([])
-      setLoadError(err.message || 'Erro ao buscar a equipe')
+      setLoadError(mensagemDeErro(err, 'Você não tem permissão para ver esta lista.'))
     } finally {
       setIsLoading(false)
     }
