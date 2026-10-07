@@ -1,6 +1,6 @@
 import { ORIGEM_SALA as O } from './geometria'
 import { defaultSections, sectionColors, type Environment, type Section, type SeatNode, type WallNode } from './modelo'
-import { criarNo, daSecao, ITENS } from './paleta'
+import { criarNo, daSecao, ESTRUTURA, ITENS } from './paleta'
 
 // Cada template devolve o conteúdo de um pavimento; coordenadas locais (0,0 = canto da sala), somadas a (10,10) ao gravar.
 export interface Gerado { seats: SeatNode[]; walls: WallNode[]; sections: Section[]; roomWidth: number; roomHeight: number }
@@ -13,7 +13,7 @@ const letra = (i: number) => String.fromCharCode(65 + (i % 26))
 function sala(W: number, H: number, secoes: [string, number][]) {
   let n = 0
   const nid = () => `t${++n}`
-  const estrutura: Section = { id: 'estrutura', name: 'Estrutura', color: '#475569', price: 0 }
+  const estrutura = ESTRUTURA
   const sections: Section[] = [...secoes.map(([name, price], i) => ({ id: `s${i + 1}`, name, color: sectionColors[i], price })), estrutura]
   const seats: SeatNode[] = []
   const walls: WallNode[] = []

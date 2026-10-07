@@ -55,6 +55,9 @@ export const ITENS: Record<string, ItemCatalogo> = Object.fromEntries(CATEGORIAS
 const DA_SECAO = new Set<ToolType>(['seat', 'table', 'dancefloor', 'vip_lounge', 'vip_area', 'bleacher', 'box_elevated', 'stand'])
 export const daSecao = (t: ToolType) => DA_SECAO.has(t)
 
+// Seção dos itens que não vendem (mesma dos templates): não entra na contagem nem no potencial de venda
+export const ESTRUTURA: Section = { id: 'estrutura', name: 'Estrutura', color: '#475569', price: 0 }
+
 export const formaDe = (t: string): 'r' | 'c' => (NOVOS.find(n => n[1] === t)?.[7] === 'c' ? 'c' : 'r')
 
 // Cria um elemento a partir do item da paleta (x, y = centro, em metros)

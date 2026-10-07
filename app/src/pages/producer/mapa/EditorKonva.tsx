@@ -11,7 +11,7 @@ import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNod
 import { useMapa } from './usarMapa'
 import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
-import { criarNo, formaDe, ITENS } from './paleta'
+import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
 import { decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia } from './regras'
 
@@ -170,8 +170,10 @@ export default function EditorKonva() {
     if (!it || !sec) return
     const base = it.id === 'seat' || it.id === 'poltrona' ? '' : it.id === 'table' ? 'Mesa' : it.id === 'cadeira_pne' ? 'PNE' : it.id === 'espaco_cadeirante' ? 'Espaço Cadeirante' : null
     const rotulo = base === null ? it.nome : proximoRotulo(env.seats, base)
-    const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), sec, { label: rotulo })
-    mudar(e => ({ ...e, seats: [...e.seats, no] }))
+    // o que não vende vai para a seção "Estrutura" (criada se faltar), sem inflar a contagem da seção ativa
+    const destino = daSecao(it.tipo) ? sec : ESTRUTURA
+    const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), destino, { label: rotulo })
+    mudar(e => ({ ...e, sections: (e.sections || []).some(s => s.id === destino.id) ? e.sections : [...(e.sections || []), destino], seats: [...e.seats, no] }))
     setSel({ tipo: 'no', id: no.id })
     setFerr('select')
   }
