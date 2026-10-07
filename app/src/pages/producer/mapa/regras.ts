@@ -1,5 +1,6 @@
 import type { Environment, SeatNode } from './modelo'
 import { caixaDosElementos, ORIGEM_SALA } from './geometria'
+import { ESTRUTURA } from './paleta'
 
 const vendido = (n: SeatNode) => n.sold > 0 || n.status === 'sold' || n.status === 'reserved'
 
@@ -57,4 +58,40 @@ export function encaixarNaSala(env: Environment): { env: Environment; motivo?: s
       walls: (env.walls || []).map(p => ({ ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy })),
     },
   }
+}
+
+// ---- Lotes (seções vendáveis). 'Estrutura' não é lote: não aparece, não liga ingresso, não se apaga. ----
+export const lotesDe = (env: Environment) => (env.sections || []).filter(s => s.id !== ESTRUTURA.id)
+export const precoValido = (n: number) => Number.isFinite(n) && n >= 0
+
+// Troca um lote e os elementos dele de uma vez (cor/preço dos nós seguem o lote, como no editor antigo)
+const noLote = (env: Environment, id: string, sec: Partial<Environment['sections'][number]>, nos: Partial<SeatNode>): Environment => ({
+  ...env,
+  sections: env.sections.map(x => (x.id === id ? { ...x, ...sec } : x)),
+  seats: env.seats.map(n => (n.sectionId === id ? { ...n, ...nos } : n)),
+})
+
+export function definirPreco(env: Environment, id: string, preco: number): Environment {
+  if (id === ESTRUTURA.id || !precoValido(preco)) return env
+  return noLote(env, id, { price: preco }, { price: preco })
+}
+
+// Ligar um ingresso copia o preço dele (quem manda no valor cobrado é o ingresso); desligar mantém o preço
+export function ligarIngresso(env: Environment, id: string, ingresso?: { id: string; price: number }): Environment {
+  if (id === ESTRUTURA.id) return env
+  if (!ingresso) return noLote(env, id, { ticketTypeId: undefined }, {})
+  if (!precoValido(ingresso.price)) return env
+  return noLote(env, id, { ticketTypeId: ingresso.id, price: ingresso.price }, { price: ingresso.price })
+}
+
+// Apagar lote: precisa sobrar outro; recusa se algum elemento dele tem venda/reserva; os elementos vão para o primeiro outro lote
+export function apagarLote(env: Environment, id: string): { env: Environment; destino?: string; erro?: string } {
+  const lotes = lotesDe(env)
+  if (id === ESTRUTURA.id || !lotes.some(s => s.id === id)) return { env, erro: 'Este item não é um lote.' }
+  const destino = lotes.find(s => s.id !== id)
+  if (!destino) return { env, erro: 'Precisa de pelo menos um lote.' }
+  const vendidos = env.seats.filter(n => n.sectionId === id && vendido(n)).length
+  if (vendidos) return { env, erro: `Este lote tem ${vendidos} elemento(s) com venda ou reserva e não pode ser apagado.` }
+  const apagado = noLote(env, id, {}, { sectionId: destino.id, price: destino.price, color: destino.color })
+  return { env: { ...apagado, sections: apagado.sections.filter(x => x.id !== id) }, destino: destino.name }
 }

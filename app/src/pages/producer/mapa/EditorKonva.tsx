@@ -13,7 +13,8 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
+import { useIngressos } from './usarIngressos'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
@@ -98,6 +99,26 @@ function Cores({ valor, onChange }: { valor: string; onChange: (c: string) => vo
   )
 }
 
+// Preço em R$: guarda o texto digitado e só aplica número válido (>= 0); o campo volta ao valor do lote ao sair
+function PrecoLote({ valor, onChange }: { valor: number; onChange: (n: number) => void }) {
+  const [txt, setTxt] = useState(String(valor))
+  useEffect(() => { setTxt(String(valor)) }, [valor])
+  const invalido = txt.trim() === '' || !precoValido(Number(txt.replace(',', '.')))
+  return (
+    <>
+      <input
+        type="text" inputMode="decimal" aria-label="Preço do lote em reais" aria-invalid={invalido} value={txt}
+        onChange={e => { setTxt(e.target.value); const n = Number(e.target.value.replace(',', '.')); if (e.target.value.trim() !== '' && precoValido(n)) onChange(n) }}
+        onBlur={() => setTxt(String(valor))}
+        className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+      />
+      {invalido && <p role="alert" className="text-xs text-destructive">Digite um preço a partir de 0.</p>}
+    </>
+  )
+}
+
+const reais = (n: number) => `R$ ${n.toLocaleString('pt-BR')}`
+
 export default function EditorKonva() {
   const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
   const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
@@ -115,7 +136,9 @@ export default function EditorKonva() {
   const [versaoTemplate, setVersaoTemplate] = useState(0) // muda a cada template aplicado: dispara o fade do mapa
   const [reenquadrar, setReenquadrar] = useState(0)
   const [secSel, setSecSel] = useState<string | null>(null)
-  const sec = (env.sections || []).find(x => x.id === secSel) || (env.sections || [])[0]
+  const lotes = lotesDe(env)
+  const sec = lotes.find(x => x.id === secSel) || lotes[0]
+  const { tipos: ingressos, carregados: ingressosLidos } = useIngressos(eventId)
   const noSel = sel?.tipo === 'no' ? env.seats.find(n => n.id === sel.id) : undefined
 
   // Desfazer simples por pavimento: guarda o pavimento inteiro antes de cada mudança.
@@ -162,6 +185,26 @@ export default function EditorKonva() {
       sections: e.sections.map(x => (x.id === id ? { ...x, color: cor } : x)),
       seats: e.seats.map(n => (n.sectionId === id ? { ...n, color: cor } : n)),
     }), `sec-${id}`)
+  const nomeLote = (id: string, nome: string) =>
+    mudar(e => ({ ...e, sections: e.sections.map(x => (x.id === id ? { ...x, name: nome } : x)) }), `nome-${id}`)
+  const precoLote = (id: string, n: number) => mudar(e => definirPreco(e, id, n), `preco-${id}`)
+  const ingressoLote = (id: string, tid: string) => mudar(e => ligarIngresso(e, id, ingressos.find(t => t.id === tid)))
+  const novoLote = () => {
+    const id = `sec-${novoId()}`
+    let n = lotes.length + 1
+    while (lotes.some(x => x.name === `Lote ${n}`)) n++
+    mudar(e => ({ ...e, sections: [...e.sections, { id, name: `Lote ${n}`, color: sectionColors[lotes.length % sectionColors.length], price: 100 }] }))
+    setSecSel(id)
+  }
+  const apagarLoteSel = () => {
+    if (!sec) return
+    const r = apagarLote(env, sec.id)
+    if (r.erro) { window.alert(r.erro); return }
+    const n = env.seats.filter(x => x.sectionId === sec.id).length
+    if (!window.confirm(`Apagar o lote "${sec.name}"? ${n} elemento(s) vão para o lote "${r.destino}", com a cor e o preço dele. Dá para desfazer antes de salvar.`)) return
+    mudar(() => r.env)
+    setSecSel(null)
+  }
   const corNo = (id: string, cor: string) => moverNo(id, { color: cor })
 
   // Criar, apagar, duplicar e mover entram no mesmo desfazer por pavimento
@@ -466,25 +509,51 @@ export default function EditorKonva() {
       </div>
       <aside id="gaveta-cores" className={`mapa-gaveta ${gaveta === 'cores' ? 'mapa-gaveta-aberta' : 'max-lg:invisible'} mapa-rolagem absolute inset-y-0 right-0 z-20 w-72 max-w-[85vw] space-y-5 overflow-y-auto overflow-x-hidden border-l border-border bg-card p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-60 lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'cores' ? 'translate-x-0' : 'translate-x-full'}`}>
         <button type="button" onClick={() => setGaveta('')} className="ml-auto block h-10 text-sm text-primary underline lg:hidden">Fechar</button>
-        <section aria-label="Cor da seção" className="space-y-2">
-          <h2 className="text-xs font-semibold uppercase text-muted-foreground">Seções</h2>
+        <section aria-label="Lotes e preços" className="space-y-2">
+          <h2 className="text-xs font-semibold uppercase text-muted-foreground">Lotes e preços</h2>
           <ul className="space-y-1">
-            {(env.sections || []).map(x => (
-              <li key={x.id}>
-                <button type="button" onClick={() => setSecSel(x.id)} aria-pressed={sec?.id === x.id}
-                  className={`flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left ${sec?.id === x.id ? 'border-primary bg-primary/10' : 'border-border'}`}>
-                  <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ background: x.color }} />
-                  <span className="truncate">{x.name}</span>
-                  <span className="ml-auto text-xs text-muted-foreground">{env.seats.filter(n => n.sectionId === x.id).length}</span>
-                </button>
-              </li>
-            ))}
+            {lotes.map(x => {
+              const nos = env.seats.filter(n => n.sectionId === x.id)
+              const cap = nos.reduce((t, n) => t + (n.capacity || 0), 0)
+              const vend = nos.reduce((t, n) => t + (n.sold || 0), 0)
+              return (
+                <li key={x.id}>
+                  <button type="button" onClick={() => setSecSel(x.id)} aria-pressed={sec?.id === x.id}
+                    className={`flex w-full items-center gap-2 rounded-md border px-2 py-1 text-left ${sec?.id === x.id ? 'border-primary bg-primary/10' : 'border-border'}`}>
+                    <span className="h-3 w-3 flex-shrink-0 rounded-full" style={{ background: x.color }} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate">{x.name}</span>
+                      <span className="block text-xs text-muted-foreground">{reais(x.price)} · {vend}/{cap} vendidos</span>
+                      {!x.ticketTypeId && cap > 0 && <span className="block text-xs text-destructive">Não vende (sem ingresso)</span>}
+                    </span>
+                  </button>
+                </li>
+              )
+            })}
           </ul>
+          <Button size="sm" variant="outline" className="w-full max-lg:h-10" onClick={novoLote}>Novo lote</Button>
           {sec && (
-            <>
-              <p className="text-xs text-muted-foreground">Cor de “{sec.name}” (muda todos os elementos da seção)</p>
+            <div className="space-y-2 border-t border-border pt-2">
+              <label className="block text-xs text-muted-foreground">Nome do lote
+                <input type="text" value={sec.name} onChange={e => nomeLote(sec.id, e.target.value)}
+                  className="mt-0.5 h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
+              </label>
+              <label className="block text-xs text-muted-foreground">Ingresso ligado
+                <select value={sec.ticketTypeId || ''} onChange={e => ingressoLote(sec.id, e.target.value)}
+                  className="mt-0.5 h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs text-foreground">
+                  <option value="">Não vende (sem ingresso ligado)</option>
+                  {!ingressosLidos && sec.ticketTypeId && <option value={sec.ticketTypeId}>Ingresso ligado (lista ainda não carregada)</option>}
+                  {ingressosLidos && sec.ticketTypeId && !ingressos.some(t => t.id === sec.ticketTypeId) && <option value={sec.ticketTypeId}>Ingresso indisponível (inativo, coletiva ou removido)</option>}
+                  {ingressos.map(t => <option key={t.id} value={t.id}>{t.name} ({reais(t.price)})</option>)}
+                </select>
+              </label>
+              <div className="text-xs text-muted-foreground">Preço (R$)
+                <PrecoLote valor={sec.price} onChange={n => precoLote(sec.id, n)} />
+              </div>
+              <p className="text-xs text-muted-foreground">Cor de “{sec.name}” (muda todos os elementos do lote)</p>
               <Cores valor={sec.color} onChange={c => corSecao(sec.id, c)} />
-            </>
+              {lotes.length > 1 && <Button size="sm" variant="outline" className="w-full border-destructive text-destructive max-lg:h-10" onClick={apagarLoteSel}>Apagar lote</Button>}
+            </div>
           )}
         </section>
         <section aria-label="Cor do elemento" className="space-y-2">
