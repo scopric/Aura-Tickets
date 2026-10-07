@@ -53,6 +53,7 @@ export default function ProducerFinance() {
     queryKey: ['producer-fin-pedidos', user?.id, periodo, filtroEvento],
     enabled: !!user?.id,
     initialPageParam: 0,
+    // ponytail: paginação por posição; pedido reembolsado entre dois "Ver mais" pode deixar um pedido de fora (CSV traz todos)
     queryFn: async ({ pageParam }) => {
       let q = supabase.from('orders').select(COLUNAS).eq('events.producer_id', user!.id).eq('status', 'paid')
       if (de) q = q.gte('created_at', de)
@@ -243,7 +244,7 @@ export default function ProducerFinance() {
             </ul>
             {nPedidos > recentes.length && (
               <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3">
-                <p className="text-xs text-muted-foreground">
+                <p aria-live="polite" className="text-xs text-muted-foreground">
                   Mostrando {recentes.length.toLocaleString('pt-BR')} de {nPedidos.toLocaleString('pt-BR')}. O CSV traz todos.
                 </p>
                 {pedidosQ.hasNextPage && (
