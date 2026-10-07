@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { MouseEvent as ReactMouseEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { Stage, Layer, Group, Rect, Circle, Line, Text, Transformer } from 'react-konva'
+import { Stage, Layer, Group, Rect, Circle, Ellipse, Line, Text, Transformer } from 'react-konva'
 import type Konva from 'konva'
 import { useProducerEvents } from '../../../hooks/useEvents'
 import { useEventoDaUrl } from '../../../hooks/useEventoDaUrl'
@@ -9,11 +9,21 @@ import { Button } from '@/components/ui/button'
 import { limites, ajustarTela, zoomNoCursor, snap, ORIGEM_SALA, type Vista } from './geometria'
 import { sectionColors, toolDefaults, typeLabels, type Environment, type SeatNode } from './modelo'
 import { useMapa } from './usarMapa'
+import BarraPaleta from './BarraPaleta'
+import SeletorTemplates from './SeletorTemplates'
+import { criarNo, formaDe, ITENS } from './paleta'
+import { aplicarTemplate, type Template } from './templates'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
 const MAX_DESFAZER = 50
+const PASSO_SETA = 0.25
+
+let seq = Date.now()
+const novoId = () => `e${seq++}`
 
 type Selecao = { tipo: 'no' | 'parede'; id: string } | null
+
+const fmtM = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',')
 
 const medidas = (s: SeatNode) => ({
   w: s.widthMeter || toolDefaults[s.type]?.wMeter || 0.5,
@@ -28,29 +38,49 @@ function CadeirasDaMesa({ w, h, n }: { w: number; h: number; n: number }) {
   })
 }
 
-// Forma de um elemento, em metros, centrada em (0,0). Tipo desconhecido cai no retângulo genérico.
+// Texto em metros: o Konva desenha mal fonte de 0,3 px, então escreve numa escala 40x maior e reduz o grupo
+const AMPLIA = 40
+function Texto({ w, h, texto, fonte, cor }: { w: number; h: number; texto: string; fonte: number; cor: string }) {
+  return (
+    <Group scaleX={1 / AMPLIA} scaleY={1 / AMPLIA} listening={false}>
+      <Text x={(-w / 2) * AMPLIA} y={(-h / 2) * AMPLIA} width={w * AMPLIA} height={h * AMPLIA} text={texto} fontSize={fonte * AMPLIA} fill={cor} align="center" verticalAlign="middle" wrap="none" />
+    </Group>
+  )
+}
+
+// Forma de um elemento, em metros, centrada em (0,0). Tipo sem forma própria cai no retângulo com o nome.
 function Forma({ s }: { s: SeatNode }) {
   const { w, h } = medidas(s)
   const cor = s.color || toolDefaults[s.type]?.color || '#94a3b8'
   const rotulo = s.label || typeLabels[s.type] || String(s.type)
-  const fonte = Math.max(0.25, Math.min(0.5, h * 0.5))
-  if (s.type === 'seat') return <Circle radius={w / 2} fill={cor} />
-  if (s.type === 'text') return <Text x={-w / 2} y={-h / 2} width={w} height={h} text={s.label || 'Texto'} fontSize={0.6} fill={cor} align="center" verticalAlign="middle" />
-  const rotuloNo = <Text x={-w / 2} y={-h / 2} width={w} height={h} text={rotulo} fontSize={fonte} fill="#ffffff" align="center" verticalAlign="middle" listening={false} />
+  const fonte = Math.max(0.2, Math.min(0.5, h * 0.5, (w * 1.7) / Math.max(1, rotulo.length)))
+  const textoRotulo = <Texto w={w} h={h} texto={rotulo} fonte={fonte} cor="#ffffff" />
+  if (s.type === 'seat') {
+    return (
+      <>
+        {Math.abs(w - h) < 0.01 ? <Circle radius={w / 2} fill={cor} /> : <Rect x={-w / 2} y={-h / 2} width={w} height={h} fill={cor} cornerRadius={0.1} />}
+        {w >= 0.75 && textoRotulo}
+      </>
+    )
+  }
+  // texto livre: a cor padrão é escura demais para a sala escura, então clareia
+  if (s.type === 'text') return <Texto w={w} h={h} texto={s.label || 'Texto'} fonte={0.6} cor={cor.toLowerCase() === '#1e293b' ? '#e2e8f0' : cor} />
   if (s.type === 'table') {
     const redonda = (s.tableShape || 'circle') === 'circle'
     return (
       <>
         <CadeirasDaMesa w={w} h={h} n={s.seatsCount || 6} />
         {redonda ? <Circle radius={w / 2} fill={cor} /> : <Rect x={-w / 2} y={-h / 2} width={w} height={h} fill={cor} cornerRadius={0.1} />}
-        {rotuloNo}
+        {textoRotulo}
       </>
     )
   }
   return (
     <>
-      <Rect x={-w / 2} y={-h / 2} width={w} height={h} fill={cor} opacity={0.9} cornerRadius={Math.min(0.1, h / 4)} />
-      {rotuloNo}
+      {formaDe(s.type) === 'c'
+        ? <Ellipse radiusX={w / 2} radiusY={h / 2} fill={cor} opacity={0.9} />
+        : <Rect x={-w / 2} y={-h / 2} width={w} height={h} fill={cor} opacity={0.9} cornerRadius={Math.min(0.1, h / 4)} />}
+      {textoRotulo}
     </>
   )
 }
@@ -76,6 +106,10 @@ export default function EditorKonva() {
   const ppm = env.pixelsPerMeter || 40
   const [sel, setSel] = useState<Selecao>(null)
   const [encaixar, setEncaixar] = useState(false)
+  const [ferr, setFerr] = useState('select') // 'select', 'pan' ou o id de um item da paleta (clique no mapa cria)
+  const [grade, setGrade] = useState(true)
+  const [abrirTemplates, setAbrirTemplates] = useState(false)
+  const [reenquadrar, setReenquadrar] = useState(0)
   const [secSel, setSecSel] = useState<string | null>(null)
   const sec = (env.sections || []).find(x => x.id === secSel) || (env.sections || [])[0]
   const noSel = sel?.tipo === 'no' ? env.seats.find(n => n.id === sel.id) : undefined
@@ -99,7 +133,7 @@ export default function EditorKonva() {
     if (anterior) setEnvs(prev => prev.map(e => (e.id === anterior.id ? anterior : e)))
   }
   useEffect(() => { hist.current = {} }, [eventId])
-  useEffect(() => { setSel(null); setSecSel(null) }, [eventId, ativo])
+  useEffect(() => { setSel(null); setSecSel(null); setFerr('select') }, [eventId, ativo])
 
   // Transformer fica fora do grupo em metros para as alças não escalarem com o zoom
   const nosRef = useRef<Record<string, Konva.Group | null>>({})
@@ -119,6 +153,85 @@ export default function EditorKonva() {
       seats: e.seats.map(n => (n.sectionId === id ? { ...n, color: cor } : n)),
     }), `sec-${id}`)
   const corNo = (id: string, cor: string) => moverNo(id, { color: cor })
+
+  // Criar, apagar, duplicar e mover entram no mesmo desfazer por pavimento
+  const criarEm = (x: number, y: number) => {
+    const it = ITENS[ferr]
+    if (!it || !sec) return
+    const mesmos = env.seats.filter(n => n.type === it.tipo).length + 1
+    const rotulo = it.id === 'seat' || it.id === 'poltrona' ? String(mesmos) : it.id === 'table' ? `Mesa ${mesmos}` : it.nome
+    const no = criarNo(it, encaixar ? snap(x) : x, encaixar ? snap(y) : y, novoId(), sec, { label: rotulo })
+    mudar(e => ({ ...e, seats: [...e.seats, no] }))
+    setSel({ tipo: 'no', id: no.id })
+    setFerr('select')
+  }
+  const apagar = () => {
+    if (!sel) return
+    if (sel.tipo === 'no') {
+      if (noSel?.locked) return
+      mudar(e => ({ ...e, seats: e.seats.filter(n => n.id !== sel.id) }))
+    } else {
+      if ((env.walls || []).find(p => p.id === sel.id)?.locked) return
+      mudar(e => ({ ...e, walls: (e.walls || []).filter(p => p.id !== sel.id) }))
+    }
+    setSel(null)
+  }
+  const duplicar = () => {
+    if (!noSel) return
+    // a cópia é livre: não herda venda, reserva nem trava
+    const copia: SeatNode = { ...noSel, id: novoId(), x: noSel.x + 0.5, y: noSel.y + 0.5, status: 'free', sold: 0, locked: false }
+    mudar(e => ({ ...e, seats: [...e.seats, copia] }))
+    setSel({ tipo: 'no', id: copia.id })
+  }
+  const empurrar = (dx: number, dy: number) => {
+    if (!sel) return
+    const chave = `seta-${sel.id}`
+    if (sel.tipo === 'no') {
+      if (noSel && !noSel.locked) mudar(e => ({ ...e, seats: e.seats.map(n => (n.id === sel.id ? { ...n, x: n.x + dx, y: n.y + dy } : n)) }), chave)
+    } else {
+      mudar(e => ({ ...e, walls: (e.walls || []).map(p => (p.id === sel.id && !p.locked ? { ...p, x1: p.x1 + dx, y1: p.y1 + dy, x2: p.x2 + dx, y2: p.y2 + dy } : p)) }), chave)
+    }
+  }
+  const escolherTemplate = (t: Template) => {
+    const vendidos = env.seats.filter(n => n.status !== 'free' || n.sold > 0).length
+    if (env.seats.length + (env.walls || []).length > 0 &&
+      !window.confirm(`Aplicar "${t.nome}" apaga os ${env.seats.length} elementos deste pavimento${vendidos ? ` (${vendidos} já vendidos, reservados ou bloqueados)` : ''}. Dá para desfazer antes de salvar. Continuar?`)) return
+    mudar(e => aplicarTemplate(e, t))
+    setSel(null); setFerr('select'); setAbrirTemplates(false)
+    setReenquadrar(n => n + 1)
+  }
+  // Teclado: Delete apaga, Ctrl/Cmd+D duplica, setas movem 0,25 m (Shift = 1 m), Ctrl/Cmd+Z desfaz, Esc volta a selecionar
+  const teclas = useRef<(e: KeyboardEvent) => void>(() => {})
+  teclas.current = e => {
+    if (abrirTemplates || (e.target as HTMLElement | null)?.closest?.('input,select,textarea,[role=dialog]')) return
+    const cmd = e.ctrlKey || e.metaKey
+    const k = e.key.toLowerCase()
+    if (k === 'escape') setFerr('select')
+    else if (cmd && k === 'z') { e.preventDefault(); desfazer() }
+    else if (cmd && k === 'd') { e.preventDefault(); duplicar() }
+    else if (k === 'delete' || k === 'backspace') { if (sel) { e.preventDefault(); apagar() } }
+    else if (k.startsWith('arrow') && sel) {
+      e.preventDefault()
+      const p = PASSO_SETA * (e.shiftKey ? 4 : 1)
+      empurrar(k === 'arrowleft' ? -p : k === 'arrowright' ? p : 0, k === 'arrowup' ? -p : k === 'arrowdown' ? p : 0)
+    }
+  }
+  useEffect(() => {
+    const f = (e: KeyboardEvent) => teclas.current(e)
+    window.addEventListener('keydown', f)
+    return () => window.removeEventListener('keydown', f)
+  }, [])
+
+  // Elementos que passam do limite da sala (ficam com contorno vermelho tracejado)
+  const salaW = env.roomWidth || 40, salaH = env.roomHeight || 40
+  const fora = useMemo(() => {
+    const ids = new Set<string>()
+    for (const n of env.seats) {
+      const c = limites({ ...env, seats: [n], walls: [] })
+      if (c.w > salaW + 1e-6 || c.h > salaH + 1e-6) ids.add(n.id)
+    }
+    return ids
+  }, [env.seats, salaW, salaH]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Tamanho da área do Stage
   const caixaRef = useRef<HTMLDivElement>(null)
@@ -147,6 +260,7 @@ export default function EditorKonva() {
   // Enquadra ao abrir o mapa e ao trocar de pavimento (não a cada edição)
   useEffect(() => { if (pronto) ajustar() }, [pronto, eventId, ativo, tam.w > 0, ajustar]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setAtivo(0) }, [eventId])
+  useEffect(() => { if (reenquadrar) ajustar() }, [reenquadrar, ajustar])
 
   const aoRolar = (e: Konva.KonvaEventObject<WheelEvent>) => {
     e.evt.preventDefault()
@@ -157,15 +271,24 @@ export default function EditorKonva() {
 
   // Pan arrastando o fundo (o que não é elemento)
   const pan = useRef<{ x: number; y: number } | null>(null)
+  const criando = ferr !== 'select' && ferr !== 'pan' && !!ITENS[ferr]
+  const arrastou = useRef(false) // o clique veio de um arraste de pan: não cria elemento
   const noFundo = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => e.target === e.target.getStage()
   const iniciarPan = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
-    if (noFundo(e)) { pan.current = e.target.getStage()!.getPointerPosition(); setSel(null) }
+    arrastou.current = false
+    if (ferr === 'pan' || noFundo(e)) { pan.current = e.target.getStage()!.getPointerPosition(); if (ferr === 'select') setSel(null) }
+  }
+  const aoClicar = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
+    const cur = e.target.getStage()?.getPointerPosition()
+    if (!criando || arrastou.current || !cur) return
+    criarEm((cur.x - vista.pan.x) / escala, (cur.y - vista.pan.y) / escala)
   }
   const moverPan = (e: Konva.KonvaEventObject<MouseEvent | TouchEvent>) => {
     const p = pan.current, cur = e.target.getStage()?.getPointerPosition()
     if (!p || !cur) return
     const dx = cur.x - p.x, dy = cur.y - p.y
     pan.current = cur
+    if (dx || dy) arrastou.current = true
     setVista(v => ({ ...v, pan: { x: v.pan.x + dx, y: v.pan.y + dy } }))
   }
   const fimPan = () => { pan.current = null }
@@ -223,15 +346,18 @@ export default function EditorKonva() {
         >
           {envs.map((p, i) => <option key={p.id} value={i}>{p.name}</option>)}
         </select>
+        <Button size="sm" variant="outline" onClick={() => setAbrirTemplates(true)}>Templates</Button>
         <Button size="sm" variant="outline" onClick={ajustar}>Ajustar à tela</Button>
         <Button size="sm" variant="outline" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
+        <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>
         <Button size="sm" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>
         {erroMapa && <span className="text-xs text-destructive">Não consegui ler o mapa: Salvar bloqueado. Recarregue a página.</span>}
         {sujo && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}
       </header>
       <div className="flex min-h-0 flex-1">
-      <div ref={caixaRef} className="relative min-h-0 min-w-0 flex-1 bg-muted/40">
+      <BarraPaleta ferramenta={ferr} onEscolher={setFerr} />
+      <div ref={caixaRef} className="relative min-h-0 min-w-0 flex-1 bg-muted/40" style={{ cursor: criando ? 'crosshair' : ferr === 'pan' ? 'grab' : undefined }}>
         {tam.w > 0 && (
           <Stage
             width={tam.w} height={tam.h}
@@ -239,16 +365,23 @@ export default function EditorKonva() {
             onMouseDown={iniciarPan} onTouchStart={iniciarPan}
             onMouseMove={moverPan} onTouchMove={moverPan}
             onMouseUp={fimPan} onTouchEnd={fimPan} onMouseLeave={fimPan}
+            onClick={aoClicar} onTap={aoClicar}
           >
             <Layer>
               <Group x={vista.pan.x} y={vista.pan.y} scaleX={escala} scaleY={escala}>
-                <Rect {...sala} width={sala.w} height={sala.h} fill="#f8fafc" stroke="#94a3b8" strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+                <Rect {...sala} width={sala.w} height={sala.h} fill="#2b303b" stroke="#64748b" strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+                {grade && Array.from({ length: Math.floor(sala.w) + 1 }, (_, i) => (i % 5 === 0 || escala >= 12) && (
+                  <Line key={`gv${i}`} points={[sala.x + i, sala.y, sala.x + i, sala.y + sala.h]} stroke="#ffffff" opacity={i % 5 === 0 ? 0.16 : 0.06} strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+                ))}
+                {grade && Array.from({ length: Math.floor(sala.h) + 1 }, (_, i) => (i % 5 === 0 || escala >= 12) && (
+                  <Line key={`gh${i}`} points={[sala.x, sala.y + i, sala.x + sala.w, sala.y + i]} stroke="#ffffff" opacity={i % 5 === 0 ? 0.16 : 0.06} strokeWidth={1} strokeScaleEnabled={false} listening={false} />
+                ))}
                 {(env.walls || []).map(p => {
                   const pontos = [p.x1, p.y1, p.x2, p.y2]
                   const escolhida = sel?.tipo === 'parede' && sel.id === p.id
                   return (
                     <Group
-                      key={p.id} draggable={!p.locked}
+                      key={p.id} draggable={!p.locked && ferr === 'select'}
                       onMouseDown={() => setSel({ tipo: 'parede', id: p.id })} onTouchStart={() => setSel({ tipo: 'parede', id: p.id })}
                       onDragEnd={e => {
                         const dx = e.target.x(), dy = e.target.y()
@@ -264,7 +397,7 @@ export default function EditorKonva() {
                 {env.seats.map(n => (
                   <Group
                     key={n.id} ref={g => { nosRef.current[n.id] = g }}
-                    x={n.x} y={n.y} rotation={n.rotation || 0} draggable={!n.locked}
+                    x={n.x} y={n.y} rotation={n.rotation || 0} draggable={!n.locked && ferr === 'select'}
                     onMouseDown={() => setSel({ tipo: 'no', id: n.id })} onTouchStart={() => setSel({ tipo: 'no', id: n.id })}
                     onDragMove={e => { if (encaixar) e.target.position({ x: snap(e.target.x()), y: snap(e.target.y()) }) }}
                     onDragEnd={e => moverNo(n.id, { x: e.target.x(), y: e.target.y() })}
@@ -278,6 +411,7 @@ export default function EditorKonva() {
                     }}
                   >
                     <Forma s={n} />
+                    {fora.has(n.id) && <Rect x={-medidas(n).w / 2} y={-medidas(n).h / 2} width={medidas(n).w} height={medidas(n).h} stroke="#ef4444" strokeWidth={0.1} dash={[0.3, 0.2]} listening={false} />}
                   </Group>
                 ))}
               </Group>
@@ -288,6 +422,7 @@ export default function EditorKonva() {
             <Layer listening={false}>
               <Line points={[16, tam.h - 20, 16 + passo * escala, tam.h - 20]} stroke="#475569" strokeWidth={2} />
               <Text x={16} y={tam.h - 38} text={`${passo} m`} fontSize={12} fill="#475569" />
+              <Text x={vista.pan.x + sala.x * escala} y={vista.pan.y + sala.y * escala - 18} text={`${fmtM(sala.w)} x ${fmtM(sala.h)} m${fora.size ? ` · ${fora.size} fora da sala` : ''}`} fontSize={12} fill={fora.size ? '#ef4444' : '#94a3b8'} />
             </Layer>
           </Stage>
         )}
@@ -318,7 +453,12 @@ export default function EditorKonva() {
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Elemento</h2>
           {noSel ? (
             <>
-              <p className="text-xs">{noSel.label || typeLabels[noSel.type] || String(noSel.type)}{noSel.locked ? ' (travado)' : ''}</p>
+              <p className="text-xs">{typeLabels[noSel.type] || String(noSel.type)}{noSel.locked ? ' (travado)' : ''} · {fmtM(medidas(noSel).w)} x {fmtM(medidas(noSel).h)} m{fora.has(noSel.id) ? ' · fora da sala' : ''}</p>
+              <input
+                type="text" aria-label="Nome do elemento" value={noSel.label} disabled={noSel.locked}
+                onChange={e => mudar(a => ({ ...a, seats: a.seats.map(n => (n.id === noSel.id ? { ...n, label: e.target.value } : n)) }), `rot-${noSel.id}`)}
+                className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              />
               <Cores valor={noSel.color || toolDefaults[noSel.type]?.color || '#94a3b8'} onChange={c => corNo(noSel.id, c)} />
             </>
           ) : (
@@ -327,6 +467,7 @@ export default function EditorKonva() {
         </section>
       </aside>
       </div>
+      <SeletorTemplates aberto={abrirTemplates} onFechar={() => setAbrirTemplates(false)} onEscolher={escolherTemplate} />
     </div>
   )
 }
