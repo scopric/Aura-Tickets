@@ -106,7 +106,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
         </div>
         {avisoAnalise && podeEnviar && (
           <p className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">
-            Trocar ou remover a capa manda o evento para nova análise da equipe antes de ele voltar ao ar.
+            Trocar ou remover a foto manda o evento para nova análise da equipe antes de ele voltar ao ar. Mudar como a capa aparece vale na hora.
           </p>
         )}
       </div>

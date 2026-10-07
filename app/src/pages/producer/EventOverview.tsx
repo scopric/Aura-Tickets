@@ -220,11 +220,11 @@ function Visao({ e }: { e: DbEvent }) {
     <div className="evento-cor" style={varsDoEvento(cor) as CSSProperties}>
       <header
         className="relative isolate flex min-h-[184px] flex-col justify-between gap-6 overflow-hidden rounded-ev-xl pb-5 pl-6 pr-4 pt-4"
-        style={{ color: comFoto ? '#ffffff' : 'var(--cz-tinta)' }}
+        style={{ color: comFoto ? '#ffffff' : 'var(--cz-tinta)', textShadow: comFoto ? '0 1px 3px rgb(0 0 0 / 0.55)' : undefined }}
       >
         <EventoCapa evento={e} tamanho="faixa" cor={cor} />
         {/* foto original (sem duotone) pode ser clara: véu escuro para o texto branco continuar legível */}
-        {comFoto && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/45 via-black/10 to-black/65" />}
+        {comFoto && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/55 via-black/30 to-black/75" />}
         <div className="relative z-[1] flex flex-wrap items-center gap-2">
           {/* cor inline: o tema claro escurece .text-white em alguns contextos e o selo é escuro nos dois temas */}
           <span className="inline-flex h-7 items-center gap-1.5 rounded-ev-pill px-3 text-xs font-semibold" style={{ background: '#0b0d12', color: '#ffffff' }}>
