@@ -86,7 +86,7 @@ const montar = (url = '/producer/event/e1') => {
   )
 }
 
-beforeEach(() => { localStorage.clear(); rpc.mockReset(); nivel2fa.mockClear() })
+beforeEach(() => { localStorage.clear(); rpc.mockReset(); nivel2fa.mockReset(); nivel2fa.mockReturnValue({ currentLevel: 'aal2', nextLevel: 'aal2' }) })
 
 describe('Visão geral do evento (V7)', () => {
   it('vendidos, hoje, bruto, esgotado, "abre em" e funil vêm do banco', async () => {
