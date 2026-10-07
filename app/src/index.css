@@ -1344,13 +1344,15 @@ body {
 .mapa-colapso { display: grid; transition: grid-template-rows 200ms ease; }
 .mapa-pulso { animation: mapa-pulso 1.8s ease-in-out infinite; }
 @keyframes mapa-pulso { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.35); } 50% { box-shadow: 0 0 0 3px hsl(var(--primary) / 0.12); } }
-.mapa-gaveta { transition: transform 220ms ease; }
+.mapa-gaveta { transition: transform 220ms ease, visibility 0s linear 220ms; }
+.mapa-gaveta-aberta { transition: transform 220ms ease; }
 .mapa-fade { animation: mapa-fade 220ms ease; }
 @keyframes mapa-fade { from { opacity: 0.7; } to { opacity: 0; } }
 .mapa-rolagem { scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; }
 @media (prefers-reduced-motion: reduce) {
   .mapa-anim, .mapa-colapso, .mapa-gaveta { transition: none !important; }
-  .mapa-pulso, .mapa-fade { animation: none !important; }
+  .mapa-pulso { animation: none !important; }
+  .mapa-fade { display: none; }
   .mapa-cartao:hover { transform: none !important; }
 }
 
@@ -1359,3 +1361,5 @@ body {
 .mapa-mini circle { fill: none; }
 :root:not(.dark) .mapa-mini * { fill: color-mix(in srgb, var(--c) 85%, white); stroke: color-mix(in srgb, var(--c) 70%, black); }
 :root:not(.dark) .mapa-mini circle { fill: none; }
+/* a regra global "button { transition: all }" faria os botões da gaveta herdarem visibility:hidden por 0,2 s ao abrir (foco falharia) */
+.mapa-gaveta button, .mapa-gaveta input { transition-property: transform, border-color, background-color, color, box-shadow; }

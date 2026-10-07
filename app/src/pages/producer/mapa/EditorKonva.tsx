@@ -111,6 +111,7 @@ export default function EditorKonva() {
   const [grade, setGrade] = useState(true)
   const [abrirTemplates, setAbrirTemplates] = useState(false)
   const [gaveta, setGaveta] = useState<'' | 'paleta' | 'cores'>('') // telas < 1024 px: painéis viram gavetas
+  const abrirRef = useRef<HTMLElement | null>(null) // botão que abriu a gaveta: recebe o foco de volta
   const [versaoTemplate, setVersaoTemplate] = useState(0) // muda a cada template aplicado: dispara o fade do mapa
   const [reenquadrar, setReenquadrar] = useState(0)
   const [secSel, setSecSel] = useState<string | null>(null)
@@ -136,6 +137,12 @@ export default function EditorKonva() {
     if (anterior) setEnvs(prev => prev.map(e => (e.id === anterior.id ? anterior : e)))
   }
   useEffect(() => { hist.current = {} }, [eventId])
+  useEffect(() => {
+    // um quadro depois: os botões (transition: all) ainda herdam visibility:hidden no instante em que a gaveta abre
+    if (gaveta) { const q = requestAnimationFrame(() => document.getElementById(`gaveta-${gaveta}`)?.querySelector<HTMLElement>('button, input')?.focus()); return () => cancelAnimationFrame(q) }
+    if (abrirRef.current) { abrirRef.current.focus(); abrirRef.current = null }
+  }, [gaveta])
+  const alternar = (g: 'paleta' | 'cores', el: HTMLElement) => { abrirRef.current = el; setGaveta(a => (a === g ? '' : g)) }
   useEffect(() => { setSel(null); setSecSel(null); setFerr('select') }, [eventId, ativo])
 
   // Transformer fica fora do grupo em metros para as alças não escalarem com o zoom
@@ -216,7 +223,7 @@ export default function EditorKonva() {
     const emBotao = !!alvo?.closest?.('button,[role=button],[role=menuitem]')
     const cmd = e.ctrlKey || e.metaKey
     const k = e.key.toLowerCase()
-    if (k === 'escape') setFerr('select')
+    if (k === 'escape') { setFerr('select'); setGaveta('') }
     else if (cmd && k === 'z') { e.preventDefault(); desfazer() }
     else if (cmd && k === 'd') { e.preventDefault(); duplicar() }
     else if (k === 'delete' || k === 'backspace') { if (sel && !emBotao) { e.preventDefault(); apagar() } }
@@ -356,20 +363,21 @@ export default function EditorKonva() {
         >
           {envs.map((p, i) => <option key={p.id} value={i}>{p.name}</option>)}
         </select>
-        <Button size="sm" variant="outline" className="lg:hidden" aria-expanded={gaveta === 'paleta'} onClick={() => setGaveta(g => (g === 'paleta' ? '' : 'paleta'))}>Elementos</Button>
-        <Button size="sm" variant="outline" className="lg:hidden" aria-expanded={gaveta === 'cores'} onClick={() => setGaveta(g => (g === 'cores' ? '' : 'cores'))}>Cores</Button>
-        <Button size="sm" variant="outline" onClick={() => setAbrirTemplates(true)}>Templates</Button>
-        <Button size="sm" variant="outline" onClick={ajustar}>Ajustar à tela</Button>
-        <Button size="sm" variant="outline" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
+        <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'paleta'} aria-controls="gaveta-paleta" onClick={e => alternar('paleta', e.currentTarget)}>Elementos</Button>
+        <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'cores'} aria-controls="gaveta-cores" onClick={e => alternar('cores', e.currentTarget)}>Cores</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => setAbrirTemplates(true)}>Templates</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={ajustar}>Ajustar à tela</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>
-        <Button size="sm" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>
+        <Button size="sm" className="max-lg:h-10" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>
         {erroMapa && <span className="text-xs text-destructive">Não consegui ler o mapa: Salvar bloqueado. Recarregue a página.</span>}
         {sujo && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}
       </header>
       <div className="relative flex min-h-0 flex-1">
-      <div className={`mapa-gaveta absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] border-r border-border shadow-xl lg:static lg:z-auto lg:w-[280px] lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'paleta' ? 'translate-x-0' : '-translate-x-full'}`}>
-        <BarraPaleta ferramenta={ferr} onEscolher={id => { setFerr(id); setGaveta('') }} />
+      <div id="gaveta-paleta" className={`mapa-gaveta ${gaveta === 'paleta' ? 'mapa-gaveta-aberta' : 'max-lg:invisible'} flex flex-col absolute inset-y-0 left-0 z-20 w-72 max-w-[85vw] border-r border-border shadow-xl lg:static lg:z-auto lg:w-[280px] lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'paleta' ? 'translate-x-0' : '-translate-x-full'}`}>
+        <button type="button" onClick={() => setGaveta('')} className="h-10 flex-shrink-0 border-b border-border bg-card px-3 text-right text-sm text-primary underline lg:hidden">Fechar</button>
+        <div className="min-h-0 flex-1"><BarraPaleta ferramenta={ferr} onEscolher={id => { setFerr(id); setGaveta('') }} /></div>
       </div>
       <div ref={caixaRef} className="relative min-h-0 min-w-0 flex-1 bg-muted/40" style={{ cursor: criando ? 'crosshair' : ferr === 'pan' ? 'grab' : undefined }}>
         {tam.w > 0 && (
@@ -440,9 +448,10 @@ export default function EditorKonva() {
             </Layer>
           </Stage>
         )}
-        {versaoTemplate > 0 && <div key={versaoTemplate} aria-hidden className="mapa-fade pointer-events-none absolute inset-0 bg-background" />}
+        {versaoTemplate > 0 && <div key={versaoTemplate} aria-hidden onAnimationEnd={() => setVersaoTemplate(0)} className="mapa-fade pointer-events-none absolute inset-0 bg-background opacity-0" />}
       </div>
-      <aside className={`mapa-gaveta mapa-rolagem absolute inset-y-0 right-0 z-20 w-72 max-w-[85vw] space-y-5 overflow-y-auto overflow-x-hidden border-l border-border bg-card p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-60 lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'cores' ? 'translate-x-0' : 'translate-x-full'}`}>
+      <aside id="gaveta-cores" className={`mapa-gaveta ${gaveta === 'cores' ? 'mapa-gaveta-aberta' : 'max-lg:invisible'} mapa-rolagem absolute inset-y-0 right-0 z-20 w-72 max-w-[85vw] space-y-5 overflow-y-auto overflow-x-hidden border-l border-border bg-card p-3 text-sm shadow-xl lg:static lg:z-auto lg:w-60 lg:max-w-none lg:flex-shrink-0 lg:translate-x-0 lg:shadow-none ${gaveta === 'cores' ? 'translate-x-0' : 'translate-x-full'}`}>
+        <button type="button" onClick={() => setGaveta('')} className="ml-auto block h-10 text-sm text-primary underline lg:hidden">Fechar</button>
         <section aria-label="Cor da seção" className="space-y-2">
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Seções</h2>
           <ul className="space-y-1">

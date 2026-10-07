@@ -46,7 +46,7 @@ export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: st
         <div className="grid grid-cols-3 gap-1.5" role="group" aria-label="Navegação">
           {NAVEGACAO.map(({ id, nome, Icone }) => (
             <button key={id} type="button" aria-pressed={ferramenta === id} title={nome} onClick={() => onEscolher(id)}
-              className={`mapa-anim flex h-9 flex-col items-center justify-center rounded-md border text-xs ${ferramenta === id ? 'border-primary bg-primary/15 text-primary' : 'border-border hover:border-foreground/30 hover:bg-foreground/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
+              className={`mapa-anim flex h-9 max-lg:h-10 flex-col items-center justify-center rounded-md border text-xs ${ferramenta === id ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:border-foreground/30 hover:bg-foreground/5'} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring`}>
               <Icone className="h-4 w-4" aria-hidden /><span className="sr-only">{nome}</span>
             </button>
           ))}
@@ -56,7 +56,7 @@ export default function BarraPaleta({ ferramenta, onEscolher }: { ferramenta: st
           <input type="search" value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar elemento…" aria-label="Buscar elemento"
             className="h-9 w-full rounded-md border border-input bg-transparent pl-8 pr-8 text-sm outline-none [&::-webkit-search-cancel-button]:hidden focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50" />
           {busca && (
-            <button type="button" aria-label="Limpar busca" onClick={() => setBusca('')} className="absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-foreground/10">
+            <button type="button" aria-label="Limpar busca" onClick={() => setBusca('')} className="absolute right-0 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:bg-foreground/10">
               <X className="h-4 w-4" aria-hidden />
             </button>
           )}
