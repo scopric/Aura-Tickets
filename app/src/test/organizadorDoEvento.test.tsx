@@ -3,9 +3,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { renderHook } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
+import { MemoryRouter } from 'react-router-dom'
+import EventoConteudo from '../components/EventoConteudo'
+import type { DbEvent } from '../hooks/useEvents'
 import BlocoOrganizador from '../components/BlocoOrganizador'
 import { useOrganizadorDoEvento } from '../hooks/useOrganizadorDoEvento'
 
+vi.mock('../components/ThemeToggle', () => ({ default: () => null }))
 const rpc = vi.fn()
 vi.mock('../lib/supabase', () => ({ supabase: { rpc: (...a: unknown[]) => rpc(...a) } }))
 
@@ -86,5 +90,50 @@ describe('BlocoOrganizador', () => {
       outras_redes: [{ rotulo: 'A', url: 'javascript:alert(1)' }, { rotulo: 'B', url: 'http://x.com' }, { rotulo: 'C', url: 'https://user:pw@x.com' }],
     }} />)
     expect(screen.queryByRole('link')).toBeNull()
+  })
+
+  it('descarta valores perigosos de site, redes, instagram e e-mail com parâmetros', () => {
+    for (const o of [
+      { site: 'javascript:alert(1)' }, { site: 'http://a.com' }, { site: 'https://xn--bora-7qa.com' }, { site: 'https://evokaa-pagamento.com' },
+      { outras_redes: [{ rotulo: 'x', url: 'https://a@b.com' }] },
+      { outras_redes: [{ rotulo: 'Pague no PIX', url: 'https://a.com' }] },
+      { outras_redes: [{ rotulo: 'Pagamento', url: 'https://a.com' }] },
+      { outras_redes: [{ rotulo: 'Evokaa oficial', url: 'https://a.com' }] },
+      { instagram: 'a b' }, { instagram: '../x' },
+      { email: 'oi@x.com?subject=Pague&body=x' }, { email: 'oi@x.com#a' }, { email: 'o%i@x.com' },
+    ]) {
+      const { unmount } = render(<BlocoOrganizador titulo="X" organizador={{ nome: 'Bora', ...o }} />)
+      expect(screen.queryAllByRole('link'), JSON.stringify(o)).toHaveLength(0)
+      unmount()
+    }
+  })
+
+  it('links de nova aba avisam o leitor de tela; o mailto não', () => {
+    render(<BlocoOrganizador titulo="X" organizador={{ site: 'https://bora.com.br', email: 'oi@bora.com.br' }} />)
+    expect(screen.getByRole('link', { name: /Site.*abre em nova aba/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /E-mail/ }).textContent).not.toMatch(/nova aba/)
+  })
+})
+
+describe('EventoConteudo com o hook real', () => {
+  const evento = { id: 'e1', title: 'Baile do Sol', date: '2099-01-01', time: '22:00:00', status: 'published', venue_name: 'Casa', ticket_types: [] } as unknown as DbEvent
+  const montar = () => render(
+    <QueryClientProvider client={new QueryClient()}><MemoryRouter><EventoConteudo evento={evento} /></MemoryRouter></QueryClientProvider>,
+  )
+  beforeEach(() => rpc.mockReset())
+
+  it('mostra o bloco quando a RPC devolve dados', async () => {
+    rpc.mockResolvedValue({ data: { nome: 'Bora Dançar', site: 'https://bora.com.br' }, error: null })
+    montar()
+    expect(await screen.findByRole('region', { name: 'Organizador' })).toHaveTextContent('Bora Dançar')
+    expect(rpc).toHaveBeenCalledWith('organizador_publico', { p_evento: 'e1' })
+  })
+
+  it('não mostra nada quando a RPC devolve null', async () => {
+    rpc.mockResolvedValue({ data: null, error: null })
+    montar()
+    await waitFor(() => expect(rpc).toHaveBeenCalled())
+    await new Promise((r) => setTimeout(r, 20))
+    expect(screen.queryByRole('region', { name: 'Organizador' })).toBeNull()
   })
 })

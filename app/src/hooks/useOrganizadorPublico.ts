@@ -56,7 +56,10 @@ export function useOrganizadorPublico() {
       } as never)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chave }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: chave })
+      queryClient.invalidateQueries({ queryKey: ['organizador-publico-evento'] }) // a prévia da página pública não fica com o estado antigo
+    },
   })
 
   return {

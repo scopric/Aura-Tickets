@@ -68,14 +68,14 @@ Deno.serve(async (req) => {
 
   // 2..5: cada passo é idempotente; a primeira falha interrompe ANTES de mexer no login
   const steps: Array<[string, () => PromiseLike<{ error: { message: string } | null }>]> = [
+    // Bloco "Organizador" da página do evento (docs/sql/20261007_organizador_publico.sql): primeiro passo: falha parcial não deixa o bloco visível
+    ['producer_public', () => admin.from('producer_public').delete().eq('producer_id', uid)],
     // Perfil anonimizado (a linha fica: pedidos e ingressos apontam para ela)
     ['profiles', () => admin.from('profiles').update({
       email: anonEmail, full_name: 'Usuário removido', phone: null, cpf: null, avatar_url: null,
       bio: null, city: null, birth_date: null, instagram: null, tiktok: null, linkedin: null,
       website: null, stripe_customer_id: null, role: 'user', admin_permissions: [], is_verified: false,
     }).eq('id', uid)],
-    // Bloco "Organizador" da página do evento (docs/sql/20261007_organizador_publico.sql): sai antes de anonimizar o cadastro
-    ['producer_public', () => admin.from('producer_public').delete().eq('producer_id', uid)],
     // Cadastro de produtor: dados bancários e chaves fora (0 linhas se não for produtor)
     ['producer_profiles', () => admin.from('producer_profiles').update({
       company_name: 'Removido', cnpj: `REMOVIDO-${uid}`, stripe_account_id: null, woovi_account_id: null,
