@@ -71,7 +71,7 @@ export default function DestaqueCampo({ alvos: alvosVivos, indice, onIndice, onF
       )}
       <div
         ref={balao}
-        className="fixed inset-x-4 z-40 mx-auto grid max-w-80 gap-2 rounded-[10px] bg-card p-3 text-sm shadow-lg ring-1 ring-border"
+        className="fixed inset-x-4 z-40 mx-auto grid max-w-80 max-lg:left-3 max-lg:right-[76px] max-lg:mx-0 max-lg:max-w-none gap-2 rounded-[10px] bg-card p-3 text-sm shadow-lg ring-1 ring-border"
         style={embaixo ? { top: (caixa?.bottom ?? 80) + 16 } : { top: Math.max(8, (caixa?.top ?? 0) - altura - 16) }}
       >
         <p aria-live="polite" className="text-foreground"><span className="font-semibold tabular-nums">{Math.min(indice, alvos.length - 1) + 1} de {alvos.length}</span> · {alvo.msg}</p>
