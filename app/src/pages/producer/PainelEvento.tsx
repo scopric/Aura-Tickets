@@ -532,8 +532,8 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
   }
 
   return (
-    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[200px_minmax(0,1fr)_316px] min-[1180px]:gap-10">
-      <div className="hidden min-[1180px]:block">
+    <div className="mx-auto max-w-3xl min-[1180px]:grid min-[1180px]:max-w-6xl min-[1180px]:grid-cols-[minmax(0,1fr)_316px] min-[1440px]:grid-cols-[200px_minmax(0,1fr)_316px] min-[1180px]:gap-10">
+      <div className="hidden min-[1440px]:block">
         <LateralSecoes
           itens={SECOES.map(s => ({ id: s.id, nome: s.nome, pronta: pronta(s.id), faltam: alvos.filter(a => a.secao === s.id).length, atual: s.id === (guiado ? SECOES[passo].id : abertas[abertas.length - 1]) }))}
           onIr={abrir} prontos={prontos} total={lista.length}
@@ -674,9 +674,9 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
       {/* Match de Mesa: só com ingresso coletiva (o painel só abre para o dono) */}
       {evento.ticket_types?.some(t => t.type === 'coletiva') && <MatchDeMesaPanel eventId={evento.id} />}
 
-      {mostrarFaltas && alvos.length > 0 && (
-        <div className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] right-[76px] z-30 flex items-center justify-between gap-2 rounded-[10px] bg-card px-3 py-2 text-sm shadow-lg ring-1 ring-border lg:bottom-4 min-[1180px]:hidden">
-          <span className="font-medium text-[var(--ev-warning)]">Faltam {alvos.length}</span>
+      {mostrarFaltas && alvos.length > 0 && !guiado && destaque === null && (
+        <div className="fixed inset-x-3 bottom-[calc(76px+env(safe-area-inset-bottom,0px))] right-[76px] z-30 flex items-center justify-between gap-2 rounded-[10px] bg-card px-3 py-2 text-sm shadow-lg ring-1 ring-border md:bottom-4 min-[1440px]:hidden">
+          <span role="status" className="font-medium text-[var(--ev-warning)]">{alvos.length === 1 ? 'Falta 1 item' : `Faltam ${alvos.length} itens`}</span>
           <Button size="sm" onClick={() => irAoPasso(0)}>Próximo</Button>
         </div>
       )}
