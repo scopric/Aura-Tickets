@@ -58,7 +58,7 @@ describe('Compras', () => {
   })
   const pedido = (status: string) => ({ id: 'abcdef12-0000-4000-8000-000000000000', event_id: 'e1', status, payment_method: 'pix', total_amount: 55, events: { title: 'Noite' } })
   it('"Ver ingressos" só aparece em pedido pago e leva ao evento do pedido', () => {
-    for (const st of ['pending', 'failed', 'cancelled']) {
+    for (const st of ['pending', 'failed', 'cancelled', 'refunded']) {
       estado = { isLoading: false, isError: false, data: [pedido(st)] }
       const { unmount } = tela()
       expect(screen.queryByRole('link', { name: /Ver ingressos/ })).toBeNull()

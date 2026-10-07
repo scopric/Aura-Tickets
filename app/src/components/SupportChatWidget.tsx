@@ -189,7 +189,6 @@ type Campos = { nome: string; telefone: string; novidades: boolean; texto: strin
 
 function Formulario({ assunto, ir, textoInicial = '' }: { assunto: Assunto; ir: (t: Tela) => void; textoInicial?: string }) {
   const { user } = useAuth()
-  const config = useChatConfig()
   const contato = useMeuContato()
   const telPerfil = validarTelefoneBR(user?.phone) ? `+${(user?.phone ?? '').replace(/\D/g, '')}` : ''
   return (
@@ -206,6 +205,7 @@ function Formulario({ assunto, ir, textoInicial = '' }: { assunto: Assunto; ir: 
           <p role="status" className={`mx-4 mb-2 text-[11px] ${suave}`}>Não carregamos suas preferências salvas; confira os campos.</p>
         )}
         <CamposFormulario
+          key={assunto.id + textoInicial}
           assunto={assunto}
           ir={ir}
           // 1ª vez: nome do perfil e caixa de novidades desmarcada; depois, o que a pessoa já informou
@@ -218,7 +218,6 @@ function Formulario({ assunto, ir, textoInicial = '' }: { assunto: Assunto; ir: 
         />
         </>
       )}
-      {config.data && <p className={`px-4 pb-3 text-xs ${suave}`}>{config.data.prazo}</p>}
     </>
   )
 }
@@ -451,8 +450,9 @@ function Suporte({ publico, focarAoAbrir = false, assuntoInicial, textoInicial }
   const { data: assuntos } = useAssuntos(publico, !!assuntoInicial)
   const [aplicado, setAplicado] = useState<string | null>(null)
   const alvo = assuntoInicial ? assuntos?.find((x) => x.label === assuntoInicial) : undefined
-  if (alvo && aplicado !== assuntoInicial) { // ajuste durante o render (sem efeito): vale uma vez por pedido
-    setAplicado(assuntoInicial ?? null)
+  const chave = `${assuntoInicial}|${textoInicial ?? ''}`
+  if (alvo && aplicado !== chave) { // ajuste durante o render (sem efeito): vale uma vez por pedido/texto
+    setAplicado(chave)
     setTela({ t: 'form', assunto: alvo })
   }
   const raiz = useRef<HTMLDivElement>(null)
@@ -467,7 +467,7 @@ function Suporte({ publico, focarAoAbrir = false, assuntoInicial, textoInicial }
       {!user && <SemLogin />}
       {user && tela.t === 'inicio' && <Inicio ir={setTela} />}
       {user && tela.t === 'assuntos' && <Assuntos publico={publico} ir={setTela} />}
-      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} textoInicial={textoInicial} />}
+      {user && tela.t === 'form' && <Formulario assunto={tela.assunto} ir={setTela} textoInicial={tela.assunto.label === assuntoInicial ? textoInicial : undefined} />}
       {user && tela.t === 'conversa' && <TelaConversa id={tela.id} ir={setTela} />}
     </div>
   )

@@ -151,7 +151,7 @@ export default function AppOrders() {
                   <button type="button" onClick={() => abrirAjudaPedido(order.id, order.status === 'paid')} className="rounded-ev-md font-semibold text-primary hover:underline focus-visible:outline-none focus-visible:shadow-ev-foco">
                     Falar com o suporte sobre este pedido
                   </button>
-                  <span className="text-muted-foreground">{prazo ?? 'Prazo de resposta não informado.'}</span>
+                  <span className="text-muted-foreground">{prazo}</span>
                 </div>
               </li>
             )

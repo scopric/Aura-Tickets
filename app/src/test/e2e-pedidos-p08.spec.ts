@@ -45,6 +45,16 @@ test.describe('Compras P08', () => {
     await page.screenshot({ path: 'test-results/p08-pedidos.png', fullPage: true })
   })
 
+  test('dois cliques em pedidos diferentes: o campo traz o número do 2º', async ({ page }) => {
+    const ID2 = 'bbbbbbbb-0000-4000-8000-000000000002'
+    await abrir(page, () => ({ json: [pedido(ID, 'paid'), pedido(ID2, 'pending')] }))
+    const botoes = page.getByRole('button', { name: /Falar com o suporte sobre este pedido/ })
+    await botoes.nth(0).click()
+    await expect(page.getByLabel('Mensagem')).toHaveValue(new RegExp(ID))
+    await botoes.nth(1).click()
+    await expect(page.getByLabel('Mensagem')).toHaveValue(new RegExp(ID2))
+  })
+
   test('evento fora do ar: cartão "Evento indisponível" sem quebrar', async ({ page }) => {
     await abrir(page, () => ({ json: [pedido(ID, 'paid', { events: null })] }))
     await expect(page.getByRole('heading', { name: 'Evento indisponível' })).toBeVisible()
