@@ -35,6 +35,7 @@ export default function PrivacyPage() {
               <li>Dados de transações: histórico de compras (processado por parceiros)</li>
               <li>Dados de navegação: cookies e logs para melhorar a experiência</li>
               <li>Eventos salvos: os eventos que você marca com o coração, ligados à sua conta, com a data em que marcou. A lista não é mostrada ao produtor do evento nem a outras pessoas</li>
+              <li>Aviso de abertura das vendas ("Avise-me"): quando você pede, o evento, o seu cadastro (nome, e-mail e cidade), a data e a versão do texto do seu consentimento. O produtor do evento recebe o seu nome, e-mail e cidade e pode incluir você no CRM dele</li>
               <li>Uso do Evo, o assistente de inteligência artificial (só para produtores): as mensagens e os dados de planejamento que você envia, a imagem da planta do local que você envia ao leitor de planta do Lugar marcado e o registro de cada uso, conforme a seção 8</li>
               <li>Registros de acesso: data, hora e endereço IP de cada login, guardados por 6 meses por obrigação legal (Marco Civil da Internet, art. 15) e depois apagados automaticamente; e o registro do seu aceite dos Termos de Uso e desta Política (versão, data e IP), mantido enquanto a conta existir e, depois, pelo prazo de defesa de direitos</li>
             </ul>
@@ -47,6 +48,7 @@ export default function PrivacyPage() {
               <li>Criar e gerenciar sua conta</li>
               <li>Processar compras e emissão de ingressos</li>
               <li>Lembrar os eventos que você salvou, a seu pedido (base legal: execução do serviço a seu pedido, LGPD, art. 7º, V). A lista fica até você remover o evento dela ou excluir a conta. Se um evento salvo sair do ar, ele continua na tela Salvos como "fora do ar" e você pode removê-lo; a exclusão da conta apaga toda a lista</li>
+              <li>Avisar você, no aplicativo e por e-mail, quando as vendas de um evento abrirem, a seu pedido (base legal: consentimento, LGPD, art. 7º, I). Você retira o aviso a qualquer momento em "Remover aviso" na página do evento; a conta excluída apaga a inscrição. Os dados já compartilhados com o produtor ficam com ele, que passa a ser o controlador: o pedido de exclusão é feito ao produtor</li>
               <li>Enviar comunicações sobre eventos e atualizações (com seu consentimento)</li>
               <li>Oferecer o Evo, o assistente de inteligência artificial que ajuda o produtor a planejar e criar eventos (seção 8)</li>
               <li>Melhorar a plataforma e prevenir fraudes</li>
@@ -59,6 +61,7 @@ export default function PrivacyPage() {
             <p>Não vendemos seus dados. Compartilhamos apenas quando necessário:</p>
             <ul className="list-disc pl-5 space-y-1">
               <li>Com produtores de eventos que você adquire ingressos</li>
+              <li>Com o produtor do evento em que você pediu o aviso de abertura das vendas (nome, e-mail e cidade), conforme o seu consentimento</li>
               <li>Com processadores de pagamento para transações</li>
               <li>Com fornecedores de medição de audiência (Vercel e Google), que tratam os dados em nosso nome, conforme a seção 7</li>
               <li>Com o Google, que processa as conversas com o Evo e as plantas enviadas ao leitor de planta em nosso nome, conforme a seção 8</li>
