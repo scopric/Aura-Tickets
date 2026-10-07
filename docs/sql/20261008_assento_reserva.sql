@@ -219,7 +219,7 @@ begin
   exception when unique_violation then
     raise exception 'Lugar acabou de ser escolhido' using errcode = '22023';
   end;
-  return jsonb_build_object('order_id', v_order, 'expira_em', v_expira);
+  return jsonb_build_object('order_id', v_order, 'expira_em', v_expira, 'agora', now()); -- 'agora' para a contagem do navegador não depender do relógio dele
 end;
 $$;
 revoke execute on function public.reservar_assentos(uuid, text[]) from public, anon, authenticated;

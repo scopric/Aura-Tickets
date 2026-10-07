@@ -54,7 +54,7 @@ select is((select is_active from public.seating_maps where event_id = 'fc000000-
 select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-00000000000a', 'aal2');
 create temp table r1 as select public.reservar_assentos('fc000000-0000-4000-8000-0000000000e1', array['terreo:s1']) as r;
 grant select on r1 to authenticated;
-select ok((select (r->>'order_id') is not null and (r->>'expira_em')::timestamptz > now() + interval '9 minutes' from r1), 'reserva devolve order_id e expira_em em 10 min');
+select ok((select (r->>'order_id') is not null and (r->>'expira_em')::timestamptz > now() + interval '9 minutes' and (r->>'agora') is not null from r1), 'reserva devolve order_id e expira_em em 10 min');
 select results_eq($$select status, subtotal, service_fee, total from public.orders where id = (select (r->>'order_id')::uuid from r1)$$,
   $$values ('pending'::text, 50.00::numeric, 5.00::numeric, 55.00::numeric)$$, 'pedido pendente com preço do banco (50 + taxa 10% = 55)');
 select results_eq($$select quantity, unit_price from public.order_items where order_id = (select (r->>'order_id')::uuid from r1)$$,
