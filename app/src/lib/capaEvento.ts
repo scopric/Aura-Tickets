@@ -44,6 +44,7 @@ export async function prepararCapa(file: File, semente: string): Promise<CapaPro
   const maior = Math.max(w, h)
   let canvas: HTMLCanvasElement | null = null
   let blob: Blob | null = null
+  let semWebp = false // navegador que não grava webp (Safari antigo devolve PNG): só jpeg, começando em 0,85
   // Lado máximo cai (2000, 1600, 1200) até caber nos 2 MB do bucket; em cada lado, webp em 3 qualidades e jpeg como última
   for (const lado of LADOS) {
     const esc = Math.min(1, lado / maior) // só reduz; a proporção da arte fica
@@ -59,22 +60,32 @@ export async function prepararCapa(file: File, semente: string): Promise<CapaPro
         throw new Error('Não foi possível abrir essa foto. Escolha outro arquivo.')
       }
     }
+    // caminho sem opções: o bitmap vem no tamanho (e giro) do arquivo; o canvas segue as medidas dele para não esticar
+    const [cw, ch] = bmp.width === rw && bmp.height === rh ? [rw, rh]
+      : [Math.round(bmp.width * Math.min(1, lado / Math.max(bmp.width, bmp.height))), Math.round(bmp.height * Math.min(1, lado / Math.max(bmp.width, bmp.height)))]
     try {
       canvas = document.createElement('canvas')
-      canvas.width = rw
-      canvas.height = rh
+      canvas.width = cw
+      canvas.height = ch
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Seu navegador não conseguiu preparar a foto.')
       ctx.imageSmoothingQuality = 'high'
-      ctx.drawImage(bmp, 0, 0, rw, rh)
+      ctx.drawImage(bmp, 0, 0, cw, ch)
     } finally {
       bmp.close()
     }
-    for (const [tipo, q] of [['image/webp', 0.85], ['image/webp', 0.7], ['image/webp', 0.55], ['image/jpeg', 0.7]] as const) {
+    const tentativas = semWebp
+      ? [['image/jpeg', 0.85], ['image/jpeg', 0.7]] as const
+      : [['image/webp', 0.85], ['image/webp', 0.7], ['image/webp', 0.55], ['image/jpeg', 0.7]] as const
+    for (const [tipo, q] of tentativas) {
       blob = await gravar(canvas, tipo, q)
-      if (blob && blob.type !== tipo) blob = null // Safari antigo devolve PNG quando não grava webp: pula para o jpeg
+      if (blob && blob.type !== tipo) { // Safari antigo devolve PNG quando não grava webp: dali em diante, só jpeg
+        blob = null
+        if (tipo === 'image/webp') { semWebp = true; break }
+      }
       if (blob && blob.size <= SAIDA_MAX) break
     }
+    if (semWebp && !blob) for (const q of [0.85, 0.7]) { blob = await gravar(canvas, 'image/jpeg', q); if (blob && blob.size <= SAIDA_MAX) break }
     if (blob && blob.size <= SAIDA_MAX) break
   }
   if (!canvas || !blob || blob.size > SAIDA_MAX) throw new Error('Não foi possível reduzir a foto. Escolha outra.')

@@ -64,3 +64,22 @@ describe('prepararCapa', () => {
     await expect(preparar(2000, 2000, () => 3 * 1024 * 1024)).rejects.toThrow('Não foi possível reduzir')
   })
 })
+
+describe('prepararCapa sem webp (Safari antigo devolve PNG)', () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks() })
+
+  it('vai em jpeg começando em 0,85, sem tentar webp de novo', async () => {
+    vi.stubGlobal('createImageBitmap', async () => ({ width: 1080, height: 1350, close: () => {} }))
+    vi.stubGlobal('Image', class { naturalWidth = 1080; naturalHeight = 1350; onload: (() => void) | null = null; set src(_: string) { queueMicrotask(() => this.onload?.()) } })
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as never)
+    const pedidos: [string, number][] = []
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation(function (ok: BlobCallback, tipo?: string, q?: number) {
+      pedidos.push([tipo ?? '', q ?? 0])
+      ok(new Blob(['x'], { type: tipo === 'image/webp' ? 'image/png' : tipo }))
+    })
+    vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:previa', revokeObjectURL: () => {} }))
+    const capa = await prepararCapa(new File(['x'], 'arte.jpg', { type: 'image/jpeg' }), 'e1')
+    expect(capa.blob.type).toBe('image/jpeg')
+    expect(pedidos).toEqual([['image/webp', 0.85], ['image/jpeg', 0.85]])
+  })
+})

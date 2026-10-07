@@ -114,7 +114,7 @@ export default function EventCarousel() {
                 }`}
                 style={{ transitionDuration: '10000ms' }}
               >
-                <EventoCapa evento={event} tamanho="faixa" prioridade={i === 0} />
+                <EventoCapa evento={event} tamanho="faixa" prioridade /> {/* todos os slides: carregam já, não só na troca */}
               </div>
 
               {/* Degradê escuro de sobreposição para contraste perfeito de leitura */}
