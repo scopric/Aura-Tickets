@@ -37,7 +37,7 @@ begin
 
   select greatest(
            (select count(*) from public.tickets t
-             where t.ticket_type_id = old.id and t.status not in ('cancelled', 'refunded')),
+             where t.ticket_type_id = old.id and coalesce(t.status, 'active') not in ('cancelled', 'refunded')),
            coalesce(old.sold, 0), coalesce(old.quantity_sold, 0))
     into v_vendido;
 
