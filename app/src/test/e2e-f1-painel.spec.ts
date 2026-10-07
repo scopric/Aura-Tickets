@@ -23,7 +23,7 @@ type Banco = {
 const evento = (o: Linha = {}): Linha => ({
   id: EVENTO, producer_id: PRODUTOR, title: 'Noite de teste', subtitle: null, slug: 'noite-de-teste', description: 'Curta', category: null,
   temas: [], estilos: [], tags: [], date: null, time: null, start_date: '2026-10-04T12:00:00Z', end_date: null, local_modo: 'presencial',
-  venue_name: null, venue_address: null, venue_city: null, venue_state: null, venue_zip: null, classificacao: null, accent_color: null,
+  venue_name: null, venue_address: null, venue_city: null, venue_state: null, venue_zip: null, classificacao: null, accent_color: null, capa_na_cor: false,
   cover_image: null, image_url: null, status: 'draft', approval_status: 'pending', rejection_reason: null, created_at: '2026-10-01T00:00:00Z', ...o,
 })
 const ingresso = (o: Linha = {}): Linha => ({
@@ -67,7 +67,7 @@ async function montarBanco(page: Page, ini: Partial<Banco> & { evento: Linha }):
       db.chamadas.push(`PATCH events ${Object.keys(body).join(',')}`)
       // o gatilho do banco: rascunho que vira published fica pending (PR3a); mudar conteúdo de evento aprovado também (F0a)
       if (body.status === 'published' && db.evento.status !== 'published') db.evento.approval_status = 'pending'
-      else if (db.evento.status === 'published' && db.evento.approval_status === 'approved' && Object.keys(body).some(k => k !== 'accent_color')) db.evento.approval_status = 'pending'
+      else if (db.evento.status === 'published' && db.evento.approval_status === 'approved' && Object.keys(body).some(k => !['accent_color', 'capa_na_cor'].includes(k))) db.evento.approval_status = 'pending'
       Object.assign(db.evento, body)
       return route.fulfill({ json: { id: EVENTO, updated_at: new Date().toISOString() } })
     }
@@ -861,6 +861,25 @@ test.describe('painel do evento: aceite pendente, saída com mudanças e link po
     await expect(page.getByText(/Alterações não enviadas/)).toHaveCount(0)
     expect(db.evento.approval_status).toBe('approved')
     expect(db.chamadas).toEqual(['PATCH events accent_color'])
+  })
+
+  test('evento no ar: trocar para "Na cor do evento" salva na hora (capa_na_cor), sem análise, e a prévia vira duotone', async ({ page }) => {
+    const FOTO = 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/capas-eventos/p/e/aaaaaaaa.png'
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+    await page.route(FOTO, route => route.fulfill({ contentType: 'image/png', body: png }))
+    const db = await montarBanco(page, { evento: aprovado({ cover_image: FOTO, image_url: FOTO }), ingressos: [ingresso()] })
+    await entrarProdutor(page)
+    await abrirPainel(page)
+    await abre(page, /^Imagem/)
+    await expect(page.getByRole('radio', { name: 'Foto original' })).toBeChecked()
+    await expect(page.locator('.evcapa-duo')).toHaveCount(0)
+    await salva(page, db, () => page.getByRole('radio', { name: 'Na cor do evento' }).click())
+    expect(db.patches.at(-1)).toEqual({ capa_na_cor: true })
+    await expect(page.locator('.evcapa-duo').first()).toBeVisible()
+    await expect(page.getByText('Salvo: vale na hora')).toBeVisible()
+    await expect(page.getByText(/Alterações não enviadas/)).toHaveCount(0)
+    expect(db.evento.approval_status).toBe('approved')
+    expect(db.chamadas).toEqual(['PATCH events capa_na_cor'])
   })
 
   test('nome vazio (ou só espaços) não é gravado: mostra o erro e espera', async ({ page }) => {

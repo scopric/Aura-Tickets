@@ -6,11 +6,12 @@ import { prepararCapa, type CapaPronta } from '../../lib/capaEvento'
 import { temFoto } from '../../lib/corEvento'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 
 // Campo "capa e cor do evento" do painel do evento (PainelEvento). A foto é preparada
 // aqui (reduz e tira EXIF) mas só é enviada quando o pai salva: o banco não deixa apagar arquivo, então enviar a cada
 // escolha encheria o limite de 10 por evento.
-export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemover, cor, corManual, onCor, podeEnviar = true, avisoAnalise = false, ocupado: salvando = false }: {
+export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemover, cor, corManual, onCor, naCor, onNaCor, podeEnviar = true, avisoAnalise = false, ocupado: salvando = false }: {
   evento: EventoCapaDados // título, data e id (semente do cartaz e do sorteio de cor) da prévia
   urlAtual?: string | null // capa já salva no evento (painel); some quando a pessoa remove
   capa: CapaPronta | null
@@ -19,6 +20,8 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
   cor: string
   corManual: boolean // a pessoa já escolheu a cor: uma foto nova não a troca pela sugestão
   onCor: (c: string, manual: boolean) => void
+  naCor: boolean // Decisão 173: false = foto original (padrão); true = duotone na cor do evento
+  onNaCor: (v: boolean) => void
   podeEnviar?: boolean // só o dono do evento envia (a regra do Storage exige o dono no caminho)
   avisoAnalise?: boolean // painel: trocar a capa manda o evento para nova análise (Decisão 136)
   ocupado?: boolean // o pai está salvando: trava as escolhas
@@ -53,7 +56,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
 
   return (
     <div className="grid gap-4 sm:grid-cols-[minmax(0,15rem)_1fr]">
-      <EventoCapa evento={{ ...evento, cover_image: capa?.previewUrl ?? urlAtual ?? null, image_url: null }} cor={cor} tamanho="cartao" />
+      <EventoCapa evento={{ ...evento, cover_image: capa?.previewUrl ?? urlAtual ?? null, image_url: null, capa_na_cor: naCor }} cor={cor} tamanho="cartao" />
       <div className="space-y-4">
         {podeEnviar ? (
           <div className="space-y-2">
@@ -74,6 +77,24 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
         ) : (
           <p className="text-sm text-muted-foreground">Só o dono do evento troca a foto de capa.</p>
         )}
+        {temCapa && (
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium text-foreground">Como a capa aparece</legend>
+            <RadioGroup value={naCor ? 'cor' : 'original'} onValueChange={v => onNaCor(v === 'cor')} disabled={salvando} aria-label="Como a capa aparece" className="gap-2">
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="original" id={`${id}-orig`} />
+                <Label htmlFor={`${id}-orig`} className="font-normal">Foto original</Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <RadioGroupItem value="cor" id={`${id}-na-cor`} />
+                <Label htmlFor={`${id}-na-cor`} className="font-normal">Na cor do evento</Label>
+              </div>
+            </RadioGroup>
+            <p className="text-xs text-muted-foreground">
+              {naCor ? 'A foto vira um retrato em tons da cor do evento, preenchendo o espaço (as bordas podem cortar a arte).' : 'A arte aparece inteira, com as cores reais. O espaço que sobra é preenchido pela própria foto desfocada.'}
+            </p>
+          </fieldset>
+        )}
         <div className="grid gap-1.5">
           <Label htmlFor={`${id}-cor`}>Cor do evento</Label>
           <div className="flex items-center gap-3">
@@ -81,7 +102,7 @@ export default function CapaEventoCampo({ evento, urlAtual, capa, onCapa, onRemo
               className="h-9 w-14 cursor-pointer rounded-md border border-input bg-transparent p-1 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50" />
             <span className="text-xs tabular-nums text-muted-foreground">{cor}</span>
           </div>
-          <p className="text-xs text-muted-foreground">Tinge a capa, o ingresso e os gráficos do evento. A sugestão vem da foto; você pode trocar.</p>
+          <p className="text-xs text-muted-foreground">Tinge o ingresso e os gráficos do evento (e a capa, em "Na cor do evento"). A sugestão vem da foto; você pode trocar.</p>
         </div>
         {avisoAnalise && podeEnviar && (
           <p className="rounded-lg border border-border bg-muted p-3 text-sm text-foreground">

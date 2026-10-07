@@ -486,6 +486,7 @@ function Painel({ evento, linkInicial, vendidosPorId, ultimoAceite }: { evento: 
           urlAtual={removida ? null : urlAtual} capa={capa} onCapa={setCapa}
           onRemover={() => setRemovida(temFoto(urlAtual))}
           cor={cor} corManual={corManual} onCor={(valor, manual) => { set({ accent_color: valor }); if (manual) setCorManual(true) }}
+          naCor={form.capa_na_cor} onNaCor={v => set({ capa_na_cor: v })}
           ocupado={enviando} avisoAnalise={modo === 'publicado'}
         />
       )

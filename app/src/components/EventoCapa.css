@@ -20,6 +20,13 @@
 .evcapa-duo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 42%; filter: grayscale(1) contrast(1.55) brightness(1.7); mix-blend-mode: multiply; }
 .evcapa-duo::after { content: ""; position: absolute; inset: 0; background: var(--duo-sombra); mix-blend-mode: lighten; pointer-events: none; }
 
+/* Foto original (Decisão 173): a arte inteira (contain) sobre a propria foto desfocada e escurecida; scale esconde a borda do blur.
+   Miniaturas: so cover, sem fundo. */
+.evcapa-orig { position: absolute; inset: 0; background: #0b0d12; isolation: isolate; }
+.evcapa-orig img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
+.evcapa-orig img.evcapa-fundo { object-fit: cover; filter: blur(24px) brightness(0.55) saturate(1.15); transform: scale(1.2); }
+.evcapa-mini .evcapa-orig img, .evcapa-mini-p .evcapa-orig img { object-fit: cover; object-position: 50% 42%; }
+
 /* Cartaz: campo chapado na cor do evento, reticula e grao (as duas unicas texturas) */
 .evcapa-cz { position: absolute; inset: 0; container-type: size; background: var(--cz); color: var(--cz-tinta); font-family: 'Archivo', 'Plus Jakarta Sans', sans-serif; font-weight: 800; font-stretch: 112%; text-transform: uppercase; --cz-ponto: color-mix(in srgb, var(--cz-tinta) 26%, transparent); --cz-ret: 0 0 46% 44%; }
 .evcapa-cz::before { content: ""; position: absolute; inset: var(--cz-ret); background-image: radial-gradient(circle, var(--cz-ponto) 0 30%, transparent 34%); background-size: 5px 5px; pointer-events: none; }

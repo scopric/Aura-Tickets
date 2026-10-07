@@ -139,6 +139,7 @@ export function copiaDoEvento(e: DbEvent): { event: Partial<DbEvent>; tickets: P
       cover_image: FOTO_PADRAO, // a foto do original não vai: a trava do banco aceita só a pasta do próprio evento
       image_url: FOTO_PADRAO,
       accent_color: e.accent_color,
+      capa_na_cor: e.capa_na_cor,
       category: e.category,
       temas: e.temas,
       estilos: e.estilos,

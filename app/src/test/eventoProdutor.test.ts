@@ -124,7 +124,7 @@ describe('copiaDoEvento', () => {
     id: 'e1', slug: 'festa-1', producer_id: 'p1', title: 'Festa', status: 'published', approval_status: 'approved',
     date: '2026-11-30', time: '20:00:00', start_date: '2026-11-30T23:00:00Z', end_date: '2026-12-01T04:00:00Z',
     category: 'show', temas: ['musica'], estilos: ['forro'], classificacao: 'A16', local_modo: 'hibrido', cover_image: 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp',
-    image_url: 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp', accent_color: '#a55c65', ticket_types: [tipo({}), tipo({ id: 't2', name: 'Oculto', is_active: false })],
+    image_url: 'https://x.supabase.co/storage/v1/object/public/capas-eventos/p1/e1/aaaaaaaa.webp', accent_color: '#a55c65', capa_na_cor: true, ticket_types: [tipo({}), tipo({ id: 't2', name: 'Oculto', is_active: false })],
   } as unknown as DbEvent
   const { event, tickets } = copiaDoEvento(evento)
 
@@ -143,6 +143,7 @@ describe('copiaDoEvento', () => {
     expect(event.cover_image).toBe('/images/hero-bg.jpg')
     expect(event.image_url).toBe('/images/hero-bg.jpg')
     expect(event.accent_color).toBe('#a55c65')
+    expect(event.capa_na_cor).toBe(true)
   })
   it('ingresso com bebida continua com bebida na cópia', () => {
     const { tickets: t } = copiaDoEvento({ ...evento, ticket_types: [tipo({ inclui_bebida: true }), tipo({ name: 'Pista' })] } as DbEvent)

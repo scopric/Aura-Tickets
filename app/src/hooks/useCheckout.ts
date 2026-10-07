@@ -20,6 +20,7 @@ export interface DbOrder {
   events?: {
     title: string
     cover_image: string | null
+    capa_na_cor?: boolean | null
     date: string | null
     time: string | null
     venue_name: string | null
@@ -58,6 +59,7 @@ export interface DbTicket {
     // só a carteira (useUserTickets) preenche estes; a cor e o endereço do ingresso (V10a)
     image_url?: string | null
     accent_color?: string | null
+    capa_na_cor?: boolean | null
     end_date?: string | null
     status?: string | null
     venue_address?: string | null
@@ -199,6 +201,7 @@ export function useUserOrders() {
           events (
             title,
             cover_image,
+            capa_na_cor,
             date,
             time,
             venue_name,
@@ -261,6 +264,7 @@ export function useUserTickets() {
               cover_image,
               image_url,
               accent_color,
+              capa_na_cor,
               date,
               end_date,
               status,
@@ -335,6 +339,7 @@ export function useOrderTickets(orderId?: string) {
               id,
               title,
               cover_image,
+              capa_na_cor,
               date,
               time,
               venue_name
@@ -357,6 +362,7 @@ export function useOrderTickets(orderId?: string) {
           id: t.ticket_types.events.id,
           title: t.ticket_types.events.title,
           cover_image: t.ticket_types.events.cover_image,
+          capa_na_cor: t.ticket_types.events.capa_na_cor,
           date: t.ticket_types.events.date,
           time: t.ticket_types.events.time,
           venue_name: t.ticket_types.events.venue_name,
