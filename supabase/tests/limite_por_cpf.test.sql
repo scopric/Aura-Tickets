@@ -6,7 +6,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(18);
+select plan(22);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -134,6 +134,30 @@ select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000009');
 update public.ticket_types set max_por_cpf = 5 where id = 'fc000000-0000-4000-8000-0000000000b0';
 select pg_temp.como('postgres');
 select is((select max_por_cpf from public.ticket_types where id = 'fc000000-0000-4000-8000-0000000000b0'), 5, 'produtor grava max_por_cpf');
+
+-- lugar marcado x limite por CPF (fatia 1: o banco recusa a combinação nos dois sentidos)
+select pg_temp.como('postgres');
+insert into public.ticket_types (id, event_id, name, price, quantity_total) values
+  ('fc000000-0000-4000-8000-0000000000b4', 'fc000000-0000-4000-8000-0000000000e1', 'Mesa', 50, 100);
+insert into public.events (id, producer_id, title, slug, status, approval_status, start_date) values
+  ('fc000000-0000-4000-8000-0000000000e2', 'fc000000-0000-4000-8000-000000000008', 'CPF 2', 'cpf-e2', 'published', 'approved', now() + interval '7 days');
+insert into public.seating_maps (event_id, is_active, environments) values ('fc000000-0000-4000-8000-0000000000e1', true,
+  '[{"id":"a","seats":[],"sections":[{"id":"s","ticketTypeId":"fc000000-0000-4000-8000-0000000000b4"},{"id":"x","ticketTypeId":7},"lixo"]},"lixo"]');
+select pg_temp.como('authenticated', 'fc000000-0000-4000-8000-000000000009');
+select throws_ok($$update public.ticket_types set max_por_cpf = 2 where id = 'fc000000-0000-4000-8000-0000000000b4'$$, '22023',
+  'Este ingresso é vendido por lugar marcado: não use limite por CPF nele', 'limite por CPF em tipo do mapa ativo é recusado');
+select lives_ok($$update public.ticket_types set max_por_cpf = 3 where id = 'fc000000-0000-4000-8000-0000000000b2'$$, 'tipo fora do mapa aceita limite');
+select throws_ok($$update public.seating_maps set environments =
+  '[{"id":"a","seats":[],"sections":[{"id":"s","ticketTypeId":"fc000000-0000-4000-8000-0000000000b1"}]}]'
+  where event_id = 'fc000000-0000-4000-8000-0000000000e1'$$, '22023',
+  'Este setor usa um ingresso com limite por CPF: tire o limite do ingresso antes de ligar o setor ao mapa', 'mapa com tipo limitado é recusado');
+select pg_temp.como('postgres');
+select lives_ok($$update public.seating_maps set is_active = false, environments =
+  '[{"id":"a","seats":[],"sections":[{"id":"s","ticketTypeId":"fc000000-0000-4000-8000-0000000000b1"}]}]'
+  where event_id = 'fc000000-0000-4000-8000-0000000000e1';
+  insert into public.seating_maps (event_id, is_active, environments) values ('fc000000-0000-4000-8000-0000000000e2', true,
+  '[{"id":"a","seats":[],"sections":[{"id":"s","ticketTypeId":"fc000000-0000-4000-8000-0000000000b1"}]}]')$$,
+  'mapa inativo e mapa de outro evento não bloqueiam');
 
 select * from finish();
 rollback;

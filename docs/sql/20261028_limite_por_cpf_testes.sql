@@ -47,6 +47,17 @@ insert into public.ticket_types (id, event_id, name, price, quantity_total, max_
   (pg_temp.u(21), pg_temp.u(10), 'Limitado', 50, 0, 2),
   (pg_temp.u(22), pg_temp.u(10), 'Outro', 50, 100, 2),
   (pg_temp.u(23), pg_temp.u(10), 'Grátis', 0, 100, 3);
+-- lugar marcado (T20–T23): 24 sem limite no evento 10; evento 11 de outro produtor
+insert into public.ticket_types (id, event_id, name, price, quantity_total, max_por_cpf)
+values (pg_temp.u(24), pg_temp.u(10), 'Mesa', 50, 100, null);
+insert into public.events (id, producer_id, title, slug, status, approval_status, start_date)
+values (pg_temp.u(11), pg_temp.u(8), 'Evento CPF 2', 'cpf-11', 'published', 'approved', now() + interval '7 days');
+create function pg_temp.mapa(tts text[]) returns jsonb language sql as $f$
+  select jsonb_build_array(jsonb_build_object('id', 'a', 'seats', '[]'::jsonb,
+           'sections', (select coalesce(jsonb_agg(jsonb_build_object('id', 's' || i, 'ticketTypeId', tts[i])), '[]'::jsonb)
+                          from generate_subscripts(tts, 1) i) || '[{"id":"x","ticketTypeId":123},"lixo"]'::jsonb),
+         'lixo', jsonb_build_object('sections', 'não é array')) $f$;
+grant execute on function pg_temp.mapa(text[]) to authenticated;
 
 do $$
 declare r text; h1 bytea; h2 bytea;
@@ -183,6 +194,48 @@ begin
     raise exception 'T14 produtor não gravou max_por_cpf: %', r;
   end if;
   raise notice 'T14 OK';
+
+  -- T22a: mapa ativo do produtor SEM tipo limitado (e com JSON estranho) salva
+  perform pg_temp.como(pg_temp.u(9));
+  r := pg_temp.erro(format('insert into public.seating_maps (event_id, environments, is_active) values (%L, %L, true)',
+                           pg_temp.u(10), pg_temp.mapa(array[pg_temp.u(24)::text])));
+  perform pg_temp.como(null);
+  if r <> 'ok' then raise exception 'T22a mapa sem limite: %', r; end if;
+  raise notice 'T22a OK';
+
+  -- T20: limite por CPF em tipo que está no mapa ativo é recusado (pelo produtor)
+  perform pg_temp.como(pg_temp.u(9));
+  r := pg_temp.erro(format('update public.ticket_types set max_por_cpf = 2 where id = %L', pg_temp.u(24)));
+  perform pg_temp.como(null);
+  if r <> '22023 Este ingresso é vendido por lugar marcado: não use limite por CPF nele' then raise exception 'T20: %', r; end if;
+  raise notice 'T20 OK';
+
+  -- T21: tipo fora do mapa aceita limite
+  r := pg_temp.erro(format('update public.ticket_types set max_por_cpf = 3 where id = %L', pg_temp.u(22)));
+  if r <> 'ok' then raise exception 'T21: %', r; end if;
+  raise notice 'T21 OK';
+
+  -- T22: salvar (upsert do painel) ou ligar o mapa com setor de tipo limitado é recusado
+  perform pg_temp.como(pg_temp.u(9));
+  r := pg_temp.erro(format('insert into public.seating_maps (event_id, environments, is_active) values (%L, %L, true)
+                            on conflict (event_id) do update set environments = excluded.environments, is_active = excluded.is_active',
+                           pg_temp.u(10), pg_temp.mapa(array[pg_temp.u(24)::text, upper(pg_temp.u(21)::text)])));
+  perform pg_temp.como(null);
+  if r <> '22023 Este setor usa um ingresso com limite por CPF: tire o limite do ingresso antes de ligar o setor ao mapa' then
+    raise exception 'T22 upsert: %', r;
+  end if;
+  update public.seating_maps set is_active = false, environments = pg_temp.mapa(array[pg_temp.u(21)::text]) where event_id = pg_temp.u(10);
+  r := pg_temp.erro(format('update public.seating_maps set is_active = true where event_id = %L', pg_temp.u(10)));
+  if r not like '22023 Este setor usa%' then raise exception 'T22 ligar: %', r; end if;
+  raise notice 'T22 OK';
+
+  -- T23: mapa INATIVO (acima, gravou) e mapa de OUTRO evento apontando para o tipo limitado não bloqueiam
+  r := pg_temp.erro(format('insert into public.seating_maps (event_id, environments, is_active) values (%L, %L, true)',
+                           pg_temp.u(11), pg_temp.mapa(array[pg_temp.u(21)::text])));
+  if r <> 'ok' then raise exception 'T23 mapa de outro evento: %', r; end if;
+  r := pg_temp.erro(format('update public.ticket_types set max_por_cpf = 1 where id = %L', pg_temp.u(21)));
+  if r <> 'ok' then raise exception 'T23 tipo com mapa inativo/de outro evento: %', r; end if;
+  raise notice 'T23 OK';
 end $$;
 
 rollback;

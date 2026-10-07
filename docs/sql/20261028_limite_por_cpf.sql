@@ -21,6 +21,13 @@
 --    service_role): por tipo com max_por_cpf, este pedido + os 'paid' de outros pedidos do mesmo hash; acima = mesma
 --    mensagem sem contagem. Mesma trava (tipo, hash), tipos em ordem de id. Roda depois de orders_pago_assento_guard
 --    (ordem alfabética). confirmar_pedido_gratis também passa por ele ao gravar 'paid' (confere o mesmo que ela).
+-- 3c. LIMITAÇÃO CONSCIENTE DA FATIA 1: limite por CPF NÃO vale em ingresso de lugar marcado. O pedido de assento nasce
+--    em reservar_assentos (20261008) sem CPF e os itens entram antes de pedido_assentos, então o guard recusaria toda
+--    compra de lugar. O banco recusa a combinação nos dois sentidos: max_por_cpf em tipo ligado a setor do mapa ATIVO
+--    do evento (gatilho ticket_types_cpf_sem_mapa, função tipo_no_mapa) e mapa ativo com setor ligado a tipo com
+--    max_por_cpf do mesmo evento (gatilho seating_maps_sem_cpf, no INSERT e no UPDATE de environments, is_active ou
+--    event_id: vale para o upsert do painel e para PATCH direto). JSON estranho no mapa é ignorado, não quebra o save.
+--    A decisão definitiva (passar o CPF para reservar_assentos) fica para depois (pendência).
 -- 4. confirmar_pedido_gratis (recriada a partir de PRODUÇÃO, md5 565433ef…): além do limite por conta (continua), o
 --    mesmo limite por CPF contando pedidos 'paid' do mesmo hash, de qualquer conta. Mesma mensagem sem contagem.
 -- 5. Colunas e grants: customer_cpf_hmac nasce SEM SELECT para anon e authenticated (a E4, 20261011, concede SELECT
@@ -49,6 +56,11 @@ begin
   if to_regclass('public.orders') is null or to_regclass('public.order_items') is null
      or to_regclass('public.ticket_types') is null or to_regclass('public.pedido_assentos') is null then
     raise exception 'faltam orders, order_items, ticket_types ou pedido_assentos';
+  end if;
+  if to_regclass('public.seating_maps') is null
+     or not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'seating_maps'
+                     and column_name = 'environments') then
+    raise exception 'falta public.seating_maps.environments';
   end if;
   if to_regprocedure('public.pr7_hmac(text)') is null or to_regprocedure('public.gf_cpf_valido(text)') is null
      or to_regprocedure('public.order_items_estoque_guard()') is null
@@ -224,6 +236,68 @@ create trigger orders_pago_cpf_guard before update of status on public.orders
   for each row when (new.status = 'paid' and old.status is distinct from 'paid')
   execute function public.orders_pago_cpf_guard();
 
+-- 3c. Lugar marcado e limite por CPF não se misturam (fatia 1) -----------------------------------------------------------
+-- tipo ligado a algum setor (sections[].ticketTypeId) do mapa ATIVO do evento do tipo; JSON estranho é ignorado
+create or replace function public.tipo_no_mapa(p_tt uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+      from public.ticket_types tt
+      join public.seating_maps m on m.event_id = tt.event_id and m.is_active
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(m.environments) = 'array' then m.environments else '[]'::jsonb end) env(value)
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(env.value->'sections') = 'array' then env.value->'sections' else '[]'::jsonb end) sec(value)
+     where tt.id = p_tt and lower(sec.value->>'ticketTypeId') = p_tt::text);
+$$;
+revoke all on function public.tipo_no_mapa(uuid) from public, anon, authenticated;
+
+create or replace function public.ticket_types_cpf_sem_mapa()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if public.tipo_no_mapa(new.id) then
+    raise exception 'Este ingresso é vendido por lugar marcado: não use limite por CPF nele' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.ticket_types_cpf_sem_mapa() from public, anon, authenticated;
+drop trigger if exists ticket_types_cpf_sem_mapa on public.ticket_types;
+create trigger ticket_types_cpf_sem_mapa before insert or update of max_por_cpf on public.ticket_types
+  for each row when (new.max_por_cpf is not null)
+  execute function public.ticket_types_cpf_sem_mapa();
+
+create or replace function public.seating_maps_sem_cpf()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if exists (
+    select 1
+      from jsonb_array_elements(case when jsonb_typeof(new.environments) = 'array' then new.environments else '[]'::jsonb end) env(value)
+      cross join lateral jsonb_array_elements(case when jsonb_typeof(env.value->'sections') = 'array' then env.value->'sections' else '[]'::jsonb end) sec(value)
+      join public.ticket_types tt on tt.id::text = lower(sec.value->>'ticketTypeId')
+     where tt.event_id = new.event_id and tt.max_por_cpf is not null) then
+    raise exception 'Este setor usa um ingresso com limite por CPF: tire o limite do ingresso antes de ligar o setor ao mapa' using errcode = '22023';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function public.seating_maps_sem_cpf() from public, anon, authenticated;
+drop trigger if exists seating_maps_sem_cpf on public.seating_maps;
+create trigger seating_maps_sem_cpf before insert or update of environments, is_active, event_id on public.seating_maps
+  for each row when (new.is_active)
+  execute function public.seating_maps_sem_cpf();
+
 -- 4. Pedido gratuito (produção + limite por CPF) ----------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.confirmar_pedido_gratis(p_order uuid)
  RETURNS integer
@@ -334,15 +408,18 @@ begin
     raise exception 'coluna customer_cpf_hmac ou max_por_cpf ausente';
   end if;
   if (select count(*) from pg_trigger where tgname in ('orders_cpf_hash', 'orders_pago_cpf_guard')
-        and tgrelid = 'public.orders'::regclass and tgenabled = 'O') <> 2 then
-    raise exception 'gatilho orders_cpf_hash ou orders_pago_cpf_guard ausente ou desligado';
+        and tgrelid = 'public.orders'::regclass and tgenabled = 'O') <> 2
+     or not exists (select 1 from pg_trigger where tgname = 'ticket_types_cpf_sem_mapa' and tgrelid = 'public.ticket_types'::regclass and tgenabled = 'O')
+     or not exists (select 1 from pg_trigger where tgname = 'seating_maps_sem_cpf' and tgrelid = 'public.seating_maps'::regclass and tgenabled = 'O') then
+    raise exception 'gatilho do limite por CPF ausente ou desligado';
   end if;
   if position('limite por CPF (20261028)' in pg_get_functiondef('public.order_items_estoque_guard()'::regprocedure)) = 0
      or position('limite por CPF (20261028)' in pg_get_functiondef('public.confirmar_pedido_gratis(uuid)'::regprocedure)) = 0 then
     raise exception 'função recriada sem a marca do limite por CPF';
   end if;
   foreach r in array array['anon', 'authenticated'] loop
-    foreach f in array array['public.orders_cpf_hash()', 'public.order_items_estoque_guard()', 'public.orders_pago_cpf_guard()'] loop
+    foreach f in array array['public.orders_cpf_hash()', 'public.order_items_estoque_guard()', 'public.orders_pago_cpf_guard()',
+                           'public.tipo_no_mapa(uuid)', 'public.ticket_types_cpf_sem_mapa()', 'public.seating_maps_sem_cpf()'] loop
       if has_function_privilege(r, f, 'execute') then raise exception '% pode executar %', r, f; end if;
     end loop;
     if has_column_privilege(r, 'public.orders', 'customer_cpf_hmac', 'select') then
@@ -370,6 +447,9 @@ commit;
 -- com pg_get_functiondef ANTES de aplicar este arquivo e guardar), depois:
 --   drop trigger if exists orders_cpf_hash on public.orders; drop function if exists public.orders_cpf_hash();
 --   drop trigger if exists orders_pago_cpf_guard on public.orders; drop function if exists public.orders_pago_cpf_guard();
+--   drop trigger if exists ticket_types_cpf_sem_mapa on public.ticket_types; drop function if exists public.ticket_types_cpf_sem_mapa();
+--   drop trigger if exists seating_maps_sem_cpf on public.seating_maps; drop function if exists public.seating_maps_sem_cpf();
+--   drop function if exists public.tipo_no_mapa(uuid);
 --   drop index if exists public.orders_customer_cpf_hmac_idx;
 --   alter table public.orders drop column if exists customer_cpf_hmac;
 --   alter table public.ticket_types drop column if exists max_por_cpf;
