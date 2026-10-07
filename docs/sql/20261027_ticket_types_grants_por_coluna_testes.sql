@@ -53,6 +53,12 @@ begin
                       where id = 'a3000000-0000-4000-8000-000000000020'$q$);
   perform pg_temp.como(null);
   if r <> 'ok' then raise exception 'T4 edição normal deve passar: %', r; end if;
+  -- a RLS que barra devolve 0 linhas sem erro: conferir o valor gravado, não só a ausência de erro
+  if (select price from public.ticket_types where id = pg_temp.u(20)) <> 60
+     or (select name from public.ticket_types where id = pg_temp.u(20)) <> 'Pista 2'
+     or (select is_active from public.ticket_types where id = pg_temp.u(20)) then
+    raise exception 'T4 a edição não foi gravada';
+  end if;
   raise notice 'T4 OK';
 
   -- T5: a trava de quantidade (20261025) continua valendo
@@ -68,6 +74,20 @@ begin
   perform pg_temp.como(null);
   if (select price from public.ticket_types where id = pg_temp.u(20)) <> 60 then raise exception 'T6 outro produtor mexeu no preço'; end if;
   raise notice 'T6 OK (%)', r;
+
+  -- T8: coluna permitida misturada com proibida: a instrução inteira falha e nada é gravado
+  perform pg_temp.como(pg_temp.u(1));
+  r := pg_temp.erro($q$update public.ticket_types set price = 1, sold = 0 where id = 'a3000000-0000-4000-8000-000000000020'$q$);
+  perform pg_temp.como(null);
+  if r <> '42501' then raise exception 'T8 misturar coluna proibida deve dar 42501: %', r; end if;
+  if (select price from public.ticket_types where id = pg_temp.u(20)) <> 60 then raise exception 'T8 gravou o preço mesmo com erro'; end if;
+  raise notice 'T8 OK';
+
+  -- T9: anon não atualiza nada na tabela
+  r := pg_temp.erro($q$set local role anon; update public.ticket_types set price = 1 where id = 'a3000000-0000-4000-8000-000000000020'$q$);
+  perform pg_temp.como(null);
+  if r <> '42501' then raise exception 'T9 anon deve dar 42501: %', r; end if;
+  raise notice 'T9 OK';
 
   -- T7: papel de serviço/postgres grava sold (é o que a função security definer do #217 faz como dono)
   r := pg_temp.erro($q$update public.ticket_types set sold = 8, quantity_sold = 8 where id = 'a3000000-0000-4000-8000-000000000020'$q$);
