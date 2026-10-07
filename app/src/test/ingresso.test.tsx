@@ -268,6 +268,8 @@ describe('IngressosDoEvento', () => {
     render(tela(1))
     fireEvent.click(screen.getByRole('button', { name: /Detalhes/ }))
     fireEvent.click(screen.getByRole('button', { name: 'Não vejo meu ingresso' }))
+    // a folha fecha antes: o suporte abriria atrás do modal, sem clique
+    expect(screen.queryByRole('dialog')).toBeNull()
     window.removeEventListener('evo:suporte', ouvinte)
     expect(ouvinte).toHaveBeenCalledTimes(1)
   })

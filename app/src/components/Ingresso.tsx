@@ -105,7 +105,7 @@ function Detalhes({ t, evento, aoFechar }: { t: DbTicket; evento: Evento; aoFech
             <li>Não compartilhe o código: quem for lido primeiro entra.</li>
             <li>Para cancelar ou tirar dúvidas, fale com o <Link to="/contato" className="underline underline-offset-2">suporte</Link>.</li>
           </ul>
-          <NaoVejoMeuIngresso className="mt-2" />
+          <NaoVejoMeuIngresso className="mt-2" antes={aoFechar} />
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
