@@ -8,7 +8,7 @@ import { normalizarEnvs, novosPavimentos, type Environment } from './modelo'
 // config.zoom/pan/background são regravados como foram lidos: este editor não mexe na planta de fundo.
 type Config = { zoom?: unknown; pan?: unknown; background?: unknown }
 
-export function usarMapa(eventId: string | null) {
+export function useMapa(eventId: string | null) {
   const [envs, setEnvs] = useState<Environment[]>(novosPavimentos)
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState(false)
