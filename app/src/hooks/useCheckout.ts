@@ -21,7 +21,6 @@ export interface DbOrder {
     title: string
     cover_image: string | null
     capa_na_cor?: boolean | null
-    accent_intensity?: number | null
     date: string | null
     time: string | null
     venue_name: string | null
@@ -204,7 +203,6 @@ export function useUserOrders() {
             title,
             cover_image,
             capa_na_cor,
-            accent_intensity,
             date,
             time,
             venue_name,
@@ -269,7 +267,6 @@ export function useUserTickets() {
               accent_color,
               capa_na_cor,
               accent_intensity,
-            accent_intensity,
               date,
               end_date,
               status,
@@ -346,7 +343,6 @@ export function useOrderTickets(orderId?: string) {
               cover_image,
               capa_na_cor,
               accent_intensity,
-            accent_intensity,
               date,
               time,
               venue_name

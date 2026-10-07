@@ -118,6 +118,16 @@ describe('intensidade da cor', () => {
       }
     })
   }
+  it('duotone com texto: o pixel mais claro (lighten da sombra sobre a luz) dá 4,5:1 com o branco e a luz acompanha a intensidade', () => {
+    const lighten = (a: string, b: string) => '#' + [1, 3, 5].map(k => Math.max(parseInt(a.slice(k, k + 2), 16), parseInt(b.slice(k, k + 2), 16)).toString(16).padStart(2, '0')).join('')
+    for (const cor of CORES.slice(0, 18)) {
+      for (const n of [10, 25, 50, 75, 100]) {
+        const v = varsDoEvento(cor, true, n)
+        expect(contraste('#ffffff', lighten(v['--duo-luz'], v['--duo-sombra']))).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+    expect(varsDoEvento('#1d68c4', true, 10)['--duo-luz']).not.toBe(varsDoEvento('#1d68c4', true, 100)['--duo-luz'])
+  })
   it('menos intensidade deixa o fundo mais perto do fundo do tema', () => {
     const [a, b] = [derivarCor('#1d68c4', 100), derivarCor('#1d68c4', 30)]
     expect(contraste(b.claro.fundo, '#ffffff')).toBeLessThan(contraste(a.claro.fundo, '#ffffff'))

@@ -82,8 +82,11 @@ export function derivarCor(entrada: string, intensidade = 100) {
   let corSuave = suave('#808080')
   // cinza médio sem 4,5:1 nem com branco nem com tinta: escurece até o branco passar
   if (i < 1 && contraste(corSuave, '#ffffff') < 4.5 && contraste(corSuave, TINTA) < 4.5) corSuave = textoAte(corSuave, TINTA, ['#ffffff'])
+  // com texto, a sombra não é suavizada: o CSS a pinta sobre a luz com lighten (máximo por canal) e ela entra no pixel mais claro
+  const duoSombraTexto = mistura(cor, TINTA, 0.8)
+  const claroMax = (a: string, b: string) => hex(rgb(a).map((v, k) => Math.max(v, rgb(b)[k])))
   let duoLuzTexto = corSuave
-  for (let t = 0; contraste(duoLuzTexto, '#ffffff') < 4.6 && t < 1; ) duoLuzTexto = mistura(cor, TINTA, (t += 0.05))
+  for (let t = 0; contraste(claroMax(duoLuzTexto, duoSombraTexto), '#ffffff') < 4.6 && t < 1; ) duoLuzTexto = mistura(corSuave, TINTA, (t += 0.05))
   return {
     cor,
     claro: {
@@ -98,6 +101,7 @@ export function derivarCor(entrada: string, intensidade = 100) {
     },
     cartaz: corSuave,
     tinta: contraste(corSuave, '#ffffff') >= contraste(corSuave, TINTA) ? '#ffffff' : TINTA,
+    duoSombraTexto,
     duoSombra: i >= 1 ? mistura(cor, TINTA, 0.8) : misturaOklab(mistura(cor, TINTA, 0.8), '#808080', i),
     duoLuz: i >= 1 ? LUZ_DUO[cor] ?? mistura(cor, '#ffffff', 0.45) : misturaOklab(LUZ_DUO[cor] ?? mistura(cor, '#ffffff', 0.45), '#808080', i),
     duoLuzTexto,
@@ -115,7 +119,7 @@ export function varsDoEvento(entrada: string, comTexto = false, intensidade = 10
     '--evento-texto-c': d.claro.texto, '--evento-texto-e': d.escuro.texto,
     '--evento-grafico-c': d.claro.grafico, '--evento-grafico-e': d.escuro.grafico,
     '--cz': d.cartaz, '--cz-tinta': d.tinta,
-    '--duo-sombra': d.duoSombra, '--duo-luz': comTexto ? d.duoLuzTexto : d.duoLuz,
+    '--duo-sombra': comTexto ? d.duoSombraTexto : d.duoSombra, '--duo-luz': comTexto ? d.duoLuzTexto : d.duoLuz,
   }
 }
 
