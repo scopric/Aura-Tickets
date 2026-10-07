@@ -7,7 +7,7 @@ type Cap = { orders: any[]; items: any[]; fn: { url: string; body: any }[] }
 async function preparar(page: Page, preco: number | null = 50): Promise<Cap> {
   const cap: Cap = { orders: [], items: [], fn: [] }
   await page.route('**/rest/v1/**', (r) => r.fulfill({ json: [] }))
-  await page.route('**/rest/v1/rpc/evento_publico*', (r) => r.fulfill({ json: { ingressos: [{ id: 'tt-1', price: preco }] } }))
+  await page.route('**/rest/v1/rpc/evento_publico*', (r) => r.fulfill({ json: { evento: { id: 'evt-001', start_date: new Date(Date.now() + 30 * 864e5).toISOString(), end_date: null }, ingressos: [{ id: 'tt-1', price: preco }] } }))
   await page.route('**/rest/v1/orders*', (r) => {
     const req = r.request()
     if (req.method() === 'POST') { cap.orders.push(req.postDataJSON()); return r.fulfill({ status: 201, json: PEDIDO }) }
