@@ -13,7 +13,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { criarNo, daSecao, ESTRUTURA, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, precoValido } from './regras'
 import { useIngressos } from './usarIngressos'
 
 const PASSOS_REGUA = [1, 2, 5, 10, 20, 50, 100]
@@ -155,11 +155,14 @@ export default function EditorKonva() {
     ultima.current = { chave, t: agora }
     setEnvs(prev => prev.map((e, i) => (i === ativo ? fn(e) : e)))
   }
+  // Importar troca todos os pavimentos: guarda o mapa de antes à parte; é o último passo do desfazer
+  const antesDaImportacao = useRef<Environment[] | null>(null)
   const desfazer = () => {
     const anterior = hist.current[env.id]?.pop()
     if (anterior) { setEnvs(prev => prev.map(e => (e.id === anterior.id ? anterior : e))); setReenquadrar(v => v + 1) }
+    else if (antesDaImportacao.current) { setEnvs(antesDaImportacao.current); antesDaImportacao.current = null; setAtivo(0); setReenquadrar(v => v + 1) }
   }
-  useEffect(() => { hist.current = {} }, [eventId])
+  useEffect(() => { hist.current = {}; antesDaImportacao.current = null }, [eventId])
   useEffect(() => {
     // um quadro depois: os botões (transition: all) ainda herdam visibility:hidden no instante em que a gaveta abre
     if (gaveta) { const q = requestAnimationFrame(() => document.getElementById(`gaveta-${gaveta}`)?.querySelector<HTMLElement>('button, input')?.focus()); return () => cancelAnimationFrame(q) }
@@ -330,6 +333,26 @@ export default function EditorKonva() {
     setEnvs(r.envs)
     setAtivo(Math.min(ativo, r.envs.length - 1))
   }
+  const exportar = () => {
+    const url = URL.createObjectURL(new Blob([JSON.stringify({ environments: envs, zoom: vista.zoom, pan: vista.pan, exportedAt: new Date().toISOString() }, null, 2)], { type: 'application/json' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'evokaa-mapa-assentos.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  const importar = async (arq: File | undefined) => {
+    if (!arq) return
+    if (arq.size > MAX_IMPORTAR) { window.alert('Arquivo grande demais (limite de 5 MB).'); return }
+    const r = lerImportacao(await arq.text(), envs)
+    if (!r.envs) { window.alert(r.erro); return }
+    if (!window.confirm(`Importar "${arq.name}" substitui o mapa atual (${envs.length} pavimento(s)) por ${r.envs.length} pavimento(s). Dá para desfazer antes de salvar. Continuar?`)) return
+    antesDaImportacao.current = envs
+    hist.current = {}
+    setEnvs(r.envs)
+    setAtivo(0)
+    setReenquadrar(v => v + 1)
+  }
   const trazerParaDentro = () => {
     const r = encaixarNaSala(env)
     setAvisoFora(r.motivo || '')
@@ -442,9 +465,14 @@ export default function EditorKonva() {
         <Button size="sm" variant="outline" className="lg:hidden max-lg:h-10" aria-expanded={gaveta === 'cores'} aria-controls="gaveta-cores" onClick={e => alternar('cores', e.currentTarget)}>Cores</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={() => setAbrirTemplates(true)}>Templates</Button>
         <Button size="sm" variant="outline" className="max-lg:h-10" onClick={ajustar}>Ajustar à tela</Button>
+        <Button size="sm" variant="outline" className="max-lg:h-10" onClick={exportar}>Exportar JSON</Button>
+        <label className="inline-flex h-8 cursor-pointer items-center rounded-md border border-input px-3 text-sm focus-within:ring-[3px] focus-within:ring-ring/50 max-lg:h-10">
+          Importar JSON
+          <input type="file" accept="application/json,.json" className="sr-only" onChange={e => { importar(e.target.files?.[0]); e.target.value = '' }} />
+        </label>
         {fora.size > 0 && <Button size="sm" variant="outline" className="border-red-500 text-red-600 dark:text-red-400 max-lg:h-10" title="Move todos os elementos e paredes juntos" onClick={trazerParaDentro}>{fora.size} fora da sala: Trazer para dentro da sala</Button>}
         {fora.size > 0 && avisoFora && <span role="alert" className="text-xs text-destructive">{avisoFora}</span>}
-        <Button id="btn-desfazer" size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length}>Desfazer</Button>
+        <Button id="btn-desfazer" size="sm" variant="outline" className="max-lg:h-10" onClick={desfazer} disabled={!hist.current[env.id]?.length && !antesDaImportacao.current}>Desfazer</Button>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>
         <Button size="sm" className="max-lg:h-10" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>

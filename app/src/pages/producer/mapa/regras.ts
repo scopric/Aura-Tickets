@@ -1,4 +1,4 @@
-import { defaultSections, type Environment, type SeatNode } from './modelo'
+import { defaultSections, normalizarEnvs, type Environment, type SeatNode } from './modelo'
 import { caixaDosElementos, ORIGEM_SALA } from './geometria'
 import { ESTRUTURA } from './paleta'
 
@@ -125,4 +125,31 @@ export function apagarPavimento(envs: Environment[], id: string): { envs: Enviro
   const v = (alvo.seats || []).filter(vendido).length
   if (v) return { envs, erro: `"${alvo.name}" tem ${v} elemento(s) com venda ou reserva e não pode ser apagado.` }
   return { envs: envs.filter(e => e.id !== id) }
+}
+
+// ---- Importar JSON: valida antes de tocar no mapa; recusa se o mapa atual tem venda/reserva ----
+export const MAX_IMPORTAR = 5 * 1024 * 1024
+const obj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+const num = (v: unknown) => typeof v === 'number' && Number.isFinite(v)
+
+export function lerImportacao(texto: string, atual: Environment[]): { envs?: Environment[]; erro?: string } {
+  if (texto.length > MAX_IMPORTAR) return { erro: 'Arquivo grande demais (limite de 5 MB).' }
+  if ((atual || []).some(e => (e.seats || []).some(vendido))) return { erro: 'Há lugares vendidos ou reservados neste mapa. Importar apagaria o mapa em que os ingressos já vendidos se apoiam.' }
+  let dados: unknown
+  try { dados = JSON.parse(texto) } catch { return { erro: 'Arquivo de mapa inválido (não é um JSON).' } }
+  const lista = obj(dados) ? dados.environments : null
+  if (!Array.isArray(lista) || !lista.length) return { erro: 'Arquivo de mapa inválido: falta a lista de pavimentos (environments).' }
+  const ids = new Set<string>()
+  for (const e of lista) {
+    if (!obj(e) || typeof e.id !== 'string' || !e.id || ids.has(e.id) || typeof e.name !== 'string' || !Array.isArray(e.seats) || !Array.isArray(e.sections)) return { erro: 'Arquivo de mapa inválido: pavimento sem id único, nome, elementos ou lotes.' }
+    ids.add(e.id)
+    const nosIds = new Set<string>()
+    for (const n of e.seats) {
+      if (!obj(n) || typeof n.id !== 'string' || !n.id || nosIds.has(n.id) || !num(n.x) || !num(n.y) || typeof n.type !== 'string') return { erro: `Arquivo de mapa inválido: elemento sem id único, tipo ou posição (x, y) em "${e.name}".` }
+      nosIds.add(n.id)
+      for (const k of ['price', 'sold', 'capacity']) if (n[k] !== undefined && !(num(n[k]) && (n[k] as number) >= 0)) return { erro: `Arquivo de mapa inválido: "${k}" negativo ou não numérico em "${e.name}".` }
+    }
+    for (const x of e.sections) if (!obj(x) || typeof x.id !== 'string' || typeof x.name !== 'string' || !num(x.price) || (x.price as number) < 0) return { erro: `Arquivo de mapa inválido: lote com id, nome ou preço inválido em "${e.name}".` }
+  }
+  return { envs: normalizarEnvs(lista as Environment[]) }
 }

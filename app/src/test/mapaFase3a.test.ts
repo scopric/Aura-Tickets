@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { Environment, SeatNode } from '../pages/producer/mapa/modelo'
-import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento } from '../pages/producer/mapa/regras'
+import { apagarLote, definirPreco, ligarIngresso, lotesDe, metricas, novoPavimento, apagarPavimento, lerImportacao } from '../pages/producer/mapa/regras'
 
 const no = (o: Partial<SeatNode>): SeatNode => ({
   id: 'n', x: 12, y: 12, label: 'X', type: 'seat', color: '#111111', price: 10, rotation: 0, sold: 0, capacity: 1,
@@ -83,5 +83,35 @@ describe('pavimentos', () => {
     expect(apagarPavimento(e, 'p2').erro).toMatch(/venda/)
     expect(apagarPavimento(e, 'p2').envs).toBe(e)
     expect(apagarPavimento([e[0]], 'terreo').erro).toMatch(/pelo menos um/)
+  })
+})
+
+describe('importação', () => {
+  const arq = (o: unknown) => JSON.stringify(o)
+  const bom = () => ({ environments: [mapa([no({ id: '1' })])], zoom: 1, pan: { x: 0, y: 0 } })
+  const livre = [mapa([])]
+  it('válida: passa por normalizarEnvs', () => {
+    const r = lerImportacao(arq(bom()), livre)
+    expect(r.erro).toBeUndefined()
+    expect(r.envs![0].pixelsPerMeter).toBe(40)
+    expect(r.envs![0].seats[0].widthMeter).toBeGreaterThan(0)
+  })
+  it('inválida: JSON ruim, sem lista, vazio, x/y não finito, ids repetidos, preço negativo, grande', () => {
+    expect(lerImportacao('{nao', livre).erro).toBeTruthy()
+    expect(lerImportacao(arq({}), livre).erro).toBeTruthy()
+    expect(lerImportacao(arq({ environments: [] }), livre).erro).toBeTruthy()
+    const xy = bom(); (xy.environments[0].seats[0] as any).x = null
+    expect(lerImportacao(arq(xy), livre).erro).toMatch(/posição/)
+    const str = bom(); (str.environments[0].seats[0] as any).y = '3'
+    expect(lerImportacao(arq(str), livre).erro).toMatch(/posição/)
+    const dup = bom(); dup.environments.push(dup.environments[0])
+    expect(lerImportacao(arq(dup), livre).erro).toBeTruthy()
+    const neg = bom(); neg.environments[0].seats[0].price = -5
+    expect(lerImportacao(arq(neg), livre).erro).toMatch(/price/)
+    expect(lerImportacao('x'.repeat(5 * 1024 * 1024 + 1), livre).erro).toMatch(/5 MB/)
+  })
+  it('bloqueada se o mapa atual tem venda ou reserva', () => {
+    expect(lerImportacao(arq(bom()), [mapa([no({ sold: 1 })])]).erro).toMatch(/vendidos/)
+    expect(lerImportacao(arq(bom()), [mapa([no({ status: 'reserved' })])]).erro).toMatch(/vendidos/)
   })
 })
