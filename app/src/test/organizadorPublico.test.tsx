@@ -47,12 +47,12 @@ describe('OrganizadorPublico', () => {
   it('valida por campo e não chama a RPC de salvar', async () => {
     montar(linha)
     fireEvent.change(await screen.findByLabelText('Nome do organizador'), { target: { value: 'Evokaa Shows' } })
-    fireEvent.change(screen.getByLabelText('Site'), { target: { value: 'http://x.com' } })
+    fireEvent.change(screen.getByLabelText('Site'), { target: { value: 'ftp://x.com' } })
     fireEvent.change(screen.getByLabelText('Instagram'), { target: { value: 'a b' } })
     fireEvent.change(screen.getByLabelText('E-mail de contato'), { target: { value: 'sem-arroba' } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
     expect(await screen.findByText(/não pode lembrar a marca/)).toBeInTheDocument()
-    expect(screen.getByText(/comece com https:\/\/$/, { selector: '[role=alert]' })).toBeInTheDocument()
+    expect(screen.getByText(/Informe um endereço válido/, { selector: '[role=alert]' })).toBeInTheDocument()
     expect(screen.getByText(/letras, números, ponto/)).toBeInTheDocument()
     expect(screen.getByText('Informe um e-mail válido.')).toBeInTheDocument()
     expect(screen.getByLabelText('Nome do organizador')).toHaveAttribute('aria-describedby', 'org-nome-erro')
@@ -87,7 +87,28 @@ describe('OrganizadorPublico', () => {
     montar(linha)
     fireEvent.change(await screen.findByLabelText('Site'), { target: { value: url } })
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
-    expect(await screen.findByText(/comece com https:\/\/$/, { selector: '[role=alert]' })).toBeInTheDocument()
+    expect(await screen.findByText(/Informe um endereço válido/, { selector: '[role=alert]' })).toBeInTheDocument()
+    expect(rpc).toHaveBeenCalledTimes(1)
+  })
+
+  it('digitar só www.empresab.com.br envia com https:// e a rede vira https://', async () => {
+    montar(linha)
+    fireEvent.change(await screen.findByLabelText('Site'), { target: { value: 'www.empresab.com.br' } })
+    fireEvent.change(screen.getByLabelText('Endereço da rede 1'), { target: { value: 'instagram.com/x' } })
+    fireEvent.blur(screen.getByLabelText('Endereço da rede 1'))
+    expect(screen.getByLabelText('Endereço da rede 1')).toHaveValue('https://instagram.com/x')
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    await waitFor(() => expect(toast.success).toHaveBeenCalled())
+    expect(rpc).toHaveBeenCalledWith('salvar_organizador_publico', expect.objectContaining({
+      p_site: 'https://www.empresab.com.br', p_outras_redes: [{ rotulo: 'TikTok', url: 'https://instagram.com/x' }],
+    }))
+  })
+
+  it('site com a marca mostra o motivo da marca', async () => {
+    montar(linha)
+    fireEvent.change(await screen.findByLabelText('Site'), { target: { value: 'www.evokaa.com.br' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }))
+    expect(await screen.findByText('O endereço não pode conter a marca Evokaa ou Aura Tickets.', { selector: '[role=alert]' })).toBeInTheDocument()
     expect(rpc).toHaveBeenCalledTimes(1)
   })
 

@@ -4,7 +4,7 @@ import * as I from '@/components/icones/evokaa16'
 import { useOrganizadorPublico, type Rede } from '../../hooks/useOrganizadorPublico'
 import PhoneInput from '../ui/PhoneInput'
 import { formatCNPJ } from '../../lib/formatters'
-import { marcaOk, rotuloOk, hostOk, emailSemProibidos, mensagemCheck } from '../../lib/organizadorTexto'
+import { marcaOk, rotuloOk, hostOk, normalizaUrl, emailSemProibidos, mensagemCheck } from '../../lib/organizadorTexto'
 import { SectionTitle, Erro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,6 +27,14 @@ const VAZIO: Form = {
 const MAX_REDES = 5
 // mesma regra do CHECK do banco (https, host ASCII, sem porta nem '?' logo após o domínio)
 const urlBanco = (u: string) => u.length <= 200 && /^https:\/\/[A-Za-z0-9.-]+\.[A-Za-z]{2,}(\/[^\s"<>]*)?$/.test(u) && hostOk(u)
+// motivo da recusa (undefined = aceita); a URL já vem normalizada
+const erroUrl = (u: string) => {
+  if (urlBanco(u)) return undefined
+  const h = u.match(/^https:\/\/([^/]+)/)?.[1] ?? ''
+  if (!marcaOk(h)) return 'O endereço não pode conter a marca Evokaa ou Aura Tickets.'
+  if (/(^|\.)xn--/i.test(h)) return 'Endereços com caracteres especiais (xn--) não são aceitos.'
+  return 'Informe um endereço válido, por exemplo www.seusite.com.br.'
+}
 const SEGUNDO_FATOR = 'Confirme o segundo fator de novo e tente outra vez.'
 
 // o banco guarda 55+DDD+número; o PhoneInput trabalha com "+55..."
@@ -44,17 +52,18 @@ export function validar(f: Form): Erros {
   if (zap && !/^\d{10,11}$/.test(zap)) e.whatsapp = 'Informe o DDD e o número (10 ou 11 dígitos).'
   const insta = f.instagram.trim().replace(/^@/, '')
   if (insta && !/^[A-Za-z0-9._]{1,30}$/.test(insta)) e.instagram = 'Use só letras, números, ponto e sublinhado (até 30).'
-  const site = f.site.trim()
-  if (site && !urlBanco(site)) e.site = 'Informe um endereço completo que comece com https://'
+  const erroSite = erroUrl(normalizaUrl(f.site))
+  if (f.site.trim() && erroSite) e.site = erroSite
   const email = f.email.trim()
   if (email && (email.length > 254 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email))) e.email = 'Informe um e-mail válido.'
   else if (email && !emailSemProibidos(email)) e.email = 'O e-mail não pode ter ? & # % , ; < > ".'
   for (const r of f.redes) {
-    const rot = r.rotulo.trim(), url = r.url.trim()
+    const rot = r.rotulo.trim(), url = normalizaUrl(r.url)
     if (!rot && !url) continue
     if (!rot || rot.length > 30) { e.redes = 'Cada rede precisa de um nome de até 30 caracteres.'; break }
     if (!rotuloOk(rot)) { e.redes = 'O nome da rede não pode ter Pix, Pagamento nem lembrar a marca.'; break }
-    if (!urlBanco(url)) { e.redes = 'Cada rede precisa de um endereço que comece com https://'; break }
+    const erroRede = erroUrl(url)
+    if (erroRede) { e.redes = erroRede; break }
   }
   if (!e.redes && JSON.stringify(f.redes.filter(r => r.rotulo.trim() || r.url.trim())).length > 950) e.redes = 'Encurte os endereços das redes'
   return e
@@ -94,13 +103,13 @@ export default function OrganizadorPublico() {
       ;(alvo?.querySelector('input') ?? alvo)?.focus()
       return
     }
-    const redes = f.redes.map(r => ({ rotulo: r.rotulo.trim(), url: r.url.trim() })).filter(r => r.rotulo || r.url)
+    const redes = f.redes.map(r => ({ rotulo: r.rotulo.trim(), url: normalizaUrl(r.url) })).filter(r => r.rotulo || r.url)
     try {
       await salvar({
         nome_publico: f.nome.trim(),
         whatsapp: nacional(f.whatsapp) || null,
         instagram: f.instagram.trim().replace(/^@/, '') || null,
-        site: f.site.trim() || null,
+        site: normalizaUrl(f.site) || null,
         email_contato: f.email.trim() || null,
         outras_redes: redes.length ? redes : null,
         mostrar_nome: f.mostrar.nome, mostrar_whatsapp: f.mostrar.whatsapp, mostrar_instagram: f.mostrar.instagram,
@@ -163,16 +172,17 @@ export default function OrganizadorPublico() {
         <PhoneInput id={p.id} aria-describedby={p.describedby} aria-invalid={!!erros.whatsapp} apenasBrasil value={f.whatsapp} onChange={v => set({ whatsapp: v.replace(/\D/g, '').length <= 2 ? '' : v })} />
       ))}
       {campo('instagram', 'Instagram', 'Só o nome de usuário, com ou sem @.', erros.instagram, p => texto('instagram', p, { maxLength: 31, autoCapitalize: 'none' }))}
-      {campo('site', 'Site', 'Comece com https://', erros.site, p => texto('site', p, { type: 'url', inputMode: 'url', placeholder: 'https://' }))}
+      {campo('site', 'Site', 'Pode digitar só www.seusite.com.br: o https:// entra sozinho.', erros.site, p => texto('site', p, { inputMode: 'url', placeholder: 'www.seusite.com.br', onBlur: () => set({ site: normalizaUrl(f.site) }) }))}
       {campo('email', 'E-mail de contato', null, erros.email, p => texto('email', p, { type: 'email', autoComplete: 'email' }))}
 
-      {campo('outras_redes', 'Outras redes', `Até ${MAX_REDES}. Nome da rede e endereço que comece com https://`, erros.redes, p => (
+      {campo('outras_redes', 'Outras redes', `Até ${MAX_REDES}. Nome da rede e endereço. Pode digitar só www.seusite.com.br: o https:// entra sozinho.`, erros.redes, p => (
         <div className="space-y-2" id={p.id} role="group" aria-describedby={p.describedby} aria-label="Outras redes">
           {f.redes.map((r, i) => (
             <div key={i} className="flex flex-col gap-2 sm:flex-row">
               <Input aria-label={`Nome da rede ${i + 1}`} placeholder="Nome (ex.: TikTok)" maxLength={30} value={r.rotulo}
                 onChange={e => set({ redes: f.redes.map((x, j) => j === i ? { ...x, rotulo: e.target.value } : x) })} className="sm:w-1/3" />
-              <Input aria-label={`Endereço da rede ${i + 1}`} placeholder="https://" inputMode="url" value={r.url}
+              <Input aria-label={`Endereço da rede ${i + 1}`} placeholder="www.seusite.com.br" inputMode="url" value={r.url}
+                onBlur={() => set({ redes: f.redes.map((x, j) => j === i ? { ...x, url: normalizaUrl(x.url) } : x) })}
                 onChange={e => set({ redes: f.redes.map((x, j) => j === i ? { ...x, url: e.target.value } : x) })} />
               <Button type="button" variant="outline" aria-label={`Remover rede ${i + 1}`} onClick={() => set({ redes: f.redes.filter((_, j) => j !== i) })}>
                 <I.Lixeira aria-hidden="true" />

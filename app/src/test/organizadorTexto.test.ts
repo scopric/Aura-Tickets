@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { marcaOk, rotuloOk, hostOk, emailSemProibidos, mensagemCheck } from '../lib/organizadorTexto'
+import { marcaOk, rotuloOk, hostOk, normalizaUrl, emailSemProibidos, mensagemCheck } from '../lib/organizadorTexto'
 
 describe('organizadorTexto', () => {
   it('marca: recusa variações e aceita parecidos', () => {
@@ -15,6 +15,14 @@ describe('organizadorTexto', () => {
     expect(hostOk('https://empresab.com.br/x')).toBe(true)
     for (const e of ['oi@x.com?a=1', 'a,b@x.com', 'a@x.com>', 'a;b@x.com']) expect(emailSemProibidos(e), e).toBe(false)
     expect(emailSemProibidos('oi@x.com.br')).toBe(true)
+  })
+  it('normalizaUrl', () => {
+    expect(normalizaUrl('www.x.com.br')).toBe('https://www.x.com.br')
+    expect(normalizaUrl('http://x.com')).toBe('https://x.com')
+    expect(normalizaUrl('HTTP://x.com')).toBe('https://x.com')
+    expect(normalizaUrl(' x.com ')).toBe('https://x.com')
+    expect(normalizaUrl('   ')).toBe('')
+    for (const u of ['javascript:alert(1)', 'ftp://x.com', 'data:text/html,x']) expect(normalizaUrl(u)).toBe(u)
   })
   it('mensagem pelo nome da constraint', () => {
     expect(mensagemCheck('violates check constraint "producer_public_nome_check"')).toMatch(/marca Evokaa/)
