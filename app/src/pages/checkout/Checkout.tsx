@@ -535,7 +535,7 @@ export default function Checkout() {
                         <div className="flex items-center gap-3">
                           <div className="min-w-0 flex-1">
                             <div className="text-base font-medium leading-6">Meia-entrada</div>
-                            <div className="text-[13px] leading-5 text-muted-foreground">{textoPreco(vt.preco_meia)} cada · até {vt.meias_disponiveis} disponíveis</div>
+                            <div className="text-[13px] leading-5 text-muted-foreground">{textoPreco(vt.preco_meia, 1, true)} cada · até {vt.meias_disponiveis} disponíveis</div>
                           </div>
                           <ContadorIngresso
                             nome={`${ticket.name} (meia-entrada)`}
@@ -971,7 +971,7 @@ export default function Checkout() {
                   <span className="font-display font-semibold tabular-nums">{brl(resumo.subtotal)}</span>
                 </div>
                 <div className="flex justify-between gap-3 text-[15px] leading-5 text-muted-foreground">
-                  <span>Taxa de serviço ({TAXA_PERCENTUAL}%, mín. {brl(TAXA_MINIMA)} por ingresso)</span>
+                  <span>Taxa de serviço ({TAXA_PERCENTUAL}%{items.some(i => i.beneficio === 'meia') ? '; mín. ' + brl(TAXA_MINIMA) + ' por inteira' : ', mín. ' + brl(TAXA_MINIMA) + ' por ingresso'})</span>
                   <span className="font-display font-semibold tabular-nums">{brl(resumo.taxa)}</span>
                 </div>
                 <div className="flex items-baseline justify-between gap-3 pt-2 text-base font-semibold">

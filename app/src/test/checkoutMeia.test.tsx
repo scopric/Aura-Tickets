@@ -68,6 +68,12 @@ describe('Checkout: meia-entrada', () => {
     expect((h.estado as { itemsSummary: unknown[] }).itemsSummary).toEqual([expect.objectContaining({ quantity: 2, beneficio: 'meia', meia_tipo: 'jovem_baixa_renda' })])
   })
 
+  it('a linha da meia mostra a taxa de 10% sem o piso de R$ 3 (preço R$ 12,50 → taxa R$ 1,25)', async () => {
+    h.vitrine = [{ ...VITRINE[0], preco_meia: 12.5, taxa_meia: 1.25 }]
+    montar({})
+    await screen.findByText(/R\$\s12,50 \+ taxa R\$\s1,25 = R\$\s13,75 cada/)
+  })
+
   it('tipo sem permite_meia não mostra a linha de meia', async () => {
     h.vitrine = [{ ...VITRINE[0], permite_meia: false, preco_meia: null, taxa_meia: null, meias_disponiveis: 0, meias_total: 0 }]
     montar({})
