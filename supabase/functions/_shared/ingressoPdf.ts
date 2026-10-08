@@ -1,4 +1,4 @@
-import { PDFDocument, PDFFont, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
+import { PDFDocument, PDFFont, PDFString, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import qrcode from "npm:qrcode-generator@1.4.4";
 import { formatarHora } from "./hora.ts";
 import { caber, dimensoes } from "./logoProdutor.ts";
@@ -11,9 +11,10 @@ export interface IngressoPdf {
   local: string;
   tipo: string;
   portador: string;
-  codigo: string; // valor do QR: é a credencial de check-in
+  link: string; // valor do QR: o link da página do ingresso (sem login não mostra nada); o PDF não leva código de entrada
 }
 
+export const APP_URL = "https://app.evokaa.com.br";
 const AZUL = rgb(0.114, 0.408, 0.769); // #1d68c4 (marca)
 const TEXTO = rgb(0.047, 0.137, 0.251); // #0c2340
 const MUTED = rgb(0.4, 0.45, 0.52);
@@ -58,7 +59,7 @@ function quebrar(font: PDFFont, texto: string, tamanho: number, largura: number)
   return linhas;
 }
 
-// Uma página A4 por ingresso. QR desenhado como vetor, no servidor: o código não sai para terceiros.
+// Uma página A4 por ingresso. QR do link da página do ingresso, desenhado como vetor no servidor. O QR de entrada vive só na tela (muda a cada 30 s).
 // `logo` (opcional): logo do produtor, num selo branco no canto do topo azul (logo escura também lê bem). Imagem ilegível = sem logo.
 // `estilo` (opcional): cor do topo e posição da logo (esquerda ou centro, numa linha própria acima do título); sem logo o topo fica como sempre.
 export async function gerarPdf(ingressos: IngressoPdf[], logo?: { bytes: Uint8Array; ext: "png" | "jpeg" } | null, estilo: EstiloIngresso = ESTILO_PADRAO): Promise<Uint8Array> {
@@ -114,7 +115,7 @@ export async function gerarPdf(ingressos: IngressoPdf[], logo?: { bytes: Uint8Ar
 
     // QR: módulos escuros como quadrados, com zona de silêncio de 4 módulos.
     const qr = qrcode(0, "M");
-    qr.addData(t.codigo);
+    qr.addData(t.link);
     qr.make();
     const n = qr.getModuleCount();
     const lado = 220;
@@ -130,7 +131,11 @@ export async function gerarPdf(ingressos: IngressoPdf[], logo?: { bytes: Uint8Ar
       }
     }
 
-    const aviso = "Apresente este QR na entrada. Ingresso nominal e pessoal.";
+    // No celular o QR não se escaneia na própria tela: o toque nele abre o link.
+    page.node.addAnnot(pdf.context.register(pdf.context.obj({ Type: "Annot", Subtype: "Link", Rect: [qx, qy, qx + lado, qy + lado], Border: [0, 0, 0], A: { Type: "Action", S: "URI", URI: PDFString.of(t.link) } })));
+    const abra = "Abra no celular: o QR de entrada aparece lá e muda a cada 30 segundos.";
+    page.drawText(abra, { x: (595 - negrito.widthOfTextAtSize(abra, 11)) / 2, y: 124, size: 11, font: negrito, color: TEXTO });
+    const aviso = "Ingresso nominal e pessoal. Entre com a conta usada na compra.";
     page.drawText(aviso, { x: (595 - normal.widthOfTextAtSize(aviso, 9)) / 2, y: 60, size: 9, font: normal, color: MUTED });
     page.drawText("Evokaa", { x: (595 - negrito.widthOfTextAtSize("Evokaa", 10)) / 2, y: 44, size: 10, font: negrito, color: AZUL });
   }
@@ -152,6 +157,6 @@ export function ingressosParaPdf(order: any, tickets: any[]): IngressoPdf[] {
     local: ev?.venue_name || "Local a definir",
     tipo: (Array.isArray(t.ticket_types) ? t.ticket_types[0] : t.ticket_types)?.name || "Ingresso",
     portador: t.buyer_name || order.customer_name || "Participante",
-    codigo: t.qr_code,
+    link: `${APP_URL}/app/tickets${ev?.id ? `?evento=${encodeURIComponent(ev.id)}&qr=1` : ""}`,
   }));
 }

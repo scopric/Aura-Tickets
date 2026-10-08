@@ -23,6 +23,7 @@ import ComingSoon from './components/ComingSoon'
 import { trackPageView, trackEvent, semHash } from './lib/tracking'
 import { captureAffiliateRef } from './lib/affiliateRef'
 import { getAppMode } from './lib/appHost'
+import { voltaValida } from './lib/voltaEvento'
 import { useTwoFactor } from './hooks/useTwoFactor'
 
 // O host não muda durante a sessão do SPA
@@ -211,7 +212,9 @@ export function ProtectedRoute({
   if (isLoading) return spinner
 
   if (!isAuthenticated) {
-    return <Navigate to="/auth/login" state={{ from: location.pathname }} replace />
+    // o ingresso aberto pelo QR do PDF volta para ele depois do login (voltaValida só aceita esse formato)
+    const volta = voltaValida(location.pathname + location.search)
+    return <Navigate to={volta ? `/auth/login?volta=${encodeURIComponent(volta)}` : '/auth/login'} state={{ from: location.pathname }} replace />
   }
 
   if (mfa === 'checking' || mfaRole !== role) return spinner

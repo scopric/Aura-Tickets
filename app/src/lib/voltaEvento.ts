@@ -2,7 +2,8 @@
 // O Google e o cadastro perdem a URL; por isso a volta também fica no sessionStorage (padrão do aura_pending_checkout).
 export const VOLTA = 'aura_volta'
 export const SALVAR = 'aura_salvar_pendente'
-const CAMINHO = /^\/event\/([\w-]+)$/ // só página de evento, nunca endereço de fora
+// só página de evento ou o ingresso aberto pelo QR do PDF (/app/tickets?evento=<id>&qr=1), nunca endereço de fora
+const CAMINHO = /^(\/event\/[\w-]+|\/app\/tickets\?evento=[\w-]+&qr=1)$/
 
 export const voltaValida = (v: string | null | undefined) => (v && CAMINHO.test(v) ? v : null)
 
@@ -14,7 +15,7 @@ export function consumirVolta(role: string, daUrl: string | null) {
   sessionStorage.removeItem(VOLTA)
   const volta = voltaValida(daUrl) ?? guardada
   if (!volta || role !== 'user') return null
-  sessionStorage.setItem(SALVAR, volta.slice('/event/'.length))
+  if (volta.startsWith('/event/')) sessionStorage.setItem(SALVAR, volta.slice('/event/'.length)) // o ingresso do QR não salva evento
   return volta
 }
 

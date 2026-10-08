@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertFalse } from "https://deno.land/std@0.168.0/testing/asserts.ts";
 import { blocoLogoProdutor, emailShell } from "./email.ts";
 import { montarConviteEquipe } from "./conviteEquipe.ts";
+import { PDFDict, PDFDocument, PDFName, PDFString } from "npm:pdf-lib@1.17.1";
 import { gerarPdf, ingressosParaPdf } from "./ingressoPdf.ts";
 import { emailIngresso, partesDaData, resumoDosTipos } from "./emailIngresso.ts";
 
@@ -53,7 +54,25 @@ Deno.test("PDF do ingresso: horário sem segundos e o código só dentro do QR",
   assert(texto.includes(hex("20h")), "o horário tem de aparecer no PDF");
   assertFalse(texto.includes(hex("20:00:00")) || texto.includes(hex("20:00")));
   assert(texto.includes(hex("Pista".toUpperCase())), "o texto do PDF é legível pelo teste");
-  assertFalse(texto.includes(hex("TESTE-ABC123")));
+  assertFalse(texto.includes(hex("TESTE-ABC123").toUpperCase()));
+});
+
+Deno.test("PDF do ingresso: o QR é o link do evento, sem código de entrada", async () => {
+  const order = { customer_name: "Ana", events: { id: "11111111-2222-3333-4444-555555555555", title: "Show", date: "2026-12-15", time: "20:00", venue_name: "Casa" } };
+  const qr = "9f1c2e3a-0000-4000-8000-abcdefabcdef";
+  const [pagina] = ingressosParaPdf(order, [{ status: "active", qr_code: qr, id: "id-do-ingresso", buyer_name: "Ana", ticket_types: { name: "Pista" } }]);
+  assertEquals(pagina.link, "https://app.evokaa.com.br/app/tickets?evento=11111111-2222-3333-4444-555555555555&qr=1");
+  assertFalse(JSON.stringify(pagina).includes(qr));
+  const texto = await textoDoPdf(await gerarPdf([pagina]));
+  const maiusc = (t: string) => hex(t).toUpperCase(); // pdf-lib grava o hexadecimal em maiúsculas
+  assert(texto.includes(maiusc("Abra no celular: o QR de entrada aparece lá e muda a cada 30 segundos.")));
+  assertFalse(texto.includes(maiusc("Apresente")) || texto.includes(maiusc(qr)));
+  // o QR é um link tocável (PDF aberto no próprio celular)
+  const doc = await PDFDocument.load(await gerarPdf([pagina]));
+  const anot = doc.getPage(0).node.Annots()!.lookup(0, PDFDict);
+  assertEquals(anot.lookup(PDFName.of("A"), PDFDict).lookup(PDFName.of("URI"), PDFString).decodeText(), pagina.link);
+  // sem id do evento, cai na lista de ingressos
+  assertEquals(ingressosParaPdf({ events: {} }, [{ status: "active" }])[0].link, "https://app.evokaa.com.br/app/tickets");
 });
 
 Deno.test("logo do produtor no e-mail: só entra com URL, escapada, e sem URL o e-mail sai como antes", () => {

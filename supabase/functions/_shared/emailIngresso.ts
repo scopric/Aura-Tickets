@@ -99,15 +99,15 @@ export function emailIngresso(d: DadosEmailIngresso): string {
 
         <div style="font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: bold; color: ${colors.marinho}; margin: 30px 0 14px 0;">Como entrar</div>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          ${passo(1, varios ? "Abra o PDF em anexo. Cada ingresso é uma página, com o seu QR." : "Abra o PDF em anexo. Ele traz o seu QR.")}
-          ${passo(2, "Na entrada, mostre o QR pelo celular ou impresso.")}
-          ${passo(3, "O ingresso é nominal e pessoal. Não compartilhe o PDF com quem não vai ao evento.")}
+          ${passo(1, varios ? "Abra o PDF em anexo ou o botão abaixo. Cada ingresso é uma página." : "Abra o PDF em anexo ou o botão abaixo.")}
+          ${passo(2, "Entre com a conta usada na compra. O QR de entrada aparece no celular e muda a cada 30 segundos.")}
+          ${passo(3, "Na entrada, mostre o QR na tela. O ingresso é nominal e pessoal.")}
         </table>
 
         <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="margin: 14px auto 8px auto;"><tr>
           <td align="center" bgcolor="${colors.marca}" style="background-color: ${colors.marca}; border-radius: 8px;"><a href="${escapeHtml(d.ctaHref)}" style="display: inline-block; padding: 15px 32px; font-size: 15px; font-weight: bold; color: #FFFFFF; text-decoration: none; border-radius: 8px;">Ver meus ingressos</a></td>
         </tr></table>
-        <p style="margin: 14px 0 22px 0; text-align: center; font-size: 12px; line-height: 1.6; color: #5B6577;">Perdeu o PDF? Em Meus ingressos você baixa de novo. Entre com a conta usada na compra.</p>
+        <p style="margin: 14px 0 22px 0; text-align: center; font-size: 12px; line-height: 1.6; color: #5B6577;">Perdeu o PDF? Em Meus ingressos você baixa de novo. O QR do PDF só abre a página do ingresso: ele não vale na entrada.</p>
       </td></tr>
       <tr><td align="center" bgcolor="${colors.marinho}" style="background-color: ${colors.marinho}; padding: 24px 20px; text-align: center; font-size: 12px; line-height: 1.7; color: #C9D6EA;">
         <div style="font-weight: bold; letter-spacing: 0.12em; text-transform: uppercase; color: #FFFFFF;">Evokaa</div>
