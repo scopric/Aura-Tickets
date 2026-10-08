@@ -7,6 +7,7 @@ import { reenvioDoProdutor, TIPO_LOG_PRODUTOR, LIMITE_PRODUTOR_POR_PEDIDO, LIMIT
 import { adminCan, comoQuemChamou, mfaOk } from "../_shared/mfa.ts";
 import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
+import { estiloDoEvento } from "../_shared/ingressoEstilo.ts";
 import { logoDoProdutor } from "../_shared/logoProdutor.ts";
 import { formatarHora } from "../_shared/hora.ts";
 
@@ -777,7 +778,7 @@ serve(async (req) => {
         if (paginas.length === 0) { await soltarProdutor(); return json({ error: "Este pedido não tem ingresso ativo." }, 404); }
         mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);
         // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
-        const bytes = await gerarPdf(paginas, await logoDoProdutor(supabaseAdmin, order.events?.producer_id));
+        const bytes = await gerarPdf(paginas, await logoDoProdutor(supabaseAdmin, order.events?.producer_id), estiloDoEvento(order.events));
         let bin = "";
         for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
         mailAttachments = [{ filename: "ingresso-evokaa.pdf", content: btoa(bin) }];

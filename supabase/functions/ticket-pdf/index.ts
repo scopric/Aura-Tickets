@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
+import { estiloDoEvento } from "../_shared/ingressoEstilo.ts";
 import { logoDoProdutor } from "../_shared/logoProdutor.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -30,11 +31,12 @@ serve(async (req) => {
     if (typeof orderId !== "string" || !/^[0-9a-f-]{36}$/i.test(orderId)) return json({ error: "Pedido inválido." }, 400);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-    const { data: order } = await admin
+    const { data: order, error: erroPedido } = await admin
       .from("orders")
-      .select("user_id, status, customer_name, events(title, date, time, venue_name, producer_id)")
+      .select("user_id, status, customer_name, events(title, date, time, venue_name, producer_id, ticket_style)")
       .eq("id", orderId)
       .maybeSingle();
+    if (erroPedido) console.error("[ticket-pdf] consulta do pedido falhou:", erroPedido.message); // ex.: coluna ausente em ambiente sem o SQL
 
     // Mesma resposta para "não existe" e "não é seu": não revela pedido de outra pessoa.
     if (!order || order.user_id !== caller.id) return json({ error: "Você não tem acesso a este pedido." }, 403);
@@ -50,7 +52,8 @@ serve(async (req) => {
     const paginas = ingressosParaPdf(order, tickets ?? []);
     if (paginas.length === 0) return json({ error: "Nenhum ingresso ativo neste pedido." }, 404);
 
-    return new Response(await gerarPdf(paginas, await logoDoProdutor(admin, (Array.isArray(order.events) ? order.events[0] : order.events)?.producer_id)), {
+    const ev = Array.isArray(order.events) ? order.events[0] : order.events;
+    return new Response(await gerarPdf(paginas, await logoDoProdutor(admin, ev?.producer_id), estiloDoEvento(ev)), {
       headers: { ...cors, "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ingresso-evokaa.pdf"' },
     });
   } catch (e) {
