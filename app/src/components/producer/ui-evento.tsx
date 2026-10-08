@@ -19,8 +19,10 @@ const PONTO: Record<Situacao, string> = {
   Cancelado: 'bg-destructive', Recusado: 'bg-destructive',
 }
 
-export function CabecalhoEvento({ titulo, situacao, data, local, linkPublico, editarHref, onDuplicar, duplicando, onDespublicar, extras }: {
-  titulo: ReactNode; situacao: Situacao; data?: ReactNode; local?: ReactNode
+export function CabecalhoEvento({ titulo, situacao, detalhes, linkPublico, editarHref, onDuplicar, duplicando, onDespublicar, extras }: {
+  titulo: ReactNode; situacao: Situacao
+  /** data, hora, local...: cada item vira um trecho separado por "·" */
+  detalhes?: ReactNode[]
   /** só aparece com o evento no ar */
   linkPublico?: string
   editarHref: string
@@ -29,7 +31,6 @@ export function CabecalhoEvento({ titulo, situacao, data, local, linkPublico, ed
   /** botões a mais (ex.: fixar, compartilhar) */
   extras?: ReactNode
 }) {
-  const partes = [data, local].filter(Boolean)
   return (
     <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div className="min-w-0">
@@ -38,19 +39,19 @@ export function CabecalhoEvento({ titulo, situacao, data, local, linkPublico, ed
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
             <span aria-hidden="true" className={cn('size-2 rounded-full', PONTO[situacao])} />{situacao}
           </span>
-          {partes.map((t, i) => <span key={i} className="inline-flex gap-2"><span aria-hidden="true">·</span>{t}</span>)}
+          {(detalhes ?? []).filter(Boolean).map((t, i) => <span key={i} className="inline-flex gap-2"><span aria-hidden="true">·</span>{t}</span>)}
         </p>
         {linkPublico && (
-          <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-6 items-center gap-1 break-all rounded-ev-xs text-[13px] font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <a href={linkPublico} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex min-h-11 items-center gap-1 break-all rounded-ev-xs text-[13px] font-medium text-primary underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {linkPublico.replace(/^https?:\/\//, '')}<I.AbrirExterno size={14} aria-hidden="true" /><span className="sr-only"> (abre em nova aba)</span>
           </a>
         )}
       </div>
       <div role="group" aria-label="Ações do evento" className="flex flex-wrap items-center gap-2">
         {extras}
-        {onDuplicar && <Button variant="outline" onClick={onDuplicar} disabled={duplicando}><I.Copiar aria-hidden="true" />Duplicar</Button>}
-        {onDespublicar && <Button variant="outline" onClick={onDespublicar}>Despublicar</Button>}
-        <Button asChild><Link to={editarHref}><I.Editar aria-hidden="true" />Editar</Link></Button>
+        {onDuplicar && <Button variant="outline" className="min-h-11" onClick={onDuplicar} disabled={duplicando}><I.Copiar aria-hidden="true" />Duplicar</Button>}
+        {onDespublicar && <Button variant="outline" className="min-h-11" onClick={onDespublicar}>Despublicar</Button>}
+        <Button asChild className="min-h-11"><Link to={editarHref}><I.Editar aria-hidden="true" />Editar</Link></Button>
       </div>
     </header>
   )
@@ -65,13 +66,13 @@ export function BarraFiltros({ periodo, onPeriodo, periodos, filtros, onExportar
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3">
-      <Segmented label="Período" size="sm" value={periodo} onValueChange={onPeriodo} items={periodos} className="w-full sm:w-72" />
+      <Segmented label="Período" size="md" value={periodo} onValueChange={onPeriodo} items={periodos} className="h-11 w-full sm:w-72" />
       {filtros}
       <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
         {atualizadoEm && (
           <p className="text-xs text-muted-foreground">Atualizado às {atualizadoEm.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
         )}
-        {onExportar && <Button variant="outline" size="sm" onClick={onExportar} disabled={exportarDesabilitado}><I.Baixar aria-hidden="true" />Exportar CSV</Button>}
+        {onExportar && <Button variant="outline" size="sm" className="min-h-11" onClick={onExportar} disabled={exportarDesabilitado}><I.Baixar aria-hidden="true" />Exportar CSV</Button>}
       </div>
     </div>
   )

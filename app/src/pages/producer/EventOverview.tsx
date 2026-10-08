@@ -181,8 +181,7 @@ function Visao({ e }: { e: DbEvent }) {
   const fixado = fixados.includes(e.id)
   const link = siteUrl(`/event/${refDoEvento(e)}`)
   const local = [e.venue_name, e.venue_city].filter(Boolean).join(', ')
-  const quando = [diaEv ? dataComSemana(diaEv) : 'sem data', horaCurta(e.time)].filter(Boolean).join(' às ')
-  const onde = [local, cap > 0 ? `${inteiro(cap)} lugares` : null].filter(Boolean).join(' · ')
+  const detalhes = [diaEv ? dataComSemana(diaEv) : 'sem data', horaCurta(e.time), local, cap > 0 ? `${inteiro(cap)} lugares` : null]
 
   const compartilhar = async () => {
     try {
@@ -202,17 +201,17 @@ function Visao({ e }: { e: DbEvent }) {
   return (
     <div className="evento-cor" style={varsDoEvento(cor, false, e.accent_intensity ?? 100) as CSSProperties}>
       <CabecalhoEvento
-        titulo={e.title} situacao={sit} data={quando} local={onde || undefined}
+        titulo={e.title} situacao={sit} detalhes={detalhes}
         linkPublico={sit === 'Publicado' ? link : undefined}
         editarHref={`/producer/events/${e.id}/edit`}
         onDuplicar={duplicar} duplicando={duplicando}
         extras={
           <>
-            <Button variant="outline" size="icon" aria-pressed={fixado} aria-label="Fixar evento na lateral" onClick={() => alternaFixo(e.id)}>
+            <Button variant="outline" size="icon" className="min-h-11 min-w-11" aria-pressed={fixado} aria-label="Fixar evento na lateral" onClick={() => alternaFixo(e.id)}>
               <I.Estrela size={16} ativo={fixado} className={fixado ? 'text-primary' : undefined} />
             </Button>
             {sit === 'Publicado' && (
-              <Button variant="outline" onClick={compartilhar}><I.Compartilhar aria-hidden="true" />Compartilhar</Button>
+              <Button variant="outline" className="min-h-11" onClick={compartilhar}><I.Compartilhar aria-hidden="true" />Compartilhar</Button>
             )}
           </>
         }
@@ -270,9 +269,9 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
       )}
 
       <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-4">
-        <KpiCard destaque className="sm:col-span-2" rotulo="Vendas" valor={brl(dados.bruto)} ajuda="Valor bruto dos pedidos pagos, com a taxa do comprador." />
-        <KpiCard rotulo="Ingressos vendidos" valor={inteiro(dados.vendidosPeriodo)} />
-        <KpiCard rotulo="Ticket médio" valor={dados.pagosQtd > 0 ? brl(dados.bruto / dados.pagosQtd) : '—'} ajuda="Valor bruto dividido pelo número de pedidos pagos." />
+        <KpiCard destaque className="sm:col-span-2" rotulo="Vendas" valor={brl(dados.bruto)} ajuda="Soma bruta dos pedidos pagos no período, com a taxa do comprador." />
+        <KpiCard rotulo="Ingressos no período" valor={inteiro(dados.vendidosPeriodo)} ajuda="Segue o filtro de período. O total do evento está no painel de vendas abaixo." />
+        <KpiCard rotulo="Ticket médio por pedido" valor={dados.pagosQtd > 0 ? brl(dados.bruto / dados.pagosQtd) : '—'} ajuda="Valor bruto dividido pelo número de pedidos pagos." />
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-12">
@@ -292,10 +291,7 @@ function Corpo({ e, dados, cap, agora, hoje, diaEv, noDia, entraram }: {
             </div>
           )}
           <p className="mt-3">
-            {brl(dados.vendaHoje)} hoje · {inteiro(dados.ingressosHoje)} {dados.ingressosHoje === 1 ? 'ingresso' : 'ingressos'} hoje · {brl(dados.bruto)} bruto
-          </p>
-          <p className="text-xs text-muted-foreground">
-            Bruto: pedidos pagos, com a taxa do comprador.
+            {brl(dados.vendaHoje)} hoje · {inteiro(dados.ingressosHoje)} {dados.ingressosHoje === 1 ? 'ingresso' : 'ingressos'} hoje
           </p>
 
           <VendasPorDia serie={serie} nomes={tipos.map(t => t.name)} exatos={tipos.map(t => dados.porTipo[t.id])} vendidos={dados.vendidosPeriodo} hoje={hoje} cortado={dados.cortado} comEvento={!!diaEv} />

@@ -64,7 +64,7 @@ describe('AbasDeArea', () => {
     expect(screen.getByRole('tablist', { name: 'Abas da área' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Cupons' })).toHaveAttribute('aria-selected', 'true')
     await userEvent.click(screen.getByRole('tab', { name: 'Visão geral' }))
-    expect(screen.getByTestId('rota')).toHaveTextContent('/a')
+    expect(screen.getByTestId('rota')).toHaveTextContent(/^\/a$/)
     expect(screen.getByRole('tab', { name: 'Visão geral' })).toHaveAttribute('aria-selected', 'true')
   })
 })

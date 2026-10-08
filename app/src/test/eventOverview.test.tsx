@@ -110,7 +110,7 @@ describe('Visão geral do evento (V7)', () => {
     expect(barra.getAttribute('aria-valuemax')).toBe('20')
     expect(screen.getByText('de 20 vendidos')).toBeTruthy()
     expect(screen.getByText('20%')).toBeTruthy()
-    expect(screen.getByText(/R\$\s55,00 hoje · 3 ingressos hoje · R\$\s165,00 bruto/)).toBeTruthy()
+    expect(screen.getByText(/R\$\s55,00 hoje · 3 ingressos hoje/)).toBeTruthy()
     expect(screen.queryByText(/líquido/)).toBeNull()
 
     const lista = within(screen.getByRole('region', { name: 'Ingressos' }))
@@ -136,7 +136,7 @@ describe('Visão geral do evento (V7)', () => {
     montar()
     expect(await screen.findByText('Nenhum pedido ainda.')).toBeTruthy()
     expect(screen.getByText('Nenhum ingresso vendido ainda.')).toBeTruthy()
-    expect(screen.getByText(/R\$\s0,00 hoje · 0 ingressos hoje · R\$\s0,00 bruto/)).toBeTruthy()
+    expect(screen.getByText(/R\$\s0,00 hoje · 0 ingressos hoje/)).toBeTruthy()
   })
 
   it('evento de outro produtor (ou que não existe): "Evento não encontrado"', async () => {
@@ -183,12 +183,13 @@ describe('Visão geral do evento (V7)', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Noite de Forró' })).toBeTruthy()
   })
 
-  it('ações: Editar leva à edição, Ver página ao site público e a estrela grava em evk.nav.fixados', async () => {
+  it('ações: Editar leva à edição, link público ao site e a estrela grava em evk.nav.fixados', async () => {
     dadosDoBanco()
     montar()
     const grupo = within(await screen.findByRole('group', { name: 'Ações do evento' }))
     expect(grupo.getByRole('link', { name: 'Editar' }).getAttribute('href')).toBe('/producer/events/e1/edit')
-    expect(grupo.getByRole('link', { name: /Ver página/ }).getAttribute('href')).toMatch(/\/event\/noite-de-forro$/)
+    expect(grupo.getByRole('button', { name: 'Compartilhar' })).toBeTruthy()
+    expect(screen.getByRole('link', { name: /\/event\/noite-de-forro/ }).getAttribute('href')).toMatch(/\/event\/noite-de-forro$/)
     const estrela = grupo.getByRole('button', { name: 'Fixar evento na lateral' })
     expect(estrela.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(estrela)
@@ -205,12 +206,12 @@ describe('Visão geral do evento (V7)', () => {
     expect(estrela.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('rascunho: sem "Ver página" nem "Compartilhar" (a página pública ainda não existe)', async () => {
+  it('rascunho: sem link público nem "Compartilhar" (a página pública ainda não existe)', async () => {
     dadosDoBanco({ eventos: [evento({ status: 'draft' })] })
     montar()
     const grupo = within(await screen.findByRole('group', { name: 'Ações do evento' }))
     expect(screen.getByText('Rascunho')).toBeTruthy()
-    expect(grupo.queryByText(/Ver página/)).toBeNull()
+    expect(screen.queryByRole('link', { name: /\/event\// })).toBeNull()
     expect(grupo.queryByText('Compartilhar')).toBeNull()
     expect(grupo.getByRole('link', { name: 'Editar' })).toBeTruthy()
   })
@@ -222,7 +223,8 @@ describe('Visão geral: período, soma no banco e CSV (L5)', () => {
     rpc.mockResolvedValue({ data: { total: 123456.7, pedidos: 1500, reembolsados: { pedidos: 0, total: 0 }, por_evento: [], por_forma: [],
       por_dia: [{ dia: hojeISO(), pedidos: 3, total: 300 }, { dia: '2020-01-01', pedidos: 1497, total: 123156.7 }] }, error: null })
     montar()
-    expect(await screen.findByText(/R\$\s300,00 hoje · 0 ingressos hoje · R\$\s123\.456,70 bruto/)).toBeTruthy()
+    expect(await screen.findByText(/R\$\s300,00 hoje · 0 ingressos hoje/)).toBeTruthy()
+    expect(screen.getByText(/^R\$\s123\.456,70$/)).toBeTruthy() // KPI Vendas (bruto)
     expect(screen.queryByText(/Soma parcial/)).toBeNull()
     expect(screen.queryByText(/\+ (hoje|bruto)/)).toBeNull()
   })
@@ -243,7 +245,7 @@ describe('Visão geral: período, soma no banco e CSV (L5)', () => {
       por_dia: [{ dia: '2026-10-01', pedidos: 3, total: 150.5 }] }, error: null })
     const baixa = vi.spyOn(exportCsv, 'downloadCsv').mockImplementation(() => {})
     montar()
-    await screen.findByText(/bruto/)
+    await screen.findByText('Vendas')
     fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }))
     expect(baixa).toHaveBeenCalledTimes(1)
     const [nome, csv] = baixa.mock.calls[0]
