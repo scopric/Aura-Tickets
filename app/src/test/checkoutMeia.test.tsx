@@ -75,4 +75,17 @@ describe('Checkout: meia-entrada', () => {
     await new Promise(r => setTimeout(r, 20))
     expect(screen.queryByText('Meia-entrada')).toBeNull()
   })
+
+  it('duas chaves de meia do mesmo tipo viram uma só (a contagem do teto bate com a tela)', async () => {
+    montar({ 'tt1|meia|pcd': 1, 'tt1|meia|estudante': 1 })
+    await screen.findByText('2 × Pista (meia-entrada)')
+    expect(screen.getAllByText(/× Pista/)).toHaveLength(1)
+  })
+
+  it('meia órfã (tipo sem meia na vitrine) sai do carrinho e não conta no teto', async () => {
+    h.vitrine = [{ ...VITRINE[0], permite_meia: false, preco_meia: null, taxa_meia: null, meias_disponiveis: 0, meias_total: 0 }]
+    montar({ 'tt1|meia|pcd': 10 })
+    const mais = await screen.findByRole('button', { name: 'Adicionar um Pista' })
+    await waitFor(() => { fireEvent.click(mais); expect(screen.getByText('1 × Pista')).toBeTruthy() }) // o teto de 10 não foi consumido pela meia invisível
+  })
 })

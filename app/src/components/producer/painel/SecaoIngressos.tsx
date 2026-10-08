@@ -153,7 +153,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <Button
           id="ing-novo" type="button" variant="ghost" aria-describedby={faltam?.['ing-novo'] ? 'ing-novo-erro' : undefined}
-          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, meia: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '' }])}
+          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, meia: true, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '' }])}
         >
           <I.Criar aria-hidden="true" />Adicionar ingresso
         </Button>

@@ -44,7 +44,7 @@ export default function CheckoutPayment() {
   // Depois de reservar, quem manda nos valores é o retorno do servidor (desconto do cupom, meia, taxa); antes é só prévia
   const [valores, setValores] = useState<{ subtotal: number; desconto: number; taxa: number; total: number } | null>(null)
   const v = valores ?? { ...resumo, desconto: 0 }
-  const temMeia = (itemsSummary || []).some(i => i.beneficio === 'meia')
+  const temMeia = (itemsSummary || []).some((i: { beneficio?: string }) => i.beneficio === 'meia')
   const [cupom, setCupom] = useState('')
   const [erroCupom, setErroCupom] = useState<string | null>(null)
 

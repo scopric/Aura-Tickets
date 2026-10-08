@@ -111,4 +111,11 @@ describe('resumoDuplicacao', () => {
     expect(resumoDuplicacao({ id: 'n', ingressos: 0, foto: false, avisos: ['os ingressos não foram copiados', 'foto não copiada'] }))
       .toMatch(/Copiado: os dados do evento\..*Atenção: os ingressos não foram copiados; foto não copiada\./)
   })
+
+  it('a cópia preserva permite_meia desligado, liga o que não tinha valor e nunca liga a coletiva', async () => {
+    const o = original({ ticket_types: [tipo({ permite_meia: false }), tipo({ id: 't2', name: 'Camarote' }), tipo({ id: 't3', name: 'Mesa', type: 'coletiva', permite_meia: true })] })
+    await duplicarEvento(o, criar, 'p1')
+    const linhas = (inserido[0] as [string, Record<string, unknown>[]])[1]
+    expect(linhas.map(l => l.permite_meia)).toEqual([false, true, false])
+  })
 })

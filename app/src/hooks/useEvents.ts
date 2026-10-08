@@ -467,7 +467,7 @@ export function useUpdateEvent() {
           if (error) throw error
           if (data?.length !== 1) throw new Error('Não foi possível salvar um dos ingressos') // RLS que barra devolve 0 linhas sem erro
         } else {
-          novos.push({ ...campos, perks: t.perks || [], inclui_bebida: !!t.inclui_bebida, permite_meia: !!t.permite_meia, event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
+          novos.push({ ...campos, perks: t.perks || [], inclui_bebida: !!t.inclui_bebida, permite_meia: t.type === 'coletiva' ? false : (t.permite_meia ?? true), event_id: eventId, type: t.type === 'coletiva' ? 'coletiva' : 'individual', is_active: true })
         }
       }
 

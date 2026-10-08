@@ -218,11 +218,33 @@ export default function Checkout() {
     ;(async () => {
       try {
         const { data } = await supabase.rpc('vitrine_ingressos' as never, { p_event_id: eventId } as never)
-        if (vivo && Array.isArray(data)) setVitrine(Object.fromEntries((data as Vitrine[]).map(v => [v.ticket_type_id, v])))
+        if (!vivo || !Array.isArray(data)) return
+        const mapa = Object.fromEntries((data as Vitrine[]).map(v => [v.ticket_type_id, v]))
+        setVitrine(mapa)
       } catch { /* sem vitrine: só inteira */ }
     })()
     return () => { vivo = false }
   }, [eventId])
+
+  // Carrinho salvo pode ter meia que já não existe (tipo sem meia) ou duas chaves de meia do mesmo tipo: ao chegar a vitrine, tira as órfãs
+  // e junta as repetidas na primeira, para a contagem do teto bater com o que a tela mostra.
+  useEffect(() => {
+    if (!Object.keys(vitrine).length) return
+    const escolhido: Record<string, string> = {}
+    const novo: Record<string, number> = {}
+    for (const [k, q] of Object.entries(cart)) {
+      const { ticket_type_id: id, beneficio, meia_tipo } = lerChave(k)
+      if (beneficio !== 'meia') { novo[k] = q; continue }
+      if (vitrine[id]?.preco_meia == null) continue
+      escolhido[id] ??= meia_tipo!
+      const c = chaveItem(id, 'meia', escolhido[id])
+      novo[c] = (novo[c] || 0) + q
+    }
+    const igual = Object.keys(novo).length === Object.keys(cart).length && Object.entries(novo).every(([k, q]) => cart[k] === q)
+    if (!igual) setCart(novo)
+    if (Object.keys(escolhido).length) setMeiaTipo(m => ({ ...m, ...escolhido }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vitrine])
 
   // Lugares vendidos e reservados (só chave e estado; sem dado pessoal). Falha de leitura deixa tudo "livre": o banco recusa de novo ao reservar.
   async function carregarOcupados() {

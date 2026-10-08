@@ -19,10 +19,10 @@ describe('Painel do produtor: aceita meia-entrada', () => {
     expect(setIngs).toHaveBeenCalledWith([expect.objectContaining({ meia: false })])
   })
 
-  it('ingresso novo nasce desligado', () => {
+  it('ingresso novo nasce ligado (padrão da coluna)', () => {
     const setIngs = montar([])
     fireEvent.click(screen.getByRole('button', { name: /Adicionar ingresso/ }))
-    expect(setIngs).toHaveBeenCalledWith([expect.objectContaining({ novo: true, meia: false })])
+    expect(setIngs).toHaveBeenCalledWith([expect.objectContaining({ novo: true, meia: true })])
   })
 
   it.each(['coletiva', 'mesa'])('some em %s', (t) => {
