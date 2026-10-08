@@ -187,5 +187,11 @@ describe('Erros do login em português', () => {
     expect(erroDeLogin('Email rate limit exceeded')).toMatch(/Muitas tentativas/)
     expect(erroDeLogin('Algo novo')).toBe('Algo novo')
     expect(erroDeLogin('')).toBe('Erro ao realizar login')
+    expect(erroDeLogin('User is banned')).toMatch(/bloqueada/)
+    expect(erroDeLogin('Signups not allowed for this instance')).toMatch(/desativados/)
+    expect(erroDeLogin('Unsupported provider: provider is not enabled')).toMatch(/não está disponível/)
+    // com texto padrão, o que não é reconhecido nunca sai em inglês
+    expect(erroDeLogin('Database error saving new user', 'Tente de novo')).toBe('Tente de novo')
+    expect(erroDeLogin('Invalid login credentials', 'Tente de novo')).toBe('E-mail ou senha incorretos')
   })
 })
