@@ -23,7 +23,7 @@ const py = (y: number, max: number) => Y[2] - (y / max) * (Y[2] - Y[0])
 const caminho = (v: number[], n: number, max: number, de = 0) =>
   v.map((y, i) => `${i ? 'L' : 'M'}${(px(de + i, n) * LARGURA).toFixed(1)} ${py(y, max).toFixed(1)}`).join(' ')
 
-export default function GraficoLinha({ atual, anterior, n, inteiro = false, formatoValor, formatoEixo, rotulo, legendaAtual, legendaAnterior, resumo, vazio }: {
+export default function GraficoLinha({ atual, anterior, n, inteiro = false, formatoValor, formatoEixo, rotulo, rotuloEixo, ultimoParcial = true, legendaAtual, legendaAnterior, resumo, vazio }: {
   atual: number[] // pode ter menos de n pontos (o que ainda não aconteceu não entra)
   anterior: number[] | null
   n: number
@@ -31,6 +31,10 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
   formatoValor: (v: number) => string
   formatoEixo: (v: number) => string
   rotulo: (k: number) => string
+  /** texto curto do eixo (padrão: o mesmo da dica); a dica e a tabela mantêm o texto completo */
+  rotuloEixo?: (k: number) => string
+  /** o último ponto é de um período ainda em curso (dia de hoje): trecho final tracejado. Falso quando o período já fechou (ex.: festa encerrada) */
+  ultimoParcial?: boolean
   legendaAtual: string
   legendaAnterior: string
   /** texto lido por quem usa leitor de tela (o gráfico em si é imagem) */
@@ -81,9 +85,9 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
             <>
               {anterior && <path d={caminho(anterior, n, max)} fill="none" className="stroke-muted-foreground" strokeWidth="1.5" strokeDasharray="4 4" vectorEffect="non-scaling-stroke" />}
               {atual.length > 1 && <path d={`${caminho(atual, n, max)} L${(x(ultimo) * LARGURA).toFixed(1)} ${Y[2]} L${(x(0) * LARGURA).toFixed(1)} ${Y[2]} Z`} className="fill-primary" fillOpacity="0.08" />}
-              {atual.length > 2 && <path d={caminho(atual.slice(0, -1), n, max)} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+              {(ultimoParcial ? atual.length > 2 : atual.length > 1) && <path d={caminho(ultimoParcial ? atual.slice(0, -1) : atual, n, max)} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
               {/* o último ponto é do dia (ou da hora) em curso: o trecho final é tracejado */}
-              {atual.length > 1 && <path d={caminho(atual.slice(-2), n, max, ultimo - 1)} fill="none" className="stroke-primary" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+              {ultimoParcial && atual.length > 1 && <path d={caminho(atual.slice(-2), n, max, ultimo - 1)} fill="none" className="stroke-primary" strokeWidth="2" strokeDasharray="4 4" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
               {atual.length === 1 && <circle cx={LARGURA / 2} cy={py(atual[0], max)} r="3" className="fill-primary" />}
             </>
           )}
@@ -116,7 +120,7 @@ export default function GraficoLinha({ atual, anterior, n, inteiro = false, form
       <span className="sr-only" aria-live="polite">{dica}</span>
 
       <div aria-hidden="true" className="mx-5 mr-16 mt-2 flex justify-between text-[11px] font-medium leading-[14px] tabular-nums text-muted-foreground">
-        {marcas.map(k => <span key={k}>{rotulo(k)}</span>)}
+        {marcas.map(k => <span key={k}>{(rotuloEixo ?? rotulo)(k)}</span>)}
       </div>
 
       {!vazio && (

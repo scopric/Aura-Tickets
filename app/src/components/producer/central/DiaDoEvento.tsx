@@ -28,7 +28,7 @@ export default function DiaDoEvento({ q, eventos, eventoId, onEvento, atualizado
   const d = q.data
   const esperados = d ? d.lotes.reduce((s, l) => s + l.vendidos, 0) : 0
   const entraram = d ? d.lotes.reduce((s, l) => s + l.entraram, 0) : 0
-  const { rotulos, valores: serie } = d ? entradasPorHora(d.entradas) : { rotulos: [] as string[], valores: [] as number[] }
+  const { rotulos, eixo, valores: serie } = d ? entradasPorHora(d.entradas) : { rotulos: [] as string[], eixo: [] as string[], valores: [] as number[] }
   const resumoHora = `Entradas por hora: ${entraram} no total${serie.length ? `, pico de ${Math.max(...serie)} às ${rotulos[serie.indexOf(Math.max(...serie))]}` : ''}`
 
   const comandos = (
@@ -97,7 +97,7 @@ export default function DiaDoEvento({ q, eventos, eventoId, onEvento, atualizado
           resumo={resumoHora}
           tabela={{ legenda: `Entradas por hora${d?.cortado ? ' (as primeiras 1.000 entradas)' : ''}`, colunas: ['Hora', 'Entradas'], linhas: serie.map((n, i) => [rotulos[i], n]) }}
         >
-          <GraficoLinha atual={serie} anterior={null} n={serie.length} inteiro formatoValor={inteiro} formatoEixo={inteiro} rotulo={k => rotulos[k]} legendaAtual={d?.cortado ? 'Entradas por hora (primeiras 1.000)' : 'Entradas por hora'} legendaAnterior="" resumo={resumoHora} />
+          <GraficoLinha atual={serie} anterior={null} n={serie.length} inteiro formatoValor={inteiro} formatoEixo={inteiro} rotulo={k => rotulos[k]} rotuloEixo={k => eixo[k]} ultimoParcial={false} legendaAtual={d?.cortado ? 'Entradas por hora (primeiras 1.000)' : 'Entradas por hora'} legendaAnterior="" resumo={resumoHora} />
         </Mosaico>
       </div>
     </div>
