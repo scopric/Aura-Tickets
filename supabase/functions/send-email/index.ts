@@ -151,7 +151,7 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
         </div>
         <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: #5B6577; font-size: 12px;">
           <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
-          <p style="margin: 5px 0 0 0; ">Dúvidas ou suporte? Entre em contato pelo e-mail contato@evokaa.com.br</p>
+          <p style="margin: 5px 0 0 0; ">Dúvidas ou suporte? Entre em contato pelo e-mail <a href="mailto:contato@evokaa.com.br" style="color: #1d68c4;">contato@evokaa.com.br</a></p>
         </div>
       </div>
     </div>

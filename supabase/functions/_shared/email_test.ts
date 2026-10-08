@@ -9,6 +9,7 @@ const textoVisivel = (html: string) => html.replace(/<[^>]+>/g, " ");
 Deno.test("molde do e-mail: paleta da marca, sem roxo, sem sombra e sem exclamação", () => {
   const html = emailShell("Seus ingressos estão em anexo", "Olá, Ana.", "<p>corpo</p>", "Ver meus ingressos", "https://app.evokaa.com.br/app/tickets");
   assert(html.includes("#1d68c4"));
+  assert(html.includes('<a href="mailto:contato@evokaa.com.br" style="color: #1d68c4;">'), "link do rodapé na cor da marca");
   assertFalse(/#581C87|#7E22CE|#0C0A09|box-shadow|gradient/i.test(html));
   assertFalse(textoVisivel(html).includes("!"));
   assertFalse(textoVisivel(montarConviteEquipe("Produtora X", "editor", "https://app.evokaa.com.br").html).includes("!"));
