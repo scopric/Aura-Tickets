@@ -17,7 +17,7 @@ describe('ErrorBoundary', () => {
       </RootErrorBoundary>
     )
     expect(screen.getByText('Algo deu errado')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Inicio/ })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /Início/ })).toHaveAttribute('href', '/')
   })
 
   it('área: erro numa tela não derruba o layout (menu continua na tela)', () => {
@@ -59,5 +59,17 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>
     )
     expect(screen.getByText('Tela nova')).toBeInTheDocument()
+  })
+})
+
+describe('ErrorBoundary: arquivo que sumiu depois de um deploy', () => {
+  it('recarrega sozinho uma vez e não entra em laço', () => {
+    const reload = vi.fn()
+    Object.defineProperty(window, 'location', { configurable: true, value: { ...window.location, reload } })
+    sessionStorage.clear()
+    const Quebra = () => { throw new TypeError('Failed to fetch dynamically imported module: /assets/x.js') }
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    for (let i = 0; i < 2; i++) render(<RootErrorBoundary><Quebra /></RootErrorBoundary>)
+    expect(reload).toHaveBeenCalledTimes(1)
   })
 })
