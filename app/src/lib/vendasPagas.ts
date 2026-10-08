@@ -12,13 +12,12 @@ export type VendasPagas = {
   por_forma: { forma: string; pedidos: number; total: number }[]
 }
 
-/** Janela [de, ate) do período, em ISO. 'tudo' = sem limite. Dia de São Paulo = dia do relógio do navegador (produtor no Brasil). */
+/** Janela [de, ate) do período, em ISO. 'tudo' = sem limite. Dia sempre em Brasília (UTC-3, sem horário de verão), igual ao banco, qualquer que seja o fuso do navegador. */
 export function janelaDoPeriodo(p: Periodo, agora = Date.now()): { de: string | null; ate: string | null } {
   if (p === 'tudo') return { de: null, ate: null }
-  const d = new Date(agora)
-  d.setHours(0, 0, 0, 0)
-  if (p !== 'hoje') d.setDate(d.getDate() - (p === '7d' ? 6 : 29))
-  return { de: d.toISOString(), ate: null }
+  const dias = p === 'hoje' ? 0 : p === '7d' ? 6 : 29
+  const dia = new Date(agora - 3 * 3600000 - dias * 86400000).toISOString().slice(0, 10)
+  return { de: new Date(`${dia}T00:00:00-03:00`).toISOString(), ate: null }
 }
 
 export async function vendasPagas(f: { de?: string | null; ate?: string | null; eventId?: string | null }, sinal?: AbortSignal): Promise<VendasPagas> {

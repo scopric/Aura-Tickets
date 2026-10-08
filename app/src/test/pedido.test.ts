@@ -1,40 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { itensDoPedido, pedidoReaproveitavel, vendaBloqueada } from '../lib/pedido'
-
-describe('itensDoPedido', () => {
-  it('grava preço por item, subtotal e taxa (10%, mínimo R$ 3)', () => {
-    const r = itensDoPedido([{ ticket_type_id: 'a', quantity: 2 }, { ticket_type_id: 'b', quantity: 1 }], { a: 50, b: 10 })
-    expect(r.linhas).toEqual([
-      { ticket_type_id: 'a', quantity: 2, unit_price: 50, subtotal: 100 },
-      { ticket_type_id: 'b', quantity: 1, unit_price: 10, subtotal: 10 },
-    ])
-    expect(r.subtotal).toBe(110)
-    expect(r.service_fee).toBe(13) // 2 x 5 + 1 x 3
-    expect(r.total).toBe(123)
-  })
-  it('falha se algum tipo não tem preço no banco', () => {
-    expect(() => itensDoPedido([{ ticket_type_id: 'x', quantity: 1 }], {})).toThrow('sem preço')
-  })
-  it('falha com preço nulo ou inválido (não vira 0)', () => {
-    expect(() => itensDoPedido([{ ticket_type_id: 'x', quantity: 1 }], { x: null })).toThrow('Ingresso sem preço no banco')
-    expect(() => itensDoPedido([{ ticket_type_id: 'x', quantity: 1 }], { x: NaN })).toThrow('Ingresso sem preço no banco')
-  })
-})
-
-describe('pedidoReaproveitavel', () => {
-  const p = [{ id: 'o1', created_at: new Date().toISOString(), payment_method: 'pix', order_items: [{ ticket_type_id: 'a', quantity: 2 }, { ticket_type_id: 'b', quantity: 1 }] }]
-  it('reaproveita com os mesmos itens, em qualquer ordem', () => {
-    expect(pedidoReaproveitavel(p, [{ ticket_type_id: 'b', quantity: 1 }, { ticket_type_id: 'a', quantity: 2 }], 'pix')?.id).toBe('o1')
-  })
-  it('não reaproveita se muda quantidade ou forma de pagamento', () => {
-    expect(pedidoReaproveitavel(p, [{ ticket_type_id: 'a', quantity: 3 }, { ticket_type_id: 'b', quantity: 1 }], 'pix')).toBeUndefined()
-    expect(pedidoReaproveitavel(p, [{ ticket_type_id: 'a', quantity: 2 }, { ticket_type_id: 'b', quantity: 1 }], 'credit_card')).toBeUndefined()
-  })
-  it('não reaproveita pedido com 20 min ou mais', () => {
-    const velho = [{ ...p[0], created_at: new Date(Date.now() - 21 * 60_000).toISOString() }]
-    expect(pedidoReaproveitavel(velho, [{ ticket_type_id: 'a', quantity: 2 }, { ticket_type_id: 'b', quantity: 1 }], 'pix')).toBeUndefined()
-  })
-})
+import { chaveItem, lerChave, totaisItens, vendaBloqueada } from '../lib/pedido'
 
 describe('vendaBloqueada', () => {
   const ev = { start_date: '2026-12-15T21:00:00Z', end_date: null, date: '2026-12-15', time: '18:00' }
@@ -54,13 +19,17 @@ describe('vendaBloqueada', () => {
   })
 })
 
-describe('pedido gratuito', () => {
-  it('total 0 e reaproveita pendente sem forma de pagamento', () => {
-    const r = itensDoPedido([{ ticket_type_id: 'a', quantity: 2 }], { a: 0 })
-    expect(r.total).toBe(0)
-    expect(r.service_fee).toBe(0)
-    const agora = Date.now()
-    const p = { id: 'p', payment_method: null, order_items: [{ ticket_type_id: 'a', quantity: 2 }], created_at: new Date(agora).toISOString() }
-    expect(pedidoReaproveitavel([p], [{ ticket_type_id: 'a', quantity: 2 }], null, agora)).toBe(p)
+describe('carrinho com meia-entrada', () => {
+  it('chave nova e chave antiga (só o id = inteira)', () => {
+    expect(chaveItem('a')).toBe('a|inteira|')
+    expect(chaveItem('a', 'meia', 'pcd')).toBe('a|meia|pcd')
+    expect(lerChave('a')).toEqual({ ticket_type_id: 'a', beneficio: 'inteira', meia_tipo: null })
+    expect(lerChave('a|meia|estudante')).toEqual({ ticket_type_id: 'a', beneficio: 'meia', meia_tipo: 'estudante' })
+    expect(lerChave('a|meia|')).toMatchObject({ beneficio: 'inteira' }) // meia sem benefício não existe
+  })
+  it('totaisItens usa a taxa do servidor na meia e a de taxa.ts na inteira', () => {
+    // 1 inteira de R$ 50 (taxa 5) + 2 meias de R$ 25 com taxa do servidor R$ 3
+    expect(totaisItens([{ price: 50, quantity: 1 }, { price: 25, quantity: 2, taxa_unit: 3 }])).toEqual({ subtotal: 100, taxa: 11, total: 111 })
+    expect(totaisItens([{ price: 0, quantity: 2 }])).toEqual({ subtotal: 0, taxa: 0, total: 0 })
   })
 })

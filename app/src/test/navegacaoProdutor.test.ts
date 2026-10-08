@@ -7,10 +7,10 @@ const app = readFileSync(resolve(__dirname, '../App.tsx'), 'utf8')
 const rotasDoApp = new Set([...app.matchAll(/path="([^"]+)"/g)].map(m => m[1]))
 
 describe('mapa de navegação do produtor (V4a)', () => {
-  it('mapeia as 28 telas (27 na lista + o botão "+" de Criar evento), sem repetir', () => {
-    expect(NAV).toHaveLength(27)
-    expect(new Set(NAV.map(t => t.tela)).size).toBe(27)
-    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(28)
+  it('mapeia as 30 telas (29 na lista + o botão "+" de Criar evento), sem repetir', () => {
+    expect(NAV).toHaveLength(29)
+    expect(new Set(NAV.map(t => t.tela)).size).toBe(29)
+    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(30)
   })
 
   it('toda tela está numa seção do vocabulário e não existe "Ferramentas"', () => {
@@ -60,7 +60,7 @@ describe('mapa de navegação do produtor (V4a)', () => {
 
   it('escopo da produtora: tudo, menos Início (item solto) e a Pasta (linha do evento)', () => {
     const telas = SECOES.flatMap(s => filtra('produtora', s))
-    expect(telas).toHaveLength(27 - 2)
+    expect(telas).toHaveLength(29 - 2)
   })
 })
 

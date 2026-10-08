@@ -138,6 +138,12 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
                 <Checkbox id={`${id}-bebida`} checked={g.bebida} onCheckedChange={v => muda(g.id, { bebida: v === true })} />
                 <Label htmlFor={`${id}-bebida`} className="font-normal">Inclui bebida alcoólica</Label>
               </div>
+              {g.tipo !== 'coletiva' && g.tipo !== 'mesa' && (
+                <div className="flex items-center gap-2">
+                  <Checkbox id={`${id}-meia`} checked={g.meia} onCheckedChange={v => muda(g.id, { meia: v === true })} />
+                  <Label htmlFor={`${id}-meia`} className="font-normal">Aceita meia-entrada</Label>
+                </div>
+              )}
               {previa && <span className="ml-auto"><BotaoPrevia dados={previa} tipo={g.nome} /></span>}
             </div>
             {g.tipo === 'coletiva' && classificacao !== 'A18' && (
@@ -150,7 +156,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <Button
           id="ing-novo" type="button" variant="ghost" aria-describedby={faltam?.['ing-novo'] ? 'ing-novo-erro' : undefined}
-          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '' }])}
+          onClick={() => setIngs([...ings, { id: `novo-${++n.current}`, nome: '', preco: '', qtd: '', bebida: false, meia: true, tipo: 'individual', ativo: true, vendidos: 0, novo: true, inicioVenda: '', fimVenda: '', descricao: '', minPed: '1', maxPed: '', maxCpf: '' }])}
         >
           <I.Criar aria-hidden="true" />Adicionar ingresso
         </Button>

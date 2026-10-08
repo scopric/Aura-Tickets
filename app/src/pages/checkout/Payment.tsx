@@ -11,7 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { cpfValido, formatCPF, formatCurrency } from '../../lib/formatters'
 import { mesaErro } from '../../hooks/useMatchmaking'
-import { resumoCarrinho } from '../../lib/taxa'
+import { totaisItens } from '../../lib/pedido'
 
 export default function CheckoutPayment() {
   const location = useLocation()
@@ -23,7 +23,7 @@ export default function CheckoutPayment() {
     eventId?: string
     cart?: Record<string, number>
     totalAmount?: number
-    itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number; max_por_cpf?: number | null }[]
+    itemsSummary?: { ticket_type_id: string; quantity: number; name: string; price: number; max_por_cpf?: number | null; beneficio?: 'inteira' | 'meia'; meia_tipo?: string | null; taxa_unit?: number | null }[]
     orderId?: string // pedido de lugar marcado, já criado (e reservado por 10 min) pelo banco em reservar_assentos
     venceEm?: number // fim da reserva no relógio deste aparelho (Date.now)
   }
@@ -40,7 +40,13 @@ export default function CheckoutPayment() {
     itemsSummary: locationState.itemsSummary || pendingCheckout?.itemsSummary,
   }
   // Recalcula aqui: o totalAmount do sessionStorage pode ter a taxa antiga de 5%.
-  const resumo = resumoCarrinho((itemsSummary || []).map((i: { price: number; quantity: number }) => ({ preco: i.price, qtd: i.quantity })))
+  const resumo = totaisItens(itemsSummary || [])
+  // Depois de reservar, quem manda nos valores é o retorno do servidor (desconto do cupom, meia, taxa); antes é só prévia
+  const [valores, setValores] = useState<{ subtotal: number; desconto: number; taxa: number; total: number } | null>(null)
+  const v = valores ?? { ...resumo, desconto: 0 }
+  const temMeia = (itemsSummary || []).some((i: { beneficio?: string }) => i.beneficio === 'meia')
+  const [cupom, setCupom] = useState('')
+  const [erroCupom, setErroCupom] = useState<string | null>(null)
 
   const orderIdLugar = locationState.orderId
   const gratis = resumo.total === 0 && (itemsSummary?.length ?? 0) > 0
@@ -64,15 +70,17 @@ export default function CheckoutPayment() {
   const [cpf, setCpf] = useState('')
   const [erroCpf, setErroCpf] = useState<string | null>(null)
   useEffect(() => { if (erroCpf) document.getElementById('comprador-cpf')?.focus() }, [erroCpf])
-  // Contagem regressiva da reserva do lugar (só pedido com lugar)
+  // Contagem regressiva da reserva (10 min do servidor): lugar marcado chega com venceEm; ingresso comum ganha o prazo ao reservar
+  const [venceEm, setVenceEm] = useState<number | undefined>(locationState.venceEm)
   const [restante, setRestante] = useState(() => (locationState.venceEm ? Math.max(0, Math.ceil((locationState.venceEm - Date.now()) / 1000)) : null))
   useEffect(() => {
-    const fim = locationState.venceEm
-    if (!orderIdLugar || !fim) return
-    const t = setInterval(() => setRestante(Math.max(0, Math.ceil((fim - Date.now()) / 1000))), 1000)
+    if (!venceEm) return
+    const tick = () => setRestante(Math.max(0, Math.ceil((venceEm - Date.now()) / 1000)))
+    tick()
+    const t = setInterval(tick, 1000)
     return () => clearInterval(t)
-  }, [orderIdLugar, locationState.venceEm])
-  const esgotado = !!orderIdLugar && restante === 0
+  }, [venceEm])
+  const esgotado = !!venceEm && restante === 0
   const [qrAberto, setQrAberto] = useState(false)
   const [pixCopiado, setPixCopiado] = useState(false)
 
@@ -214,20 +222,27 @@ export default function CheckoutPayment() {
     }
     createOrderMutation.mutate({
       event_id: eventId,
-      items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity })),
-      payment_method: gratis ? null : paymentMethod,
+      items: itemsSummary.map(i => ({ ticket_type_id: i.ticket_type_id, quantity: i.quantity, beneficio: i.beneficio ?? 'inteira', meia_tipo: i.meia_tipo ?? null })),
+      cupom: cupom.trim() || undefined,
       ...(exigeCpf ? { customer_cpf: cpf.replace(/\D/g, '') } : {}),
     }, {
-      onSuccess: seguir,
+      onSuccess: (pedido) => {
+        setValores({ subtotal: pedido.subtotal, desconto: pedido.desconto, taxa: pedido.taxa, total: pedido.total })
+        setVenceEm(pedido.venceEm)
+        seguir(pedido)
+      },
       onError: (err) => {
-        const e = err as { code?: string; message?: string }
+        const e = err as { code?: string; message?: string; motivo?: string }
+        setProcessing(false)
         if (e.code === '22023' && /^Informe o CPF do comprador/.test(e.message ?? '')) {
-          setExigeCpfServidor(true); setErroCpf('Informe o CPF para continuar'); setProcessing(false)
+          setExigeCpfServidor(true); setErroCpf('Informe o CPF para continuar')
           return
         }
-        // 22023: regra do Match de Mesa no banco (menor de idade, 1 por conta, quantidade 1)
-        toast.error((err as { code?: string }).code === '22023' ? mesaErro(err) : `Erro ao criar pedido: ${err.message}`, { duration: 7000 })
-        setProcessing(false)
+        if (e.motivo === 'cupom_invalido') { setErroCupom(e.message ?? 'Cupom inválido'); return }
+        // recusas de regra do servidor (cpf_da_conta, indisponivel, regra): a mensagem dele, sem reescrever
+        if (e.motivo) { toast.error(e.message, { duration: 7000 }); return }
+        // 22023: regra do Match de Mesa e limites ("Muitas tentativas"); 42501: sem login ou sem 2FA
+        toast.error(e.code === '22023' || e.code === '42501' ? mesaErro(err) : `Erro ao criar pedido: ${e.message}`, { duration: 7000 })
       }
     })
   }
@@ -262,15 +277,15 @@ export default function CheckoutPayment() {
           {esgotado ? (
             <div role="alert" className="space-y-3 rounded-ev-xl bg-card p-5 shadow-ev-secondary">
               <h2 className="text-lg font-semibold leading-7">Tempo esgotado</h2>
-              <p className="text-sm leading-5 text-muted-foreground">Os lugares voltaram a ficar livres. Escolha de novo no mapa.</p>
-              <Button type="button" size="lg" className="w-full rounded-full" onClick={() => navigate('/checkout', { replace: true, state: { eventId, cart: {}, abrirMapa: true } })}>
-                Voltar ao mapa
+              <p className="text-sm leading-5 text-muted-foreground">{orderIdLugar ? 'Os lugares voltaram a ficar livres. Escolha de novo no mapa.' : 'Os ingressos voltaram a ficar livres. Volte e escolha de novo.'}</p>
+              <Button type="button" size="lg" className="w-full rounded-full" onClick={() => navigate('/checkout', { replace: true, state: orderIdLugar ? { eventId, cart: {}, abrirMapa: true } : { eventId, cart } })}>
+                {orderIdLugar ? 'Voltar ao mapa' : 'Voltar ao pedido'}
               </Button>
             </div>
-          ) : restante !== null && orderIdLugar && (
+          ) : restante !== null && venceEm && (
             <p role="timer" className="flex items-center gap-2 rounded-ev-xl bg-secondary px-4 py-3 text-sm font-semibold leading-5">
               <I.Lugar size={16} aria-hidden="true" />
-              Seu lugar fica reservado por {String(Math.floor(restante / 60)).padStart(2, '0')}:{String(restante % 60).padStart(2, '0')}
+              {orderIdLugar ? 'Seu lugar fica' : 'Seus ingressos ficam'} reservado{orderIdLugar ? '' : 's'} por {String(Math.floor(restante / 60)).padStart(2, '0')}:{String(restante % 60).padStart(2, '0')}
             </p>
           )}
 
@@ -303,6 +318,17 @@ export default function CheckoutPayment() {
                 onChange={e => { setCpf(formatCPF(e.target.value)); setErroCpf(null) }} />
               {erroCpf && <p id="comprador-cpf-erro" role="alert" className="mt-1.5 text-xs text-destructive">{erroCpf}</p>}
               <p id="comprador-cpf-ajuda" className="mt-1.5 text-xs text-muted-foreground">Usamos o CPF só para limitar a compra por pessoa neste ingresso. Guardamos apenas um código (hash), não o CPF.</p>
+            </div>
+          )}
+
+          {!pixData && !esgotado && !gratis && !orderIdLugar && (
+            <div className="rounded-ev-xl bg-card p-5 shadow-ev-secondary">
+              <label htmlFor="cupom" className={rotulo}>Cupom (opcional)</label>
+              <Input id="cupom" type="text" autoComplete="off" autoCapitalize="characters" value={cupom} className={campo}
+                aria-invalid={!!erroCupom} aria-describedby={erroCupom ? 'cupom-erro' : temMeia ? 'cupom-ajuda' : undefined}
+                onChange={e => { setCupom(e.target.value); setErroCupom(null) }} />
+              {erroCupom && <p id="cupom-erro" role="alert" className="mt-1.5 text-xs text-destructive">{erroCupom}</p>}
+              {temMeia && <p id="cupom-ajuda" className="mt-1.5 text-xs text-muted-foreground">O cupom não vale para a meia-entrada: o desconto vale só nas inteiras.</p>}
             </div>
           )}
 
@@ -366,15 +392,21 @@ export default function CheckoutPayment() {
           <div className="rounded-ev-xl bg-card p-6 shadow-ev-secondary">
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
               <span>Ingressos</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.subtotal)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(v.subtotal)}</span>
             </div>
+            {v.desconto > 0 && (
+              <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5">
+                <span>Desconto do cupom</span>
+                <span className="font-display font-semibold tabular-nums">-{formatCurrency(v.desconto)}</span>
+              </div>
+            )}
             <div className="flex justify-between gap-3 border-b border-border py-2.5 text-[15px] leading-5 text-muted-foreground">
               <span>Taxa de serviço</span>
-              <span className="font-display font-semibold tabular-nums">{formatCurrency(resumo.taxa)}</span>
+              <span className="font-display font-semibold tabular-nums">{formatCurrency(v.taxa)}</span>
             </div>
             <div className="flex items-baseline justify-between gap-3 pt-3 text-base font-semibold">
               <span>Total a pagar</span>
-              <span className="font-display text-xl tabular-nums">{formatCurrency(resumo.total)}</span>
+              <span className="font-display text-xl tabular-nums">{formatCurrency(v.total)}</span>
             </div>
             <p className="mt-4 flex items-center gap-2 text-xs leading-4 text-muted-foreground">
               <I.Info size={14} />

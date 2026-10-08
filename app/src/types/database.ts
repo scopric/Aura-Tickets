@@ -731,6 +731,7 @@ export interface Database {
           quantity: number
           unit_price: number
           subtotal: number
+          beneficio: string
           created_at: string
         }
         Insert: {
@@ -740,6 +741,7 @@ export interface Database {
           quantity?: number
           unit_price: number
           subtotal?: number
+          beneficio?: string
           created_at?: string
         }
         Update: {
@@ -749,6 +751,7 @@ export interface Database {
           quantity?: number
           unit_price?: number
           subtotal?: number
+          beneficio?: string
           created_at?: string
         }
       }
@@ -1172,6 +1175,7 @@ export interface Database {
           min_per_order: number
           max_per_order: number | null
           max_por_cpf: number | null
+          permite_meia: boolean
           valid_from: string | null
           valid_until: string | null
           sale_start: string | null
@@ -1197,6 +1201,7 @@ export interface Database {
           min_per_order?: number
           max_per_order?: number | null
           max_por_cpf?: number | null
+          permite_meia?: boolean
           valid_from?: string | null
           valid_until?: string | null
           sale_start?: string | null
@@ -1222,6 +1227,7 @@ export interface Database {
           min_per_order?: number
           max_per_order?: number | null
           max_por_cpf?: number | null
+          permite_meia?: boolean
           valid_from?: string | null
           valid_until?: string | null
           sale_start?: string | null
@@ -1356,6 +1362,15 @@ export interface Database {
       }
     }
     Functions: {
+      // Venda no servidor (docs/sql/20261030a_venda_servidor_meia.sql); escritas à mão até regenerar os tipos
+      vitrine_ingressos: {
+        Args: { p_event_id: string }
+        Returns: { ticket_type_id: string; nome: string; preco: number; taxa: number; preco_meia: number | null; taxa_meia: number | null; permite_meia: boolean; disponiveis: number | null; meias_disponiveis: number; meias_total: number }[]
+      }
+      reservar_ingressos: {
+        Args: { p_event_id: string; p_itens: Json; p_cupom: string | null; p_cpf: string | null }
+        Returns: Json
+      }
       // Escritas e leituras de PII da cifra (docs/sql/20261007_pr7_cripto_rpcs.sql); escritas à mão: o banco ainda não tem as RPCs
       pr7_anonimizar_pii: {
         Args: { p_uid: string }
