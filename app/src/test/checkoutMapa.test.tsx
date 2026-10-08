@@ -123,6 +123,5 @@ describe('Checkout com mapa de assentos (lugar marcado)', () => {
     await waitFor(() => expect(screen.getByTestId('pagamento').textContent).toBe('"ord-1"'))
     const chamada = h.reservar.mock.calls.map(c => c[0]).find(a => a?.p_seats)
     expect(chamada).toEqual({ p_event: 'e1', p_seats: ['terreo:s1', 'terreo:s2'], p_meias: [{ seat_key: 'terreo:s2', meia_tipo: 'estudante' }] })
-    console.log('P_MEIAS', JSON.stringify(chamada))
   })
 })

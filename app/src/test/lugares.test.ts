@@ -33,7 +33,6 @@ describe('lugares do mapa', () => {
     const meias = { 'terreo:s1': 'pcd', 'terreo:m1': 'estudante' }
     const esc = ['terreo:s1', 'terreo:m1']
     const itens = itensDosLugares(amb, esc, preco, meias)
-    console.log('ITENS', JSON.stringify(itens))
     expect(itens).toEqual([
       { ticket_type_id: 'tt1', quantity: 1, name: 'Pista (meia-entrada)', price: 25, taxa_unit: 2.5, beneficio: 'meia', meia_tipo: 'pcd' },
       { ticket_type_id: 'tt1', quantity: 4, name: 'Pista', price: 50 },
