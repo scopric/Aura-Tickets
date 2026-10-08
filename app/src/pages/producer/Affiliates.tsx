@@ -7,8 +7,12 @@ import { useAuth } from '../../hooks/useAuth'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { doEvento, useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
+import { AbasDeArea, EmBreve, KpiCard } from '@/components/producer/ui-evento'
 import { mensagemVinculo } from '../../lib/afiliados'
-import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
+import { ABAS_DIVULGACAO } from '../../lib/divulgacao'
+import { faltaSegundoFator } from '../../lib/vendasPagas'
+import { brl } from '../../lib/taxa'
+import { PageHeader, EmptyState, Erro, selectNativo } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -47,7 +51,7 @@ export default function ProducerAffiliates() {
   const [filtroEvento] = useFiltroEvento()
 
   const queryKey = ['producer-afiliados', user?.id]
-  const { data: todos = [], isPending, isError, refetch } = useQuery({
+  const { data: todos = [], isPending, isError, isFetching, refetch } = useQuery({
     queryKey,
     enabled: !!user?.id,
     queryFn: async () => {
@@ -71,7 +75,13 @@ export default function ProducerAffiliates() {
 
   const stats = {
     active: affiliates.filter(a => a.status === 'active').length,
+    vendas: affiliates.reduce((n, a) => n + a.sales, 0),
+    comissao: affiliates.reduce((n, a) => n + a.total_earned, 0),
   }
+
+  // lista vazia pode ser sessão sem 2FA concluído (o banco devolve vazio, sem erro): nunca dizer "nenhum afiliado" sem conferir
+  const semDados = !isPending && !isError && todos.length === 0
+  const doisFatores = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: semDados, queryFn: faltaSegundoFator })
 
   // Vincular só pela vincular_afiliado: trava de 18 anos, limite de tentativas e 2FA ficam no banco (B3)
   const vincular = async (e: React.FormEvent) => {
@@ -138,26 +148,27 @@ export default function ProducerAffiliates() {
         actions={<Button onClick={abrirNovo}><I.PessoaMais aria-hidden="true" />Vincular afiliado</Button>}
       />
 
+      <AbasDeArea abas={ABAS_DIVULGACAO} rotulo="Divulgação" />
+
       <FiltroEvento />
 
-      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        O link de venda do afiliado chega com o módulo de Promoters.
-      </p>
-
       {isError ? (
-        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">Não foi possível carregar os afiliados.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()}>Tentar de novo</Button>
-        </div>
-      ) : isPending ? (
+        <Erro texto="Não foi possível carregar os afiliados." refetch={() => { void refetch() }} carregando={isFetching} />
+      ) : isPending || (semDados && doisFatores.isPending) ? (
         <div aria-busy="true">
-          <Skeleton className="h-[92px] rounded-[10px] bg-muted sm:max-w-xs" />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">{[1, 2, 3].map(n => <Skeleton key={n} className="h-[88px] rounded-[10px] bg-muted" />)}</div>
           <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
         </div>
+      ) : semDados && doisFatores.isError ? (
+        <Erro texto="Não consegui confirmar o seu acesso (2FA). Sem isso a lista pode parecer vazia." refetch={() => { void doisFatores.refetch() }} carregando={doisFatores.isFetching} />
+      ) : semDados && doisFatores.data ? (
+        <EmptyState title="Confirme o 2FA para ver os afiliados" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra a lista." />
       ) : (
         <>
-          <div className="sm:max-w-xs">
-            <Stat label="Afiliados ativos" value={stats.active} />
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <KpiCard rotulo="Afiliados ativos" valor={stats.active.toLocaleString('pt-BR')} comparacao={`de ${affiliates.length.toLocaleString('pt-BR')} vinculados`} />
+            <KpiCard rotulo="Vendas" valor={stats.vendas.toLocaleString('pt-BR')} comparacao="registradas no vínculo" ajuda="Número guardado na linha do afiliado. Nenhum código do app calcula esse total por venda: confira no extrato quando ele existir." />
+            <KpiCard rotulo="Comissão total" valor={brl(stats.comissao)} comparacao="registrada no vínculo" ajuda="Soma do campo de comissão guardado na linha de cada afiliado. Nenhum código do app calcula esse total por venda: confira no extrato quando ele existir." className="col-span-2 lg:col-span-1" />
           </div>
 
           {affiliates.length === 0 ? (
@@ -214,6 +225,14 @@ export default function ProducerAffiliates() {
           )}
         </>
       )}
+
+      <section aria-labelledby="afi-breve" className="mt-8">
+        <h2 id="afi-breve" className="text-[15px] font-semibold leading-5 text-foreground">Em breve</h2>
+        <div className="mt-3 grid gap-3 md:grid-cols-2">
+          <EmBreve titulo="Copiar link do afiliado" descricao="Hoje a lista não devolve o código de divulgação do afiliado, então o app não tem como montar o link dele. Depende de o banco passar esse código." acao="Copiar link" />
+          <EmBreve titulo="Extrato por venda" descricao="Cada venda do afiliado, com data, valor e comissão. Depende de SQL novo." acao="Ver extrato" />
+        </div>
+      </section>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>

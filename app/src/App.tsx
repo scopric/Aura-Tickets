@@ -62,6 +62,7 @@ const ProducerCentral = lazy(() => import('./pages/producer/Central'))
 const ProducerBordero = lazy(() => import('./pages/producer/Bordero'))
 const ProducerParticipantes = lazy(() => import('./pages/producer/Participantes'))
 const ProducerIngressos = lazy(() => import('./pages/producer/Ingressos'))
+const ProducerDivulgacao = lazy(() => import('./pages/producer/Divulgacao'))
 const ProducerWallet = lazy(() => import('./pages/producer/Wallet'))
 const ProducerMenu = lazy(() => import('./pages/producer/Menu'))
 const TableCalculator = lazy(() => import('./pages/producer/TableCalculator'))
@@ -418,6 +419,7 @@ function Layout() {
               <Route path="/producer/bordero" element={<ProducerBordero />} />
               <Route path="/producer/participantes" element={<ProducerParticipantes />} />
               <Route path="/producer/ingressos" element={<ProducerIngressos />} />
+              <Route path="/producer/divulgacao" element={<ProducerDivulgacao />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />

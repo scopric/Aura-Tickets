@@ -1,41 +1,54 @@
-import { useState } from 'react'
 import * as I from '@/components/icones/evokaa16'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { useInteressados, useRemoverInteressado } from '../../hooks/useInteresse'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { useProducerEvents } from '../../hooks/useEvents'
+import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
+import { useAuth } from '../../hooks/useAuth'
+import { ABAS_DIVULGACAO, copiarTexto, csvInteressados, linkComUtm, linkDoEvento, temLinkPublico } from '../../lib/divulgacao'
+import { csvFilename, downloadCsv, slugArquivo } from '../../lib/exportCsv'
+import { faltaSegundoFator } from '../../lib/vendasPagas'
+import FiltroEvento from '@/components/producer/FiltroEvento'
+import QrDivulgacao from '@/components/producer/QrDivulgacao'
+import { AbasDeArea, EmBreve, KpiCard } from '@/components/producer/ui-evento'
+import { PageHeader, EmptyState, Erro, SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 
 const icone = 'text-muted-foreground hover:bg-foreground/5 hover:text-foreground'
-const celula = (v: string | null) => `"${(v ?? '').replace(/"/g, '""').replace(/^([=+\-@\t\r])/, "'$1")}"` // aspas duplicadas; fórmula de planilha neutralizada
 
 export default function ProducerInterestList() {
+  const { user } = useAuth()
   const { data: lista = [], isLoading, isError, refetch, isFetching } = useInteressados()
   const remover = useRemoverInteressado()
-  const [evento, setEvento] = useState('')
-
-  const eventos = [...new Map(lista.map(i => [i.event_id, i.event_title])).entries()]
-  const filtrada = evento ? lista.filter(i => i.event_id === evento) : lista
+  const eventos = useProducerEvents()
+  const [eventId, trocarEvento] = useFiltroEvento()
+  const evento = eventId ? eventos.data?.find(e => e.id === eventId) : undefined
+  // só os eventos do produtor valem; ?eventId= de outro evento não mostra nada
+  const eventoInvalido = !!eventId && !!eventos.data && !evento
+  const filtrada = eventId ? lista.filter(i => i.event_id === eventId) : lista
+  // lista vazia pode ser sessão sem 2FA concluído (o banco devolve vazio, sem erro)
+  const semDados = !isLoading && !isError && lista.length === 0
+  const doisFatores = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: semDados, queryFn: faltaSegundoFator })
+  const link = evento && temLinkPublico(evento) ? linkDoEvento(evento) : null
+  const linkQr = link ? linkComUtm(link, 'cartaz', 'avise-me') : null
   const avisados = filtrada.filter(i => i.notified).length
   const emails = [...new Set(filtrada.map(i => i.email?.trim()).filter(Boolean))] as string[]
 
   const copiarEmails = async () => {
-    try {
-      await navigator.clipboard.writeText(emails.join(', '))
-      toast.success(`${emails.length} e-mails copiados.`)
-    } catch {
-      toast.error('Não foi possível copiar. Tente de novo.')
-    }
+    if (await copiarTexto(emails.join(', '))) { toast.success(`${emails.length} e-mails copiados.`); toast.info('Os e-mails são dado pessoal (LGPD). Use só para avisar sobre o evento e não compartilhe.') }
+    else toast.error('Não foi possível copiar. Tente de novo.')
+  }
+
+  const copiarLink = async () => {
+    if (link && await copiarTexto(link)) toast.success('Link copiado.')
+    else toast.error('Não foi possível copiar. Tente de novo.')
   }
 
   const baixarCsv = () => {
-    const linhas = [['Nome', 'E-mail', 'Cidade', 'Evento', 'Inscrição', 'Avisado em'],
-      ...filtrada.map(i => [i.full_name, i.email, i.city, i.event_title, i.created_at.slice(0, 10), i.notified_at?.slice(0, 10) ?? ''])]
-    const url = URL.createObjectURL(new Blob(['﻿' + linhas.map(l => l.map(c => celula(c)).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }))
-    const a = Object.assign(document.createElement('a'), { href: url, download: 'lista-de-interesse.csv' })
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(csvFilename(`lista-de-interesse-${slugArquivo(evento?.title, eventId ?? 'todos')}`), csvInteressados(filtrada))
+    toast.info('O arquivo tem nome, e-mail e cidade de quem se inscreveu: dado pessoal (LGPD). Não compartilhe.')
   }
 
   // tira só da lista: o lead que a inscrição criou no CRM continua lá
@@ -55,68 +68,65 @@ export default function ProducerInterestList() {
       description="Pessoas que pediram para ser avisadas quando as vendas abrirem"
       actions={
         <>
-          {emails.length > 0 && <Button variant="outline" onClick={copiarEmails}><I.Copiar aria-hidden="true" />Copiar e-mails</Button>}
-          {filtrada.length > 0 && <Button variant="outline" onClick={baixarCsv}>Baixar CSV</Button>}
+          {emails.length > 0 && <Button variant="outline" onClick={() => void copiarEmails()}><I.Copiar aria-hidden="true" />Copiar e-mails</Button>}
+          {filtrada.length > 0 && <Button variant="outline" onClick={baixarCsv}><I.Baixar aria-hidden="true" />Exportar CSV</Button>}
         </>
       }
     />
   )
 
-  if (isLoading) {
-    return (
-      <div aria-busy="true">
-        {header}
+  let corpo
+  if (eventoInvalido) {
+    corpo = <EmptyState title="Evento não encontrado entre os seus" description="O link aponta para um evento que não é seu ou não existe mais." action={<Button variant="outline" className="min-h-11" onClick={() => trocarEvento(null)}>Ver todos os eventos</Button>} />
+  } else if (isLoading || eventos.isPending || (semDados && doisFatores.isPending)) {
+    corpo = (
+      <div aria-busy="true" aria-label="Carregando a lista de interesse">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
+          {[1, 2, 3].map(n => <Skeleton key={n} className="h-[88px] rounded-[10px] bg-muted" />)}
         </div>
         <Skeleton className="mt-6 h-48 rounded-[10px] bg-muted" />
       </div>
     )
-  }
-
-  if (isError) {
-    return (
-      <div>
-        {header}
-        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">Não foi possível carregar a lista de interesse.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
-          </Button>
+  } else if (eventos.isError) {
+    corpo = <Erro texto="Não foi possível carregar os seus eventos." refetch={() => { void eventos.refetch() }} carregando={eventos.isFetching} />
+  } else if (isError) {
+    corpo = <Erro texto="Não foi possível carregar a lista de interesse." refetch={() => { void refetch() }} carregando={isFetching} />
+  } else if (semDados && doisFatores.isError) {
+    corpo = <Erro texto="Não consegui confirmar o seu acesso (2FA). Sem isso a lista pode parecer vazia." refetch={() => { void doisFatores.refetch() }} carregando={doisFatores.isFetching} />
+  } else if (semDados && doisFatores.data) {
+    corpo = <EmptyState title="Confirme o 2FA para ver a lista" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra as inscrições." />
+  } else {
+    corpo = (
+      <>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+          <KpiCard rotulo="Inscritos" valor={filtrada.length.toLocaleString('pt-BR')} />
+          <KpiCard rotulo="Avisados" valor={avisados.toLocaleString('pt-BR')} />
+          <KpiCard rotulo="Pendentes" valor={(filtrada.length - avisados).toLocaleString('pt-BR')} comparacao="aguardando a venda abrir" className="col-span-2 lg:col-span-1" />
         </div>
-      </div>
-    )
-  }
 
-  return (
-    <div>
-      {header}
-
-      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Quando a venda abre, cada pessoa é avisada sozinha, no aplicativo e por e-mail. Quem se inscreve também entra no seu CRM. Nome, e-mail e cidade só aparecem de quem deu o consentimento.
-      </p>
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Interessados" value={filtrada.length} />
-        <Stat label="Avisados" value={avisados} />
-        <Stat label="Aguardando a venda" value={filtrada.length - avisados} />
-      </div>
-
-      {eventos.length > 1 && (
-        <div className="mt-6">
-          <label htmlFor="filtro-evento" className="mb-1 block text-sm font-medium">Evento</label>
-          <select id="filtro-evento" value={evento} onChange={e => setEvento(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Todos os eventos</option>
-            {eventos.map(([id, titulo]) => <option key={id} value={id}>{titulo}</option>)}
-          </select>
-        </div>
-      )}
+        <section aria-labelledby="int-link" className="mt-6 rounded-[10px] border border-border bg-card p-4">
+          <SectionTitle id="int-link">Link e QR do “Avise-me”</SectionTitle>
+          {link && linkQr ? (
+            <div className="mt-3 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">O botão “Avise-me quando abrir” fica na página do evento enquanto a venda não começou. O link copiado é o da página, sem UTM; o QR leva UTM de cartaz (campanha avise-me), para você ver no Google Analytics quem veio pelo cartaz.</p>
+                <p className="break-all font-mono text-xs text-foreground">{link}</p>
+                <Button className="min-h-11" onClick={() => void copiarLink()}><I.Copiar aria-hidden="true" />Copiar link da página</Button>
+              </div>
+              <QrDivulgacao url={linkQr} nomeArquivo={`qr-avise-me-${slugArquivo(evento?.title, evento?.id ?? 'evento')}`} titulo={`QR Code da página de ${evento?.title}`} />
+            </div>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              {evento ? 'Este evento ainda não está no ar: só evento publicado e aprovado tem página pública para divulgar.' : 'Escolha um evento acima para copiar o link da página dele e gerar o QR.'}
+            </p>
+          )}
+        </section>
 
       <div className="mt-4">
         {filtrada.length === 0 ? (
           <EmptyState
-            title="Ninguém na lista ainda"
-            description="O botão “Avise-me quando abrir” aparece na página do evento enquanto a venda não começou. Se você usa verificação em dois fatores e a lista deveria ter gente, confirme o código e recarregue."
+            title={eventId ? 'Ninguém na lista deste evento ainda' : 'Ninguém na lista ainda'}
+            description="O botão “Avise-me quando abrir” aparece na página do evento enquanto a venda não começou."
           />
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border bg-card">
@@ -143,6 +153,28 @@ export default function ProducerInterestList() {
           </ul>
         )}
       </div>
+
+        <div className="mt-8">
+          <SectionTitle>Em breve</SectionTitle>
+          <div className="mt-3 max-w-xl">
+            <EmBreve titulo="Página própria da lista de interesse" descricao="Um endereço só para a inscrição, para divulgar antes de o evento ir ao ar. Hoje o “Avise-me” só existe na página do evento." acao="Criar página" />
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <div>
+      {header}
+      <AbasDeArea abas={ABAS_DIVULGACAO} rotulo="Divulgação" />
+
+      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        Quando a venda abre, cada pessoa é avisada sozinha, no aplicativo e por e-mail. Quem se inscreve também entra no seu CRM. Nome, e-mail e cidade só aparecem de quem deu o consentimento.
+      </p>
+
+      <FiltroEvento />
+      {corpo}
     </div>
   )
 }

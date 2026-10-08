@@ -1,4 +1,4 @@
-// Mapa das 29 telas do produtor na lateral por escopo (fase V4a; porte de refs/navegacao/codigo/evokaa-mapa-navegacao.mjs).
+// Mapa das 30 telas do produtor na lateral por escopo (fase V4a; porte de refs/navegacao/codigo/evokaa-mapa-navegacao.mjs).
 // Escopo "produtora": todas as telas, cada uma na sua seção. Escopo "evento": só as que têm `noEvento`, já com o
 // evento na URL. Rotas reais do App.tsx (o teste confere). Tela que não existe fica fora (Decisão 22).
 import { matchPath } from 'react-router' // mesma implementação do react-router-dom; o dom não exporta o tipo neste ambiente (TS2305)
@@ -18,7 +18,7 @@ export interface Tela {
   noEvento?: string
 }
 
-// 30 telas na lista (Central de comando, Decisão 197, só na produtora e só para o dono) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153) e os Participantes.
+// 31 telas na lista (Central de comando, Decisão 197, só na produtora e só para o dono) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153), os Participantes, os Ingressos e a Divulgação (hub Links e QR; Afiliados, Banners e Lista de interesse seguem como itens e ganham a faixa de abas).
 // Decisão 143 (desvio do contrato §6.4): Banners, Lista de interesse, Galeria, Tarefas e CRM ficam só no escopo da
 // produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento
 // e filtram pelo ?eventId= (V4a2, useFiltroEvento).
@@ -31,9 +31,10 @@ export const NAV: Tela[] = [
   { tela: 'Relatório pós-evento', secao: 'Eventos', rota: '/producer/pos-evento', rotulo: 'Relatórios', noEvento: 'Relatório' },
   { tela: 'Ingressos', secao: 'Vendas', rota: '/producer/ingressos', noEvento: 'Ingressos' },
   { tela: 'Cupons', secao: 'Vendas', rota: '/producer/cupons', noEvento: 'Cupons' },
+  { tela: 'Divulgação', secao: 'Vendas', rota: '/producer/divulgacao', noEvento: 'Divulgação' },
   { tela: 'Afiliados', secao: 'Vendas', rota: '/producer/afiliados', noEvento: 'Afiliados' },
   { tela: 'Banners', secao: 'Vendas', rota: '/producer/banners' },
-  { tela: 'Lista de interesse', secao: 'Vendas', rota: '/producer/lista-interesse' },
+  { tela: 'Lista de interesse', secao: 'Público', rota: '/producer/lista-interesse' },
   { tela: 'Lugar marcado', secao: 'Vendas', rota: '/producer/lugar-marcado', noEvento: 'Lugar marcado' },
   { tela: 'CRM', secao: 'Público', rota: '/producer/crm' },
   { tela: 'Participantes', secao: 'Público', rota: '/producer/participantes', noEvento: 'Participantes' },

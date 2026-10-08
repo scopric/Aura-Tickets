@@ -10,6 +10,7 @@ import { Segmented } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import type { Situacao } from '../../lib/eventoProdutor'
+import { NAV, hrefDaTela } from '../../lib/navegacaoProdutor'
 
 // Primitivos do Guia de estilo do produtor (cabeçalho do evento, filtros, KPI, abas da área, "Em breve").
 
@@ -109,14 +110,19 @@ export function KpiCard({ rotulo, valor, comparacao, ajuda, destaque, className 
   )
 }
 
-// A aba ativa é a rota atual: a de caminho mais longo que casa com a URL. O `to` pode levar ?eventId=: só o caminho conta.
+// Tela do mapa sem escopo de evento (Banners, Lista de interesse) não recebe ?eventId=
+const destinoSemEvento = (to: string) => { const t = NAV.find(x => x.rota === to); return !!t && !t.noEvento }
+
+// A aba ativa é a rota atual: a de caminho mais longo que casa com a URL. O `to` pode já levar ?eventId= (só o caminho conta);
+// sem ele, trocar de aba leva o ?eventId= da URL junto.
 export function AbasDeArea({ abas, rotulo = 'Abas da área' }: { abas: { to: string; label: string }[]; rotulo?: string }) {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navigate = useNavigate()
+  const eventId = new URLSearchParams(search).get('eventId')
   const caminho = (to: string) => to.split('?')[0]
   const ativa = abas.filter(a => pathname === caminho(a.to) || pathname.startsWith(caminho(a.to) + '/')).sort((a, b) => caminho(b.to).length - caminho(a.to).length)[0]?.to
   return (
-    <Tabs value={ativa ?? ''} onValueChange={navigate} className="mb-6">
+    <Tabs value={ativa ?? ''} onValueChange={to => navigate(to.includes('?') || destinoSemEvento(to) ? to : hrefDaTela(to, eventId))} className="mb-6">
       <TabsList aria-label={rotulo} className="max-w-full overflow-x-auto">
         {abas.map(a => <TabsTrigger key={a.to} value={a.to} className="min-h-11">{a.label}</TabsTrigger>)}
       </TabsList>
