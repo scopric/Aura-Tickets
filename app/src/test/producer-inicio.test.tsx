@@ -12,8 +12,12 @@ type Chamada = [string, unknown[]]
 type Resposta = { data?: unknown; error: unknown; count?: number | null }
 const tabelas: Record<string, (c: Chamada[]) => Resposta> = {}
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1', name: 'Ricardo Scoparo' } }) }))
+// RPC produtor_vendas_pagas e nível do 2FA: por padrão falham (a tela cai na soma parcial)
+const rpc = vi.hoisted(() => ({ soma: vi.fn(), nivel: vi.fn() }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
+    rpc: (_nome: string, args: unknown) => { const p = Promise.resolve(rpc.soma(args)); return Object.assign(p, { abortSignal: () => p }) },
+    auth: { mfa: { getAuthenticatorAssuranceLevel: () => Promise.resolve(rpc.nivel()) } },
     from: (t: string) => {
       const c: Chamada[] = []
       const r = () => Promise.resolve(tabelas[t](c))
@@ -80,7 +84,12 @@ const preparar = (eventos: unknown[], p: Pedido[], i: Ingresso[], opcoes: { empr
   }
 }
 
-beforeEach(() => { localStorage.clear(); reduzir = true; confetti.mockClear() })
+const vazio = { total: 0, pedidos: 0, reembolsados: { pedidos: 0, total: 0 }, por_evento: [], por_dia: [], por_forma: [] }
+beforeEach(() => {
+  localStorage.clear(); reduzir = true; confetti.mockClear()
+  rpc.soma.mockReset().mockReturnValue({ data: null, error: { message: 'sem rpc' } })
+  rpc.nivel.mockReset().mockReturnValue({ data: { currentLevel: 'aal2', nextLevel: 'aal2' } })
+})
 afterEach(() => { vi.unstubAllGlobals(); vi.stubGlobal('matchMedia', () => ({ matches: reduzir })) })
 
 describe('Início do produtor', () => {
@@ -215,6 +224,51 @@ describe('Início do produtor', () => {
     await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/10,00\+/))
     expect(aba(/Receita bruta/).textContent).toMatch(/Soma parcial: mais de 1\.000 pedidos pagos/)
     expect(aba(/Receita bruta/).textContent).not.toMatch(/ticket médio|aumento|queda/)
+  })
+
+  it('total exato do banco: sem "+" nem aviso de soma parcial, mesmo com mais de 1.000 pedidos', async () => {
+    rpc.soma.mockReturnValue({ data: { ...vazio, total: 12345.67, pedidos: 1500 }, error: null })
+    preparar([e1], [{ total: 10, created_at: ha(0, 1), event_id: 'e1' }], ing(1), { empresa: true, cortado: 1500 })
+    montar()
+    await waitFor(() => expect(aba(/Receita bruta/).textContent).toMatch(/12\.345,67/))
+    expect(aba(/Receita bruta/).textContent).not.toMatch(/\+|Soma parcial/)
+    expect(screen.getByText(/barras mostram só os últimos 1\.000 pedidos/)).toBeTruthy()
+  })
+
+  it('intervalo livre e evento: consulta o banco com meia-noite de São Paulo e mostra o total', async () => {
+    preparar([e1], [], [], { empresa: true })
+    montar()
+    await screen.findByRole('region', { name: 'Filtro de vendas' })
+    rpc.soma.mockReturnValue({ data: { ...vazio, total: 250, pedidos: 2 }, error: null })
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-10-01' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-03' } })
+    fireEvent.change(screen.getByLabelText('Evento'), { target: { value: 'e1' } })
+    await screen.findByText(/250,00/)
+    expect(rpc.soma).toHaveBeenLastCalledWith({ p_de: '2026-10-01T03:00:00.000Z', p_ate: '2026-10-04T03:00:00.000Z', p_event_id: 'e1' })
+  })
+
+  it('"de" depois de "até": mensagem e nenhuma consulta com o filtro', async () => {
+    preparar([e1], [], [], { empresa: true })
+    montar()
+    await screen.findByRole('region', { name: 'Filtro de vendas' })
+    fireEvent.change(screen.getByLabelText('De'), { target: { value: '2026-10-05' } })
+    fireEvent.change(screen.getByLabelText('Até'), { target: { value: '2026-10-01' } })
+    await screen.findByText('A data inicial não pode ser depois da final.')
+    expect(rpc.soma.mock.calls.filter(c => (c[0] as { p_event_id: unknown }).p_event_id === null && (c[0] as { p_ate: unknown }).p_ate !== null)).toHaveLength(0)
+  })
+
+  it('consulta do 2FA falhou: avisa que não deu para confirmar, sem afirmar zero', async () => {
+    rpc.nivel.mockReturnValue({ data: null, error: { message: 'falhou' } })
+    preparar([e1], [], [], { empresa: true })
+    montar()
+    await screen.findByText(/Não foi possível confirmar o 2FA/)
+  })
+
+  it('2FA pendente: aviso no Início', async () => {
+    rpc.nivel.mockReturnValue({ data: { currentLevel: 'aal1', nextLevel: 'aal2' } })
+    preparar([e1], [], [], { empresa: true })
+    montar()
+    await screen.findByText('Confirme o 2FA para ver suas vendas')
   })
 
   it('lista de ingressos cortada: tabela e aviso com "+", e o próximo evento conta exato à parte', async () => {
