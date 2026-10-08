@@ -22,10 +22,10 @@ function rotulo({ cx, cy, midAngle, outerRadius, nome, percent }: { cx: number; 
   return <text x={x} y={y} textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize={12} fill="hsl(var(--foreground))">{nome} {Math.round(percent * 100)}%</text>
 }
 
-export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onEvento }: {
+export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onEvento, onForma }: {
   q: { data?: DadosVendas; isPending: boolean; isError: boolean; refetch: () => void }
   periodo: Periodo; comparar: boolean; evento: string | null; forma: string | null
-  onEvento: (id: string | null) => void
+  onEvento: (id: string | null) => void; onForma: (f: string | null) => void
 }) {
   const idKpi = useId()
   const d = q.data
@@ -49,7 +49,8 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
 
   const eventos = d ? [...d.atual.por_evento].sort((a, b) => Number(b.total) - Number(a.total)) : []
   const maior = Math.max(1, ...eventos.map(e => Number(e.total) || 0))
-  const formas = d ? d.atual.por_forma.map(f => ({ nome: nomeForma(f.forma || null), total: Number(f.total) || 0, pedidos: f.pedidos })) : []
+  const formas = d ? d.atual.por_forma.map(f => ({ chave: f.forma, nome: nomeForma(f.forma || null), total: Number(f.total) || 0, pedidos: f.pedidos })) : []
+  const alternar = (k?: string) => onForma(!k || forma === k ? null : k)
   const somaFormas = formas.reduce((s, f) => s + f.total, 0)
 
   if (sem2fa) {
@@ -129,7 +130,7 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
       </Mosaico>
 
       <Mosaico
-        className="xl:col-span-5" titulo="Por forma de pagamento" altura={220}
+        className="xl:col-span-5" titulo="Por forma de pagamento" altura={260} interativo
         carregando={carregando} erro={erro} onTentar={q.refetch} vazio={nada ? textoVazio : undefined}
         resumo={`Vendas por forma de pagamento: ${formas.map(f => `${f.nome} ${somaFormas ? Math.round((f.total / somaFormas) * 100) : 0}%`).join(', ')}`}
         tabela={{ legenda: 'Valor bruto e pedidos por forma de pagamento', colunas: ['Forma', 'Pedidos', 'Bruto'], linhas: formas.map(f => [f.nome, f.pedidos, brl(f.total)]) }}
@@ -137,13 +138,20 @@ export default function RitmoDeVendas({ q, periodo, comparar, evento, forma, onE
         <div style={{ height: 220 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={formas} dataKey="total" nameKey="nome" innerRadius={48} outerRadius={72} paddingAngle={2} stroke="hsl(var(--card))" isAnimationActive={!reduzir} label={rotulo} labelLine={false}>
+              <Pie data={formas} dataKey="total" nameKey="nome" innerRadius={48} outerRadius={72} paddingAngle={2} stroke="hsl(var(--card))" isAnimationActive={!reduzir} label={rotulo} labelLine={false} cursor="pointer" onClick={(_, i) => alternar(formas[i]?.chave)}>
                 {formas.map((f, i) => <Cell key={f.nome} fill={corFatia(i)} />)}
               </Pie>
               <Tooltip content={<Dica formato={brl} />} />
             </PieChart>
           </ResponsiveContainer>
         </div>
+        <ul className="m-0 mt-2 flex list-none flex-wrap gap-2 p-0">
+          {formas.map(f => (
+            <li key={f.chave}>
+              <button type="button" aria-pressed={forma === f.chave} onClick={() => alternar(f.chave)} className={cn('min-h-11 rounded-ev-sm border border-border px-3 text-sm hover:bg-[var(--ev-tint-hover)] focus-visible:outline-none focus-visible:shadow-ev-foco', forma === f.chave && 'bg-[var(--ev-tint-ativo)]')}>{f.nome}</button>
+            </li>
+          ))}
+        </ul>
       </Mosaico>
     </div>
   )

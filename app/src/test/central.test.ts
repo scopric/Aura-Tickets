@@ -44,7 +44,7 @@ describe('delta', () => {
   })
   it('anterior zero ou ausente não vira infinito', () => {
     expect(delta(10, 0)).toBeNull(); expect(delta(10, null)).toBeNull()
-    expect(textoDelta(null)).toMatch(/sem período anterior/)
+    expect(textoDelta(null)).toMatch(/sem base/)
   })
 })
 
@@ -61,7 +61,14 @@ describe('totais, entradas e CSV', () => {
   })
   it('entradas por hora em Brasília', () => {
     const h = entradasPorHora(['2026-10-08T01:30:00Z', '2026-10-08T01:45:00Z', '2026-10-08T22:00:00Z', 'lixo'])
-    expect(h[22]).toBe(2); expect(h[19]).toBe(1); expect(h.reduce((a, b) => a + b)).toBe(3)
+    expect(h.valores.reduce((a, b) => a + b)).toBe(3); expect(h.rotulos[0]).toBe('07/10 22h'); expect(h.valores[0]).toBe(2); expect(h.rotulos.at(-1)).toBe('08/10 19h'); expect(h.valores.at(-1)).toBe(1)
+  })
+  it('festa que vira a noite fica em ordem, com o dia quando passa de um', () => {
+    const h = entradasPorHora(['2026-10-09T01:10:00Z', '2026-10-09T03:20:00Z']) // 22h do dia 8 e 0h do dia 9 em Brasília
+    expect(h.rotulos).toEqual(['08/10 22h', '08/10 23h', '09/10 0h']); expect(h.valores).toEqual([1, 0, 1])
+  })
+  it('CSV com forma traz só o total daquela forma', () => {
+    expect(csvCentral(v, 'pix').split('\r\n')[1]).toBe('Total;"Vendas pagas (bruto), Pix";2;"200,00"')
   })
   it('CSV com BOM, ponto e vírgula, vírgula decimal e fórmula neutralizada', () => {
     const csv = csvCentral(v).split('\r\n')

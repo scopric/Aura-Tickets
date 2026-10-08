@@ -63,7 +63,7 @@ export default function Dinheiro({ q, periodo, evento }: {
       <div className="flex flex-col gap-4 lg:col-span-5">
         <section aria-labelledby="c-reemb" className="rounded-[10px] border border-border bg-card p-4">
           <SectionTitle id="c-reemb">Reembolsos</SectionTitle>
-          {q.isPending ? <p className="mt-2 text-sm text-muted-foreground">Carregando…</p> : (
+          {q.isPending ? <p className="mt-2 text-sm text-muted-foreground">Carregando…</p> : q.isError ? <p role="alert" className="mt-2 text-sm text-muted-foreground">Não deu para carregar os reembolsos. Tente de novo.</p> : (
             <p className="mt-2 text-sm text-muted-foreground">
               <span className="font-display text-xl font-semibold tabular-nums text-foreground">{num(d?.atual.reembolsados.pedidos).toLocaleString('pt-BR')}</span>{' '}
               {num(d?.atual.reembolsados.pedidos) === 1 ? 'pedido reembolsado' : 'pedidos reembolsados'} ({brl(est)}), contados pela data do pedido. Ficam fora do bruto.

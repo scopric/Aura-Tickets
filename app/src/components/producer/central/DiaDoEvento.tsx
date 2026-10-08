@@ -28,11 +28,8 @@ export default function DiaDoEvento({ q, eventos, eventoId, onEvento, atualizado
   const d = q.data
   const esperados = d ? d.lotes.reduce((s, l) => s + l.vendidos, 0) : 0
   const entraram = d ? d.lotes.reduce((s, l) => s + l.entraram, 0) : 0
-  const horas = d ? entradasPorHora(d.entradas) : []
-  const com = horas.flatMap((n, h) => (n ? [h] : []))
-  const [h0, h1] = [com[0] ?? 0, com.at(-1) ?? 0]
-  const serie = horas.slice(h0, h1 + 1)
-  const resumoHora = `Entradas por hora: ${entraram} no total${com.length ? `, pico de ${Math.max(...serie)} às ${h0 + serie.indexOf(Math.max(...serie))}h` : ''}`
+  const { rotulos, valores: serie } = d ? entradasPorHora(d.entradas) : { rotulos: [] as string[], valores: [] as number[] }
+  const resumoHora = `Entradas por hora: ${entraram} no total${serie.length ? `, pico de ${Math.max(...serie)} às ${rotulos[serie.indexOf(Math.max(...serie))]}` : ''}`
 
   const comandos = (
     <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -98,9 +95,9 @@ export default function DiaDoEvento({ q, eventos, eventoId, onEvento, atualizado
           carregando={q.isPending} erro={q.isError} onTentar={q.refetch}
           vazio={d && d.entradas.length === 0 ? <p>Nenhuma entrada registrada ainda.</p> : undefined}
           resumo={resumoHora}
-          tabela={{ legenda: `Entradas por hora${d?.cortado ? ' (as primeiras 1.000 entradas)' : ''}`, colunas: ['Hora', 'Entradas'], linhas: serie.map((n, i) => [`${h0 + i}h`, n]) }}
+          tabela={{ legenda: `Entradas por hora${d?.cortado ? ' (as primeiras 1.000 entradas)' : ''}`, colunas: ['Hora', 'Entradas'], linhas: serie.map((n, i) => [rotulos[i], n]) }}
         >
-          <GraficoLinha atual={serie} anterior={null} n={serie.length} inteiro formatoValor={inteiro} formatoEixo={inteiro} rotulo={k => `${h0 + k}h`} legendaAtual={d?.cortado ? 'Entradas por hora (primeiras 1.000)' : 'Entradas por hora'} legendaAnterior="" resumo={resumoHora} />
+          <GraficoLinha atual={serie} anterior={null} n={serie.length} inteiro formatoValor={inteiro} formatoEixo={inteiro} rotulo={k => rotulos[k]} legendaAtual={d?.cortado ? 'Entradas por hora (primeiras 1.000)' : 'Entradas por hora'} legendaAnterior="" resumo={resumoHora} />
         </Mosaico>
       </div>
     </div>

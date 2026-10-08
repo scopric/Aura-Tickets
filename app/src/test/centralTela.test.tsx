@@ -43,4 +43,22 @@ describe('Central de comando', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /Ver como tabela/ })[0])
     expect(document.querySelector('table caption')).toBeTruthy()
   })
+
+  it('Dinheiro com a consulta falhando não mostra reembolso zerado nem R$ 0', async () => {
+    banco.soma.mockRejectedValue(new Error('rpc')); banco.fator.mockResolvedValue(false)
+    montar('/producer/central?tipo=dinheiro')
+    await waitFor(() => expect(screen.getByText(/Não deu para carregar os reembolsos/)).toBeInTheDocument(), { timeout: 6000 })
+    expect(screen.queryByText(/0 pedidos reembolsados/)).toBeNull()
+  })
+
+  it('clicar numa forma de pagamento filtra pela URL e evento desconhecido vira todos', async () => {
+    banco.fator.mockResolvedValue(false)
+    banco.soma.mockResolvedValue(soma({ total: 250, pedidos: 2, por_dia: [{ dia: '2026-10-07', pedidos: 2, total: 250 }], por_forma: [{ forma: 'pix', pedidos: 2, total: 250 }] }))
+    montar('/producer/central?tipo=ritmo&periodo=30d&comparar=0&evento=de-outro-produtor')
+    await waitFor(() => expect(banco.soma).toHaveBeenCalled())
+    expect(banco.soma.mock.calls[0][0].eventId).toBeNull()
+    const botao = await screen.findByRole('button', { name: 'Pix' })
+    fireEvent.click(botao)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Pix' })).toHaveAttribute('aria-pressed', 'true'))
+  })
 })

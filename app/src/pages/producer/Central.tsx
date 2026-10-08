@@ -57,11 +57,11 @@ export default function ProducerCentral() {
               {formas.map(f => <option key={f.forma} value={f.forma}>{nomeForma(f.forma || null)}</option>)}
             </Seletor>
           </>}
-          onExportar={() => c.vendasQ.data && downloadCsv(csvFilename('central-vendas'), csvCentral(c.vendasQ.data.atual))}
+          onExportar={() => c.vendasQ.data && downloadCsv(csvFilename('central-vendas'), csvCentral(c.vendasQ.data.atual, forma))}
           exportarDesabilitado={!c.vendasQ.data || c.vendasQ.data.atual.pedidos === 0}
           atualizadoEm={atualizado(c.vendasQ.dataUpdatedAt)}
         />
-        <RitmoDeVendas q={c.vendasQ} periodo={periodo} comparar={comparar} evento={evento} forma={forma} onEvento={id => definir('evento', id)} />
+        <RitmoDeVendas q={c.vendasQ} periodo={periodo} comparar={comparar} evento={evento} forma={forma} onEvento={id => definir('evento', id)} onForma={f => definir('forma', f)} />
       </>
     ),
     portaria: (

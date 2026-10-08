@@ -119,7 +119,7 @@ export function useCentral() {
         contagem(janela(noEscopo(supabase.from('orders').select('id, events!inner(producer_id)', { count: 'exact', head: true })), de).abortSignal(sinal)),
         contagem(ingressos(de)),
         ant ? contagem(ingressos(ant.de, ant.ate)) : Promise.resolve(null),
-        ...(tipos ?? []).map(x => contagem(janela(supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('ticket_type_id', x.id).in('status', VENDIDO), de).abortSignal(sinal))),
+        ...(tipos ?? []).map(x => contagem(janela(supabase.from('tickets').select('id, events!inner(producer_id)', { count: 'exact', head: true }).eq('events.producer_id', user!.id).eq('ticket_type_id', x.id).in('status', VENDIDO), de).abortSignal(sinal))),
       ])
       const zero = vendas.pedidos === 0 && iniciados === 0 && ing === 0
       return {
@@ -139,14 +139,14 @@ export function useCentral() {
       const agora = Date.now()
       const id = eventoPortaria!
       const tipos = eventos.find(e => e.id === id)?.ticket_types ?? []
-      const doTipo = (x: string) => supabase.from('tickets').select('id', { count: 'exact', head: true }).eq('ticket_type_id', x).in('status', VENDIDO)
+      const doTipo = (x: string) => supabase.from('tickets').select('id, events!inner(producer_id)', { count: 'exact', head: true }).eq('events.producer_id', user!.id).eq('ticket_type_id', x).in('status', VENDIDO)
       const [lotes, linhas] = await Promise.all([
         Promise.all(tipos.map(async x => ({
           id: x.id, nome: x.name,
           vendidos: await contagem(doTipo(x.id).abortSignal(sinal)),
           entraram: await contagem(doTipo(x.id).not('checked_in_at', 'is', null).abortSignal(sinal)),
         }))),
-        supabase.from('tickets').select('checked_in_at', { count: 'exact' }).eq('event_id', id).in('status', VENDIDO)
+        supabase.from('tickets').select('checked_in_at, events!inner(producer_id)', { count: 'exact' }).eq('events.producer_id', user!.id).eq('event_id', id).in('status', VENDIDO)
           .not('checked_in_at', 'is', null).order('checked_in_at').limit(1000).abortSignal(sinal),
       ])
       if (linhas.error) throw linhas.error
