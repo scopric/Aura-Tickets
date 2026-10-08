@@ -7,10 +7,10 @@ const app = readFileSync(resolve(__dirname, '../App.tsx'), 'utf8')
 const rotasDoApp = new Set([...app.matchAll(/path="([^"]+)"/g)].map(m => m[1]))
 
 describe('mapa de navegação do produtor (V4a)', () => {
-  it('mapeia as 30 telas (29 na lista + o botão "+" de Criar evento), sem repetir', () => {
-    expect(NAV).toHaveLength(29)
-    expect(new Set(NAV.map(t => t.tela)).size).toBe(29)
-    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(30)
+  it('mapeia as 31 telas (30 na lista + o botão "+" de Criar evento), sem repetir', () => {
+    expect(NAV).toHaveLength(30)
+    expect(new Set(NAV.map(t => t.tela)).size).toBe(30)
+    expect(new Set([...NAV.map(t => t.rota), ROTA_CRIAR_EVENTO]).size).toBe(31)
   })
 
   it('toda tela está numa seção do vocabulário e não existe "Ferramentas"', () => {
@@ -53,6 +53,14 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(filtra('evento', 'Eventos').map(t => t.noEvento)).toContain('Visão geral')
   })
 
+  it('Ingressos: seção Vendas, antes de Cupons, também no escopo do evento', () => {
+    const vendas = filtra('evento', 'Vendas').map(t => t.noEvento)
+    expect(NAV.find(t => t.tela === 'Ingressos')).toMatchObject({ secao: 'Vendas', rota: '/producer/ingressos', noEvento: 'Ingressos' })
+    expect(vendas.indexOf('Ingressos')).toBeGreaterThanOrEqual(0)
+    expect(vendas.indexOf('Ingressos')).toBeLessThan(vendas.indexOf('Cupons'))
+    expect(hrefDaTela('/producer/ingressos', 'e1')).toBe('/producer/ingressos?eventId=e1')
+  })
+
   it('Decisão 143: Banners, Lista de interesse, Galeria, Tarefas e CRM só no escopo da produtora', () => {
     for (const nome of ['Banners', 'Lista de interesse', 'Galeria', 'Tarefas', 'CRM']) {
       expect(NAV.find(t => t.tela === nome)?.noEvento, nome).toBeUndefined()
@@ -68,7 +76,7 @@ describe('mapa de navegação do produtor (V4a)', () => {
 
   it('escopo da produtora: tudo, menos Início (item solto) e a Pasta (linha do evento)', () => {
     const telas = SECOES.flatMap(s => filtra('produtora', s))
-    expect(telas).toHaveLength(29 - 2)
+    expect(telas).toHaveLength(30 - 2)
   })
 })
 

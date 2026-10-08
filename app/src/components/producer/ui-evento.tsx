@@ -109,11 +109,12 @@ export function KpiCard({ rotulo, valor, comparacao, ajuda, destaque, className 
   )
 }
 
-// A aba ativa é a rota atual: a de caminho mais longo que casa com a URL.
+// A aba ativa é a rota atual: a de caminho mais longo que casa com a URL. O `to` pode levar ?eventId=: só o caminho conta.
 export function AbasDeArea({ abas, rotulo = 'Abas da área' }: { abas: { to: string; label: string }[]; rotulo?: string }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const ativa = abas.filter(a => pathname === a.to || pathname.startsWith(a.to + '/')).sort((a, b) => b.to.length - a.to.length)[0]?.to
+  const caminho = (to: string) => to.split('?')[0]
+  const ativa = abas.filter(a => pathname === caminho(a.to) || pathname.startsWith(caminho(a.to) + '/')).sort((a, b) => caminho(b.to).length - caminho(a.to).length)[0]?.to
   return (
     <Tabs value={ativa ?? ''} onValueChange={navigate} className="mb-6">
       <TabsList aria-label={rotulo} className="max-w-full overflow-x-auto">

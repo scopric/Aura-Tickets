@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore'
 import { isDemoAccount } from '../lib/demo'
 import { diaBR } from '../lib/visaoEvento'
 import { hashConfere } from '../lib/moderacaoEvento'
+import { ordenar } from '../lib/ingressos'
 
 // dados de exemplo só para conta de demonstração em desenvolvimento (lib/demo.ts)
 const demoAtual = () => isDemoAccount(useAuthStore.getState().user?.id)
@@ -26,6 +27,7 @@ export interface DbTicketType {
   max_per_order?: number | null // máximo por pedido (nulo: vale 10; ver tetoPorPedido)
   max_por_cpf?: number | null // limite por CPF do comprador (nulo: sem limite)
   permite_meia?: boolean // aceita meia-entrada (Tela 06; mesa e coletiva nunca)
+  sort_order?: number | null // ordem na tela Ingressos (0 = sem ordem escolhida)
   lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null
   sale_end: string | null
@@ -203,11 +205,12 @@ const MOCK_EVENTS: DbEvent[] = [
 function normalizeEventTicketTypes(event: any): DbEvent {
   return {
     ...event,
-    ticket_types: (event.ticket_types || []).map((t: any) => ({
+    // na ordem que o produtor escolheu (sort_order; sem ordem por último): vale para a página pública, o checkout e o painel
+    ticket_types: ordenar((event.ticket_types || []).map((t: any) => ({
       ...t,
       price: Number(t.price) || 0,
       perks: Array.isArray(t.perks) ? t.perks : []
-    }))
+    })))
   } as DbEvent
 }
 

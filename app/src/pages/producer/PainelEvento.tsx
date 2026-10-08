@@ -30,6 +30,7 @@ import { gravarEvento, useDeleteEvent, useUpdateEvent, type DbEvent, type DbTick
 import { useAuth } from '../../hooks/useAuth'
 import { useTourLog } from '../../hooks/useTourLog'
 import { siteUrl } from '../../lib/appHost'
+import { ordenar } from '../../lib/ingressos'
 import { enviarCapa, useLiberarPrevia, type CapaPronta } from '../../lib/capaEvento'
 import { FOTO_PADRAO, corDoEvento, temFoto } from '../../lib/corEvento'
 import { confirmacaoDuplicar, erroAoExcluir, instanteLocal } from '../../lib/eventoProdutor'
@@ -58,7 +59,7 @@ const PONTO: Record<ModoPainel, string> = { rascunho: 'bg-muted-foreground', rec
 const ATIVO = ['rascunho', 'recusado', 'analise']
 const GUIA = 'guia:painel-evento' // registro em onboarding_logs (V9): sem ele, o rascunho abre no modo guiado
 
-const porCriacao = (l: DbTicketType[]) => [...l].sort((a, b) => (a.created_at || '').localeCompare(b.created_at || ''))
+const porCriacao = ordenar // na ordem escolhida em Ingressos; sem ordem, pela criação
 const semCentavos = (v: number) => brl(v).replace(',00', '')
 
 // ---- carregamento -------------------------------------------------------------------------------------------------

@@ -11,7 +11,10 @@ import {
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useFiltroEvento } from '../../hooks/useEventoDaUrl'
 import FiltroEvento from '@/components/producer/FiltroEvento'
-import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
+import { PageHeader, Stat, EmptyState, SectionTitle, selectNativo } from '@/components/producer/ui'
+import { AbasDeArea, EmBreve } from '@/components/producer/ui-evento'
+import { CriarEmLote, ImportarCsv } from '@/components/producer/CuponsEmLote'
+import { abasIngressosCupons } from '../../lib/ingressos'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -69,6 +72,7 @@ export default function ProducerCoupons() {
   const [filterType, setFilterType] = useState('Todos')
   const [copied, setCopied] = useState<string | null>(null)
   const [filtroEvento] = useFiltroEvento()
+  const [massa, setMassa] = useState<'lote' | 'csv' | null>(null)
 
   // cupom de "todos os eventos" (event_id nulo) vale no evento também, mas só se o id é de um evento do produtor
   const lista = filtroEvento ? coupons.filter(c => c.event_id === filtroEvento || (c.event_id === null && events.some(e => e.id === filtroEvento))) : coupons
@@ -182,14 +186,22 @@ export default function ProducerCoupons() {
     <PageHeader
       title="Cupons"
       description="Descontos e promoções dos seus eventos"
-      actions={<Button onClick={abrir}><I.Criar aria-hidden="true" />Novo cupom</Button>}
+      actions={(
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setMassa('csv')}><I.Anexo aria-hidden="true" />Importar CSV</Button>
+          <Button variant="outline" onClick={() => setMassa('lote')}><I.Camadas aria-hidden="true" />Criar em lote</Button>
+          <Button onClick={abrir}><I.Criar aria-hidden="true" />Novo cupom</Button>
+        </div>
+      )}
     />
   )
+  const abas = <AbasDeArea abas={abasIngressosCupons(filtroEvento)} rotulo="Ingressos e cupons" />
 
   if (isLoading) {
     return (
       <div aria-busy="true">
         {header}
+        {abas}
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
@@ -202,6 +214,7 @@ export default function ProducerCoupons() {
     return (
       <div>
         {header}
+        {abas}
         <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-foreground">Não foi possível carregar os cupons.</p>
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
@@ -215,6 +228,7 @@ export default function ProducerCoupons() {
   return (
     <div>
       {header}
+      {abas}
       <FiltroEvento />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -296,6 +310,18 @@ export default function ProducerCoupons() {
           </div>
         )}
       </div>
+
+      <div className="mt-8">
+        <SectionTitle>Em breve</SectionTitle>
+        <div className="mt-3 grid max-w-3xl gap-3 md:grid-cols-2">
+          <EmBreve titulo="Cupom que sobe conforme a mesa enche" descricao="O desconto da mesa muda a cada pessoa que entra nela. Precisa de regra no servidor, ainda não criada." acao="Criar cupom de mesa" />
+          <EmBreve titulo="Cupom de recompra" descricao="Um cupom enviado automaticamente a quem já comprou de você, para a próxima compra. Precisa de regra no servidor." acao="Criar cupom de recompra" />
+          <EmBreve titulo="Restringir por tipo de ingresso" descricao="O cupom vale só para os ingressos que você escolher (ex.: só a Pista). Precisa de uma coluna nova no banco." acao="Escolher ingressos" />
+        </div>
+      </div>
+
+      {massa === 'lote' && <CriarEmLote eventos={events} existentes={coupons.map(c => c.code)} eventoInicial={events.some(e => e.id === filtroEvento) ? filtroEvento! : ''} onFechar={() => setMassa(null)} />}
+      {massa === 'csv' && <ImportarCsv eventos={events} existentes={coupons.map(c => c.code)} eventoInicial={events.some(e => e.id === filtroEvento) ? filtroEvento! : ''} onFechar={() => setMassa(null)} />}
 
       <Dialog open={showForm} onOpenChange={o => { setShowForm(o); if (!o) setEditando(null) }}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

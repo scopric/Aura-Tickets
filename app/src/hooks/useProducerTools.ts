@@ -276,6 +276,36 @@ export function useCreateCoupon() {
   })
 }
 
+/** Cupons em massa (lote e CSV): blocos de 100 pelo mesmo INSERT do produtor (RLS: producer_id e evento dele).
+ *  O índice de código é global (upper(code)): bloco que bate num código repetido é regravado linha a linha para achar quais. */
+export function useCreateCouponsBulk() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ cupons, eventId }: { cupons: Omit<Partial<DbCoupon>, 'id' | 'producer_id' | 'created_at' | 'updated_at'>[]; eventId: string | null }) => {
+      if (!user?.id) throw new Error('Nao autenticado')
+      const linhas = cupons.map(c => ({ ...c, producer_id: user.id, event_id: eventId, is_active: true }))
+      const criados: string[] = []
+      const falhas: { code: string; erro?: string }[] = []
+      for (let i = 0; i < linhas.length; i += 100) {
+        const bloco = linhas.slice(i, i + 100)
+        const { error } = await supabase.from('coupons').insert(bloco as never)
+        if (!error) { criados.push(...bloco.map(c => c.code!)); continue }
+        if (error.code !== '23505') { falhas.push(...bloco.map(c => ({ code: c.code!, erro: error.code }))); continue }
+        for (const c of bloco) {
+          const { error: e } = await supabase.from('coupons').insert(c as never)
+          if (e) falhas.push({ code: c.code!, erro: e.code }); else criados.push(c.code!)
+        }
+      }
+      return { criados, falhas }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['producer-coupons', user?.id] })
+    },
+  })
+}
+
 export function useUpdateCoupon() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
