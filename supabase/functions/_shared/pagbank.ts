@@ -17,7 +17,9 @@ export function mascarar(texto: string, token = ''): string {
   return s
     .replace(/Bearer\s+\S+/gi, 'Bearer ***')
     .replace(/ACCO_[0-9A-Fa-f-]+/g, 'ACCO_***')
-    .replace(/\b\d{11}(\d{3})?\b/g, '***')
+    .replace(/\d{3}\.\d{3}\.\d{3}-\d{2}/g, '***')
+    .replace(/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/g, '***')
+    .replace(/\d{8,}/g, '***')
     .replace(/[^\s@"]+@[^\s@"]+/g, '***@***')
 }
 
@@ -66,20 +68,38 @@ export function montarSplit(a: {
 
 const iso = (d: Date) => d.toISOString().replace(/\.\d{3}Z$/, 'Z')
 
-/** Validade do Pix: o MENOR entre (reservado_ate − 15 s) e (agora + 9 min), em segundos inteiros (arredonda para baixo). Nunca passa de reservado_ate. */
-export function calcularExpiracao(reservadoAte: Date, agora: Date): string {
-  const ms = Math.min(reservadoAte.getTime() - 15_000, agora.getTime() + 9 * 60_000)
-  return iso(new Date(Math.floor(ms / 1000) * 1000))
+/**
+ * Validade do Pix = reservado_ate − 15 s (segundos inteiros, para baixo). Não depende do relógio: o corpo do pedido fica igual
+ * a cada tentativa e a mesma chave de idempotência serve. A reserva é de 10 min em `reservar_ingressos` (se ela mudar, mudar aqui
+ * junto); o Pix nunca passa de reservado_ate (a função SQL `confirmar_pedido_pago` devolve 'estorno' para pagamento depois dela).
+ */
+export function calcularExpiracao(reservadoAte: Date): string {
+  return iso(new Date(Math.floor((reservadoAte.getTime() - 15_000) / 1000) * 1000))
 }
 
 const DIA = 86_400_000
 /**
- * Data de liberação da custódia: fim do evento + `dias`, no máximo 364 dias a partir de agora (o PagBank aceita até 365;
+ * Data de liberação da custódia: fim do evento + `dias`, no máximo 364 dias a partir de `base` (reservado_ate, não o relógio: o corpo precisa ser estável; o PagBank aceita até 365;
  * sem data seriam 90). Formato -03:00 (o aceito no sandbox). Brasília não tem horário de verão desde 2019.
  */
-export function calcularLiberacao(fimEvento: Date, dias: number, agora: Date): string {
-  const alvo = Math.min(fimEvento.getTime() + dias * DIA, agora.getTime() + 364 * DIA)
+export function calcularLiberacao(fimEvento: Date, dias: number, base: Date): string {
+  const alvo = Math.min(fimEvento.getTime() + dias * DIA, base.getTime() + 364 * DIA)
   return new Date(Math.floor(alvo / 1000) * 1000 - 3 * 3600_000).toISOString().replace('Z', '-03:00')
+}
+
+/** Só os códigos e o nome do parâmetro do erro (nunca o corpo bruto: pode ter CPF, nome, e-mail). */
+function resumoErro(texto: string): string {
+  try {
+    const j = JSON.parse(texto)
+    const itens = [j, ...(Array.isArray(j?.error_messages) ? j.error_messages : [])]
+    return itens.filter(i => i?.code || i?.parameter_name).map(i => `code=${String(i.code).slice(0, 60)} param=${String(i.parameter_name).slice(0, 60)}`).join('; ')
+  } catch { return '(sem corpo JSON)' }
+}
+
+/** Chave de idempotência: pedido + 12 hex de sha256(cpf|telefone). Mesmo CPF/telefone = mesmo corpo = mesmo pedido no PagBank; o CPF não aparece na chave. */
+export async function chaveIdempotencia(orderId: string, cpf: string, fone: string): Promise<string> {
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${cpf}|${fone}`))
+  return `${orderId}:${[...new Uint8Array(h)].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join('')}`
 }
 
 /** Chamada à API com timeout. Qualquer falha vira PagbankErro SEM o corpo da resposta (o detalhe mascarado fica na mensagem, só para log). */
@@ -102,7 +122,7 @@ export async function pagbankFetch(
       body: init.body === undefined ? undefined : JSON.stringify(init.body),
     })
     const texto = await r.text()
-    if (!r.ok) throw new PagbankErro(r.status, mascarar(`PagBank ${init.method} ${caminho} -> ${r.status}: ${texto.slice(0, 500)}`, cfg.token))
+    if (!r.ok) throw new PagbankErro(r.status, mascarar(`PagBank ${init.method} ${caminho} -> ${r.status} ${resumoErro(texto)}`, cfg.token))
     try { return JSON.parse(texto) } catch { throw new PagbankErro(502, 'PagBank devolveu resposta que não é JSON') }
   } catch (e) {
     if (e instanceof PagbankErro) throw e

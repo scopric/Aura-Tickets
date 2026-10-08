@@ -1,5 +1,7 @@
 import { assertEquals, assert } from "https://deno.land/std@0.168.0/testing/asserts.ts";
-import { handler, verificarRecaptcha, type Deps, type Pedido } from "./index.ts";
+// Rodar: cd supabase && deno test --allow-env functions/_shared/pagbank_test.ts functions/pagbank-criar-pedido/handler_test.ts
+import { handler, verificarRecaptcha, type Deps, type Pedido } from "./handler.ts";
+import { PagbankErro } from "../_shared/pagbank.ts";
 
 const A = "ACCO_" + "0123456789ABCDEF0123456789ABCDEF0123".slice(0, 36);
 const B = "ACCO_" + "FEDCBA9876543210FEDCBA9876543210FEDC".slice(0, 36);
@@ -23,7 +25,7 @@ function montar(ov: Partial<Deps> = {}, p: Pedido | null = pedido()) {
   const chamadas: { caminho: string; init: { method: string; body?: any; idempotencia?: string } }[] = [];
   const deps: Deps = {
     env: k => ENV[k] ?? "", limitar: () => Promise.resolve(null), autenticar: () => Promise.resolve({ id: "u1", email: "ana@x.com" }),
-    captcha: () => Promise.resolve(true), carregar: () => Promise.resolve(p), gravar: () => Promise.resolve(true),
+    esperar: () => Promise.resolve(), captcha: () => Promise.resolve(true), carregar: () => Promise.resolve(p), gravar: () => Promise.resolve(true),
     pagbank: (caminho, init) => { chamadas.push({ caminho, init }); return Promise.resolve(pagbankOk()); }, agora: () => AGORA, ...ov,
   };
   return { deps, chamadas };
@@ -39,11 +41,12 @@ Deno.test("caminho feliz: cria com split, grava e devolve só 3 campos", async (
   assertEquals(Object.keys(j).sort(), ["expira_em", "order_id", "pix_copia_e_cola"]);
   assertEquals(j.pix_copia_e_cola, "000201PIX");
   const c = chamadas[0];
-  assertEquals(c.init.idempotencia, OID);
+  assert(/^11111111-1111-4111-8111-111111111111:[0-9a-f]{12}$/.test(c.init.idempotencia!));
+  assert(!c.init.idempotencia!.includes("52998224725"));
   assertEquals(c.init.body.reference_id, OID);
   assertEquals(c.init.body.charges[0].amount.value, 11000);
   assertEquals(c.init.body.charges[0].splits.receivers.map((x: any) => x.amount.value), [1000, 10000]);
-  assertEquals(c.init.body.charges[0].payment_method.pix.expiration_date, "2026-10-08T12:09:00Z");
+  assertEquals(c.init.body.charges[0].payment_method.pix.expiration_date, "2026-10-08T12:09:45Z");
   assertEquals(c.init.body.items.reduce((n: number, i: any) => n + i.quantity * i.unit_amount, 0), 11000); // 2x50 + taxa
   assertEquals(c.init.body.customer.phones[0].area, "11");
   assertEquals(c.init.body.notification_urls, ["https://p.supabase.co/functions/v1/pagbank-webhook"]);
@@ -130,13 +133,80 @@ Deno.test("resposta do PagBank de outro reference_id é recusada", async () => {
 Deno.test("verificarRecaptcha: falha fechada", async () => {
   const f = (j: unknown, ok = true) => (() => Promise.resolve(new Response(JSON.stringify(j), { status: ok ? 200 : 500 }))) as unknown as typeof fetch;
   const env = (k: string) => ({ RECAPTCHA_SECRET: "s" } as Record<string, string>)[k] ?? "";
-  const bom = { success: true, score: 0.9, action: "pagbank_checkout" };
+  const bom = { success: true, score: 0.9, action: "pagbank_checkout", hostname: "evokaa.com.br" };
   assertEquals(await verificarRecaptcha("t", "1.2.3.4", env, f(bom)), true);
   assertEquals(await verificarRecaptcha("t", null, env, f({ ...bom, score: 0.3 })), false);
   assertEquals(await verificarRecaptcha("t", null, env, f({ ...bom, action: "outra" })), false);
+  assertEquals(await verificarRecaptcha("t", null, env, f({ ...bom, hostname: "evil.com" })), false);
   assertEquals(await verificarRecaptcha("t", null, env, f({ success: false })), false);
+  // RECAPTCHA_MIN_SCORE fora de [0.3, 0.9] ou NaN vale 0.5 (nunca bypass)
+  for (const m of ["0", "-1", "NaN", "9", "abc"]) {
+    const e = (k: string) => ({ RECAPTCHA_SECRET: "s", RECAPTCHA_MIN_SCORE: m } as Record<string, string>)[k] ?? "";
+    assertEquals(await verificarRecaptcha("t", null, e, f({ ...bom, score: 0.1 })), false, m);
+    assertEquals(await verificarRecaptcha("t", null, e, f({ ...bom, score: 0.6 })), true, m);
+  }
   assertEquals(await verificarRecaptcha("t", null, env, f(bom, false)), false);
   assertEquals(await verificarRecaptcha("t", null, env, (() => Promise.reject(new Error("rede"))) as unknown as typeof fetch), false);
   assertEquals(await verificarRecaptcha("t", null, () => "", f(bom)), false); // sem segredo
   assertEquals(await verificarRecaptcha("", null, env, f(bom)), false);
+});
+
+Deno.test("corpo e chave idênticos em instantes diferentes; CPF diferente = chave nova", async () => {
+  const rodar = async (agora: string, cpf = "529.982.247-25") => {
+    const { deps, chamadas } = montar({ agora: () => new Date(agora) });
+    await handler(req({ order_id: OID, captcha_token: "t", customer: { tax_id: cpf, phone: "11999999999" } }), deps);
+    return chamadas[0].init;
+  };
+  const a = await rodar("2026-10-08T12:00:00Z"), b = await rodar("2026-10-08T12:03:21Z");
+  assertEquals(JSON.stringify(a.body), JSON.stringify(b.body));
+  assertEquals(a.idempotencia, b.idempotencia);
+  const c = await rodar("2026-10-08T12:00:00Z", "111.444.777-35");
+  assert(a.idempotencia !== c.idempotencia);
+  assert(!JSON.stringify(a).includes("idempotencia\":\"" + "52998224725"));
+});
+
+Deno.test("5xx no POST: 1 retry com mesma chave e corpo; depois 502", async () => {
+  const visto: any[] = []; let esperou = 0;
+  const { deps } = montar({
+    esperar: (ms) => { esperou = ms; return Promise.resolve(); },
+    pagbank: (c, i) => { visto.push(i); return visto.length === 1 ? Promise.reject(new PagbankErro(500, "x")) : Promise.resolve(pagbankOk()); },
+  });
+  assertEquals((await handler(req(), deps)).status, 200);
+  assertEquals(visto.length, 2); assertEquals(esperou, 1500);
+  assertEquals(JSON.stringify(visto[0]), JSON.stringify(visto[1]));
+  let n = 0;
+  const f = montar({ pagbank: () => { n++; return Promise.reject(new PagbankErro(500, "x")); } });
+  assertEquals((await handler(req(), f.deps)).status, 502); assertEquals(n, 2);
+  let m = 0;
+  const g = montar({ pagbank: () => { m++; return Promise.reject(new PagbankErro(400, "x")); } });
+  assertEquals((await handler(req(), g.deps)).status, 502); assertEquals(m, 1); // 4xx não repete
+});
+
+Deno.test("IDEMPOTENCY_CONFLICT vira 409 genérico", async () => {
+  const { deps } = montar({ pagbank: () => Promise.reject(new PagbankErro(409, "PagBank POST /orders -> 409 code=IDEMPOTENCY_CONFLICT param=x-idempotency-key")) });
+  const r = await handler(req(), deps);
+  assertEquals(r.status, 409);
+  assert(!(await r.text()).includes("IDEMPOTENCY"));
+});
+
+Deno.test("limite por usuário vem depois do login; anônimo não consome cota", async () => {
+  const ids: string[] = [];
+  const lim = (_r: Request, u: string) => { ids.push(u); return Promise.resolve(null); };
+  await handler(req(undefined, {}), montar({ limitar: lim }).deps);
+  await handler(req(), montar({ limitar: lim, autenticar: () => Promise.resolve(null) }).deps);
+  assertEquals(ids.length, 0);
+  await handler(req(), montar({ limitar: lim }).deps);
+  assertEquals(ids, ["u1"]);
+  const r = await handler(req(), montar({ limitar: () => Promise.resolve(new Response("{}", { status: 429 })) }).deps);
+  assertEquals(r.status, 429);
+});
+
+Deno.test("carregar lançando erro: 502 com CORS; e-mail nulo: 400; Content-Length grande: 413", async () => {
+  const r = await handler(req(undefined, { Authorization: "Bearer j", Origin: "https://evokaa.com.br" }), montar({ carregar: () => Promise.reject(new TypeError("x is null")) }).deps);
+  assertEquals(r.status, 502);
+  assertEquals(r.headers.get("Access-Control-Allow-Origin"), "https://evokaa.com.br");
+  assert(!(await r.text()).includes("TypeError"));
+  const sem = montar({ autenticar: () => Promise.resolve({ id: "u1", email: null }) }, pedido({ customer_email: null }));
+  assertEquals((await handler(req(), sem.deps)).status, 400); assertEquals(sem.chamadas.length, 0);
+  assertEquals((await handler(req(undefined, { Authorization: "Bearer j", "content-length": "99999" }), montar().deps)).status, 413);
 });

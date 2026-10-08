@@ -3,7 +3,7 @@
 // É conveniência, não barreira: quem protege as funções é o JWT (Authorization: Bearer), que uma
 // página de outra origem não consegue ler. Prévias da Vercel ficam de fora (exigem login da Vercel,
 // e um padrão por nome de projeto aceitaria projetos de terceiros).
-const ORIGENS = [
+export const ORIGENS = [
   'https://www.evokaa.com.br',
   'https://evokaa.com.br',
   'https://app.evokaa.com.br',
