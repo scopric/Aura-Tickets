@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Segmented } from '@/components/ui/toggle-group'
 import { PERIODOS, ehPeriodo, type Periodo } from '../../lib/inicioProdutor'
 import { vendasPagas, faltaSegundoFator, janelaDoPeriodo } from '../../lib/vendasPagas'
 
