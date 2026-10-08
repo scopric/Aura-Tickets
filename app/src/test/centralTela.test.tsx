@@ -19,7 +19,7 @@ const montar = (url = '/producer/central') => render(
   </QueryClientProvider>,
 )
 
-describe('Central de comando', () => {
+describe('Dashboards (Central de comando)', () => {
   afterEach(() => { vi.clearAllMocks(); localStorage.clear(); cleanup() })
 
   it('tem os 4 tipos como abas', async () => {

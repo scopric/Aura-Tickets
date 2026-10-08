@@ -66,7 +66,7 @@ export function BarraFiltros({ periodo, onPeriodo, periodos, filtros, onExportar
 }) {
   return (
     <div className="mb-6 flex flex-wrap items-center gap-3">
-      <Segmented label="Período" size="md" value={periodo} onValueChange={onPeriodo} items={periodos} className="h-11 w-full sm:w-72" />
+      <Segmented label="Período" size="md" value={periodo} onValueChange={onPeriodo} items={periodos} className="h-12 w-full sm:w-72" />
       {filtros}
       <div className="flex flex-wrap items-center gap-3 sm:ml-auto">
         {atualizadoEm && (

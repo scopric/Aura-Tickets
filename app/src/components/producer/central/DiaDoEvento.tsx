@@ -33,9 +33,9 @@ export default function DiaDoEvento({ q, eventos, eventoId, onEvento, atualizado
 
   const comandos = (
     <div className="mb-4 flex flex-wrap items-center gap-3">
-      <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted-foreground sm:flex-none">
+      <label className="flex w-full flex-col gap-1 text-sm text-muted-foreground sm:w-auto sm:flex-row sm:items-center sm:gap-2">
         Evento
-        <select value={eventoId ?? ''} onChange={e => onEvento(e.target.value)} className={cn(selectNativo, 'min-h-11 w-full sm:w-72')}>
+        <select value={eventoId ?? ''} onChange={e => onEvento(e.target.value)} className={cn(selectNativo, 'min-h-11 w-full text-base sm:w-72 sm:text-sm')}>
           {eventos.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
         </select>
       </label>

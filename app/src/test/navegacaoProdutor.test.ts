@@ -58,9 +58,9 @@ describe('mapa de navegação do produtor (V4a)', () => {
     expect(filtra('evento', 'Conta')).toHaveLength(0)
   })
 
-  it('escopo da produtora: tudo, menos Início (item solto) e a Pasta (linha do evento)', () => {
+  it('escopo da produtora: tudo, menos Início e Dashboards (itens soltos) e a Pasta (linha do evento)', () => {
     const telas = SECOES.flatMap(s => filtra('produtora', s))
-    expect(telas).toHaveLength(28 - 2)
+    expect(telas).toHaveLength(28 - 3)
   })
 })
 
