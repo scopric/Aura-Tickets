@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(100);
+select plan(107);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -393,6 +393,47 @@ select is((select j from pg_temp.res where k = 'isca_comprou'), (select j from p
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000008');
 select results_eq($$select not (public.meu_perfil() ? 'cpf_compra_hmac'), public.meu_perfil() ? 'id', not (public.meu_perfil() ? 'cpf_enc')$$, $$values (true, true, true)$$, 'meu_perfil não devolve cpf_compra_hmac nem cpf_enc');
 select is(has_function_privilege('anon', 'public.pedido_do_navegador(uuid)', 'execute') or has_function_privilege('anon', 'public.meu_perfil()', 'execute'), false, 'anon sem EXECUTE em pedido_do_navegador e meu_perfil');
+
+-- 13c. M1: erro INESPERADO depois do hash vira a mesma resposta uniforme e o hash fica; M2: falhas comuns não contam tentativa
+select pg_temp.como('postgres');
+create function public.zz_teste_erro_inesperado() returns trigger language plpgsql as $f$
+begin
+  if new.ticket_type_id = 'fd000000-0000-4000-8000-0000000000bb' then
+    raise exception 'lock simulado' using errcode = '55P03'; -- lock_not_available, como um lock timeout
+  end if;
+  return new;
+end $f$;
+create trigger zz_teste_erro_inesperado before insert on public.order_items for each row execute function public.zz_teste_erro_inesperado();
+insert into auth.users (id, email, email_confirmed_at, raw_user_meta_data)
+select ('fd000000-0000-4000-8000-0000000000b' || n)::uuid, 'ub' || n || '@teste-meia.local', now(), '{"full_name":"Lock"}'::jsonb from generate_series(1, 3) n;
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000b1');
+insert into pg_temp.res select 'lock_nao', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1}]', null, pg_temp.cpf_valido(500000001));
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000b2');
+insert into pg_temp.res select 'lock_comprou', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1},{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1}]', null, '71428793860');
+select pg_temp.como('postgres');
+select is((select j from pg_temp.res where k = 'lock_nao'), (select j from pg_temp.res where k = 'lock_comprou'), 'M1: erro inesperado dá resposta idêntica para CPF que comprou e que não comprou');
+select results_eq($$select j->>'ok', j->>'motivo' from pg_temp.res where k = 'lock_nao'$$, $$values ('false'::text, 'indisponivel'::text)$$, 'M1: erro inesperado com tipo de limite por CPF = {ok:false, indisponivel}, nunca ok:true');
+select is((select count(*)::int from public.profiles where id in ('fd000000-0000-4000-8000-0000000000b1', 'fd000000-0000-4000-8000-0000000000b2') and cpf_compra_hmac is not null), 2, 'M1: o hash fica preso mesmo com o erro inesperado');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000b3');
+select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1}]')$$, '55P03', 'lock simulado', 'M1: sem tipo de limite por CPF o erro inesperado é relançado');
+select pg_temp.como('postgres');
+drop trigger zz_teste_erro_inesperado on public.order_items;
+drop function public.zz_teste_erro_inesperado();
+-- M2: 10 falhas comuns em tipo com limite por CPF (acima do teto) não contam e não bloqueiam a compra
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000b3');
+do $$ begin
+  for i in 1..10 loop
+    insert into pg_temp.res select 'comum' || i, public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+      '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":11}]', null, pg_temp.cpf_valido(600000001));
+  end loop;
+end $$;
+select is((select count(distinct j)::int from pg_temp.res where k like 'comum%'), 1, 'M2: as 10 falhas comuns têm resposta uniforme');
+select pg_temp.como('postgres');
+select is((select count(*)::int from public.tentativas_reserva where user_id = 'fd000000-0000-4000-8000-0000000000b3'), 0, 'M2: falha comum (acima do teto por pedido) não conta como tentativa');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-0000000000b3');
+select is(pg_temp.msg('[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000bb","quantidade":1}]'), 'OK', 'M2: depois de 10 falhas comuns o comprador ainda compra');
 
 -- 14. Anonimização da conta zera o CPF preso (pr7_anonimizar_pii de produção + 1 linha)
 select pg_temp.como('postgres');

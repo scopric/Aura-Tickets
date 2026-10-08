@@ -15,7 +15,14 @@
 -- 'indisponivel' (pedido com tipo de limite por CPF: UMA resposta para qualquer falha, inclusive quantidade e estoque, para não
 -- haver oráculo) | 'regra' (demais pedidos; mensagem = texto da regra). Sucesso: {ok:true, order_id, ...}. Exceção continua só para
 -- erro de entrada (JSON/itens inválidos, não logado, 2FA, evento indisponível, CPF ausente ou inválido, "Muitas tentativas").
--- Cada conta sonda no máximo 1 CPF (o hash é gravado ANTES da subtransação e fica mesmo se a reserva falhar).
+-- Cada conta sonda no máximo 1 CPF pela reservar_ingressos (o hash é gravado ANTES da subtransação e fica mesmo se a reserva
+-- falhar, inclusive em erro inesperado como lock timeout ou deadlock). ISSO SÓ VALE DEPOIS DO B: enquanto o INSERT direto do
+-- navegador existe, quem grava order com customer_cpf passa só pelo gatilho orders_cpf_hash, que NÃO olha cpf_compra_hmac (vale
+-- o limite antigo de 3 CPFs diferentes por hora). !!! APLICAR O B (20261030b) LOGO DEPOIS DE PUBLICAR O FRONT !!!
+-- (Fazer orders_cpf_hash recusar CPF diferente do preso exigiria recriá-lo; não foi feito porque o md5 de produção dele não foi
+-- conferido: se o Ricardo passar o md5, é uma linha.) Só as recusas por cupom e por limite de CPF contam em tentativas_reserva
+-- (10 na hora, por conta, em qualquer evento; a contagem por conta e não por evento é de propósito: por evento permitiria
+-- multiplicar as sondas pelo número de eventos).
 -- Risco que resta: quem cria contas novas prende um CPF de terceiro em cada uma (1 sonda por conta); o limite por IP/Edge
 -- Function continua pendente (20261028). A coluna não é lida nem escrita por anon/authenticated. A anonimização da conta (pr7_anonimizar_pii, texto de produção em
 -- 20261007_pr7_cripto_passo2.sql, md5 21483c3e…) é recriada aqui com UMA linha a mais que zera profiles.cpf_compra_hmac (marca
@@ -619,6 +626,7 @@ declare
   v_motivo text;
   v_msg text;
   v_mensagem text;
+  v_conta boolean := false; -- recusa que conta como tentativa (sonda de cupom ou de CPF)
   v_dig text;
   v_atual text;
   v_h text;
@@ -802,6 +810,7 @@ begin
     when sqlstate 'EV001' then
       v_motivo := 'cupom_invalido';
       v_mensagem := 'Cupom inválido ou não se aplica a este pedido';
+      v_conta := true;
     when sqlstate '22023' then
       -- regra de negócio (esgotado, tetos, meia, limite por CPF, ...): vira retorno, para o hash da conta (acima) não ser desfeito
       get stacked diagnostics v_msg = message_text;
@@ -809,13 +818,24 @@ begin
         -- pedido com tipo de limite por CPF: UMA resposta só, para a falha por CPF e as outras não se distinguirem (sem oráculo)
         v_motivo := 'indisponivel';
         v_mensagem := 'Não foi possível reservar. Confira quantidade e disponibilidade e tente de novo.';
+        -- só a recusa do limite por CPF (e a de muitos CPFs) conta tentativa; esgotado, tetos etc. não bloqueiam o comprador honesto
+        v_conta := v_msg like 'Limite de % ingressos por CPF neste ingresso' or v_msg like 'Muitas tentativas com CPFs diferentes%';
       else
         v_motivo := 'regra';
         v_mensagem := v_msg;
       end if;
+    when others then
+      -- erro inesperado (lock timeout, deadlock 40P01, serialização 40001, ...): com tipo de limite por CPF vira a MESMA resposta
+      -- uniforme (o hash da conta, gravado antes, fica); sem ele, relança como antes. Nunca devolve ok:true aqui.
+      if v_cpf then
+        v_motivo := 'indisponivel';
+        v_mensagem := 'Não foi possível reservar. Confira quantidade e disponibilidade e tente de novo.';
+      else
+        raise;
+      end if;
   end;
   if v_motivo is not null then
-    if v_motivo <> 'regra' then -- só as recusas que sondam cupom ou CPF contam tentativa; esgotado e tetos não
+    if v_conta then -- só as recusas que sondam cupom ou CPF contam tentativa; esgotado, tetos e erros inesperados não
       insert into public.tentativas_reserva (user_id, motivo) values (v_uid, v_motivo);
     end if;
     return jsonb_build_object('ok', false, 'motivo', v_motivo, 'mensagem', v_mensagem);
