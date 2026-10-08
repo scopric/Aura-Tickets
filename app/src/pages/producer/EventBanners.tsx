@@ -8,7 +8,9 @@ import {
   useDeleteBanner,
   type DbBanner,
 } from '../../hooks/useProducerTools'
-import { PageHeader, Stat, EmptyState } from '@/components/producer/ui'
+import { AbasDeArea, EmBreve, KpiCard } from '@/components/producer/ui-evento'
+import { ABAS_DIVULGACAO } from '../../lib/divulgacao'
+import { PageHeader, EmptyState, Erro } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -100,11 +102,13 @@ export default function ProducerEventBanners() {
       actions={<Button onClick={() => setShowForm(true)}><I.ImagemMais aria-hidden="true" />Novo banner</Button>}
     />
   )
+  const abas = <AbasDeArea abas={ABAS_DIVULGACAO} rotulo="Divulgação" />
 
   if (isLoading) {
     return (
-      <div aria-busy="true">
+      <div aria-busy="true" aria-label="Carregando banners">
         {header}
+        {abas}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
           {[1, 2, 3].map(n => <Skeleton key={n} className="h-[92px] rounded-[10px] bg-muted" />)}
         </div>
@@ -117,12 +121,8 @@ export default function ProducerEventBanners() {
     return (
       <div>
         {header}
-        <div role="alert" className="flex flex-col gap-3 rounded-[10px] border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-foreground">Não foi possível carregar os banners.</p>
-          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-            {isFetching ? 'Carregando…' : 'Tentar de novo'}
-          </Button>
-        </div>
+        {abas}
+        <Erro texto="Não foi possível carregar os banners." refetch={() => { void refetch() }} carregando={isFetching} />
       </div>
     )
   }
@@ -130,15 +130,16 @@ export default function ProducerEventBanners() {
   return (
     <div>
       {header}
+      {abas}
 
-      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Os banners ficam guardados só aqui no painel: ainda não aparecem ao comprador no site nem contam cliques.
+      <p className="mb-6 rounded-[10px] border border-border bg-card px-4 py-3 text-sm text-foreground">
+        <strong className="font-semibold">Os banners ainda não aparecem no site público.</strong>{' '}
+        <span className="text-muted-foreground">Ficam guardados só aqui no painel e os cliques ainda não são contados.</span>
       </p>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Stat label="Banners" value={banners.length} />
-        <Stat label="Ativos" value={banners.filter(b => b.active).length} />
-        <Stat label="Eventos" value={[...new Set(banners.map(b => b.event_name).filter(Boolean))].length} />
+      <div className="grid grid-cols-2 gap-3">
+        <KpiCard rotulo="Banners ativos" valor={banners.filter(b => b.active).length.toLocaleString('pt-BR')} comparacao={`de ${banners.length.toLocaleString('pt-BR')} criados`} />
+        <KpiCard rotulo="Cliques" valor={banners.reduce((n, b) => n + b.clicks, 0).toLocaleString('pt-BR')} comparacao="ainda não contados" />
       </div>
 
       <div className="mt-6">
@@ -179,6 +180,13 @@ export default function ProducerEventBanners() {
           </div>
         )}
       </div>
+
+      <section aria-labelledby="ban-breve" className="mt-8">
+        <h2 id="ban-breve" className="text-[15px] font-semibold leading-5 text-foreground">Em breve</h2>
+        <div className="mt-3 max-w-xl">
+          <EmBreve titulo="Agendar banner" descricao="Escolher dia e hora para o banner entrar e sair do ar. Depende de o banner aparecer no site público." acao="Agendar" />
+        </div>
+      </section>
 
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">

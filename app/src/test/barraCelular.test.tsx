@@ -135,6 +135,7 @@ describe('barra inferior do celular (V4b)', () => {
     expect(within(folha).getByRole('link', { name: 'Eventos' })).toHaveAttribute('href', '/producer/events')
     expect(within(folha).getByText('Noite de Forró')).toBeInTheDocument()
     expect(within(folha).getByRole('link', { name: 'Cupons' })).toHaveAttribute('href', '/producer/cupons?eventId=e1')
+    expect(within(folha).getByRole('link', { name: 'Divulgação' })).toHaveAttribute('href', '/producer/divulgacao?eventId=e1')
     expect(within(folha).queryByRole('link', { name: 'Banners' })).toBeNull() // só na produtora
     expect(within(folha).getByRole('link', { name: 'Configurações' })).toHaveAttribute('href', '/producer/settings')
   })

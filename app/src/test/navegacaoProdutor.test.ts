@@ -46,6 +46,14 @@ describe('mapa de navegação do produtor (V4a)', () => {
     }
   })
 
+  it('Divulgação: item novo em Vendas, antes de Afiliados, sem tirar Afiliados, Banners e Lista de interesse', () => {
+    const vendas = filtra('produtora', 'Vendas').map(t => t.tela)
+    expect(vendas.indexOf('Divulgação')).toBeGreaterThanOrEqual(0)
+    expect(vendas.indexOf('Divulgação')).toBeLessThan(vendas.indexOf('Afiliados'))
+    for (const nome of ['Afiliados', 'Banners', 'Lista de interesse']) expect(vendas).toContain(nome)
+    expect(filtra('evento', 'Vendas').map(t => t.noEvento)).toContain('Divulgação')
+  })
+
   it('V7: a Visão geral é a tela do evento no mapa e não está atrás de "Em breve"', () => {
     const pasta = NAV.find(t => t.tela === 'Pasta do evento')!
     expect(pasta.rota).toBe('/producer/event/:eventId')

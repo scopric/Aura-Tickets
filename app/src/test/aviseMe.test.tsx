@@ -28,6 +28,7 @@ vi.mock('../lib/supabase', () => ({
     rpc: (nome: string, args: unknown) => rpc(nome, args),
   },
 }))
+vi.mock('../hooks/useEvents', () => ({ useProducerEvents: () => ({ data: [], isPending: false, isError: false, isFetching: false, refetch: vi.fn() }) }))
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 const entrar = (role: string) =>
