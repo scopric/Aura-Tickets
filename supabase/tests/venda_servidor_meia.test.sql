@@ -355,6 +355,9 @@ select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000002');
 select throws_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, '42501', 'Sem permissão', 'não-admin não destrava');
 select pg_temp.como('postgres');
 update public.profiles set role = 'admin' where id = 'fd000000-0000-4000-8000-000000000004';
+-- gf_is_admin() (S9) exige fator TOTP verificado
+insert into auth.mfa_factors (id, user_id, friendly_name, factor_type, status, created_at, updated_at) values
+  ('fd000000-0000-4000-8000-0000000000c4', 'fd000000-0000-4000-8000-000000000004', 'totp teste', 'totp', 'verified', now(), now());
 select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000004');
 select lives_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, 'admin (com MFA) destrava a conta');
 select pg_temp.como('postgres');
