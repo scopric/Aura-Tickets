@@ -61,6 +61,7 @@ const ProducerCRM = lazy(() => import('./pages/producer/CRM'))
 const ProducerFinance = lazy(() => import('./pages/producer/Finance'))
 const ProducerCentral = lazy(() => import('./pages/producer/Central'))
 const ProducerBordero = lazy(() => import('./pages/producer/Bordero'))
+const ProducerParticipantes = lazy(() => import('./pages/producer/Participantes'))
 const ProducerWallet = lazy(() => import('./pages/producer/Wallet'))
 const ProducerMenu = lazy(() => import('./pages/producer/Menu'))
 const TableCalculator = lazy(() => import('./pages/producer/TableCalculator'))
@@ -421,6 +422,7 @@ function Layout() {
               <Route path="/producer/ingressos-avancados" element={<Navigate to="/producer/events/new" replace />} />
               <Route path="/producer/evokaa-store" element={<ComingSoonRoute title="A Evokaa Store"><EvokaaStore /></ComingSoonRoute>} />
               <Route path="/producer/bordero" element={<ProducerBordero />} />
+              <Route path="/producer/participantes" element={<ProducerParticipantes />} />
               <Route path="/producer/lista-interesse" element={<InterestList />} />
               <Route path="/producer/certificados" element={<Certificates />} />
               <Route path="/producer/certificado-editor" element={<CertificateBuilder />} />

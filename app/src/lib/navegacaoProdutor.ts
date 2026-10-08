@@ -18,7 +18,7 @@ export interface Tela {
   noEvento?: string
 }
 
-// 28 telas na lista (Central de comando, Decisão 197, só na produtora e só para o dono) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153).
+// 29 telas na lista (Central de comando, Decisão 197, só na produtora e só para o dono) + o botão "+" (Criar evento, ROTA_CRIAR_EVENTO): as 28 do mapa do estudo mais o Borderô (E5, Decisão 153) e os Participantes.
 // Decisão 143 (desvio do contrato §6.4): Banners, Lista de interesse, Galeria, Tarefas e CRM ficam só no escopo da
 // produtora até terem filtro por evento. Cupons, Afiliados, Cardápio, Orçamento e Resumo aparecem no escopo do evento
 // e filtram pelo ?eventId= (V4a2, useFiltroEvento).
@@ -35,6 +35,7 @@ export const NAV: Tela[] = [
   { tela: 'Lista de interesse', secao: 'Vendas', rota: '/producer/lista-interesse' },
   { tela: 'Lugar marcado', secao: 'Vendas', rota: '/producer/lugar-marcado', noEvento: 'Lugar marcado' },
   { tela: 'CRM', secao: 'Público', rota: '/producer/crm' },
+  { tela: 'Participantes', secao: 'Público', rota: '/producer/participantes', noEvento: 'Participantes' },
   { tela: 'Check-in', secao: 'Público', rota: '/producer/checkin', noEvento: 'Check-in' },
   { tela: 'Certificados', secao: 'Público', rota: '/producer/certificados', noEvento: 'Certificados' },
   { tela: 'Galeria', secao: 'Público', rota: '/producer/galeria' },
