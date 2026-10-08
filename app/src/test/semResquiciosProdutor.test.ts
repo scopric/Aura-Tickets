@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 
 // Decisão 213: a paleta antiga (espresso/plum/cream, font-serif, brilho) não volta ao painel do produtor.
 const PASTAS = ['pages/producer', 'components/producer']
-const AVULSOS = ['components/ComingSoon.tsx', 'components/ProducerLayout.tsx']
+const AVULSOS = ['components/ComingSoon.tsx', 'components/ProducerLayout.tsx', 'components/ErrorBoundary.tsx']
 // Exceção: o mapa antigo é de outra sessão (editor novo em /producer/lugar-marcado-v2) e sai com ele.
 const EXCECOES = [/^SeatingMap\.tsx$/, /^mapa/i]
 const ANTIGO = /espresso|plum|cream|shadow-glow|font-serif/

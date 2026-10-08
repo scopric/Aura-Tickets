@@ -18,7 +18,7 @@ interface ComingSoonProps {
 export default function ComingSoon({ titulo, descricao, backTo = '/producer/dashboard' }: ComingSoonProps) {
   return (
     <div className="mx-auto flex min-h-[60vh] w-full max-w-xl items-center p-4">
-      <Card className="w-full gap-3 rounded-[10px] border-dashed p-6 shadow-none">
+      <Card className="w-full gap-3 rounded-[10px] border-dashed border-muted-foreground/40 p-6 shadow-none">
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-xl font-semibold leading-7 text-foreground">{titulo}</h1>
           <Badge variant="outline">Em breve</Badge>

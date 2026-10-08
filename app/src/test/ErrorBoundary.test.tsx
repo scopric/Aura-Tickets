@@ -17,7 +17,7 @@ describe('ErrorBoundary', () => {
       </RootErrorBoundary>
     )
     expect(screen.getByText('Algo deu errado')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Inicio/ })).toHaveAttribute('href', '/')
+    expect(screen.getByRole('link', { name: /Início/ })).toHaveAttribute('href', '/')
   })
 
   it('área: erro numa tela não derruba o layout (menu continua na tela)', () => {
