@@ -265,6 +265,7 @@ export default function Checkout() {
 
   const updateQty = (chave: string, delta: number) => {
     const id = lerChave(chave).ticket_type_id
+    if (!beneficiosOk && lerChave(chave).beneficio === 'meia') return // lista de categorias ainda não chegou
     if (delta > 0 && escolhidos.length) {
       toast.info('Você escolheu lugares no mapa. Para comprar pela seleção rápida, tire os lugares escolhidos.')
       return
@@ -287,6 +288,7 @@ export default function Checkout() {
   const tipoMeia = (id: string) => valida(meiaTipo[id]) ? meiaTipo[id] : padraoMeia
   // Troca o benefício da meia e leva a quantidade já escolhida para a chave nova
   const trocarBeneficio = (id: string, novo: string) => {
+    if (!beneficiosOk) return
     const de = chaveItem(id, 'meia', tipoMeia(id))
     setMeiaTipo(m => ({ ...m, [id]: novo }))
     setCart(prev => {
@@ -323,6 +325,8 @@ export default function Checkout() {
 
   const resumo = totaisItens(items.map(i => ({ price: i.price || 0, quantity: i.qty, taxa_unit: i.taxa_unit })))
   const grandTotal = resumo.total
+  // Meia no pedido (ou lugar com meia) antes de a lista de categorias chegar: não deixa continuar com categoria que a tela não mostra
+  const carregandoMeia = !beneficiosOk && (Object.keys(cart).some(k => lerChave(k).beneficio === 'meia') || Object.keys(meiaLugar).length > 0)
   const temColetiva = items.some(i => i.type === 'coletiva')
   const nascimentoPerfil = user?.birth_date || null
 
@@ -555,11 +559,11 @@ export default function Checkout() {
                             qtd={qtyMeia}
                             onMenos={() => updateQty(chaveItem(ticket.id, 'meia', tipo), -1)}
                             onMais={() => updateQty(chaveItem(ticket.id, 'meia', tipo), 1)}
-                            maisDesligado={noTeto || qtyMeia >= tetoMeia}
+                            maisDesligado={!beneficiosOk || noTeto || qtyMeia >= tetoMeia}
                           />
                         </div>
                         <label htmlFor={`meia-${ticket.id}`} className="block text-[13px] font-semibold leading-5">Quem tem direito à meia</label>
-                        <select id={`meia-${ticket.id}`} value={tipo} onChange={e => trocarBeneficio(ticket.id, e.target.value)} className="h-12 w-full rounded-ev-lg bg-card px-3 text-base">
+                        <select id={`meia-${ticket.id}`} disabled={!beneficiosOk} value={tipo} onChange={e => trocarBeneficio(ticket.id, e.target.value)} className="h-12 w-full rounded-ev-lg bg-card px-3 text-base">
                           {beneficios.map(b => <option key={b.codigo} value={b.codigo}>{b.nome}</option>)}
                         </select>
                         {beneficios.find(b => b.codigo === tipo)?.documento && <p className="text-xs leading-4 text-muted-foreground">Documento: {beneficios.find(b => b.codigo === tipo)!.documento}.</p>}
@@ -632,7 +636,7 @@ export default function Checkout() {
                       return (
                         <label key={k} className="flex items-center justify-between gap-3 text-[13px] font-semibold leading-5">
                           <span>Lugar {a.label}</span>
-                          <select aria-label={`Ingresso do lugar ${a.label}`} value={meiaLugar[k] ?? ''} onChange={e => setMeiaLugar(m => { const { [k]: _, ...resto } = m; return e.target.value ? { ...resto, [k]: e.target.value } : resto })} className="h-10 rounded-ev-lg bg-card px-3 text-base">
+                          <select aria-label={`Ingresso do lugar ${a.label}`} disabled={!beneficiosOk} value={meiaLugar[k] ?? ''} onChange={e => setMeiaLugar(m => { const { [k]: _, ...resto } = m; return e.target.value ? { ...resto, [k]: e.target.value } : resto })} className="h-10 rounded-ev-lg bg-card px-3 text-base">
                             <option value="">Inteira</option>
                             {beneficios.map(b => <option key={b.codigo} value={b.codigo} disabled={b.cota && meiaLugar[k] !== b.codigo && usadas >= vt.meias_disponiveis}>Meia: {b.nome}</option>)}
                           </select>
@@ -1015,12 +1019,13 @@ export default function Checkout() {
                 </div>
               </div>
 
+              {carregandoMeia && <p role="status" className="mt-4 text-[13px] leading-5 text-muted-foreground">Carregando categorias de meia-entrada…</p>}
               <Button
                 type="button"
                 size="lg"
                 className="mt-5 w-full rounded-full"
                 onClick={handleContinuePayment}
-                disabled={items.length === 0 || reservando}
+                disabled={items.length === 0 || reservando || carregandoMeia}
                 loading={reservando}
               >
                 {isAuthenticated ? (

@@ -19,8 +19,10 @@ export function useMeiaBeneficios(eventId?: string) {
     staleTime: 60_000,
     retry: false,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('meia_beneficios' as never, { p_event_id: eventId } as never)
-      return !error && Array.isArray(data) && data.length ? (data as MeiaBeneficio[]) : BENEFICIOS_NACIONAIS
+      try {
+        const { data, error } = await supabase.rpc('meia_beneficios' as never, { p_event_id: eventId } as never)
+        return !error && Array.isArray(data) && data.length ? (data as MeiaBeneficio[]) : BENEFICIOS_NACIONAIS
+      } catch { return BENEFICIOS_NACIONAIS } // exceção também é "carregado": a tela não fica presa esperando
     },
   })
 }

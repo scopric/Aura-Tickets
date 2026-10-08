@@ -5,7 +5,7 @@ import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 
 // Tela 06 fatia 2: meia-entrada no pedido. O preço e as vagas da meia vêm de vitrine_ingressos (só o Checkout lê).
-const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[], beneficios: null as unknown }))
+const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[], beneficios: null as unknown, lancar: false, espera: null as Promise<void> | null }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true, user: { id: 'u1', birth_date: '1990-01-01' } }) }))
@@ -17,7 +17,9 @@ vi.mock('../hooks/useEvents', () => ({
 }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    rpc: async (nome: string) => nome === 'meia_beneficios'
+    rpc: async (nome: string) => nome === 'meia_beneficios' && (h.lancar || h.espera)
+      ? (h.lancar ? Promise.reject(new Error('rede')) : h.espera!.then(() => ({ data: h.beneficios, error: null })))
+      : nome === 'meia_beneficios'
       ? (h.beneficios ? { data: h.beneficios, error: null } : { data: null, error: { message: 'function public.meia_beneficios does not exist' } })
       : { data: nome === 'vitrine_ingressos' ? h.vitrine : null, error: null },
     from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }),
@@ -34,7 +36,7 @@ const montar = (cart: Record<string, number>) => render(
 )
 
 describe('Checkout: meia-entrada', () => {
-  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE; h.beneficios = null })
+  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE; h.beneficios = null; h.lancar = false; h.espera = null })
 
   it('1 inteira + 2 meias: o resumo leva beneficio, meia_tipo, preço e taxa da meia', async () => {
     montar({ 'tt1|inteira|': 1, 'tt1|meia|pcd': 2 })
@@ -164,5 +166,30 @@ describe('Checkout: meia-entrada', () => {
     expect((sel as HTMLSelectElement).value).toBe('idoso')
     fireEvent.click(screen.getByText('trocar'))
     await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+  })
+
+  it('enquanto a RPC carrega: controles de meia desligados e Continuar bloqueado com meia no carrinho; depois segue', async () => {
+    let liberar!: () => void
+    h.espera = new Promise<void>(r => { liberar = r })
+    h.beneficios = CATEGORIAS
+    montar({ 'tt1|meia|idoso': 1 })
+    await screen.findByText('Carregando categorias de meia-entrada…')
+    expect((screen.getByRole('button', { name: /Continuar para Pagamento/ }) as HTMLButtonElement).disabled).toBe(true)
+    expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).disabled).toBe(true)
+    expect(screen.getByRole('button', { name: 'Adicionar um Pista (meia-entrada)' }).getAttribute('aria-disabled')).toBe('true')
+    liberar()
+    await waitFor(() => expect(screen.queryByText('Carregando categorias de meia-entrada…')).toBeNull())
+    expect((screen.getByRole('button', { name: /Continuar para Pagamento/ }) as HTMLButtonElement).disabled).toBe(false)
+    expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('idoso') // lista com idoso: o item é mantido
+  })
+
+  it('RPC que lança exceção cai nos 4 nacionais e normaliza o carrinho', async () => {
+    h.lancar = true
+    montar({ 'tt1|meia|idoso': 1 })
+    await waitFor(() => expect((screen.getByLabelText('Quem tem direito à meia') as HTMLSelectElement).value).toBe('estudante'))
+    expect(screen.getAllByRole('option')).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: /Continuar para Pagamento/ }))
+    await waitFor(() => expect(h.estado).not.toBeNull())
+    expect((h.estado as { itemsSummary: unknown[] }).itemsSummary).toEqual([expect.objectContaining({ quantity: 1, beneficio: 'meia', meia_tipo: 'estudante' })])
   })
 })
