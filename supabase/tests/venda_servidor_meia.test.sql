@@ -67,7 +67,7 @@ select is((select meias_total from public.vitrine_ingressos('fd000000-0000-4000-
   'cota é ceil: 40% de 7 = 2,8 -> 3');
 select results_eq($$select permite_meia, meias_total from public.vitrine_ingressos('fd000000-0000-4000-8000-0000000000e1')
    where ticket_type_id in ('fd000000-0000-4000-8000-0000000000b3', 'fd000000-0000-4000-8000-0000000000b9', 'fd000000-0000-4000-8000-0000000000ba') order by ticket_type_id$$,
-  $$values (false, 0), (false, 0), (false, 0)$$, 'vitrine: mesa, grátis e lugar marcado sem meia');
+  $$values (false, 0), (false, 0), (true, 8)$$, 'vitrine: mesa e grátis sem meia; lugar marcado com meia (20261102), cota 40% de 20 = 8');
 select is((select permite_meia from public.vitrine_ingressos('fd000000-0000-4000-8000-0000000000e1') where ticket_type_id = 'fd000000-0000-4000-8000-0000000000b5'), true, 'vitrine: VIP tem meia');
 select is((select count(*)::int from information_schema.columns where table_schema = 'public' and table_name = 'ticket_types' and column_name = 'permite_meia'), 1, 'coluna permite_meia existe');
 select is(has_function_privilege('anon', 'public.reservar_ingressos(uuid, jsonb, text, text)', 'execute'), false, 'anon não tem EXECUTE em reservar_ingressos');
