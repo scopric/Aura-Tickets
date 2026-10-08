@@ -10,7 +10,7 @@ describe('LateralSecoes', () => {
     render(<LateralSecoes itens={itens} onIr={vi.fn()} prontos={5} total={8} />)
     expect(screen.getByRole('navigation', { name: 'Seções do evento' })).toBeTruthy()
     expect(screen.getAllByRole('button')).toHaveLength(6)
-    expect(screen.getByText('5 de 8', { exact: false })).toBeTruthy()
+    expect(screen.getByText('5/8', { exact: false })).toBeTruthy()
     expect(screen.getAllByText(/, pronto/)).toHaveLength(2)
     expect(screen.getByText(', faltam 2 itens')).toBeTruthy()
     expect(screen.getByRole('button', { name: /Ingressos/ }).getAttribute('aria-current')).toBe('true')
