@@ -9,10 +9,12 @@ import FiltroEvento from '@/components/producer/FiltroEvento'
 import { brl } from '../../lib/taxa'
 import { forma } from '../../lib/bordero'
 import { toCsv, downloadCsv, csvFilename, fetchAllRows, slugArquivo } from '../../lib/exportCsv'
-import { PageHeader, Stat, EmptyState, SectionTitle } from '@/components/producer/ui'
+import { PageHeader, EmptyState, SectionTitle, chipNeutro } from '@/components/producer/ui'
+import { BarraFiltros, KpiCard, EmBreve } from '@/components/producer/ui-evento'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Segmented } from '@/components/ui/toggle-group'
 import { PERIODOS, ehPeriodo, type Periodo } from '../../lib/inicioProdutor'
 import { vendasPagas, faltaSegundoFator, janelaDoPeriodo } from '../../lib/vendasPagas'
 
@@ -32,6 +34,31 @@ const diaBr = (aaaammdd: string) => aaaammdd.split('-').reverse().join('/')
 const num = (v: unknown) => Number(v) || 0
 const POR_PAGINA = 20
 const COLUNAS = 'id, event_id, total, payment_method, created_at, events!inner(title, producer_id)'
+
+// Linha da cascata: sem valor = ainda não existe no banco, vira selo "Em breve" em vez de número inventado
+function LinhaCascata({ rotulo, valor, barra, ajuda }: { rotulo: string; valor?: string; barra?: number; ajuda: string }) {
+  return (
+    <li className="px-4 py-3">
+      <div className="flex min-h-11 items-center justify-between gap-3">
+        <p className="flex items-center gap-1 text-sm text-foreground">
+          {rotulo}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" aria-label={`Ajuda: ${rotulo}`} className="relative inline-flex size-5 items-center justify-center rounded-full text-muted-foreground before:absolute before:-inset-3 before:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <I.Ajuda size={14} aria-hidden="true" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>{ajuda}</TooltipContent>
+          </Tooltip>
+        </p>
+        {valor ? <p className="shrink-0 text-sm font-medium tabular-nums text-foreground">{valor}</p> : <Badge variant="outline" className={chipNeutro}>Em breve</Badge>}
+      </div>
+      {valor && barra !== undefined && (
+        <div aria-hidden="true" className="h-1.5 overflow-hidden rounded-full bg-muted"><div className="h-full rounded-full bg-primary" style={{ width: `${Math.max(barra * 100, barra > 0 ? 2 : 0)}%` }} /></div>
+      )}
+    </li>
+  )
+}
 
 export default function ProducerFinance() {
   const { user } = useAuth()
@@ -85,6 +112,7 @@ export default function ProducerFinance() {
 
   // "bruto" = orders.total: inclui a taxa de serviço paga pelo comprador (Decisões 88 e 111)
   const bruto = num(soma?.total)
+  const estornos = num(soma?.reembolsados.total)
 
   const exportar = async () => {
     try {
@@ -104,18 +132,10 @@ export default function ProducerFinance() {
   }
 
   const header = (
-    <PageHeader
-      title="Financeiro"
-      description="Vendas pagas dos seus eventos, em valor bruto"
-      actions={
-        <>
-          <Segmented label="Período" size="sm" value={periodo} onValueChange={mudaPeriodo} items={PERIODOS} className="w-full sm:w-72" />
-          <Button variant="outline" onClick={exportar} disabled={nPedidos === 0} title={nPedidos === 0 ? 'Sem pedidos pagos para exportar' : undefined}>
-          <I.Baixar aria-hidden="true" />Exportar CSV
-          </Button>
-        </>
-      }
-    />
+    <>
+      <PageHeader title="Financeiro" description="Vendas pagas dos seus eventos, em valor bruto" />
+      <BarraFiltros periodo={periodo} onPeriodo={mudaPeriodo} periodos={PERIODOS} onExportar={exportar} exportarDesabilitado={nPedidos === 0} />
+    </>
   )
 
   const aviso = (
@@ -160,15 +180,34 @@ export default function ProducerFinance() {
       <FiltroEvento />
       {aviso}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Stat label="Vendas pagas (bruto)" value={brl(bruto)} />
-        <Stat label="Pedidos pagos" value={nPedidos.toLocaleString('pt-BR')} />
-        <Stat label="Ticket médio por pedido (bruto)" value={nPedidos ? brl(bruto / nPedidos) : '—'} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+        <KpiCard destaque className="sm:col-span-2" rotulo="Vendas pagas (bruto)" valor={brl(bruto)} ajuda="Soma do que os compradores pagaram nos pedidos pagos, com a taxa de serviço incluída. Pedido reembolsado fica de fora." />
+        <KpiCard rotulo="Pedidos pagos" valor={nPedidos.toLocaleString('pt-BR')} ajuda="Quantidade de pedidos com pagamento confirmado no período." />
+        <KpiCard rotulo="Ticket médio por pedido (bruto)" valor={nPedidos ? brl(bruto / nPedidos) : '—'} ajuda="Valor bruto dividido pelo número de pedidos pagos." />
       </div>
       {num(soma?.reembolsados.pedidos) > 0 && (
         <p className="mt-3 text-xs text-muted-foreground">
           {num(soma?.reembolsados.pedidos).toLocaleString('pt-BR')} {num(soma?.reembolsados.pedidos) === 1 ? 'pedido reembolsado' : 'pedidos reembolsados'} ({brl(num(soma?.reembolsados.total))}) não {num(soma?.reembolsados.pedidos) === 1 ? 'entra' : 'entram'} na soma (contados pela data do pedido).
         </p>
+      )}
+
+      {!vazio && (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <section aria-labelledby="fin-cascata" className="rounded-[10px] border border-border bg-card lg:col-span-2">
+            <div className="border-b border-border px-4 py-3"><SectionTitle id="fin-cascata">Do bruto ao líquido</SectionTitle></div>
+            <ul className="divide-y divide-border">
+              <LinhaCascata rotulo="Vendas pagas (bruto)" valor={brl(bruto)} barra={bruto + estornos > 0 ? bruto / (bruto + estornos) : 1} ajuda="O que o comprador pagou, com a taxa de serviço incluída." />
+              <LinhaCascata rotulo="Taxa de serviço" ajuda="Taxa cobrada do comprador, já dentro do bruto. O valor separado chega com o pagamento ligado." />
+              <LinhaCascata rotulo="Taxa de pagamento" ajuda="Custo do meio de pagamento (cartão, Pix). Aparece quando o pagamento estiver ligado." />
+              <LinhaCascata rotulo="Estornos" valor={estornos > 0 ? `− ${brl(estornos)}` : brl(0)} barra={bruto + estornos > 0 ? estornos / (bruto + estornos) : 0} ajuda="Pedidos reembolsados no período. Já estão fora do bruto acima, não são descontados duas vezes." />
+              <LinhaCascata rotulo="Líquido" ajuda="O que sobra para você depois das taxas e dos estornos. Aparece quando o pagamento estiver ligado." />
+            </ul>
+          </section>
+          <div className="flex flex-col gap-3">
+            <EmBreve titulo="Repasse" descricao="Estado, data prevista e valor do repasse, com o detalhe da composição." acao="Ver detalhes do repasse" />
+            <EmBreve titulo="Conta bancária" descricao="Conta que recebe o repasse, mostrada com os números do meio ocultos." acao="Trocar conta" />
+          </div>
+        </div>
       )}
 
       {vazio ? (

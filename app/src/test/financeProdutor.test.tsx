@@ -86,7 +86,17 @@ describe('Financeiro do produtor', () => {
     await screen.findByText('Nenhum pedido pago ainda')
     const b = screen.getByRole('button', { name: /Exportar CSV/ })
     expect(b).toBeDisabled()
-    expect(b).toHaveAttribute('title', 'Sem pedidos pagos para exportar')
+  })
+
+  it('cascata: bruto e estornos reais, taxas e líquido em "Em breve"', async () => {
+    banco.soma.mockResolvedValue(soma({ reembolsados: { pedidos: 1, total: 10 } }))
+    montar()
+    const cascata = (await screen.findByText('Do bruto ao líquido')).closest('section')!
+    expect(cascata.querySelectorAll('li').length).toBe(5)
+    expect(cascata.textContent).toMatch(/Estornos.*10,00/)
+    expect(cascata.textContent?.match(/Em breve/g)?.length).toBe(3)
+    expect(screen.getByRole('button', { name: 'Trocar conta' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Ajuda: Líquido' })).toBeInTheDocument()
   })
 
   it('no erro mostra a mensagem nova e o seletor de eventos', async () => {
