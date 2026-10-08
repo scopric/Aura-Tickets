@@ -57,6 +57,11 @@ describe('numeroWhatsApp', () => {
 describe('valorEmReais', () => {
   it('formato brasileiro', () => {
     expect(valorEmReais('1.500,50')).toBe(1500.5)
+    expect(valorEmReais('1.500')).toBe(1500)
+    expect(valorEmReais('1.500.000')).toBe(1500000)
+    expect(valorEmReais('15.5')).toBe(15.5)
+    expect(valorEmReais('1500.25')).toBe(1500.25)
+    expect(valorEmReais('12,5')).toBe(12.5)
     expect(valorEmReais('')).toBe(0)
     expect(valorEmReais('abc')).toBeNull()
   })

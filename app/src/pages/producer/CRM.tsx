@@ -67,9 +67,11 @@ export function numeroWhatsApp(phone: string | null) {
   return n.length === 10 || n.length === 11 ? `55${n}` : n
 }
 
-// Formato brasileiro ("1.500,50"); vazio = 0; inválido = null (não grava)
+// Formato brasileiro ("1.500,50") ou ponto decimal ("15.5"); vazio = 0; inválido = null (não grava)
 export function valorEmReais(texto: string) {
-  const t = texto.trim().replace(/\./g, '').replace(',', '.')
+  const bruto = texto.trim()
+  // com vírgula: vírgula = decimal, pontos = milhar; sem vírgula: ponto só é milhar se for "1.500", "1.500.000"
+  const t = bruto.includes(',') ? bruto.replace(/\./g, '').replace(',', '.') : /^\d{1,3}(\.\d{3})+$/.test(bruto) ? bruto.replace(/\./g, '') : bruto
   if (!t) return 0
   return /^\d+(\.\d+)?$/.test(t) ? Number(t) : null
 }
