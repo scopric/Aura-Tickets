@@ -77,6 +77,7 @@ describe('barra inferior do celular (V4b)', () => {
     }
     expect(within(folha).getByRole('link', { name: 'Cupons' })).toHaveAttribute('aria-current', 'page') // Vendas fechada na lateral aparece aberta aqui
     expect(within(folha).getByRole('link', { name: 'Calculadora de mesas' })).toBeInTheDocument()
+    expect(within(folha).getByRole('link', { name: 'Dashboards' })).toHaveAttribute('href', '/producer/central') // item solto, fora das áreas
     expect(within(folha).queryByText(/ferrament/i)).toBeNull()
     expect(within(folha).getByRole('radiogroup', { name: 'Tema' })).toBeInTheDocument()
     expect(within(folha).getByRole('button', { name: 'Sair' })).toBeInTheDocument()

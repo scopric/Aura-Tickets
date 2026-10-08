@@ -10,7 +10,7 @@ import { useProducerEvents, type DbEvent } from '../../hooks/useEvents'
 import { useFixados } from '../../hooks/useFixados'
 import { situacaoEvento } from '../../lib/eventoProdutor'
 import {
-  ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, hrefDaTela, normaliza, rotaAtiva, telasDe, textoDaTela,
+  DASHBOARDS, ROTA_CRIAR_EVENTO, SECOES, abreEvento, eventoDaUrl, hrefDaTela, normaliza, rotaAtiva, telasDe, textoDaTela,
   type Escopo, type Secao, type Tela,
 } from '../../lib/navegacaoProdutor'
 import ThemeToggle from '../ThemeToggle'
@@ -100,7 +100,8 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
   }
 
   const secoes = SECOES.filter(s => s !== 'Topo').map(s => ({ s, itens: itensDe(s) })).filter(x => x.itens.length > 0)
-  const vazio = !secoes.length
+  const dashboards = escopo === 'produtora' && bate(DASHBOARDS.tela) ? linkTela(DASHBOARDS) : null // item solto, como na lateral
+  const vazio = !secoes.length && !dashboards
 
   return (
     <Drawer.Root open={aberta} onOpenChange={o => { if (!o) onFechar() }}>
@@ -150,6 +151,7 @@ export default function FolhaMenu({ aberta, buscar, onFechar }: FolhaProps) {
                 </div>
               </div>
             )}
+            {dashboards}
             {secoes.map(({ s, itens }) => {
               const Icone = ICONE[s]
               return (
