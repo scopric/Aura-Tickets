@@ -245,7 +245,7 @@ describe('Visão geral: período, soma no banco e CSV (L5)', () => {
       por_dia: [{ dia: '2026-10-01', pedidos: 3, total: 150.5 }] }, error: null })
     const baixa = vi.spyOn(exportCsv, 'downloadCsv').mockImplementation(() => {})
     montar()
-    await screen.findByText('Vendas')
+    await screen.findByText('Ingressos no período')
     fireEvent.click(screen.getByRole('button', { name: /Exportar CSV/ }))
     expect(baixa).toHaveBeenCalledTimes(1)
     const [nome, csv] = baixa.mock.calls[0]
