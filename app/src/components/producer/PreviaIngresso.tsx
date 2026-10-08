@@ -1,47 +1,46 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useFeatures } from '../../hooks/useFeatures'
+import { mensagemDaLogo, useLogoProdutor } from '../../hooks/useLogoProdutor'
 import { corDoEvento } from '../../lib/corEvento'
-import { AZUL_EVOKAA, ESTILO_PADRAO, FEATURE_ESTILO, RODAPE_MAX, estiloLimpo, prepararLogo, type EstiloIngresso } from '../../lib/ingressoEstilo'
+import { AZUL_EVOKAA, ESTILO_PADRAO, FEATURE_ESTILO, estiloLimpo, estiloParaBanco, type EstiloIngresso } from '../../lib/ingressoEstilo'
+import { enviarLogo, prepararLogo } from '../../lib/logoProdutor'
+import { supabase } from '../../lib/supabase'
 import { Chip, SegmentadoComSetas } from './painel/campos'
 import IngressoVisual, { type DadosIngresso, type ModoIngresso } from './IngressoVisual'
 
-export type DadosPrevia = DadosIngresso & { eventoId: string; corEvento: string | null }
+export type DadosPrevia = DadosIngresso & { eventoId: string; corEvento: string | null; estilo: EstiloIngresso }
+
+type Corpo = {
+  dados: DadosPrevia; tipo: string; pro: boolean
+  logoUrl: string | null
+  ocupadoLogo: boolean
+  onLogo: (f: File) => void
+  onTirarLogo: () => void
+  salvando: boolean
+  onSalvar: (estilo: EstiloIngresso) => void
+}
+
+const vazio = (e: EstiloIngresso) => Object.keys(estiloParaBanco(e)).length === 0
 
 // Corpo da prévia, sem consulta ao banco: `pro` diz se "Meu estilo" está liberado (hoje useFeatures libera para todos).
-export function PreviaCorpo({ dados, tipo, pro }: { dados: DadosPrevia; tipo: string; pro: boolean }) {
-  const [aba, setAba] = useState<'padrao' | 'meu'>('padrao')
+// Salvar vale para o evento inteiro (todos os tipos); a logo é a do produtor e vale para todos os eventos dele.
+export function PreviaCorpo({ dados, tipo, pro, logoUrl, ocupadoLogo, onLogo, onTirarLogo, salvando, onSalvar }: Corpo) {
+  const [aba, setAba] = useState<'padrao' | 'meu'>(vazio(dados.estilo) ? 'padrao' : 'meu')
   const [modo, setModo] = useState<ModoIngresso>('pdf')
-  const [estilo, setEstilo] = useState<EstiloIngresso>(ESTILO_PADRAO)
-  const [logo, setLogo] = useState<string | null>(null)
-  const [erro, setErro] = useState('')
+  const [estilo, setEstilo] = useState<EstiloIngresso>(dados.estilo)
   const arquivo = useRef<HTMLInputElement>(null)
-  const logoAtual = useRef<string | null>(null)
-  const pedido = useRef(0) // escolha mais nova vale; o desmonte invalida as em andamento
-  useEffect(() => () => { pedido.current = -1; if (logoAtual.current) URL.revokeObjectURL(logoAtual.current) }, [])
 
-  const escolher = async (f: File | undefined) => {
-    if (!f) return
-    setErro('')
-    const meu = ++pedido.current
-    try {
-      const url = await prepararLogo(f)
-      if (pedido.current !== meu) { URL.revokeObjectURL(url); return } // folha fechada ou escolha mais nova
-      if (logoAtual.current) URL.revokeObjectURL(logoAtual.current)
-      logoAtual.current = url; setLogo(url)
-    } catch (e) { if (pedido.current === meu) setErro((e as Error).message) }
-    if (arquivo.current) arquivo.current.value = ''
-  }
-  const tirar = () => { pedido.current++; if (logoAtual.current) URL.revokeObjectURL(logoAtual.current); logoAtual.current = null; setLogo(null); setErro('') }
   const muda = (p: Partial<EstiloIngresso>) => setEstilo(estiloLimpo({ ...estilo, ...p }))
   const corEvento = corDoEvento({ id: dados.eventoId, accent_color: dados.corEvento })
   const usaEstilo = aba === 'meu' && pro
+  const igual = JSON.stringify(estiloParaBanco(usaEstilo ? estilo : ESTILO_PADRAO)) === JSON.stringify(estiloParaBanco(dados.estilo))
 
   return (
     <div className="grid gap-5 overflow-y-auto px-4 pb-6">
@@ -50,7 +49,7 @@ export function PreviaCorpo({ dados, tipo, pro }: { dados: DadosPrevia; tipo: st
         items={[{ value: 'pdf', label: 'PDF e e-mail' }, { value: 'celular', label: 'No celular' }]}
       />
 
-      <IngressoVisual dados={dados} tipo={tipo} estilo={usaEstilo ? estilo : ESTILO_PADRAO} logoUrl={logo} modo={modo} />
+      <IngressoVisual dados={dados} tipo={tipo} estilo={usaEstilo ? estilo : ESTILO_PADRAO} logoUrl={logoUrl} modo={modo} />
 
       <Tabs value={aba} onValueChange={v => setAba(v as 'padrao' | 'meu')}>
         <TabsList>
@@ -63,7 +62,7 @@ export function PreviaCorpo({ dados, tipo, pro }: { dados: DadosPrevia; tipo: st
         <TabsContent value="meu" className="grid gap-4 pt-3">
           {!pro ? (
             <div role="note" className="flex flex-col gap-3 rounded-[10px] bg-secondary px-4 py-3 text-sm">
-              <p className="text-muted-foreground">Cor, rodapé e posição da logo são do plano PRO. Hoje o ingresso sai no modelo padrão.</p>
+              <p className="text-muted-foreground">Cor do topo e posição da logo são do plano PRO. Hoje o ingresso sai no modelo padrão.</p>
               <Button asChild variant="outline" size="sm" className="w-fit"><Link to="/producer/assinatura">Conhecer o PRO</Link></Button>
             </div>
           ) : (
@@ -86,35 +85,77 @@ export function PreviaCorpo({ dados, tipo, pro }: { dados: DadosPrevia; tipo: st
                   items={[{ value: 'esquerda', label: 'Esquerda' }, { value: 'centro', label: 'Centro' }]}
                 />
               </div>
-              <div className="grid gap-1.5">
-                <Label htmlFor="rodape-ing">Rodapé (opcional)</Label>
-                <Input id="rodape-ing" maxLength={RODAPE_MAX} value={estilo.rodape} onChange={ev => muda({ rodape: ev.target.value })} aria-describedby="rodape-ing-n" />
-                <p id="rodape-ing-n" className="text-xs tabular-nums text-muted-foreground">{estilo.rodape.length} de {RODAPE_MAX}</p>
-              </div>
             </>
           )}
         </TabsContent>
       </Tabs>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <Button type="button" size="sm" disabled={igual || salvando} loading={salvando} onClick={() => onSalvar(usaEstilo ? estilo : ESTILO_PADRAO)}>
+          {usaEstilo ? 'Salvar estilo' : 'Usar o modelo padrão'}
+        </Button>
+        <span role="status" className="text-xs text-muted-foreground">{igual ? 'É o que está salvo neste evento.' : 'Vale para todos os ingressos deste evento.'}</span>
+      </div>
+
       <div className="grid gap-2 border-t border-border pt-4">
         <p className="text-sm font-medium text-foreground">Logo da produtora</p>
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="outline" size="sm" onClick={() => arquivo.current?.click()}><I.ImagemMais aria-hidden="true" />{logo ? 'Trocar logo' : 'Escolher logo'}</Button>
-          {logo && <Button type="button" variant="ghost" size="sm" onClick={tirar}>Remover</Button>}
-          <input ref={arquivo} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Arquivo da logo" onChange={ev => void escolher(ev.target.files?.[0])} />
+          <Button type="button" variant="outline" size="sm" disabled={ocupadoLogo} onClick={() => arquivo.current?.click()}><I.ImagemMais aria-hidden="true" />{ocupadoLogo ? 'Salvando…' : logoUrl ? 'Trocar logo' : 'Escolher logo'}</Button>
+          {logoUrl && <Button type="button" variant="ghost" size="sm" disabled={ocupadoLogo} onClick={onTirarLogo}>Remover</Button>}
+          <input
+            ref={arquivo} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" tabIndex={-1} aria-label="Arquivo da logo"
+            onChange={ev => { const f = ev.target.files?.[0]; ev.target.value = ''; if (f) onLogo(f) }}
+          />
         </div>
-        <p className="text-xs text-muted-foreground">PNG, JPEG ou WebP, até 5 MB. Nesta versão a logo só aparece na prévia; ainda não fica salva.</p>
-        {erro && <p role="alert" className="flex items-start gap-1.5 text-xs text-destructive"><I.Erro size={14} className="mt-px shrink-0" aria-hidden="true" />{erro}</p>}
+        <p className="text-xs text-muted-foreground">PNG, JPEG ou WebP, até 5 MB. Salva na hora e vale para todos os seus eventos; também aparece em Configurações &gt; Organizador.</p>
       </div>
     </div>
   )
 }
 
-// Só monta quando a folha abre: a consulta do plano não roda com a folha fechada.
-function PreviaDoPlano({ dados, tipo }: { dados: DadosPrevia; tipo: string }) {
-  // ponytail: hasFeature hoje libera tudo e ignora isLoading; quando a cobrança entrar, travar enquanto `isLoading`.
+// Só monta quando a folha abre: a consulta do plano e da logo não roda com a folha fechada.
+function PreviaLigada({ dados, tipo }: { dados: DadosPrevia; tipo: string }) {
   const { hasFeature } = useFeatures()
-  return <PreviaCorpo dados={dados} tipo={tipo} pro={hasFeature(FEATURE_ESTILO)} />
+  const { user, logo, gravar } = useLogoProdutor()
+  const queryClient = useQueryClient()
+  const [preparando, setPreparando] = useState(false)
+  const [salvando, setSalvando] = useState(false)
+
+  const aoEscolher = async (f: File) => {
+    if (!user?.id) return
+    setPreparando(true)
+    let pronta: Awaited<ReturnType<typeof prepararLogo>> | null = null
+    try {
+      pronta = await prepararLogo(f)
+      await gravar.mutateAsync(await enviarLogo(pronta, user.id))
+      toast.success('Logo salva!')
+    } catch (e) { toast.error(mensagemDaLogo(e)) } finally {
+      if (pronta) URL.revokeObjectURL(pronta.previewUrl)
+      setPreparando(false)
+    }
+  }
+  const aoTirar = async () => {
+    try { await gravar.mutateAsync(null); toast.success('Logo removida.') } catch (e) { toast.error(mensagemDaLogo(e)) }
+  }
+  const aoSalvar = async (estilo: EstiloIngresso) => {
+    setSalvando(true)
+    try {
+      // ponytail: os tipos do banco ainda não têm ticket_style; cast até regenerar types/database.ts
+      const { data, error } = await supabase.from('events').update({ ticket_style: estiloParaBanco(estilo) } as never).eq('id', dados.eventoId).select('id')
+      if (error) throw error
+      if (!data?.length) throw new Error('Nenhuma linha atualizada') // RLS: não reportar sucesso sem gravar
+      await queryClient.invalidateQueries({ queryKey: ['painel-evento', dados.eventoId] })
+      toast.success('Estilo do ingresso salvo.')
+    } catch { toast.error('Não foi possível salvar o estilo. Tente de novo.') } finally { setSalvando(false) }
+  }
+
+  return (
+    <PreviaCorpo
+      dados={dados} tipo={tipo} pro={hasFeature(FEATURE_ESTILO)} logoUrl={logo.data ?? null}
+      ocupadoLogo={preparando || gravar.isPending} onLogo={f => void aoEscolher(f)} onTirarLogo={() => void aoTirar()}
+      salvando={salvando} onSalvar={e => void aoSalvar(e)}
+    />
+  )
 }
 
 export default function BotaoPrevia({ dados, tipo }: { dados: DadosPrevia; tipo: string }) {
@@ -128,7 +169,7 @@ export default function BotaoPrevia({ dados, tipo }: { dados: DadosPrevia; tipo:
             <SheetTitle>Prévia do ingresso</SheetTitle>
             <SheetDescription>Como o comprador recebe. Portador e QR são de exemplo.</SheetDescription>
           </SheetHeader>
-          <PreviaDoPlano dados={dados} tipo={tipo} />
+          <PreviaLigada dados={dados} tipo={tipo} />
         </SheetContent>
       </Sheet>
     </>
