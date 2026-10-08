@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { semSegredo } from '../lib/tracking'
 
 export interface ContactMessage {
   name: string
@@ -24,7 +25,7 @@ export function useContact() {
           phone: data.phone?.trim() || '',
           subject: data.subject?.trim() || 'Contato via site',
           message: data.message.trim(),
-          page: data.page || window.location.pathname,
+          page: semSegredo(data.page || window.location.pathname),
         }
       })
       if (error) {

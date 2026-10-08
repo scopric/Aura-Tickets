@@ -28,6 +28,13 @@
       ]
     },
     {
+      "source": "/certificado/(.*)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
       "source": "/(.*)",
       "has": [{ "type": "host", "value": "alpha.evokaa.com.br" }],
       "headers": [

@@ -1,6 +1,7 @@
 import { useEffect, type CSSProperties, type KeyboardEvent, type PointerEvent, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
+import { urlDoCertificado } from '../../lib/certificadoValidar'
 import { PASSO, cssDaFonte, camposPadrao, resolverTexto, type Campo, type DadosCertificado, type Modelo } from '../../lib/certificados'
 
 // Desenho único do certificado: serve à prévia do editor, às miniaturas da galeria e à impressão (PDF pelo navegador).
@@ -93,7 +94,7 @@ export function CertificadoDesenho({ modelo, campos, logoUrl, sigUrl, dados, sel
               ? <img src={sigUrl} alt="Assinatura do produtor no certificado" draggable={false} className="mx-auto block w-full object-contain" style={{ maxHeight: `${c.width * 0.6}cqw` }} />
               : <div aria-hidden="true" style={{ borderTop: `0.2cqw solid ${modelo.suave}`, marginTop: '4cqw' }} />)}
             {c.type === 'qrcode' && (
-              <QRCodeSVG value={dados.codigo} size={128} marginSize={1} bgColor="#ffffff" fgColor="#000000" title={`QR Code com o código ${dados.codigo}`} style={{ display: 'block', width: '100%', height: 'auto' }} />
+              <QRCodeSVG value={urlDoCertificado(dados.codigo)} size={128} marginSize={1} bgColor="#ffffff" fgColor="#000000" title={`QR Code que leva à validação do certificado ${dados.codigo}`} style={{ display: 'block', width: '100%', height: 'auto' }} />
             )}
           </div>
         )

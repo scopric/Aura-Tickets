@@ -52,9 +52,9 @@ describe('tela Certificados', () => {
     expect(kpi('Elegíveis (presentes)')).toHaveTextContent('2')
     expect(kpi('Emitidos')).toHaveTextContent('1')
     expect(kpi('Pendentes')).toHaveTextContent('1')
-    for (const n of ['Ativar validação', 'Enviar certificados', 'Ver histórico de revogações', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
+    for (const n of ['Enviar certificados', 'Ver histórico de revogações', 'Calcular carga horária', 'Ativar emissão automática', 'Carregar todos'])
       expect(screen.getByRole('button', { name: n })).toBeDisabled()
-    expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(6)
+    expect(screen.getAllByText('Em breve').length).toBeGreaterThanOrEqual(5)
   })
 
   it('emite em lote só para os pendentes', async () => {
@@ -221,5 +221,12 @@ describe('tela Certificados', () => {
       await waitFor(() => expect(imprimir).toHaveBeenCalled())
       expect(document.querySelectorAll('#cert-print .cert-folha')).toHaveLength(1)
     })
+  })
+})
+
+describe('QR do certificado impresso', () => {
+  it('leva à página pública de validação com o código do certificado', async () => {
+    const { urlDoCertificado } = await import('../lib/certificadoValidar')
+    expect(urlDoCertificado('cod-ana')).toBe('https://app.evokaa.com.br/certificado/cod-ana')
   })
 })

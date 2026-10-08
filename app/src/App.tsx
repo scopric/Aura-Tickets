@@ -41,6 +41,7 @@ const NotFound = lazy(() => import('./pages/NotFound'))
 const ContactPage = lazy(() => import('./pages/Contact'))
 const TermsPage = lazy(() => import('./pages/Terms'))
 const PrivacyPage = lazy(() => import('./pages/Privacy'))
+const CertificadoValidacao = lazy(() => import('./pages/CertificadoValidacao'))
 const NewsletterUnsubscribe = lazy(() => import('./pages/NewsletterUnsubscribe'))
 const AffiliateArea = lazy(() => import('./pages/AffiliateArea'))
 const AffiliateLanding = lazy(() => import('./pages/AffiliateLanding'))
@@ -374,6 +375,7 @@ function Layout() {
             <Route path="/contato" element={<ContactPage />} />
             <Route path="/termos" element={<TermsPage />} />
             <Route path="/privacidade" element={<PrivacyPage />} />
+            <Route path="/certificado/:codigo" element={<CertificadoValidacao />} />
             <Route path="/newsletter/sair" element={<NewsletterUnsubscribe />} />
             <Route path="/p/:code/:link?" element={<AffiliateLanding />} />
             <Route path="/afiliado" element={<ProtectedRoute allowedRoles={['user', 'customer', 'producer', 'editor', 'admin']}><AffiliateArea /></ProtectedRoute>} />

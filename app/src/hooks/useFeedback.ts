@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
+import { semSegredo } from '../lib/tracking'
 
 // Tipos aceitos pelo schema do banco (CHECK constraint alinhado com setup.sql)
 export type FeedbackType = 'melhoria' | 'bug' | 'duvida' | 'sugestao' | 'elogio'
@@ -21,7 +22,7 @@ export function linhaDoFeedback(data: FeedbackData) {
     type: data.type,
     message: data.message.trim().slice(0, MAX_MENSAGEM),
     rating: data.rating >= 1 && data.rating <= 5 ? data.rating : null,
-    page: data.page || window.location.pathname,
+    page: semSegredo(data.page || window.location.pathname),
     user_agent: data.user_agent || navigator.userAgent,
   }
 }
