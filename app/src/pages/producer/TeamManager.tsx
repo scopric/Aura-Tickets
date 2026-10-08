@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import gsap from 'gsap'
+import { Link } from 'react-router-dom'
 import * as I from '@/components/icones/evokaa16'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../hooks/useAuth'
@@ -44,6 +45,7 @@ export default function TeamManager() {
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteRole, setInviteRole] = useState<'editor' | 'viewer'>('editor')
   const [expandedMember, setExpandedMember] = useState<string | null>(null)
+  const [aviso2fa, setAviso2fa] = useState<string | null>(null)
 
   // Mapear dados do banco de dados para a interface local
   const mapDbMemberToTeamMember = (dbMember: any): TeamMember => {
@@ -101,6 +103,17 @@ export default function TeamManager() {
 
   const canAddMore = members.filter(m => m.status !== 'blocked').length < 5
 
+  // E-mail do convite: a Edge Function pede ao banco quem receber (nada do destinatário sai daqui). Falha não desfaz o convite.
+  const enviarEmailConvite = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-email', { body: { emailType: 'team_invite' } })
+      // enviados 0: o par já gastou o e-mail (remover e convidar de novo) ou nada ficou pendente; o produtor avisa a pessoa
+      if (error || data?.ok === false || data?.enviados === 0) throw error ?? new Error('nenhum e-mail enviado')
+    } catch {
+      toast.warning(`Convite criado, mas o e-mail não saiu. Avise a pessoa para aceitar em ${window.location.origin}/equipe.`)
+    }
+  }
+
   // Enviar convite de membro no Supabase
   const handleInvite = async () => {
     if (!inviteEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteEmail)) {
@@ -117,6 +130,7 @@ export default function TeamManager() {
     }
     if (!user?.id) return
 
+    setAviso2fa(null)
     try {
       // O banco acha a conta e grava o convite (a RLS de profiles não deixa o produtor procurar e-mail): 20261029_equipe_convidar.sql
       const { data, error } = await supabase.rpc('team_convidar' as never, { p_email: inviteEmail.trim(), p_role: inviteRole } as never)
@@ -128,12 +142,14 @@ export default function TeamManager() {
       }
 
       toast.success('Convite registrado')
+      void enviarEmailConvite()
       setInviteEmail('')
       setShowInvite(false)
       loadMembers()
     } catch (err: any) {
       console.error('Erro ao convidar membro:', err)
       // 42501 (não é conta de produtor ou falta o código do 2FA) e 22023 (cargo) trazem o texto do banco
+      if (err?.code === '42501' && /duas etapas/.test(err.message ?? '')) setAviso2fa(err.message) // o link para ativar fica no formulário
       toast.error(err?.code === '42501' || err?.code === '22023' ? err.message : 'Erro ao registrar convite no banco')
     }
   }
@@ -246,7 +262,8 @@ export default function TeamManager() {
       {showInvite && (
         <div className="team-card mt-6 rounded-[10px] border border-border bg-card p-4">
           <h2 className="mb-4 text-[15px] font-semibold leading-5 text-foreground">Convidar Membro</h2>
-          <p className="mb-4 text-xs text-muted-foreground">A pessoa não recebe e-mail: avise que ela aceita em {window.location.origin}/equipe, entrando com a conta deste e-mail e com a verificação em duas etapas ativa. Visualizador não faz check-in.</p>
+          <p className="mb-4 text-xs text-muted-foreground">A pessoa recebe o convite por e-mail e aceita em {window.location.origin}/equipe, entrando com a conta deste e-mail e com a verificação em duas etapas ativa. Visualizador não faz check-in.</p>
+          {aviso2fa && <p role="alert" className="mb-4 text-xs text-destructive">{aviso2fa} <Link to="/producer/settings" className="underline">Abrir meu perfil</Link></p>}
           <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
             <div className="grid gap-1.5 md:col-span-2">
               <Label htmlFor="equipe-email">E-mail</Label>

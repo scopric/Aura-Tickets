@@ -66,6 +66,8 @@ export async function sendMail(to: string, subject: string, html: string, from: 
       subject,
       html,
     }),
+    // Resend travada não prende a função. 60 s: send-email (newsletter em lote) e admin-invite usam.
+    signal: AbortSignal.timeout(60000),
   });
 
   const data = await response.json();
