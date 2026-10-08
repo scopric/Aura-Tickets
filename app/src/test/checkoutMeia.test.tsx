@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 
 // Tela 06 fatia 2: meia-entrada no pedido. O preço e as vagas da meia vêm de vitrine_ingressos (só o Checkout lê).
-const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[] }))
+const h = vi.hoisted(() => ({ estado: null as unknown, vitrine: [] as unknown[], beneficios: null as unknown }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn(), info: vi.fn() } }))
 vi.mock('../hooks/useAuth', () => ({ useAuth: () => ({ isAuthenticated: true, user: { id: 'u1', birth_date: '1990-01-01' } }) }))
@@ -16,7 +17,9 @@ vi.mock('../hooks/useEvents', () => ({
 }))
 vi.mock('../lib/supabase', () => ({
   supabase: {
-    rpc: async (nome: string) => ({ data: nome === 'vitrine_ingressos' ? h.vitrine : null, error: null }),
+    rpc: async (nome: string) => nome === 'meia_beneficios'
+      ? (h.beneficios ? { data: h.beneficios, error: null } : { data: null, error: { message: 'function public.meia_beneficios does not exist' } })
+      : { data: nome === 'vitrine_ingressos' ? h.vitrine : null, error: null },
     from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }),
   },
 }))
@@ -25,13 +28,13 @@ const VITRINE = [{ ticket_type_id: 'tt1', nome: 'Pista', preco: 50, taxa: 5, pre
 
 function Destino() { h.estado = useLocation().state; return <p>pagamento</p> }
 const montar = (cart: Record<string, number>) => render(
-  <MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart } }]}>
+  <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart } }]}>
     <Routes><Route path="/checkout" element={<Checkout />} /><Route path="/checkout/payment" element={<Destino />} /></Routes>
-  </MemoryRouter>
+  </MemoryRouter></QueryClientProvider>
 )
 
 describe('Checkout: meia-entrada', () => {
-  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE })
+  beforeEach(() => { sessionStorage.clear(); h.estado = null; h.vitrine = VITRINE; h.beneficios = null })
 
   it('1 inteira + 2 meias: o resumo leva beneficio, meia_tipo, preço e taxa da meia', async () => {
     montar({ 'tt1|inteira|': 1, 'tt1|meia|pcd': 2 })
@@ -93,5 +96,39 @@ describe('Checkout: meia-entrada', () => {
     montar({ 'tt1|meia|pcd': 10 })
     const mais = await screen.findByRole('button', { name: 'Adicionar um Pista' })
     await waitFor(() => { fireEvent.click(mais); expect(screen.getByText('1 × Pista')).toBeTruthy() }) // o teto de 10 não foi consumido pela meia invisível
+  })
+
+  const CATEGORIAS = [
+    { codigo: 'estudante', nome: 'Estudante', documento: 'Carteira de Identificação Estudantil (CIE) válida', cota: true },
+    { codigo: 'idoso', nome: 'Idoso (60 anos ou mais)', documento: 'Identidade com foto', cota: false },
+    { codigo: 'es_professor', nome: 'Professor ou educador', documento: 'Carteira funcional', cota: true },
+  ]
+
+  it('categorias vindas da RPC: estaduais e idoso aparecem e o documento da escolhida é mostrado', async () => {
+    h.beneficios = CATEGORIAS
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    await screen.findByRole('option', { name: 'Professor ou educador' })
+    expect(screen.getByRole('option', { name: 'Idoso (60 anos ou mais)' })).toBeTruthy()
+    expect(screen.getByText(/Carteira de Identificação Estudantil/)).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Quem tem direito à meia'), { target: { value: 'es_professor' } })
+    expect(screen.getByText(/Carteira funcional/)).toBeTruthy()
+  })
+
+  it('idoso (cota:false) não consome o contador de meias: o teto é disponiveis, não meias_disponiveis', async () => {
+    h.beneficios = CATEGORIAS
+    montar({})
+    const mais = await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    fireEvent.change(await screen.findByLabelText('Quem tem direito à meia'), { target: { value: 'idoso' } })
+    fireEvent.click(mais); fireEvent.click(mais); fireEvent.click(mais)
+    expect(screen.getByText('3 Pista (meia-entrada)')).toBeTruthy() // meias_disponiveis = 2, mas idoso passa
+  })
+
+  it('RPC falha: só os 4 nacionais, sem idoso nem estaduais, e a compra segue', async () => {
+    montar({})
+    await screen.findByRole('button', { name: 'Adicionar um Pista (meia-entrada)' })
+    await new Promise(r => setTimeout(r, 20))
+    const opcoes = screen.getAllByRole('option').map(o => o.textContent)
+    expect(opcoes).toEqual(['Estudante', 'Pessoa com deficiência', 'Acompanhante de pessoa com deficiência', 'Jovem de baixa renda'])
   })
 })

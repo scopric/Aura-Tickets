@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
+import { QueryClientProvider, QueryClient } from '@tanstack/react-query'
 import Checkout from '../pages/checkout/Checkout'
 import { useAuthStore } from '../stores/authStore'
 import { toast } from 'sonner'
@@ -27,7 +28,7 @@ vi.mock('../lib/supabase', () => ({
 }))
 
 const montar = () => render(
-  <MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart: { tt1: 1 } } }]}><Checkout /></MemoryRouter>
+  <QueryClientProvider client={new QueryClient()}><MemoryRouter initialEntries={[{ pathname: '/checkout', state: { eventId: 'e1', cart: { tt1: 1 } } }]}><Checkout /></MemoryRouter></QueryClientProvider>
 )
 const salvar = async () => {
   fireEvent.change(await screen.findByLabelText('Data de nascimento'), { target: { value: '1995-06-15' } })
