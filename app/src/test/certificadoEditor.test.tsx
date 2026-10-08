@@ -107,22 +107,18 @@ describe('editor de certificados', () => {
     expect(nome()).toHaveTextContent('Carla Souza')
   })
 
-  it('logo do organizador: com logo, o botão usa; sem logo, a ajuda leva a Configurações', async () => {
+  it('logo do organizador: sem logo própria usa a do organizador; sem logo, a ajuda leva a Configurações; de outro host não vale', async () => {
     banco.logo.current = 'https://abc.supabase.co/storage/v1/object/public/logos-produtor/u1/a.png'
     const { unmount } = montar(); await esperarPronto()
-    await userEvent.click(screen.getByRole('button', { name: 'Usar o logo do organizador' }))
-    expect(document.querySelector('img[alt="Logo no certificado"]')?.getAttribute('src')).toBe('https://abc.supabase.co/storage/v1/object/public/logos-produtor/u1/a.png')
+    expect(document.querySelector('img[alt="Logo do evento no certificado"]')?.getAttribute('src')).toBe(banco.logo.current)
     unmount()
     banco.logo.current = 'https://outro-host.com/a.png'
     const outro = montar(); await esperarPronto()
-    await userEvent.click(screen.getByRole('button', { name: 'Usar o logo do organizador' }))
-    expect(banco.toast.error).toHaveBeenCalledWith(expect.stringContaining('endereço que não pode ser usado'))
-    expect(document.querySelector('img[alt="Logo no certificado"]')).toBeNull()
+    expect(document.querySelector('img[alt="Logo do evento no certificado"]')).toBeNull()
     outro.unmount()
     banco.logo.current = null
     montar(); await esperarPronto()
-    expect(screen.queryByRole('button', { name: 'Usar o logo do organizador' })).toBeNull()
-    expect(screen.getByRole('link', { name: /Envie em Configurações/ })).toHaveAttribute('href', '/producer/settings')
+    expect(screen.getByRole('link', { name: /Configurações > Organizador/ })).toHaveAttribute('href', '/producer/settings')
   })
 
   it('template perigoso do banco é saneado: cor, fonte e imagem inválidas não chegam ao desenho', async () => {
@@ -133,7 +129,7 @@ describe('editor de certificados', () => {
     const { container } = montar(); await esperarPronto()
     expect(screen.getByText('<b onclick=alert(1)>Oi</b>')).toBeInTheDocument() // texto escapado, não vira elemento
     expect(container.querySelector('b')).toBeNull()
-    expect(container.querySelector('img[alt="Logo no certificado"]')).toBeNull()
+    expect(container.querySelector('img[alt="Logo do evento no certificado"]')).toBeNull()
     expect(papel().style.position).not.toBe('fixed')
   })
 

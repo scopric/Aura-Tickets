@@ -71,7 +71,15 @@ export default function CertificateBuilder() {
 
   const participantesQ = useParticipantesCertificado(eventId)
   const participantes = participantesQ.data?.lista ?? []
+  // Logo salva em Configurações > Organizador: vale quando o modelo não tem logo própria. Ao salvar, é gravada no modelo
+  // (o certificado já emitido não muda se o organizador trocar a logo depois). Passa pelo mesmo filtro de imagem do resto.
   const { logo: logoOrg } = useLogoProdutor()
+  const logoSalva = imagemSegura(logoOrg.data ?? null)
+  const logoEfetiva = logoUrl ?? logoSalva
+  // modelo salvo guarda a URL da logo do organizador da época: qualquer arquivo do bucket logos-produtor é "do organizador"
+  const doOrganizador = (u: string | null) => !!u && u.includes('/storage/v1/object/public/logos-produtor/')
+  const logoPropria = !!logoUrl && !doOrganizador(logoUrl)
+  const logoAntiga = doOrganizador(logoUrl) && !!logoSalva && logoUrl !== logoSalva // o organizador trocou a logo depois de o modelo ser salvo
 
   // Carrega o modelo salvo do evento escolhido (ou o padrão, se não houver). O JSON do banco passa por sanearTemplate.
   useEffect(() => {
@@ -113,7 +121,7 @@ export default function CertificateBuilder() {
       // as never: types/database.ts desatualizado (pendência supabase gen types)
       .upsert({
         event_id: eventId,
-        template: { selectedTemplate: estado.modelo, accentColor: estado.accent, fields: estado.fields, logoUrl: logoUrl ?? descartadas.logo ?? null, sigUrl: sigUrl ?? descartadas.sig ?? null, horas },
+        template: { selectedTemplate: estado.modelo, accentColor: estado.accent, fields: estado.fields, logoUrl: (fields.some(f => f.type === 'logo') ? logoEfetiva : logoUrl) ?? descartadas.logo ?? null, sigUrl: sigUrl ?? descartadas.sig ?? null, horas },
         is_active: true,
       } as never, { onConflict: 'event_id' })
       .select('id')
@@ -219,7 +227,8 @@ export default function CertificateBuilder() {
   const selected = fields.find(f => f.id === selectedField)
   const ehTexto = selected && (selected.type === 'text' || selected.type === 'date' || selected.type === 'hours')
   // com `loading` o botão não fica `disabled` (senão cinza e sem spinner); o loading já bloqueia o clique
-  const podeSalvar = !!eventId && carregadoPara === eventId
+  // espera também a logo do organizador: salvar antes dela chegar gravaria o modelo sem logo
+  const podeSalvar = !!eventId && carregadoPara === eventId && !logoOrg.isLoading
   const certificadosUrl = `/producer/certificados${eventId ? `?eventId=${eventId}` : ''}`
 
   const header = (
@@ -321,7 +330,7 @@ export default function CertificateBuilder() {
                 <Label htmlFor="upload-logo-input" className="mb-1.5 text-xs text-muted-foreground">Logo do evento</Label>
                 <input id="upload-logo-input" ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={e => handleFileChange(e, 'logo')} />
                 <Button type="button" variant="outline" className="h-12 w-full" onClick={() => fileInputRef.current?.click()}>
-                  {logoUrl ? <img src={logoUrl} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
+                  {logoEfetiva ? <img src={logoEfetiva} alt="Logo do evento" className="h-8 object-contain" /> : <><I.Carregar aria-hidden="true" />Enviar</>}
                 </Button>
               </div>
               <div>
@@ -333,15 +342,17 @@ export default function CertificateBuilder() {
               </div>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">PNG, JPG ou WebP, até 1 MB.</p>
-            {logoOrg.data ? (
-              <Button type="button" variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => { const u = imagemSegura(logoOrg.data); if (u) setLogoUrl(u); else toast.error('A logo do organizador está num endereço que não pode ser usado aqui. Envie o arquivo (PNG, JPG ou WebP, até 1 MB) no botão Enviar.') }}>
-                <I.Imagem aria-hidden="true" />Usar o logo do organizador
+            {(logoPropria || logoAntiga) && logoSalva && (
+              <Button type="button" variant="outline" size="sm" className="mt-2 min-h-11" onClick={() => setLogoUrl(null)}>
+                <I.Imagem aria-hidden="true" />{logoAntiga ? 'Usar a logo atual do organizador' : 'Usar a logo do organizador'}
               </Button>
-            ) : (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {logoOrg.isPending ? 'Procurando o logo do organizador…' : <>Você ainda não tem logo do organizador. <Link to="/producer/settings" className="text-foreground underline underline-offset-4">Envie em Configurações</Link> para usar aqui.</>}
-              </p>
             )}
+            <p className="mt-2 text-xs text-muted-foreground">
+              {logoPropria ? 'Logo enviada só para este modelo.'
+                : logoAntiga ? 'Logo do organizador guardada neste modelo (a de Configurações mudou depois).'
+                : logoSalva ? <>Usando a logo salva em <Link to="/producer/settings" className="text-foreground underline underline-offset-4">Configurações &gt; Organizador</Link>. Envie outra para trocar só aqui.</>
+                : <>Salve a logo em <Link to="/producer/settings" className="text-foreground underline underline-offset-4">Configurações &gt; Organizador</Link> e ela aparece aqui; salve o modelo para guardá-la.</>}
+            </p>
             <div className="mt-3">
               <p id="cor-destaque" className="mb-1.5 text-xs text-muted-foreground">Cor de destaque (molduras e faixas)</p>
               <div role="group" aria-labelledby="cor-destaque" className="flex flex-wrap gap-1">
@@ -481,7 +492,7 @@ export default function CertificateBuilder() {
               </div>
             </div>
             <div className="mx-auto max-w-[700px] overflow-hidden rounded-[10px] border border-border">
-              <CertificadoDesenho modelo={modelo} campos={fields} logoUrl={logoUrl} sigUrl={sigUrl} dados={dados}
+              <CertificadoDesenho modelo={modelo} campos={fields} logoUrl={logoEfetiva} sigUrl={sigUrl} dados={dados}
                 selecionado={selectedField} onSelecionar={selecionar} onMoverTeclado={moverCampo} onArrastar={arrastar} papelRef={papelRef} />
             </div>
             <p className="mx-auto mt-2 max-w-[700px] text-xs text-muted-foreground">
@@ -502,7 +513,7 @@ export default function CertificateBuilder() {
           </div>
         </div>
       </div>
-      {imprimindo > 0 && <ImpressaoCertificados key={imprimindo} itens={[{ dados }]} modelo={modelo} campos={fields} logoUrl={logoUrl} sigUrl={sigUrl} onFim={() => setImprimindo(0)} />}
+      {imprimindo > 0 && <ImpressaoCertificados key={imprimindo} itens={[{ dados }]} modelo={modelo} campos={fields} logoUrl={logoEfetiva} sigUrl={sigUrl} onFim={() => setImprimindo(0)} />}
     </div>
   )
 }

@@ -87,10 +87,10 @@ export function CertificadoDesenho({ modelo, campos, logoUrl, sigUrl, dados, sel
             } : {})}>
             {ehTexto && resolverTexto(c.value, dados)}
             {c.type === 'logo' && (logoUrl
-              ? <img src={logoUrl} alt="Logo no certificado" draggable={false} className="mx-auto block w-full object-contain" style={{ maxHeight: `${c.width * 0.8}cqw` }} />
+              ? <img src={logoUrl} alt="Logo do evento no certificado" draggable={false} className="mx-auto block w-full object-contain" style={{ maxHeight: `${c.width * 0.8}cqw` }} />
               : editando && <div className="rounded border border-dashed border-neutral-400 py-1 text-center text-[1.4cqw] text-neutral-600">LOGO</div>)}
             {c.type === 'signature' && (sigUrl
-              ? <img src={sigUrl} alt="Assinatura no certificado" draggable={false} className="mx-auto block w-full object-contain" style={{ maxHeight: `${c.width * 0.6}cqw` }} />
+              ? <img src={sigUrl} alt="Assinatura do produtor no certificado" draggable={false} className="mx-auto block w-full object-contain" style={{ maxHeight: `${c.width * 0.6}cqw` }} />
               : <div aria-hidden="true" style={{ borderTop: `0.2cqw solid ${modelo.suave}`, marginTop: '4cqw' }} />)}
             {c.type === 'qrcode' && (
               <QRCodeSVG value={dados.codigo} size={128} marginSize={1} bgColor="#ffffff" fgColor="#000000" title={`QR Code com o código ${dados.codigo}`} style={{ display: 'block', width: '100%', height: 'auto' }} />
