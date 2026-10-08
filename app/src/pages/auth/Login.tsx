@@ -264,9 +264,8 @@ export default function AuthLogin() {
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
       setMfaStatus('erro')
-      // Só o código errado ou vencido limpa as caixas; rede, servidor e perfil mantêm o que foi digitado
-      const codigoErrado = err?.code === 'mfa_verification_failed' || err?.code === 'mfa_challenge_expired'
-      if (codigoErrado) setMfaCode('')
+      // Limpa sempre: o envio só dispara ao completar o 6º dígito, então caixas cheias não permitiriam tentar de novo
+      setMfaCode('')
       setError(
         err?.code === 'mfa_challenge_expired' ? 'O código venceu. Digite o código atual do app.'
           : err?.code === 'mfa_verification_failed' ? 'Código incorreto. Confira o app e tente de novo.'
