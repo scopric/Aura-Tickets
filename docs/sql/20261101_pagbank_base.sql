@@ -106,7 +106,7 @@ begin
       end if;
       -- evento cancelado/bloqueado ou tipo desativado entre a reserva e o pagamento: não emite (como pode_comprar, sem auth.uid nem visibilidade)
       if not exists (select 1 from public.events e where e.id = o.event_id and e.status = 'published' and e.approval_status = 'approved')
-         or exists (select 1 from public.order_items oi join public.ticket_types tt on tt.id = oi.ticket_type_id where oi.order_id = o.id and not tt.is_active) then
+         or exists (select 1 from public.order_items oi join public.ticket_types tt on tt.id = oi.ticket_type_id where oi.order_id = o.id and (not tt.is_active or tt.event_id <> o.event_id)) then
         raise exception 'Evento indisponível para compra' using errcode = '22023';
       end if;
       -- limite por conta: de confirmar_pedido_gratis (20261030a), tipos já travados acima

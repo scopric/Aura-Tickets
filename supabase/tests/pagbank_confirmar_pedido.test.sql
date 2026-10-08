@@ -4,7 +4,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(35);
+select plan(37);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal1') returns void
 language plpgsql as $f$
@@ -72,7 +72,7 @@ select is((select count(*) from public.tickets where order_id = 'fc000000-0000-4
 select is((select sold from public.ticket_types where id = 'fc000000-0000-4000-8000-0000000000b1'), 2, 'reenvio: sold não soma de novo');
 select is((select count(*) from public.webhook_events where event_id = 'ORDE_1'), 1::bigint, 'reenvio: 1 só linha em webhook_events');
 
--- outro gateway_payment_id em pedido já pago: conflito
+-- o 1º desfecho do evento não é sobrescrito
 select is((select resultado from public.webhook_events where event_id = 'ORDE_1'), 'pago', 'reenvio: o 1º desfecho (pago) não é sobrescrito');
 -- pagamento em dobro: pedido já pago por outro pagamento -> estorno
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000f1', 'ORDE_OUTRO', 11000), 'estorno', 'pedido pago com outro id: estorno');
@@ -162,6 +162,15 @@ update public.events set status = 'cancelled' where id = 'fc000000-0000-4000-800
 select pg_temp.como('service_role');
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000e2', 'ORDE_E2', 5000), 'estorno', 'evento cancelado: estorno');
 select is((select count(*) from public.tickets where order_id = 'fc000000-0000-4000-8000-0000000000e2'), 0::bigint, 'evento cancelado: nenhum ingresso');
+
+-- tipo de ingresso desativado entre a reserva e o pagamento
+select pg_temp.como('postgres');
+insert into public.ticket_types (id, event_id, name, price, quantity_total, is_active) values
+  ('fc000000-0000-4000-8000-0000000000b5', 'fc000000-0000-4000-8000-0000000000e1', 'Inativo', 50, 10, false);
+select pg_temp.novo('fc000000-0000-4000-8000-0000000000d5', 'fc000000-0000-4000-8000-0000000000b5', 1, 50, 0, 50);
+select pg_temp.como('service_role');
+select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000d5', 'ORDE_D5', 5000), 'estorno', 'tipo inativo: estorno');
+select is((select count(*) from public.tickets where order_id = 'fc000000-0000-4000-8000-0000000000d5'), 0::bigint, 'tipo inativo: nenhum ingresso');
 
 -- pedido inexistente
 select is(public.confirmar_pedido_pago('fc000000-0000-4000-8000-0000000000ff', 'ORDE_9', 11000), 'nao_encontrado', 'pedido inexistente: nao_encontrado');
