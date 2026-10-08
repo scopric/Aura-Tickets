@@ -16,7 +16,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), warning: v
 import { useMapa } from '../pages/producer/mapa/usarMapa'
 import { TEMPLATES, aplicarTemplate } from '../pages/producer/mapa/templates'
 import { novosPavimentos } from '../pages/producer/mapa/modelo'
-import { resumoVenda } from '../pages/producer/mapa/regras'
+import { resumoVenda, lugaresDaMesa } from '../pages/producer/mapa/regras'
 import { ESTRUTURA } from '../pages/producer/mapa/paleta'
 
 const ENV = { id: 'terreo', name: 'T', seats: [], sections: [], walls: [], pixelsPerMeter: 40 }
@@ -61,6 +61,15 @@ describe('interruptor "mapa visível" (seating_maps.is_active)', () => {
     await act(() => h.result.current.salvar(0))
     expect(bd.gravado.is_active).toBe(false)
   })
+  it('mapa ligado com pavimentos vazios ou inválidos: salvar também não desliga', async () => {
+    for (const environments of [[], null, 'x']) {
+      const h = await abrir({ environments, config: {}, is_active: true })
+      expect(h.result.current.visivel).toBe(true)
+      await act(() => h.result.current.salvar(0))
+      expect(bd.gravado.is_active).toBe(true)
+      h.unmount()
+    }
+  })
   it('troca de evento volta a desligado até o mapa do novo evento ser lido', async () => {
     bd.lido = { data: { environments: [ENV], config: {}, is_active: true }, error: null }
     const h = renderHook(({ id }) => useMapa(id), { initialProps: { id: 'ev1' } })
@@ -75,14 +84,16 @@ describe('interruptor "mapa visível" (seating_maps.is_active)', () => {
 // ---- Contrato com reservar_assentos (docs/sql/20261008_assento_reserva.sql, l.132-190), reproduzido sem banco ----
 const UUID = (i: number) => `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`
 const UUID_RE = /^[0-9a-fA-F-]{36}$/
-const clamp50 = (n: SeatNode) => Math.min(Math.max(typeof n.seatsCount === 'number' ? n.seatsCount : typeof n.capacity === 'number' ? n.capacity : 6, 1), 50)
 
 // Mesmo predicado do servidor: chave ambiente:assento, só seat/table livres cujo setor tem ticketTypeId uuid
-function elegiveis(envs: Environment[]) {
+type TT = { id: string; ativo: boolean; tipo?: string }
+const todos = (envs: Environment[]): TT[] => envs.flatMap(e => e.sections).filter(x => x.ticketTypeId).map(x => ({ id: x.ticketTypeId!, ativo: true }))
+// l.194-195 do SQL: o ticket_type tem de existir, estar ativo e não ser coletiva
+function elegiveis(envs: Environment[], tts: TT[] = todos(envs)) {
   const por = new Map<string, number>()
   for (const env of envs) for (const s of env.seats) {
     const sec = (env.sections || []).find(x => x.id === s.sectionId)
-    if ((s.type === 'seat' || s.type === 'table') && (s.status ?? 'free') === 'free' && UUID_RE.test(sec?.ticketTypeId ?? '')) por.set(`${env.id}:${s.id}`, s.type === 'table' ? clamp50(s) : 1)
+    if ((s.type === 'seat' || s.type === 'table') && (s.status ?? 'free') === 'free' && UUID_RE.test(sec?.ticketTypeId ?? '') && tts.some(t => t.id === sec!.ticketTypeId && t.ativo && t.tipo !== 'coletiva')) por.set(`${env.id}:${s.id}`, s.type === 'table' ? lugaresDaMesa(s) : 1)
   }
   return por
 }
@@ -145,5 +156,62 @@ describe('contrato com reservar_assentos nos 13 templates', () => {
     expect(r.vendaveis).toBe(0)
     expect(r.semIngresso).toBeGreaterThan(0)
     expect(r.semIngresso).toBe(base.seats.filter(s => (s.type === 'seat' || s.type === 'table') && s.sectionId !== ESTRUTURA.id).length)
+  })
+
+  it('lugaresDaMesa segue o servidor: seatsCount 0 vira 1, 80 vira 50, não numérico cai para capacity, depois 6', () => {
+    expect(lugaresDaMesa({ seatsCount: 0, capacity: 8 })).toBe(1)
+    expect(lugaresDaMesa({ seatsCount: 80, capacity: 8 })).toBe(50)
+    expect(lugaresDaMesa({ seatsCount: undefined, capacity: 8 })).toBe(8)
+    expect(lugaresDaMesa({ seatsCount: '5' as never, capacity: undefined as never })).toBe(6)
+    expect(lugaresDaMesa({ seatsCount: undefined, capacity: 0 })).toBe(1)
+  })
+
+  it('mesa com seatsCount 0 e 80 no predicado: 1 e 50 lugares', () => {
+    const e = ligado(aplicarTemplate(novosPavimentos()[0], TEMPLATES.find(t => t.id === 'casa-de-show')!))
+    const mesas = e.seats.filter(s => s.type === 'table')
+    const m = { ...e, seats: [{ ...mesas[0], seatsCount: 0 }, { ...mesas[1], seatsCount: 80 }] }
+    expect([...elegiveis([m]).values()]).toEqual([1, 50])
+  })
+
+  it('status contact e blocked fora; lote sem ticketTypeId (um por template) deixa de ser elegível', () => {
+    for (const t of TEMPLATES) {
+      const e = ligado(aplicarTemplate(novosPavimentos()[0], t))
+      const lote = e.sections.find(x => x.id !== ESTRUTURA.id)
+      if (!lote) continue
+      const sem = { ...e, sections: e.sections.map(x => (x.id === lote.id ? { ...x, ticketTypeId: undefined } : x)) }
+      const dele = e.seats.filter(s => s.sectionId === lote.id && (s.type === 'seat' || s.type === 'table')).length
+      expect(elegiveis([e]).size - elegiveis([sem], todos([e])).size).toBe(dele)
+      expect(elegiveis([{ ...e, seats: e.seats.map(s => ({ ...s, status: 'contact' as const })) }]).size).toBe(0)
+    }
+  })
+
+  it('ingresso inativo ou coletivo não vende (SQL l.194-195) e o editor avisa como indisponível; lista ainda não carregada não avisa', () => {
+    const e = ligado(aplicarTemplate(novosPavimentos()[0], TEMPLATES[1] /* teatro */))
+    const ids = e.sections.filter(x => x.ticketTypeId).map(x => x.ticketTypeId!)
+    const tudo = ids.map(id => ({ id, ativo: true }))
+    expect(elegiveis([e], tudo).size).toBeGreaterThan(0)
+    expect(elegiveis([e], ids.map(id => ({ id, ativo: false }))).size).toBe(0)
+    expect(elegiveis([e], ids.map(id => ({ id, ativo: true, tipo: 'coletiva' }))).size).toBe(0)
+    // o editor só recebe ingressos ativos e não coletivos: o que faltou na lista é "indisponível"
+    const r = resumoVenda([e], [{ id: ids[0] }])
+    expect(r.ingressoIndisponivel).toBe(ids.length - 1)
+    expect(r.vendaveis).toBe(elegiveis([e], [{ id: ids[0], ativo: true }]).size)
+    expect(resumoVenda([e], tudo).ingressoIndisponivel).toBe(0)
+    expect(resumoVenda([e], null)).toMatchObject({ ingressoIndisponivel: 0, vendaveis: elegiveis([e]).size })
+    expect(resumoVenda([e], []).vendaveis).toBe(0)
+    // id que não é uuid nunca vende, mesmo que esteja na lista
+    const ruim = { ...e, sections: e.sections.map(x => (x.ticketTypeId ? { ...x, ticketTypeId: 'tt1' } : x)) }
+    expect(resumoVenda([ruim], [{ id: 'tt1' }]).vendaveis).toBe(0)
+  })
+
+  it('tipos fora de seat/table em lote com ingresso são contados como "não vende por lugar"; em Estrutura não', () => {
+    const e = ligado(aplicarTemplate(novosPavimentos()[0], TEMPLATES.find(t => t.id === 'arena')!))
+    const lote = e.sections.find(x => x.id !== ESTRUTURA.id)!
+    const pista = { ...e.seats[0], id: 'pista1', type: 'dancefloor' as const, sectionId: lote.id, status: 'free' as const }
+    const naEstrutura = { ...pista, id: 'pista2', sectionId: ESTRUTURA.id }
+    const antes = resumoVenda([e]).naoVendePorLugar
+    const r = resumoVenda([{ ...e, seats: [...e.seats, pista, naEstrutura] }])
+    expect(r.naoVendePorLugar).toBe(antes + 1)
+    expect(elegiveis([{ ...e, seats: [pista] }]).size).toBe(0) // o servidor não vende pista por lugar
   })
 })

@@ -150,18 +150,30 @@ export function apagarLote(env: Environment, id: string): { env: Environment; de
   return { env: { ...apagado, sections: apagado.sections.filter(x => x.id !== id) }, destino: destino.name }
 }
 
-// Venda por lugar no checkout (reservar_assentos): só seat/table livre cujo lote tem ingresso ligado é vendável.
+// Cadeiras que a mesa vende: a regra de reservar_assentos (1º valor NUMÉRICO de seatsCount, senão capacity, senão 6; de 1 a 50)
+const numero = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+export const lugaresDaMesa = (n: Pick<SeatNode, 'seatsCount' | 'capacity'>) => Math.min(Math.max(numero(n.seatsCount) ?? numero(n.capacity) ?? 6, 1), 50)
+
+const UUID_RE = /^[0-9a-fA-F-]{36}$/
+// Venda por lugar no checkout (reservar_assentos): só seat/table livre, em lote ligado a um ingresso ATIVO e não coletivo, é vendável.
+// `ingressos` = os ingressos vendáveis do evento (null enquanto não carregaram: aí não se afirma que um ingresso é indisponível).
 // `foraDoPrimeiro`: o checkout só mostra o primeiro pavimento (environments[0]), embora o banco aceite todos.
-export function resumoVenda(envs: Environment[]) {
-  let vendaveis = 0, semIngresso = 0, foraDoPrimeiro = 0
+// `naoVendePorLugar`: item de outro tipo (pista, arquibancada, VIP...) em lote com ingresso: o comprador o compra por quantidade.
+export function resumoVenda(envs: Environment[], ingressos: { id: string }[] | null = null) {
+  let vendaveis = 0, semIngresso = 0, foraDoPrimeiro = 0, naoVendePorLugar = 0
+  const indisponiveis = new Set<string>()
   envs.forEach((env, i) => {
     for (const n of env.seats || []) {
-      if ((n.type !== 'seat' && n.type !== 'table') || (n.status ?? 'free') !== 'free') continue
-      const sec = (env.sections || []).find(x => x.id === n.sectionId)
-      if (sec?.ticketTypeId) { vendaveis++; if (i > 0) foraDoPrimeiro++ } else if (n.sectionId !== ESTRUTURA.id) semIngresso++
+      const sec = n.sectionId === ESTRUTURA.id ? undefined : (env.sections || []).find(x => x.id === n.sectionId)
+      if (n.type !== 'seat' && n.type !== 'table') { if (sec?.ticketTypeId) naoVendePorLugar++; continue }
+      if ((n.status ?? 'free') !== 'free') continue
+      const tid = sec?.ticketTypeId
+      if (!tid) { if (n.sectionId !== ESTRUTURA.id) semIngresso++; continue }
+      if (!ingressos) { if (UUID_RE.test(tid)) { vendaveis++; if (i > 0) foraDoPrimeiro++ } continue }
+      if (UUID_RE.test(tid) && ingressos.some(t => t.id === tid)) { vendaveis++; if (i > 0) foraDoPrimeiro++ } else indisponiveis.add(`${env.id}:${sec!.id}`)
     }
   })
-  return { vendaveis, semIngresso, foraDoPrimeiro }
+  return { vendaveis, semIngresso, foraDoPrimeiro, naoVendePorLugar, ingressoIndisponivel: indisponiveis.size }
 }
 
 // ---- Rodapé: mesmas fórmulas do editor antigo, sobre o pavimento ativo ----

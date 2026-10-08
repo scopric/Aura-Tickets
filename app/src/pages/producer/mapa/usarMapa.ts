@@ -40,17 +40,17 @@ export function useMapa(eventId: string | null) {
         toast.error(`Erro ao carregar mapa: ${error.message}`)
         return
       }
+      const v = data?.is_active === true // lido antes: mapa ligado com pavimentos vazios também não é desligado ao salvar
+      setVisivel(v)
       if (Array.isArray(data?.environments) && data.environments.length) {
         const lidos = normalizarEnvs(data.environments as Environment[])
         if (data.config && typeof data.config === 'object') config.current = data.config as Config
         const f = lerFundo(config.current.background)
-        const v = data.is_active === true
-        setVisivel(v)
         setEnvs(lidos)
         setFundoEstado(f)
         setSalvo({ e: JSON.stringify(lidos), f, v })
       } else {
-        setSalvo({ e: JSON.stringify(iniciais), f: null, v: false })
+        setSalvo({ e: JSON.stringify(iniciais), f: null, v })
       }
       setPronto(true)
     })()

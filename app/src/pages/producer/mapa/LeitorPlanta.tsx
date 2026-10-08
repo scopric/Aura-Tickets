@@ -32,7 +32,7 @@ export function usarLeitorPlanta(eventId: string | null, imagem: string | undefi
     const doEvento = eventId
     let r: Awaited<ReturnType<typeof chamarEvo>>
     try { r = await chamarEvo({ mode: 'planta', event_id: doEvento, imagem }) } catch { r = { ok: false, motivo: 'rede' } }
-    if (atual.current.eventId !== doEvento) { toast.info('Você trocou de evento durante a leitura; a proposta foi descartada. A leitura já foi cobrada.'); return } // o efeito acima já soltou a trava
+    if (atual.current.eventId !== doEvento) { toast.info(r && (r as { ok?: unknown }).ok === true ? 'Você trocou de evento durante a leitura; a proposta foi descartada. A leitura já foi cobrada.' : 'Você trocou de evento durante a leitura; ela foi interrompida.'); return } // o efeito acima já soltou a trava
     emVoo.current = false
     setLendo(false)
     try {

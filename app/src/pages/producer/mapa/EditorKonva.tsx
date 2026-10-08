@@ -14,7 +14,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { comSecao, criarNo, destinoDe, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, acrescentarPecas, resumoVenda } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, acrescentarPecas, resumoVenda, lugaresDaMesa } from './regras'
 import { useIngressos } from './usarIngressos'
 import PrecoLote from './PrecoLote'
 import PlantaFundo, { FaixaPlanta, usarImagem, type ModoPlanta } from './PlantaFundo'
@@ -252,7 +252,7 @@ export default function EditorKonva() {
     leitor.descartar(); setLeitorAberto(false); setSel(null); setReenquadrar(v => v + 1)
     toast.success(`${r.ids.length} peças aplicadas. Ctrl+Z desfaz tudo de uma vez.${foraNovos ? ` ${foraNovos} ficaram fora da sala: use o aviso vermelho "fora da sala" para trazê-las.` : ''}`)
   }
-  const venda = useMemo(() => resumoVenda(envs), [envs])
+  const venda = useMemo(() => resumoVenda(envs, ingressosLidos ? ingressos : null), [envs, ingressos, ingressosLidos])
   // Nunca liga sozinho: só pelo clique do produtor, e só vale ao Salvar
   const alternarVisivel = () => {
     setVisivel(!visivel)
@@ -563,7 +563,9 @@ export default function EditorKonva() {
         {pronto && (
           <span role="status" className="w-full text-xs text-muted-foreground">
             {visivel ? 'Ligado: o comprador escolhe o lugar no checkout e ele fica reservado por 10 minutos.' : 'Desligado: o comprador não vê o mapa.'} Vale ao clicar em Salvar.
-            {visivel && venda.vendaveis === 0 && <strong className="block text-destructive">Nenhum lugar será vendável: ligue um ingresso a um lote com assentos ou mesas livres.</strong>}
+            {visivel && venda.vendaveis === 0 && <strong className="block text-destructive">{venda.semIngresso === 0 && venda.ingressoIndisponivel === 0 && venda.naoVendePorLugar > 0 ? 'Nenhum lugar será vendável: o mapa só vende assentos e mesas, e os elementos deste mapa são de outros tipos.' : 'Nenhum lugar será vendável: ligue um ingresso ativo a um lote com assentos ou mesas livres.'}</strong>}
+            {visivel && venda.ingressoIndisponivel > 0 && <strong className="block text-destructive">{venda.ingressoIndisponivel} lote(s) ligado(s) a ingresso indisponível: o comprador não conseguirá comprar.</strong>}
+            {visivel && venda.naoVendePorLugar > 0 && <strong className="block text-destructive">{venda.naoVendePorLugar} elemento(s) de tipos que o mapa não vende por lugar.</strong>}
             {visivel && venda.semIngresso > 0 && <strong className="block text-destructive">{venda.semIngresso} assento(s) ou mesa(s) estão em lote sem ingresso ligado e não serão vendidos.</strong>}
             {visivel && venda.foraDoPrimeiro > 0 && <strong className="block text-destructive">{venda.foraDoPrimeiro} lugar(es) vendável(is) estão fora do primeiro pavimento; o checkout só mostra o primeiro.</strong>}
           </span>
@@ -743,10 +745,11 @@ export default function EditorKonva() {
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Elemento</h2>
           {noSel ? (
             <>
+              {noSel.type !== 'seat' && noSel.type !== 'table' && lotes.find(l => l.id === noSel.sectionId)?.ticketTypeId && <p role="note" className="text-xs text-amber-600 dark:text-amber-400">Este tipo não é vendido pelo mapa: o comprador compra pela quantidade do ingresso, sem escolher o lugar.</p>}
               {(() => {
                 // a mesa vende todas as cadeiras num pedido só: acima do máximo por pedido do ingresso, ninguém consegue comprar
                 const t = ingressos.find(i => i.id === lotes.find(l => l.id === noSel.sectionId)?.ticketTypeId)
-                const n = noSel.type === 'table' ? noSel.seatsCount || noSel.capacity : 0
+                const n = noSel.type === 'table' ? lugaresDaMesa(noSel) : 0
                 return t && n > t.max ? <p role="alert" className="text-xs text-destructive">Esta mesa tem {n} cadeiras e o ingresso "{t.name}" permite {t.max} por pedido: ela não poderá ser comprada. Reduza as cadeiras ou aumente o máximo por pedido.</p> : null
               })()}
               <p className="text-xs">{typeLabels[noSel.type] || String(noSel.type)}{noSel.locked ? ' (travado)' : ''} · {fmtM(medidas(noSel).w)} x {fmtM(medidas(noSel).h)} m{fora.has(noSel.id) ? ' · fora da sala' : ''}</p>

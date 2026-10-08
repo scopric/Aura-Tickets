@@ -133,6 +133,19 @@ describe('usarLeitorPlanta', () => {
     expect(toast.info).toHaveBeenCalledWith(expect.stringContaining('já foi cobrada'))
   })
 
+  it('troca de evento com leitura que FALHOU: aviso neutro, sem dizer que foi cobrada', async () => {
+    let solta!: (v: unknown) => void
+    evo.chamarEvo.mockReturnValueOnce(new Promise(r => { solta = r }))
+    const { result, rerender } = renderHook(({ id }) => usarLeitorPlanta(id, IMG), { initialProps: { id: 'e1' } })
+    let p!: Promise<void>
+    act(() => { p = result.current.ler(() => {}) })
+    rerender({ id: 'e2' })
+    await act(async () => { solta({ ok: false, motivo: 'planta_instavel' }); await p })
+    const msg = toast.info.mock.calls.at(-1)![0] as string
+    expect(msg).toContain('interrompida')
+    expect(msg).not.toContain('cobrada')
+  })
+
   it('planta salva grande demais não é enviada', async () => {
     const { result } = renderHook(() => usarLeitorPlanta('e1', 'data:image/png;base64,' + 'A'.repeat(2_100_000)))
     await act(() => result.current.ler(() => {}))
