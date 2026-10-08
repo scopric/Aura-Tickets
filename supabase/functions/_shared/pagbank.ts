@@ -96,9 +96,16 @@ function resumoErro(texto: string): string {
   } catch { return '(sem corpo JSON)' }
 }
 
-/** Chave de idempotência: pedido + 12 hex de sha256(cpf|telefone). Mesmo CPF/telefone = mesmo corpo = mesmo pedido no PagBank; o CPF não aparece na chave. */
-export async function chaveIdempotencia(orderId: string, cpf: string, fone: string): Promise<string> {
-  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${cpf}|${fone}`))
+/**
+ * Chave de idempotência: pedido + 12 hex de HMAC-SHA256(segredo, cpf|telefone). Mesmo CPF/telefone = mesmo corpo = mesmo pedido
+ * no PagBank. HMAC (e não hash puro) porque CPF tem ~10^9 combinações: sem segredo, quem visse o cabeçalho reverteria o CPF.
+ * Sem segredo lança erro (nunca hash sem chave).
+ */
+export async function chaveIdempotencia(orderId: string, cpf: string, fone: string, segredo: string): Promise<string> {
+  if (!segredo) throw new Error('chaveIdempotencia sem segredo')
+  const enc = new TextEncoder()
+  const k = await crypto.subtle.importKey('raw', enc.encode(segredo), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'])
+  const h = await crypto.subtle.sign('HMAC', k, enc.encode(`${cpf}|${fone}`))
   return `${orderId}:${[...new Uint8Array(h)].slice(0, 6).map(x => x.toString(16).padStart(2, '0')).join('')}`
 }
 

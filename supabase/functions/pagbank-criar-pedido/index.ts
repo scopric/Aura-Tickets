@@ -20,8 +20,8 @@ Deno.serve(req => handler(req, {
   captcha: (t, ip) => verificarRecaptcha(t, ip, env),
   carregar: async (id, uid) => {
     const { data: o, error } = await admin.from('orders')
-      .select('id,user_id,status,reservado_ate,total,subtotal,discount,service_fee,processing_fee,customer_name,customer_email,gateway_payment_id,events(producer_id,start_date,end_date),order_items(quantity,unit_price,ticket_types(name))')
-      .eq('id', id).maybeSingle()
+      .select('id,user_id,status,reservado_ate,total,subtotal,discount,service_fee,processing_fee,customer_name,customer_email,gateway_payment_id,events(producer_id,start_date,end_date),order_items(id,ticket_type_id,quantity,unit_price,ticket_types(name))')
+      .eq('id', id).order('id', { referencedTable: 'order_items' }).maybeSingle()
     if (error) throw new Error(`leitura do pedido: ${error.message}`)
     // pedido de outro usuário = igual a inexistente, e o produtor nem é consultado
     if (!o || o.user_id !== uid) return null
@@ -30,8 +30,8 @@ Deno.serve(req => handler(req, {
     const { data: pp } = await admin.from('producer_profiles').select('payout_account_id').eq('id', ev.producer_id).maybeSingle()
     return {
       ...o, evento: ev, payout_account_id: pp?.payout_account_id ?? null,
-      itens: ((o.order_items ?? []) as { quantity: number; unit_price: number; ticket_types: { name: string } | { name: string }[] | null }[]).map(i => ({
-        nome: (Array.isArray(i.ticket_types) ? i.ticket_types[0]?.name : i.ticket_types?.name) ?? 'Ingresso', quantity: i.quantity, unit_price: i.unit_price,
+      itens: ((o.order_items ?? []) as { id: string; ticket_type_id: string; quantity: number; unit_price: number; ticket_types: { name: string } | { name: string }[] | null }[]).map(i => ({
+        id: i.id, ticket_type_id: i.ticket_type_id, nome: (Array.isArray(i.ticket_types) ? i.ticket_types[0]?.name : i.ticket_types?.name) ?? 'Ingresso', quantity: i.quantity, unit_price: i.unit_price,
       })),
     } as Pedido
   },

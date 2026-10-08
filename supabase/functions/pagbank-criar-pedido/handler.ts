@@ -18,6 +18,8 @@
 // Corpo estável: o corpo enviado ao PagBank só depende do pedido (banco), do CPF/telefone e de reservado_ate, nunca do relógio.
 // Assim a chave de idempotência `<order.id>:<hash(cpf|telefone)>` devolve o MESMO pedido nas repetições. O Pix vence em
 // reservado_ate − 15 s; a reserva é de 10 min em `reservar_ingressos` (se ela mudar, mudar aqui junto): dá no máximo 9m45s.
+// Dependências do corpo fora da reserva: e-mail do login (quando customer_email é nulo), env PAGBANK_CUSTODIA_DIAS_APOS_EVENTO e
+// payout_account_id do produtor. Mudar qualquer uma no meio de um pedido gera 409 IDEMPOTENCY_CONFLICT (vira 409 genérico "refaça a reserva").
 // CPF diferente = chave nova = outra cobrança (a fatia 3 trata o pagamento órfão pelo reference_id).
 import { corsHeaders, ORIGENS } from '../_shared/cors.ts'
 import { clientIp } from '../_shared/ip.ts'
@@ -32,7 +34,7 @@ export type Pedido = {
   total: number; subtotal: number; discount: number; service_fee: number; processing_fee: number
   customer_name: string | null; customer_email: string | null; gateway_payment_id: string | null
   evento: { producer_id: string; start_date: string; end_date: string | null }
-  itens: { nome: string; quantity: number; unit_price: number }[]
+  itens: { id?: string; ticket_type_id?: string; nome: string; quantity: number; unit_price: number }[]
   payout_account_id: string | null
 }
 export type Deps = {
@@ -52,7 +54,7 @@ export type Deps = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const MAX_CORPO = 4096
-const HOSTS = new Set([...ORIGENS.map(o => new URL(o).hostname), 'localhost'])
+const HOSTS = ORIGENS.map(o => new URL(o).hostname)
 
 /** Lê o corpo parando em MAX_CORPO bytes; null = passou do teto. Confere Content-Length antes de ler. */
 async function lerCorpo(req: Request): Promise<string | null> {
@@ -90,7 +92,8 @@ export async function verificarRecaptcha(
     const r = await fetchFn('https://www.google.com/recaptcha/api/siteverify', { method: 'POST', body: corpo, signal: ctl.signal })
     if (!r.ok) return false
     const j = await r.json()
-    return j.success === true && j.action === 'pagbank_checkout' && HOSTS.has(String(j.hostname)) && typeof j.score === 'number' && j.score >= minimo
+    return j.success === true && j.action === 'pagbank_checkout' && (HOSTS.includes(String(j.hostname)) || (env('RECAPTCHA_ALLOW_LOCALHOST') === '1' && j.hostname === 'localhost')) // localhost só em desenvolvimento
+       && typeof j.score === 'number' && j.score >= minimo
   } catch {
     return false
   } finally {
@@ -99,8 +102,11 @@ export async function verificarRecaptcha(
 }
 
 function itensDoPedido(p: Pedido, totalCentavos: number) {
-  const itens = p.itens.map((i, n) => ({
-    reference_id: `${p.id}-${n + 1}`, name: i.nome.slice(0, 100), quantity: i.quantity, unit_amount: reaisParaCentavos(i.unit_price),
+  // ordem fixa (o banco não garante ordem): por id, depois ticket_type_id, depois preço; senão o corpo mudaria e a mesma chave daria 409
+  const ordenados = [...p.itens].sort((a, b) =>
+    (a.id ?? '').localeCompare(b.id ?? '') || (a.ticket_type_id ?? '').localeCompare(b.ticket_type_id ?? '') || a.unit_price - b.unit_price)
+  const itens = ordenados.map((i, n) => ({
+    reference_id: i.id ?? `${p.id}-${n + 1}`, name: i.nome.slice(0, 100), quantity: i.quantity, unit_amount: reaisParaCentavos(i.unit_price),
   }))
   const soma = itens.reduce((s, i) => s + i.quantity * i.unit_amount, 0)
   if (itens.every(i => Number.isInteger(i.unit_amount) && i.quantity > 0) && itens.length) {
@@ -183,10 +189,14 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
     const taxa = reaisParaCentavos(Number(pedido.service_fee) + Number(pedido.processing_fee))
     const dias = Number(d.env('PAGBANK_CUSTODIA_DIAS_APOS_EVENTO') || '7') // pendente: decisão do Ricardo (regra de repasse ao produtor)
     const fim = new Date(pedido.evento.end_date ?? pedido.evento.start_date)
-    const splits = Number.isFinite(dias) && !isNaN(fim.getTime())
+    // evento além de reservado_ate + 364 dias: a custódia liberaria ANTES do evento, então sem split
+    // pendente: decisão do Ricardo (regra de repasse)
+    const alemDoTeto = fim.getTime() + dias * 86_400_000 > reservaAte.getTime() + 364 * 86_400_000
+    if (alemDoTeto) log('pedido', pedido.id, 'split omitido: evento além do teto de custódia')
+    const splits = Number.isFinite(dias) && !isNaN(fim.getTime()) && !alemDoTeto
       ? montarSplit({ totalCentavos, taxaCentavos: taxa, plataformaId, produtorId: pedido.payout_account_id, liberarEm: calcularLiberacao(fim, dias, reservaAte) })
       : null
-    if (!splits) log('pedido', pedido.id, 'sem split (produtor sem conta PagBank válida ou taxa fora da faixa): todo o valor cai na conta da Evokaa')
+    if (!splits && !alemDoTeto) log('pedido', pedido.id, 'sem split (produtor sem conta PagBank válida ou taxa fora da faixa): todo o valor cai na conta da Evokaa')
 
     const fone = String(cliente.phone ?? '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '')
     const telefone = /^\d{10,11}$/.test(fone) ? [{ country: '55', area: fone.slice(0, 2), number: fone.slice(2), type: fone.length === 11 ? 'MOBILE' : 'LANDLINE' }] : undefined
@@ -208,7 +218,7 @@ export async function handler(req: Request, d: Deps): Promise<Response> {
       }],
       notification_urls: [`${d.env('SUPABASE_URL')}/functions/v1/pagbank-webhook`],
     }
-    const idem = await chaveIdempotencia(pedido.id, cpf, /^\d{10,11}$/.test(fone) ? fone : '')
+    const idem = await chaveIdempotencia(pedido.id, cpf, /^\d{10,11}$/.test(fone) ? fone : '', cfg.token)
     let criado: Record<string, unknown>
     try {
       criado = await d.pagbank('/orders', { method: 'POST', body: corpo, idempotencia: idem })

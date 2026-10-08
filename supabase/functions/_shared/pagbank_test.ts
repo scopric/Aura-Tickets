@@ -56,12 +56,14 @@ Deno.test("calcularLiberacao: fim do evento + dias, teto de 364 dias a partir da
   assert(new Date(teto).getTime() <= base.getTime() + 364 * 86_400_000);
 });
 
-Deno.test("chaveIdempotencia: estável, sem CPF, muda com CPF/telefone", async () => {
-  const k = await chaveIdempotencia("O1", "52998224725", "11999999999");
-  assertEquals(k, await chaveIdempotencia("O1", "52998224725", "11999999999"));
+Deno.test("chaveIdempotencia: HMAC estável, sem CPF, muda com CPF/telefone/segredo", async () => {
+  const k = await chaveIdempotencia("O1", "52998224725", "11999999999", "seg");
+  assertEquals(k, await chaveIdempotencia("O1", "52998224725", "11999999999", "seg"));
   assert(!k.includes("52998224725") && /^O1:[0-9a-f]{12}$/.test(k));
-  assert(k !== await chaveIdempotencia("O1", "11144477735", "11999999999"));
-  assert(k !== await chaveIdempotencia("O1", "52998224725", ""));
+  assert(k !== await chaveIdempotencia("O1", "11144477735", "11999999999", "seg"));
+  assert(k !== await chaveIdempotencia("O1", "52998224725", "", "seg"));
+  assert(k !== await chaveIdempotencia("O1", "52998224725", "11999999999", "outro"));
+  await chaveIdempotencia("O1", "1", "", "").then(() => assert(false), () => {});
 });
 
 Deno.test("mascarar: token, Bearer, ACCO, CPF e e-mail somem", () => {

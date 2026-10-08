@@ -210,3 +210,37 @@ Deno.test("carregar lançando erro: 502 com CORS; e-mail nulo: 400; Content-Leng
   assertEquals((await handler(req(), sem.deps)).status, 400); assertEquals(sem.chamadas.length, 0);
   assertEquals((await handler(req(undefined, { Authorization: "Bearer j", "content-length": "99999" }), montar().deps)).status, 413);
 });
+
+Deno.test("ordem dos itens vinda do banco não muda corpo nem chave", async () => {
+  const its = [
+    { id: "a1", ticket_type_id: "t1", nome: "Pista", quantity: 1, unit_price: 50 },
+    { id: "b2", ticket_type_id: "t2", nome: "VIP", quantity: 2, unit_price: 30 },
+    { id: "c3", ticket_type_id: "t3", nome: "Camarote", quantity: 1, unit_price: 20 },
+  ];
+  const rodar = async (itens: typeof its) => {
+    const { deps, chamadas } = montar({}, pedido({ itens, subtotal: 130, total: 140, service_fee: 10 }));
+    assertEquals((await handler(req(), deps)).status, 200);
+    return chamadas[0].init;
+  };
+  const a = await rodar(its), b = await rodar([...its].reverse()), c = await rodar([its[1], its[2], its[0]]);
+  assertEquals(JSON.stringify(a.body), JSON.stringify(b.body));
+  assertEquals(JSON.stringify(a.body), JSON.stringify(c.body));
+  assertEquals(a.idempotencia, b.idempotencia);
+  assertEquals(a.body.items.map((i: any) => i.reference_id).slice(0, 3), ["a1", "b2", "c3"]);
+});
+
+Deno.test("reCAPTCHA: localhost só com RECAPTCHA_ALLOW_LOCALHOST=1", async () => {
+  const f = (() => Promise.resolve(new Response(JSON.stringify({ success: true, score: 0.9, action: "pagbank_checkout", hostname: "localhost" })))) as unknown as typeof fetch;
+  const e = (extra: Record<string, string>) => (k: string) => ({ RECAPTCHA_SECRET: "s", ...extra } as Record<string, string>)[k] ?? "";
+  assertEquals(await verificarRecaptcha("t", null, e({}), f), false);
+  assertEquals(await verificarRecaptcha("t", null, e({ RECAPTCHA_ALLOW_LOCALHOST: "1" }), f), true);
+});
+
+Deno.test("custódia: evento a 400 dias = sem split; a 30 dias = com split e custódia", async () => {
+  const longe = montar({}, pedido({ evento: { producer_id: "p1", start_date: "2027-11-12T22:00:00Z", end_date: null } }));
+  assertEquals((await handler(req(), longe.deps)).status, 200);
+  assertEquals(longe.chamadas[0].init.body.charges[0].splits, undefined);
+  const perto = montar({}, pedido({ evento: { producer_id: "p1", start_date: "2026-11-07T22:00:00Z", end_date: null } }));
+  await handler(req(), perto.deps);
+  assertEquals(perto.chamadas[0].init.body.charges[0].splits.receivers[1].configurations.custody.apply, true);
+});
