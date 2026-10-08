@@ -1352,3 +1352,14 @@ body {
   .mfa-anel--ok { animation: mfa-pulo .6s ease-out; }
   .mfa-tremer { animation: mfa-tremer .45s ease-in-out; }
 }
+
+/* Certificados: contêiner só-impressão (CertificadoDesenho). Escondido na tela; ao imprimir é A4 paisagem, uma folha por certificado,
+   e o resto da página some (barra lateral, cabeçalho, janelas). O @page vem de um <style> posto só enquanto imprime. */
+.cert-print { display: none; }
+@media print {
+  body.imprimindo-cert { height: auto !important; overflow: visible !important; background: #fff !important; }
+  body.imprimindo-cert > *:not(.cert-print) { display: none !important; }
+  body.imprimindo-cert .cert-print { display: block; }
+  .cert-print .cert-folha { width: 297mm; height: 210mm; overflow: hidden; break-after: page; page-break-after: always; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .cert-print .cert-folha:last-child { break-after: auto; page-break-after: auto; }
+}

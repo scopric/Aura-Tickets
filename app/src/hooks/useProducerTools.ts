@@ -797,6 +797,8 @@ export interface CertificadoEmitido {
   id: string
   user_id: string
   issued_at: string
+  /** código de validação gerado pelo banco; vai no QR e no CSV */
+  code: string
 }
 
 export function useCertificadosEmitidos(certificateId: string | null) {
@@ -807,7 +809,7 @@ export function useCertificadosEmitidos(certificateId: string | null) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('issued_certificates')
-        .select('id, user_id, issued_at')
+        .select('id, user_id, issued_at, code')
         .eq('certificate_id', certificateId!)
       if (error) throw error
       return (data ?? []) as unknown as CertificadoEmitido[]
