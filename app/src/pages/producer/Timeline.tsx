@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import * as I from '@/components/icones/evokaa16'
+import { useAuth } from '../../hooks/useAuth'
+import { faltaSegundoFator } from '../../lib/vendasPagas'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import {
@@ -10,13 +13,17 @@ import {
   useDeleteTimelineItem,
   type DbTimelineItem,
 } from '../../hooks/useProducerTools'
-import { PageHeader, EmptyState, selectNativo, chipOk } from '@/components/producer/ui'
+import { PageHeader, EmptyState, Erro, selectNativo, chipOk } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
 
 const typeIcons: Record<string, I.IconeEvokaa> = {
@@ -51,36 +58,51 @@ export default function ProducerTimeline() {
   const [eventoEscolhido, setSelectedEventId] = useEventoDaUrl(events.map(e => e.id))
   const selectedEventId = eventoEscolhido ?? events[0]?.id ?? null
 
-  const { data: items = [], isLoading: itemsLoading } = useEventTimeline(selectedEventId)
+  const { user } = useAuth()
+  const { data: items = [], isLoading: itemsLoading, isError, isFetching, refetch } = useEventTimeline(selectedEventId)
+  // lista vazia pode ser sessão sem 2FA concluído (o banco devolve vazio, sem erro)
+  const semDados = !!selectedEventId && !itemsLoading && !isError && items.length === 0
+  const doisFatores = useQuery({ queryKey: ['producer-2fa-pendente', user?.id], enabled: semDados, queryFn: faltaSegundoFator })
   const createItem = useCreateTimelineItem()
   const updateItem = useUpdateTimelineItem()
   const deleteItem = useDeleteTimelineItem()
 
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ time: '', title: '', description: '', type: 'show' as DbTimelineItem['type'], responsible: '', duration: '', location: '' })
+  const formVazio = { time: '', title: '', description: '', type: 'show' as DbTimelineItem['type'], responsible: '', duration: '', location: '' }
+  const [form, setForm] = useState(formVazio)
+  const [editando, setEditando] = useState<DbTimelineItem | null>(null)
+  const [apagar, setApagar] = useState<DbTimelineItem | null>(null)
 
   const selectedEvent = events.find(e => e.id === selectedEventId)
   const isLoading = eventsLoading || itemsLoading
 
-  const addItem = async () => {
+  const abrirForm = (item: DbTimelineItem | null) => {
+    setEditando(item)
+    setForm(item ? {
+      time: item.time.slice(0, 5), title: item.title, description: item.description ?? '', type: item.type,
+      responsible: item.responsible ?? '', duration: item.duration ?? '', location: item.location ?? '',
+    } : formVazio)
+    setShowForm(true)
+  }
+
+  const salvarItem = async () => {
     if (!form.time || !form.title || !selectedEventId) { toast.error('Hora, título e evento são obrigatórios'); return }
+    const campos = {
+      time: form.time,
+      title: form.title,
+      description: form.description || null,
+      type: form.type,
+      responsible: form.responsible || null,
+      duration: form.duration || null,
+      location: form.location || null,
+    }
     try {
-      await createItem.mutateAsync({
-        event_id: selectedEventId,
-        time: form.time,
-        title: form.title,
-        description: form.description || null,
-        type: form.type,
-        responsible: form.responsible || null,
-        duration: form.duration || null,
-        location: form.location || null,
-        status: 'futuro',
-      })
-      setForm({ time: '', title: '', description: '', type: 'show', responsible: '', duration: '', location: '' })
+      if (editando) await updateItem.mutateAsync({ id: editando.id, event_id: editando.event_id, ...campos })
+      else await createItem.mutateAsync({ event_id: selectedEventId, ...campos, status: 'futuro' })
       setShowForm(false)
-      toast.success('Item adicionado!')
+      toast.success(editando ? 'Item atualizado!' : 'Item adicionado!')
     } catch {
-      toast.error('Erro ao adicionar item')
+      toast.error(editando ? 'Erro ao atualizar item' : 'Erro ao adicionar item')
     }
   }
 
@@ -95,9 +117,11 @@ export default function ProducerTimeline() {
     }
   }
 
-  const handleDelete = async (item: DbTimelineItem) => {
+  const confirmarApagar = async () => {
+    if (!apagar) return
     try {
-      await deleteItem.mutateAsync({ id: item.id, event_id: item.event_id })
+      await deleteItem.mutateAsync({ id: apagar.id, event_id: apagar.event_id })
+      setApagar(null)
       toast.success('Removido')
     } catch {
       toast.error('Erro ao remover')
@@ -108,7 +132,7 @@ export default function ProducerTimeline() {
     <PageHeader
       title="Cronograma"
       description="Linha do tempo completa do evento"
-      actions={<Button onClick={() => setShowForm(true)}><I.Criar aria-hidden="true" />Adicionar Item</Button>}
+      actions={<Button onClick={() => abrirForm(null)}><I.Criar aria-hidden="true" />Adicionar Item</Button>}
     />
   )
 
@@ -152,7 +176,15 @@ export default function ProducerTimeline() {
 
       {/* Timeline */}
       {selectedEventId ? (
-        items.length === 0 ? (
+        isError ? (
+          <Erro texto="Não foi possível carregar o cronograma." refetch={() => { void refetch() }} carregando={isFetching} />
+        ) : semDados && doisFatores.isPending ? (
+          <p role="status" className="text-sm text-muted-foreground">Carregando cronograma...</p>
+        ) : semDados && doisFatores.isError ? (
+          <Erro texto="Não consegui confirmar o seu acesso (2FA). Sem isso o cronograma pode parecer vazio." refetch={() => { void doisFatores.refetch() }} carregando={doisFatores.isFetching} />
+        ) : semDados && doisFatores.data ? (
+          <EmptyState title="Confirme o 2FA para ver o cronograma" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os itens." />
+        ) : items.length === 0 ? (
           <EmptyState
             title="Nenhum item no cronograma."
             description="Adicione o primeiro item da linha do tempo."
@@ -203,9 +235,14 @@ export default function ProducerTimeline() {
                             <span className="flex items-center gap-1"><I.Local size={16} aria-hidden="true" />{item.location || '-'}</span>
                           </div>
                         </div>
-                        <Button variant="ghost" size="icon-sm" className={icone} onClick={() => handleDelete(item)} aria-label={`Remover ${item.title}`}>
-                          <I.Lixeira aria-hidden="true" />
-                        </Button>
+                        <div className="flex shrink-0">
+                          <Button variant="ghost" size="icon-sm" className={icone} onClick={() => abrirForm(item)} aria-label={`Editar ${item.title}`}>
+                            <I.Editar aria-hidden="true" />
+                          </Button>
+                          <Button variant="ghost" size="icon-sm" className={icone} onClick={() => setApagar(item)} aria-label={`Remover ${item.title}`}>
+                            <I.Lixeira aria-hidden="true" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </li>
@@ -222,7 +259,7 @@ export default function ProducerTimeline() {
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="max-h-[90vh] overflow-y-auto" aria-describedby={undefined}>
           <DialogHeader>
-            <DialogTitle>Novo Item</DialogTitle>
+            <DialogTitle>{editando ? 'Editar Item' : 'Novo Item'}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3">
             <div className="grid grid-cols-2 gap-3">
@@ -262,10 +299,23 @@ export default function ProducerTimeline() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button onClick={addItem} loading={createItem.isPending}>Adicionar</Button>
+            <Button onClick={salvarItem} loading={createItem.isPending || updateItem.isPending}>{editando ? 'Salvar' : 'Adicionar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!apagar} onOpenChange={aberto => { if (!aberto) setApagar(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover “{apagar?.title}”?</AlertDialogTitle>
+            <AlertDialogDescription>Não dá para desfazer.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={e => { e.preventDefault(); void confirmarApagar() }} disabled={deleteItem.isPending}>Remover</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
