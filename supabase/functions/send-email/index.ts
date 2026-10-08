@@ -3,7 +3,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validarContato, validarEmail } from "../_shared/validar.ts";
 import { colors, emailShell, escapeHtml, limitarPorIp, sendMail } from "../_shared/email.ts";
-import { adminCan, comoQuemChamou } from "../_shared/mfa.ts";
+import { reenvioDoProdutor, TIPO_LOG_PRODUTOR, LIMITE_PRODUTOR_POR_PEDIDO, LIMITE_PRODUTOR_POR_HORA } from "../_shared/reenvioProdutor.ts";
+import { adminCan, comoQuemChamou, mfaOk } from "../_shared/mfa.ts";
 import { montarConviteEquipe } from "../_shared/conviteEquipe.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
 
@@ -647,7 +648,13 @@ serve(async (req) => {
 
       // Mesma resposta para "não existe" e "existe mas não é seu" — senão dá pra descobrir,
       // testando UUIDs com uma conta qualquer, quais pedidos de outra pessoa existem de verdade.
-      if (orderError || !order || order.user_id !== caller.id) {
+      // Também pode pedir a ENTREGA o produtor dono do evento do pedido (tela Participantes), com a mesma regra de 2FA do banco (conta sem fator verificado passa). O dono vem do
+      // banco (events.producer_id), nunca do corpo. O e-mail vai para a conta de quem comprou, não para o produtor.
+      const doProdutor = !orderError && !!order && order.user_id !== caller.id && reenvioDoProdutor({
+        orderUserId: order.user_id, producerId: order.events?.producer_id, callerId: caller.id, emailType,
+        mfa: order.events?.producer_id === caller.id && emailType === "ticket_delivery" ? await mfaOk(req) : false,
+      });
+      if (orderError || !order || (order.user_id !== caller.id && !doProdutor)) {
         return new Response(JSON.stringify({ error: "Você não tem acesso a este pedido." }), {
           status: 403,
           headers: { ...cors, "Content-Type": "application/json" },
@@ -666,24 +673,54 @@ serve(async (req) => {
       // Evitar reenvio (best-effort: se `email_logs` não existir, só deixa de bloquear). A confirmação sai uma vez
       // por pedido; a entrega pode ser pedida de novo (botão "Enviar por e-mail"), no máximo 3 vezes por hora.
       const entrega = emailType === "ticket_delivery";
+      // O reenvio do produtor tem registro e limite próprios: não gasta as 3 entregas por hora do comprador.
+      const tipoLog = doProdutor ? TIPO_LOG_PRODUTOR : emailType;
+      // Produtor: reserva ANTES de qualquer trabalho e conta de novo já com a própria reserva (se duas chamadas chegam juntas,
+      // ao menos uma enxerga a outra). Falha na contagem = recusa (falha fechada). Reserva que passou do limite vira failed.
+      let reservaProdutor: string | null = null;
+      const soltarProdutor = async () => { if (reservaProdutor) await supabaseAdmin.from("email_logs").update({ status: "failed", error_message: "recusado ou falhou antes do envio" }).eq("id", reservaProdutor); };
+      if (doProdutor) {
+        const umaHora = new Date(Date.now() - 3600_000).toISOString();
+        const { data: r, error: erroReserva } = await supabaseAdmin.from("email_logs")
+          .insert({ order_id: orderId, email_type: TIPO_LOG_PRODUTOR, status: "pending" }).select("id").single();
+        if (erroReserva || !r) { console.error("[send-email] reserva do produtor falhou:", erroReserva?.message); return json({ error: "Não foi possível processar agora. Tente de novo." }, 500); }
+        reservaProdutor = r.id;
+        const conta = ["sent", "pending"];
+        const { count: doPedido, error: e1 } = await supabaseAdmin.from("email_logs").select("id", { count: "exact", head: true })
+          .eq("order_id", orderId).eq("email_type", TIPO_LOG_PRODUTOR).in("status", conta).gte("created_at", umaHora);
+        const { count: dele, error: e2 } = await supabaseAdmin.from("email_logs")
+          .select("id, orders!inner(events!inner(producer_id))", { count: "exact", head: true })
+          .eq("email_type", TIPO_LOG_PRODUTOR).in("status", conta).eq("orders.events.producer_id", caller.id).gte("created_at", umaHora);
+        if (e1 || e2 || doPedido === null || dele === null) {
+          console.error("[send-email] contagem do produtor falhou:", (e1 ?? e2)?.message);
+          await soltarProdutor();
+          return json({ error: "Não foi possível processar agora. Tente de novo." }, 500);
+        }
+        if (doPedido > LIMITE_PRODUTOR_POR_PEDIDO) { await soltarProdutor(); return json({ error: "Você já reenviou o ingresso deste pedido na última hora (limite: 1 por hora por pedido). Tente de novo mais tarde." }, 429); }
+        if (dele > LIMITE_PRODUTOR_POR_HORA) { await soltarProdutor(); return json({ error: `Limite de ${LIMITE_PRODUTOR_POR_HORA} reenvios por hora atingido. Tente de novo mais tarde.` }, 429); }
+      }
+
+      let enviados = 0;
+      if (!doProdutor) {
       let jaEnviados = supabaseAdmin
         .from("email_logs")
         .select("id", { count: "exact", head: true })
         .eq("order_id", orderId)
-        .eq("email_type", emailType)
+        .eq("email_type", tipoLog)
         // reserva que nunca fechou (falha da função) só conta por 1 hora
         .or(`status.eq.sent,and(status.eq.pending,created_at.gte.${new Date(Date.now() - 3600_000).toISOString()})`);
       if (entrega) jaEnviados = jaEnviados.gte("created_at", new Date(Date.now() - 3600_000).toISOString());
-      const { count: enviados, error: erroContagem } = await jaEnviados;
+      const { count, error: erroContagem } = await jaEnviados;
+      enviados = count ?? 0;
       // Sem a tabela (SQL 20261030e não aplicado) não há limite: segue, mas deixa rastro no log.
       if (erroContagem) console.error("[send-email] email_logs indisponível, sem limite de reenvio:", erroContagem.message);
-      // ponytail: a contagem e a reserva abaixo não são atômicas; só a janela de milissegundos entre elas fica aberta.
-      // Se pesar: função SQL com pg_advisory_xact_lock que conta e reserva de uma vez.
+      // ponytail: no comprador, a contagem e a reserva (mais abaixo, depois de montar o PDF) não são atômicas: chamadas simultâneas podem passar do limite de 3. O produtor já reserva antes de contar. Se pesar: função SQL com pg_advisory_xact_lock.
 
-      if (entrega && (enviados ?? 0) >= 3) {
+      if (entrega && enviados >= 3) {
         return json({ error: "Você já pediu este e-mail 3 vezes na última hora. Tente de novo mais tarde ou baixe o PDF." }, 429);
       }
-      if (!entrega && (enviados ?? 0) > 0) {
+      }
+      if (!entrega && enviados > 0) {
         return new Response(JSON.stringify({ success: true, message: "E-mail já enviado anteriormente para este pedido." }), {
           status: 200,
           headers: { ...cors, "Content-Type": "application/json" },
@@ -696,6 +733,7 @@ serve(async (req) => {
         .eq("order_id", orderId);
 
       if (ticketsError || !tickets || tickets.length === 0) {
+        await soltarProdutor();
         throw new Error(`Nenhum ingresso encontrado para o pedido ${orderId}.`);
       }
 
@@ -707,7 +745,14 @@ serve(async (req) => {
       // `order.customer_email` — essa coluna é gravada pelo próprio cliente no checkout
       // (`useCheckout.ts`, sem policy que confira o valor), então um pedido forjado poderia
       // apontar para o e-mail de outra pessoa e usar este caminho como relay.
-      const recipientEmail = caller.email;
+      let recipientEmail = caller.email;
+      if (doProdutor) {
+        if (!order.user_id) { await soltarProdutor(); return json({ error: "Este pedido não tem conta de comprador com e-mail." }, 422); }
+        const { data: comprador, error: erroConta } = await supabaseAdmin.auth.admin.getUserById(order.user_id);
+        if (erroConta) { console.error("[send-email] conta do comprador:", erroConta.message); await soltarProdutor(); return json({ error: "Não consegui buscar o e-mail do comprador. Tente de novo." }, 502); }
+        if (!comprador?.user?.email) { await soltarProdutor(); return json({ error: "Este pedido não tem conta de comprador com e-mail." }, 422); }
+        recipientEmail = comprador.user.email.toLowerCase();
+      }
       const eventTitleRaw = order.events?.title || "Evento Evokaa";
       const recipientName = escapeHtml(order.customer_name || "Participante");
       const eventTitle = escapeHtml(eventTitleRaw);
@@ -727,7 +772,7 @@ serve(async (req) => {
       } else if (emailType === "ticket_delivery") {
         mailSubject = `Seus Ingressos Chegaram! — ${eventTitleRaw}`;
         const paginas = ingressosParaPdf(order, tickets).slice(0, 50); // só ingresso ativo; teto de 50 páginas
-        if (paginas.length === 0) return json({ error: "Este pedido não tem ingresso ativo." }, 404);
+        if (paginas.length === 0) { await soltarProdutor(); return json({ error: "Este pedido não tem ingresso ativo." }, 404); }
         mailHtml = getTicketDeliveryHtml(recipientName, eventTitle, paginas.length, venueName, eventDate, eventTime);
         // btoa em pedaços: spread de um PDF inteiro estoura a pilha.
         const bytes = await gerarPdf(paginas);
@@ -739,14 +784,13 @@ serve(async (req) => {
       }
 
       // Reserva o registro ANTES de enviar (conta no limite mesmo com o envio ainda em andamento); sem a tabela, não reserva.
-      const { data: reserva } = await supabaseAdmin
-        .from("email_logs")
-        .insert({ order_id: orderId, email_type: emailType, recipient: recipientEmail, status: "pending" })
-        .select("id")
-        .maybeSingle();
+      // (o produtor já reservou lá em cima: aqui só grava o destinatário)
+      const { data: reserva } = reservaProdutor
+        ? (await supabaseAdmin.from("email_logs").update({ recipient: recipientEmail }).eq("id", reservaProdutor), { data: { id: reservaProdutor } })
+        : await supabaseAdmin.from("email_logs").insert({ order_id: orderId, email_type: tipoLog, recipient: recipientEmail, status: "pending" }).select("id").maybeSingle();
       const fechar = (campos: Record<string, unknown>) => reserva?.id
         ? supabaseAdmin.from("email_logs").update(campos).eq("id", reserva.id)
-        : supabaseAdmin.from("email_logs").insert({ order_id: orderId, email_type: emailType, recipient: recipientEmail, ...campos });
+        : supabaseAdmin.from("email_logs").insert({ order_id: orderId, email_type: tipoLog, recipient: recipientEmail, ...campos });
 
       try {
         const mailRes = await sendMail(recipientEmail, mailSubject, mailHtml, from, mailAttachments);
