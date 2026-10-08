@@ -14,7 +14,7 @@ import BarraPaleta from './BarraPaleta'
 import SeletorTemplates from './SeletorTemplates'
 import { comSecao, criarNo, destinoDe, formaDe, ITENS } from './paleta'
 import { aplicarTemplate, type Template } from './templates'
-import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, acrescentarPecas } from './regras'
+import { encaixarNaSala, decidirApagar, decidirTemplate, proximoRotulo, rotuloDaCopia, lotesDe, metricas, nomeUnico, alvoDesfazer, vendidosComPrecoAntigo, buscarNo, statusEditavel, alternarStatus, lerImportacao, MAX_IMPORTAR, novoPavimento, apagarPavimento, definirPreco, ligarIngresso, apagarLote, acrescentarPecas, resumoVenda } from './regras'
 import { useIngressos } from './usarIngressos'
 import PrecoLote from './PrecoLote'
 import PlantaFundo, { FaixaPlanta, usarImagem, type ModoPlanta } from './PlantaFundo'
@@ -120,7 +120,7 @@ const reais = (n: number) => `R$ ${n.toLocaleString('pt-BR')}`
 export default function EditorKonva() {
   const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
   const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
-  const { envs, setEnvs, fundo, setFundo, pronto, erroMapa, sujo, salvar } = useMapa(eventId)
+  const { envs, setEnvs, fundo, setFundo, visivel, setVisivel, pronto, erroMapa, sujo, salvar } = useMapa(eventId)
   const [ativo, setAtivo] = useState(0)
   const env = envs[ativo] || envs[0]
   const ppm = env.pixelsPerMeter || 40
@@ -251,6 +251,13 @@ export default function EditorKonva() {
     mudar(() => r.env)
     leitor.descartar(); setLeitorAberto(false); setSel(null); setReenquadrar(v => v + 1)
     toast.success(`${r.ids.length} peças aplicadas. Ctrl+Z desfaz tudo de uma vez.${foraNovos ? ` ${foraNovos} ficaram fora da sala: use o aviso vermelho "fora da sala" para trazê-las.` : ''}`)
+  }
+  const venda = useMemo(() => resumoVenda(envs), [envs])
+  // Nunca liga sozinho: só pelo clique do produtor, e só vale ao Salvar
+  const alternarVisivel = () => {
+    setVisivel(!visivel)
+    if (!visivel) toast.warning('Com o mapa ligado o comprador escolhe o lugar, que fica reservado por 10 minutos. Mudar ou apagar um lugar já vendido não altera o ingresso emitido. Clique em Salvar para valer.', { duration: 9000 })
+    else toast.info('Mapa desligado: clique em Salvar para o comprador deixar de ver.')
   }
   const apagar = () => {
     if (!sel) return
@@ -550,6 +557,17 @@ export default function EditorKonva() {
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={encaixar} onChange={e => setEncaixar(e.target.checked)} /> Encaixar em 0,25 m</label>
         <label className="flex items-center gap-1 text-xs"><input type="checkbox" checked={grade} onChange={e => setGrade(e.target.checked)} /> Grade</label>
         <Button size="sm" className="max-lg:h-10" onClick={() => salvar(ativo)} disabled={!pronto}>Salvar</Button>
+        <Button size="sm" variant={visivel ? 'default' : 'outline'} className="max-lg:h-10" aria-pressed={visivel} disabled={!pronto} onClick={alternarVisivel}>
+          {visivel ? 'Mapa visível para compradores' : 'Mostrar mapa para compradores'}
+        </Button>
+        {pronto && (
+          <span role="status" className="w-full text-xs text-muted-foreground">
+            {visivel ? 'Ligado: o comprador escolhe o lugar no checkout e ele fica reservado por 10 minutos.' : 'Desligado: o comprador não vê o mapa.'} Vale ao clicar em Salvar.
+            {visivel && venda.vendaveis === 0 && <strong className="block text-destructive">Nenhum lugar será vendável: ligue um ingresso a um lote com assentos ou mesas livres.</strong>}
+            {visivel && venda.semIngresso > 0 && <strong className="block text-destructive">{venda.semIngresso} assento(s) ou mesa(s) estão em lote sem ingresso ligado e não serão vendidos.</strong>}
+            {visivel && venda.foraDoPrimeiro > 0 && <strong className="block text-destructive">{venda.foraDoPrimeiro} lugar(es) vendável(is) estão fora do primeiro pavimento; o checkout só mostra o primeiro.</strong>}
+          </span>
+        )}
         {erroMapa && <span className="text-xs text-destructive">Não consegui ler o mapa: Salvar bloqueado. Recarregue a página.</span>}
         {sujo && <span className="text-xs text-muted-foreground">Alterações não salvas</span>}
       </header>
@@ -708,7 +726,7 @@ export default function EditorKonva() {
                   <option value="">Não vende (sem ingresso ligado)</option>
                   {!ingressosLidos && sec.ticketTypeId && <option value={sec.ticketTypeId}>Ingresso ligado (lista ainda não carregada)</option>}
                   {ingressosLidos && sec.ticketTypeId && !ingressos.some(t => t.id === sec.ticketTypeId) && <option value={sec.ticketTypeId}>Ingresso indisponível (inativo, coletiva ou removido)</option>}
-                  {ingressos.map(t => <option key={t.id} value={t.id}>{t.name} ({reais(t.price)})</option>)}
+                  {ingressos.map(t => <option key={t.id} value={t.id}>{t.name} ({reais(t.price)}) · até {t.max} por pedido</option>)}
                 </select>
               </label>
               <div className="text-xs text-muted-foreground">Preço (R$)
@@ -725,6 +743,12 @@ export default function EditorKonva() {
           <h2 className="text-xs font-semibold uppercase text-muted-foreground">Elemento</h2>
           {noSel ? (
             <>
+              {(() => {
+                // a mesa vende todas as cadeiras num pedido só: acima do máximo por pedido do ingresso, ninguém consegue comprar
+                const t = ingressos.find(i => i.id === lotes.find(l => l.id === noSel.sectionId)?.ticketTypeId)
+                const n = noSel.type === 'table' ? noSel.seatsCount || noSel.capacity : 0
+                return t && n > t.max ? <p role="alert" className="text-xs text-destructive">Esta mesa tem {n} cadeiras e o ingresso "{t.name}" permite {t.max} por pedido: ela não poderá ser comprada. Reduza as cadeiras ou aumente o máximo por pedido.</p> : null
+              })()}
               <p className="text-xs">{typeLabels[noSel.type] || String(noSel.type)}{noSel.locked ? ' (travado)' : ''} · {fmtM(medidas(noSel).w)} x {fmtM(medidas(noSel).h)} m{fora.has(noSel.id) ? ' · fora da sala' : ''}</p>
               <input
                 type="text" aria-label="Nome do elemento" value={noSel.label} disabled={noSel.locked}

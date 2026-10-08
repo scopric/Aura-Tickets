@@ -13,7 +13,8 @@ export function useMapa(eventId: string | null) {
   const [pronto, setPronto] = useState(false)
   const [erroMapa, setErroMapa] = useState(false)
   const [fundo, setFundoEstado] = useState<Fundo | null>(null)
-  const [salvo, setSalvo] = useState<{ e: string; f: Fundo | null } | null>(null) // pavimentos serializados + a planta por referência (não serializa o base64 a cada edição)
+  const [visivel, setVisivel] = useState(false) // seating_maps.is_active: o comprador só vê o mapa se o produtor ligar; grava junto com Salvar
+  const [salvo, setSalvo] = useState<{ e: string; f: Fundo | null; v: boolean } | null>(null) // pavimentos serializados + a planta por referência (não serializa o base64 a cada edição)
   const config = useRef<Config>({})
   const eventIdRef = useRef(eventId)
   eventIdRef.current = eventId
@@ -24,6 +25,7 @@ export function useMapa(eventId: string | null) {
     setPronto(false)
     setErroMapa(false)
     setSalvo(null)
+    setVisivel(false)
     setEnvs(iniciais)
     setFundoEstado(null)
     config.current = {}
@@ -42,11 +44,13 @@ export function useMapa(eventId: string | null) {
         const lidos = normalizarEnvs(data.environments as Environment[])
         if (data.config && typeof data.config === 'object') config.current = data.config as Config
         const f = lerFundo(config.current.background)
+        const v = data.is_active === true
+        setVisivel(v)
         setEnvs(lidos)
         setFundoEstado(f)
-        setSalvo({ e: JSON.stringify(lidos), f })
+        setSalvo({ e: JSON.stringify(lidos), f, v })
       } else {
-        setSalvo({ e: JSON.stringify(iniciais), f: null })
+        setSalvo({ e: JSON.stringify(iniciais), f: null, v: false })
       }
       setPronto(true)
     })()
@@ -55,7 +59,7 @@ export function useMapa(eventId: string | null) {
 
   // Tirar a planta também apaga a que veio do banco (mesmo a inválida, que o editor não exibe)
   const setFundo = (f: Fundo | null) => { if (!f) config.current = { ...config.current, background: null }; setFundoEstado(f) }
-  const sujo = useMemo(() => pronto && salvo !== null && (fundo !== salvo.f || JSON.stringify(envs) !== salvo.e), [pronto, salvo, envs, fundo])
+  const sujo = useMemo(() => pronto && salvo !== null && (fundo !== salvo.f || visivel !== salvo.v || JSON.stringify(envs) !== salvo.e), [pronto, salvo, envs, fundo, visivel])
 
   const salvar = async (ativo: number) => {
     if (!eventId || !pronto) {
@@ -71,15 +75,16 @@ export function useMapa(eventId: string | null) {
         name: envs[ativo]?.name || 'Principal',
         config: { zoom: c.zoom, pan: c.pan, background: fundo ?? c.background ?? null },
         environments: envs,
+        is_active: visivel, // o valor lido (ou o que o produtor escolheu): salvar sem mexer no interruptor nunca desliga o mapa
       }, { onConflict: 'event_id' })
     if (error) {
       toast.error(`Não foi possível salvar o mapa: ${error.message}`, { duration: 6500 })
     } else {
       // Se trocou de evento durante o salvamento, o "salvo" já é de outro mapa: não mexe nele
-      if (evento === eventIdRef.current) setSalvo({ e: JSON.stringify(envs), f: fundo })
+      if (evento === eventIdRef.current) setSalvo({ e: JSON.stringify(envs), f: fundo, v: visivel })
       toast.success('Mapa de assentos salvo!')
     }
   }
 
-  return { envs, setEnvs, fundo, setFundo, pronto, erroMapa, sujo, salvar }
+  return { envs, setEnvs, fundo, setFundo, visivel, setVisivel, pronto, erroMapa, sujo, salvar }
 }

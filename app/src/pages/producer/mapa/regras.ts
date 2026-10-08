@@ -150,6 +150,20 @@ export function apagarLote(env: Environment, id: string): { env: Environment; de
   return { env: { ...apagado, sections: apagado.sections.filter(x => x.id !== id) }, destino: destino.name }
 }
 
+// Venda por lugar no checkout (reservar_assentos): só seat/table livre cujo lote tem ingresso ligado é vendável.
+// `foraDoPrimeiro`: o checkout só mostra o primeiro pavimento (environments[0]), embora o banco aceite todos.
+export function resumoVenda(envs: Environment[]) {
+  let vendaveis = 0, semIngresso = 0, foraDoPrimeiro = 0
+  envs.forEach((env, i) => {
+    for (const n of env.seats || []) {
+      if ((n.type !== 'seat' && n.type !== 'table') || (n.status ?? 'free') !== 'free') continue
+      const sec = (env.sections || []).find(x => x.id === n.sectionId)
+      if (sec?.ticketTypeId) { vendaveis++; if (i > 0) foraDoPrimeiro++ } else if (n.sectionId !== ESTRUTURA.id) semIngresso++
+    }
+  })
+  return { vendaveis, semIngresso, foraDoPrimeiro }
+}
+
 // ---- Rodapé: mesmas fórmulas do editor antigo, sobre o pavimento ativo ----
 export function metricas(env: Environment) {
   const nos = env.seats || []
