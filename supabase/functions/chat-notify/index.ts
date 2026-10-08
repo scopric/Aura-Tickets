@@ -66,7 +66,7 @@ function emailShell(title: string, intro: string, body: string, ctaLabel: string
             <a href="${ctaHref}" style="background-color: ${colors.marca}; color: #FFFFFF; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; font-size: 15px;">${ctaLabel}</a>
           </div>
         </div>
-        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: ${colors.textMuted}; font-size: 12px;">
+        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: #5B6577; font-size: 12px;">
           <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
           <p style="margin: 5px 0 0 0; ">Dúvidas? contato@evokaa.com.br</p>
         </div>

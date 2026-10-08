@@ -146,7 +146,7 @@ function getOrderConfirmationHtml(recipientName: string, eventTitle: string, ord
 
           <p style="font-size: 13px; color: ${colors.textMuted}; text-align: center; line-height: 1.5;">Os ingressos em formato digital com QR Code foram enviados em um e-mail separado. Você também poderá acessá-los a qualquer momento pelo nosso app.</p>
         </div>
-        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: ${colors.textMuted}; font-size: 12px;">
+        <div style="background-color: ${colors.rodape}; border-top: 1px solid rgba(0,0,0,0.06); padding: 20px; text-align: center; color: #5B6577; font-size: 12px;">
           <p style="margin: 0;">Evokaa — Gestão de Eventos e Ingressos</p>
           <p style="margin: 5px 0 0 0; ">Dúvidas ou suporte? Entre em contato pelo e-mail contato@evokaa.com.br</p>
         </div>
