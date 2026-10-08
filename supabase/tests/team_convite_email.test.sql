@@ -3,7 +3,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(40);
+select plan(43);
 
 create function pg_temp.como(p_role text, p uuid default null, p_aal text default 'aal2') returns void
 language plpgsql as $f$
@@ -147,6 +147,23 @@ select is((select count(*)::int from public.team_convite_email_reservar() where 
 select pg_temp.como('postgres');
 select is((select array_agg(producer_id::text order by producer_id) from public.team_convite_email where user_id = 'f4000000-0000-4000-8000-000000000006'),
   array['f4000000-0000-4000-8000-0000000000a5'], 'controle de 31 dias apagado; o de 29 dias fica');
+
+-- nome no e-mail: empresa das configurações; sem empresa, o nome; sem os dois, o texto padrão
+select pg_temp.como('postgres');
+insert into public.producer_profiles (id, company_name) values ('f4000000-0000-4000-8000-000000000001', '  Studio 54  ');
+update public.team_convite_email set reservado_em = now() - interval '8 days' where producer_id = 'f4000000-0000-4000-8000-000000000001';
+select pg_temp.como('authenticated', 'f4000000-0000-4000-8000-000000000001');
+select is((select array_agg(distinct produtor) from public.team_convite_email_reservar()), array['Studio 54'], 'com empresa: vem a empresa (aparada)');
+select pg_temp.como('postgres');
+update public.producer_profiles set company_name = '   ' where id = 'f4000000-0000-4000-8000-000000000001';
+update public.team_convite_email set reservado_em = now() - interval '8 days' where producer_id = 'f4000000-0000-4000-8000-000000000001';
+select pg_temp.como('authenticated', 'f4000000-0000-4000-8000-000000000001');
+select is((select array_agg(distinct produtor) from public.team_convite_email_reservar()), array['Ana <b>Prod</b>'], 'empresa em branco: vem o nome do perfil');
+select pg_temp.como('postgres');
+update public.profiles set full_name = '' where id = 'f4000000-0000-4000-8000-000000000001';
+update public.team_convite_email set reservado_em = now() - interval '8 days' where producer_id = 'f4000000-0000-4000-8000-000000000001';
+select pg_temp.como('authenticated', 'f4000000-0000-4000-8000-000000000001');
+select is((select array_agg(distinct produtor) from public.team_convite_email_reservar()), array['Um produtor da Evokaa'], 'sem empresa e sem nome: texto padrão');
 
 select * from finish();
 rollback;
