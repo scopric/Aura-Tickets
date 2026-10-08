@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useTourLog } from '../../hooks/useTourLog'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { brl } from '../../lib/taxa'
-import { vendasPagas, type VendasPagas } from '../../lib/vendasPagas'
+import { vendasPagas, faltaSegundoFator, janelaDoPeriodo, intervaloLivre, type VendasPagas } from '../../lib/vendasPagas'
 import { siteUrl } from '../../lib/appHost'
 import { refDoEvento, situacaoEvento } from '../../lib/eventoProdutor'
 import { soltarConfete } from '../../lib/confete'
@@ -72,6 +72,32 @@ export default function ProducerDashboard() {
   const mudaPeriodo = (v: string) => setBusca((prev: URLSearchParams) => { const n = new URLSearchParams(prev); n.set('periodo', v); return n }, { replace: true })
 
   const eventosQ = useProducerEvents()
+
+  // (284) intervalo livre de datas e filtro por evento: soma exata no banco, à parte do gráfico (que segue o período)
+  const [de, setDe] = useState('')
+  const [ate, setAte] = useState('')
+  const [filtroEvento, setFiltroEvento] = useState('')
+  const intervalo = intervaloLivre(de, ate)
+  const erroIntervalo = 'erro' in intervalo ? intervalo.erro : null
+  const filtrando = !!(de || ate || filtroEvento)
+  const filtroQ = useQuery({
+    queryKey: ['producer-inicio-filtro', user?.id, de, ate, filtroEvento],
+    enabled: !!user?.id && filtrando && !erroIntervalo,
+    retry: 1,
+    queryFn: () => comLimite(sinal => vendasPagas({ ...(intervalo as { de: string | null; ate: string | null }), eventId: filtroEvento || null }, sinal)),
+  })
+
+  // (282) total do período exato, feito no banco; se falhar, a tela cai na soma parcial
+  const exatoQ = useQuery({
+    queryKey: ['producer-inicio-exato', user?.id, periodo],
+    enabled: !!user?.id,
+    retry: 1,
+    staleTime: 60000,
+    queryFn: () => comLimite(sinal => vendasPagas({ de: janelaDoPeriodo(periodo).de }, sinal)),
+  })
+
+  // (L6) zero vendas pode ser só 2FA não concluído (o banco devolve zero sem erro)
+  const fatorQ = useQuery({ queryKey: ['producer-inicio-2fa', user?.id], enabled: !!user?.id, queryFn: faltaSegundoFator })
 
   // Decisão 157.1: confete no 1º evento aprovado, uma vez por conta (registro no banco; o ref cobre StrictMode e re-render
   // enquanto o registro otimista não chega). Com "reduzir movimento" não desenha, mas o registro é gravado igual.
@@ -266,7 +292,9 @@ export default function ProducerDashboard() {
   // ---- Vendas do período ----
   const primeira = v ? Math.min(v.pedidos.at(-1)?.t ?? Infinity, v.ingressos.at(-1)?.t ?? Infinity) : undefined
   const { atual, anterior } = janelas(periodo, agora, Number.isFinite(primeira) ? primeira : undefined)
-  const rec = resumoDe(v?.pedidos ?? [], v?.pedidosCortado ?? false, atual, anterior, agora)
+  const recLocal = resumoDe(v?.pedidos ?? [], v?.pedidosCortado ?? false, atual, anterior, agora)
+  // total exato do banco vale mais que a soma cortada em 1.000 linhas; a variação (que usa a soma local) segue nula se ela foi parcial
+  const rec = exatoQ.data ? { ...recLocal, valor: Number(exatoQ.data.total) || 0, parcial: false } : recLocal
   const ing = resumoDe(v?.ingressos ?? [], v?.ingressosCortado ?? false, atual, anterior, agora)
   const ticketMedio = !rec.parcial && !ing.parcial && ing.valor > 0 && rec.valor > 0 ? rec.valor / ing.valor : null
   const ativo = metrica === 'receita' ? rec : ing
@@ -414,7 +442,38 @@ export default function ProducerDashboard() {
   return (
     <div>
       {cabecalho(true)}
+      {fatorQ.data && (
+        <div role="alert" className="mb-6 rounded-[10px] border border-border bg-card p-4">
+          <p className="text-sm font-medium text-foreground">Confirme o 2FA para ver suas vendas</p>
+          <p className="mt-1 text-sm text-muted-foreground">Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os pedidos, e o zero seria falso.</p>
+        </div>
+      )}
       {checklist}
+      <section aria-label="Filtro de vendas" className="mb-6 rounded-[10px] border border-border bg-card p-4">
+        <div className="flex flex-wrap items-end gap-3 text-sm">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">De
+            <input type="date" value={de} onChange={e => setDe(e.target.value)} className="min-h-11 rounded-md border border-input bg-background px-2 text-sm text-foreground" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">Até
+            <input type="date" value={ate} onChange={e => setAte(e.target.value)} className="min-h-11 rounded-md border border-input bg-background px-2 text-sm text-foreground" />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">Evento
+            <select value={filtroEvento} onChange={e => setFiltroEvento(e.target.value)} className="min-h-11 rounded-md border border-input bg-background px-2 text-sm text-foreground">
+              <option value="">Todos os eventos</option>
+              {eventos.map(e => <option key={e.id} value={e.id}>{e.title}</option>)}
+            </select>
+          </label>
+          {filtrando && <Button variant="ghost" size="sm" className="min-h-11" onClick={() => { setDe(''); setAte(''); setFiltroEvento('') }}>Limpar filtro</Button>}
+        </div>
+        {erroIntervalo && <p role="alert" className="mt-3 text-sm text-destructive">{erroIntervalo}</p>}
+        {filtrando && !erroIntervalo && (
+          <p role="status" className="mt-3 text-sm text-foreground">
+            {filtroQ.isPending ? 'Calculando…' : filtroQ.isError ? 'Não deu para calcular agora.' : (
+              <>Receita bruta no filtro: <strong className="font-display tabular-nums">{brl(Number(filtroQ.data.total) || 0)}</strong> em {filtroQ.data.pedidos} {filtroQ.data.pedidos === 1 ? 'pedido pago' : 'pedidos pagos'}</>
+            )}
+          </p>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
         {painelVendas}

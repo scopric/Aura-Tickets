@@ -20,6 +20,15 @@ export function janelaDoPeriodo(p: Periodo, agora = Date.now()): { de: string | 
   return { de: new Date(`${dia}T00:00:00-03:00`).toISOString(), ate: null }
 }
 
+/** Intervalo livre (datas AAAA-MM-DD do <input type="date">, "até" inclusivo) em ISO [de, ate), meia-noite de Brasília. Data inválida ou "de" depois de "até": { erro }. */
+export function intervaloLivre(de: string, ate: string): { de: string | null; ate: string | null } | { erro: string } {
+  const ms = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? Date.parse(`${d}T00:00:00-03:00`) : NaN)
+  const [a, b] = [de ? ms(de) : null, ate ? ms(ate) : null]
+  if (Number.isNaN(a) || Number.isNaN(b)) return { erro: 'Data inválida. Use o seletor de datas.' }
+  if (a != null && b != null && a > b) return { erro: 'A data inicial não pode ser depois da final.' }
+  return { de: a == null ? null : new Date(a).toISOString(), ate: b == null ? null : new Date(b + 86400000).toISOString() }
+}
+
 export async function vendasPagas(f: { de?: string | null; ate?: string | null; eventId?: string | null }, sinal?: AbortSignal): Promise<VendasPagas> {
   let q = supabase.rpc('produtor_vendas_pagas' as never, { p_de: f.de ?? null, p_ate: f.ate ?? null, p_event_id: f.eventId ?? null } as never)
   if (sinal) q = q.abortSignal(sinal)
