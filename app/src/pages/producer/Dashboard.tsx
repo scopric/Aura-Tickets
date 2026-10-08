@@ -258,7 +258,7 @@ export default function ProducerDashboard() {
 
   const rodape = (
     <div className="mt-10 flex justify-end gap-2 border-t border-border pt-3">
-      <Button asChild variant="ghost" size="sm"><Link to="/producer/central">Dashboards</Link></Button>
+      <Button asChild variant="ghost" size="sm" className="min-h-11"><Link to="/producer/central">Dashboards</Link></Button>
       <Button asChild variant="ghost" size="sm"><Link to="/producer/dashboard?tour=inicio">Ver tour desta tela</Link></Button>
     </div>
   )
