@@ -5,7 +5,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(74);
+select plan(88);
 
 create function pg_temp.como(p_role text, p uuid default null) returns void
 language plpgsql as $f$
@@ -312,6 +312,58 @@ insert into public.ticket_types (id, event_id, name, price, quantity_total, type
 select results_eq($$select permite_meia from public.ticket_types where id in ('fd000000-0000-4000-8000-0000000000b3', 'fd000000-0000-4000-8000-0000000000be') order by id$$,
   $$values (false), (false)$$, 'gatilho: mesa fica permite_meia=false no UPDATE e no INSERT');
 select is((select j->>'total' from pg_temp.res where k = 'misto'), '151.80', 'retorno arredondado em 2 casas');
+
+-- 13. CPF preso à conta (decisão do Ricardo) e admin_limpar_cpf_compra
+create function pg_temp.cpf_valido(n int) returns text language plpgsql as $f$
+declare d text := lpad(n::text, 9, '0'); s int; i int; d1 int; d2 int;
+begin
+  s := 0; for i in 1..9 loop s := s + substr(d, i, 1)::int * (11 - i); end loop; d1 := (s * 10) % 11 % 10;
+  s := 0; for i in 1..9 loop s := s + substr(d, i, 1)::int * (12 - i); end loop; s := s + d1 * 2; d2 := (s * 10) % 11 % 10;
+  return d || d1 || d2;
+end $f$;
+grant execute on function pg_temp.cpf_valido(int) to authenticated;
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000002');
+insert into pg_temp.res select 'prende', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, '111.444.777-35');
+select pg_temp.como('postgres');
+select results_eq($$select j->>'ok', (select length(cpf_compra_hmac) from public.profiles where id = 'fd000000-0000-4000-8000-000000000002') from pg_temp.res where k = 'prende'$$,
+  $$values ('true'::text, 64)$$, 'CPF: o primeiro uso trava (só hash de 64 caracteres) na mesma reserva');
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000002');
+insert into pg_temp.res select 'outro', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, '52998224725');
+select results_eq($$select j->>'ok', j->>'motivo', j->>'mensagem' from pg_temp.res where k = 'outro'$$,
+  $$values ('false'::text, 'cpf_da_conta'::text, 'Use o CPF já vinculado à sua conta (se estiver errado, fale com o suporte)'::text)$$,
+  'CPF: outro CPF na conta travada é recusado sem dizer qual é o da conta');
+select lives_ok($$insert into pg_temp.res select 'mesmo', public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+  '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, '11144477735')$$, 'CPF: o mesmo CPF (sem máscara) passa');
+select is((select j->>'ok' from pg_temp.res where k = 'mesmo'), 'true', 'CPF: a reserva com o CPF da conta foi criada');
+-- sondagem: CPFs de terceiros (inclusive um que já comprou, 529.982.247-25) dão respostas idênticas
+do $$ begin
+  for i in 1..9 loop
+    insert into pg_temp.res select 'sond' || i, public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1',
+      '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, case when i = 1 then '52998224725' else pg_temp.cpf_valido(100000000 + i) end);
+  end loop;
+end $$;
+select is((select count(distinct j)::int from pg_temp.res where k like 'sond%' or k = 'outro'), 1, 'CPF: 10 CPFs de terceiros (um deles já comprou) = respostas 100% idênticas');
+select throws_ok($$select public.reservar_ingressos('fd000000-0000-4000-8000-0000000000e1', '[{"ticket_type_id":"fd000000-0000-4000-8000-0000000000b8","quantidade":1}]', null, '39053344705')$$,
+  '22023', 'Muitas tentativas. Tente de novo mais tarde.', 'CPF: a 11ª sonda da hora é bloqueada');
+-- a coluna não vaza
+select is((select count(*)::int from information_schema.column_privileges where table_name = 'profiles' and column_name = 'cpf_compra_hmac' and grantee in ('anon', 'authenticated') and privilege_type in ('SELECT', 'INSERT', 'UPDATE')), 0,
+  'cpf_compra_hmac sem SELECT, INSERT e UPDATE para anon/authenticated');
+select throws_ok($$select cpf_compra_hmac from public.profiles$$, '42501', 'permission denied for table profiles', 'authenticated não lê cpf_compra_hmac');
+select throws_ok($$update public.profiles set cpf_compra_hmac = null where id = 'fd000000-0000-4000-8000-000000000002'$$, '42501', 'permission denied for table profiles', 'authenticated não zera cpf_compra_hmac');
+select lives_ok($$update public.profiles set full_name = 'Comprador 2' where id = 'fd000000-0000-4000-8000-000000000002'$$, 'authenticated continua editando o próprio perfil');
+select pg_temp.como('anon');
+select throws_ok($$select cpf_compra_hmac from public.profiles$$, '42501', 'permission denied for table profiles', 'anon não lê cpf_compra_hmac');
+-- suporte destrava
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000002');
+select throws_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, '42501', 'Sem permissão', 'não-admin não destrava');
+select pg_temp.como('postgres');
+update public.profiles set role = 'admin' where id = 'fd000000-0000-4000-8000-000000000004';
+select pg_temp.como('authenticated', 'fd000000-0000-4000-8000-000000000004');
+select lives_ok($$select public.admin_limpar_cpf_compra('fd000000-0000-4000-8000-000000000002')$$, 'admin (com MFA) destrava a conta');
+select pg_temp.como('postgres');
+select is((select cpf_compra_hmac from public.profiles where id = 'fd000000-0000-4000-8000-000000000002'), null, 'cpf_compra_hmac zerado pelo suporte');
 
 select * from finish();
 rollback;

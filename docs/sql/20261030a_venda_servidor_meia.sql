@@ -5,9 +5,15 @@
 -- não consegue mais gravar pedido com cupom, desconto ou reserva (RESTRICTIVE); (3) tipo pago sem max_per_order passa a ter
 -- teto de 10 por pedido (fora lugar marcado). ORDEM: o Ricardo aplica o A -> o front novo é publicado LOGO em seguida -> o B
 -- (20261030b_fechar_insert_navegador.sql) só depois. Produção hoje: 0 ingressos emitidos e 1 pedido, a janela é aceitável.
--- DECISÃO PENDENTE DO RICARDO: prender o CPF à conta (hoje a conta informa o CPF a cada compra; a recusa por limite de CPF e a
--- de cupom inválido viram retorno {ok:false,...} e contam tentativa em tentativas_reserva, mas prender o CPF à conta fecha o
--- oráculo de vez). Mudanças:
+-- CPF PRESO À CONTA (decisão do Ricardo): profiles.cpf_compra_hmac (só hash, nunca o CPF). Em reservar_ingressos, se algum tipo
+-- do pedido tem max_por_cpf, p_cpf é obrigatório e válido; sem hash na conta, o primeiro uso grava pr7_hmac(p_cpf) na mesma
+-- transação da reserva (se a reserva falhar, nada fica preso); com hash, p_cpf precisa bater, senão {ok:false,
+-- motivo:'cpf_da_conta'} com mensagem fixa que não diz qual é o CPF. A conferência da conta vem ANTES de qualquer consulta a
+-- orders por CPF, então uma conta travada só consegue testar o CPF dela. O suporte destrava com admin_limpar_cpf_compra(uid).
+-- Risco que resta: quem cria contas novas prende um CPF de terceiro em cada uma (1 sonda por conta); o limite por IP/Edge
+-- Function continua pendente (20261028). A coluna não é lida nem escrita por anon/authenticated; a anonimização da conta
+-- (pr7_anonimizar_pii, 20261007) AINDA NÃO zera a coluna: falta `update public.profiles set cpf_compra_hmac = null`
+-- nela (não recriada aqui). Mudanças:
 -- 1. Colunas: ticket_types.permite_meia (padrão true; UPDATE para authenticated: o produtor liga e desliga); order_items.beneficio
 --    ('inteira'|'meia'), meia_tipo, taxa_unit; orders.reservado_ate. tickets NÃO ganha coluna: a portaria lê o benefício por
 --    order_item_id. Tabela beneficios_uf (benefício estadual por UF), vazia, RLS ligada, SELECT para anon.
@@ -57,6 +63,8 @@
 --    10 tentativas falhas na última hora recebe "Muitas tentativas". Limite por CPF e "já comprou" têm o mesmo motivo
 --    'indisponivel'. Cupom: UNIQUE(code) e UNIQUE(upper(code)) já existem em coupons, então a busca por upper(code) é
 --    determinística; order by id limit 1 só por segurança.
+-- 11. CPF preso à conta e admin_limpar_cpf_compra (ver acima). Reaplicar 20261018b_admin_s4b_colunas.sql abortará (coluna nova
+--     em profiles fora das listas): classificar cpf_compra_hmac como RETIDA.
 -- 10. Gatilho ticket_types_sem_meia_mesa: mesa e coletiva sempre permite_meia=false (INSERT e UPDATE).
 --     UPDATE de tabela de authenticated e anon em orders e order_items é revogado (o front só lê; sem política de UPDATE nada
 --     mudava; grep em app/src confere).
@@ -144,6 +152,43 @@ create trigger ticket_types_sem_meia_mesa before insert or update of type, permi
 
 -- o front só lê orders e order_items (sem política de UPDATE nada mudava); fecha também o grant
 revoke update on table public.orders, public.order_items from anon, authenticated;
+
+alter table public.profiles add column if not exists cpf_compra_hmac text;
+-- Sem SELECT, INSERT e UPDATE para anon/authenticated. Se o papel tem o privilégio na TABELA inteira, troca por privilégio nas
+-- demais colunas (revoke de coluna não vale sobre grant de tabela); se já é por coluna (S4b), a coluna nova nasce sem grant.
+do $$
+declare r text; p text; c text;
+begin
+  select string_agg(quote_ident(a.attname), ', ') into c from pg_attribute a
+   where a.attrelid = 'public.profiles'::regclass and a.attnum > 0 and not a.attisdropped and a.attname <> 'cpf_compra_hmac';
+  foreach r in array array['anon', 'authenticated'] loop
+    foreach p in array array['select', 'insert', 'update'] loop
+      if has_table_privilege(r, 'public.profiles', p) then
+        execute format('revoke %s on table public.profiles from %I', p, r);
+        execute format('grant %s (%s) on public.profiles to %I', p, c, r);
+      end if;
+    end loop;
+  end loop;
+end $$;
+
+create or replace function public.admin_limpar_cpf_compra(p_uid uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not public.gf_is_admin() then
+    raise exception 'Sem permissão' using errcode = '42501';
+  end if;
+  update public.profiles set cpf_compra_hmac = null where id = p_uid;
+  if not found then
+    raise exception 'Conta não encontrada' using errcode = '22023';
+  end if;
+end;
+$$;
+revoke all on function public.admin_limpar_cpf_compra(uuid) from public, anon, authenticated;
+grant execute on function public.admin_limpar_cpf_compra(uuid) to authenticated;
 
 create table if not exists public.beneficios_uf (
   uf char(2) not null,
@@ -516,6 +561,9 @@ declare
   v_cpf boolean;
   v_motivo text;
   v_msg text;
+  v_dig text;
+  v_atual text;
+  v_h text;
 begin
   if v_uid is null or coalesce((auth.jwt() ->> 'is_anonymous')::boolean, false) then
     raise exception 'Entre na sua conta para comprar' using errcode = '42501';
@@ -590,6 +638,24 @@ begin
       into v_base, v_n_inteira, v_cpf
       from jsonb_to_recordset(p_itens) as x(ticket_type_id uuid, quantidade int, beneficio text, meia_tipo text)
       join public.ticket_types tt on tt.id = x.ticket_type_id;
+
+    -- CPF preso à conta: ANTES de qualquer consulta por CPF em orders (a conta travada só testa o CPF dela)
+    if v_cpf then
+      v_dig := regexp_replace(coalesce(p_cpf, ''), '\D', '', 'g');
+      if v_dig = '' then
+        raise exception 'Informe o CPF do comprador para este ingresso' using errcode = '22023';
+      end if;
+      if not public.gf_cpf_valido(v_dig) then
+        raise exception 'CPF inválido' using errcode = '22023';
+      end if;
+      v_h := encode(public.pr7_hmac(v_dig), 'hex');
+      select p.cpf_compra_hmac into v_atual from public.profiles p where p.id = v_uid for update;
+      if v_atual is null then
+        update public.profiles set cpf_compra_hmac = v_h where id = v_uid; -- primeiro uso trava (desfeito se a reserva falhar)
+      elsif v_atual <> v_h then
+        raise exception 'cpf' using errcode = 'EV002';
+      end if;
+    end if;
 
     -- cupom: qualquer recusa levanta o mesmo erro interno (EV001), sem dizer o motivo
     if btrim(coalesce(p_cupom, '')) <> '' then
@@ -667,6 +733,8 @@ begin
   exception
     when sqlstate 'EV001' then
       v_motivo := 'cupom_invalido';
+    when sqlstate 'EV002' then
+      v_motivo := 'cpf_da_conta';
     when sqlstate '22023' then
       get stacked diagnostics v_msg = message_text;
       if v_msg like 'Limite de % ingressos por CPF neste ingresso' then
@@ -679,6 +747,7 @@ begin
     insert into public.tentativas_reserva (user_id, motivo) values (v_uid, v_motivo);
     return jsonb_build_object('ok', false, 'motivo', v_motivo,
       'mensagem', case v_motivo when 'cupom_invalido' then 'Cupom inválido ou não se aplica a este pedido'
+                                when 'cpf_da_conta' then 'Use o CPF já vinculado à sua conta (se estiver errado, fale com o suporte)'
                                 else 'Não foi possível reservar este ingresso' end);
   end if;
 
@@ -747,6 +816,15 @@ begin
      or not (select relrowsecurity from pg_class where oid = 'public.tentativas_reserva'::regclass) then
     raise exception 'privilégios de pedido_do_navegador, tentativas_reserva ou UPDATE de orders/order_items fora do esperado';
   end if;
+  foreach r in array array['anon', 'authenticated'] loop
+    foreach f in array array['select', 'insert', 'update'] loop
+      if has_column_privilege(r, 'public.profiles', 'cpf_compra_hmac', f) then raise exception '% tem % em profiles.cpf_compra_hmac', r, f; end if;
+    end loop;
+  end loop;
+  if has_function_privilege('anon', 'public.admin_limpar_cpf_compra(uuid)', 'execute')
+     or not has_function_privilege('authenticated', 'public.admin_limpar_cpf_compra(uuid)', 'execute') then
+    raise exception 'EXECUTE de admin_limpar_cpf_compra fora do esperado';
+  end if;
   if not (select relrowsecurity from pg_class where oid = 'public.beneficios_uf'::regclass) then
     raise exception 'RLS desligada em beneficios_uf';
   end if;
@@ -778,6 +856,7 @@ commit;
 --   alter table public.orders drop column if exists reservado_ate;
 --   alter table public.order_items drop column if exists meia_tipo, drop column if exists taxa_unit, drop column if exists beneficio;
 --   alter table public.ticket_types drop column if exists permite_meia;
+--   drop function if exists public.admin_limpar_cpf_compra(uuid); alter table public.profiles drop column if exists cpf_compra_hmac;
 --   drop table if exists public.tentativas_reserva; drop function if exists public.pedido_do_navegador(uuid);
 --   drop trigger if exists ticket_types_sem_meia_mesa on public.ticket_types; drop function if exists public.ticket_types_sem_meia_mesa();
 --   grant update on table public.orders, public.order_items to authenticated;  -- só se o baseline antigo for desejado
