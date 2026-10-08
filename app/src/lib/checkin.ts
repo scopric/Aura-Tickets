@@ -8,10 +8,18 @@ export const EXEMPLO_CODIGO = '3f2504e0-4f89-41d3-9a0c-0305e82c3301'
 const CODIGO_CURTO = /^[0-9a-f]{8}-[0-9a-f]$/i
 export const codigoCurto = (s: string) => CODIGO_CURTO.test(s.trim())
 
-export const codigoCompleto = (s: string) => CODIGO_INGRESSO.test(s.trim())
+// QR dinâmico (Decisão 211): "E1." + id do ingresso sem hífens (32 hex) + "." + código de 8 caracteres base32. Muda a cada 30 s.
+const CODIGO_DINAMICO = /^E1\.([0-9a-f]{32})\.([A-Za-z2-7]{8})$/i
 
-// Leitor com Caps Lock manda maiúsculas e a busca no banco diferencia: o formato real é sempre minúsculo
-export const normalizarCodigo = (s: string) => (codigoCompleto(s) ? s.trim().toLowerCase() : s.trim())
+export const codigoCompleto = (s: string) => CODIGO_INGRESSO.test(s.trim()) || CODIGO_DINAMICO.test(s.trim())
+
+// Leitor com Caps Lock manda maiúsculas e a busca no banco diferencia: o uuid real é minúsculo; no dinâmico, o id é minúsculo e o código maiúsculo
+export function normalizarCodigo(s: string): string {
+  const t = s.trim()
+  if (CODIGO_INGRESSO.test(t)) return t.toLowerCase()
+  const d = CODIGO_DINAMICO.exec(t)
+  return d ? `E1.${d[1].toLowerCase()}.${d[2].toUpperCase()}` : t
+}
 
 export interface RespostaLeitura {
   http?: number // status da função; sem ele, a chamada nem chegou lá (rede)
@@ -38,7 +46,10 @@ export function motivoLeitura(r: RespostaLeitura): Leitura {
       ? { tom: 'erro', rotulo: '2FA pendente', mensagem: 'Confirme o código do 2FA: saia e entre de novo.', falha: true }
       : { tom: 'erro', rotulo: 'Sem permissão', mensagem: msg || 'Você não tem permissão para fazer check-in neste evento.', falha: true }
   }
+  if (r.http === 429) return { tom: 'aviso', rotulo: 'Leituras demais', mensagem: msg || 'Muitas leituras seguidas. Espere um instante.', falha: true }
+  if (r.http === 404 && /vencido/i.test(msg)) return { tom: 'erro', rotulo: 'QR vencido', mensagem: msg }
   if (r.http === 400 || r.http === 404) return { tom: 'erro', rotulo: 'Inválido', mensagem: msg || 'Ingresso não encontrado ou inválido para este evento' }
+  if (/código fixo não vale/i.test(msg)) return { tom: 'erro', rotulo: 'Use o QR do app', mensagem: msg }
   if (/já foi utilizado/i.test(msg)) {
     return { tom: 'aviso', rotulo: 'Já usado', mensagem: r.checkedInAt ? `Já usado às ${hora(r.checkedInAt)}` : 'Ingresso já foi utilizado' }
   }

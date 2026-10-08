@@ -3,6 +3,7 @@
 // Chamada: POST com o JWT do COMPRADOR, corpo { ticketId }. Só o dono do ingresso ativo, de pedido pago, recebe a lista.
 // Resposta 200: { servidorAgora, passo, primeiraJanela, prefixo, codigos } com os códigos das próximas 12 h (1.440). O navegador escolhe o código
 // da vez por (servidorAgora + tempo desde a resposta) e monta o QR como `prefixo + código`. O segredo mestre (INGRESSO_SEGREDO) NUNCA sai daqui.
+// Servir a lista pela primeira vez marca tickets.qr_dinamico_desde: o QR fixo daquele ingresso deixa de valer na portaria.
 // 400 corpo inválido; 401 sem login; 403 não é seu ou não está ativo; 500 sem segredo ou falha do banco.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.8'
 import { corsHeaders } from '../_shared/cors.ts'
@@ -61,6 +62,10 @@ async function tratar(req: Request): Promise<Response> {
   }
 
   const agora = Date.now()
+  // Primeira vez que este ingresso recebe códigos dinâmicos: a partir daqui o QR fixo dele deixa de valer na portaria (check-in-validate).
+  // Se a gravação falhar (ex.: SQL 20261031c ainda não aplicado), serve os códigos mesmo assim e registra: o QR fixo segue valendo, como hoje.
+  const { error: erroMarca } = await admin.from('tickets').update({ qr_dinamico_desde: new Date(agora).toISOString() }).eq('id', t.id).is('qr_dinamico_desde', null)
+  if (erroMarca) console.error('[ingresso-codigo] qr_dinamico_desde:', erroMarca.message)
   const chave = await chaveDoIngresso(segredo, t.id, t.transfer_count ?? 0)
   const { primeiraJanela, codigos } = await listaDeCodigos(chave, agora, QUANTAS)
   return json(200, { servidorAgora: agora, passo: PASSO_S, primeiraJanela, prefixo: prefixoDoQr(t.id), codigos })
