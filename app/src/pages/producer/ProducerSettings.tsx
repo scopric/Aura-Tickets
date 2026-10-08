@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import OrganizadorPublico from '@/components/producer/OrganizadorPublico'
+import LogoProdutor from '@/components/producer/LogoProdutor'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 
 type Section = 'perfil' | 'conta' | 'pagamento' | 'notificacoes' | 'organizador' | 'equipe'
@@ -319,7 +320,7 @@ export default function ProducerSettings() {
         </nav>
 
         <div className="min-w-0 flex-1">
-          {section === 'organizador' && <OrganizadorPublico />}
+          {section === 'organizador' && <><LogoProdutor /><OrganizadorPublico /></>}
 
           {/* PERFIL */}
           {section === 'perfil' && (
