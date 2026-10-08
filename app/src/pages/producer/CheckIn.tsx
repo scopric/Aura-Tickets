@@ -1,11 +1,13 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { Link, useSearchParams } from 'react-router-dom'
 import * as I from '@/components/icones/evokaa16'
-import { PageHeader, Stat, EmptyState, selectNativo } from '@/components/producer/ui'
+import { PageHeader, EmptyState, Erro, SectionTitle, selectNativo } from '@/components/producer/ui'
+import { CabecalhoEvento, EmBreve, KpiCard } from '@/components/producer/ui-evento'
+import LeitorCamera from '@/components/producer/LeitorCamera'
+import RitmoDeEntrada from '@/components/producer/RitmoDeEntrada'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Progress } from '@/components/ui/progress'
 import { Segmented } from '@/components/ui/toggle-group'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
@@ -14,7 +16,14 @@ import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
 import { useEventoDaUrl } from '../../hooks/useEventoDaUrl'
 import { useEventosDaEquipe } from '../../hooks/useEventosDaEquipe'
-import { codigoCompleto, codigoCurto, LEITURA_CODIGO_CURTO, motivoLeitura, normalizarCodigo, type Leitura } from '../../lib/checkin'
+import { downloadCsv, csvFilename, slugArquivo, toCsv } from '../../lib/exportCsv'
+import { faltaSegundoFator } from '../../lib/vendasPagas'
+import { situacaoEvento } from '../../lib/eventoProdutor'
+import { dataBR } from '../../lib/bordero'
+import {
+  codigoCompleto, codigoCurto, COLUNAS_CSV_CHECKIN, filtrarSituacao, LEITURA_CODIGO_CURTO, linhasCsvCheckin, motivoLeitura,
+  normalizarCodigo, ordenarPorEntrada, ritmoPorHora, ROTULO_SITUACAO, type FiltroSituacao, type Leitura,
+} from '../../lib/checkin'
 
 interface TicketCheck {
   id: string
@@ -23,6 +32,7 @@ interface TicketCheck {
   ticketCode: string
   status: 'pendente' | 'usado' | 'cancelado' | 'transferido'
   checkInTime: string | null
+  checkedInAt: string | null // ISO, para ordenar, o ritmo por hora e o CSV
   seat: string
   eventName: string
 }
@@ -53,7 +63,7 @@ const contagemEquipe = async (eventId: string) => {
 }
 const hora = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
-type EventoCheckIn = { id: string; title: string; status: string }
+type EventoCheckIn = { id: string; title: string; status: string; approval_status?: string | null; rejection_reason?: string | null; date?: string | null }
 
 // Dono do evento (/producer/checkin): os próprios eventos. Equipe da portaria (/equipe/checkin): useEventosDaEquipe.
 export default function ProducerCheckIn() {
@@ -71,8 +81,15 @@ export function EquipeCheckIn() {
 function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/producer/events', equipe = false }: { events?: EventoCheckIn[]; isEventsLoading: boolean; eventsError?: boolean; voltar?: string; equipe?: boolean }) {
 
   const [tickets, setTickets] = useState<TicketCheck[]>([])
-  const [isLoadingTickets, setIsLoadingTickets] = useState(false)
-  const [search, setSearch] = useState('')
+  // 'carregando' até a 1ª resposta do evento: sem ela os números seriam um "0" falso
+  const [carga, setCarga] = useState<'carregando' | 'ok' | 'erro'>('carregando')
+  const [search, setSearch] = useState('') // busca da Lista
+  const [codigo, setCodigo] = useState('') // campo de código da Leitura
+  const [situacao, setSituacao] = useState<FiltroSituacao>('todos')
+  const [ordem, setOrdem] = useState<'lista' | 'entrada'>('lista')
+  const [validando, setValidando] = useState(false) // a câmera não lê durante a chamada
+  const [tentativa, setTentativa] = useState(0) // refaz a carga (botão "Tentar de novo")
+  const [doisFatores, setDoisFatores] = useState<'?' | 'sim' | 'nao' | 'erro'>('?')
   const [mode, setMode] = useState<'scanner' | 'list'>('scanner')
   const [lastScan, setLastScan] = useState<{ ticket: TicketCheck; leitura: Leitura } | null>(null)
   const [contagem, setContagem] = useState({ total: 0, usados: 0, cancelados: 0, transferidos: 0 })
@@ -113,6 +130,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
       ticketCode: dbTicket.qr_code ?? '',
       status: checkStatus,
       checkInTime: dbTicket.checked_in_at ? hora(dbTicket.checked_in_at) : null,
+      checkedInAt: dbTicket.checked_in_at ?? null,
       seat: '-',
       eventName: dbTicket.events?.title || 'Evento'
     }
@@ -136,7 +154,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
   // silencioso = atualização automática (sem esqueleto nem aviso a cada falha).
   const loadTickets = async (eventId: string, silencioso = false) => {
     if (!eventId) return
-    if (!silencioso) setIsLoadingTickets(true)
+    if (!silencioso) setCarga('carregando')
     const versao = ++versaoLista.current
     try {
       if (equipe) {
@@ -144,6 +162,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
         if (eventoAtual.current !== eventId || versaoLista.current !== versao) return
         setTickets(linhas.map(mapDbTicketToTicketCheck))
         setContagem(contagemNova)
+        setCarga('ok')
         setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
         return
       }
@@ -163,12 +182,17 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
       if (eventoAtual.current !== eventId || versaoLista.current !== versao) return
       setTickets(lista.data.map(mapDbTicketToTicketCheck))
       setContagem(contagemNova)
+      setCarga('ok')
       setAtualizadoEm(new Date().toLocaleTimeString('pt-BR'))
     } catch (err: any) {
       console.error('Erro ao carregar ingressos:', err)
-      if (!silencioso) toast.error('Erro ao carregar ingressos da portaria')
+      if (!silencioso) {
+        toast.error('Erro ao carregar ingressos da portaria')
+        if (eventoAtual.current === eventId) setCarga('erro')
+      }
     } finally {
-      if (!silencioso && eventoAtual.current === eventId) setIsLoadingTickets(false)
+      // resposta descartada por uma leitura no meio da carga: sai do esqueleto (como antes), a próxima atualização completa
+      if (!silencioso && eventoAtual.current === eventId) setCarga(c => (c === 'carregando' ? 'ok' : c))
     }
   }
 
@@ -176,20 +200,33 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
     eventoAtual.current = selectedEventId
     if (!selectedEventId) return
     setLastScan(null) // o último ingresso lido é do evento anterior
+    setDoisFatores('?')
     loadTickets(selectedEventId)
     // ponytail: consulta a cada 20 s com a aba visível; canal Realtime se a latência importar
     const id = setInterval(() => { if (document.visibilityState === 'visible') loadTickets(selectedEventId, true) }, ATUALIZA_MS)
     return () => clearInterval(id)
-  }, [selectedEventId])
+  }, [selectedEventId, tentativa])
 
   const { total, usados: checked, cancelados: cancelled, transferidos } = contagem
   const pending = Math.max(0, total - checked - cancelled - transferidos)
   const noServidor = total > tickets.length
-  const progress = total > 0 ? (checked / total) * 100 : 0
+  const comparecimento = total > 0 ? Math.round((checked / total) * 100) : 0
+  const carregando = carga === 'carregando'
 
-  const filtered = tickets.filter(t =>
+  // zero em tudo pode ser sessão sem 2FA concluído (o banco devolve vazio, sem erro): nunca mostrar "0 ingressos" falso
+  const semDados = carga === 'ok' && total === 0 && tickets.length === 0
+  useEffect(() => {
+    if (!semDados) return
+    let vivo = true
+    faltaSegundoFator().then(f => vivo && setDoisFatores(f ? 'sim' : 'nao')).catch(() => vivo && setDoisFatores('erro'))
+    return () => { vivo = false }
+  }, [semDados, selectedEventId, tentativa])
+
+  const buscados = filtrarSituacao(tickets, situacao).filter(t =>
     !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.ticketCode.toLowerCase().includes(search.toLowerCase())
   )
+  const filtered = ordem === 'entrada' ? ordenarPorEntrada(buscados) : buscados
+  const ritmo = ritmoPorHora(tickets.map(t => t.checkedInAt))
 
   // Escanear/validar ingresso na Edge Function
   const handleScan = async (code: string) => {
@@ -199,10 +236,11 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
     // formato do e-mail (8 caracteres, traço, 1): o ingresso não se acha por prefixo
     if (codigoCurto(codigo)) {
       toast.warning(LEITURA_CODIGO_CURTO.mensagem)
-      setLastScan({ ticket: { id: '', name: 'Código incompleto', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '-', eventName: '' }, leitura: LEITURA_CODIGO_CURTO })
+      setLastScan({ ticket: { id: '', name: 'Código incompleto', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, checkedInAt: null, seat: '-', eventName: '' }, leitura: LEITURA_CODIGO_CURTO })
       return
     }
     emVoo.current.add(codigo)
+    setValidando(true)
     const achado = tickets.find(t => t.ticketCode === codigo)
     const evento = selectedEventId
 
@@ -237,6 +275,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
           ticketCode: codigo,
           status: 'pendente',
           checkInTime: null,
+          checkedInAt: null,
           seat: '-',
           eventName: '',
         },
@@ -246,22 +285,23 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
       if (leitura.tom === 'ok' || leitura.rotulo === 'Já usado') {
         const quando = dados.checkedInAt ? hora(dados.checkedInAt) : null
         versaoLista.current++
-        setTickets(ts => ts.map(t => t.ticketCode === codigo ? { ...t, status: 'usado', checkInTime: quando ?? (leitura.tom === 'ok' ? hora(new Date().toISOString()) : t.checkInTime) } : t))
+        setTickets(ts => ts.map(t => t.ticketCode === codigo ? { ...t, status: 'usado', checkInTime: quando ?? (leitura.tom === 'ok' ? hora(new Date().toISOString()) : t.checkInTime), checkedInAt: dados.checkedInAt ?? (leitura.tom === 'ok' ? new Date().toISOString() : t.checkedInAt) } : t))
       }
       // equipe: a lista não tem o código do ingresso; depois de entrar, recarrega a lista (e a contagem) em silêncio
       if (equipe && (leitura.tom === 'ok' || leitura.rotulo === 'Já usado')) loadTickets(evento, true)
       else if (!leitura.falha) contarIngressos(evento).then(c => { if (eventoAtual.current === evento) setContagem(c) }).catch(() => {})
-    } catch (err: any) {
-      console.error('Erro ao validar check-in:', err)
+    } catch {
+      console.error('Erro ao validar check-in')
       if (eventoAtual.current !== evento) return
       const leitura = motivoLeitura({})
       toast.error(leitura.mensagem)
       if (minha === ultimaLeitura.current) setLastScan({
-        ticket: { id: '', name: 'Leitura não concluída', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, seat: '', eventName: '' },
+        ticket: { id: '', name: 'Leitura não concluída', ticketType: '', ticketCode: codigo, status: 'pendente', checkInTime: null, checkedInAt: null, seat: '', eventName: '' },
         leitura,
       })
     } finally {
       emVoo.current.delete(codigo)
+      setValidando(emVoo.current.size > 0)
     }
   }
 
@@ -282,48 +322,64 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
   }, [lastScan])
 
   const resultado = lastScan && TOM[lastScan.leitura.tom]
+  const eventoSel = activeEvents.find(e => e.id === selectedEventId)
+
+  const exportar = () => {
+    downloadCsv(csvFilename(`checkin-${slugArquivo(eventoSel?.title, selectedEventId)}`), toCsv(linhasCsvCheckin(filtered), COLUNAS_CSV_CHECKIN))
+    toast.info('O arquivo tem o nome dos participantes: dado pessoal (LGPD). Não compartilhe.')
+  }
+
+  // Situação dos números: nunca "0" por engano (carregando, erro, 2FA pendente) nem lista vazia sem explicar
+  const refazer = () => setTentativa(n => n + 1)
+  let avisoDados: ReactNode = null
+  if (carga === 'erro') avisoDados = <Erro texto="Não foi possível carregar os ingressos deste evento." refetch={refazer} carregando={false} />
+  else if (semDados && doisFatores === '?') avisoDados = <div aria-busy="true"><Skeleton className="h-24 rounded-[10px] bg-muted" /></div>
+  else if (semDados && doisFatores === 'erro') avisoDados = <Erro texto="Não consegui confirmar o seu acesso (2FA). Sem isso a lista pode parecer vazia." refetch={refazer} carregando={false} />
+  else if (semDados && doisFatores === 'sim') avisoDados = <div role="alert"><EmptyState title="Confirme o 2FA para ver os ingressos" description="Saia e entre de novo, informando o código do 2FA. Sem isso o banco não mostra os ingressos, e os números seriam zero por engano." /></div>
+  else if (semDados) avisoDados = <EmptyState title="Nenhum ingresso emitido neste evento ainda" description="Quando houver venda ou cortesia, os números e a lista aparecem aqui." />
 
   return (
     <div>
-      <PageHeader
-        title="Check-in"
-        description="Validação de ingressos e controle da portaria"
-        actions={
-          <>
-            {activeEvents.length > 0 && (
-              <div data-tour="checkin-evento" className="w-full sm:w-64">
-                <select
-                  value={selectedEventId}
-                  onChange={e => {
-                    setSelectedEventId(e.target.value)
-                    setLastScan(null)
-                  }}
-                  aria-label="Selecionar Evento"
-                  title="Selecionar Evento"
-                  className={selectNativo}
-                >
-                  {!selectedEventId && <option value="" disabled>Selecione um evento</option>}
-                  {activeEvents.map(e => (
-                    <option key={e.id} value={e.id}>{e.title}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-            <div data-tour="checkin-modo" className="w-full sm:w-52">
-              <Segmented
-                label="Modo"
-                size="md"
-                value={mode}
-                onValueChange={v => setMode(v as 'scanner' | 'list')}
-                items={[
-                  { value: 'scanner', label: <><I.Escanear size={16} />Scanner</> },
-                  { value: 'list', label: <><I.Pessoas size={16} />Lista</> },
-                ]}
-              />
-            </div>
-          </>
-        }
-      />
+      {/* produtor com evento: cabeçalho do evento; equipe (e produtor sem evento): título simples */}
+      {!equipe && eventoSel ? (
+        <CabecalhoEvento titulo={eventoSel.title} situacao={situacaoEvento(eventoSel)} detalhes={[eventoSel.date && dataBR(eventoSel.date)]} editarHref={`/producer/events/${eventoSel.id}/edit`} />
+      ) : (
+        <PageHeader title="Check-in" description="Validação de ingressos e controle da portaria" />
+      )}
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        {activeEvents.length > 0 && (
+          <div data-tour="checkin-evento" className="w-full sm:w-64">
+            <select
+              value={selectedEventId}
+              onChange={e => {
+                setSelectedEventId(e.target.value)
+                setLastScan(null)
+              }}
+              aria-label="Selecionar Evento"
+              title="Selecionar Evento"
+              className={cn(selectNativo, 'min-h-11')}
+            >
+              {!selectedEventId && <option value="" disabled>Selecione um evento</option>}
+              {activeEvents.map(e => (
+                <option key={e.id} value={e.id}>{e.title}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        <div data-tour="checkin-modo" className="w-full sm:w-52">
+          <Segmented
+            label="Modo"
+            size="md"
+            value={mode}
+            onValueChange={v => setMode(v as 'scanner' | 'list')}
+            className="h-11"
+            items={[
+              { value: 'scanner', label: <><I.Escanear size={16} />Leitura</> },
+              { value: 'list', label: <><I.Pessoas size={16} />Lista</> },
+            ]}
+          />
+        </div>
+      </div>
 
       {isEventsLoading ? (
         <div aria-busy="true" className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -347,60 +403,28 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
         />
       ) : (
         <>
-          {/* Stats */}
-          <div data-tour="checkin-numeros" className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {[
-              { label: 'Total Emitido', value: total, icon: I.Ingressos, cor: 'text-muted-foreground' },
-              { label: 'Check-in Realizado', value: checked, icon: I.Liberado, cor: 'text-[var(--ev-success)]' },
-              { label: 'Pendentes', value: pending, icon: I.Horario, cor: 'text-[var(--ev-warning)]' },
-              { label: 'Cancelados', value: cancelled, icon: I.Negado, cor: 'text-destructive' },
-            ].map(k => (
-              <Stat
-                key={k.label}
-                label={<span className="inline-flex items-center gap-1.5"><k.icon size={16} className={k.cor} />{k.label}</span>}
-                value={isLoadingTickets ? '...' : k.value}
-              />
-            ))}
-          </div>
-
-          {/* Progress */}
-          <div className="mt-3 rounded-[10px] border border-border bg-card p-4">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span id="progresso-checkin" className="text-[13px] text-muted-foreground">Progresso do check-in</span>
-              <span className="text-[13px] font-medium tabular-nums text-foreground">
-                {isLoadingTickets ? 'Carregando...' : `${progress.toFixed(0)}% · ${checked}/${total}`}
-              </span>
-            </div>
-            <Progress value={progress} aria-labelledby="progresso-checkin" className="h-2 bg-secondary" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Atualiza sozinho a cada {ATUALIZA_MS / 1000} s{atualizadoEm && ` · última atualização às ${atualizadoEm}`}
-            </p>
-          </div>
-
-          {/* Scanner Mode */}
+          {/* Leitura primeiro no celular: os números vêm depois dela */}
           {mode === 'scanner' && (
-            <div className="mt-6 space-y-4">
-              <div data-tour="checkin-leitor" className="rounded-[10px] border border-border bg-card p-6 text-center sm:p-8">
-                <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-secondary text-primary">
-                  <I.Escanear size={32} />
-                </div>
-                <p className="mb-4 text-sm text-muted-foreground">Posicione o leitor ou digite o código do ingresso</p>
+            <div className="space-y-4">
+              <div data-tour="checkin-leitor" className="rounded-[10px] border border-border bg-card p-4 text-center sm:p-8">
+                <LeitorCamera onLeitura={handleScan} ocupado={validando} codigoNaTela={lastScan && !lastScan.leitura.falha ? lastScan.ticket.ticketCode : undefined} />
+                <p className="mb-3 mt-5 text-sm text-muted-foreground">Ou use o leitor de código de barras ou digite o código do ingresso</p>
                 <Input
                   ref={inputRef}
                   type="text"
                   aria-label="Código do ingresso"
-                  value={search}
+                  value={codigo}
                   onChange={e => {
                     // Valida sozinho só quando o código tem o formato real (uuid de 36 caracteres ou QR dinâmico E1 de 44); antes disso, só com Enter
                     if (codigoCompleto(e.target.value)) {
                       handleScan(normalizarCodigo(e.target.value))
-                      setSearch('')
-                    } else setSearch(e.target.value)
+                      setCodigo('')
+                    } else setCodigo(e.target.value)
                   }}
                   onKeyDown={e => {
-                    if (e.key === 'Enter' && search.trim().length >= 3) {
-                      handleScan(normalizarCodigo(search))
-                      setSearch('')
+                    if (e.key === 'Enter' && codigo.trim().length >= 3) {
+                      handleScan(normalizarCodigo(codigo))
+                      setCodigo('')
                     }
                   }}
                   placeholder="Leia o QR ou digite o código do ingresso"
@@ -408,52 +432,86 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                 />
               </div>
 
-              {/* Last Scan Result */}
+              {/* Resultado da última leitura: ícone, texto e cor (a cor nunca é a única pista) */}
               {resultado && lastScan && (
-                <div ref={cartaoRef} className={cn('scroll-mb-[calc(var(--barra-cel,0px)+1rem)] rounded-[10px] border p-4 sm:p-5', resultado.caixa)}>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-3 sm:flex-nowrap">
-                    {!lastScan.leitura.falha && <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-medium text-muted-foreground">{iniciais(lastScan.ticket.name ?? '')}</span>}
-                    <div className={cn('min-w-0 flex-1', lastScan.leitura.falha ? 'max-sm:basis-full' : 'max-sm:basis-[calc(100%-4rem)]')}>
-                      <div className="flex items-center gap-2">
-                        <resultado.Icone size={20} className={cn('shrink-0', resultado.texto)} />
-                        <h2 className="truncate text-base font-semibold leading-6 tracking-normal text-foreground">{lastScan.ticket.name}</h2>
-                      </div>
-                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {[lastScan.ticket.ticketType, lastScan.ticket.ticketCode].filter(Boolean).join(' · ')}
-                      </p>
-                      <p className="mt-1 text-xs font-medium text-foreground">
-                        {lastScan.leitura.mensagem}
-                      </p>
-                    </div>
-                    <div className={cn('whitespace-nowrap rounded-full bg-card px-3 py-1.5 text-xs font-semibold sm:shrink-0', !lastScan.leitura.falha && 'max-sm:ml-16', resultado.texto)}>
-                      {lastScan.leitura.rotulo}
-                    </div>
-                  </div>
+                <div ref={cartaoRef} role="status" className={cn('scroll-mb-[calc(var(--barra-cel,0px)+1rem)] rounded-[10px] border-2 p-5 text-center sm:p-6', resultado.caixa)}>
+                  <resultado.Icone size={48} aria-hidden="true" className={cn('mx-auto', resultado.texto)} />
+                  <p className={cn('mt-2 text-2xl font-semibold leading-8', resultado.texto)}>{lastScan.leitura.rotulo}</p>
+                  <h2 className="mt-2 break-words text-lg font-semibold leading-6 tracking-normal text-foreground">{lastScan.ticket.name}</h2>
+                  <p className="mt-0.5 break-all text-xs text-muted-foreground">
+                    {[lastScan.ticket.ticketType, lastScan.ticket.ticketCode].filter(Boolean).join(' · ')}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-foreground">{lastScan.leitura.mensagem}</p>
                 </div>
               )}
             </div>
           )}
 
-          {/* List Mode */}
+          {/* Números */}
+          <div data-tour="checkin-numeros" className={mode === 'scanner' ? 'mt-6' : undefined}>
+            {carregando ? (
+              <div aria-busy="true" aria-label="Carregando os números" className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                {[1, 2, 3, 4].map(n => <Skeleton key={n} className="h-[88px] rounded-[10px] bg-muted" />)}
+              </div>
+            ) : avisoDados ?? (
+              <>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  <KpiCard rotulo="Total" valor={total.toLocaleString('pt-BR')} comparacao="ingressos emitidos" />
+                  <KpiCard rotulo="Entradas" valor={checked.toLocaleString('pt-BR')} comparacao="check-ins feitos" />
+                  <KpiCard rotulo="Restantes" valor={pending.toLocaleString('pt-BR')} comparacao={cancelled + transferidos > 0 ? `sem contar ${(cancelled + transferidos).toLocaleString('pt-BR')} cancelados ou transferidos` : 'ainda não entraram'} />
+                  <KpiCard rotulo="Comparecimento" valor={`${comparecimento}%`} comparacao={`${checked.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')}`} />
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Atualiza sozinho a cada {ATUALIZA_MS / 1000} s{atualizadoEm && ` · última atualização às ${atualizadoEm}`}
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* Lista */}
           {mode === 'list' && (
             <div className="mt-6 space-y-3">
-              <div className="relative w-full sm:max-w-md">
-                <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder={equipe ? 'Buscar por participante...' : 'Buscar por participante ou código do ingresso...'} className="pl-9" />
+              {ritmo.length > 0 && <RitmoDeEntrada dados={ritmo} parcial={tickets.length >= LIMITE_LISTA} limite={LIMITE_LISTA} />}
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="relative w-full sm:max-w-md">
+                  <I.Buscar size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <Input value={search} onChange={e => setSearch(e.target.value)} aria-label="Buscar participante" placeholder={equipe ? 'Buscar por participante...' : 'Buscar por participante ou código do ingresso...'} className="min-h-11 pl-9" />
+                </div>
+                <div>
+                  <label htmlFor="ci-situacao" className="mb-1 block text-sm text-muted-foreground">Situação</label>
+                  <select id="ci-situacao" value={situacao} onChange={e => setSituacao(e.target.value as FiltroSituacao)} className={cn(selectNativo, 'min-h-11 w-auto min-w-40')}>
+                    <option value="todos">Todos</option>
+                    {(Object.keys(ROTULO_SITUACAO) as (keyof typeof ROTULO_SITUACAO)[]).map(k => <option key={k} value={k}>{ROTULO_SITUACAO[k]}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="ci-ordem" className="mb-1 block text-sm text-muted-foreground">Ordem</label>
+                  <select id="ci-ordem" value={ordem} onChange={e => setOrdem(e.target.value as 'lista' | 'entrada')} className={cn(selectNativo, 'min-h-11 w-auto min-w-40')}>
+                    <option value="lista">Mais recentes primeiro</option>
+                    <option value="entrada">Hora de entrada</option>
+                  </select>
+                </div>
+                {!equipe && (
+                  <Button variant="outline" className="min-h-11 sm:ml-auto" onClick={exportar} disabled={filtered.length === 0}>
+                    <I.Baixar aria-hidden="true" />Exportar CSV
+                  </Button>
+                )}
               </div>
+              {!equipe && <p className="text-xs text-muted-foreground">O CSV tem o nome dos participantes: dado pessoal (LGPD). Não compartilhe.</p>}
 
               {noServidor && (
                 <p className="text-xs text-muted-foreground">
-                  Mostrando os {tickets.length.toLocaleString('pt-BR')} ingressos mais recentes de {total.toLocaleString('pt-BR')}. Os números acima contam todos; para achar um ingresso mais antigo, use o campo do Scanner.
+                  Mostrando os {tickets.length.toLocaleString('pt-BR')} ingressos mais recentes de {total.toLocaleString('pt-BR')}. Os números acima contam todos; para achar um ingresso mais antigo, use o campo da Leitura.
                 </p>
               )}
-              {isLoadingTickets ? (
+              {carregando ? (
                 <div aria-busy="true" className="space-y-2">
                   {[1, 2, 3].map(n => (
                     <Skeleton key={n} className="h-16 rounded-[10px] bg-muted" />
                   ))}
                 </div>
-              ) : (
+              ) : avisoDados ? null : (
                 <ul className="max-h-[500px] divide-y divide-border overflow-y-auto rounded-[10px] border border-border bg-card">
                   {filtered.map(t => (
                     <li key={t.id} className="flex items-center gap-3 p-3">
@@ -474,7 +532,7 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                         {t.status === 'transferido' && <div className="text-xs font-medium text-muted-foreground">Transferido</div>}
                         {t.status === 'pendente' && equipe && <div className="text-xs text-muted-foreground">Não entrou</div>}
                         {t.status === 'pendente' && !equipe && (
-                          <Button size="sm" onClick={() => manualCheckIn(t)}>
+                          <Button size="sm" className="min-h-11" onClick={() => manualCheckIn(t)}>
                             <I.Raio /> Confirmar Entrada
                           </Button>
                         )}
@@ -482,10 +540,25 @@ function CheckInTela({ events, isEventsLoading, eventsError = false, voltar = '/
                     </li>
                   ))}
                   {filtered.length === 0 && (
-                    <li className="py-12 text-center text-xs text-muted-foreground">Nenhum participante encontrado nesta busca.</li>
+                    <li className="py-12 text-center text-xs text-muted-foreground">Nenhum participante encontrado com esta busca e este filtro.</li>
                   )}
                 </ul>
               )}
+            </div>
+          )}
+
+          {/* Recursos planejados (só o produtor): dizem o que fazem e do que dependem */}
+          {!equipe && (
+            <div className="mt-8">
+              <SectionTitle>Em breve</SectionTitle>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <EmBreve titulo="Desfazer entrada" descricao="Cancelar um check-in feito por engano, pedindo o motivo e deixando registro. Precisa de uma função nova no banco (RPC), ainda não criada." acao="Desfazer entrada" />
+                <EmBreve titulo="PIN do porteiro" descricao="Cada porteiro entra com um PIN próprio, sem usar a senha do produtor. Precisa de uma coluna e uma regra novas no banco." acao="Criar PIN" />
+                <EmBreve titulo="Modo offline" descricao="Baixar a lista no aparelho e sincronizar quando a internet voltar. Precisa de service worker (fase M4). Hoje o check-in precisa de internet." acao="Ativar modo offline" />
+                <EmBreve titulo="Selo de meia-entrada" descricao="Mostrar na leitura que o ingresso é meia, para conferir o documento. A função de validação precisa devolver o benefício, ainda não devolve." acao="Ver selo de meia" />
+                <EmBreve titulo="Filtro por portaria e por membro" descricao="Ver as entradas por portaria e por quem fez a leitura. Depende de registrar a portaria e o membro em cada leitura (M3/M4)." acao="Filtrar por portaria" />
+                <EmBreve titulo="Etiqueta e impressão" descricao="Imprimir etiqueta ou crachá do participante na entrada. Depende de modelo de etiqueta e de impressora (M4)." acao="Imprimir etiqueta" />
+              </div>
             </div>
           )}
         </>

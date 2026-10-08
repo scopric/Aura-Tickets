@@ -108,7 +108,8 @@ describe('Check-in da equipe', () => {
       team_contagem: () => ({ data: [{ total: 1500, usados: 300, cancelados: 0, transferidos: 0 }], error: null }),
     })
     montar(<EquipeCheckIn />, '/equipe/checkin?eventId=e1')
-    expect(await screen.findByText('20% · 300/1500')).toBeTruthy()
+    expect(await screen.findByText('20%')).toBeTruthy()
+    expect(screen.getByText('300 de 1.500')).toBeTruthy()
   })
 
   it('erro ao carregar eventos tem mensagem própria', async () => {
