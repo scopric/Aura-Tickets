@@ -1,10 +1,8 @@
 import { useId, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Upload } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
 import { enviarLogo, prepararLogo } from '../../lib/logoProdutor'
-import { useAuth } from '../../hooks/useAuth'
+import { mensagemDaLogo, useLogoProdutor } from '../../hooks/useLogoProdutor'
 import { SectionTitle } from '@/components/producer/ui'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -12,31 +10,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 // Logo do organizador (Configurações > Organizador). Salva na hora: envia o arquivo e grava producer_profiles.logo_url.
 // Guardada para planilhas, PDFs, ingressos e e-mails (ainda sem consumidor); não aparece na página pública do evento.
 export default function LogoProdutor() {
-  const { user } = useAuth()
-  const queryClient = useQueryClient()
+  const { user, logo, gravar } = useLogoProdutor()
   const id = useId()
   const [preparando, setPreparando] = useState(false)
-  const chave = ['logo-produtor', user?.id]
-
-  const logo = useQuery({
-    queryKey: chave,
-    enabled: !!user?.id,
-    queryFn: async () => {
-      // ponytail: os tipos do banco ainda não têm logo_url; cast até regenerar types/database.ts
-      const { data, error } = await supabase.from('producer_profiles').select('logo_url' as never).eq('id', user!.id).maybeSingle()
-      if (error) throw error
-      return ((data as unknown as { logo_url: string | null } | null)?.logo_url) ?? null
-    },
-  })
-
-  const gravar = useMutation({
-    mutationFn: async (url: string | null) => {
-      const { data, error } = await supabase.from('producer_profiles').update({ logo_url: url } as never).eq('id', user!.id).select('id')
-      if (error) throw error
-      if (!data?.length) throw new Error('Nenhuma linha atualizada') // RLS ou perfil ausente: não reportar sucesso sem gravar
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: chave }),
-  })
 
   async function escolher(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0]
@@ -49,9 +25,7 @@ export default function LogoProdutor() {
       await gravar.mutateAsync(await enviarLogo(pronta, user.id))
       toast.success('Logo salva!')
     } catch (err) {
-      const code = (err as { code?: string })?.code
-      const msg = code === '42501' ? 'Confirme o segundo fator de novo e tente outra vez.' : code === '23514' ? 'Endereço da logo não aceito. Tente enviar de novo.' : err instanceof Error && !code ? err.message : 'Não foi possível salvar a logo.'
-      toast.error(msg)
+      toast.error(mensagemDaLogo(err))
     } finally {
       if (pronta) URL.revokeObjectURL(pronta.previewUrl)
       setPreparando(false)

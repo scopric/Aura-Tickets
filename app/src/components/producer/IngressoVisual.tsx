@@ -49,7 +49,6 @@ export default function IngressoVisual({ dados, tipo, estilo, logoUrl, modo, exe
         </p>
       </div>
 
-      {estilo.rodape && <p className="break-words border-t border-[#e0e5ed] px-5 py-3 text-center text-xs leading-4">{estilo.rodape}</p>}
       <p className="border-t border-[#e0e5ed] px-5 py-2 text-center font-display text-[11px] font-semibold text-[#4a60e3]">Evokaa</p>
 
       {exemplo && <span className="absolute right-3 top-3 rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#0c2340]">Exemplo</span>}
