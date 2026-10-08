@@ -131,17 +131,19 @@ describe('contrato com reservar_assentos nos 13 templates', () => {
   })
 
   it('o checkout só mostra o primeiro pavimento: lugar vendável no segundo é avisado', () => {
-    const a = ligado(aplicarTemplate(novosPavimentos()[0], TEMPLATES[0]))
+    const a = ligado(aplicarTemplate(novosPavimentos()[0], TEMPLATES[1] /* teatro */))
     const b = { ...a, id: 'pav-2' }
     const r = resumoVenda([a, b])
+    expect(elegiveis([b]).size).toBeGreaterThan(0)
     expect(r.foraDoPrimeiro).toBe(elegiveis([b]).size)
     expect(elegiveis([a, b]).size).toBe(2 * elegiveis([a]).size) // o banco aceita os dois
   })
 
   it('assento/mesa em lote sem ingresso é contado como "sem ingresso"; Estrutura não', () => {
-    const base = aplicarTemplate(novosPavimentos()[0], TEMPLATES[0])
+    const base = aplicarTemplate(novosPavimentos()[0], TEMPLATES[1] /* teatro */)
     const r = resumoVenda([base])
     expect(r.vendaveis).toBe(0)
+    expect(r.semIngresso).toBeGreaterThan(0)
     expect(r.semIngresso).toBe(base.seats.filter(s => (s.type === 'seat' || s.type === 'table') && s.sectionId !== ESTRUTURA.id).length)
   })
 })
