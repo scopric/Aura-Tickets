@@ -116,7 +116,7 @@ export function useCreateOrder() {
       for (const t of ingressos) {
         const teto = tetoPorPedido(t)
         const qtd = items.filter(i => i.ticket_type_id === t.id).reduce((n, i) => n + i.quantity, 0)
-        if (teto !== null && qtd > teto) throw new Error(`${t.name ?? 'Ingresso'}: máximo de ${teto} por pedido`)
+        if (qtd > teto) throw new Error(`${t.name ?? 'Ingresso'}: máximo de ${teto} por pedido`)
       }
       const precos = Object.fromEntries(ingressos.map(t => [t.id, t.price == null ? null : Number(t.price)]))
       const ped = itensDoPedido(items, precos)

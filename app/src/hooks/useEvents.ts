@@ -23,7 +23,7 @@ export interface DbTicketType {
   inclui_bebida?: boolean // F1: ingresso com bebida alcoólica
   quantity_total?: number | null // coluna real no banco (capacity é legado)
   min_per_order?: number // mínimo por pedido (coluna real, padrão 1)
-  max_per_order?: number | null // máximo por pedido (nulo: grátis tem teto 10, pago sem teto; ver tetoPorPedido)
+  max_per_order?: number | null // máximo por pedido (nulo: vale 10; ver tetoPorPedido)
   max_por_cpf?: number | null // limite por CPF do comprador (nulo: sem limite)
   lot_number?: number // só nos dados de exemplo; não existe no banco
   sale_start: string | null

@@ -194,7 +194,7 @@ export type Ing = {
   tipo: string // 'individual' | 'coletiva' no novo; o tipo gravado (inclusive vip e mesa) no existente, fixo
   ativo: boolean; vendidos: number; novo: boolean
   inicioVenda: string; fimVenda: string // datetime-local (AAAA-MM-DDTHH:MM, Brasília); vazio = sem data
-  descricao: string; minPed: string; maxPed: string // maxPed vazio = sem limite (null no banco)
+  descricao: string; minPed: string; maxPed: string // maxPed vazio = null no banco (vale 10, ver tetoPorPedido)
   maxCpf: string // limite por CPF do comprador; vazio = sem limite (null no banco)
 }
 
@@ -243,9 +243,10 @@ export function errosDeIngresso(i: Ing, fimEvento?: number): ErrosIng {
   const min = /^\d+$/.test(i.minPed.trim()) ? Number(i.minPed) : null
   const max = i.maxPed.trim() === '' ? undefined : /^\d+$/.test(i.maxPed.trim()) ? Number(i.maxPed) : null
   if (min === null || min < 1 || (q !== null && min > q)) e.pedido = 'Mínimo por pedido inválido: use um número inteiro de 1 até a quantidade.'
-  else if (max === null || max === 0) e.pedido = 'Máximo por pedido inválido: use um número inteiro ou deixe vazio para não limitar.'
+  else if (max === null || max === 0) e.pedido = 'Máximo por pedido inválido: use um número inteiro de 1 a 10 ou deixe vazio (vale 10).'
+  else if (max !== undefined && max > 10) e.pedido = 'O máximo por pedido é 10.'
   else if (max !== undefined && max < min) e.pedido = 'O máximo por pedido não pode ser menor que o mínimo.'
-  else if (max === undefined && precoDe(i.preco) === 0 && min > 10) e.pedido = 'Em ingresso grátis sem máximo, o limite por pedido é 10: preencha o máximo ou use um mínimo de até 10.'
+  else if (max === undefined && min > 10) e.pedido = 'Sem máximo, o limite por pedido é 10: use um mínimo de até 10.'
   else if (max !== undefined && q !== null && max > q) e.pedido = 'O máximo por pedido não pode passar da quantidade de ingressos.'
   const cpf = i.maxCpf.trim()
   if (cpf !== '' && (!/^\d+$/.test(cpf) || Number(cpf) < 1)) e.cpf = 'Limite por CPF inválido: use um número inteiro a partir de 1 ou deixe vazio para não limitar.'

@@ -445,7 +445,7 @@ export default function Checkout() {
                     <div key={ticket.id} className="flex items-center gap-3 border-t border-border py-3 first-of-type:border-t-0">
                       <div className="min-w-0 flex-1">
                         <div className="text-base font-medium leading-6">{ticket.name}</div>
-                        <div className="text-[13px] leading-5 text-muted-foreground">{fechado ?? `${ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'}${tetoPorPedido(ticket) !== null ? ` · máx. ${tetoPorPedido(ticket)} por pedido` : ''}`}</div>
+                        <div className="text-[13px] leading-5 text-muted-foreground">{fechado ?? `${ticket.price > 0 ? `${textoPreco(ticket.price)} cada` : 'Gratuito'} · máx. ${tetoPorPedido(ticket)} por pedido`}</div>
                       </div>
                       <ContadorIngresso
                         nome={ticket.name}

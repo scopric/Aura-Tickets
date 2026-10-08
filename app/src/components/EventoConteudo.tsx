@@ -290,7 +290,7 @@ export default function EventoConteudo({ evento: event, previa }: { evento: DbEv
                   ) : (
                     <div className="text-sm font-semibold leading-5">Gratuito</div>
                   )}
-                  {!acabou && !fechado && tetoPorPedido(ticket) !== null && (
+                  {!acabou && !fechado && (
                     <div className="text-[13px] leading-5 text-muted-foreground">máx. {tetoPorPedido(ticket)} por pedido</div>
                   )}
                   {perks.length > 0 && (

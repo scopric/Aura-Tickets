@@ -91,7 +91,7 @@ export default function SecaoIngressos({ ings, setIngs, sujo, salvando, tentou, 
                 <Label htmlFor={`${id}-max`} className="text-xs text-muted-foreground">Máximo por pedido</Label>
                 <Input id={`${id}-max`} inputMode="numeric" className="min-h-11" value={g.maxPed} aria-invalid={!!e.pedido} aria-describedby={e.pedido ? `${id}-pedido-erro` : undefined} onChange={ev => muda(g.id, { maxPed: ev.target.value })} />
               </div>
-              <p className="col-span-2 self-end text-xs text-muted-foreground sm:col-span-1">Vazio = sem limite; em ingresso grátis o limite padrão é 10.</p>
+              <p className="col-span-2 self-end text-xs text-muted-foreground sm:col-span-1">De 1 a 10. Vazio = 10.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[9rem_minmax(0,1fr)]">
