@@ -8,6 +8,7 @@ import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
 import { trackEvent } from '../../lib/tracking'
 import { getAppMode } from '../../lib/appHost'
+import MfaCodigo, { type MfaStatus } from './MfaCodigo'
 import { consumirVolta, guardarVolta, voltaValida } from '../../lib/voltaEvento'
 
 type UserRole = 'user' | 'producer' | 'admin'
@@ -77,6 +78,7 @@ export default function AuthLogin() {
   const [step, setStep] = useState<'credentials' | 'mfa'>('credentials')
   const [mfaChallenge, setMfaChallenge] = useState<{ factorId: string; challengeId: string } | null>(null)
   const [mfaCode, setMfaCode] = useState('')
+  const [mfaStatus, setMfaStatus] = useState<MfaStatus>('idle')
 
   // Conta com 2FA e sessão ainda sem o código (aal1): abre o passo do código e devolve true.
   // Enquanto isso o banco não entrega nada da conta (docs/sql/20260930_2fa_no_banco.sql): o papel
@@ -216,26 +218,24 @@ export default function AuthLogin() {
     }
   }
 
-  const handleMfaVerify = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleMfaVerify = async (codigo: string) => {
     setError('')
-    if (!mfaCode || mfaCode.length !== 6) {
-      setError('Digite o código de 6 dígitos')
-      return
-    }
-    if (!mfaChallenge) return
+    if (codigo.length !== 6 || !mfaChallenge || mfaStatus === 'verificando' || mfaStatus === 'ok') return
 
     setIsSubmitting(true)
+    setMfaStatus('verificando')
     try {
+      // Desafio novo a cada tentativa: o aberto ao entrar vence em minutos (era o "MFA challenge has expired")
+      const novo = await supabase.auth.mfa.challenge({ factorId: mfaChallenge.factorId })
+      if (novo.error) throw novo.error
+      setMfaChallenge({ factorId: mfaChallenge.factorId, challengeId: novo.data.id })
       const verify = await supabase.auth.mfa.verify({
         factorId: mfaChallenge.factorId,
-        challengeId: mfaChallenge.challengeId,
-        code: mfaCode.trim()
+        challengeId: novo.data.id,
+        code: codigo
       })
 
-      if (verify.error) {
-        throw new Error(verify.error.message || 'Código incorreto. Tente novamente.')
-      }
+      if (verify.error) throw verify.error
 
       // Só agora (aal2) o banco entrega o perfil: papel real e bloqueio por endereço
       await useAuthStore.getState().fetchProfile({ force: true })
@@ -244,12 +244,14 @@ export default function AuthLogin() {
       const blocked = realRole ? blockedMessage(realRole) : 'Não foi possível confirmar o acesso desta conta. Tente de novo.'
       if (blocked) {
         await clearSession()
+        setMfaStatus('idle')
         setStep('credentials')
         setError(blocked)
         return
       }
       trackEvent('login', location.pathname)
-      toast.success('Autenticação multifator bem-sucedida!')
+      setMfaStatus('ok')
+      await new Promise(r => setTimeout(r, 700)) // deixa ver o ✓ verde antes de trocar de tela
 
       const pendingCheckout = sessionStorage.getItem('aura_pending_checkout')
       if (fromCheckout && pendingCheckout) {
@@ -261,7 +263,16 @@ export default function AuthLogin() {
       navigate(panelFor(realRole!, volta)) // papel nulo já foi barrado acima (blocked)
     } catch (err: any) {
       console.error('[MFA Verify] Erro:', err)
-      setError(err.message || 'Erro ao verificar código de 2FA')
+      setMfaStatus('erro')
+      // Só o código errado ou vencido limpa as caixas; rede, servidor e perfil mantêm o que foi digitado
+      const codigoErrado = err?.code === 'mfa_verification_failed' || err?.code === 'mfa_challenge_expired'
+      if (codigoErrado) setMfaCode('')
+      setError(
+        err?.code === 'mfa_challenge_expired' ? 'O código venceu. Digite o código atual do app.'
+          : err?.code === 'mfa_verification_failed' ? 'Código incorreto. Confira o app e tente de novo.'
+          : err?.status === 429 ? 'Muitas tentativas. Espere um minuto e tente de novo.'
+          : 'Não foi possível verificar agora. Confira a conexão e tente de novo.'
+      )
     } finally {
       setIsSubmitting(false)
     }
@@ -313,7 +324,7 @@ export default function AuthLogin() {
         </div>
 
         {/* Role description */}
-        <div className={`p-4 rounded-2xl mb-6 text-center ${
+        {step !== 'mfa' && <div className={`p-4 rounded-2xl mb-6 text-center ${
           role === 'admin' ? 'bg-rose-50 border border-rose-100' :
           role === 'producer' ? 'bg-amber-50 border border-amber-100' :
           'bg-plum/5 border border-plum/10'
@@ -323,79 +334,31 @@ export default function AuthLogin() {
             role === 'producer' ? 'text-amber-700' :
             'text-plum'
           }`}>{currentRole.desc}</p>
-        </div>
+        </div>}
 
         {/* Error */}
-        {error && (
+        {error && step !== 'mfa' && (
           <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-700 text-center">{error}</div>
         )}
 
         {/* Form */}
         {step === 'mfa' ? (
-          <form onSubmit={handleMfaVerify} className="space-y-6">
-            <div className="p-4 rounded-2xl bg-plum/5 border border-plum/10 text-center">
-              <p className="text-sm text-espresso font-medium">
-                Esta conta está protegida por <strong>Autenticação de Dois Fatores (2FA)</strong>.
-              </p>
-              <p className="text-xs text-espresso/70 mt-1.5">
-                Insira abaixo o código de 6 dígitos gerado pelo seu aplicativo Google Authenticator ou similar.
-              </p>
-            </div>
-
-            <div>
-              <label className="text-xs font-medium text-espresso/70 mb-1.5 block">Código de Autenticação</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={mfaCode}
-                onChange={e => setMfaCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000"
-                disabled={isSubmitting}
-                className="w-full px-4 py-3 bg-white/60 border border-white/60 rounded-xl text-center text-xl font-mono tracking-[0.5em] text-espresso placeholder:text-espresso/70 focus:outline-none focus:border-plum/30 transition-colors disabled:opacity-50"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className={`w-full py-3 font-medium rounded-full transition-all flex items-center justify-center gap-2 ${
-                role === 'admin' ? 'bg-rose-500 text-white hover:shadow-lg hover:shadow-rose-500/20' :
-                role === 'producer' ? 'bg-amber-500 text-white hover:shadow-lg hover:shadow-amber-500/20' :
-                role === 'editor' ? 'bg-purple-500 text-white hover:shadow-lg hover:shadow-purple-500/20' :
-                'bg-plum text-cream hover:shadow-glow'
-              } disabled:opacity-70 disabled:cursor-not-allowed`}
-            >
-              {isSubmitting ? (
-                <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Verificando...</span>
-                </span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <span>Confirmar Código</span>
-                  <ArrowRight className="w-4 h-4" />
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={async () => {
-                // Sai da sessão sem o código: senão o efeito "já autenticado" reabre este passo e a
-                // sessão aal1 deixa o site vazio (o banco não entrega nada sem o código)
-                await clearSession()
-                setStep('credentials')
-                setMfaChallenge(null)
-                setMfaCode('')
-              }}
-              className="w-full py-2.5 px-4 text-espresso/70 hover:text-espresso text-xs font-medium rounded-full hover:bg-espresso/5 transition-all text-center"
-            >
-              Voltar para a tela de login
-            </button>
-          </form>
+          <MfaCodigo
+            codigo={mfaCode}
+            status={mfaStatus}
+            erro={error}
+            onChange={v => { setMfaCode(v); if (mfaStatus === 'erro') { setMfaStatus('idle'); setError('') } }}
+            onCompleto={handleMfaVerify}
+            onVoltar={async () => {
+              // Sai da sessão sem o código: senão o efeito "já autenticado" reabre este passo e a
+              // sessão aal1 deixa o site vazio (o banco não entrega nada sem o código)
+              await clearSession()
+              setStep('credentials')
+              setMfaChallenge(null)
+              setMfaCode('')
+              setMfaStatus('idle')
+            }}
+          />
         ) : (
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
