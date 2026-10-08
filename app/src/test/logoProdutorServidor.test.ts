@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { caber, dimensoes, tipoImagem, urlLogoValida } from '../../../supabase/functions/_shared/logoProdutor'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { buscarLogo, caber, dimensoes, tipoImagem, urlLogoValida } from '../../../supabase/functions/_shared/logoProdutor'
 
 const ID = '11111111-2222-3333-4444-555555555555'
 const BASE = 'https://rwaezeqyuhxrssntcxdv.supabase.co/storage/v1/object/public/logos-produtor/'
@@ -37,5 +37,25 @@ describe('logo do produtor no servidor', () => {
     expect(caber({ w: 100, h: 100 }, 120, 44)).toEqual({ width: 44, height: 44 })
     expect(caber({ w: 50, h: 20 }, 120, 44)).toEqual({ width: 50, height: 20 })
     expect(caber(null, 120, 44)).toEqual({ width: 44, height: 44 })
+  })
+  describe('buscarLogo', () => {
+    afterEach(() => vi.unstubAllGlobals())
+    const url = `${BASE}${ID}/abcdefgh12.png`
+    const servir = (b: Uint8Array) => vi.stubGlobal('fetch', async () => new Response(b))
+    it('aceita logo de tamanho normal', async () => {
+      servir(PNG(512, 200))
+      expect(await buscarLogo(url, ID)).toMatchObject({ ext: 'png' })
+    })
+    it('recusa PNG pequeno que declara muitos pixels (bomba de descompressão) e imagem sem medidas', async () => {
+      servir(PNG(8000, 8000)); expect(await buscarLogo(url, ID)).toBeNull()
+      servir(PNG(2001, 10)); expect(await buscarLogo(url, ID)).toBeNull()
+      servir(PNG(0, 0)); expect(await buscarLogo(url, ID)).toBeNull()
+      servir(new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 4, 0, 0])); expect(await buscarLogo(url, ID)).toBeNull() // JPEG sem SOF
+    })
+    it('não busca URL fora do padrão', async () => {
+      const f = vi.fn(); vi.stubGlobal('fetch', f)
+      expect(await buscarLogo('https://evil.example/a.png', ID)).toBeNull()
+      expect(f).not.toHaveBeenCalled()
+    })
   })
 })

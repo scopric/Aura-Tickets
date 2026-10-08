@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.8";
 import { corsHeaders } from "../_shared/cors.ts";
 import { gerarPdf, ingressosParaPdf } from "../_shared/ingressoPdf.ts";
+import { logoDoProdutor } from "../_shared/logoProdutor.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
@@ -31,7 +32,7 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const { data: order } = await admin
       .from("orders")
-      .select("user_id, status, customer_name, events(title, date, time, venue_name)")
+      .select("user_id, status, customer_name, events(title, date, time, venue_name, producer_id)")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -49,7 +50,7 @@ serve(async (req) => {
     const paginas = ingressosParaPdf(order, tickets ?? []);
     if (paginas.length === 0) return json({ error: "Nenhum ingresso ativo neste pedido." }, 404);
 
-    return new Response(await gerarPdf(paginas), {
+    return new Response(await gerarPdf(paginas, await logoDoProdutor(admin, (Array.isArray(order.events) ? order.events[0] : order.events)?.producer_id)), {
       headers: { ...cors, "Content-Type": "application/pdf", "Content-Disposition": 'attachment; filename="ingresso-evokaa.pdf"' },
     });
   } catch (e) {
