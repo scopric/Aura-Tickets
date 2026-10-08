@@ -2,7 +2,7 @@ import { apagarIngressosGuardados } from '../../lib/ingressosOffline'
 import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Eye, EyeOff, ArrowRight, Users, Shield, PartyPopper, Loader2, Edit3 } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
+import { useAuth, erroDeLogin } from '../../hooks/useAuth'
 import { toast } from 'sonner'
 import { supabase } from '../../lib/supabase'
 import { useAuthStore } from '../../stores/authStore'
@@ -68,7 +68,10 @@ export default function AuthLogin() {
   const [role, setRole] = useState<UserRole>(isAdminMode ? 'admin' : 'user')
   // Erro devolvido pelo provedor na volta do login social (#error=…&error_description=…).
   // O supabase-js não limpa o hash quando há erro, por isso basta ler o da rota atual.
-  const [error, setError] = useState(() => new URLSearchParams(location.hash.slice(1)).get('error_description') ?? '')
+  const [error, setError] = useState(() => {
+    const doProvedor = new URLSearchParams(location.hash.slice(1)).get('error_description')
+    return doProvedor ? erroDeLogin(doProvedor, 'Não foi possível entrar com o login social. Tente de novo.') : ''
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   // Login social não passa pelo cadastro: o aceite dos Termos/Política precisa ser marcado aqui
   // (LGPD art. 8º: manifestação inequívoca); record-access grava no 1º login.
@@ -101,7 +104,7 @@ export default function AuthLogin() {
       return true
     } catch (err: any) {
       console.error('[Login MFA] Erro ao abrir o passo do código:', err)
-      setError(`Não foi possível pedir o código do 2FA: ${err?.message || 'tente de novo'}`)
+      setError(erroDeLogin(err?.message, 'Não foi possível pedir o código do 2FA. Tente de novo.'))
       return true // interrompe: sem o código a conta não é lida, e o papel provisório bloquearia errado
     }
   }
@@ -135,7 +138,7 @@ export default function AuthLogin() {
       if (error) throw error
     } catch (err: any) {
       console.error(`[OAuth ${OAUTH_LABEL[provider]}] Erro:`, err)
-      setError(err?.message || `Erro ao entrar com ${OAUTH_LABEL[provider]}`)
+      setError(erroDeLogin(err?.message, `Não foi possível entrar com ${OAUTH_LABEL[provider]}. Tente de novo.`))
       setIsSubmitting(false)
     }
   }
@@ -210,7 +213,7 @@ export default function AuthLogin() {
       }
     } catch (err: any) {
       console.error('[Login] Erro capturado:', err)
-      setError(err?.message || err?.error_description || 'E-mail ou senha incorretos')
+      setError(erroDeLogin(err?.message || err?.error_description, 'Não foi possível entrar agora. Tente de novo.'))
     } finally {
       // Após navegar, o botão segue travado: assim o useEffect de "já autenticado" não navega de novo
       // (com v7_startTransition a troca de rota é adiada e ele rodaria antes dela).

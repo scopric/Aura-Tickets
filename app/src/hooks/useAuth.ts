@@ -46,8 +46,12 @@ const ERROS_LOGIN: [RegExp, string][] = [
   [/rate limit|too many requests|you can only request this after/i, 'Muitas tentativas. Aguarde um pouco e tente de novo.'],
   [/user is banned/i, 'Esta conta está bloqueada. Fale com o suporte.'],
   [/failed to fetch|network/i, 'Sem conexão. Confira a internet e tente de novo.'],
+  [/signups? (is |are )?(not allowed|disabled)/i, 'Cadastros novos estão desativados no momento. Fale com o suporte.'],
+  [/provider is not enabled|unsupported provider/i, 'Este tipo de login não está disponível no momento.'],
 ]
-export const erroDeLogin = (msg?: string) => ERROS_LOGIN.find(([re]) => re.test(msg ?? ''))?.[1] ?? (msg || 'Erro ao realizar login')
+// `padrao`: texto fixo em português para o que não for reconhecido (sem ele, o texto do servidor passa como veio)
+export const erroDeLogin = (msg?: string, padrao?: string) =>
+  ERROS_LOGIN.find(([re]) => re.test(msg ?? ''))?.[1] ?? padrao ?? (msg || 'Erro ao realizar login')
 
 export function useAuth() {
   const queryClient = useQueryClient()
