@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from 'react'
+import { useCorProdutor } from '../../hooks/useCorProdutor'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { useProducerEvents } from '../../hooks/useEvents'
@@ -336,6 +337,7 @@ const montarFundo = (image: string | null, scale: number, offset: { x: number; y
 const instantaneo = (envs: Environment[], fundo: ReturnType<typeof montarFundo>) => JSON.stringify({ envs, fundo })
 
 export default function SeatingMap() {
+  useCorProdutor() // fora do ProducerLayout: o editor também é violeta (Decisão 223)
   const { data: eventos = [], isLoading: carregandoEventos, isError: erroEventos, refetch: recarregarEventos } = useProducerEvents()
   const [eventId, trocarEvento] = useEventoDaUrl(eventos.map(e => e.id))
   // Mapa carregado do evento escolhido e salvo por último (para o aviso de alterações não salvas)

@@ -8,6 +8,7 @@ import Lateral from './producer/Lateral'
 import BarraCelular from './producer/BarraCelular'
 import { gravarNav, lerNav, noMac } from '../lib/navegacaoProdutor'
 import { useTourDaUrl } from '../hooks/useTourDaUrl'
+import { useCorProdutor } from '../hooks/useCorProdutor'
 import { cn } from '@/lib/utils'
 import EvoHub from './EvoHub'
 import FeedbackTopButton from './FeedbackTopButton'
@@ -122,6 +123,8 @@ export default function ProducerLayout() {
     void el.offsetWidth
     el.classList.add('produtor-entrar')
   }, [location.pathname])
+
+  useCorProdutor() // Decisão 223
 
   return (
     <div className="painel-produtor glass-canvas flex min-h-screen">
